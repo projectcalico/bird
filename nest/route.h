@@ -117,7 +117,7 @@ typedef struct network {
 typedef struct rte {
   struct rte *next;
   net *net;				/* Network this RTE belongs to */
-  struct rtattr *attrs;			/* Attributes of this route */
+  struct rta *attrs;			/* Attributes of this route */
   byte flags;				/* Flags (REF_...) */
   byte pflags;				/* Protocol-specific flags */
   word pref;				/* Route preference */
@@ -152,7 +152,7 @@ void rt_setup(rtable *, char *);
 net *net_find(rtable *tab, unsigned tos, ip_addr addr, unsigned len);
 net *net_get(rtable *tab, unsigned tos, ip_addr addr, unsigned len);
 rte *rte_find(net *net, struct proto *p);
-rte *rte_get_temp(struct rtattr *);
+rte *rte_get_temp(struct rta *);
 void rte_update(net *net, struct proto *p, rte *new);
 void rte_discard(rte *old);
 void rte_dump(rte *);
@@ -170,9 +170,9 @@ void rt_prune(rtable *tab);
  *	construction of BGP route attribute lists.
  */
 
-typedef struct rtattr {
-  struct rtattr *next, *prev;		/* Hash chain */
-  struct rtattr *garbage;		/* Garbage collector chain */
+typedef struct rta {
+  struct rta *next, *prev;		/* Hash chain */
+  struct rta *garbage;			/* Garbage collector chain */
   struct proto *proto;			/* Protocol instance */
   unsigned uc;				/* Use count */
   byte source;				/* Route source (RTS_...) */
