@@ -65,7 +65,7 @@ rip_tx_err( sock *s, int err )
 }
 
 static void
-rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e )
+rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e, struct rip_interface *rif )
 {
   DBG( "." );
   b->family  = htons( 2 ); /* AF_INET */
@@ -83,6 +83,10 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
      *  test to avoid dereferencing NULL pointer.  --mj
      */
 #if 0
+    /* IS this really neccessary?
+       If nexthop and destination of this packet are on same interface, split horizont applies and *nothing* should be sent....
+     */
+
     neighbor *n1, *n2;
     n1 = neigh_find( p, &daddr, 0 );	/* FIXME, mj: this is neccessary for responses, still it is too complicated for common case */
     n2 = neigh_find( p, &e->nexthop, 0 );
@@ -90,14 +94,14 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
       b->nexthop = e->nexthop;
     else
 #endif
-      b->nexthop = IPA_NONE;	
+      b->nexthop = IPA_NONE;
   }
   ipa_hton( b->nexthop );
 #else
   b->pxlen = e->n.pxlen;
 #endif
   b->metric  = htonl( e->metric );
-  if (ipa_equal(e->whotoldme, daddr)) {	/* FIXME: ouch, daddr is some kind of broadcast address. How am I expected to do split horizon?!?!? */
+  if (if_connected(e->whotoldme, rif->iface)) {
     DBG( "(split horizon)" );
     b->metric = htonl( P_CF->infinity );
   }
@@ -131,7 +135,7 @@ rip_tx( sock *s )
 
       if (!rif->triggered || (!(e->updated < now-5))) {
 
-	rip_tx_prepare( p, s->daddr, packet->block + i, e );
+	rip_tx_prepare( p, s->daddr, packet->block + i, e, rif );
 	if (i++ == ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX)) {
 	  FIB_ITERATE_PUT(&c->iter, z);
 	  goto break_loop;
@@ -145,11 +149,7 @@ rip_tx( sock *s )
     packetlen = rip_outgoing_authentication(p, (void *) &packet->block[0], packet, i);
 
     DBG( ", sending %d blocks, ", i );
-#if 0	/* FIXME: enable this for production! */
-    if (i == !!P_CF->authtype)
-      continue;
-#endif
-    if (!i) {
+    if (i == !!P_CF->authtype) {
       DBG( "not sending NULL update\n" );
       c->done = 1;
       goto done;
@@ -180,14 +180,14 @@ static void
 rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif )
 {
   struct iface *iface = rif->iface;
-  struct rip_connection *c = mb_alloc( p->pool, sizeof( struct rip_connection ));
+  struct rip_connection *c;
   static int num = 0;
 
   if (rif->busy) {
     log (L_WARN "Interface %s is much too slow, dropping request", iface->name);
-    /* FIXME: memory leak */
     return;
   }
+  c = mb_alloc( p->pool, sizeof( struct rip_connection ));
   rif->busy = c;
   
   c->addr = daddr;
@@ -367,7 +367,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 #ifndef IPV6
 	    ipa_ntoh( block->netmask );
 	    ipa_ntoh( block->nexthop );
-	    if (packet->heading.version == RIP_V1)	/* FIXME: switch to disable this? (nonurgent) */
+	    if (packet->heading.version == RIP_V1)	/* FIXME (nonurgent): switch to disable this? */
 	      block->netmask = ipa_class_mask(block->network);
 #endif
 	    process_block( p, block, whotoldme );
@@ -546,7 +546,6 @@ static struct rip_interface *
 new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt )
 {
   struct rip_interface *rif;
-  int want_multicast = 0;
 
   rif = mb_allocz(p->pool, sizeof( struct rip_interface ));
   rif->iface = new;
@@ -555,14 +554,14 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   rif->patt = (struct rip_patt *) patt;
 
   if (rif->patt)
-    want_multicast = (!(rif->patt->mode & IM_BROADCAST)) && (flags & IF_MULTICAST);
+    rif->multicast = (!(rif->patt->mode & IM_BROADCAST)) && (flags & IF_MULTICAST);
   /* lookup multicasts over unnumbered links - no: rip is not defined over unnumbered links */
 
-  if (want_multicast)
+  if (rif->multicast)
     DBG( "Doing multicasts!\n" );
 
   rif->sock = sk_new( p->pool );
-  rif->sock->type = want_multicast?SK_UDP_MC:SK_UDP;
+  rif->sock->type = rif->multicast?SK_UDP_MC:SK_UDP;
   rif->sock->sport = P_CF->port;
   rif->sock->rx_hook = rip_rx;
   rif->sock->data = rif;
@@ -580,13 +579,13 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   rif->sock->tos = IP_PREC_INTERNET_CONTROL;
 
   if (new) {
-    rif->sock->daddr = new->addr->brd;
     if (new->addr->flags & IA_UNNUMBERED)
       log( L_WARN "%s: rip is not defined over unnumbered links", P_NAME );
-    if (want_multicast) {
+    if (rif->multicast) {
       rif->sock->daddr = ipa_from_u32(0xe0000009);
       rif->sock->saddr = ipa_from_u32(0xe0000009);
-    }
+    } else
+      rif->sock->daddr = new->addr->brd;
   }
 
   if (!ipa_nonzero(rif->sock->daddr)) {
@@ -598,7 +597,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
       }
 
-  TRACE(D_EVENTS, "%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast", rif->sock->daddr );
+  TRACE(D_EVENTS, "%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, rif->multicast ? "multicast" : "broadcast", rif->sock->daddr );
   
   return rif;
 }
@@ -642,11 +641,12 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
     if (!k) return; /* We are not interested in this interface */
     
     lock = olock_new( p->pool );
-    lock->addr = IPA_NONE; /* FIXME: how to set this? */
+    lock->addr = ipa_from_u32(0xe0000009);
     lock->port = P_CF->port;
     lock->iface = iface;
     lock->hook = rip_real_if_add;
     lock->data = p;
+    lock->type = OBJLOCK_UDP;
     olock_acquire(lock);
   }
 }

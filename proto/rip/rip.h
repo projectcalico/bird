@@ -104,6 +104,7 @@ struct rip_interface {
   struct rip_patt *patt;  
   int triggered;
   struct object_lock *lock;
+  int multicast;
 };
 
 struct rip_patt {
