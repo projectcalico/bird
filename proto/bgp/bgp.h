@@ -10,6 +10,7 @@
 #define _BIRD_BGP_H_
 
 struct linpool;
+struct eattr;
 
 struct bgp_config {
   struct proto_config c;
@@ -67,6 +68,7 @@ void bgp_close_conn(struct bgp_conn *c);
 /* attrs.c */
 
 struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool);
+int bgp_get_attr(struct eattr *e, byte *buf);
 
 /* packets.c */
 

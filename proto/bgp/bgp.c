@@ -406,14 +406,15 @@ bgp_get_status(struct proto *P, byte *buf)
 struct protocol proto_bgp = {
   name:			"BGP",
   template:		"bgp%d",
+  attr_class:		EAP_BGP,
   init:			bgp_init,
   start:		bgp_start,
   shutdown:		bgp_shutdown,
   get_status:		bgp_get_status,
+  get_attr:		bgp_get_attr,
 #if 0
   dump:			bgp_dump,
   get_route_info:	bgp_get_route_info,
-  show_route_data:	bgp_show_route_data
   /* FIXME: Reconfiguration */
 #endif
 };
