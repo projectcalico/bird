@@ -7,8 +7,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
-
 #include "nest/bird.h"
 #include "lib/string.h"
 
@@ -34,9 +32,10 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
   struct top_hash_entry *old;
   struct proto_ospf *po=(struct proto_ospf *)p;
 
-  DBG("%s: Originating RT_lsa body for area \"%I\".\n", po->proto.name, oa->areaid);
+  DBG("%s: Originating RT_lsa body for area \"%I\".\n", po->proto.name,
+    oa->areaid);
 
-  WALK_LIST (ifa, p->iface_list) i++;
+  WALK_LIST (ifa, p->iface_list)
   {
     if((ifa->an==oa->areaid) && (ifa->state!=OSPF_IS_DOWN))
     {
@@ -226,7 +225,7 @@ originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
   struct top_hash_entry *en;
   void *body;
 
-  DBG("%s: Originating RT_lsa for area \"%I\".\n", po->proto.name, oa->areaid);
+  debug("%s: Originating RT_lsa for area \"%I\".\n",po->proto.name,oa->areaid);
 
   lsa.age=0;
   lsa.id=rtid;
@@ -287,7 +286,8 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
 
   if(ifa->state!=OSPF_IS_DR) return;
 
-  DBG("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name, ifa->iface->name);
+  debug("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name,
+    ifa->iface->name);
 
   if(ifa->fadj==0)
   {

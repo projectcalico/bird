@@ -18,6 +18,7 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
   struct ospf_lsreq_header *lsh;
   u16 length;
   int i,j;
+  struct proto *p=&n->ifa->proto->proto;
 
   pk=(struct ospf_lsreq_packet *)n->ifa->ip_sk->tbuf;
   op=(struct ospf_packet *)n->ifa->ip_sk->tbuf;
@@ -54,7 +55,7 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
   op->length=htons(length);
   ospf_pkt_finalize(n->ifa, op);
   sk_send_to(n->ifa->ip_sk,length, n->ip, OSPF_PROTO);
-  DBG("Lsreq send to: %I\n", n->rid);
+  debug("%s: LS request sent to: %I\n", p->name, n->rid);
 }
 
 void
@@ -63,16 +64,39 @@ lsrr_timer_hook(timer *timer)
   struct ospf_iface *ifa;
   struct proto *p;
   struct ospf_neighbor *n;
+  struct top_hash_entry *en;
 
   n=(struct ospf_neighbor *)timer->data;
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
-  debug("%s: LSRR timer fired on interface %s for neigh: %I.\n",
+
+  DBG("%s: LSRR timer fired on interface %s for neigh: %I.\n",
     p->name, ifa->iface->name, n->rid);
   if(n->state<NEIGHBOR_FULL) ospf_lsreq_tx(n);
   else
   {
-    int i;	/* FIXME Retransmit lsupd again */
+    if(!EMPTY_SLIST(n->lsrtl))
+    {
+      list uplist;
+      slab *upslab;
+      struct l_lsr_head *llsh;
+
+      init_list(&uplist);
+      upslab=sl_new(p->pool,sizeof(struct l_lsr_head));
+
+      WALK_SLIST(SNODE en,n->lsrtl)
+      {
+	if((SNODE en)->next==(SNODE en)) die("BUGGGGGG");
+        llsh=sl_alloc(upslab);
+        llsh->lsh.id=en->lsa.id;
+        llsh->lsh.rt=en->lsa.rt;
+        llsh->lsh.type=en->lsa.type;
+	DBG("Working on ID: %I, RT: %I, Type: %u\n",en->lsa.id,en->lsa.rt,en->lsa.type);
+        add_tail(&uplist, NODE llsh);
+      }
+      ospf_lsupd_tx_list(n, &uplist);
+      rfree(upslab);
+    }
   }
 }
 
@@ -95,11 +119,13 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received lsreq from unknown neigbor! (%I)\n", p->name,
+    debug("%s: Received lsreq from unknown neighbor! (%I)\n", p->name,
       nrid);
     return ;
   }
-  if(n->state<NEIGHBOR_EXCHANGE) debug("%s: Ignoring it.\n", p->name);
+  if(n->state<NEIGHBOR_EXCHANGE) return;
+
+  debug("%s: Received LS req from neighbor: %I\n",p->name, n->ip);
 
   length=htons(ps->ospf_packet.length);
   lsh=(void *)(ps+1);

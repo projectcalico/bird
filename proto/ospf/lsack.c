@@ -15,6 +15,7 @@ ospf_lsack_direct_tx(struct ospf_neighbor *n,struct ospf_lsa_header *h)
   struct ospf_packet *op;
   struct ospf_lsack_packet *pk;
   sock *sk=n->ifa->ip_sk;
+  struct proto *p=&n->ifa->proto->proto;
   u16 len;
 
   DBG("Sending direct ACK to %I for Type: %u, ID: %I, RT: %I\n",n->rid,
@@ -30,6 +31,7 @@ ospf_lsack_direct_tx(struct ospf_neighbor *n,struct ospf_lsa_header *h)
   op->length=htons(len);
   ospf_pkt_finalize(n->ifa, op);
   sk_send_to(sk,len, n->ip, OSPF_PROTO);
+  debug("%s: LS ack sent to %I\n", p->name, n->ip);
 }
 
 void
@@ -160,13 +162,16 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received lsack from unknown neigbor! (%I)\n", p->name,
+    debug("%s: Received LS ack from unknown neigbor! (%I)\n", p->name,
       nrid);
     return ;
   }
 
   if(n->state<NEIGHBOR_EXCHANGE) return;
-  
+
+  debug("%s: Received LS ack from %I\n", p->name,
+      n->ip);
+
   nolsa=(ntohs(ps->ospf_packet.length)-sizeof(struct ospf_lsack_packet))/
     sizeof(struct ospf_lsa_header);
   DBG("Received %d lsa ack(s)\n",nolsa);
@@ -180,6 +185,9 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
     if(lsa_comp(&lsa,&en->lsa)!=CMP_SAME)
     {
       log("Strange LS acknoledgement from %I",n->rid);
+      log("Id: %I, Rt: %I, Type: %u",lsa.id, lsa.rt, lsa.type);
+      log("I have: Age: %u, Seqno: %u", en->lsa.age, en->lsa.sn);
+      log("He has: Age: %u, Seqno: %u", lsa.age, lsa.sn);
       continue;
     }
 

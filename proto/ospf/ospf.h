@@ -27,8 +27,6 @@
 #include "conf/conf.h"
 #include "lib/string.h"
 
-#define LOCAL_DEBUG
-
 #define OSPF_PROTO 89
 #ifndef IPV6
 #define OSPF_VERSION 2

@@ -69,9 +69,18 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	}
       }
       if(nn==n) continue;
-      en=ospf_hash_get_header(nn->lsrth, hh);
+      if((en=ospf_hash_find_header(nn->lsrth, hh))==NULL)
+      {
+        en=ospf_hash_get_header(nn->lsrth, hh);
+      }
+      else
+      {
+        s_rem_node(SNODE en);
+      }
       s_add_tail(&nn->lsrtl, SNODE en);
       ret=1;
+      DBG("Adding LSA lsrt RT: %I, Id: %I, Type: %u for n: %I\n",
+        en->lsa.rt,en->lsa.id, en->lsa.type, nn->ip);
     }
     if(ret==0) continue;
     if(ifa==iff)
@@ -147,6 +156,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
   struct top_hash_entry *en;
   struct ospf_lsupd_packet *pk;
   struct ospf_packet *op;
+  struct proto *p=&n->ifa->oa->po->proto;
   void *pktpos;
   u8 ii;
   u8 *jj=n->ifa->ip_sk->tbuf;
@@ -174,10 +184,8 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
       op->length=htons(len);
       ospf_pkt_finalize(n->ifa, op);
 		       
-      for(ii=0;ii<(len-SIPH);ii+=4)
-        DBG("Out dump: %d,%d,%d,%d\n", *(jj+ii), *(jj+ii+1), *(jj+ii+2), *(jj+ii+3));
-
       sk_send_to(n->ifa->ip_sk,len, n->ip, OSPF_PROTO);
+      debug("%s: LS upd sent to %I\n", p->name, n->ip);
 
       DBG("LSupd: next packet\n");
       fill_ospf_pkt_hdr(n->ifa, pk, LSUPD);
@@ -201,7 +209,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
     DBG("Out dump: %d,%d,%d,%d\n", *(jj+ii), *(jj+ii+1), *(jj+ii+2), *(jj+ii+3));
 
   sk_send_to(n->ifa->ip_sk,len, n->ip, OSPF_PROTO);
-  DBG("LSupd: sent\n");
+  debug("%s: LS upd sent to %I\n", p->name, n->ip);
 }
 
 void
@@ -232,6 +240,8 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       p->name,n->ip);
     return;
   }
+
+  debug("%s: Received LS upd from (%I)\n", p->name, n->ip); 
 
   lsa=(struct ospf_lsa_header *)(ps+1);
   area=htonl(ps->ospf_packet.areaid);

@@ -183,7 +183,7 @@ hello_timer_hook(timer *timer)
 
   ifa=(struct ospf_iface *)timer->data;
   p=(struct proto *)(ifa->proto);
-  debug("%s: Hello timer fired on interface %s.\n",
+  DBG("%s: Hello timer fired on interface %s.\n",
     p->name, ifa->iface->name);
   /* Now we should send a hello packet */
   /* First a common packet header */

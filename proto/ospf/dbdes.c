@@ -149,7 +149,7 @@ rxmt_timer_hook(timer *timer)
   n=(struct ospf_neighbor *)timer->data;
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
-  debug("%s: RXMT timer fired on interface %s for neigh: %I.\n",
+  DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",
     p->name, ifa->iface->name, n->rid);
   if(n->state<NEIGHBOR_LOADING) ospf_dbdes_tx(n);
   else
