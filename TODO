@@ -21,8 +21,7 @@ Core
 - broadcast/multicast echoing suppresion
 - we need ifindex at least for PtP links
 
-- kernel: RTM_F_NOTIFY seems to be unimplemented
-- kernel: RTM_DELROUTE not announced for device routes
+- kernel: RTM_DELROUTE not announced for device routes [confirmed by Alexey: it's a feature]
 
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
 
@@ -35,6 +34,7 @@ Cleanup
 - check log calls for trailing newlines
 - check if all protocols set proper packet priorities and TTL's.
 - replace all NUM's by expr's
+- try compiling with -Wunused
 
 Various ideas
 ~~~~~~~~~~~~~
