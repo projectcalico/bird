@@ -80,11 +80,11 @@ rip_tx( sock *s )
       struct rip_entry *e = (struct rip_entry *) z;
       DBG( "." );
       packet->block[i].family  = htons( 2 ); /* AF_INET */
-      packet->block[i].tag     = htons( 0 ); /* FIXME: What should I set it to? */
+      packet->block[i].tag     = htons( e->tag );
       packet->block[i].network = e->n.prefix;
       packet->block[i].netmask = ipa_mkmask( e->n.pxlen );
       packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? My own IP address? */
-      packet->block[i].metric  = htonl( 1+ (e->metric?:1) );	/* FIXME: is this right? I already ++ metric at input side */
+      packet->block[i].metric  = htonl( e->metric );
       if (ipa_equal(e->whotoldme, s->daddr)) {
 	DBG( "(split horizont)" );
 	/* FIXME: should we do it in all cases? */
@@ -527,8 +527,57 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
   }
 }
 
+static struct ea_list *
+rip_gen_attrs(struct proto *p, struct linpool *pool, int metric, u16 tag)
+{
+  struct ea_list *l = lp_alloc(pool, sizeof(struct ea_list) + 2*sizeof(eattr));
+
+  l->next = NULL;
+  l->flags = EALF_SORTED;
+  l->count = 2;
+  l->attrs[0].id = EA_RIP_TAG;
+  l->attrs[0].flags = 0;
+  l->attrs[0].type = EAF_TYPE_INT | EAF_INLINE;
+  l->attrs[0].u.data = tag;
+  l->attrs[1].id = EA_RIP_TAG;
+  l->attrs[1].flags = 0;
+  l->attrs[1].type = EAF_TYPE_INT | EAF_INLINE;
+  l->attrs[1].u.data = metric;
+  return l;
+}
+
+static int
+rip_import_control(struct proto *p, struct rte **rt, struct ea_list **attrs, struct linpool *pool)
+{
+  if ((*rt)->attrs->proto == p)	/* My own must not be touched */
+    return 1;
+
+  if ((*rt)->attrs->source != RTS_RIP) {
+    struct ea_list *new = rip_gen_attrs(p, pool, 1, 0);
+    new->next = *attrs;
+    *attrs = new;
+  }
+  return 0;
+}
+
+static struct ea_list *
+rip_make_tmp_attrs(struct rte *rt, struct linpool *pool)
+{
+  struct proto *p = rt->attrs->proto;
+  return rip_gen_attrs(p, pool, rt->u.rip.metric, rt->u.rip.tag);
+}
+
+static void 
+rip_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
+{
+  struct proto *p = rt->attrs->proto;
+
+  rt->u.rip.tag = ea_find(attrs, EA_RIP_TAG)->u.data;
+  rt->u.rip.metric = ea_find(attrs, EA_RIP_TAG)->u.data;
+}
+
 static void
-rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old, struct ea_list *tmpa)
+rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old, struct ea_list *attrs)
 {
   CHK_MAGIC;
 
@@ -546,8 +595,12 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
     e = fib_get( &P->rtable, &net->n.prefix, net->n.pxlen );
 
     e->nexthop = new->attrs->gw;
-    e->tag = new->u.rip.tag;
-    e->metric = new->u.rip.metric;
+    e->tag = ea_find(attrs, EA_RIP_TAG)->u.data;
+    e->metric = ea_find(attrs, EA_RIP_TAG)->u.data;
+    if (e->metric > P_CF->infinity)
+      e->metric = P_CF->infinity;
+    if (!e->metric)
+      e->metric = 1;
     e->whotoldme = new->attrs->from;
     e->updated = e->changed = now;
     e->flags = 0;
@@ -563,6 +616,7 @@ rip_rte_better(struct rte *new, struct rte *old)
   if (old->u.rip.metric > new->u.rip.metric)
     return 1;
 
+  /* FIXME */
 #define old_metric_is_much_older_than_new_metric 0
   if ((old->u.rip.metric == new->u.rip.metric) && (old_metric_is_much_older_than_new_metric))
     return 1;
@@ -590,6 +644,7 @@ rip_init_instance(struct proto *p)
   p->preference = DEF_PREF_RIP;
   p->if_notify = rip_if_notify;
   p->rt_notify = rip_rt_notify;
+  p->import_control = rip_import_control;
   p->rte_better = rip_rte_better;
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;

@@ -5,6 +5,9 @@
 #include "nest/route.h"
 #include "nest/password.h"
 
+#define EA_RIP_TAG	EA_CODE(EAP_RIP, 0)
+#define EA_RIP_METRIC	EA_CODE(EAP_RIP, 1)
+
 struct rip_connection {
   node n;
 
@@ -51,6 +54,12 @@ struct rip_block_auth {
   u32 seq;
   u32 zero0;
   u32 zero1;
+};
+
+struct rip_md5_tail {
+  u16 mustbeFFFF;
+  u16 mustbe0001;
+  char md5[16];
 };
 
 struct rip_entry {

@@ -19,6 +19,7 @@
 #include "lib/resource.h"
 #include "lib/lists.h"
 #include "lib/timer.h"
+#include "lib/md5.h"
 
 #include "rip.h"
 
@@ -47,10 +48,28 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
     DBG( "md5 password" );
     {
       struct password_item *head;
+      struct rip_md5_tail *tail;
+
+      tail = (char *) packet + (block->packetlen - sizeof(struct rip_block_auth));
+
       head = P_CF->passwords;
       while (head) {
-	if (head->id == block->keyid)
-	  /* Perform md5 + compare */;
+	if (head->id == block->keyid) {
+	  struct MD5Context ctxt;
+	  int i;
+	  char md5sum_packet[16];
+	  char md5sum_computed[16];
+
+	  memcpy(md5sum_packet, tail->md5, i);
+	  password_strncpy(tail->md5, head->password, 16);
+
+	  MD5Init(&ctxt);
+	  MD5Update(&ctxt, packet, block->packetlen );
+	  MD5Final(md5sum_computed, &ctxt);
+
+	  if (memcmp(md5sum_packet, md5sum_computed, 16))
+	    return 1;
+	}
 	head = head->next;
       }
       return 1;
@@ -72,7 +91,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       log( L_ERR "no passwords set and password authentication requested\n" );
       return;
     }
-    strncpy( (char *) (&block->packetlen), P_CF->passwords->password, 16);
+    password_strncpy( (char *) (&block->packetlen), P_CF->passwords->password, 16);
     return;
   }
 }
