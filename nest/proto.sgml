@@ -8,14 +8,14 @@
 
 <sect1>Introduction
 
-<p>The routing protocols are the BIRD's heart and a fine amount of code
+<p>The routing protocols are the bird's heart and a fine amount of code
 is dedicated to their management and for providing support functions to them.
 (-: Actually, this is the reason why the directory with sources of the core
 code is called <tt/nest/ :-).
 
 <p>When talking about protocols, one need to distinguish between <em/protocols/
 and protocol <em/instances/. A protocol exists exactly once, not depending on whether
-it's configured on not and it can have an arbitrary number of instances corresponding
+it's configured or not and it can have an arbitrary number of instances corresponding
 to its "incarnations" requested by the configuration file. Each instance is completely
 autonomous, has its own configuration, its own status, its own set of routes and its
 own set of interfaces it works on.
@@ -49,7 +49,7 @@ we have decided to supervise them by a pair of simple state machines -- the prot
 state machine and a core state machine.
 
 <p>The <em/protocol state machine/ corresponds to internal state of the protocol
-and the protocol can alter its state whenever it wants to. There exist
+and the protocol can alter its state whenever it wants to. There are
 the following states:
 
 <descrip>
@@ -73,7 +73,7 @@ its state by calling the <func/proto_notify_state/ function.
 The states are traversed according to changes of the protocol state machine, but
 sometimes the transitions are delayed if the core needs to finish some actions
 (for example sending of new routes to the protocol) before proceeding to the
-new state. There exist the following core states:
+new state. There are the following core states:
 
 <descrip>
 	<tag/FS_HUNGRY/ The protocol is down, it doesn't have any routes and

@@ -15,7 +15,7 @@
  * BIRD uses its own abstraction of IP address in order to share the same
  * code for both IPv4 and IPv6. IP addresses are represented as entities
  * of type &ip_addr which are never to be treated as numbers and instead
- * they should be manipulated using the following functions and macros.
+ * they must be manipulated using the following functions and macros.
  */
 
 /**

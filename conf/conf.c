@@ -9,7 +9,7 @@
 /**
  * DOC: Configuration manager
  *
- * Configuration of BIRD is complex, yet straightforward. There exist three
+ * Configuration of BIRD is complex, yet straightforward. There are three
  * modules taking care of the configuration: config manager (which takes care
  * of storage of the config information and controls switching between configs),
  * lexical analyzer and parser.
@@ -18,7 +18,7 @@
  * accompanied by a linear pool from which all information associated
  * with the config and pointed to by the &config structure is allocated.
  *
- * There can exist up four different configurations at one time: an active
+ * There can exist up to four different configurations at one time: an active
  * one (pointed to by @config), configuration we are just switching from
  * (@old_config), one queued for the next reconfiguration (@future_config;
  * if it's non-%NULL and the user wants to reconfigure once again, we just

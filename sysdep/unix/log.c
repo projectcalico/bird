@@ -10,7 +10,9 @@
  * DOC: Logging
  *
  * The Logging module offers a simple set of functions for writing
- * messages to system logs and to the debug output.
+ * messages to system logs and to the debug output. Message classes
+ * used by this module are described in |birdlib.h| and also in the
+ * user's manual.
  */
 
 #include <stdio.h>

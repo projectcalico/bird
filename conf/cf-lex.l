@@ -456,7 +456,7 @@ cf_symbol_class_name(struct symbol *sym)
  * Grammar snippets are files (usually with extension |.Y|) contributed
  * by various BIRD modules in order to provide information about syntax of their
  * configuration and their CLI commands. Each snipped consists of several
- * section, each of them starting with a special keyword: |CF_HDR| for
+ * sections, each of them starting with a special keyword: |CF_HDR| for
  * a list of |#include| directives needed by the C code, |CF_DEFINES|
  * for a list of C declarations, |CF_DECLS| for |bison| declarations
  * including keyword definitions specified as |CF_KEYWORDS|, |CF_GRAMMAR|
@@ -473,5 +473,5 @@ cf_symbol_class_name(struct symbol *sym)
  *
  * Values of |enum| filter types can be defined using |CF_ENUM| with
  * the following parameters: name of filter type, prefix common for all
- * literals of this type, names of all the possible values.
+ * literals of this type and names of all the possible values.
  */

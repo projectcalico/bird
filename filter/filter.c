@@ -10,25 +10,23 @@
 /**
  * DOC: Filters
  *
- * You can find sources of filters language in |filter/|
- * directory. |filter/config.Y| filter grammar, and basically translates
- * source from user into tree of &f_inst structures. These trees are
- * later interpreted using code in |filter/filter.c|. Filters internally
- * work with values/variables in struct f_val, which contains type of
- * value and value.
+ * You can find sources of the filter language in |filter/|
+ * directory. File |filter/config.Y| contains filter grammar and basically translates
+ * the source from user into a tree of &f_inst structures. These trees are
+ * later interpreted using code in |filter/filter.c|.
  *
- * Filter consists of tree of &f_inst structures, one structure per
- * "instruction". Each &f_inst contains code, aux value which is
- * usually type of data this instruction operates on, and two generic
- * arguments (a1, a2). Some instructions contain pointer(s) to other
- * instructions in their (a1, a2) fields.
+ * A filter is represented by a tree of &f_inst structures, one structure per
+ * "instruction". Each &f_inst contains @code, @aux value which is
+ * usually the data type this instruction operates on and two generic
+ * arguments (@a1, @a2). Some instructions contain pointer(s) to other
+ * instructions in their (@a1, @a2) fields.
  *
- * Filters use structure &f_val for its variables. Each &f_val
- * contains type and value. Types are constants prefixed with %T_. Few
- * of types are special; %T_RETURN can be or-ed with type to indicate
- * that return from function/from whole filter should be
- * forced. Important thing about &f_val s is that they may be copied
- * with simple =. That's fine for all currently defined types: strings
+ * Filters use a &f_val structure for their data. Each &f_val
+ * contains type and value (types are constants prefixed with %T_). Few
+ * of the types are special; %T_RETURN can be or-ed with a type to indicate
+ * that return from a function or from the whole filter should be
+ * forced. Important thing about &f_val's is that they may be copied
+ * with a simple |=|. That's fine for all currently defined types: strings
  * are read-only (and therefore okay), paths are copied for each
  * operation (okay too).
  */

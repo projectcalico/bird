@@ -20,7 +20,7 @@
  * a local routing table copy.
  *
  * The kernel syncer can work in three different modes (according to system config header):
- * Either with a single routing table and single KRT protocol [traditional Unix]
+ * Either with a single routing table and single KRT protocol [traditional UNIX]
  * or with many routing tables and separate KRT protocols for all of them
  * or with many routing tables, but every scan including all tables, so we start
  * separate KRT protocols which cooperate with each other  [Linux 2.2].
@@ -33,7 +33,8 @@
  *
  * When starting up, we cheat by looking if there is another
  * KRT instance to be initialized later and performing table scan
- * only once for all the instances.  */
+ * only once for all the instances.
+ */
 
 /*
  *  If you are brave enough, continue now.  You cannot say you haven't been warned.

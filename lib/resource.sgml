@@ -18,7 +18,7 @@ references to.
 <p>We've tried to solve this problem by employing a resource tracking
 system which keeps track of all the resources allocated by all the
 modules of BIRD, deallocates everything automatically when a module
-shuts down and it's is able to print out the list of resources and
+shuts down and it is able to print out the list of resources and
 the corresponding modules they are allocated by.
 
 <p>Each allocated resource (from now we'll speak about allocated

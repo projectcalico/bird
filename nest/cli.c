@@ -35,12 +35,12 @@
  * on the current state of command processing.
  *
  * The CLI commands are declared as a part of the configuration grammar
- * by using the |CF_CLI| macro. When a command is received, it's processed
+ * by using the |CF_CLI| macro. When a command is received, it is processed
  * by the same lexical analyzer and parser as used for the configuration, but
  * it's switched to a special mode by prepending a fake token to the text,
  * so that it uses only the CLI command rules. Then the parser invokes
  * an execution routine corresponding to the command, which either constructs
- * the whole reply and returns back or (in case it expects the reply will be long)
+ * the whole reply and returns it back or (in case it expects the reply will be long)
  * it prints a partial reply and asks the CLI module (using the @cont hook)
  * to call it again when the output is transferred to the user.
  *
