@@ -229,7 +229,6 @@ again:
         e->u.ospf.metric1=nf->metric;
         e->u.ospf.metric2=0;
         e->u.ospf.tag=0;			/* FIXME Some config? */
-	e->u.ospf.type='I';
         e->pflags = 0;
         e->net=ne;
 	e->pref = p->preference;
@@ -449,7 +448,6 @@ noch:
       e->u.ospf.metric1=nf->metric;
       e->u.ospf.metric2=nf->metric2;
       e->u.ospf.tag=0;			/* FIXME Some config? */
-      e->u.ospf.type='E';
       e->pflags = 0;
       e->net=ne;
       e->pref = p->preference;

@@ -208,11 +208,12 @@ ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs)
     met='1';
     type='E';
   }
-  //if(rte->u.ospf.type=='E') met='1';
   if(rte->u.ospf.metric2!=0) met='2';
   if(rte->attrs->source==RTS_OSPF_IA) type='A';
   if(rte->attrs->source==RTS_OSPF) type='I';
-  buf += bsprintf(buf, " %c%c %d", rte->u.ospf.type, met, 
+  buf += bsprintf(buf, " %c", type);
+  if(met!=' ') buf += bsprintf(buf, "%c", met);
+  buf += bsprintf(buf, " (%d/%d)", rte->pref,
     (rte->u.ospf.metric2==0) ? rte->u.ospf.metric1 : rte->u.ospf.metric2);
 }
 
