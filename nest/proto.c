@@ -155,6 +155,7 @@ protos_preconfig(struct config *c)
   init_list(&inactive_proto_list);
   init_list(&initial_proto_list);
   init_list(&flush_proto_list);
+  init_list(&c->protos);
   debug("Protocol preconfig:");
   WALK_LIST(p, protocol_list)
     {

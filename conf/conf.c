@@ -31,7 +31,6 @@ config_alloc(byte *name)
 
   c->pool = p;
   cfg_mem = c->mem = l;
-  init_list(&c->protos);
   c->file_name = cfg_strdup(name);
   return c;
 }
@@ -45,6 +44,7 @@ config_parse(struct config *c)
   if (setjmp(conf_jmpbuf))
     return 0;
   cf_lex_init(0);
+  sysdep_preconfig(c);
   protos_preconfig(c);
   rt_preconfig(c);
   cf_parse();
@@ -80,6 +80,7 @@ void
 config_commit(struct config *c)
 {
   config = c;
+  sysdep_commit(c);
   rt_commit(c);
   protos_commit(c);
 }

@@ -18,6 +18,7 @@ struct config {
   linpool *mem;				/* Linear pool containing configuration data */
   list protos;				/* Configured protocol instances (struct proto_config) */
   list tables;				/* Configured routing tables (struct rtable_config) */
+  list logfiles;			/* Configured log fils (sysdep) */
   struct rtable_config *master_rtc;	/* Configuration of master routing table */
   u32 router_id;			/* Our Router ID */
   char *err_msg;			/* Parser error message */
@@ -82,5 +83,10 @@ void cf_pop_scope(void);
 /* Parser */
 
 int cf_parse(void);
+
+/* Sysdep hooks */
+
+void sysdep_preconfig(struct config *);
+void sysdep_commit(struct config *);
 
 #endif
