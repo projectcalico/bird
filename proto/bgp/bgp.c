@@ -290,7 +290,8 @@ bgp_incoming_connection(sock *sk, int dummy)
   WALK_LIST(n, bgp_list)
     {
       struct bgp_proto *p = SKIP_BACK(struct bgp_proto, bgp_node, n);
-      if (ipa_equal(p->cf->remote_ip, sk->daddr))
+      if (ipa_equal(p->cf->remote_ip, sk->daddr) &&
+	  (p->p.proto_state == PS_START || p->p.proto_state == PS_UP))
 	{
 	  BGP_TRACE(D_EVENTS, "Incoming connection from %I port %d", sk->daddr, sk->dport);
 	  if (p->incoming_conn.sk)
@@ -338,12 +339,6 @@ bgp_start_neighbor(struct bgp_proto *p)
 {
   p->local_addr = p->neigh->iface->addr->ip;
   DBG("BGP: local=%I remote=%I\n", p->local_addr, p->next_hop);
-  if (!bgp_counter++)
-    init_list(&bgp_list);
-  bgp_setup_listen_sk();
-  if (!bgp_linpool)
-    bgp_linpool = lp_new(&root_pool, 4080);
-  add_tail(&bgp_list, &p->bgp_node);
   bgp_initiate(p);
 }
 
@@ -399,6 +394,13 @@ bgp_start(struct proto *P)
   p->outgoing_conn.state = BS_IDLE;
   p->incoming_conn.state = BS_IDLE;
   p->startup_delay = 0;
+
+  if (!bgp_counter++)
+    init_list(&bgp_list);
+  bgp_setup_listen_sk();
+  if (!bgp_linpool)
+    bgp_linpool = lp_new(&root_pool, 4080);
+  add_tail(&bgp_list, &p->bgp_node);
 
   /*
    *  Before attempting to create the connection, we need to lock the
