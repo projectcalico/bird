@@ -30,14 +30,14 @@ ospf_rt_spfa(struct ospf_area *oa)
   int age=0,flush=0;
   struct proto *p=&oa->po->proto;
 
-  /* FIXME if I'm not in LOADING or EXCHANGE set flush=1 */
+  flush=can_flush_lsa(oa);
   if((delta=now-oa->lage)>=AGINGDELTA)
   {
      oa->lage=now;
      age=1;
   }
 
-  WALK_SLIST_DELSAFE(SNODE en, nx, oa->lsal)	/* FIXME Make it DELSAFE */
+  WALK_SLIST_DELSAFE(SNODE en, nx, oa->lsal)
   {
     en->color=OUTSPF;
     en->dist=LSINFINITY;

@@ -159,7 +159,7 @@ age_timer_hook(timer *timer)
   struct top_hash_entry *en,*nxt;
   int flush=0;
 
-  /* FIXME Fill flush! */
+  flush=can_flush_lsa(oa);
 
   if((delta=now-oa->lage)>=AGINGDELTA)
   {
@@ -515,7 +515,6 @@ can_flush_lsa(struct ospf_area *oa)
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
   struct proto_ospf *po=oa->po;
-  int flush=1;
 
   WALK_LIST(ifa, iface_list)
   {
@@ -523,14 +522,13 @@ can_flush_lsa(struct ospf_area *oa)
     {
       WALK_LIST(n, ifa->neigh_list)
       {
-        if(n->state==NEIGHBOR_EXCHANGE||n->state==NEIGHBOR_LOADING)
+        if((n->state==NEIGHBOR_EXCHANGE)||(n->state==NEIGHBOR_LOADING))
 	{
-	  flush=0;
-	  break;
+	  return 0;
 	}
       }
     }
   }
 
-  return flush;
+  return 1;
 }
