@@ -9,6 +9,7 @@
 #define CONFIG_AUTO_ROUTES
 #define CONFIG_ALL_MULTICAST
 #define CONFIG_SELF_CONSCIOUS
+#define CONFIG_MULTIPLE_TABLES 256
 
 /*
 Link: sysdep/linux/netlink
