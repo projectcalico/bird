@@ -415,6 +415,8 @@ proto_feed_more(void *P)
   struct proto *p = P;
 
   DBG("Feeding protocol %s continued\n", p->name);
+  if (p->core_state != FS_FEEDING)
+    return;
   if (rt_feed_baby(p))
     {
       p->core_state = FS_HAPPY;
