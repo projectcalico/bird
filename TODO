@@ -1,7 +1,6 @@
 Core
 ~~~~
 - better memory allocators
-- real attribute cache
 
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
@@ -16,6 +15,7 @@ Core
 Commands
 ~~~~~~~~
 - showing of routing table as seen by given protocol
+- printing of dynamic attributes
 
 Documentation
 ~~~~~~~~~~~~~
@@ -69,23 +69,3 @@ OSPF
 	- RFC1587 NSSA areas
 	- RFC2370 opaque LSA's
 	- respect interface MTU and try not to create larger packets unless unavoidable
-
-BGP
-~~~
-	- aggregation, ATOMIC_AGGREGATE
-	- communities
-	- attributes must be sorted!
-	- re-export of NEXT_HOP attribute
-	- BGP session over currently down interface
-	- LOCAL_PREF attribute
-	- error notification received -> log error
-	- set TTL to 1 (configurable?)
-	- consulting IGP for next-hop information? (what if it changes?)
-	- inter-advertisement delay???!
-	- normalize (sort) incoming AS-SET's
-	- maximum length of AS paths
-	- expected neighbor AS
-	- hold time
-	- idle timer after error: initial value, exponential growth, maximum value
-	- import of IGP routes (use external route tags from OSPF)
-	- Use IP_RECVERR for BGP TCP sockets?

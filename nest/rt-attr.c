@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Route Attribute Cache
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -16,11 +16,6 @@
 #include "nest/cli.h"
 #include "lib/resource.h"
 
-/*
- *	FIXME: Implement hash tables and garbage collection!
- */
-
-static rta *first_rta;
 static slab *rta_slab;
 static pool *rta_pool;
 
@@ -150,9 +145,7 @@ ea_sort(ea_list *e)
 	  ea_do_prune(e);
 	  e->flags |= EALF_SORTED;
 	}
-#if 0			/* FIXME: Remove this after some testing */
       if (e->count > 5)
-#endif
 	e->flags |= EALF_BISECT;
       e = e->next;
     }
@@ -278,9 +271,69 @@ ea_dump(ea_list *e)
     }
 }
 
+static inline unsigned int
+ea_hash(ea_list *e)
+{
+  u32 h = 0;
+  int i;
+
+  if (e)			/* Assuming chain of length 1 */
+    {
+      for(i=0; i<e->count; i++)
+	{
+	  struct eattr *a = &e->attrs[i];
+	  h ^= a->id;
+	  if (a->type & EAF_EMBEDDED)
+	    h ^= a->u.data;
+	  else
+	    {
+	      struct adata *d = a->u.ptr;
+	      int size = d->length;
+	      byte *z = d->data;
+	      while (size >= 4)
+		{
+		  h ^= *(u32 *)z;
+		  z += 4;
+		  size -= 4;
+		}
+	      while (size--)
+		h = (h >> 24) ^ (h << 8) ^ *z++;
+	    }
+	}
+      h ^= h >> 16;
+      h ^= h >> 6;
+      h &= 0xffff;
+    }
+  return h;
+}
+
 /*
  *	rta's
  */
+
+static unsigned int rta_cache_count;
+static unsigned int rta_cache_size = 32;
+static unsigned int rta_cache_limit;
+static unsigned int rta_cache_mask;
+static rta **rta_hash_table;
+
+static void
+rta_alloc_hash(void)
+{
+  rta_hash_table = mb_alloc(rta_pool, sizeof(rta *) * rta_cache_size);
+  bzero(rta_hash_table, sizeof(rta *) * rta_cache_size);
+  if (rta_cache_size < 32768)
+    rta_cache_limit = rta_cache_size * 2;
+  else
+    rta_cache_limit = ~0;
+  rta_cache_mask = rta_cache_size - 1;
+}
+
+static inline unsigned int
+rta_hash(rta *a)
+{
+  return a->proto->hash_key ^ ipa_hash(a->gw) ^ ea_hash(a->eattrs);
+}
 
 static inline int
 rta_same(rta *x, rta *y)
@@ -308,10 +361,42 @@ rta_copy(rta *o)
   return r;
 }
 
+static inline void
+rta_insert(rta *r)
+{
+  unsigned int h = r->hash_key & rta_cache_mask;
+  r->next = rta_hash_table[h];
+  if (r->next)
+    r->next->pprev = &r->next;
+  r->pprev = &rta_hash_table[h];
+  rta_hash_table[h] = r;
+}
+
+static void
+rta_rehash(void)
+{
+  unsigned int ohs = rta_cache_size;
+  unsigned int h;
+  rta *r, *n;
+  rta **oht = rta_hash_table;
+
+  rta_cache_size = 2*rta_cache_size;
+  DBG("Rehashing rta cache from %d to %d entries.\n", ohs, rta_cache_size);
+  rta_alloc_hash();
+  for(h=0; h<ohs; h++)
+    for(r=oht[h]; r; r=n)
+      {
+	n = r->next;
+	rta_insert(r);
+      }
+  mb_free(oht);
+}
+
 rta *
 rta_lookup(rta *o)
 {
   rta *r;
+  unsigned int h;
 
   ASSERT(!(o->aflags & RTAF_CACHED));
   if (o->eattrs)
@@ -325,20 +410,27 @@ rta_lookup(rta *o)
       ea_sort(o->eattrs);
     }
 
-  for(r=first_rta; r; r=r->next)
-    if (rta_same(r, o))
+  h = rta_hash(o);
+  for(r=rta_hash_table[h & rta_cache_mask]; r; r=r->next)
+    if (r->hash_key == h && rta_same(r, o))
       return rta_clone(r);
 
   r = rta_copy(o);
+  r->hash_key = h;
   r->aflags = RTAF_CACHED;
-  r->next = first_rta;
-  first_rta = r;
+  rta_insert(r);
+
+  if (++rta_cache_count > rta_cache_limit)
+    rta_rehash();
+
   return r;
 }
 
 void
 rta__free(rta *a)
 {
+  ASSERT(rta_cache_count && (a->aflags & RTAF_CACHED));
+  rta_cache_count--;
 }
 
 void
@@ -351,9 +443,9 @@ rta_dump(rta *a)
   static char *rtc[] = { "", " BC", " MC", " AC" };
   static char *rtd[] = { "", " DEV", " HOLE", " UNREACH", " PROHIBIT" };
 
-  debug("p=%s uc=%d %s %s%s%s",
+  debug("p=%s uc=%d %s %s%s%s h=%04x",
 	a->proto->name, a->uc, rts[a->source], ip_scope_text(a->scope), rtc[a->cast],
-	rtd[a->dest]);
+	rtd[a->dest], a->hash_key);
   if (!(a->aflags & RTAF_CACHED))
     debug(" !CACHED");
   debug(" <-%I", a->from);
@@ -372,14 +464,16 @@ void
 rta_dump_all(void)
 {
   rta *a;
+  unsigned int h;
 
-  debug("Route attribute cache:\n");
-  for(a=first_rta; a; a=a->next)
-    {
-      debug("%p ", a);
-      rta_dump(a);
-      debug("\n");
-    }
+  debug("Route attribute cache (%d entries, rehash at %d):\n", rta_cache_count, rta_cache_limit);
+  for(h=0; h<rta_cache_size; h++)
+    for(a=rta_hash_table[h]; a; a=a->next)
+      {
+	debug("%p ", a);
+	rta_dump(a);
+	debug("\n");
+      }
   debug("\n");
 }
 
@@ -400,4 +494,5 @@ rta_init(void)
 {
   rta_pool = rp_new(&root_pool, "Attributes");
   rta_slab = sl_new(rta_pool, sizeof(rta));
+  rta_alloc_hash();
 }

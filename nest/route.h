@@ -215,8 +215,7 @@ void rt_show(struct rt_show_data *);
  */
 
 typedef struct rta {
-  struct rta *next, *prev;		/* Hash chain */
-  struct rta *garbage;			/* Garbage collector chain */
+  struct rta *next, **pprev;		/* Hash chain */
   struct proto *proto;			/* Protocol instance */
   unsigned uc;				/* Use count */
   byte source;				/* Route source (RTS_...) */
@@ -225,7 +224,7 @@ typedef struct rta {
   byte dest;				/* Route destination type (RTD_...) */
   byte flags;				/* Route flags (RTF_...), now unused */
   byte aflags;				/* Attribute cache flags (RTAF_...) */
-  byte rfu, rfu2;			/* Padding */
+  u16 hash_key;				/* Hash over important fields */
   ip_addr gw;				/* Next hop */
   ip_addr from;				/* Advertising router */
   struct iface *iface;			/* Outgoing interface */
