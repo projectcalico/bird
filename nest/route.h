@@ -268,6 +268,7 @@ typedef struct rta {
 #define RTD_BLACKHOLE 2			/* Silently drop packets */
 #define RTD_UNREACHABLE 3		/* Reject as unreachable */
 #define RTD_PROHIBIT 4			/* Administratively prohibited */
+#define RTD_NONE 5			/* Invalid RTD */
 
 #define RTAF_CACHED 1			/* This is a cached rta */
 
