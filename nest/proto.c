@@ -48,7 +48,8 @@ protos_preconfig(void)
   WALK_LIST(p, protocol_list)
     {
       debug("...%s\n", p->name);
-      p->preconfig(p);
+      if (p->preconfig)
+	p->preconfig(p);
     }
 }
 
@@ -61,7 +62,8 @@ protos_postconfig(void)
   WALK_LIST(p, protocol_list)
     {
       debug("...%s\n", p->name);
-      p->postconfig(p);
+      if (p->postconfig)
+	p->postconfig(p);
     }
 }
 
@@ -121,5 +123,6 @@ protos_init(void)
 
   debug("Initializing protocols\n");
   WALK_LIST(p, protocol_list)
-    p->init(p);
+    if (p->init)
+      p->init(p);
 }
