@@ -13,7 +13,7 @@
 
 typedef struct event {
   resource r;
-  void (*hook)(void *);
+  int (*hook)(void *);
   void *data;
   node n;				/* Internal link */
 } event;

@@ -395,7 +395,7 @@ rt_dump_all(void)
     rt_dump(t);
 }
 
-static void
+static int
 rt_gc(void *unused)
 {
   rtable *t;
@@ -404,6 +404,7 @@ rt_gc(void *unused)
   rt_prune_all();
   rt_last_gc = now;
   rt_gc_counter = 0;
+  return 0;
 }
 
 void

@@ -36,7 +36,7 @@ static event *proto_flush_event;
 static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
 static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
 
-static void proto_flush_all(void *);
+static int proto_flush_all(void *);
 
 static void
 proto_enqueue(list *l, struct proto *p)
@@ -329,7 +329,7 @@ proto_fell_down(struct proto *p)
   proto_rethink_goal(p);
 }
 
-static void
+static int
 proto_feed(void *P)
 {
   struct proto *p = P;
@@ -341,6 +341,7 @@ proto_feed(void *P)
   p->core_state = FS_HAPPY;
   proto_relink(p);
   DBG("Protocol %s up and running\n", p->name);
+  return 0;
 }
 
 void
@@ -401,7 +402,7 @@ proto_notify_state(struct proto *p, unsigned ps)
   proto_relink(p);
 }
 
-static void
+static int
 proto_flush_all(void *unused)
 {
   struct proto *p;
@@ -417,4 +418,5 @@ proto_flush_all(void *unused)
       proto_relink(p);
       proto_fell_down(p);
     }
+  return 0;
 }

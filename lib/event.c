@@ -53,8 +53,8 @@ ev_new(pool *p)
 inline void
 ev_run(event *e)
 {
-  e->hook(e->data);
-  ev_postpone(e);
+  if (!e->hook(e->data))
+    ev_postpone(e);
 }
 
 inline void
@@ -74,14 +74,11 @@ ev_schedule(event *e)
 void
 ev_run_list(event_list *l)
 {
-  for(;;)
+  node *n, *p;
+
+  WALK_LIST_DELSAFE(n, p, *l)
     {
-      node *n = HEAD(*l);
-      event *e;
-      if (!n->next)
-	break;
-      e = SKIP_BACK(event, n, n);
+      event *e = SKIP_BACK(event, n, n);
       ev_run(e);
     }
 }
-
