@@ -184,7 +184,7 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
       schedule_rt_lsa(ifa->oa);
       break;
     default:
-      die("%s: ISM - Unknown event?",p->name);
+      bug("%s: ISM - Unknown event?",p->name);
       break;
   }
 	

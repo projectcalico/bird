@@ -176,7 +176,7 @@ can_do_adj(struct ospf_neighbor *n)
       switch(ifa->state)
       {
         case OSPF_IS_DOWN:
-          die("%s: Iface %s in down state?", p->name, ifa->iface->name);
+          bug("%s: Iface %s in down state?", p->name, ifa->iface->name);
           break;
         case OSPF_IS_WAITING:
           DBG("%s: Neighbor? on iface %s\n",p->name, ifa->iface->name);
@@ -191,12 +191,12 @@ can_do_adj(struct ospf_neighbor *n)
           if(n->state>=NEIGHBOR_2WAY) i=1;
           break;
         default:
-          die("%s: Iface %s in unknown state?",p->name, ifa->iface->name);
+          bug("%s: Iface %s in unknown state?",p->name, ifa->iface->name);
           break;
       }
       break;
     default:
-      die("%s: Iface %s is unknown type?",p->name, ifa->iface->name);
+      bug("%s: Iface %s is unknown type?",p->name, ifa->iface->name);
       break;
   }
   DBG("%s: Iface %s can_do_adj=%d\n",p->name, ifa->iface->name,i);
@@ -249,7 +249,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 	tm_start(n->lsrr_timer,n->ifa->rxmtint);
 	tm_start(n->ackd_timer,n->ifa->rxmtint/2);
       }
-      else die("NEGDONE and I'm not in EXSTART?");
+      else bug("NEGDONE and I'm not in EXSTART?");
       break;
     case INM_EXDONE:
         neigh_chstate(n,NEIGHBOR_LOADING);
@@ -293,7 +293,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       neigh_chstate(n,NEIGHBOR_INIT);
       break;
     default:
-      die("%s: INM - Unknown event?",p->name);
+      bug("%s: INM - Unknown event?",p->name);
       break;
   }
 }
@@ -358,7 +358,7 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   else
   {
     if((tmp=find_neigh(ifa,ndrid))==NULL)
-      die("Error in DR election.");
+      bug("Error in DR election.");
     ifa->drid=ndrid;
     ifa->drip=tmp->ip;
   }
@@ -371,7 +371,7 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   else
   {
     if((tmp=find_neigh(ifa,nbdrid))==NULL)
-      die("Error in BDR election.");
+      bug("Error in BDR election.");
     ifa->bdrid=nbdrid;
     ifa->bdrip=tmp->ip;
   }

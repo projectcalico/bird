@@ -86,7 +86,7 @@ lsrr_timer_hook(timer *timer)
 
       WALK_SLIST(SNODE en,n->lsrtl)
       {
-	if((SNODE en)->next==(SNODE en)) die("BUGGGGGG");
+	if((SNODE en)->next==(SNODE en)) bug("RTList is cycled");
         llsh=sl_alloc(upslab);
         llsh->lsh.id=en->lsa.id;
         llsh->lsh.rt=en->lsa.rt;

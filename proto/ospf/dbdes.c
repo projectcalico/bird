@@ -133,7 +133,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       break;
 
     default:				/* Ignore it */
-      die("Bug in dbdes sending");
+      bug("Bug in dbdes sending");
       break;
   }
 }
@@ -357,7 +357,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         }
       break;
     defaut:
-      die("%s: Received dbdes from %I in unknown state.", p->name, n->ip);
+      bug("%s: Received dbdes from %I in undefined state.", p->name, n->ip);
       break;
    }
 }
