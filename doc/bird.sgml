@@ -1019,7 +1019,13 @@ programmers documentation, web pages mailing lists and similar stuff.
 
 </article>
 
-
 <!--
-# LocalWords: IPv doctype verb GPL sgml html unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md eval ipaddress pxlen netmask bgppath bgpmask clist gw RTS EXT quitbird nolisten UID timeouttime garbagetime RFC doc 
--->
+LocalWords:  GPL IPv GateD BGPv RIPv OSPFv Linux sgml html dvi sgmltools
+LocalWords:  linuxdoc dtd descrip config conf syslog stderr auth ospf bgp
+LocalWords:  router's eval expr num birdc ctl unix if's enums bool int ip
+LocalWords:  len ipaddress pxlen netmask enum bgppath bgpmask clist gw md
+LocalWords:  RTS printn quitbird iBGP AS'es eBGP RFC multiprotocol IGP
+LocalWords:  EGP misconfigurations keepalive pref aggr aggregator BIRD's
+LocalWords:  OS'es AS's multicast nolisten misconfigured UID blackhole
+LocalWords:  uninstalls
+ -->
