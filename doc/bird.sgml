@@ -124,7 +124,15 @@ there are more entries with same preference and they are from same
 protocol, protocol decides (typically according to metrics). If not,
 internal ordering is used to decide. You can
 get list of route attributes in "Route attributes" section in
-filters. Filters can alter routes passed between routing tables and
+filters. 
+
+<p>Protocols are connected to routing tables using filters. Routes
+that come from network go to the protocol, it then passes them to
+filters, if import filter accepts route, it gets to main routing
+table. It is then broadcasted to all other protocols (filtered through
+their export filters), which typically send it to the network.
+
+Filters can alter routes passed between routing tables and
 protocols.
 
 <sect>Installing BIRD
@@ -142,7 +150,12 @@ system, installing BIRD should be as easy as:
 
 <p>You can use <tt>./configure --help</tt> to get list of configure
 options. Most important (and not easily guessed) option is
-<tt/--enable-ipv6/, which enables IPv6 support.
+<tt/--enable-ipv6/, which enables IPv6 support. You can use
+<tt/--with-protocols=/ to produce slightly smaller BIRD, and
+<tt/--prefix=/ to install bird somewhere else than
+<file>/usr/local</file>.
+
+<sect>Running bird
 
 <p>You can pass several command-line options to bird:
 
@@ -168,7 +181,7 @@ options. Most important (and not easily guessed) option is
 <tt/-c/ command line option is given). Configuration may be changed on user request: if you modify
 config file and then signal BIRD with SIGHUP, it will adjust to new
 config. Then there's BIRD client,
-which allows you to talk with BIRD in more extensive way than just telling it to reconfigure. BIRD
+which allows you to talk with BIRD in extensive way. (Of course you can tell BIRD to reconfigure from BIRDC, you can also tell it to shut down, dump various info etc.). BIRD
 writes messages about its work to log files or syslog (according to config).
 
 <p>In config, everything on a line after <cf/#/ or inside <cf>/*
@@ -230,8 +243,8 @@ protocol rip {
 	about configuring protocols in their own chapters. You can run more than one instance of
 	most protocols (like rip or bgp).
 
-	<tag>define constant = (<m/expression/)|<m/number/</tag> define constant. You can use it later in every place
-	you could use simple integer.
+	<tag>define <m/constant/ = (<m/expression/)|<m/number/|<m/ip address/</tag> define constant. You can use it later in every place
+	you could use simple integer/ip address.
 
 	<tag>router id <m/IPv4 address/</tag> set router id. Router id needs to be world-wide
 	unique. It is usually one of router's IPv4 addresses.
@@ -468,8 +481,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
 used on element and set of that elements, or on ip and prefix, or on
 prefix and prefix or on bgppath and bgpmask or on pair and clist. Its result
-is true if element is in given set or if ip address is inside given prefix. Operator <cf/=/ is used to assign value
-to variable. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/>).
+is true if element is in given set or if ip address is inside given prefix. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/>).
 
 <sect>Control structures
 
@@ -531,14 +543,16 @@ defined using <cf>defined( <m>attribute</m> )</cf> syntax.
 	FIXME!
 </descrip>
 
-<p>Plus, there are protocol-specific attributes, which are described in protocol sections.
+<p>Then there are protocol-specific attributes, which are described in protocol sections.
 
-<sect>Utility functions
+<sect>Statements
 
-<p>There are few functions you might find convenient to use:
+<p>Following statements are supported:
 
 <descrip>
-	<tag>accept</tag> accept this route
+	<tag><m/variable/ = <m/expr/</tag> set variable to give value.
+
+	<tag>accept [ <m/expr/ ]</tag> accept this route, possibly printing expr
 
 	<tag>reject</tag> reject this route
 

@@ -40,7 +40,6 @@
  * we look for any changed routes and broadcast them.
  */
 
-
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -65,8 +64,10 @@ static struct rip_interface *new_iface(struct proto *p, struct iface *new, unsig
 
 #define P_NAME p->name
 
-/*
- * Output processing
+/** 
+ * DOC: Output processing
+ *
+ * This part is responsible for getting packets out to the network.
  */
 
 static void
@@ -77,6 +78,15 @@ rip_tx_err( sock *s, int err )
   log( L_ERR "%s: Unexpected error at rip transmit: %M", P_NAME, err );
 }
 
+/**
+ * rip_tx_prepare:
+ * @e: rip entry that needs to be translated to form suitable for network
+ * @b: block to be filled
+ *
+ * Fill one rip block with info that needs to go to the network. Handle
+ * nexthop and split horizont correctly. (Next hop is ignored for IPv6,
+ * that could be fixed but it is not real problem).
+ */
 static int
 rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e, struct rip_interface *rif, int pos )
 {
@@ -106,6 +116,9 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
   return pos+1;
 }
 
+/**
+ * rip_tx - send one rip packet to the network
+ */
 static void
 rip_tx( sock *s )
 {
@@ -181,6 +194,11 @@ done:
   return;
 }
 
+/** 
+ * rip_sendto - send whole routing table to selected destination
+ * @rif: interface to use. Notice that we lock interface so that at
+ * most one send to one interface is done.
+ */
 static void
 rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif )
 {
@@ -204,12 +222,6 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   c->daddr = daddr;
   if (c->rif->sock->data != rif)
     bug("not enough send magic");
-#if 0
-  if (sk_open(c->send)<0) {
-    log( L_ERR "%s Could not open socket for data send to %I:%d on %s", P_NAME, daddr, dport, rif->iface->name );
-    return;
-  }
-#endif
 
   c->done = 0;
   FIB_ITERATE_INIT( &c->iter, &P->rtable );
@@ -233,8 +245,10 @@ find_interface(struct proto *p, struct iface *what)
   return NULL;
 }
 
-/*
- * Input processing
+/**
+ * DOC: Input processing
+ *
+ * This part is responsible for any updates that come from network 
  */
 
 static void
@@ -247,7 +261,14 @@ rip_rte_update_if_better(rtable *tab, net *net, struct proto *p, rte *new)
     rte_update(tab, net, p, new);
 }
 
-/* Let main routing table know about our new entry */
+/**
+ * advertise_entry - let main routing table know about our new entry
+ * @b: entry in network format
+ *
+ * This basically translates @b to format used by bird core and feeds
+ * bird core with this route. Notice that we do not store info anywhere
+ * in our data structures: we'll do that when core notifies us back. 
+ */
 static void
 advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
 {
@@ -312,6 +333,9 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   DBG( "done\n" );
 }
 
+/**
+ * process_block - do some basic check and pass block to advertise_entry
+ */
 static void
 process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 {
@@ -335,6 +359,9 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 
 #define BAD( x ) { log( L_REMOTE "%s: " x, P_NAME ); return 1; }
 
+/**
+ * rip_process_packet - this is main routine for incoming packets.
+ */
 static int
 rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr whotoldme, int port )
 {
@@ -402,6 +429,9 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   return 0;
 }
 
+/**
+ * rip_rx - Receive hook: do basic checks and pass packet to rip_process_packet
+ */
 static int
 rip_rx(sock *s, int size)
 {
@@ -431,8 +461,8 @@ rip_rx(sock *s, int size)
   return 1;
 }
 
-/*
- * Interface to rest of bird
+/**
+ * DOC: Interface to bird core
  */
 
 static void
@@ -443,6 +473,9 @@ rip_dump_entry( struct rip_entry *e )
   debug( "\n" );
 }
 
+/**
+ * rip_timer - broadcast routing tables periodically (using rip_tx) and kill routes that are too old
+ */
 static void
 rip_timer(timer *t)
 {
@@ -771,6 +804,10 @@ rip_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
   rt->u.rip.metric = ea_get_int(attrs, EA_RIP_METRIC, 1);
 }
 
+/**
+ * rip_rt_notify - core tells us about new route (possibly our
+ * own), so store it into our data structures. 
+ */
 static void
 rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old, struct ea_list *attrs)
 {
@@ -839,6 +876,11 @@ rip_rte_better(struct rte *new, struct rte *old)
   return 0;
 }
 
+/**
+ * rip_rte_insert - we maintain linked list of "our" entries in main
+ * routing table, so that we can timeout them correctly. rip_timer
+ * walks the list.
+ */
 static void
 rip_rte_insert(net *net, rte *rte)
 {
@@ -849,6 +891,9 @@ rip_rte_insert(net *net, rte *rte)
   add_head( &P->garbage, &rte->u.rip.garbage );
 }
 
+/**
+ * rip_rte_remove - link list maintenance
+ */
 static void
 rip_rte_remove(net *net, rte *rte)
 {

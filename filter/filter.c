@@ -70,7 +70,9 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
   }
 }
 
-/* Compare two values, returns -1, 0, 1 compared, ERROR 999 */
+/**
+ * val_compare - compare two values, returns -1, 0, 1 on <, =, > and 999 on error */
+ */
 int
 val_compare(struct f_val v1, struct f_val v2)
 {
@@ -103,6 +105,9 @@ val_compare(struct f_val v1, struct f_val v2)
   }
 }
 
+/**
+ * val_simple_in_range - check if @v1 ~ @v2 for everything except sets
+ */ 
 int
 val_simple_in_range(struct f_val v1, struct f_val v2)
 {
@@ -134,6 +139,9 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
   return CMP_ERROR;
 }
 
+/**
+ * val_in_range - check if @v1 ~ @v2
+ */
 int
 val_in_range(struct f_val v1, struct f_val v2)
 {
@@ -175,6 +183,9 @@ tree_print(struct f_tree *t)
   debug( "] " );
 }
 
+/**
+ * val_print - format filter value
+ */
 void
 val_print(struct f_val v)
 {
@@ -207,6 +218,9 @@ static struct ea_list **f_tmp_attrs;
 static int f_flags;
 static rta *f_rta_copy;
 
+/**
+ * rta_cow - prepare rta for modification by filter
+ */
 void
 rta_cow(void)
 {
@@ -239,6 +253,13 @@ rta_cow(void)
                   if (v1.type != v2.type) \
 		    runtime( "Can not operate with values of incompatible types" );
 
+/**
+ * interpret
+ * @what: filter to interrpret
+ *
+ * Interrpret given tree of filter instructions. This is core function
+ * of filter system and does all the hard work.
+ */
 static struct f_val
 interpret(struct f_inst *what)
 {
@@ -660,6 +681,9 @@ interpret(struct f_inst *what)
 
 #define A2_SAME if (f1->a2.i != f2->a2.i) return 0;
 
+/**
+ * i_same - function that does real comparing of instruction trees, you should call filter_same from outside
+ */
 int
 i_same(struct f_inst *f1, struct f_inst *f2)
 {
