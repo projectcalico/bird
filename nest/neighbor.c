@@ -6,6 +6,37 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Neighbor cache
+ *
+ * Most routing protocols need to associate their internal state data with
+ * neighboring routers, check whether an address given as the next hop
+ * attribute of a route is really an address of a directly connected host
+ * and which interface is it connected through. Also, they often need to
+ * be notified when a neighbor ceases to exist or when their long awaited
+ * neighbor becomes connected. The neighbor cache is there to solve all
+ * these problems.
+ *
+ * The neighbor cache maintains a collection of neighbor entries. Each
+ * entry represents one IP address corresponding to either our directly
+ * connected neighbor or our own end of the link (when the scope of the
+ * address is set to %SCOPE_HOST) together with data belonging to a
+ * single protocol.
+ *
+ * Active entries represent known neighbors and are stored in a hash
+ * table (to allow fast retrieval based on IP address of the node) and
+ * two linked lists: one global and one per-interface (allowing quick
+ * processing of interface change events). Inactive entries exist only
+ * when the protocol has explicitly requested it via the %NEF_STICKY
+ * flag because it wishes to be notified when the node will again become
+ * a neighbor. Such entries are enqueued in a special list which is walked
+ * whenever an interface becomes up.
+ *
+ * When a neighbor event occurs (a neighbor gets disconnected or a sticky
+ * inactive neighbor becomes connected), the protocol hook neigh_notify()
+ * is called to advertise the change.
+ */
+
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -53,6 +84,21 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
       }
   return -1;
 }
+
+/**
+ * neigh_find - find or create a neighbor entry.
+ * @p: protocol which asks for the entry.
+ * @a: pointer to IP address of the node to be searched for.
+ * @flags: 0 or %NEF_STICKY if you want to create a sticky entry.
+ *
+ * Search the neighbor cache for a node with given IP address. If
+ * it's found, a pointer to the neighbor entry is returned. If no
+ * such entry exists and the node is directly connected on
+ * one of our active interfaces, a new entry is created and returned
+ * to the caller with protocol-dependent fields initialized to zero.
+ * If the node is not connected directly or *@a is not a valid unicast
+ * IP address, neigh_find() returns %NULL.
+ */
 
 neighbor *
 neigh_find(struct proto *p, ip_addr *a, unsigned flags)
@@ -104,6 +150,13 @@ neigh_find(struct proto *p, ip_addr *a, unsigned flags)
   return n;
 }
 
+/**
+ * neigh_dump - dump specified neighbor entry.
+ * @n: the entry to dump
+ *
+ * This functions dumps the contents of a given neighbor entry
+ * to debug output.
+ */
 void
 neigh_dump(neighbor *n)
 {
@@ -118,6 +171,12 @@ neigh_dump(neighbor *n)
   debug("\n");
 }
 
+/**
+ * neigh_dump_all - dump all neighbor entries.
+ *
+ * This function dumps the contents of the neighbor cache to
+ * debug output.
+ */
 void
 neigh_dump_all(void)
 {
@@ -133,6 +192,15 @@ neigh_dump_all(void)
   debug("\n");
 }
 
+/**
+ * neigh_if_up: notify neighbor cache about interface up event
+ * @i: interface in question
+ *
+ * Tell the neighbor cache that a new interface became up.
+ *
+ * The neighbor cache wakes up all inactive sticky neighbors with
+ * addresses belonging to prefixes of the interface @i.
+ */
 void
 neigh_if_up(struct iface *i)
 {
@@ -153,6 +221,15 @@ neigh_if_up(struct iface *i)
       }
 }
 
+/**
+ * neigh_if_down - notify neighbor cache about interface down event
+ * @i: the interface in question
+ *
+ * Notify the neighbor cache that an interface has ceased to exist.
+ *
+ * It causes all entries belonging to neighbors connected to this interface
+ * to be flushed.
+ */
 void
 neigh_if_down(struct iface *i)
 {
@@ -185,6 +262,13 @@ neigh_prune_one(neighbor *n)
   sl_free(neigh_slab, n);
 }
 
+/**
+ * neigh_prune - prune neighbor cache
+ *
+ * neigh_prune() examines all neighbor entries cached and removes those
+ * corresponding to inactive protocols. It's called whenever a protocol
+ * is shut down to get rid of all its heritage.
+ */
 void
 neigh_prune(void)
 {
@@ -200,6 +284,13 @@ neigh_prune(void)
     neigh_prune_one(n);
 }
 
+/**
+ * neigh_init - initialize the neighbor cache.
+ * @if_pool: resource pool to be used for neighbor entries.
+ *
+ * This function is called during BIRD startup to initialize
+ * the neighbor cache module.
+ */
 void
 neigh_init(pool *if_pool)
 {

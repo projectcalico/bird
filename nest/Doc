@@ -1,1 +1,10 @@
 H Core
+S neighbor.c
+#S cli.c
+#S iface.c
+S locks.c
+#S proto.c
+#S rt-attr.c
+#S rt-dev.c
+S rt-fib.c
+#S rt-table.c
