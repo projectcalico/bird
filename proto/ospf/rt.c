@@ -227,16 +227,16 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  {
 	    struct ospf_iface *iff;
 
-	    WALK_LIST(iff, po->iface_list)
+	    WALK_LIST(iff, po->iface_list)	/* Try to find corresponding interface */
 	    {
-               if (iff->iface && (rtl->id == (ipa_to_u32(ipa_mkmask(iff->iface->addr->pxlen))
-	         & ipa_to_u32(iff->iface->addr->prefix))))
+               if (iff->iface && (iff->type != OSPF_IT_VLINK) &&
+	         (rtl->id == (ipa_to_u32(ipa_mkmask(iff->iface->addr->pxlen))
+	         & ipa_to_u32(iff->iface->addr->prefix))))	/* No VLINK and IP must match */
 	       {
 		 nf.ifa = iff;
 	         break;
 	       }
             }
-						 
 	  }
 
 	  if (!nf.ifa)
@@ -448,7 +448,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
     tm = (union ospf_lsa_sum_tm *)(mask + 1);
 
     nf.type = re->n.type;
-    nf.capa = ORTA_ABR;
+    nf.capa = ORTA_ASBR;
     nf.metric1 = abr->n.metric1 + (tm->metric & METRIC_MASK);
     nf.metric2 = LSINFINITY;
     nf.oa = oa;
@@ -466,7 +466,7 @@ ospf_rt_sum(struct ospf_area *oa)
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
   struct top_hash_entry *en;
-  ip_addr *mask, ip, abrip;
+  ip_addr *mask, ip, abrip;	/* abrIP is actually ID */
   struct area_net *anet;
   orta nf;
   ort *re, *abr;
@@ -527,7 +527,7 @@ ospf_rt_sum(struct ospf_area *oa)
     if (!(abr->n.capa & ORTA_ABR)) continue;
 
     nf.type = RTS_OSPF_IA;
-    nf.capa = ORTA_ABR;
+    nf.capa = ORTA_ASBR;
     nf.metric1 = abr->n.metric1 + (tm->metric & METRIC_MASK);
     nf.metric2 = LSINFINITY;
     nf.oa = oa;
@@ -980,6 +980,10 @@ again1:
         }
         if (!found) nf->n.metric1 = LSINFINITY; /* Delete it */
       }
+
+      if (!a0.iface)	/* Still no match? Can this really happen? */
+        nf->n.metric1 = LSINFINITY;
+
       ne = net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
       if (nf->n.metric1 < LSINFINITY)
       {
@@ -990,8 +994,8 @@ again1:
         e->pflags = 0;
         e->net = ne;
         e->pref = p->preference;
-        DBG("Modifying rt entry %I\n     (IP: %I, GW: %I)\n",
-	  nf->fn.prefix, ip, nf->nh);
+        DBG("Mod rte type %d - %I/%d via %I on iface %s, met %d\n",
+	  a0.source, nf->fn.prefix, nf->fn.pxlen, a0.gw, a0.iface ? a0.iface->name : "(none)", nf->n.metric1);
 	rte_update(p->table, ne, p, e);
       }
       else
