@@ -78,7 +78,7 @@ proto_relink(struct proto *p)
 void *
 proto_new(struct proto_config *c, unsigned size)
 {
-  struct protocol *pr = c->proto;
+  struct protocol *pr = c->protocol;
   struct proto *p = mb_allocz(proto_pool, size);
 
   p->cf = c;
@@ -90,6 +90,7 @@ proto_new(struct proto_config *c, unsigned size)
   p->table = c->table->table;
   p->in_filter = c->in_filter;
   p->out_filter = c->out_filter;
+  c->proto = p;
   return p;
 }
 
@@ -136,7 +137,7 @@ proto_config_new(struct protocol *pr, unsigned size)
 
   add_tail(&new_config->protos, &c->n);
   c->global = new_config;
-  c->proto = pr;
+  c->protocol = pr;
   c->debug = pr->debug;
   c->name = pr->name;
   c->out_filter = FILTER_REJECT;
@@ -174,7 +175,7 @@ protos_postconfig(struct config *c)
   WALK_LIST(x, c->protos)
     {
       debug(" %s", x->name);
-      p = x->proto;
+      p = x->protocol;
       if (p->postconfig)
 	p->postconfig(x);
     }
@@ -192,7 +193,7 @@ protos_commit(struct config *c)
   WALK_LIST(x, c->protos)
     {
       debug(" %s", x->name);
-      p = x->proto;
+      p = x->protocol;
       q = p->init(x);
       q->proto_state = PS_DOWN;
       q->core_state = FS_HUNGRY;
@@ -458,33 +459,47 @@ proto_goal_name(struct proto *p)
 }
 
 static void
-proto_do_show(list *l, int verbose)
+proto_do_show(struct proto *p, int verbose)
+{
+  cli_msg(-1002, "%-8s %-8s %-8s %s%s",
+	  p->name,
+	  p->proto->name,
+	  p->table->name,
+	  proto_state_name(p),
+	  proto_goal_name(p));
+  if (verbose)
+    {
+      cli_msg(-1006, "\tPreference: %d", p->preference);
+      cli_msg(-1006, "\tInput filter: %s", filter_name(p->in_filter));
+      cli_msg(-1006, "\tOutput filter: %s", filter_name(p->out_filter));
+    }
+}
+
+static void
+proto_do_show_list(list *l, int verbose)
 {
   struct proto *p;
 
   WALK_LIST(p, *l)
-    {
-      cli_msg(-1002, "%-8s %-8s %-8s %s%s",
-	      p->name,
-	      p->proto->name,
-	      p->table->name,
-	      proto_state_name(p),
-	      proto_goal_name(p));
-      if (verbose)
-	{
-	  cli_msg(-1006, "\tPreference: %d", p->preference);
-	  cli_msg(-1006, "\tInput filter: %s", filter_name(p->in_filter));
-	  cli_msg(-1006, "\tOutput filter: %s", filter_name(p->out_filter));
-	}
-    }
+    proto_do_show(p, verbose);
 }
 
 void
 proto_show(struct symbol *s, int verbose)
 {
+  if (s && s->class != SYM_PROTO)
+    {
+      cli_msg(9002, "%s is not a protocol", s->name);
+      return;
+    }
   cli_msg(-2002, "name     proto    table    state");
-  proto_do_show(&proto_list, verbose);
-  proto_do_show(&flush_proto_list, verbose);
-  proto_do_show(&inactive_proto_list, verbose);
+  if (s)
+    proto_do_show(((struct proto_config *)s->def)->proto, verbose);
+  else
+    {
+      proto_do_show_list(&proto_list, verbose);
+      proto_do_show_list(&flush_proto_list, verbose);
+      proto_do_show_list(&inactive_proto_list, verbose);
+    }
   cli_msg(0, "");
 }

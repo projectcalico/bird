@@ -6,6 +6,8 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#include <string.h>
+
 #include "nest/bird.h"
 #include "nest/cli.h"
 #include "conf/conf.h"
@@ -119,7 +121,7 @@ cli_command(struct cli *c)
   struct config f;
   int res;
 
-  f.pool = NULL;
+  bzero(&f, sizeof(f));
   f.mem = c->parser_pool;
   cf_read_hook = cli_cmd_read_hook;
   cli_rh_pos = c->rx_buf;

@@ -74,7 +74,8 @@ extern struct protocol proto_pipe;
 struct proto_config {
   node n;
   struct config *global;		/* Global configuration data */
-  struct protocol *proto;		/* Protocol */
+  struct protocol *protocol;		/* Protocol */
+  struct proto *proto;			/* Instance we've created */
   char *name;
   unsigned debug, preference, disabled;	/* Generic parameters */
   struct rtable_config *table;		/* Table we're attached to */
