@@ -6,7 +6,11 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#ifdef IPV6
+
 #include "nest/bird.h"
 #include "lib/ip.h"
 
 #error "Ought to implement these."
+
+#endif

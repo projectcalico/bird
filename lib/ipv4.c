@@ -6,6 +6,8 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#ifndef IPV6
+
 #include "nest/bird.h"
 #include "lib/ip.h"
 
@@ -27,3 +29,5 @@ ipv4_classify(u32 a)
     return IADDR_BROADCAST | SCOPE_LINK;
   return IADDR_INVALID;
 }
+
+#endif

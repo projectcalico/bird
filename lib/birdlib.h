@@ -21,8 +21,8 @@
 
 /* Logging and dying */
 
-void log(char *msg, ...);
-void die(char *msg, ...) NORET;
+void log(char *msg, ...) __attribute__((format(printf,1,2)));
+void die(char *msg, ...) __attribute__((format(printf,1,2))) NORET;
 
 #define L_DEBUG "\001"			/* Debugging messages */
 #define L_INFO "\002"			/* Informational messages */

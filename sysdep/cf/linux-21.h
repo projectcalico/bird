@@ -9,3 +9,7 @@
 #define CONFIG_TOS
 #define CONFIG_MULTIPATH
 #define CONFIG_NETLINK
+
+/*
+Link: sysdep/linux
+ */

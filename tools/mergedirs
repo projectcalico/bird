@@ -1,0 +1,36 @@
+#!/bin/sh
+
+if [ -z "$2" ] ; then
+	echo "Usage: mergedirs <obj-dir> <list-of-dirs>"
+	exit 1
+	fi
+TOPDIR=`pwd`
+OBJDIR=$1
+LIBDIR=$OBJDIR/lib
+shift
+echo "Merging system-dependent modules"
+MODULES=`for a in $@ ; do
+		sed <$a/Modules "s@\\(.*\\)@\\1 $a/\\1@"
+		done |
+	sort +0 -1 -u |
+	cut -d ' ' -f 2`
+rm -rf $LIBDIR
+mkdir -p $LIBDIR
+for a in $MODULES ; do
+	echo $a
+	b=`basename $a`
+	ln -s $TOPDIR/$a $LIBDIR/$b
+	OBJ=`echo $b | sed '/\.c$/!d;s/\.c$/\.o/'`
+	if [ -n "$OBJ" ] ; then
+		OBJS="$OBJS $OBJ"
+		SRCS="$SRCS \\
+	\$(TOPDIR)/$a"
+		fi
+	done
+cat >$LIBDIR/Makefile <<EOF
+OBJS=$OBJS
+SRCS=$SRCS
+LIB=birdlib.a
+
+include \$(TOPDIR)/Rules
+EOF

@@ -3,16 +3,31 @@
 
 THISDIR=$(shell pwd)
 RELDIR=$(subst $(TOPDIR)/,,$(THISDIR))
-ANAME=$(subst /,_,$(RELDIR)).a
+ONAME=$(subst /,_,$(RELDIR)).o
+
+ifndef SRCS
 SRCS=$(subst .o,.c,$(OBJS))
-
-all: $(ANAME)
-
-$(ANAME): $(OBJS)
-	rm -f $(ANAME)
-	ar rcs $(ANAME) $(OBJS)
+endif
 
 ifdef OBJS
+
+ifdef LIB
+
+all: $(LIB)
+
+$(LIB): $(OBJS)
+	rm -f $(LIB)
+	ar rcs $(LIB) $(OBJS)
+	ranlib $(LIB)
+
+else
+
+all: $(ONAME)
+
+$(ONAME): $(OBJS)
+	$(LD) -r -o $(ONAME) $(OBJS)
+
+endif
 
 dep: $(SRCS)
 	rm -f .depend

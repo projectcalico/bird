@@ -22,6 +22,8 @@ typedef struct ipv4_addr {
 #define _I2(a) ((a).addr[2])
 #define _I3(a) ((a).addr[3])
 
+#define BITS_PER_IP_ADDRESS 128
+
 #define IPA_NONE _MI(0,0,0,0)
 
 #define ipa_equal(x,y) (!memcmp(&(x),&(y),sizeof(ip_addr)))

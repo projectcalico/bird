@@ -25,7 +25,7 @@ typedef struct ipv4_addr {
 } ip_addr;
 
 #define _I(x) (x).addr
-#define _MI(x) ((struct ip_addr) { x })
+#define _MI(x) ((struct ipv4_addr) { x })
 
 #else
 
@@ -35,6 +35,8 @@ typedef u32 ip_addr;
 #define _MI(x) (x)
 
 #endif
+
+#define BITS_PER_IP_ADDRESS 32
 
 #define IPA_NONE (_MI(0))
 
@@ -50,8 +52,6 @@ typedef u32 ip_addr;
 #define ipa_ntoh(x) x = _MI(ntohl(_I(x)))
 #define ipa_classify(x) ipv4_classify(_I(x))
 
-unsigned ipv4_mklen(u32);
-u32 ipv4_mkmask(unsigned);
 int ipv4_classify(u32);
 
 /* FIXME: Is this hash function uniformly distributed over standard routing tables? */

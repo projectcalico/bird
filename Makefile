@@ -2,32 +2,41 @@
 # (c) 1998 Martin Mares <mj@ucw.cz>
 
 TOPDIR=$(shell pwd)
+OBJDIR=obj
+
 CPPFLAGS=-I$(TOPDIR)/sysdep/linux -I$(TOPDIR)
 OPT=-O2
 DEBUG=-g#gdb
 CFLAGS=$(OPT) $(DEBUG) -Wall -W -Wstrict-prototypes -Wno-unused -Wno-parentheses
 
 PROTOCOLS=
-DIRS=nest $(PROTOCOLS) lib sysdep/linux sysdep/unix
-ARCHS=$(join $(addsuffix /,$(DIRS)),$(subst /,_,$(addsuffix .a,$(DIRS))))
+LIBDIRS=sysdep/linux sysdep/unix lib
+STDDIRS=nest $(PROTOCOLS)
+DIRS=$(STDDIRS) $(OBJDIR)/lib
+PARTOBJS=$(join $(addsuffix /,$(STDDIRS)),$(subst /,_,$(addsuffix .o,$(STDDIRS))))
+LIBS=$(OBJDIR)/lib/birdlib.a
 
 export
 
 all: .dep all-dirs bird
 
 all-dirs:
-	set -e ; for a in $(DIRS) ; do $(MAKE) -C $$a ; done
+	set -e ; for a in $(DIRS) ; do $(MAKE) -C $$a all ; done
 
-bird: $(ARCHS)
+bird: $(PARTOBJS) $(LIBS)
 	$(CC) $(LDFLAGS) -o $@ $^
 
 .dep:
 	$(MAKE) dep
-	touch .dep
 
 dep:
+	mkdir -p $(OBJDIR)
+	tools/mergedirs $(OBJDIR) $(LIBDIRS)
+#	for a in $(STDDIRS) ; do mkdir -p $(OBJDIR)/$$a ; done
 	set -e ; for a in $(DIRS) ; do $(MAKE) -C $$a dep ; done
+	touch .dep
 
 clean:
+	rm -rf obj
 	rm -f `find . -name "*~" -or -name "*.[oa]" -or -name "\#*\#" -or -name TAGS -or -name core -or -name .depend -or -name .#*`
 	rm -f bird .dep

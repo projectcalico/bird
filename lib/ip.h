@@ -35,4 +35,10 @@
 #define SCOPE_SITE 2
 #define SCOPE_UNIVERSE 3
 
+/*
+ *	Is it a valid network prefix?
+ */
+
+#define ip_is_prefix(a,l) (!ipa_nonzero(ipa_and(a, ipa_not(ipa_mkmask(l)))))
+
 #endif
