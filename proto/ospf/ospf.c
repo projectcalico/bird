@@ -67,6 +67,7 @@ ospf_init(struct proto_config *c)
   p->if_notify = NULL;
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
+  p->import_control = ospf_import_control;
 
   return p;
 }
@@ -114,6 +115,18 @@ static void
 ospf_postconfig(struct proto_config *c)
 {
   DBG( " OSPF: postconfig\n" );
+}
+
+int
+ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool *pool)
+{
+  int i;
+  rte *e=*new;
+  struct proto_ospf *po=(struct proto_ospf *)p;
+
+  if(p==e->attrs->proto) return -1;
+
+  return 0;
 }
 
 struct protocol proto_ospf = {

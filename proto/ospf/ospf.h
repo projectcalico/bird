@@ -351,7 +351,7 @@ static void ospf_preconfig(struct protocol *p, struct config *c);
 static void ospf_postconfig(struct proto_config *c);
 static int ospf_rte_better(struct rte *new, struct rte *old);
 static int ospf_rte_same(struct rte *new, struct rte *old);
-
+int ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool *pool);
 
 #include "proto/ospf/hello.h"
 #include "proto/ospf/packet.h"
