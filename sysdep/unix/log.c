@@ -207,10 +207,10 @@ log_init(int debug, int init)
 }
 
 void
-log_switch(list *l)
+log_switch(int debug, list *l)
 {
   if (EMPTY_LIST(*l))
-    log_init(0, 0);
+    log_init(debug, 0);
   else
     current_log_list = l;
 }

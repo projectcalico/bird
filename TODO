@@ -4,6 +4,7 @@ Core
 - &&,||: priorities
 - client: `?' in BGP masks
 - filters: function for BGP path length
+- static: allow specifying a per-route filter program for setting route attributes?
 
 Globals
 ~~~~~~~
@@ -21,7 +22,6 @@ Globals
 
 Various ideas
 ~~~~~~~~~~~~~
-- static: allow specifying a per-route filter program for setting route attributes?
 - client: paging of output
 - client: Ctrl-R eats one more enter
 - bgp: timing of updates?

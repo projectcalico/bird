@@ -55,7 +55,7 @@ void krt_io_init(void);
 
 void log_init(int debug, int init);
 void log_init_debug(char *);		/* Initialize debug dump to given file (NULL=stderr, ""=off) */
-void log_switch(struct list *);
+void log_switch(int debug, struct list *);
 
 struct log_config {
   node n;

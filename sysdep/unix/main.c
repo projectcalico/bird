@@ -35,6 +35,12 @@
  *	Debugging
  */
 
+#ifdef DEBUGGING
+static int debug_flag = 1;
+#else
+static int debug_flag = 0;
+#endif
+
 void
 async_dump(void)
 {
@@ -77,7 +83,7 @@ sysdep_preconfig(struct config *c)
 int
 sysdep_commit(struct config *new, struct config *old)
 {
-  log_switch(&new->logfiles);
+  log_switch(debug_flag, &new->logfiles);
   return 0;
 }
 
@@ -341,12 +347,6 @@ signal_init(void)
  */
 
 static char *opt_list = "c:dD:s:";
-
-#ifdef DEBUGGING
-static int debug_flag = 1;
-#else
-static int debug_flag = 0;
-#endif
 
 static void
 usage(void)
