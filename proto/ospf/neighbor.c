@@ -19,41 +19,43 @@ const char *ospf_inm[]={ "hello received", "neighbor start", "2-way received",
 void
 neigh_chstate(struct ospf_neighbor *n, u8 state)
 {
-  struct ospf_iface *ifa;
-  struct proto *p;
   u8 oldstate;
 
   oldstate=n->state;
 
   if(oldstate!=state)
   {
-    ifa=n->ifa;
+    struct ospf_iface *ifa=n->ifa;
+    struct proto_ospf *po=ifa->oa->po;
+    struct proto *p=&po->proto;
+
     n->state=state;
+
+    debug("%s: Neighbor %I changes state from \"%s\" to \"%s\".\n",
+      p->name, n->ip, ospf_ns[oldstate], ospf_ns[state]);
+
     if((state==NEIGHBOR_2WAY) && (oldstate<NEIGHBOR_2WAY))
-      ospf_int_sm(n->ifa, ISM_NEICH);
+      ospf_int_sm(ifa, ISM_NEICH);
     if((state<NEIGHBOR_2WAY) && (oldstate>=NEIGHBOR_2WAY))
-      ospf_int_sm(n->ifa, ISM_NEICH);
+      ospf_int_sm(ifa, ISM_NEICH);
+
     if(oldstate==NEIGHBOR_FULL)	/* Decrease number of adjacencies */
     {
       ifa->fadj--;
-      n->state=state;
-      originate_rt_lsa(ifa->oa,ifa->oa->po);
-      originate_net_lsa(ifa,ifa->oa->po);
+      originate_rt_lsa(ifa->oa,po);
+      originate_net_lsa(ifa,po);
     }
-    p=(struct proto *)(ifa->proto);
   
-    debug("%s: Neighbor %I changes state from \"%s\" to \"%s\".\n",
-      p->name, n->ip, ospf_ns[oldstate], ospf_ns[state]);
     if(state==NEIGHBOR_FULL)	/* Increase number of adjacencies */
     {
       ifa->fadj++;
-      originate_rt_lsa(n->ifa->oa,n->ifa->oa->po);
-      originate_net_lsa(ifa,ifa->oa->po);
+      originate_rt_lsa(ifa->oa,po);
+      originate_net_lsa(ifa,po);
     }
     if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)
     {
+      /* Stop RXMT timer */
       tm_stop(n->rxmt_timer);
-      /* Stop RXMT timers */
     }
     if(state==NEIGHBOR_EXSTART)
     {
