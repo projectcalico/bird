@@ -368,11 +368,18 @@ term:
      }
    }
 
+/* FIXME (maybe?) rta.from read/write */
  | rtadot FROM    { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
 
+/* FIXME Gw read/write */
  | rtadot GW      { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
  | rtadot NET     { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_PREFIX; $$->a2.i = 0x12345678; /* This is actually ok - T_PREFIX is special-cased. */ }
  | rtadot SOURCE  { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, source); }
+
+/* FIXME rte.Preference - read/write */
+/* FIXME rta.Scope - read/write */
+/* FIXME rta.Cast - read */
+/* FIXME rta.Dest - read */
 
  | rtadot dynamic_attr { $$ = $2; $$->code = P('e','a'); }
 

@@ -10,6 +10,13 @@
 /**
  * DOC: Filters
  *
+ * You can find sources of filters language in filter/
+ * directory. filter/config.Y filter grammar, and basically translates
+ * source from user into tree of &f_inst structures. These trees are
+ * later interpreted using code in filter/filter.c. Filters internally
+ * work with values/variables in struct f_val, which contains type of
+ * value and value.
+ *
  * Filter consists of tree of &f_inst structures, one structure per
  * "instruction". Each &f_inst contains code, aux value which is
  * usually type of data this instruction operates on, and two generic
@@ -23,8 +30,7 @@
  * forced. Important thing about &f_val s is that they may be copied
  * with simple =. That's fine for all currently defined types: strings
  * are read-only (and therefore okay), paths are copied for each
- * operation (okay too).
- */
+ * operation (okay too).  */
 
 #undef LOCAL_DEBUG
 
