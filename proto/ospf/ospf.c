@@ -323,6 +323,13 @@ ospf_sh_neigh(struct proto *p, char *iff)
   struct ospf_iface *ifa=NULL,*f;
   struct ospf_neighbor *n;
   struct proto_ospf *po=(struct proto_ospf *)p;
+
+  if(p->proto_state != PS_UP)
+  {
+    cli_msg(-1013,"%s: is not up", p->name);
+    cli_msg(0,"");
+    return;
+  }
   
   if(iff!=NULL)
   {
@@ -366,6 +373,13 @@ ospf_sh(struct proto *p)
   int nno;
   int adjno;
 
+  if(p->proto_state != PS_UP)
+  {
+    cli_msg(-1014,"%s: is not up", p->name);
+    cli_msg(0,"");
+    return;
+  }
+
   cli_msg(-1014,"%s:", p->name);
   cli_msg(-1014,"Number of areas: %u", po->areano);
   
@@ -403,6 +417,13 @@ ospf_sh_iface(struct proto *p, char *iff)
   int ifano;
   int nno;
   int adjno;
+
+  if(p->proto_state != PS_UP)
+  {
+    cli_msg(-1015,"%s: is not up", p->name);
+    cli_msg(0,"");
+    return;
+  }
 
   if(iff!=NULL)
   {
