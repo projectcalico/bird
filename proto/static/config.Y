@@ -43,7 +43,7 @@ stat_route0: ROUTE prefix {
  ;
 
 stat_route:
-   stat_route0 VIA IPA {
+   stat_route0 VIA ipa {
       this_srt->dest = RTD_ROUTER;
       this_srt->via = $3;
    }

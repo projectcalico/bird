@@ -42,7 +42,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %type <f> filter filter_body where_filter
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
-%type <v> set_atom fprefix fprefix_s ipa
+%type <v> set_atom fprefix fprefix_s fipa
 %type <s> decls declsn one_decl function_params 
 %type <h> bgp_path
 %type <i> bgp_one
@@ -224,14 +224,14 @@ fprefix:
  | fprefix_s '{' NUM ',' NUM '}' { $$ = $1; $$.val.px.len |= LEN_RANGE | ($3 << 16) | ($5 << 8); }
  ;
 
-ipa:
+fipa:
    IPA  { $$.type = T_IP; $$.val.px.ip = $1; }
  ;
 
 set_atom:
    NUM  { $$.type = T_INT; $$.val.i = $1; }
  | pair { $$.type = T_PAIR; $$.val.i = $1; }
- | ipa  { $$ = $1; }
+ | fipa { $$ = $1; }
  | fprefix { $$ = $1; }
  ; 
 
@@ -291,7 +291,7 @@ constant:
  | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_BOOL; $$->a2.i = 0;  }
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_STRING; $$->a2.p = $1; }
  | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PAIR;  $$->a2.i = $1; }
- | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
+ | fipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | fprefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }

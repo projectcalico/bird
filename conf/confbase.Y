@@ -53,6 +53,7 @@ CF_DECLS
 
 %type <i> expr bool pxlen
 %type <time> datetime
+%type <a> ipa
 %type <px> prefix prefix_or_ipa
 
 %nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ
@@ -96,6 +97,10 @@ definition:
      cf_define_symbol($2, SYM_NUMBER, NULL);
      $2->aux = $4;
    }
+ | DEFINE SYM '=' IPA ';' {
+     cf_define_symbol($2, SYM_IPA, cfg_alloc(sizeof(ip_addr)));
+     *(ip_addr *)$2->def = $4;
+   }
  ;
 
 /* Switches */
@@ -109,10 +114,18 @@ bool:
  | /* Silence means agreement */ { $$ = 1; }
  ;
 
-/* Prefixes and netmasks */
+/* Addresses, prefixes and netmasks */
+
+ipa:
+   IPA
+ | SYM {
+     if ($1->class != SYM_IPA) cf_error("IP address expected");
+     $$ = *(ip_addr *)$1->def;
+   }
+ ;
 
 prefix:
-   IPA pxlen {
+   ipa pxlen {
      if (!ip_is_prefix($1, $2)) cf_error("Invalid prefix");
      $$.addr = $1; $$.len = $2;
    }
@@ -120,15 +133,15 @@ prefix:
 
 prefix_or_ipa:
    prefix
- | IPA { $$.addr = $1; $$.len = BITS_PER_IP_ADDRESS; }
+ | ipa { $$.addr = $1; $$.len = BITS_PER_IP_ADDRESS; }
  ;
 
 pxlen:
-   '/' NUM {
+   '/' expr {
      if ($2 < 0 || $2 > BITS_PER_IP_ADDRESS) cf_error("Invalid prefix length %d", $2);
      $$ = $2;
    }
- | ':' IPA {
+ | ':' ipa {
      $$ = ipa_mklen($2);
      if ($$ < 0) cf_error("Invalid netmask %I", $2);
    }

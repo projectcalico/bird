@@ -86,6 +86,7 @@ struct symbol {
 #define SYM_FUNCTION 3
 #define SYM_FILTER 4
 #define SYM_TABLE 5
+#define SYM_IPA 6
 
 #define SYM_VARIABLE 0x100	/* 0x100-0x1ff are variable types */
 

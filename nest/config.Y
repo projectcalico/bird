@@ -205,7 +205,7 @@ password_items:
  | FROM datetime password_items { last_password_item->from = $2; }
  | TO datetime password_items { last_password_item->to = $2; }
  | PASSIVE datetime password_items { last_password_item->passive = $2; }
- | ID NUM password_items { last_password_item->id = $2; }
+ | ID expr password_items { last_password_item->id = $2; }
  ;
 
 password_list: 

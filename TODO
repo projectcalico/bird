@@ -38,7 +38,6 @@ Globals
 - check incoming packets and log errors!!
 - check log calls for trailing newlines and log levels followed by comma
 - check if all protocols set proper packet priorities and TTL's.
-- replace all NUM, IPA and expr tokens by constant filter expressions
 - try compiling with -Wunused
 - does everybody test return value of sk_open?
 - doc: references to RFC's we did follow

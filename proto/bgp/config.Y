@@ -44,28 +44,28 @@ bgp_proto_start: proto_start BGP {
 bgp_proto:
    bgp_proto_start proto_name '{'
  | bgp_proto proto_item ';'
- | bgp_proto LOCAL AS NUM ';' {
+ | bgp_proto LOCAL AS expr ';' {
      if ($4 < 0 || $4 > 65535) cf_error("AS number out of range");
      BGP_CFG->local_as = $4;
    }
- | bgp_proto NEIGHBOR IPA AS NUM ';' {
+ | bgp_proto NEIGHBOR ipa AS expr ';' {
      if ($5 < 0 || $5 > 65535) cf_error("AS number out of range");
      BGP_CFG->remote_ip = $3;
      BGP_CFG->remote_as = $5;
    }
- | bgp_proto HOLD TIME NUM ';' { BGP_CFG->hold_time = $4; }
- | bgp_proto STARTUP HOLD TIME NUM ';' { BGP_CFG->initial_hold_time = $5; }
- | bgp_proto CONNECT RETRY TIME NUM ';' { BGP_CFG->connect_retry_time = $5; }
- | bgp_proto KEEPALIVE TIME NUM ';' { BGP_CFG->keepalive_time = $4; }
- | bgp_proto MULTIHOP NUM VIA IPA ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
+ | bgp_proto HOLD TIME expr ';' { BGP_CFG->hold_time = $4; }
+ | bgp_proto STARTUP HOLD TIME expr ';' { BGP_CFG->initial_hold_time = $5; }
+ | bgp_proto CONNECT RETRY TIME expr ';' { BGP_CFG->connect_retry_time = $5; }
+ | bgp_proto KEEPALIVE TIME expr ';' { BGP_CFG->keepalive_time = $4; }
+ | bgp_proto MULTIHOP expr VIA ipa ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
- | bgp_proto PATH METRIC NUM ';' { BGP_CFG->compare_path_lengths = $4; }
- | bgp_proto DEFAULT BGP_MED NUM ';' { BGP_CFG->default_med = $4; }
- | bgp_proto DEFAULT BGP_LOCAL_PREF NUM ';' { BGP_CFG->default_local_pref = $4; }
- | bgp_proto SOURCE ADDRESS IPA ';' { BGP_CFG->source_addr = $4; }
- | bgp_proto START DELAY TIME NUM ';' { BGP_CFG->start_delay_time = $5; }
- | bgp_proto ERROR FORGET TIME NUM ';' { BGP_CFG->error_amnesia_time = $5; } 
- | bgp_proto ERROR WAIT TIME NUM ',' NUM ';' { BGP_CFG->error_delay_time_min = $5; BGP_CFG->error_delay_time_max = $7; }
+ | bgp_proto PATH METRIC expr ';' { BGP_CFG->compare_path_lengths = $4; }
+ | bgp_proto DEFAULT BGP_MED expr ';' { BGP_CFG->default_med = $4; }
+ | bgp_proto DEFAULT BGP_LOCAL_PREF expr ';' { BGP_CFG->default_local_pref = $4; }
+ | bgp_proto SOURCE ADDRESS ipa ';' { BGP_CFG->source_addr = $4; }
+ | bgp_proto START DELAY TIME expr ';' { BGP_CFG->start_delay_time = $5; }
+ | bgp_proto ERROR FORGET TIME expr ';' { BGP_CFG->error_amnesia_time = $5; } 
+ | bgp_proto ERROR WAIT TIME expr ',' expr ';' { BGP_CFG->error_delay_time_min = $5; BGP_CFG->error_delay_time_max = $7; }
  | bgp_proto DISABLE AFTER ERROR ';' { BGP_CFG->disable_after_error = 1; }
  ;
 
