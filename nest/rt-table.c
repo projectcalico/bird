@@ -720,7 +720,8 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
   int ok;
 
   bsprintf(ia, "%I/%d", n->n.prefix, n->n.pxlen);
-  d->net_counter++;
+  if (n->routes)
+    d->net_counter++;
   for(e=n->routes; e; e=e->next)
     {
       struct ea_list *tmpa, *old_tmpa;
