@@ -228,8 +228,8 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 		  && nc->preference == oc->preference
 		  && nc->disabled == oc->disabled
 		  && nc->table->table == oc->table->table
-		  && nc->in_filter == oc->in_filter
-		  && nc->out_filter == oc->out_filter
+		  && filter_same(nc->in_filter, oc->in_filter)
+		  && filter_same(nc->out_filter, oc->out_filter)
 		  && p->proto_state != PS_DOWN)
 		{
 		  /* Generic attributes match, try converting them and then ask the protocol */

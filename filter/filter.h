@@ -67,6 +67,7 @@ struct rte;
 
 int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool);
 char *filter_name(struct filter *filter);
+int filter_same(struct filter *new, struct filter *old);
 
 int val_compare(struct f_val v1, struct f_val v2);
 void val_print(struct f_val v);

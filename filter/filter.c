@@ -444,3 +444,10 @@ filters_postconfig(void)
     printf( "done\n" );
   }
 } 
+
+int
+filter_same(struct filter *new, struct filter *old)
+{
+  /* FIXME: This has to be defined! */
+  return new == old;
+}

@@ -25,8 +25,6 @@ Core
 
 - config: executable config files
 - config: when parsing prefix, check zero bits
-- config: reconfiguration
-- config: reconfiguration of filters
 - config: useless rules when protocols disabled
 - config: remove protocol startup priority hacks?
 - config: better datetime format
@@ -54,7 +52,6 @@ show	<name>			# show everything you know about symbol <name>
 
 Roadmap
 ~~~~~~~
-- Dynamic reconfiguration
 - Allocators and data structures
 - Client
 - Remaining bits of IPv6 support (radvd)
