@@ -70,8 +70,8 @@ struct proto {
 
   int (*rta_same)(struct rtattr *, struct rtattr *);
   int (*rte_better)(struct rte *, struct rte *);
-  int (*rte_insert)(struct network *, struct rte *);
-  int (*rte_remove)(struct network *, struct rte *);
+  void (*rte_insert)(struct network *, struct rte *);
+  void (*rte_remove)(struct network *, struct rte *);
 
   /* Reconfigure function? */
   /* Interface patterns */
