@@ -192,3 +192,15 @@ sk_send_to_agt(sock *sk, u16 len, struct ospf_iface *ifa, u8 state)
     if(n->state>=state)
       sk_send_to(sk, len, n->ip, OSPF_PROTO);
 }                                                                       
+
+void
+sk_send_to_bdr(sock *sk, u16 len, struct ospf_iface *ifa)
+{
+  struct ospf_neighbor *n;
+
+  if(ipa_compare(ifa->drip,ipa_from_u32(0))!=0)
+    sk_send_to(sk, len, ifa->drip, OSPF_PROTO);
+  if(ipa_compare(ifa->bdrip,ipa_from_u32(0))!=0)
+    sk_send_to(sk, len, ifa->bdrip, OSPF_PROTO);
+}
+

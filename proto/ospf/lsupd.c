@@ -149,7 +149,9 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 
       if(ifa->type==OSPF_IT_NBMA)
       {
-        sk_send_to_agt(sk ,len, ifa, NEIGHBOR_EXCHANGE);
+        if((ifa->state==OSPF_IS_BACKUP)||(ifa->state==OSPF_IS_DR))
+          sk_send_to_agt(sk ,len, ifa, NEIGHBOR_EXCHANGE);
+	else  sk_send_to_bdr(sk ,len, ifa);
       }
       else
       {

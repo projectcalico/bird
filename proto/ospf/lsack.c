@@ -113,7 +113,14 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
 	}
 	else
 	{
-          sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+          if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
+	  {
+            sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+	  }
+	  else
+	  {
+            sk_send_to_bdr(sk, len, ifa);
+	  }
 	}
 
 	fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
