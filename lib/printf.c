@@ -118,8 +118,10 @@ static char * number(char * str, long num, int base, int size, int precision,
  *
  * This functions acts like ordinary sprintf() except that it checks
  * available space to avoid buffer overflows and it allows some more
- * format specifiers: |%I| for formatting of IP addresses and |%M| for
- * error messages (uses strerror() to translate @errno code to
+ * format specifiers: |%I| for formatting of IP addresses (any non-zero
+ * width is automatically replaced by standard IP address width which
+ * depends on whether we use IPv4 or IPv6; |%#I| gives hexadecimal format)
+ * and |%m| resp. |%M| for error messages (uses strerror() to translate @errno code to
  * message text). On the other hand, it doesn't support floating
  * point numbers.
  *
@@ -133,6 +135,7 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 	int i, base;
 	char *str, *start;
 	const char *s;
+	char ipbuf[STD_ADDRESS_P_LENGTH+1];
 
 	int flags;		/* flags to number() */
 
@@ -264,18 +267,15 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 
 		/* IP address */
 		case 'I':
-			if (size < STD_ADDRESS_P_LENGTH)
-				return -1;
 			if (flags & SPECIAL)
-				str = ip_ntox(va_arg(args, ip_addr), str);
+				ip_ntox(va_arg(args, ip_addr), ipbuf);
 			else {
-				len = ip_ntop(va_arg(args, ip_addr), str) - str;
-				str += len;
-				if (field_width >= 0)
-					while (len++ < STD_ADDRESS_P_LENGTH)
-						*str++ = ' ';
+				ip_ntop(va_arg(args, ip_addr), ipbuf);
+				if (field_width > 0)
+					field_width = STD_ADDRESS_P_LENGTH;
 			}
-			continue;
+			s = ipbuf;
+			goto str;
 
 		/* integer number formats - set up the flags and "break" */
 		case 'o':
