@@ -8,7 +8,6 @@
 
 #include "ospf.h"
 
-/* FIXME Go on */
 void
 flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
 {
