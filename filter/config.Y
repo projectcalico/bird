@@ -9,8 +9,6 @@
 	FIXME: create ip.mask(x) function
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
-	FIXME: access to dynamic attributes
-	FIXME: local namespace for functions
 	FIXME: enumerational types
 	FIXME: defined() keyword
  */
@@ -49,10 +47,11 @@ CF_GRAMMAR
 
 CF_ADDTO(conf, filter_def)
 filter_def:
-   FILTER SYM filter_body {
-     cf_define_symbol($2, SYM_FILTER, $3);
-     $3->name = $2->name;
-     printf( "We have new filter defined (%s)\n", $2->name )
+   FILTER SYM { cf_push_scope( $2->name ); } filter_body {
+     cf_define_symbol($2, SYM_FILTER, $4);
+     $4->name = $2->name;
+     printf( "We have new filter defined (%s)\n", $2->name );
+     cf_pop_scope();
    }
  ;
 
@@ -136,14 +135,15 @@ function_body:
 
 CF_ADDTO(conf, function_def)
 function_def:
-   FUNCTION SYM function_params function_body {
+   FUNCTION SYM { printf( "Begining of function %s\n", $2->name ); cf_push_scope($2->name); } function_params function_body {
      extern struct f_inst *startup_func;
-     cf_define_symbol($2, SYM_FUNCTION, $4);
+     cf_define_symbol($2, SYM_FUNCTION, $5);
      if (!strcasecmp($2->name, "startup"))
-	startup_func = $4;
-     $2->aux = $3;
-     $2->aux2 = $4;
+	startup_func = $5;
+     $2->aux = $4;
+     $2->aux2 = $5;
      printf("Hmm, we've got one function here - %s\n", $2->name); 
+     cf_pop_scope();
    }
  ;
 
