@@ -46,7 +46,7 @@ neighbor_timer_hook(timer *timer)
   n=(struct ospf_neighbor *)timer->data;
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
-  debug("%s: Inactivity timer fired on interface %s for neighbor %d.\n",
+  debug("%s: Inactivity timer fired on interface %s for neighbor %u.\n",
     p->name, ifa->iface->name, n->rid);
   tm_stop(n->inactim);
   rfree(n->inactim);
@@ -55,13 +55,151 @@ neighbor_timer_hook(timer *timer)
   debug("%s: Deleting neigbor.\n", p->name);
 }
 
-/*
 void
-backupseen()
+iface_chstate(struct ospf_iface *ifa, u8 state)
 {
-  ;	/* Backup Seen Event *
+  struct proto *p;
+
+  p=(struct proto *)(ifa->proto);
+  debug("%s: Changing state of iface: %s from %u into %u.\n",
+    p->name, ifa->iface->name, ifa->state, state);
+  ifa->state=state;
 }
-*/
+
+struct ospf_neighbor *
+electbdr(list nl)
+{
+  struct ospf_neighbor *neigh,*n1,*n2;
+
+  n1=NULL;
+  n2=NULL;
+  WALK_LIST (neigh, nl)		/* First try those decl. themselves */
+  {
+    if(neigh->state>=NEIGHBOR_2WAY)	/* Higher than 2WAY */
+      if(neigh->priority>0)		/* Eligible */
+        if(neigh->rid!=neigh->dr)	/* And not declaring itself DR */
+	{
+	  if(neigh->rid==neigh->bdr)	/* Declaring BDR */
+          {
+            if(n1!=NULL)
+            {
+              if(neigh->priority>n1->priority) n1=neigh;
+	      else if(neigh->priority==n1->priority)
+	          if(neigh->rid>n1->rid) n1=neigh;
+            }
+	    else
+            {
+              n1=neigh;
+            }
+          }
+	  else				/* And NOT declaring BDR */
+          {
+            if(n2!=NULL)
+            {
+              if(neigh->priority>n2->priority) n2=neigh;
+	      else if(neigh->priority==n2->priority)
+	          if(neigh->rid>n2->rid) n2=neigh;
+            }
+	    else
+            {
+              n2=neigh;
+            }
+          }
+      }
+  }
+  if(n1==NULL) n1=n2;
+
+  return(n1);
+}
+
+struct ospf_neighbor *
+electdr(list nl)
+{
+  struct ospf_neighbor *neigh,*n;
+
+  n=NULL;
+  WALK_LIST (neigh, nl)	/* And now DR */
+  {
+    if(neigh->state>=NEIGHBOR_2WAY)	/* Higher than 2WAY */
+      if(neigh->priority>0)		/* Eligible */
+        if(neigh->rid==neigh->dr)	/* And declaring itself DR */
+	{
+          if(n!=NULL)
+          {
+            if(neigh->priority>n->priority) n=neigh;
+	    else if(neigh->priority==n->priority)
+	        if(neigh->rid>n->rid) n=neigh;
+          }
+	  else
+          {
+            n=neigh;
+          }
+      }
+  }
+
+  return(n);
+}
+
+void
+backupseen(struct ospf_iface *ifa)
+{
+  struct proto *p;
+  struct ospf_neighbor *neigh,*ndr,*nbdr,me;
+  u32 myid;
+
+  p=(struct proto *)(ifa->proto);
+
+  DBG("%s: (B)DR election.\n",p->name);
+
+  myid=p->cf->global->router_id;
+
+  me.state=NEIGHBOR_2WAY;
+  me.rid=myid;
+  me.priority=ifa->priority;
+  me.dr=ifa->drid;
+  me.bdr=ifa->bdrid;
+
+  add_tail(&ifa->neigh_list, NODE &me);
+
+  nbdr=electbdr(ifa->neigh_list);
+  ndr=electdr(ifa->neigh_list);
+ 
+  if(ndr==NULL) ndr=nbdr;
+
+  if(((ifa->drid==myid) && (ndr!=myid))
+    || ((ifa->drid!=myid) && (ndr==myid))
+    || ((ifa->bdrid==myid) && (nbdr!=myid)) 
+    || ((ifa->bdrid!=myid) && (nbdr==myid)))
+  {
+    if(ndr==NULL) ifa->drid=me.dr=0;
+    else ifa->drid=me.dr=ndr->rid;
+
+    if(nbdr==NULL) ifa->bdrid=me.bdr=0;
+    else ifa->bdrid=me.bdr=nbdr->rid;
+
+    nbdr=electbdr(ifa->neigh_list);
+    ndr=electdr(ifa->neigh_list);
+  }
+  if(ndr==NULL) ifa->drid=0;
+  else ifa->drid=ndr->rid;
+
+  if(nbdr==NULL) ifa->bdrid=0;
+  else ifa->bdrid=me.bdr=nbdr->rid;
+
+  DBG("%s: DR=%u, BDR=%u\n",p->name, ifa->drid, ifa->bdrid);
+
+  tm_stop(ifa->wait_timer);
+  DBG("%s: Stoping wait timer\n",p->name);
+
+  if(myid==ifa->drid) iface_chstate(ifa, OSPF_IS_DR);
+  else
+  {
+    if(myid==ifa->bdrid) iface_chstate(ifa, OSPF_IS_BACKUP);
+    else iface_chstate(ifa, OSPF_IS_DROTHER);
+  }
+
+  rem_node(NODE &me);
+}
 
 void
 ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
@@ -77,7 +215,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   if(ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
   {
     ip_ntop(ps->netmask,sip);
-    log("%s: Bad OSPF packet from %d received: bad netmask %s.",
+    log("%s: Bad OSPF packet from %u received: bad netmask %s.",
       p->name, nrid, sip);
     log("%s: Discarding",p->name);
     return;
@@ -85,7 +223,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   
   if(ntohs(ps->helloint)!=ifa->helloint)
   {
-    log("%s: Bad OSPF packet from %d received: hello interval mismatch.",
+    log("%s: Bad OSPF packet from %u received: hello interval mismatch.",
       p->name, nrid);
     log("%s: Discarding",p->name);
     return;
@@ -93,7 +231,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if(ntohl(ps->deadint)!=ifa->helloint*ifa->deadc)
   {
-    log("%s: Bad OSPF packet from %d received: dead interval mismatch.",
+    log("%s: Bad OSPF packet from %u received: dead interval mismatch.",
       p->name, nrid);
     log("%s: Discarding",p->name);
     return;
@@ -102,7 +240,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   
   if(ps->options!=ifa->options)
   {
-    log("%s: Bad OSPF packet from %d received: options mismatch.",
+    log("%s: Bad OSPF packet from %u received: options mismatch.",
       p->name, nrid);	/* FIXME: This not good */
     log("%s: Discarding",p->name);
     return;
@@ -120,7 +258,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if(n==NULL)
   {
-    log("%s: New neighbor found: %d.",p->name,nrid);
+    log("%s: New neighbor found: %u.",p->name,nrid);
     n=mb_alloc(p->pool, sizeof(struct ospf_neighbor));
     add_tail(&ifa->neigh_list, NODE n);
     n->inactim=tm_new(p->pool);
@@ -146,7 +284,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     if(ntohl(*(pnrid+i))==p->cf->global->router_id)
     {
       twoway=1;
-      DBG("%s: Twoway received. %d\n", p->name, nrid);
+      DBG("%s: Twoway received. %u\n", p->name, nrid);
       break;
     }
   }
@@ -172,9 +310,9 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   /* Check neighbor's designed router idea */
   if((n->rid!=ntohl(ps->dr)) && (ntohl(ps->bdr)==0) &&
-    (ifa->state==OSPF_IS_WAITING))
+    (ifa->state==OSPF_IS_WAITING) && (n->state>=NEIGHBOR_2WAY))
   {
-    /* FIXME BackupSeen */;
+    backupseen(ifa);
   }
   if((n->rid==ntohl(ps->dr)) && (n->dr!=ntohl(ps->dr)))
   {
@@ -187,9 +325,10 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   n->dr=ntohl(ps->dr);	/* And update it */
 
   /* Check neighbor's backup designed router idea */
-  if((n->rid==ntohl(ps->bdr)) && (ifa->state==OSPF_IS_WAITING))
+  if((n->rid==ntohl(ps->bdr)) && (ifa->state==OSPF_IS_WAITING)
+    && (n->state>=NEIGHBOR_2WAY))
   {
-    /* FIXME BackupSeen */;
+    backupseen(ifa);
   }
   if((n->rid==ntohl(ps->bdr)) && (n->bdr!=ntohl(ps->bdr)))
   {
@@ -278,7 +417,7 @@ ospf_rx_hook(sock *sk, int size)
   
   if(size < sizeof(struct ospf_packet))
   {
-    log("%s: Bad packet received: too short (%d bytes)", p->name, size);
+    log("%s: Bad packet received: too short (%u bytes)", p->name, size);
     log("%s: Discarding",p->name);
     return(1);
   }
@@ -292,7 +431,7 @@ ospf_rx_hook(sock *sk, int size)
 
   if(ps->version!=OSPF_VERSION)
   {
-    log("%s: Bad packet received: version %d", p->name, ps->version);
+    log("%s: Bad packet received: version %u", p->name, ps->version);
     log("%s: Discarding",p->name);
     return(1);
   }
@@ -317,9 +456,9 @@ ospf_rx_hook(sock *sk, int size)
   /* Dump packet */
   pu8=(u8 *)(sk->rbuf+5*4);
   for(i=0;i<ntohs(ps->length);i+=4)
-    debug("%s: received %d,%d,%d,%d\n",p->name, pu8[i+0], pu8[i+1], pu8[i+2],
+    debug("%s: received %u,%u,%u,%u\n",p->name, pu8[i+0], pu8[i+1], pu8[i+2],
 		    pu8[i+3]);
-  debug("%s: received size: %d\n",p->name,size);
+  debug("%s: received size: %u\n",p->name,size);
 
   switch(ps->type)
   {
@@ -337,7 +476,7 @@ ospf_rx_hook(sock *sk, int size)
     case LSACK:
       break;
     default:
-      log("%s: Bad packet received: wrong type %d", p->name, ps->type);
+      log("%s: Bad packet received: wrong type %u", p->name, ps->type);
       log("%s: Discarding",p->name);
       return(1);
   };
@@ -537,32 +676,8 @@ wait_timer_hook(timer *timer)
   p=(struct proto *)(ifa->proto);
   debug("%s: Wait timer fired on interface %s.\n",
     p->name, ifa->iface->name);
-  if(ifa->state=OSPF_IS_WAITING)
-  {
-    /*
-     * Wait time fired. Now we must change state
-     * to DR or DROTHER depending on priority
-     * FIXME: I can be also BDR
-     */
-    if(ifa->priority!=0)
-    {
-      debug("%s: Changing state into DR.\n", p->name);
-
-      ifa->state=OSPF_IS_DR;
-      ifa->drip=ifa->iface->addr->ip;
-      ifa->drid=p->cf->global->router_id;
-      /* FIXME: Set ifa->drid */
-    }
-    else
-    {
-      debug("%s: Changing state into DROTHER.\n",p->name);
-      ifa->state=OSPF_IS_DROTHER;
-    }
-  }
-  else
-  {
-    die("%s: Wait timer fired I'm not in WAITING state?", p->name);
-  }
+  if(ifa->state=OSPF_IS_WAITING) backupseen(ifa);
+  else die("%s: Wait timer fired I'm not in WAITING state?", p->name);
 }
 
 void
@@ -579,7 +694,7 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
   ifa->hello_timer->hook=hello_timer_hook;
   ifa->hello_timer->recurrent=ifa->helloint;
   tm_start(ifa->hello_timer,ifa->helloint);
-  DBG("%s: Installing hello timer. (%d)\n", p->name, ifa->helloint);
+  DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
   if((ifa->type!=OSPF_IT_PTP))
   {
     /* Install wait timer on NOT-PtP interfaces */
@@ -590,7 +705,7 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
     ifa->wait_timer->recurrent=0;
     ifa->state=OSPF_IS_WAITING;
     tm_start(ifa->wait_timer,(wait!=0 ? wait : WAIT_DMH*ifa->helloint));
-    DBG("%s: Installing wait timer. (%d)\n", p->name, (wait!=0 ? wait : WAIT_DMH*ifa->helloint));
+    DBG("%s: Installing wait timer. (%u)\n", p->name, (wait!=0 ? wait : WAIT_DMH*ifa->helloint));
   }
   else ifa->state=OSPF_IS_PTP;
 }
@@ -712,7 +827,7 @@ ospf_dump(struct proto *p)
 
   DBG(p->name);
   DBG(": Dump.\n");
-  debug(" -AreaID: %d\n", c->area );
+  debug(" -AreaID: %u\n", c->area );
 }
 
 static struct proto *

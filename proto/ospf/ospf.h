@@ -110,6 +110,7 @@ struct ospf_hello_packet {
 
 struct ospf_neighbor
 {
+  node n;
   struct ospf_iface *ifa;
   int state;
 #define NEIGHBOR_DOWN 0
