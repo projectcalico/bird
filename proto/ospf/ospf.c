@@ -18,7 +18,7 @@ ospf_start(struct proto *p)
 
   /* Create graph of LSA's */
   po->areano=1;		/* FIXME should respect config! */
-  po->firstarea=(struct ospf_area *)malloc(sizeof(struct ospf_area));
+  po->firstarea=(struct ospf_area *)cfg_alloc(sizeof(struct ospf_area));
   po->firstarea->gr=ospf_top_new(po);
   po->firstarea->next=NULL;
   po->firstarea->areaid=0;
