@@ -14,11 +14,20 @@
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "lib/resource.h"
+#include "lib/event.h"
 
 rtable master_table;
 static slab *rte_slab;
 
-void
+#define RT_GC_MIN_TIME 5		/* FIXME: Make configurable */
+#define RT_GC_MIN_COUNT 100
+
+static pool *rt_table_pool;
+static event *rt_gc_event;
+static bird_clock_t rt_last_gc;
+static int rt_gc_counter;
+
+static void
 rte_init(struct fib_node *N)
 {
   net *n = (net *) N;
@@ -206,6 +215,8 @@ rte_update(net *net, struct proto *p, rte *new)
 		}
 	      r->next = net->routes;
 	      net->routes = r;
+	      if (!r && rt_gc_counter++ >= RT_GC_MIN_COUNT && rt_last_gc + RT_GC_MIN_TIME <= now)
+		ev_schedule(rt_gc_event);
 	    }
 	}
       if (new)				/* Link in the new non-optimal route */
@@ -280,19 +291,32 @@ rt_dump_all(void)
   rt_dump(&master_table);
 }
 
+static void
+rt_gc(void *unused)
+{
+  DBG("Entered routing table garbage collector after %d seconds and %d deletes\n", (int)(now - rt_last_gc), rt_gc_counter);
+  rt_prune(&master_table);
+  rt_last_gc = now;
+  rt_gc_counter = 0;
+}
+
 void
 rt_init(void)
 {
   rta_init();
+  rt_table_pool = rp_new(&root_pool, "Routing tables");
   rt_setup(&master_table, "master");
-  rte_slab = sl_new(&root_pool, sizeof(rte));
+  rte_slab = sl_new(rt_table_pool, sizeof(rte));
+  rt_last_gc = now;
+  rt_gc_event = ev_new(rt_table_pool);
+  rt_gc_event->hook = rt_gc;
 }
 
 void
 rt_prune(rtable *tab)
 {
   struct fib_iterator fit;
-  int cnt = 0;
+  int rcnt = 0, rdel = 0, ncnt = 0, ndel = 0;
 
   DBG("Pruning route table %s\n", tab->name);
   while (tab)
@@ -303,17 +327,23 @@ rt_prune(rtable *tab)
 	{
 	  net *n = (net *) f;
 	  rte *e;
-	  for (e=n->routes; e; e=e->next)
+	  ncnt++;
+	  for (e=n->routes; e; e=e->next, rcnt++)
 	    if (e->attrs->proto->core_state != FS_HAPPY)
 	      {
-		FIB_ITERATE_PUT(&fit, f);
 		rte_discard(e);
-		cnt++;
-		goto again;
+		rdel++;
 	      }
+	  if (!n->routes)		/* Orphaned FIB entry? */
+	    {
+	      FIB_ITERATE_PUT(&fit, f);
+	      fib_delete(&tab->fib, f);
+	      ndel++;
+	      goto again;
+	    }
 	}
       FIB_ITERATE_END(f);
       tab = tab->sibling;
     }
-  DBG("Pruned %d routes\n", cnt);
+  DBG("Pruned %d of %d routes and %d of %d networks\n", rcnt, rdel, ncnt, ndel);
 }
