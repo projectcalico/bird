@@ -11,7 +11,8 @@ CFLAGS=$(OPT) $(DEBUG) -Wall -W -Wstrict-prototypes -Wno-unused -Wno-parentheses
 
 PROTOCOLS=rip
 LIBDIRS=sysdep/linux sysdep/unix lib
-STDDIRS=nest $(addprefix proto/,$(PROTOCOLS))
+BASEDIRS=nest $(addprefix proto/,$(PROTOCOLS))
+STDDIRS=$(BASEDIRS) $(OBJDIR)/conf
 DIRS=$(STDDIRS) $(OBJDIR)/lib
 PARTOBJS=$(join $(addsuffix /,$(STDDIRS)),$(subst /,_,$(addsuffix .o,$(STDDIRS))))
 LIBS=$(OBJDIR)/lib/birdlib.a

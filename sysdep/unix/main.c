@@ -7,6 +7,8 @@
  */
 
 #include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <sys/signal.h>
 
 #include "nest/bird.h"
@@ -16,7 +18,7 @@
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
-#include "nest/confile.h"
+#include "conf/conf.h"
 
 #include "unix.h"
 #include "krt.h"
@@ -54,11 +56,32 @@ signal_init(void)
 }
 
 /*
- *	Config Pool
+ *	Reading the Configuration
  */
 
-pool *cfg_pool;
-mempool *cfg_mem;
+static int conf_fd;
+
+static int
+cf_read(byte *dest, unsigned int len)
+{
+  int l = read(conf_fd, dest, len);
+  if (l < 0)
+    cf_error("Read error");
+  return l;
+}
+
+static void
+read_config(void)
+{
+  cf_lex_init_tables();
+  cf_allocate();
+  conf_fd = open(PATH_CONFIG, O_RDONLY);
+  if (conf_fd < 0)
+    die("Unable to open configuration file " PATH_CONFIG ": %m");
+  cf_read_hook = cf_read;
+  cf_lex_init(1);
+  cf_parse();
+}
 
 /*
  *	Hic Est main()
@@ -71,9 +94,11 @@ main(void)
 
   log_init_debug(NULL);
   resource_init();
-  cfg_pool = rp_new(&root_pool, "Config");
-  cfg_mem = mp_new(cfg_pool, 1024);
 
+  debug("Reading configuration file.\n");
+  read_config();
+
+  debug("Initializing.\n");
   io_init();
   rt_init();
   if_init();
@@ -88,7 +113,9 @@ main(void)
   scan_if_init();
   auto_router_id();
 
+#if 0
   protos_start();
+#endif
 
   handle_sigusr(0);
 
