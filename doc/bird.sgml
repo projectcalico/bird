@@ -3,7 +3,7 @@
 <!--
 	Bird documentation
 
-    Look for "about this documenation" section to learn more.
+    Look for "about this documentation" section to learn more.
 
     (set-fill-column 100)
 
@@ -31,20 +31,20 @@ This document contains documentation for BIRD Internet Routing Daemon
 
 <sect1>What is bird
 
-<p><label id="intro"> You may wonder what 'bird' means. It is acronym of 'Basic Internet Routing
+<p><label id="intro"> You may wonder what 'bird' means. It is acronym of 'BIRD Internet Routing
 Daemon', and we think that's cool name. Its task is similar to what firmware of Cisco routers does,
 or what gated (<HTMLURL URL="http://www.gated.org/">) or GNU zebra (<HTMLURL
 URL="http://www.zebra.org/">) does. However, you can not run Cisco's firmware on "normal" computer
 and gated is really hard to configure and comes under wrong license. Bird is being developed on
 Charles University, Prague, and can be freely distributed under terms of GNU General Public
-License. Bird is designed to run on unix and unix-like systems, it is primarily developed on Linux.
+License. Bird is designed to run on Unix and unix-like systems, it is primarily developed on Linux.
 
 <sect1>About this documentation
 
 <p>This documentation can have 4 forms: sgml (this is master copy), html, ascii text (generated from
 html) and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy,
 it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is considered definition of
-configuration primitives, &lt;cf&gt; is fragment of configuartion within normal text, &lt;m&gt; is
+configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
 "meta" information -- something in config which is not keyword.
 
 <sect1>Configuration
@@ -79,36 +79,62 @@ ignored. If there's variable number of options, it is grouped using {
 <sect2>Global options
 				
 <descrip>
-	<tag>log "<m/filename/"|syslog|stderr all|{ debug, trace, info,
-	remote, warning, error, auth, fatal, bug }</tag> set logging of
-	classes (either all or { error, trace } etc.) into selected
-	destination. You may specify more than one <cf/log/ line to
-	log to multiple destinations.
+	<tag>log "<m/filename/"|syslog|stderr all|{ debug, trace, info, remote, warning, error,
+	auth, fatal, bug }</tag> set logging of classes (either all or { error, trace } etc.) into
+	selected destination. You may specify more than one <cf/log/ line to log to multiple
+	destinations.
 				  
-	<tag>debug protocols all|off|{ states, routes, filters,
-	interfaces, events, packets }</tag> set debugging options.
+	<tag>debug protocols all|off|{ states, routes, filters, interfaces, events, packets }</tag>
+	set debugging options.
 
-	<tag>filter <m/name/ { <m/commands/ }</tag> define filter. You can
-	learn more about filters in next chapter.
+	<tag>filter <m/name/{ <m/commands/ }</tag> define filter. You can learn more about filters
+	in next chapter.
  
-	<tag>protocol rip|ospf|bgp <m/[name]/ { <m>protocol options</m> }</tag> define
-	protocol instance, called name (or called something like rip5
-	if you ommit name). You can learn more about
-	configuring protocols in their own chapters.
+	<tag>protocol rip|ospf|bgp <m/[name]/ { <m>protocol options</m> }</tag> define protocol
+	instance, called name (or called something like rip5 if you omit name). You can learn more
+	about configuring protocols in their own chapters.
 
-	<tag>define constant = expression</tag> define constant. You can
-	use it later in every place you could use simple integer.
+	<tag>define constant = expression</tag> define constant. You can use it later in every place
+	you could use simple integer.
 
-	<tag>router id <m/num.num.num.num/</tag> set router
-	id. Usually lowest IP address of router.
+	<tag>router id <m/num.num.num.num/</tag> set router id. Router
+	id needs to be world-wide unique 32bit number, identifying
+	router. It is usually one of router's IP addresses.
 
 	<tag>table <m/name/</tag> create new routing table.
 </descrip>
 
 <sect2>Per-protocol options
 
-<p>FIXME - document preference, disabled, debug, import, export, table; see nest/config.Y
+<descrip>
+	<tag>preference <m/expr/</tag> sets preference of this protocol.
 
+	<tag>disabled</tag> disables given protocol.
+
+	<tag>debug <m/setting/</tag> this is similar to global debug setting, except that it only
+	affects one protocol.
+
+	<tag>import <m/filter/</tag> filter can be either either <cf> { <m>filter commands</m>
+	}</cf> or <cf>filter <m/name/</cf>. Import filter works in direction from protocol to main
+	routing table.
+
+	<tag>export <m/filter/</tag> This is similar to <cf>export</cf> keyword, except that it
+	works in direction from main routing table to protocol.
+</descrip>
+
+<p>There are per-protocol options that give sense only with certain protocols.
+
+<descrip>
+	<tag>passwords { password "<m/password/" from <m/time/ to <m/time/ passive <m/time/ id
+	<m/num/ [...] }</tag> specifies passwords to be used with this protocol. Passive time is
+	time from which password is not announced but is allowed. id is password id, as needed by
+	certain protocols.
+
+	<tag>interface "<m/mask/" [ { <m/option/ ; [ ... ] } ]</tag> specifies, which interfaces
+	this protocol is active at, and allows you to set options on interface-by-interface
+	basis. Mask is specified in shell-like patters, thus <cf>interface "*" { mode broadcast;
+	};</cf> will start given protocol on all interfaces, with <cf>mode broadcast;</cf> option.
+</descrip>
 
 <sect>Filters
 
@@ -119,18 +145,16 @@ two objects in this language: filters and functions. Filters are called by bird 
 being passed between protocol and main routing table, and filters may call functions. Functions may
 call other functions but recursion is not allowed. Filter language contains control structures such
 as if's and switches, but it allows no loops. Filters are
-interpretted. Filter using many features can be found in <file>filter/test.conf</file>. 
+interpreted. Filter using many features can be found in <file>filter/test.conf</file>. 
 
 <p>There's one strange thing with filter language: it does not permit you to create loops. There's
 no equivalent of while() or for() command, and recursive functions are not permitted.
 
-<p>You can find sources of filters language in
-<file>filter/</file> directory. <file>filter/config.Y</file> contains
-filter gramar, and basically translates source from user into tree of
-<cf>f_inst</cf> structures. These trees are later interpreted using
-code in <file>filter/filter.c</file>. Filters internally work with
-values/variables in <code>struct f_val</code>, which contains type of
-value and value.
+<p>You can find sources of filters language in <file>filter/</file>
+directory. <file>filter/config.Y</file> contains filter grammar, and basically translates source from
+user into tree of <cf>f_inst</cf> structures. These trees are later interpreted using code in
+<file>filter/filter.c</file>. Filters internally work with values/variables in <code>struct
+f_val</code>, which contains type of value and value.
 
 <p>Filter basically looks like this:
 
@@ -153,8 +177,8 @@ int var;
 
 <p>As you can see, filter has a header, list of local variables, and body. Header consists of <cf/filter/ keyword, followed by (unique) name of filter. List of local variables consists of
 pairs <cf><M>type name</M>;</cf>, where each pair defines one local variable. Body consists of
-<cf> { <M>statments</M> }</cf>. Statements are terminated by <cf/;/. You can group
-several statments into one by <cf>{ <M>statments</M> }</cf> construction, that is usefull if
+<cf> { <M>statements</M> }</cf>. Statements are terminated by <cf/;/. You can group
+several statements into one by <cf>{ <M>statements</M> }</cf> construction, that is useful if
 you want to make bigger block of code conditional.
 
 <sect1>Data types
@@ -163,33 +187,31 @@ you want to make bigger block of code conditional.
 booleans (that is to prevent you from shooting in the foot).
 
 <descrip>
-	<tag/bool/ this is boolean type, it can have only two values,
-	  <cf/TRUE/ and <cf/FALSE/. Boolean is not compatible with
-	  integer and is the only type you can use in if statments.
+	<tag/bool/ this is boolean type, it can have only two values, <cf/TRUE/ and
+	  <cf/FALSE/. Boolean is not compatible with integer and is the only type you can use in if
+	  statements.
 
-	<tag/int/ this is common integer, you can expect it to store
-	  signed values from -2000000000 to +2000000000.
+	<tag/int/ this is common integer, you can expect it to store signed values from -2000000000
+	  to +2000000000.
 
-	<tag/pair/ this is pair of two short integers. Each component
-	  can have values from 0 to 65535. Constant of this type is
-	  written as <cf/(1234,5678)/.
+	<tag/pair/ this is pair of two short integers. Each component can have values from 0 to
+	  65535. Constant of this type is written as <cf/(1234,5678)/.
 
-	<tag/string/ this is string of characters. There are no ways to modify strings in filters. You can
-	  pass them between functions, assign to variable of type string, print such variables, but
-	  you can not concatenate two strings (for example). String constants are written as <cf/
-	  "This is string constant"/.
+	<tag/string/ this is string of characters. There are no ways to modify strings in
+	  filters. You can pass them between functions, assign to variable of type string, print
+	  such variables, but you can not concatenate two strings (for example). String constants
+	  are written as <cf/ "This is string constant"/.
 
 	<tag/ip/ this type can hold single ip address. Depending on version of bird you are using, it
-	  can be ipv4 or ipv6 address. Ipv4 addresses addresses are written (as you would expect) as
+	  can be IPv4 or IPv6 address. IPv4 addresses are written (as you would expect) as
 	  <cf/1.2.3.4/. You can apply special operator <cf>.mask(<M>num</M>)</cf>
 	  on values of type ip. It masks out all but first <cf><M>num</M></cf> bits from ip
 	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true.
 
-	<tag/prefix/ this type can hold ip address, prefix len
-	  pair. Prefixes are written as <cf><M>ip address</M>/<M>px
-	  len</M></cf>. There are two special operators on prefix:
-	  <cf/.ip/, which separates ip address from the pair, and
-	  <cf/.len/, which separates prefix len from the pair.
+	<tag/prefix/ this type can hold ip address, prefix len pair. Prefixes are written as
+	  <cf><M>ip address</M>/<M>px len</M></cf>. There are two special operators on prefix:
+	  <cf/.ip/, which separates ip address from the pair, and <cf/.len/, which separates prefix
+	  len from the pair.
 
 	<tag/set int|ip|prefix|pair/
 	  filters know four types of sets. Sets are similar to strings: you can pass them around
@@ -197,7 +219,7 @@ booleans (that is to prevent you from shooting in the foot).
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
 	  sets. Sets of prefixes are special: you can specify which prefixes should match them by
 	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. 3.0.0.0/8{5,6} matches
-	  prefixes 3.X.X.X, whose prefixlength is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
+	  prefixes 3.X.X.X, whose prefix length is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
 	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}.
 
 	<tag/enum/
@@ -212,7 +234,7 @@ booleans (that is to prevent you from shooting in the foot).
 <p>Filter language supports common integer operations (+,-,*,/), parenthesis (a*(b+c)), comparation
 (a=b, a!=b, a&lt;b, a&gt;=b). Special operators include ~ for "in" operation. In operation can be
 used on element and set of that elements, or on ip and prefix, or on prefix and prefix. Its result
-is true if element is in given set or if ip adress is inside given prefix.
+is true if element is in given set or if ip address is inside given prefix.
 
 <sect1>Functions
 
@@ -234,32 +256,27 @@ function with_parameters (int parameter)
 </verb></cf>
 
 <p>Unlike C, variables are declared after function line but before first {. You can not declare
-variables in nested blocks. Functions are called like in C: <cf>name(); with_parameters(5);</cf>.
+variables in nested blocks. Functions are called like in C: <cf>name();
+with_parameters(5);</cf>. Function may return value using <cf>return <m/[expr]/</cf>
+syntax. Returning value exits from current function (this is similar to C).
 
 <p>Filters are declared in similar way to functions, except they can not have explicit
-parameters. They get route table entry as implicit parameter.
+parameters. They get route table entry as implicit parameter. Route table entry is passed implicitly
+to any functions being called.
 
 <sect1>Control structures
 
-<p>Filters support two control structures: if/then/else and
-case. Syntax of if/then/else is <cf>if <M>expression</M> then
-<M>command</M>; else <M>command</M>;</cf> and you can use <cf>{
-<M>command_1</M>; <M>command_2</M>; <M>...</M> }</cf> instead of one
-or both commands. <cf>else</cf> clause may be ommited. Case is
-used like this:
+<p>Filters support two control structures: if/then/else and case. Syntax of if/then/else is <cf>if
+<M>expression</M> then <M>command</M>; else <M>command</M>;</cf> and you can use <cf>{
+<M>command_1</M>; <M>command_2</M>; <M>...</M> }</cf> instead of one or both commands. <cf>else</cf>
+clause may be omitted.
 
-<cf><verb>
-        case <M>argument</M> {
-        2: print "dva"; print "jeste jednou dva";
-        3 .. 5: print "tri az pet";
-        else: print "neco jineho";
-        }
-</verb></cf>
-
-where <M>argument</M> is any argument that can be on the left side of ~ operator, and anything that
-could be member of set is allowed before :. Multiple commands are allowed without {} grouping. If
-argument matches neither of : clauses, else: clause is used. (Case is actually implemented as set
-matching, internally.)
+<p><cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else |
+<m/num_or_prefix [ .. num_or_prefix]/ : <m/statement/ ; [ ... ] }</cf>. Expression after
+<cf>case</cf> can be of any type that can be on the left side of ~ operator, and anything that could
+be member of set is allowed before :. Multiple commands are allowed without {} grouping. If argument
+matches neither of : clauses, else: clause is used. (Case is actually implemented as set matching,
+internally.)
 
 <sect>Protocols
 
@@ -273,7 +290,7 @@ it and broadcasts it back. Broadcasts are done in regular intervals. Therefore, 
 unreachable, routers keep telling each other that distance is old distance plus 1 (actually, plus
 interface metric, which is usually one). After some time, distance reaches infinity (that's 15 in
 rip) and all routers know that network is unreachable. Rip tries to minimize situations where
-counting to infinity is neccessary, because it is slow. Due to infinity being 16, you can not use
+counting to infinity is necessary, because it is slow. Due to infinity being 16, you can not use
 rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <HTMLURL
 URL="http://www.ietf.org/html.charters/rip-charter.html">.
 
@@ -282,15 +299,18 @@ URL="http://www.ietf.org/html.charters/rip-charter.html">.
 <p>In addition to options generic to other protocols, rip supports following options:
 
 <descrip>
-	<tag/authentication none|password|md5/ selects authenticaion method to use. None means that
+	<tag/authentication none|password|md5/ selects authentication method to use. None means that
 	  packets are not authenticated at all, password means that plaintext password is embedded
-	  into each packet, and md5 means that packets are authenticated using md5 cryptographics
+	  into each packet, and md5 means that packets are authenticated using md5 cryptographic
 	  hash. If you set authentication to non-none, it is good idea to add <cf>passwords { }</cf>
 	  section.
+
+	<tag>honor always|neighbor|never </tag>specifies, when should be routing table updates
+	  honored. (Always, when sent from host on directly connected network, or never.)
 </descrip>
 
 <p>There are two options that can be specified per-interface. First is <cf>metric</cf>, with
-default one.  Second is <cf>mode broadcast|quiet|nolisten|version1</cf>, it selects mode for
+default one.  Second is <cf>mode multicast|broadcast|quiet|nolisten|version1</cf>, it selects mode for
 rip to work in. If nothing is specified, rip runs in multicasts mode. <cf>version1</cf> is
 currently equivalent to <cf>broadcast</cf>, and it makes rip talk at broadcast address even
 through multicast mode is possible. <cf>quiet</cf> option means that rip will not transmit
@@ -303,7 +323,7 @@ other than equally (mis-)configured bird. I warned you.
 
 <descrip>
 	<tag>port <M>number</M></tag>
-	  selects IP port to operate on, default 520. (This is usefull when testing bird, if you
+	  selects IP port to operate on, default 520. (This is useful when testing bird, if you
 	  set this to address &gt;1024, you will not need to run bird with uid==0).
 
 	<tag>infinity <M>number</M></tag>
@@ -343,3 +363,5 @@ protocol rip MyRIP_test {
 </verb></cf>
 
 </article>
+
+# LocalWords: IPv4 IPv6 doctype verb
