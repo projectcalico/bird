@@ -22,10 +22,13 @@ struct bgp_config {
 struct bgp_conn {
   struct bgp_proto *bgp;
   struct birdsock *sk;
-  int state;				/* State of connection state machine */
+  unsigned int state;			/* State of connection state machine */
   struct timer *connect_retry_timer;
   struct timer *hold_timer;
   struct timer *keepalive_timer;
+  unsigned int packets_to_send;		/* Bitmap of packet types to be sent */
+  unsigned int notify_code, notify_subcode, notify_arg, notify_arg_size;
+  unsigned int error_flag;		/* Error state, ignore all input */
 };
 
 struct bgp_proto {
@@ -42,8 +45,12 @@ struct bgp_proto {
   struct object_lock *lock;		/* Lock for neighbor connection */
 };
 
-#define BGP_PORT 179
-#define BGP_RX_BUFFER_SIZE 4096
+#define BGP_PORT		179
+#define BGP_VERSION		4
+#define BGP_HEADER_LENGTH	19
+#define BGP_MAX_PACKET_LENGTH	4096
+#define BGP_RX_BUFFER_SIZE	4096
+#define BGP_TX_BUFFER_SIZE	BGP_MAX_PACKET_LENGTH
 
 void bgp_check(struct bgp_config *c);
 
@@ -51,12 +58,17 @@ void bgp_check(struct bgp_config *c);
 
 /* packets.c */
 
+void bgp_schedule_packet(struct bgp_conn *conn, int type);
+void bgp_tx(struct birdsock *sk);
+int bgp_rx(struct birdsock *sk, int size);
+
 /* Packet types */
 
 #define PKT_OPEN		0x01
 #define PKT_UPDATE		0x02
 #define PKT_NOTIFICATION	0x03
 #define PKT_KEEPALIVE		0x04
+#define PKT_SCHEDULE_CLOSE	0x1f	/* Used internally to schedule socket close */
 
 /* Attributes */
 

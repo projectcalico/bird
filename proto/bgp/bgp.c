@@ -78,21 +78,13 @@ bgp_start_timer(timer *t, int value)
   tm_start(t, value);
 }
 
-static int
-bgp_rx(sock *sk, int size)
-{
-  DBG("BGP: Got %d bytes\n", size);
-
-  return 1;				/* Start from the beginning */
-}
-
 static void
 bgp_send_open(struct bgp_conn *conn)
 {
   DBG("BGP: Sending open\n");
   conn->sk->rx_hook = bgp_rx;
   tm_stop(conn->connect_retry_timer);
-  /* FIXME */
+  bgp_schedule_packet(conn, PKT_OPEN);
   conn->state = BS_OPENSENT;
 }
 
@@ -174,14 +166,14 @@ bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
   s->data = conn;
   s->ttl = p->cf->multihop ? : 1;
   s->rbsize = BGP_RX_BUFFER_SIZE;
-#if 0
+  s->tbsize = BGP_TX_BUFFER_SIZE;
   s->tx_hook = bgp_tx;
-#endif
   s->err_hook = bgp_err;
   s->tos = IP_PREC_INTERNET_CONTROL;
 
   conn->bgp = p;
   conn->sk = s;
+  conn->packets_to_send = 0;
 
   t = conn->connect_retry_timer = tm_new(p->p.pool);
   t->hook = bgp_connect_timeout;
