@@ -122,6 +122,7 @@ rte *rte_get_temp(struct rtattr *);
 void rte_update(net *net, struct proto *p, rte *new);
 void rte_discard(rte *old);
 void rte_dump(rte *);
+void rte_free(rte *);
 void rt_dump(rtable *);
 void rt_dump_all(void);
 void rt_feed_baby(struct proto *p);
@@ -145,6 +146,7 @@ typedef struct rtattr {
   byte dest;				/* Route destination type (RTD_...) */
   byte tos;				/* TOS of this route */
   byte flags;				/* Route flags (RTF_...) */
+  byte aflags;				/* Attribute cache flags (RTAF_...) */
   ip_addr gw;				/* Next hop */
   ip_addr from;				/* Advertising router */
   struct iface *iface;			/* Outgoing interface */
@@ -179,6 +181,8 @@ typedef struct rtattr {
 
 #define RTF_EXTERIOR 1			/* Learned via exterior protocol */
 #define RTF_TAGGED 2			/* Tagged external route learned via IGP */
+
+#define RTAF_CACHED 1			/* This is a cached rta */
 
 /*
  *	Extended Route Attributes

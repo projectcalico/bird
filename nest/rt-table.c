@@ -136,8 +136,16 @@ rt_feed_baby(struct proto *p)
     }
 }
 
-static inline void
+void
 rte_free(rte *e)
+{
+  if (e->attrs->aflags & RTAF_CACHED)
+    rta_free(e->attrs);
+  sl_free(rte_slab, e);
+}
+
+static inline void
+rte_free_quick(rte *e)
 {
   rta_free(e->attrs);
   sl_free(rte_slab, e);
@@ -149,6 +157,9 @@ rte_update(net *net, struct proto *p, rte *new)
   rte *old_best = net->routes;
   rte *old = NULL;
   rte **k, *r, *s;
+
+  if (new && !(new->attrs->aflags & RTAF_CACHED)) /* Need to copy attributes */
+    new->attrs = rta_lookup(new->attrs);
 
   k = &net->routes;			/* Find and remove original route from the same protocol */
   while (old = *k)
@@ -202,7 +213,7 @@ rte_update(net *net, struct proto *p, rte *new)
     {
       if (p->rte_remove)
 	p->rte_remove(net, old);
-      rte_free(old);
+      rte_free_quick(old);
     }
   if (new)
     {

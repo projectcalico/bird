@@ -116,6 +116,7 @@ rta_lookup(rta *o)
     if (rta_same(r, o))
       return rta_clone(r);
   r = rta_copy(o);
+  r->aflags = RTAF_CACHED;
   r->next = first_rta;
   first_rta = r;
   return r;
@@ -144,6 +145,8 @@ rta_dump(rta *a)
     debug(" EXT");
   if (a->flags & RTF_TAGGED)
     debug(" TAG");
+  if (!(a->aflags & RTAF_CACHED))
+    debug(" !CACHED");
   debug(" <-%I", a->from);
   if (a->dest == RTD_ROUTER)
     debug(" ->%I", a->gw);
