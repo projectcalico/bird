@@ -21,6 +21,7 @@ CF_HDR
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "nest/route.h"
+#include <string.h>
 
 CF_DECLS
 
@@ -33,15 +34,18 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	LEN,
 	DEFINED,
 	IMPOSSIBLE,
+	RTSDUMMY, RTSSTATIC, RTSINHERIT, RTSDEVICE, RTSSTATIC_DEVICE, RTSREDIRECT, RTSRIP, RTSRIP_EXT, RTSOSPF, RTSOSPF_EXT, RTSOSPF_IA, RTSOSPF_BOUNDARY, RTSBGP, RTSPIPE,
 	FILTER
 	)
 
+/* Add these to break parser and make shift/reduce conflict go away :-(
 %nonassoc ELSE
 %nonassoc THEN
+*/
 
 %type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic
 %type <f> filter filter_body
-%type <i> type break_command pair
+%type <i> type break_command pair enum_rts
 %type <e> set_item set_items switch_body
 %type <v> set_atom prefix prefix_s ipa
 %type <s> decls declsn one_decl function_params 
@@ -50,7 +54,7 @@ CF_GRAMMAR
 
 CF_ADDTO(conf, filter_def)
 filter_def:
-   FILTER SYM { cf_push_scope( $2->name ); } filter_body {
+   FILTER SYM { cf_push_scope( $2 ); } filter_body {
      cf_define_symbol($2, SYM_FILTER, $4);
      $4->name = $2->name;
      printf( "We have new filter defined (%s)\n", $2->name );
@@ -79,7 +83,7 @@ one_decl:
    type SYM {
      cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
      printf( "New variable %s type %x\n", $2->name, $1 );
-     $2->aux = NULL;
+     $2->aux = 0;
      {
        struct f_val * val; 
        val = cfg_alloc(sizeof(struct f_val)); 
@@ -94,7 +98,7 @@ one_decl:
 decls: /* EMPTY */ { $$ = NULL; }
  | one_decl ';' decls {
      $$ = $1;
-     $$->aux = $3;
+     $$->aux = (int) $3;
    }
  ;
 
@@ -102,7 +106,7 @@ decls: /* EMPTY */ { $$ = NULL; }
 declsn: one_decl { $$ = $1; }
  | declsn ';' one_decl {
      $$ = $3;
-     $$->aux = $1;
+     $$->aux = (int) $1;
    }
  ;
 
@@ -137,12 +141,12 @@ function_body:
 
 CF_ADDTO(conf, function_def)
 function_def:
-   FUNCTION SYM { printf( "Begining of function %s\n", $2->name ); cf_push_scope($2->name); } function_params function_body {
+   FUNCTION SYM { printf( "Begining of function %s\n", $2->name ); cf_push_scope($2); } function_params function_body {
      extern struct f_inst *startup_func;
      cf_define_symbol($2, SYM_FUNCTION, $5);
      if (!strcasecmp($2->name, "startup"))
 	startup_func = $5;
-     $2->aux = $4;
+     $2->aux = (int) $4;
      $2->aux2 = $5;
      printf("Hmm, we've got one function here - %s\n", $2->name); 
      cf_pop_scope();
@@ -227,6 +231,23 @@ switch_body: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
+enum_rts:
+   RTSDUMMY { $$ = 0; }
+ | RTSSTATIC { $$ = 1; }
+ | RTSINHERIT { $$ = 2; }
+ | RTSDEVICE { $$ = 3; }
+ | RTSSTATIC_DEVICE { $$ = 4; }
+ | RTSREDIRECT { $$ = 5; }
+ | RTSRIP { $$ = 6; }
+ | RTSRIP_EXT { $$ = 7; }
+ | RTSOSPF { $$ = 8; }
+ | RTSOSPF_EXT { $$ = 9; }
+ | RTSOSPF_IA { $$ = 10; }
+ | RTSOSPF_BOUNDARY { $$ = 11; }
+ | RTSBGP { $$ = 12; }
+ | RTSPIPE { $$ = 13; }
+ ;
+
 constant:
    CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT; $$->a2.i = $3; }
  | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT;  $$->a2.i = $1; }
@@ -237,6 +258,8 @@ constant:
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
+
+ | enum_rts { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_ENUM_RTS; $$->a2.i = $1; } 
  ;
 
 any_dynamic:
@@ -363,13 +386,13 @@ cmd:
      $$->code = 'ca';
      $$->a1.p = inst;
      $$->a2.p = $1->aux2;
-     sym = $1->aux;
+     sym = (void *) $1->aux;
      while (sym || inst) {
        if (!sym || !inst)
 	 cf_error("wrong number of arguments for function %s.", $1->name);
        printf( "You should pass parameter called %s\n", sym->name);
        inst->a1.p = sym;
-       sym = sym->aux;
+       sym = (void *) sym->aux;
        inst = inst->next;
      }
    }

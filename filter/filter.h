@@ -97,6 +97,8 @@ void val_print(struct f_val v);
 #define T_ENUM_LO 0x30
 #define T_ENUM_HI 0x7f
 
+#define T_ENUM_RTS 0x30
+
 #define T_ENUM T_ENUM_LO ... T_ENUM_HI
 
 /* Bigger ones */
