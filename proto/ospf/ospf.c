@@ -149,6 +149,9 @@ backupseen(struct ospf_iface *ifa)
 
   p=(struct proto *)(ifa->proto);
 
+  tm_stop(ifa->wait_timer);
+  DBG("%s: Stoping wait timer\n",p->name);
+
   DBG("%s: (B)DR election.\n",p->name);
 
   myid=p->cf->global->router_id;
@@ -166,10 +169,10 @@ backupseen(struct ospf_iface *ifa)
  
   if(ndr==NULL) ndr=nbdr;
 
-  if(((ifa->drid==myid) && (ndr!=myid))
-    || ((ifa->drid!=myid) && (ndr==myid))
-    || ((ifa->bdrid==myid) && (nbdr!=myid)) 
-    || ((ifa->bdrid!=myid) && (nbdr==myid)))
+  if(((ifa->drid==myid) && (ndr->rid!=myid))
+    || ((ifa->drid!=myid) && (ndr->rid==myid))
+    || ((ifa->bdrid==myid) && (nbdr->rid!=myid)) 
+    || ((ifa->bdrid!=myid) && (nbdr->rid==myid)))
   {
     if(ndr==NULL) ifa->drid=me.dr=0;
     else ifa->drid=me.dr=ndr->rid;
@@ -187,9 +190,6 @@ backupseen(struct ospf_iface *ifa)
   else ifa->bdrid=me.bdr=nbdr->rid;
 
   DBG("%s: DR=%u, BDR=%u\n",p->name, ifa->drid, ifa->bdrid);
-
-  tm_stop(ifa->wait_timer);
-  DBG("%s: Stoping wait timer\n",p->name);
 
   if(myid==ifa->drid) iface_chstate(ifa, OSPF_IS_DR);
   else
