@@ -171,6 +171,7 @@ cli_new(void *priv)
   c->event->data = c;
   c->tx_buf = c->tx_pos = c->tx_write = NULL;
   c->cont = cli_hello;
+  c->cleanup = NULL;
   c->last_reply = 0;
   c->parser_pool = lp_new(c->pool, 4096);
   ev_schedule(c->event);
@@ -194,6 +195,8 @@ cli_written(cli *c)
 void
 cli_free(cli *c)
 {
+  if (c->cleanup)
+    c->cleanup(c);
   rfree(c->pool);
 }
 

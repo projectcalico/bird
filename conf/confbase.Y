@@ -58,7 +58,7 @@ CF_GRAMMAR
 /* Basic config file structure */
 
 config: conf_entries END { return 0; }
- | CLI_MARKER cli_cmd END { return 0; }
+ | CLI_MARKER cli_cmd { return 0; }
  ;
 
 conf_entries:

@@ -29,6 +29,7 @@ typedef struct cli {
   struct cli_out *tx_buf, *tx_pos, *tx_write;
   event *event;
   void (*cont)(struct cli *c);
+  void (*cleanup)(struct cli *c);
   void *rover;				/* Private to continuation routine */
   int last_reply;
   struct linpool *parser_pool;		/* Pool used during parsing */
