@@ -16,19 +16,6 @@
 	FIXME: (nonurgent) allow bigger frequencies than 1 regular update in 6 seconds (?)
 	FIXME: propagation of metric=infinity into main routing table may or may not be good idea.
 
-	FIXME: mj wants us to be able to format attributes:
-
-	and also a callback for naming and formatting of attributes.
-        The callback can return one of the following results:
-
-        GA_UNKNOWN      Attribute not recognized.
-        GA_NAME         Attribute name recognized and put to the buffer,
-        generic code should format the value.
-        GA_FULL         Both attribute name and value put to the buffer.
-
-        Please update protocols generating dynamic attributes to provide
-        the attr_class and formatting hook.
-
  */
 
 #define LOCAL_DEBUG
