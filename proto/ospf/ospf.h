@@ -220,7 +220,6 @@ struct proto_ospf {
   list iface_list;		/* Interfaces we really use */
   int areano;			/* Number of area I belong to */
   struct ospf_area *firstarea;
-  slab *areaslab;
 };
 
 static int ospf_start(struct proto *p);

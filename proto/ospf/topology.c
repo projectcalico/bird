@@ -46,10 +46,11 @@ addifa_rtlsa(struct ospf_iface *ifa)
   {
     po->areano++;
     oa=po->firstarea;
-    po->firstarea=sl_alloc(po->areaslab);
+    po->firstarea=mb_alloc(po->proto.pool, sizeof(struct ospf_area));
     po->firstarea->next=oa;
     po->firstarea->areaid=ifa->area;
     po->firstarea->gr=ospf_top_new(po);
+    DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->area);
   }
 
   /* FIXME Go on, change router lsa, bits and so on... */

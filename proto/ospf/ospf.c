@@ -25,7 +25,6 @@ ospf_start(struct proto *p)
 
   po->areano=0;		/* Waiting for interfaces comming up */
   po->firstarea=NULL;
-  po->areaslab=sl_new(p->pool, sizeof(struct ospf_area));
   return PS_UP;
 }
 
