@@ -43,7 +43,7 @@ void
 rt_setup(pool *p, rtable *t, char *name)
 {
   bzero(t, sizeof(*t));
-  fib_init(&t->fib, p, sizeof(rte), 0, rte_init);
+  fib_init(&t->fib, p, sizeof(net), 0, rte_init);
   t->name = name;
   init_list(&t->hooks);
 }
