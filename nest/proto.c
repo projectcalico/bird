@@ -86,6 +86,7 @@ proto_new(struct proto_config *c, unsigned size)
   p->preference = c->preference;
   p->disabled = c->disabled;
   p->proto = pr;
+  p->table = &master_table;
   p->in_filter = c->in_filter;
   p->out_filter = c->out_filter;
   return p;

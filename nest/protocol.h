@@ -99,10 +99,9 @@ struct proto {
   void (*rte_insert)(struct network *, struct rte *);
   void (*rte_remove)(struct network *, struct rte *);
 
+  struct rtable *table;			/* Routing table we're connected to */
   struct filter *in_filter;		/* Input filter */
   struct filter *out_filter;		/* Output filter */
-
-  /* Connection to routing tables? */
 
   /* Hic sunt protocol-specific data */
 };
