@@ -13,4 +13,6 @@
 #include "lib/birdlib.h"
 #include "lib/ip.h"
 
+extern int shutting_down;		/* The daemon is shutting down */
+
 #endif

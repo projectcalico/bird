@@ -13,11 +13,13 @@
 
 void async_config(void);
 void async_dump(void);
+void async_shutdown(void);
 
 /* io.c */
 
 volatile int async_config_flag;
 volatile int async_dump_flag;
+volatile int async_shutdown_flag;
 
 void io_init(void);
 void io_loop(void);

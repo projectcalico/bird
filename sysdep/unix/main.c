@@ -26,6 +26,8 @@
 #include "unix.h"
 #include "krt.h"
 
+int shutting_down;
+
 /*
  *	Debugging
  */
@@ -83,6 +85,24 @@ async_config(void)
 }
 
 /*
+ *	Shutdown
+ */
+
+void
+async_shutdown(void)
+{
+  debug("Shutting down...\n");
+  shutting_down = 1;
+  protos_shutdown();
+}
+
+void
+protos_shutdown_notify(void)
+{
+  die("System shutdown completed");
+}
+
+/*
  *	Signals
  */
 
@@ -101,6 +121,13 @@ handle_sigusr(int sig)
 }
 
 static void
+handle_sigterm(int sig)
+{
+  debug("Caught SIGTERM...\n");
+  async_shutdown_flag = 1;
+}
+
+static void
 signal_init(void)
 {
   struct sigaction sa;
@@ -112,6 +139,9 @@ signal_init(void)
   sa.sa_handler = handle_sighup;
   sa.sa_flags = SA_RESTART;
   sigaction(SIGHUP, &sa, NULL);
+  sa.sa_handler = handle_sigterm;
+  sa.sa_flags = SA_RESTART;
+  sigaction(SIGTERM, &sa, NULL);
   signal(SIGPIPE, SIG_IGN);
 }
 

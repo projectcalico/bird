@@ -28,6 +28,8 @@ static list inactive_proto_list;
 static list initial_proto_list;
 static list flush_proto_list;
 
+static int proto_shutdown_counter;
+
 static event *proto_flush_event;
 
 static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
@@ -178,7 +180,7 @@ proto_rethink_goal(struct proto *p)
 static void
 proto_set_goal(struct proto *p, unsigned goal)
 {
-  if (p->disabled)
+  if (p->disabled || shutting_down)
     goal = FS_HUNGRY;
   p->core_goal = goal;
   proto_rethink_goal(p);
@@ -192,6 +194,25 @@ protos_start(void)
   debug("Protocol start\n");
   WALK_LIST_DELSAFE(p, n, initial_proto_list)
     proto_set_goal(p, FS_HAPPY);
+}
+
+void
+protos_shutdown(void)
+{
+  struct proto *p, *n;
+
+  debug("Protocol shutdown\n");
+  WALK_LIST_DELSAFE(p, n, inactive_proto_list)
+    if (p->core_state != FS_HUNGRY || p->proto_state != PS_DOWN)
+    {
+      proto_shutdown_counter++;
+      proto_set_goal(p, FS_HUNGRY);
+    }
+  WALK_LIST_DELSAFE(p, n, proto_list)
+    {
+      proto_shutdown_counter++;
+      proto_set_goal(p, FS_HUNGRY);
+    }
 }
 
 void
@@ -235,6 +256,8 @@ static void
 proto_fell_down(struct proto *p)
 {
   DBG("Protocol %s down\n", p->name);
+  if (!--proto_shutdown_counter)
+    protos_shutdown_notify();
   proto_rethink_goal(p);
 }
 
@@ -291,6 +314,7 @@ proto_notify_state(struct proto *p, unsigned ps)
 	  cs = FS_FLUSHING;
 	  ev_schedule(proto_flush_event);
 	}
+      break;
     default:
     error:
       bug("Invalid state transition for %s from %s/%s to */%s", p->name, c_states[cs], p_states[ops], p_states[ps]);
@@ -313,6 +337,6 @@ proto_flush_all(void *unused)
       p->pool = NULL;
       p->core_state = FS_HUNGRY;
       proto_relink(p);
-      proto_rethink_goal(p);
+      proto_fell_down(p);
     }
 }

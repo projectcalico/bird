@@ -747,11 +747,19 @@ io_loop(void)
 	{
 	  async_config();
 	  async_config_flag = 0;
+	  continue;
 	}
       if (async_dump_flag)
 	{
 	  async_dump();
 	  async_dump_flag = 0;
+	  continue;
+	}
+      if (async_shutdown_flag)
+	{
+	  async_shutdown();
+	  async_shutdown_flag = 0;
+	  continue;
 	}
 
       /* And finally enter select() to find active sockets */

@@ -46,6 +46,7 @@ void protos_postconfig(struct config *);
 void protos_commit(struct config *);
 void protos_start(void);
 void protos_dump_all(void);
+void protos_shutdown(void);
 
 extern list protocol_list;
 
@@ -187,5 +188,11 @@ void proto_notify_state(struct proto *p, unsigned state);
  */
 
 extern struct proto_config *cf_dev_proto;
+
+/*
+ *	Callback to sysdep code when shutdown is finished
+ */
+
+void protos_shutdown_notify(void);
 
 #endif
