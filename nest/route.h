@@ -82,14 +82,14 @@ void fit_put(struct fib_iterator *, struct fib_node *);
 	unsigned int count = (fib)->hash_size;			\
 	unsigned int hpos = (it)->hash;				\
 	for(;;) {						\
-	again:	if (!z) {					\
+	fis_again:	if (!z) {				\
 			if (++hpos >= count)			\
 				break;				\
 			z = (fib)->hash_table[hpos];		\
-			goto again;				\
+			goto fis_again;				\
 		}
 
-#define FIB_ITERATE_END z = z->next; } } while(0)
+#define FIB_ITERATE_END(z) z = z->next; } } while(0)
 
 #define FIB_ITERATE_PUT(it, z) fit_put(it, z)
 
@@ -160,6 +160,7 @@ void rte_free(rte *);
 void rt_dump(rtable *);
 void rt_dump_all(void);
 void rt_feed_baby(struct proto *p);
+void rt_prune(rtable *tab);
 
 /*
  *	Route Attributes
