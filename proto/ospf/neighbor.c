@@ -8,6 +8,9 @@
 
 #include "ospf.h"
 
+char *ospf_ns[]={"down", "attempt", "init", "2way", "exstart", "exchange",
+  "loading", "full"};
+
 void
 neigh_chstate(struct ospf_neighbor *n, u8 state)
 {
@@ -19,8 +22,8 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     ifa=n->ifa;
     p=(struct proto *)(ifa->proto);
   
-    debug("%s: Neigbor '%u' changes state from %u to %u.\n", p->name, n->rid,
-      n->state, state);
+    debug("%s: Neigbor '%u' changes state from \"%u\" to \"%u\".\n",
+      p->name, n->rid, ospf_ns[n->state], ospf_ns[state]);
     n->state=state;
   }
 }
