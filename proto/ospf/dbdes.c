@@ -272,7 +272,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	    n->options=ps->options;
             n->ddr=ntohl(ps->ddseq)-1;
             n->imms.byte=ps->imms.byte;
-            OSPF_TRACE(D_PACKETS, "I'm master to %I.", nrid);
+            OSPF_TRACE(D_PACKETS, "I'm master to %I.", n->ip);
 	    ospf_neigh_sm(n, INM_NEGDONE);
           }
 	  else
