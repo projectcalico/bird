@@ -54,7 +54,7 @@ idval:
 #ifndef IPV6
      $$ = ipa_to_u32($1);
 #else
-     cf_error("Router IDs must be entered as hexadecimal numbers in IPv6 version");
+     cf_error("Router IDs must be entered as hexadecimal numbers or IPv4 addresses in IPv6 version");
 #endif
    }
  ;
