@@ -209,6 +209,8 @@ rt_feed_baby(struct proto *p)
 	      ea_list *tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
 	      do_rte_announce(h, n, e, NULL, tmpa, ipa_classify(n->n.prefix));
 	      lp_flush(rte_update_pool);
+	      if (p->core_state != FS_FEEDING)
+		return;  /* In the meantime, the protocol fell down. */
 	    }
 	}
       FIB_WALK_END;
