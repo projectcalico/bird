@@ -340,11 +340,6 @@ nl_parse_addr(struct nlmsghdr *h)
       return;
     }
 
-#ifdef IPV6
-  if (i->ifa_scope == RT_SCOPE_LINK)
-    return;
-#endif
-
   ifi = if_find_by_index(i->ifa_index);
   if (!ifi)
     {
