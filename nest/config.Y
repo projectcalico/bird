@@ -11,6 +11,7 @@ CF_HDR
 static struct proto_config *this_proto;
 
 #include "nest/rt-dev.h"
+#include "nest/password.h"
 
 void rt_dev_add_iface(char *);
 
@@ -18,10 +19,12 @@ CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE)
+CF_KEYWORDS(PASSWORD, FROM, TO, ID)
 
 %type <i> idval
 %type <f> imexport
 %type <r> rtable
+%type <p> password_list password_begin
 
 CF_GRAMMAR
 
@@ -127,6 +130,32 @@ dev_iface_list:
      rt_dev_add_iface($2);
    }
  | dev_iface_list ',' TEXT { rt_dev_add_iface($3); }
+ ;
+
+password_begin: 
+   PASSWORD TEXT {
+     last_password_item = cfg_alloc(sizeof (struct password_item));
+     last_password_item->password = $2;
+     last_password_item->from = 0;
+     last_password_item->to = ~0;
+     last_password_item->id = 0;
+     last_password_item->next = NULL;
+     $$=last_password_item;
+   }
+ ;
+
+password_items:
+   /* empty */ { } 
+ | FROM datetime ';' password_items { last_password_item->from = $2; }
+ | TO datetime ';' password_items { last_password_item->to = $2; }
+ | ID NUM ';' password_items { last_password_item->id = $2; }
+ ;
+
+password_list: 
+   /* empty */ { $$ = NULL; } 
+ | '{' password_begin ';' password_items '}' password_list {
+     last_password_item->next = $6;
+   }
  ;
 
 CF_CODE
