@@ -127,7 +127,7 @@ ospf_rx_hook(sock *sk, int size)
   for(i=0;i<ntohs(ps->length);i+=4)
     DBG("%s: received %u,%u,%u,%u\n",p->name, pu8[i+0], pu8[i+1], pu8[i+2],
 		    pu8[i+3]);
-  debug("%s: received size: %u\n",p->name,size);
+  DBG("%s: received size: %u\n",p->name,size);
 
   switch(ps->type)
   {

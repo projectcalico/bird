@@ -9,7 +9,6 @@
 #ifndef _BIRD_OSPF_H_
 #define _BIRD_OSPF_H_
 
-#define LOCAL_DEBUG
 
 #define SIPH 64		/* FIXME Size Of IP header */
 
@@ -27,6 +26,8 @@
 #include "nest/route.h"
 #include "conf/conf.h"
 #include "lib/string.h"
+
+#define LOCAL_DEBUG
 
 #define OSPF_PROTO 89
 #ifndef IPV6
