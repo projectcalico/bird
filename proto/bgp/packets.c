@@ -326,7 +326,6 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   prefix = ipa_and(prefix, ipa_mkmask(b));	\
   pxlen = b;					\
 } while (0)
-/* FIXME: Check validity of prefixes */
 
 static void
 bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
@@ -440,6 +439,7 @@ bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, b
   byte *t, argbuf[36];
   unsigned i;
 
+  /* FIXME: Printing of cease messages */
   bsprintf(namebuf, "%d.%d", code, subcode);
   name = namebuf;
   for (i=0; i < ARRAY_SIZE(bgp_msg_table); i++)

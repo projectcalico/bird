@@ -47,7 +47,6 @@ void
 bgp_start_timer(timer *t, int value)
 {
   /* FIXME: Randomize properly */
-  /* FIXME: Check if anybody uses tm_start directly */
   if (value)
     tm_start(t, value);
   else
@@ -432,12 +431,24 @@ bgp_check(struct bgp_config *c)
     cf_error("Neighbor must be configured");
 }
 
-void
+static void
 bgp_get_status(struct proto *P, byte *buf)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
 
   strcpy(buf, bgp_state_names[MAX(p->incoming_conn.state, p->outgoing_conn.state)]);
+}
+
+static int
+bgp_reconfigure(struct proto *P, struct proto_config *C)
+{
+  struct bgp_config *new = (struct bgp_config *) C;
+  struct bgp_proto *p = (struct bgp_proto *) P;
+  struct bgp_config *old = p->cf;
+
+  return !memcmp(((byte *) old) + sizeof(struct proto_config),
+		 ((byte *) new) + sizeof(struct proto_config),
+		 sizeof(struct bgp_config) - sizeof(struct proto_config));
 }
 
 struct protocol proto_bgp = {
@@ -449,9 +460,9 @@ struct protocol proto_bgp = {
   shutdown:		bgp_shutdown,
   get_status:		bgp_get_status,
   get_attr:		bgp_get_attr,
+  reconfigure:		bgp_reconfigure,
 #if 0
   dump:			bgp_dump,
   get_route_info:	bgp_get_route_info,
-  /* FIXME: Reconfiguration */
 #endif
 };
