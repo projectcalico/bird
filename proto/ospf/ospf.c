@@ -20,6 +20,79 @@
 #define IAMMASTER(x) ((x) & DBDES_MS)
 #define INISET(x) ((x) & DBDES_I)
 
+
+void
+fill_ospf_pkt_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
+{
+  struct ospf_packet *pkt;
+  struct proto *p;
+  
+  p=(struct proto *)(ifa->proto);
+
+  pkt=(struct ospf_packet *)buf;
+
+  pkt->version=OSPF_VERSION;
+
+  pkt->type=h_type;
+
+  pkt->routerid=htonl(p->cf->global->router_id);
+  pkt->areaid=htonl(ifa->area);
+  pkt->autype=htons(ifa->autype);
+  pkt->checksum=0;
+}
+
+void
+ospf_tx_authenticate(struct ospf_iface *ifa, struct ospf_packet *pkt)
+{
+  /* FIXME Nothing done */
+}
+
+void
+ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
+{
+  ospf_tx_authenticate(ifa, pkt);
+
+  /* Count checksum */
+  pkt->checksum=ipsum_calculate(pkt,sizeof(struct ospf_packet)-8,
+    (pkt+1),ntohs(pkt->length)-sizeof(struct ospf_packet),NULL);
+}
+
+void ospf_dbdes_tx(struct ospf_iface *ifa)
+{
+  struct ospf_dbdes_packet *pkt;
+  struct ospf_packet *op;
+  struct ospf_neighbor *n;
+  u16 length;
+  struct proto *p;
+
+  p=(struct proto *)(ifa->proto);
+
+  WALK_LIST (n, ifa->neigh_list)	/* Try to send db_des */
+  {
+    switch(n->state)
+    {
+      case NEIGHBOR_EXSTART:		/* Send empty packets */
+        pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
+        op=(struct ospf_packet *)pkt;
+
+        fill_ospf_pkt_hdr(ifa, pkt, DBDES);
+	pkt->iface_mtu= ((struct iface *)ifa)->mtu;
+	pkt->options= ifa->options;
+	pkt->imms=n->myimms;
+	pkt->ddseq=n->dds;
+        length=sizeof(struct ospf_dbdes_packet);
+        op->length=htons(length);
+	ospf_pkt_finalize(ifa, op);
+        sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
+        debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
+
+      /*case NEIGHBOR_EXCHANGE:		*/
+      default:				/* Ignore it */
+        break;
+    }
+  }
+}
+
 void
 rxmt_timer_hook(timer *timer)
 {
@@ -30,6 +103,7 @@ rxmt_timer_hook(timer *timer)
   p=(struct proto *)(ifa->proto);
   debug("%s: RXMT timer fired on interface %s.\n",
     p->name, ifa->iface->name);
+  ospf_dbdes_tx(ifa);
 }
 
 struct ospf_neighbor *
@@ -560,15 +634,23 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
           debug("%s: I'm slave to %u. \n", p->name, nrid);
 	  ospf_neigh_sm(n, INM_NEGDONE);
         }
-        if(((ps->imms | DBDES_M)== DBDES_M) && (n->rid < myrid) &&
-          (n->dds == ps->ddseq) && (size == sizeof(struct ospf_dbdes_packet)))
+        else
         {
-          /* I'm master! */
-	  n->options=ps->options;
-          n->ddr=ps->ddseq;
-          n->imms=ps->imms;
-          debug("%s: I'm master to %u. \n", p->name, nrid);
-	  ospf_neigh_sm(n, INM_NEGDONE);
+          if(((ps->imms & (DBDES_I|DBDES_MS))== 0) && (n->rid < myrid) &&
+            (n->dds == ps->ddseq))
+          {
+            /* I'm master! */
+	    n->options=ps->options;
+            n->ddr=ps->ddseq;
+            n->imms=ps->imms;
+            debug("%s: I'm master to %u. \n", p->name, nrid);
+	    ospf_neigh_sm(n, INM_NEGDONE);
+          }
+	  else
+          {
+            debug("%s: Nothing happend to %u (imms=%u)", p->name, nrid,
+              ps->imms);
+          }
         }
 
       break;
@@ -639,12 +721,15 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  ospf_neigh_sm(n, INM_SEQMIS);
         }
       break;
+    defaut:
+      die("%s: Received dbdes from %u in unknown state. (%u)\n", p->name, nrid);
+      break;
    }
 }
 
 void
 ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
-  struct ospf_iface *ifa, int size)
+  struct ospf_iface *ifa, int size, ip_addr faddr)
 {
   char sip[100]; /* FIXME: Should be smaller */
   u32 nrid, *pnrid;
@@ -692,6 +777,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n=mb_alloc(p->pool, sizeof(struct ospf_neighbor));
     add_tail(&ifa->neigh_list, NODE n);
     n->rid=nrid;
+    n->ip=faddr;
     n->dr=ntohl(ps->dr);
     n->bdr=ntohl(ps->bdr);
     n->priority=ps->priority;
@@ -730,7 +816,6 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     (n->state>=NEIGHBOR_2WAY))
   {
     ospf_int_sm(ifa, ISM_BACKS);
-    DBG("BACKS");
   }
   if((n->rid==ntohl(ps->dr)) && (n->dr!=ntohl(ps->dr)))
   {
@@ -746,7 +831,6 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   if((n->rid==ntohl(ps->bdr)) && (n->state>=NEIGHBOR_2WAY))
   {
     ospf_int_sm(ifa, ISM_BACKS);
-    DBG("BACKS");
   }
   if((n->rid==ntohl(ps->bdr)) && (n->bdr!=ntohl(ps->bdr)))
   {
@@ -769,7 +853,7 @@ ospf_rx_hook(sock *sk, int size)
   struct ospf_packet *ps;
   struct ospf_iface *ifa;
   struct proto *p;
-  u8 i;
+  int i;
   u8 *pu8;
 
 
@@ -849,7 +933,7 @@ ospf_rx_hook(sock *sk, int size)
   {
     case HELLO:
       DBG("%s: Hello received.\n", p->name);
-      ospf_hello_rx((struct ospf_hello_packet *)ps, p, ifa, size);
+      ospf_hello_rx((struct ospf_hello_packet *)ps, p, ifa, size, sk->faddr);
       break;
     case DBDES:
       DBG("%s: Database description received.\n", p->name);
@@ -1004,26 +1088,6 @@ ospf_iface_clasify(struct iface *ifa)
 }
 
 void
-fill_ospf_pkt_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
-{
-  struct ospf_packet *pkt;
-  struct proto *p;
-  
-  p=(struct proto *)(ifa->proto);
-
-  pkt=(struct ospf_packet *)buf;
-
-  pkt->version=OSPF_VERSION;
-
-  pkt->type=h_type;
-
-  pkt->routerid=htonl(p->cf->global->router_id);
-  pkt->areaid=htonl(ifa->area);
-  pkt->autype=htons(ifa->autype);
-  pkt->checksum=0;
-}
-
-void
 hello_timer_hook(timer *timer)
 {
   struct ospf_iface *ifa;
@@ -1068,14 +1132,9 @@ hello_timer_hook(timer *timer)
     }
 
     length=sizeof(struct ospf_hello_packet)+i*sizeof(u32);
+    op->length=htons(length);
 
-    op->length=ntohs(length);
-
-    /* FIXME Do authentification */
-
-    /* Count checksum */
-    op->checksum=ipsum_calculate(op,sizeof(struct ospf_packet)-8,
-      &(pkt->netmask),length-sizeof(struct ospf_packet),NULL);
+    ospf_pkt_finalize(ifa, op);
 
     /* And finally send it :-) */
     sk_send(ifa->hello_sk,length);

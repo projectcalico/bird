@@ -160,14 +160,14 @@ struct ospf_neighbor
 #define NEIGHBOR_LOADING 6
 #define NEIGHBOR_FULL 7
   timer *inactim;	/* Inactivity timer */
-  u8 imms;		/* I, M, Master/slave */
+  u8 imms;		/* I, M, Master/slave received */
   u32 dds;		/* DD Sequence number being sent */
   u32 ddr;		/* last Dat Des packet received */
-  u8 myimms;		/* I, M MS received */
-  u8 myoptions;		/* Options received */
+  u8 myimms;		/* I, M Master/slave */
   u32 rid;		/* Router ID */
+  ip_addr ip;		/* IP of it's interface */
   u8 priority;		/* Priority */
-  u8 options;		/* Options */
+  u8 options;		/* Options received */
   u32 dr;		/* Neigbour's idea of DR */
   u32 bdr;		/* Neigbour's idea of BDR */
   u8 adj;		/* built adjacency? */
