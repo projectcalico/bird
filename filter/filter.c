@@ -379,7 +379,7 @@ interpret(struct f_inst *what)
     case T_CLIST:
     case T_PATH_MASK:
       if (sym->class != (SYM_VARIABLE | v2.type))
-	runtime( "Variable of bad type" );
+	runtime( "Assigning to variable of incompatible type" );
       * (struct f_val *) sym->aux2 = v2; 
       break;
     default:
@@ -401,7 +401,7 @@ interpret(struct f_inst *what)
   case '?':	/* ? has really strange error value, so we can implement if ... else nicely :-) */
     ONEARG;
     if (v1.type != T_BOOL)
-      runtime( "If requires bool expression" );
+      runtime( "If requires boolean expression" );
     if (v1.val.i) {
       ARG(res,a2.p);
       res.val.i = 0;
@@ -458,7 +458,7 @@ interpret(struct f_inst *what)
   case P('a','S'):
     ONEARG;
     if (what->aux != v1.type)
-      runtime( "Attempt to set static attribute to invalid type" );
+      runtime( "Attempt to set static attribute to incompatible type" );
     rta_cow();
     {
       struct rta *rta = (*f_rte)->attrs;
@@ -622,7 +622,7 @@ interpret(struct f_inst *what)
   case P('i','M'): /* IP.MASK(val) */
     TWOARGS;
     if (v2.type != T_INT)
-      runtime( "Can not use this type for mask.");
+      runtime( "Can not use non-integer for mask.");
     if (v1.type != T_IP)
       runtime( "You can mask only IP addresses." );
     {
