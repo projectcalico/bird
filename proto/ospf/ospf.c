@@ -95,10 +95,10 @@ ospf_start(struct proto *p)
   po->disp_timer->hook = ospf_disp;
   po->disp_timer->recurrent = po->tick;
   tm_start(po->disp_timer, 1);
-
-  fib_init(&po->efib, p->pool, sizeof(struct extfib), 16, init_efib);
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
+  fib_init(&po->rtf[0], p->pool, sizeof(ort), 16, ospf_rt_initort);
+  fib_init(&po->rtf[1], p->pool, sizeof(ort), 16, ospf_rt_initort);
   po->areano = 0;
   if (EMPTY_LIST(c->area_list))
   {
@@ -133,8 +133,6 @@ ospf_start(struct proto *p)
       antmp->hidden = anet->hidden;
       add_tail(&oa->net_list, NODE antmp);
     }
-    fib_init(&oa->infib, po->proto.pool, sizeof(struct infib), 16,
-	     init_infib);
   }
   return PS_UP;
 }
@@ -191,6 +189,7 @@ ospf_init(struct proto_config *c)
 static int
 ospf_rte_better(struct rte *new, struct rte *old)
 {
+  /* FIXME this is wrong */
   if (new->u.ospf.metric1 == LSINFINITY)
     return 0;
 

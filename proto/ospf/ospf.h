@@ -248,10 +248,17 @@ struct ospf_lsa_header
 
 struct vebb
 {
+#ifdef _BIG_ENDIAN
+  u8 padding:5;
+  u8 v:1;
+  u8 e:1;
+  u8 b:1;
+#else
   u8 b:1;
   u8 e:1;
   u8 v:1;
   u8 padding:5;
+#endif
 };
 
 union veb
@@ -263,9 +270,6 @@ union veb
 struct ospf_lsa_rt
 {
   union veb veb;
-#define LSA_RT_V 5
-#define LSA_RT_E 6
-#define LSA_RT_B 7
   u8 padding;
   u16 links;
 };
@@ -432,7 +436,6 @@ struct ospf_area
   int stub;
   int trcap;			/* Transit capability? */
   struct proto_ospf *po;
-  struct fib infib;		/* FIB for intra-area routes */
   unsigned tick;
 };
 
@@ -445,7 +448,7 @@ struct proto_ospf
   list iface_list;		/* Interfaces we really use */
   list area_list;
   int areano;			/* Number of area I belong to */
-  struct fib efib;		/* FIB for external routes */
+  struct fib rtf[2];		/* Routing tables */
   int rfc1583;			/* RFC1583 compatibility */
   int ebit;			/* Did I originate any ext lsa? */
 };

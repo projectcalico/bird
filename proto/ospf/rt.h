@@ -10,31 +10,34 @@
 #ifndef _BIRD_OSPF_RT_H_
 #define _BIRD_OSPF_RT_H_
 
-struct infib
+typedef struct orta
 {
-  struct fib_node fn;
-  u16 metric;
-  u16 oldmetric;
-  struct top_hash_entry *en;
-  struct top_hash_entry *olden;
-};
-
-struct extfib
-{
-  struct fib_node fn;
-  u16 metric;
-  u16 metric2;
-  ip_addr nh;
+  int type;
+  int capa;
+  struct ospf_area *oa;
+  int metric1;
+  int metric2;
+  ip_addr nh;			/* Next hop */
+  struct iface *ifa;		/* Outgoing interface */
+  struct top_hash_entry *ar;	/* Advertising router */
   u32 tag;
-  struct iface *nhi;
-  u16 oldmetric;
-  u16 oldmetric2;
-  ip_addr oldnh;
-  u32 oldtag;
-};
+}
+orta;
+
+typedef struct ort
+{
+  struct fib_node fn;
+  int dest;
+#define ORT_UNDEF -1
+#define ORT_ROUTER 1
+#define ORT_NET 0
+  orta n;
+  orta o;
+}
+ort;
 
 void ospf_rt_spf(struct proto_ospf *po);
-void init_infib(struct fib_node *fn);
-void init_efib(struct fib_node *fn);
+void ospf_rt_initort(struct fib_node *fn);
+
 
 #endif /* _BIRD_OSPF_RT_H_ */
