@@ -34,13 +34,13 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST, UNSET,
 	LEN,
 	DEFINED,
 	IMPOSSIBLE,
-	FILTER)
+	FILTER, WHERE)
 
 %nonassoc THEN
 %nonassoc ELSE
 
 %type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic
-%type <f> filter filter_body
+%type <f> filter filter_body where_filter
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
 %type <v> set_atom prefix prefix_s ipa
@@ -122,6 +122,30 @@ filter:
      $$ = $1->def;
    }
  | filter_body
+ ;
+
+where_filter:
+   WHERE term {
+     /* Construct 'IF term THEN ACCEPT; REJECT;' */
+     struct filter *f = cfg_alloc(sizeof(struct filter));
+     struct f_inst *i, *acc, *rej;
+     acc = f_new_inst();		/* ACCEPT */
+     acc->code = 'p,';
+     acc->a1.p = NULL;
+     acc->a2.i = F_ACCEPT;
+     rej = f_new_inst();		/* REJECT */
+     rej->code = 'p,';
+     rej->a1.p = NULL;
+     rej->a2.i = F_REJECT;
+     i = f_new_inst();			/* IF */
+     i->code = '?';
+     i->a1.p = $2;
+     i->a2.p = acc;
+     i->next = rej;
+     f->name = NULL;
+     f->root = i;
+     $$ = f;
+  }
  ;
 
 function_params:

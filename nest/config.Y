@@ -237,7 +237,13 @@ r_args:
    }
  | r_args FILTER filter {
      $$ = $1;
+     if ($$->filter != FILTER_ACCEPT) cf_error("Filter specified twice");
      $$->filter = $3;
+   }
+ | r_args where_filter {
+     $$ = $1;
+     if ($$->filter != FILTER_ACCEPT) cf_error("Filter specified twice");
+     $$->filter = $2;
    }
  | r_args ALL {
      $$ = $1;

@@ -50,7 +50,6 @@ shutdown			# order system shutdown
 configure [<file>]
 debug	<what>			# dump debugging information to log
 show	<name>			# show everything you know about symbol <name>
-	route [<route>] [table <name>] [filter (<name> | { <inline> })] [where <condition>] [all]   <-- WHERE
 	rip ??? [<name>]
 	ospf ??? [<name>]
 	static ??? [<name>]
