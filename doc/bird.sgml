@@ -623,7 +623,8 @@ for each neighbor using the following protocol parameters:
 	<tag>neighbor <m/ip/ as <m/number/</tag> Define neighboring router
 	this instance will be talking to and what AS it's located in. Unless
 	you use the <cf/multihop/ clause, it must be directly connected to one
-	of your router's interfaces. This parameter is mandatory.
+	of your router's interfaces. In case the neighbor is in the same AS
+	as we are, we automatically switch to iBGP. This parameter is mandatory.
 	<tag>multihop <m/number/ via <m/ip/</tag> Configure multihop BGP to a
 	neighbor which is connected at most <m/number/ hops far and to which
 	we should route via our direct neighbor with address <m/ip/.
@@ -683,7 +684,7 @@ with `O') are optional.
 	selection among multiple BGP routes (see the selection rules above). It's
 	used as an additional metric which is propagated through the whole local AS.
 	<tag>int <cf/bgp_med/ [IO]</tag> The Multiple Exit Discriminator of the route
-	which is an optional attribute which is often used within the local AS to
+	is an optional attribute which is often used within the local AS to
 	reflect interior distances to various boundary routers. See the route selection
 	rules above for exact semantics.
 	<tag>enum <cf/bgp_origin/</tag> Origin of the route: either <cf/ORIGIN_IGP/,
@@ -803,7 +804,9 @@ with other routers in the network, it performs synchronization of BIRD's routing
 tables with OS kernel. Basically, it sends all routing table updates to the kernel
 and from time to time it scans the kernel tables to see whether some routes have
 disappeared (for example due to unnoticed up/down transition of an interface)
-or whether an `alien' route has been added by someone else.
+or whether an `alien' route has been added by someone else (depending on the
+<cf/learn/ switch, such routes are either deleted or we accept them to our
+table).
 
 <p>If your OS supports only a single routing table, you can configure only one
 instance of the Kernel protocol. If it supports multiple tables (in order to
@@ -1064,7 +1067,7 @@ protocol rip MyRIP_test {
 <sect1>Static
 
 <p>The Static protocol doesn't communicate with other routers in the network,
-but instead it allows you to define routes manually which is often used for
+but instead it allows you to define routes manually. This is often used for
 specifying how to forward packets to parts of the network which don't use
 dynamic routing at all and also for defining sink routes (i.e., those
 telling to return packets as undeliverable if they are in your IP block,
