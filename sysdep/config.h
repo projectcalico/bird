@@ -40,6 +40,11 @@ typedef u16 word;
 
 #define CPU_STRUCT_ALIGN 4
 
+/* Timers */
+
+#undef TIME_T_IS_64BIT
+#define TIME_T_IS_SIGNED
+
 /* Protocol options */
 
 #define CONFIG_STATIC

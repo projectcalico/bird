@@ -10,6 +10,7 @@
 #define _BIRD_ROUTE_H_
 
 #include "lib/resource.h"
+#include "lib/timer.h"
 
 struct protocol;
 
@@ -106,7 +107,7 @@ typedef struct rte {
   byte flags;				/* Flags (REF_...) */
   byte pflags;				/* Protocol-specific flags */
   word pref;				/* Route preference */
-  u32 lastmod;				/* Last modified (time) */
+  bird_clock_t lastmod;			/* Last modified */
   union {				/* Protocol-dependent data (metrics etc.) */
 #ifdef CONFIG_STATIC
     struct {
@@ -144,6 +145,7 @@ rte *rte_get_temp(struct rtattr *);
 void rte_update(net *net, rte *new);
 void rte_dump(rte *);
 void rt_dump(rtable *);
+void rt_dump_all(void);
 
 /*
  *	Route Attributes
