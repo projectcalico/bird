@@ -677,6 +677,9 @@ sk_dump_all(void)
  *	Main I/O Loop
  */
 
+volatile int async_config_flag;		/* Asynchronous reconfiguration/dump scheduled */
+volatile int async_dump_flag;
+
 void
 io_init(void)
 {
@@ -734,6 +737,24 @@ io_loop(void)
 		hi = s->fd;
 	    }
 	}
+
+      /*
+       * Yes, this is racy. But even if the signal comes before this test
+       * and entering select(), it gets caught on the next timer tick.
+       */
+
+      if (async_config_flag)
+	{
+	  async_config();
+	  async_config_flag = 0;
+	}
+      if (async_dump_flag)
+	{
+	  async_dump();
+	  async_dump_flag = 0;
+	}
+
+      /* And finally enter select() to find active sockets */
 
       hi = select(hi+1, &rd, &wr, NULL, &timo);
       if (hi < 0)

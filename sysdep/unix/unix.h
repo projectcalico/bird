@@ -9,7 +9,15 @@
 #ifndef _BIRD_UNIX_H_
 #define _BIRD_UNIX_H_
 
+/* main.c */
+
+void async_config(void);
+void async_dump(void);
+
 /* io.c */
+
+volatile int async_config_flag;
+volatile int async_dump_flag;
 
 void io_init(void);
 void io_loop(void);

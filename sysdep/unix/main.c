@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/signal.h>
@@ -29,10 +30,10 @@
  *	Debugging
  */
 
-static void
-handle_sigusr(int sig)
+void
+async_dump(void)
 {
-  debug("SIGUSR1: Debugging dump...\n\n");
+  debug("INTERNAL STATE DUMP\n\n");
 
   sk_dump_all();
   tm_dump_all();
@@ -45,23 +46,12 @@ handle_sigusr(int sig)
   debug("\n");
 }
 
-static void
-signal_init(void)
-{
-  static struct sigaction sa;
-
-  sa.sa_handler = handle_sigusr;
-  sa.sa_flags = SA_RESTART;
-  if (sigaction(SIGUSR1, &sa, NULL) < 0)
-    die("sigaction: %m");
-  signal(SIGPIPE, SIG_IGN);
-}
-
 /*
  *	Reading the Configuration
  */
 
 static int conf_fd;
+static char *config_name = PATH_CONFIG;
 
 static int
 cf_read(byte *dest, unsigned int len)
@@ -75,15 +65,88 @@ cf_read(byte *dest, unsigned int len)
 static void
 read_config(void)
 {
-  struct config *conf = config_alloc(PATH_CONFIG);
+  struct config *conf = config_alloc(config_name);
 
-  conf_fd = open(PATH_CONFIG, O_RDONLY);
+  conf_fd = open(config_name, O_RDONLY);
   if (conf_fd < 0)
-    die("Unable to open configuration file " PATH_CONFIG ": %m");
+    die("Unable to open configuration file %s: %m", config_name);
   cf_read_hook = cf_read;
   if (!config_parse(conf))
-    die(PATH_CONFIG ", line %d: %s", conf->err_lino, conf->err_msg);
+    die("%s, line %d: %s", config_name, conf->err_lino, conf->err_msg);
   config_commit(conf);
+}
+
+void
+async_config(void)
+{
+  debug("Asynchronous reconfigurations are not supported in demo version\n");
+}
+
+/*
+ *	Signals
+ */
+
+static void
+handle_sighup(int sig)
+{
+  debug("Caught SIGHUP...\n");
+  async_config_flag = 1;
+}
+
+static void
+handle_sigusr(int sig)
+{
+  debug("Caught SIGUSR...\n");
+  async_dump_flag = 1;
+}
+
+static void
+signal_init(void)
+{
+  struct sigaction sa;
+
+  bzero(&sa, sizeof(sa));
+  sa.sa_handler = handle_sigusr;
+  sa.sa_flags = SA_RESTART;
+  sigaction(SIGUSR1, &sa, NULL);
+  sa.sa_handler = handle_sighup;
+  sa.sa_flags = SA_RESTART;
+  sigaction(SIGHUP, &sa, NULL);
+  signal(SIGPIPE, SIG_IGN);
+}
+
+/*
+ *	Parsing of command-line arguments
+ */
+
+static char *opt_list = "c:d:";
+
+static void
+usage(void)
+{
+  fprintf(stderr, "Usage: bird [-c <config-file>] [-d <debug-file>]\n");
+  exit(1);
+}
+
+static void
+parse_args(int argc, char **argv)
+{
+  int c;
+
+  while ((c = getopt(argc, argv, opt_list)) >= 0)
+    switch (c)
+      {
+      case 'c':
+	config_name = optarg;
+	break;
+      case 'd':
+	log_init_debug(optarg);
+	break;
+      default:
+	usage();
+      }
+  if (optind < argc)
+    usage();
 }
 
 /*
@@ -91,11 +154,12 @@ read_config(void)
  */
 
 int
-main(void)
+main(int argc, char **argv)
 {
-  log(L_INFO "Launching BIRD 0.0.0...");
-
   log_init_debug(NULL);
+  parse_args(argc, argv);
+
+  log(L_INFO "Launching BIRD 0.0.0...");
 
   debug("Initializing.\n");
   resource_init();
@@ -115,7 +179,7 @@ main(void)
   protos_start();
 
   ev_run_list(&global_event_list);
-  handle_sigusr(0);
+  async_dump();
 
   debug("Entering I/O loop.\n");
 
