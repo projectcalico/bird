@@ -374,6 +374,7 @@ nl_parse_addr(struct nlmsghdr *h)
     }
   else
     {
+      ip_addr netmask = ipa_mkmask(ifa.pxlen);
 #ifndef IPV6
       if (i->ifa_prefixlen == BITS_PER_IP_ADDRESS - 2)
 	ifa.opposite = ipa_opposite(ifa.ip);
@@ -382,8 +383,10 @@ nl_parse_addr(struct nlmsghdr *h)
 	  memcpy(&ifa.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(ifa.brd));
 	  ipa_ntoh(ifa.brd);
 	}
+      else
+	ifa.brd = ipa_or(ifa.ip, ipa_not(netmask));
 #endif
-      ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(ifa.pxlen));
+      ifa.prefix = ipa_and(ifa.ip, netmask);
     }
 
   DBG("KIF: IF%d(%s): %s IPA %I, flg %x, net %I/%d, brd %I, opp %I\n",

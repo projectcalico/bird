@@ -27,8 +27,6 @@ Core
 
 - proto: Don't show repeated `Changed state to ...' messages if only internal states change
 
-- iface: Don't complain about missing broadcast addresses.
-
 Documentation
 ~~~~~~~~~~~~~
 - write doctool
