@@ -2,6 +2,7 @@
  *	BIRD -- Core Configuration
  *
  *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
+ *      (c) 2004       Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -208,7 +209,7 @@ password_item:
 
 password_item_begin:
    PASSWORD TEXT {
-     static int id = 0;
+     static int id = 1;
      this_p_item = cfg_alloc(sizeof (struct password_item));
      this_p_item->password = $2;
      this_p_item->genfrom = 0;
@@ -226,7 +227,7 @@ password_item_params:
  | GENERATE TO datetime ';' password_item_params { this_p_item->gento = $3; }
  | ACCEPT FROM datetime ';' password_item_params { this_p_item->accfrom = $3; }
  | ACCEPT TO datetime ';' password_item_params { this_p_item->accto = $3; }
- | ID expr ';' password_item_params { this_p_item->id = $2; }
+ | ID expr ';' password_item_params { this_p_item->id = $2; if ($2 <= 0) cf_error("Password ID has to be greated than zero."); }
  ;
 
 password_list:
@@ -254,7 +255,7 @@ password_begin:
      this_p_item->gento = TIME_INFINITY;
      this_p_item->accfrom = 0;
      this_p_item->accto = TIME_INFINITY;
-     this_p_item->id = 0;
+     this_p_item->id = 1;
      add_tail(this_p_list, &this_p_item->n);
      $$ = this_p_list;
   }

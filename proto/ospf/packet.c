@@ -87,7 +87,6 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
       password_cpy(password, passwd->password, OSPF_AUTH_CRYPT_SIZE);
       MD5Update(&ctxt, password, OSPF_AUTH_CRYPT_SIZE);
       MD5Final(tail, &ctxt);
-      
       break;
     default:
       bug("Unknown authentication type");
@@ -166,8 +165,8 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
 
       WALK_LIST(ptmp, *(ifa->passwords))
       {
-        if (pkt->u.md5.keyid != pass->id) continue;
-        if ((pass->genfrom > now) || (pass->gento < now)) continue;
+        if (pkt->u.md5.keyid != ptmp->id) continue;
+        if ((ptmp->genfrom > now) || (ptmp->gento < now)) continue;
         pass = ptmp;
         break;
       }
@@ -180,12 +179,11 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
 
       if(n)
       {
-        if(ntohs(pkt->u.md5.csn) <= n->csn)
+        if(ntohs(pkt->u.md5.csn) < n->csn)
         {
           OSPF_TRACE(D_PACKETS, "OSPF_auth: lower sequence number");
           return 0;
         }
-
         n->csn = ntohs(pkt->u.md5.csn);
       }
 
@@ -194,7 +192,7 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
       password_cpy(password, pass->password, OSPF_AUTH_CRYPT_SIZE);
       MD5Update(&ctxt, password, OSPF_AUTH_CRYPT_SIZE);
       MD5Final(md5sum, &ctxt);
-      if (!memcmp(md5sum, tail, OSPF_AUTH_CRYPT_SIZE))
+      if (memcmp(md5sum, tail, OSPF_AUTH_CRYPT_SIZE))
       {
         OSPF_TRACE(D_PACKETS, "OSPF_auth: wrong md5 digest");
         return 0;
@@ -257,7 +255,8 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
-  if ((ifa->autype != OSPF_AUTH_CRYPT) && (!ipsum_verify(ps, 16, (void *) ps + sizeof(struct ospf_packet),
+  if ((ps->autype != htons(OSPF_AUTH_CRYPT)) &&
+      (!ipsum_verify(ps, 16, (void *) ps + sizeof(struct ospf_packet),
 		    ntohs(ps->length) - sizeof(struct ospf_packet), NULL)))
   {
     log(L_ERR "%s%I - bad checksum", mesg, sk->faddr);
