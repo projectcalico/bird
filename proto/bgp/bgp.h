@@ -20,6 +20,7 @@ struct bgp_config {
   ip_addr remote_ip;
   int multihop;				/* Number of hops if multihop */
   ip_addr multihop_via;			/* Multihop: address to route to */
+  ip_addr source_addr;			/* Source address to use */
   int next_hop_self;			/* Always set next hop to local IP address */
   int compare_path_lengths;		/* Use path lengths when selecting best route */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */

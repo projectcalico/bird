@@ -6,9 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-/* FIXME: Latest draft says that LOCAL_PREF is mandatory for iBGP */
-/* FIXME: Mandatory attributes may be missing in messages that don't contain NLRI */
-
 #define LOCAL_DEBUG
 
 #include <stdlib.h>
@@ -352,7 +349,7 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
   new = alloca(ea_scan(tmp));
   ea_merge(tmp, new);
   t->next = NULL;
-  ea_sort(tmp);
+  ea_sort(new);
 
   /* Normalize attributes */
   d = new->attrs;
@@ -470,14 +467,14 @@ bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *tmpa)
 static int
 bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *pool)
 {
-  ea_list *ea = lp_alloc(pool, sizeof(ea_list) + 3*sizeof(eattr));
+  ea_list *ea = lp_alloc(pool, sizeof(ea_list) + 4*sizeof(eattr));
   eattr *a = ea->attrs;
   rta *rta = e->attrs;
 
   ea->next = *attrs;
   *attrs = ea;
   ea->flags = EALF_SORTED;
-  ea->count = 3;
+  ea->count = 4;
 
   a->id = EA_CODE(EAP_BGP, BA_ORIGIN);
   a->flags = BAF_TRANSITIVE;
@@ -502,7 +499,7 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
       a->u.ptr = lp_alloc(pool, sizeof(struct adata) + 4);
       a->u.ptr->length = 4;
       z = a->u.ptr->data;
-      z[0] = 2;				/* AS_SEQUENCE */
+      z[0] = AS_PATH_SEQUENCE;
       z[1] = 1;				/* 1 AS */
       put_u16(z+2, p->local_as);
     }
@@ -519,6 +516,12 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
     *(ip_addr *)a->u.ptr->data = p->local_addr;
   else
     *(ip_addr *)a->u.ptr->data = e->attrs->gw;
+  a++;
+
+  a->id = EA_CODE(EAP_BGP, BA_LOCAL_PREF);
+  a->flags = BAF_OPTIONAL;
+  a->type = EAF_TYPE_INT;
+  a->u.data = 0;
 
   return 0;				/* Leave decision to the filters */
 }
@@ -820,6 +823,20 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
     {
       DBG("BGP: Path loop!\n");
       return NULL;
+    }
+
+  /* If there's no local preference, define one */
+  if (!(seen[0] && (1 << BA_LOCAL_PREF)))
+    {
+      ea = lp_alloc(pool, sizeof(ea_list) + sizeof(eattr));
+      ea->next = a->eattrs;
+      a->eattrs = ea;
+      ea->flags = 0;
+      ea->count = 1;
+      ea->attrs[0].id = EA_CODE(EAP_BGP, BA_LOCAL_PREF);
+      ea->attrs[0].flags = BAF_OPTIONAL;
+      ea->attrs[0].type = EAF_TYPE_INT;
+      ea->attrs[0].u.data = 0;
     }
 
   /* Fill in the remaining rta fields */

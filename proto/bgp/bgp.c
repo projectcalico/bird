@@ -210,7 +210,10 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   DBG("BGP: Connecting\n");
   s = sk_new(p->p.pool);
   s->type = SK_TCP_ACTIVE;
-  s->saddr = p->local_addr;
+  if (ipa_nonzero(p->cf->source_addr))
+    s->saddr = p->cf->source_addr;
+  else
+    s->saddr = p->local_addr;
   s->daddr = p->cf->remote_ip;
   s->dport = BGP_PORT;
   bgp_setup_sk(p, conn, s);
