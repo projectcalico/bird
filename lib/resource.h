@@ -80,6 +80,12 @@ void sl_free(slab *, void *);
 #define xmalloc(size) _xmalloc_leap(__FILE__, __LINE__, size)
 #define xfree(ptr) _xfree_leap(__FILE__, __LINE__, ptr)
 #else
+/*
+ * Unfortunately, several libraries we might want to link to define
+ * their own xmalloc and we don't want to interfere with them, hence
+ * the renaming.
+ */
+#define xmalloc bird_xmalloc
 void *xmalloc(unsigned);
 #define xfree(x) free(x)
 #endif
