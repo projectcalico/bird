@@ -3,6 +3,9 @@ Core
 - client: Ctrl-R eats one more enter
 - client: paging?
 - client: data losses on large dumps?
+- client: hidden `show ospf' commands?
+
+- filters: free old attributes in rta_cow()
 
 Documentation
 ~~~~~~~~~~~~~
