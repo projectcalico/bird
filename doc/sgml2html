@@ -15,30 +15,32 @@ sub BEGIN
 }
 use strict;
 
-use vars qw($prefix $LibDir $BinDir $progs);
+use vars qw($prefix $DataDir $BinDir $progs);
 
 $prefix = "/usr";
-$LibDir = "sbase";
+$DataDir = "sbase";
 $BinDir = "/usr/bin";
 
-use lib "/usr/lib/sgml-tools";
+use lib "/usr/share/linuxdoc-tools";
 use lib "/usr/perl5";
 use lib "/usr/lib/perl5";
+use lib "/usr/share/perl5";
 $progs = {
   "NSGMLS" => "/usr/bin/nsgmls",
   "SGMLSASP" => "/usr/bin/sgmlsasp",
   "GROFF" => "/usr/bin/groff",
-  "GROFFMACRO" => "-mgs"
+  "GROFFMACRO" => "-ms",
+  "AWK" => "/usr/share/linuxdoc-tools/awkwhich"
 };
+$ENV{"SGML_CATALOG_FILES"} = "sbase/dtd/catalog";
 
-require SGMLTools;
-&SGMLTools::init;
+require "./LinuxDocTools.pm";
+&LinuxDocTools::init;
 
-my @FileList = SGMLTools::process_options ($0, @ARGV);
+my @FileList = LinuxDocTools::process_options ("html", @ARGV);
 for my $curfile (@FileList)
   {
-    SGMLTools::process_file ($curfile);
+    LinuxDocTools::process_file ($curfile);
   }
 
 exit 0;
-

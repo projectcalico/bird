@@ -7,17 +7,17 @@
 #
 #  © Copyright 1996, Cees de Groot
 #
-package SGMLTools::fmt_html;
+package LinuxDocTools::fmt_html;
 use strict;
 
-use SGMLTools::CharEnts;
-use SGMLTools::Vars;
+use LinuxDocTools::CharEnts;
+use LinuxDocTools::Vars;
 
-use SGMLTools::FixRef;
-my $fixref = $SGMLTools::FixRef::fixref;
+use LinuxDocTools::FixRef;
+my $fixref = $LinuxDocTools::FixRef::fixref;
 
-use SGMLTools::Html2Html;
-my $html2html = $SGMLTools::Html2Html::html2html;
+use LinuxDocTools::Html2Html;
+my $html2html = $LinuxDocTools::Html2Html::html2html;
 
 my $html = {};
 $html->{NAME} = "html";
@@ -25,14 +25,22 @@ $html->{HELP} = "";
 $html->{OPTIONS} = [
    { option => "split", type => "l", 
      'values' => [ "0", "1", "2" ], short => "s" },
+   { option => "toc", type => "l", 
+     'values' => [ "0", "1", "2" ], short => "T" },
    { option => "dosnames", type => "f", short => "h" },
-   { option => "imagebuttons", type => "f", short => "I"}
+   { option => "imagebuttons", type => "f", short => "I"},
+   { option => "header", type => "s", short => "H"},
+   { option => "footer", type => "s", short => "F"}
 ];
 $html->{'split'}  = 1;
+$html->{'toc'}  = -1;
 $html->{dosnames}  = 0;
 $html->{imagebuttons}  = 0;
+$html->{header}  = "";
+$html->{footer}  = "";
 $html->{preNSGMLS} = sub {
   $global->{NsgmlsOpts} .= " -ifmthtml ";
+  $global->{NsgmlsPrePipe} = "cat $global->{file}";
 };
 
 $Formats{$html->{NAME}} = $html;
@@ -132,11 +140,15 @@ $html->{postASP} = sub
   #  Run through html2html, preserving stdout
   #  Also, handle prehtml.sed's tasks
   #
+  my $filter = "";
+#  $filter = "|$main::progs->{NKF} -e" if ($global->{language} eq "ja");
   open SAVEOUT, ">&STDOUT";
-  open STDOUT, ">$filename.$ext" or die qq(Cannot open "$filename.$ext");
+  open STDOUT, "$filter>$filename.$ext" or die qq(Cannot open "$filename.$ext");
 
   &{$html2html->{init}}($html->{'split'}, $ext, $img, $filename,
-                        $fixref->{filenum}, $fixref->{lrec});
+                        $fixref->{filenum}, $fixref->{lrec},
+			$html->{'header'}, $html->{'footer'}, $html->{'toc'},
+                        $global->{tmpbase}, $global->{debug});
   LINE: foreach (@file) {
       s,<P></P>,,g; 			# remove empty <P></P> containers
       foreach my $pat (keys %{$html2html->{rules}}) {
