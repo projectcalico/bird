@@ -140,10 +140,14 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
     {
       struct rip_md5_tail *tail;
       struct MD5Context ctxt;
-      static uint32_t sequence = 0;
+      static u32 sequence = 0;
 
       if (num > PACKET_MD5_MAX)
 	bug(  "We can not add MD5 authentication to this long packet" );
+
+      /* need to preset the sequence number to a sane value */
+      if(!sequence)
+	sequence = (u32) time(NULL);
 
       block->keyid = passwd->id;
       block->authlen = sizeof(struct rip_block_auth);
