@@ -11,8 +11,15 @@
 
 #include "lib/resource.h"
 
+/* Pools */
+
 extern pool *cfg_pool;
 extern mempool *cfg_mem;
+
+#define cfg_alloc(size) mp_alloc(cfg_mem, size)
+#define cfg_allocu(size) mp_allocu(cfg_mem, size)
+#define cfg_allocz(size) mp_allocz(cfg_mem, size)
+char *cfg_strcpy(char *c);
 
 /* Lexer */
 

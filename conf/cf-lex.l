@@ -107,7 +107,7 @@ WHITE [ \t]
 
 ["][^"\n]*["] {
   cf_lval.t = yytext+1;
-  yytext[yyleng] = 0;
+  yytext[yyleng-1] = 0;
   return TEXT;
 }
 
@@ -172,7 +172,7 @@ cf_find_sym(byte *c, unsigned int h0)
   l = strlen(c);
   if (l > SYM_MAX_LEN)
     cf_error("Symbol too long");
-  s = mp_alloc(cfg_mem, sizeof(struct symbol) + l);
+  s = cfg_alloc(sizeof(struct symbol) + l);
   s->next = sym_hash[h];
   sym_hash[h] = s;
   s->class = SYM_VOID;
@@ -202,7 +202,7 @@ void
 cf_lex_init(int flag)
 {
   if (allow_new_symbols = flag)
-    sym_hash = mp_allocz(cfg_mem, SYM_HASH_SIZE * sizeof(struct keyword *));
+    sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
   cf_lino = 1;
   default_counter = 1;
 }
@@ -233,4 +233,13 @@ cf_allocate(void)
     rfree(cfg_pool);
   cfg_pool = rp_new(&root_pool, "Config");
   cfg_mem = mp_new(cfg_pool, 1024);
+}
+
+char *
+cfg_strcpy(char *c)
+{
+  int l = strlen(c) + 1;
+  char *z = cfg_allocu(l);
+  memcpy(z, c, l);
+  return z;
 }
