@@ -513,7 +513,10 @@ krt_got_route(struct krt_proto *p, rte *e)
       if (KRT_CF->learn)
 	krt_learn_scan(p, e);
       else
-	krt_trace_in(p, e, "alien route, ignored");
+	{
+	  krt_trace_in(p, e, "alien route, ignored");
+	  rte_free(e);
+	}
       return;
     }
 #endif
@@ -522,6 +525,7 @@ krt_got_route(struct krt_proto *p, rte *e)
     {
       /* Route to this destination was already seen. Strange, but it happens... */
       krt_trace_in(p, e, "already seen");
+      rte_free(e);
       return;
     }
 
