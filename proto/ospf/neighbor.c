@@ -67,11 +67,6 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       schedule_rt_lsa(ifa->oa);
       schedule_net_lsa(ifa);
     }
-    if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)
-    {
-      /* Stop RXMT timer */
-      tm_stop(n->rxmt_timer);
-    }
     if(state==NEIGHBOR_EXSTART)
     {
       if(n->adj==0)	/* First time adjacency */
@@ -86,6 +81,8 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       tm_start(n->rxmt_timer,1);	/* Or some other number ? */
     }
     if(state<NEIGHBOR_EXCHANGE) tm_stop(n->lsrr_timer);
+    if(state<NEIGHBOR_EXSTART) tm_stop(n->rxmt_timer);
+    if(state>NEIGHBOR_EXSTART) n->myimms.bit.i=0;
   }
 }
 

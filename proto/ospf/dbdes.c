@@ -39,7 +39,6 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
   switch(n->state)
   {
     case NEIGHBOR_EXSTART:		/* Send empty packets */
-      n->myimms.bit.i=1;
       pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
       op=(struct ospf_packet *)pkt;
       fill_ospf_pkt_hdr(ifa, pkt, DBDES_P);
@@ -56,8 +55,6 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       break;
 
     case NEIGHBOR_EXCHANGE:
-      n->myimms.bit.i=0;
-
       if(((n->myimms.bit.ms) && (n->dds==n->ddr+1)) ||
          ((!(n->myimms.bit.ms)) && (n->dds==n->ddr)))
       {
@@ -73,7 +70,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	pkt->ddseq=htonl(n->dds);
 
 	j=i=(ifa->iface->mtu-sizeof(struct ospf_dbdes_packet)-SIPH)/
-		sizeof(struct ospf_lsa_header);	/* Number of lsaheaders */
+		sizeof(struct ospf_lsa_header);	/* Number of possible lsaheaders to send */
 	lsa=(n->ldbdes+sizeof(struct ospf_dbdes_packet));
 
 	if(n->myimms.bit.m)
@@ -116,7 +113,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	op->length=htons(length);
 	
         ospf_pkt_finalize(ifa, op);
-        DBG("%s: DB_DES (M) sent to %I.\n", p->name, n->ip);
+        DBG("%s: DB_DES (M) prepared for %I.\n", p->name, n->ip);
       }
 
     case NEIGHBOR_LOADING:
@@ -142,7 +139,6 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	{
           ospf_neigh_sm(n, INM_EXDONE);
 	  if(n->myimms.bit.ms) tm_stop(n->rxmt_timer);
-	  else tm_start(n->rxmt_timer,ifa->rxmtint);
 	}
       }
       break;
@@ -282,9 +278,9 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
             break;
           }
         }
-        if(ps->imms.bit.i) break;
+
     case NEIGHBOR_EXCHANGE:
-	if((ps->imms.byte==n->imms.byte) && (ps->options=n->options) &&
+	if((ps->imms.byte==n->imms.byte) && (ps->options==n->options) &&
 	  (ntohl(ps->ddseq)==n->ddr))
         {
           /* Duplicate packet */
@@ -359,7 +355,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
       break;
     case NEIGHBOR_LOADING:
     case NEIGHBOR_FULL:
-	if((ps->imms.byte==n->imms.byte) && (ps->options=n->options) &&
+	if((ps->imms.byte==n->imms.byte) && (ps->options==n->options) &&
 	  (ps->ddseq==n->dds)) /* Only duplicate are accepted */
         {
           OSPF_TRACE(D_PACKETS, "Received duplicate dbdes from %I.",n->ip);
