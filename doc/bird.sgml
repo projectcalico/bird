@@ -383,7 +383,7 @@ BIRD and BIRDC is stable (see programmer's documentation).
 	<tag/down/
 	Shut BIRD down.
 
-	<tag>debug <m/protocol/|<m/pattern/|all all|off|{ states | routes | filters | events | packets }
+	<tag>debug <m/protocol/|<m/pattern/|all all|off|{ states | routes | filters | events | packets }</tag>
 	Control protocol debugging.
 </descrip>
 
@@ -1278,7 +1278,7 @@ unreachable, routers keep telling each other that its distance is the original d
 interface metric, which is usually one). After some time, the distance reaches infinity (that's 15 in
 RIP) and all routers know that network is unreachable. RIP tries to minimize situations where
 counting to infinity is necessary, because it is slow. Due to infinity being 16, you can't use
-RIP on networks where maximal distance is higher than 15 hosts. You can read more about rip at <HTMLURL
+RIP on networks where maximal distance is higher than 15 hosts. You can read more about RIP at <HTMLURL
 URL="http://www.ietf.org/html.charters/rip-charter.html" name="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4  
 (RFC 1723<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1723.txt">)
 and IPv6 (RFC 2080<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2080.txt">) versions of RIP are supported by BIRD, historical RIPv1 (RFC 1058<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1058.txt">)is
