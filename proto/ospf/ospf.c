@@ -391,11 +391,12 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
     u32 pr=ipa_to_u32(n->n.prefix);
     struct ospf_lsa_ext *ext;
     int i;
+    int max=max_ext_lsa(n->n.pxlen);
 
     /* Flush old external LSA */
     WALK_LIST(oa, po->area_list)
     {
-      for(i=0;i<MAXNETS;i++,pr++)
+      for(i=0;i<max;i++,pr++)
       {
         if(en=ospf_hash_find(oa->gr, pr, rtid, LSA_T_EXT))
         {

@@ -54,6 +54,7 @@ void addifa_rtlsa(struct ospf_iface *ifa);
 void originate_rt_lsa(struct ospf_area *oa);
 void originate_net_lsa(struct ospf_iface *ifa);
 int can_flush_lsa(struct ospf_area *oa);
+int max_ext_lsa(unsigned pxlen);
 void originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs);
 
 #endif /* _BIRD_OSPF_TOPOLOGY_H_ */

@@ -355,6 +355,28 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
 }
 
 /**
+ * max_ext_lsa - calculate the maximum amount of external networks
+ * possible for the given prefix length.
+ *
+ * This is a fix for the previous static use of MAXNETS which did
+ * only work correct if MAXNETS < possible IPs for given prefix.
+ * This solution is kind of a hack as there can now only be one
+ * route for /32 type entries but this is better than the crashes
+ * I did experience whith close together /32 routes originating
+ * on different hosts.
+ */
+
+int
+max_ext_lsa(unsigned pxlen)
+{
+  int i;
+  for(i=1;pxlen<BITS_PER_IP_ADDRESS;pxlen++,i<<=1)
+    if(i>=MAXNETS)
+      return MAXNETS;
+  return i;
+}
+
+/**
  * originate_ext_lsa - new route received from nest and filters
  * @n: network prefix and mask
  * @e: rte
@@ -380,6 +402,7 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   struct ospf_area *oa;
   struct ospf_lsa_ext *ext1,*ext2;
   int i;
+  int max;
 
   OSPF_TRACE(D_EVENTS, "Originating Ext lsa for %I/%d.", n->n.prefix,
     n->n.pxlen);
@@ -393,10 +416,11 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   lsa.length=sizeof(struct ospf_lsa_ext)+sizeof(struct ospf_lsa_ext_tos)+
     sizeof(struct ospf_lsa_header);
   ext1=body;
+  max=max_ext_lsa(n->n.pxlen);
 
   oa=HEAD(po->area_list);
 
-  for(i=0;i<MAXNETS;i++)
+  for(i=0;i<max;i++)
   {
     if((en=ospf_hash_find_header(oa->gr, &lsa))!=NULL)
     {
@@ -407,10 +431,10 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
     else break;
   }
 
-  if(i==MAXNETS)
+  if(i==max)
   {
-    log("%s: got more routes for one network then %d, ignoring",p->name,
-      MAXNETS);
+    log("%s: got more routes for one /%d network then %d, ignoring",p->name,
+      n->n.pxlen,max);
     mb_free(body);
     return;
   }
