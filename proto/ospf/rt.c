@@ -214,10 +214,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	   * it's also correct.
 	   */
 	  DBG("\n");
-	  if (act == oa->rt)
-	    continue;
-	  if (!act->nhi)
-	    continue;
+
 	  nf.type = RTS_OSPF;
 	  nf.capa = 0;
 	  nf.metric1 = act->dist + rtl->metric;
@@ -226,6 +223,26 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  nf.ar = act;
 	  nf.nh = act->nh;
 	  nf.ifa = act->nhi;
+
+	  if (act == oa->rt)
+	  {
+	    struct ospf_iface *iff;
+
+	    WALK_LIST(iff, po->iface_list)
+	    {
+               if (rtl->id == (ipa_to_u32(ipa_mkmask(iff->iface->addr->pxlen))
+	         & ipa_to_u32(iff->iface->addr->prefix)))
+	       {
+		 nf.ifa = iff->iface;
+	         break;
+	       }
+            }
+						 
+	  }
+
+	  if (!nf.ifa)
+	    continue;
+
 	  ri_install(po, ipa_from_u32(rtl->id),
 		     ipa_mklen(ipa_from_u32(rtl->data)), ORT_NET, &nf, NULL);
 	  break;
@@ -458,7 +475,7 @@ ospf_rt_sum(struct ospf_area *oa)
   int mlen = -1, type = -1;
   union ospf_lsa_sum_tm *tm;
 
-  OSPF_TRACE(D_EVENTS, "Starting routing table calculation for inter-area routes");
+  OSPF_TRACE(D_EVENTS, "Starting routing table calculation for inter-area (area %I)", oa->areaid);
 
   WALK_SLIST(en, po->lsal)
   {
@@ -467,9 +484,6 @@ ospf_rt_sum(struct ospf_area *oa)
     /* Page 169 (1) */
     if (en->lsa.age == LSA_MAXAGE)
       continue;
-    if (en->dist == LSINFINITY)
-      continue;
-
     /* Page 169 (2) */
     if (en->lsa.rt == p->cf->global->router_id)
       continue;
@@ -478,6 +492,10 @@ ospf_rt_sum(struct ospf_area *oa)
       continue;
 
     mask = (ip_addr *)en->lsa_body;
+    tm = (union ospf_lsa_sum_tm *)(mask + 1);
+
+    if((tm->metric & METRIC_MASK) == LSINFINITY)
+      continue;
 
     if (en->lsa.type == LSA_T_SUM_NET)
     {
@@ -499,8 +517,6 @@ ospf_rt_sum(struct ospf_area *oa)
     if (!(abr = (ort *) fib_find(&oa->rtr, &abrip, 32))) continue;
     if (abr->n.metric1 == LSINFINITY) continue;
     if (!(abr->n.capa & ORTA_ABR)) continue;
-
-    tm = (union ospf_lsa_sum_tm *)(mask + 1);
 
     nf.type = RTS_OSPF_IA;
     nf.capa = ORTA_ABR;
@@ -933,6 +949,9 @@ again1:
       a0.aflags = 0;
       a0.iface = nf->n.ifa;
       a0.gw = nf->n.nh;
+
+      if (ipa_equal(nf->n.nh, IPA_NONE)) a0.dest = RTD_DEVICE;
+      
       if ((!ipa_equal(nf->n.nh, IPA_NONE)) && (!neigh_find(p, &nf->n.nh, 0)))
       {
         int found = 0;

@@ -108,8 +108,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	if (ifa->state == OSPF_IS_WAITING)
 	{
 	  ln->type = LSART_STUB;
-	  ln->id = ipa_to_u32(ifa->iface->addr->prefix);
 	  ln->data = ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
+	  ln->id = ipa_to_u32(ifa->iface->addr->prefix) & ln->data;
 	  ln->metric = ifa->cost;
 	  ln->notos = 0;
 	}
@@ -134,8 +134,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	  else
 	  {
 	    ln->type = LSART_STUB;
-	    ln->id = ipa_to_u32(ifa->iface->addr->prefix);
 	    ln->data = ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
+	    ln->id = ipa_to_u32(ifa->iface->addr->prefix) & ln->data;
 	    ln->metric = ifa->cost;
 	    ln->notos = 0;
 	  }
@@ -483,8 +483,8 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
   }
   lsa.id = free;
   
-  OSPF_TRACE(D_EVENTS, "Originating summary (type %d) lsa for %I/%d.", lsa.type, fn->prefix,
-             fn->pxlen);
+  OSPF_TRACE(D_EVENTS, "Originating summary (type %d) lsa for %I/%d (met %d).", lsa.type, fn->prefix,
+             fn->pxlen, metric);
 
   sum = mb_alloc(p->pool, sizeof(struct ospf_lsa_sum) + sizeof(union ospf_lsa_sum_tm));
   sum->netmask = ipa_mkmask(mlen);
@@ -847,7 +847,7 @@ ospf_hash_delete(struct top_graph *f, struct top_hash_entry *e)
 void
 ospf_top_dump(struct top_graph *f, struct proto *p)
 {
-  unsigned int i;       /* FIXME: Print areaids */
+  unsigned int i;
   OSPF_TRACE(D_EVENTS, "Hash entries: %d", f->hash_entries);
 
   for (i = 0; i < f->hash_size; i++)
@@ -855,8 +855,9 @@ ospf_top_dump(struct top_graph *f, struct proto *p)
     struct top_hash_entry *e = f->hash_table[i];
     while (e)
     {
-      OSPF_TRACE(D_EVENTS, "\t%1x %-1I %-1I %4u 0x%08x 0x%04x",
-		 e->lsa.type, e->lsa.id, e->lsa.rt, e->lsa.age, e->lsa.sn, e->lsa.checksum);
+      OSPF_TRACE(D_EVENTS, "- %1x %-1I %-1I %4u 0x%08x 0x%04x %-1I",
+		 e->lsa.type, e->lsa.id, e->lsa.rt, e->lsa.age,
+		 e->lsa.sn, e->lsa.checksum, e->oa ? e->oa->areaid : 0 );
       e = e->next;
     }
   }
