@@ -17,14 +17,15 @@ static struct ospf_area_config *this_area;
 static struct iface_patt *this_ipatt;
 #define OSPF_PATT ((struct ospf_iface_patt *) this_ipatt)
 static struct nbma_node *this_nbma;
+static struct area_net *this_pref;
 
 CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
 CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
 CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
-CF_KEYWORDS(NEIGHBORS, NONE, SIMPLE, AUTHENTICATION, PASSWORD, STRICT)
-CF_KEYWORDS(ELIGIBLE, POLL)
+CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, PASSWORD, STRICT)
+CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN)
 
 %type <t> opttext
 
@@ -58,6 +59,7 @@ ospf_area_start: AREA idval '{' {
   this_area->tick = DISPTICK;
   this_area->stub = 0;
   init_list(&this_area->patt_list);
+  init_list(&this_area->net_list);
  }
  ;
 
@@ -72,6 +74,7 @@ ospf_area_opts:
 ospf_area_item:
    STUB COST expr { this_area->stub = $3 ; if($3<=0) cf_error("Stub cost must be greater than zero"); }
  | TICK expr { this_area->tick = $2 ; if($2<=0) cf_error("Tick must be greater than zero"); }
+ | NETWORKS '{' pref_list '}'
  | INTERFACE ospf_iface_list
  ;
 
@@ -95,6 +98,34 @@ ospf_iface_item:
  | PASSWORD TEXT { memcpy(OSPF_PATT->password, $2, 8); }
  |
  ;
+
+pref_list:
+ /* empty */
+ | pref_list pref_item
+ ;
+
+pref_item:
+   pref_el;
+ | pref_hid;
+
+pref_el: prefix ';'
+ {
+   this_pref = cfg_allocz(sizeof(struct area_net));
+   add_tail(&this_area->net_list, NODE this_pref);
+   this_pref->net = $1.addr;
+   this_pref->mlen = $1.len;
+ }
+;
+
+pref_hid: prefix HIDDEN ';'
+ {
+   this_pref = cfg_allocz(sizeof(struct area_net));
+   add_tail(&this_area->net_list, NODE this_pref);
+   this_pref->net = $1.addr;
+   this_pref->mlen = $1.len;
+   this_pref->hidden = 1;
+ }
+;
 
 ipa_list:
  /* empty */

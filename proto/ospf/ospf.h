@@ -65,12 +65,20 @@ struct nbma_node {
   int eligible;
 };
 
+struct area_net {
+  node n;
+  ip_addr net;
+  int mlen;
+  int hidden;
+};
+
 struct ospf_area_config {
   node n;
   u32 areaid;
   int stub;
   unsigned tick;
   list patt_list;
+  list net_list;
 };
 
 struct ospf_iface {
@@ -379,6 +387,7 @@ struct ospf_area {
   slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
   list cand;			/* List of candidates for RT calc. */
+  list net_list;		/* Networks to advertise or not */
   int stub;
   int trcap;			/* Transit capability? */
   struct proto_ospf *po;

@@ -77,6 +77,7 @@ ospf_start(struct proto *p)
   struct ospf_config *c=(struct ospf_config *)(p->cf);
   struct ospf_area_config *ac;
   struct ospf_area *oa;
+  struct area_net *anet,*antmp;
 
   fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
   init_list(&(po->iface_list));
@@ -91,7 +92,7 @@ ospf_start(struct proto *p)
   WALK_LIST(ac,c->area_list)
   {
     oa=mb_allocz(po->proto.pool, sizeof(struct ospf_area));
-    add_tail(&po->area_list,NODE oa);
+    add_tail(&po->area_list, NODE oa);
     po->areano++;
     oa->stub=ac->stub;
     oa->tick=ac->tick;
@@ -108,6 +109,15 @@ ospf_start(struct proto *p)
     tm_start(oa->disp_timer,oa->tick);
     oa->calcrt=0;
     oa->origrt=0;
+    init_list(&oa->net_list);
+    WALK_LIST(anet,ac->net_list)
+    {
+      antmp=mb_allocz(po->proto.pool, sizeof(struct area_net));
+      antmp->net=anet->net;
+      antmp->mlen=anet->mlen;
+      antmp->hidden=anet->hidden;
+      add_tail(&oa->net_list, NODE antmp);
+    }
     fib_init(&oa->infib,po->proto.pool,sizeof(struct infib),16,init_infib);
   }
   return PS_UP;
@@ -485,7 +495,8 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   struct ospf_iface_patt *ip1,*ip2;
   struct ospf_iface *ifa;
   struct nbma_node *nb1,*nb2,*nbnx;
-  struct ospf_area *oa;
+  struct ospf_area *oa=NULL;
+  struct area_net *anet,*antmp;
   int found;
 
   po->rfc1583=new->rfc1583;
@@ -502,21 +513,39 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   while(((NODE (ac1))->next!=NULL) && ((NODE (ac2))->next!=NULL))
   {
     if(ac1->areaid!=ac2->areaid) return 0;
-    if(ac1->stub!=ac2->stub) return 0;
+    if(ac1->stub!=ac2->stub) return 0;	/* FIXME: non zero values can change */
+
+    WALK_LIST(oa,po->area_list)
+      if(oa->areaid==ac2->areaid) break;
+
+    if(!oa) return 0;
+
     if(ac1->tick!=ac2->tick)
     {
-      WALK_LIST(oa,po->area_list)
+      if(oa->areaid==ac2->areaid)
       {
-        if(oa->areaid==ac2->areaid)
-	{
-	  oa->tick=ac2->tick;
-	  tm_start(oa->disp_timer,oa->tick);
-	  OSPF_TRACE(D_EVENTS,
-	    "Changing tick interval on area %I from %d to %d",
-	    oa->areaid, ac1->tick, ac2->tick);
-	  break;
-	}
+        oa->tick=ac2->tick;
+        tm_start(oa->disp_timer,oa->tick);
+        OSPF_TRACE(D_EVENTS,
+         "Changing tick interval on area %I from %d to %d",
+         oa->areaid, ac1->tick, ac2->tick);
+        break;
       }
+    }
+
+    /* Change net_list */
+    WALK_LIST_DELSAFE(anet, antmp, oa->net_list)
+    {
+       rem_node(NODE anet);
+       mb_free(anet);
+    }
+    WALK_LIST(anet, ac2->net_list)
+    {
+       antmp=mb_alloc(p->pool, sizeof(struct area_net));
+       antmp->net=anet->net;
+       antmp->mlen=anet->mlen;
+       antmp->hidden=anet->hidden;
+       add_tail(&oa->net_list, NODE antmp);
     }
 
     if(!iface_patts_equal(&ac1->patt_list, &ac2->patt_list,
@@ -801,6 +830,16 @@ ospf_sh(struct proto *p)
     cli_msg(-1014,"\t\tNumber of LSAs in DB:\t%u", oa->gr->hash_entries);
     cli_msg(-1014,"\t\tNumber of neighbors:\t%u", nno);
     cli_msg(-1014,"\t\tNumber of adjacent neighbors:\t%u", adjno);
+    if(!EMPTY_LIST(oa->net_list))
+    {
+      struct area_net *anet;
+      cli_msg(-1014,"\t\tArea networks:");
+      WALK_LIST(anet, oa->net_list)
+      {
+        cli_msg(-1014,"\t\t\t%18I/%u\t%s", anet->net, anet->mlen,
+          anet->hidden ? "Hidden" : "Advertise");
+      }
+    }
   }
   cli_msg(0,"");
 }
