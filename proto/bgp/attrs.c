@@ -170,6 +170,17 @@ bgp_attach_attr(ea_list **to, struct linpool *pool, unsigned attr, unsigned val)
   return bgp_set_attr(a->attrs, pool, attr, val);
 }
 
+/**
+ * bgp_encode_attrs - encode BGP attributes
+ * @w: buffer
+ * @attrs: a list of extended attributes
+ * @remains: remaining space in the buffer
+ *
+ * The bgp_encode_attrs() function takes a list of extended attributes
+ * and converts it to its BGP representation (a part of an Update message).
+ *
+ * Result: Length of the attribute block generated.
+ */
 unsigned int
 bgp_encode_attrs(byte *w, ea_list *attrs, int remains)
 {
@@ -715,6 +726,18 @@ bgp_path_loopy(struct bgp_proto *p, eattr *a)
   return 0;
 }
 
+/**
+ * bgp_decode_attrs - check and decode BGP attributes
+ * @conn: connection
+ * @attr: start of attribute block
+ * @len: length of attribute block
+ * @pool: linear pool to make all the allocations in
+ * @mandatory: 1 iff presence of mandatory attributes has to be checked
+ *
+ * This function takes a BGP attribute block (a part of an Update message), checks
+ * its consistency and converts it to a list of BIRD route attributes represented
+ * by a &rta.
+ */
 struct rta *
 bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct linpool *pool, int mandatory)
 {

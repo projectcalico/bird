@@ -236,6 +236,16 @@ bgp_create_header(byte *buf, unsigned int len, unsigned int type)
   buf[18] = type;
 }
 
+/**
+ * bgp_fire_tx - transmit packets
+ * @conn: connection
+ *
+ * Whenever the transmit buffers of the underlying TCP connection
+ * are free and we have any packets queued for sending, the socket functions
+ * call bgp_fire_tx() which takes care of selecting the highest priority packet
+ * queued (Notification > Keepalive > Open > Update), assembling its header
+ * and body and sending it to the connection.
+ */
 static int
 bgp_fire_tx(struct bgp_conn *conn)
 {
@@ -295,6 +305,13 @@ bgp_fire_tx(struct bgp_conn *conn)
   return sk_send(sk, end - buf);
 }
 
+/**
+ * bgp_schedule_packet - schedule a packet for transmission
+ * @conn: connection
+ * @type: packet type
+ *
+ * Schedule a packet of type @type to be sent as soon as possible.
+ */
 void
 bgp_schedule_packet(struct bgp_conn *conn, int type)
 {
@@ -770,6 +787,15 @@ bgp_rx_keepalive(struct bgp_conn *conn, byte *pkt, unsigned len)
     }
 }
 
+/**
+ * bgp_rx_packet - handle a received packet
+ * @conn: BGP connection
+ * @pkt: start of the packet
+ * @len: packet size
+ *
+ * bgp_rx_packet() takes a newly received packet and calls the corresponding
+ * packet handler according to the packet type.
+ */
 static void
 bgp_rx_packet(struct bgp_conn *conn, byte *pkt, unsigned len)
 {
@@ -784,6 +810,16 @@ bgp_rx_packet(struct bgp_conn *conn, byte *pkt, unsigned len)
     }
 }
 
+/**
+ * bgp_rx - handle received data
+ * @sk: socket
+ * @size: amount of data received
+ *
+ * bgp_rx() is called by the socket layer whenever new data arrive from
+ * the underlying TCP connection. It assembles the data fragments to packets,
+ * checks their headers and framing and passes complete packets to
+ * bgp_rx_packet().
+ */
 int
 bgp_rx(sock *sk, int size)
 {

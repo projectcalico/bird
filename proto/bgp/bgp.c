@@ -6,6 +6,53 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Border Gateway Protocol
+ *
+ * The BGP protocol is implemented in three parts: |bgp.c| which takes care of the
+ * connection and most of the interface with BIRD core, |packets.c| handling
+ * both incoming and outgoing BGP packets and |attrs.c| containing functions for
+ * manipulation with BGP attribute lists.
+ *
+ * As opposed to the other existing routing daemons, BIRD has a sophisticated core
+ * architecture which is able to keep all the information needed by BGP in the
+ * primary routing table, therefore no complex data structures like a central
+ * BGP table are needed. This increases memory footprint of a BGP router with
+ * many connections, but not too much and, which is more important, it makes
+ * BGP much easier to implement.
+ *
+ * Each instance of BGP (corresponding to one BGP peer) is described by a &bgp_proto
+ * structure to which are attached individual connections represented by &bgp_connection
+ * (usually, there exists only one connection, but during BGP session setup, there
+ * can be more of them). The connections are handled according to the BGP state machine
+ * defined in the RFC with all the timers and all the parameters configurable.
+ *
+ * In incoming direction, we listen on the connection's socket and each time we receive
+ * some input, we pass it to bgp_rx(). It decodes packet headers and the markers and
+ * passes complete packets to bgp_rx_packet() which distributes the packet according
+ * to its type.
+ *
+ * In outgoing direction, we gather all the routing updates and sort them to buckets
+ * (&bgp_bucket) according to their attributes (we keep a hash table for fast comparison
+ * of &rta's and a &fib which helps us to find if we already have another route for
+ * the same destination queued for sending, so that we can replace it with the new one
+ * immediately instead of sending both updates). There also exists a special bucket holding
+ * all the route withdrawals which cannot be queued anywhere else as they don't have any
+ * attributes. If we have any packet to send (due to either new routes or the connection
+ * tracking code wanting to send a Open, KeepAlive or Notification message), we call
+ * bgp_schedule_packet() which sets the corresponding bit in a @packet_to_send
+ * bit field in &bgp_conn and as soon as the transmit socket buffer becomes empty,
+ * we call bgp_fire_tx(). It inspects state of all the packet type bits and calls
+ * the corresponding bgp_create_xx() functions, eventually rescheduling the same packet
+ * type if we have more data of the same type to send.
+ *
+ * The processing of attributes consists of two functions: bgp_decode_attrs() for checking
+ * of the attribute blocks and translating them to the language of BIRD's extended attributes
+ * and bgp_encode_attrs() which does the converse. Both functions are built around a
+ * @bgp_attr_table array describing all important characteristics of all known attributes.
+ * Unknown transitive attributes are attached to the route as %EAF_TYPE_OPAQUE byte streams.
+ */
+
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -42,6 +89,15 @@ bgp_close(struct bgp_proto *p)
     }
 }
 
+/**
+ * bgp_start_timer - start a BGP timer
+ * @t: timer
+ * @value: time to fire (0 to disable the timer)
+ *
+ * This functions calls tm_start() on @t with time @value and the
+ * amount of randomization suggested by the BGP standard. Please use
+ * it for all BGP timers.
+ */
 void
 bgp_start_timer(timer *t, int value)
 {
@@ -55,6 +111,19 @@ bgp_start_timer(timer *t, int value)
     tm_stop(t);
 }
 
+/**
+ * bgp_close_conn - close a BGP connection
+ * @conn: connection to close
+ *
+ * This function takes a connection described by the &bgp_conn structure,
+ * closes its socket and frees all resources associated with it.
+ *
+ * If the connection is being closed due to a protocol error, adjust
+ * the connection restart timer as well according to the error recovery
+ * policy set in the configuration.
+ *
+ * If the connection was marked as primary, it shuts down the protocol as well.
+ */
 void
 bgp_close_conn(struct bgp_conn *conn)
 {
@@ -231,6 +300,14 @@ bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
   conn->sk = s;
 }
 
+/**
+ * bgp_connect - initiate an outgoing connection
+ * @p: BGP instance
+ *
+ * The bgp_connect() function creates a new &bgp_conn and initiates
+ * a TCP connection to the peer. The rest of connection setup is governed
+ * by the BGP state machine as described in the standard.
+ */
 static void
 bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing connection */
 {
@@ -279,6 +356,18 @@ bgp_initiate(struct bgp_proto *p)
     bgp_connect(p);
 }
 
+/**
+ * bgp_incoming_connection - handle an incoming connection
+ * @sk: TCP socket
+ * @dummy: unused
+ *
+ * This function serves as a socket hook for accepting of new BGP
+ * connections. It searches a BGP instance corresponding to the peer
+ * which has connected and if such an instance exists, it creates a
+ * &bgp_conn structure, attaches it to the instance and either sends
+ * an Open message or (if there already is an active connection) it
+ * closes the new connection by sending a Notification message.
+ */
 static int
 bgp_incoming_connection(sock *sk, int dummy)
 {
@@ -473,6 +562,18 @@ bgp_init(struct proto_config *C)
   return P;
 }
 
+/**
+ * bgp_error - report a protocol error
+ * @c: connection
+ * @code: error code (according to the RFC)
+ * @subcode: error subcode
+ * @data: data to be passed in the Notification message
+ * @len: length of the data
+ *
+ * bgp_error() sends a notification packet to tell the other side that a protocol
+ * error has occured (including the data considered erroneous if possible) and
+ * closes the connection.
+ */
 void
 bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len)
 {
