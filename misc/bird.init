@@ -16,7 +16,7 @@
 . /etc/rc.d/init.d/functions
 
 # Check that networking is up.
-if [ ${NETWORKING} = "no" ]
+if [ "${NETWORKING}" = "no" ]
 then
 	exit 0
 fi
