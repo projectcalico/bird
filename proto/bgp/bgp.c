@@ -210,11 +210,8 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   DBG("BGP: Connecting\n");
   s = sk_new(p->p.pool);
   s->type = SK_TCP_ACTIVE;
-  s->saddr = _MI(0x3ea80001);		/* FIXME: Hack */
+  s->saddr = p->local_addr;
   s->daddr = p->cf->remote_ip;
-#if 0
-  s->sport =				/* FIXME */
-#endif
   s->dport = BGP_PORT;
   bgp_setup_sk(p, conn, s);
   s->tx_hook = bgp_connected;
@@ -237,7 +234,7 @@ bgp_incoming_connection(sock *sk, int dummy)
   WALK_LIST(n, bgp_list)
     {
       struct bgp_proto *p = SKIP_BACK(struct bgp_proto, bgp_node, n);
-      if (ipa_equal(p->cf->remote_ip, sk->daddr) && sk->dport == BGP_PORT)
+      if (ipa_equal(p->cf->remote_ip, sk->daddr))
 	{
 	  DBG("BGP: Authorized\n");
 	  if (p->incoming_conn.sk)
