@@ -118,7 +118,7 @@ pxlen:
    }
  ;
 
-datetime:	/* Return seconds from epoch, FIXME we want be more user friendly */
+datetime:
    TEXT {
      $$ = tm_parse_date($1);
      if (!$$)
