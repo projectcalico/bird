@@ -351,6 +351,7 @@ ospf_sh_neigh(struct proto *p, char *iff)
       "     State", "DTime", "Router IP", "Interface");
     WALK_LIST(n, ifa->neigh_list) ospf_sh_neigh_info(n);
     cli_msg(0,"");
+    return;
   }
 
   cli_msg(-1013,"%s:", p->name);
