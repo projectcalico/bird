@@ -279,7 +279,9 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
     ifa->nlsa->lsa.sn+=1;
     ifa->nlsa->lsa.age=LSA_MAXAGE;
     flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,0);
+    s_rem_node(SNODE ifa->nlsa);
     ospf_hash_delete(ifa->oa->gr, ifa->nlsa);
+    schedule_rtcalc(ifa->oa);
     ifa->nlsa=NULL;
     return ;
   }
