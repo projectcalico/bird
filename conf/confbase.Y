@@ -32,7 +32,7 @@ CF_DECLS
 %token <s> SYM
 %token <t> TEXT
 
-%type <i> expr bool
+%type <i> expr bool pxlen
 
 %left '+' '-'
 %left '*' '/' '%'
@@ -86,6 +86,19 @@ bool:
  | OFF { $$ = 0; }
  | NO { $$ = 0; }
  | /* Silence means agreement */ { $$ = 1; }
+ ;
+
+/* Prefixes and netmasks */
+
+pxlen:
+   '/' NUM {
+     if ($2 < 0 || $2 > 32) cf_error("Invalid prefix length %d", $2);
+     $$ = $2;
+   }
+ | ':' IPA {
+     $$ = ipa_mklen($2);
+     if ($$ < 0) cf_error("Invalid netmask %I", $2);
+   }
  ;
 
 CF_CODE
