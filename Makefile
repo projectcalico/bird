@@ -4,12 +4,12 @@
 
 objdir=obj
 
-all depend:
+all depend tags:
 	$(MAKE) -C $(objdir) $@
 
 clean:
 	$(MAKE) -C $(objdir) clean
-	find . -name "*~" -or -name "*.[oa]" -or -name "\#*\#" -or -name TAGS -or -name core -or -name depend -or -name .#* | xargs rm -f
+	find . -name "*~" -or -name "*.[oa]" -or -name "\#*\#" -or -name TAGS -or -name core -or -name depend -or -name ".#*" | xargs rm -f
 
 distclean: clean
 	rm -rf $(objdir)

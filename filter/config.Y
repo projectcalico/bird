@@ -11,7 +11,6 @@
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
 	FIXME: access to dynamic attributes
-	FIXME: make case faster
  */
 
 CF_HDR
@@ -37,10 +36,10 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	FILTER
 	)
 
-%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list switch_body
+%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list
 %type <f> filter filter_body
 %type <i> type break_command pair
-%type <e> set_item set_items
+%type <e> set_item set_items switch_body
 %type <v> set_atom prefix prefix_s ipa
 %type <s> decls function_params 
 
@@ -191,6 +190,20 @@ set_items:
  | set_items ',' set_item { $$ = $3; $$->left = $1; }
  ;
 
+/* 2 shift/reduce conflicts here. Curable by replacing cmds with block which breaks syntax */
+switch_body: /* EMPTY */ { $$ = NULL; }
+ | set_item ':' cmds switch_body {
+     $$ = $1;
+     $$->data = $3;
+     $$->left = $4;
+   }
+ | ELSE ':' cmds {
+     $$ = f_new_tree(); 
+     $$->from.type = T_VOID; 
+     $$->to.type = T_VOID;
+     $$->data = $3;
+   }
+ ;
 
 constant:
    CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT; $$->a2.i = $3; }
@@ -286,23 +299,6 @@ var_list: term {
    }
  ;
 
-/* 2 shift/reduce conflicts here. Curable by replacing cmds with block which breaks syntax */
-switch_body: /* EMPTY */ { $$ = NULL; }
- | term ':' cmds switch_body {
-     $$ = f_new_inst();
-     $$->code = 'of';
-     $$->a1.p = $1;
-     $$->a2.p = $3;
-     $$->next = $4;
-   }
- | ELSE ':' cmds {
-     $$ = f_new_inst();
-     $$->code = 'el';
-     $$->a1.p = NULL;
-     $$->a2.p = $3;
-   }
- ;
-
 cmd:
    ifthen { 
      $$ = $1;
@@ -346,9 +342,9 @@ cmd:
    }
  | CASE term '{' switch_body '}' {
       $$ = f_new_inst();
-      $$->code = 'sw';
+      $$->code = 'SW';
       $$->a1.p = $2;
-      $$->a2.p = $4;
+      $$->a2.p = build_tree( $4 );
    }
  ;
 

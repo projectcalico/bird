@@ -73,7 +73,7 @@ struct f_tree *
 find_tree(struct f_tree *t, struct f_val val)
 {
   if (!t)
-    return 0;
+    return NULL;
   if ((val_compare(t->from, val) != 1) &&
       (val_compare(t->to, val) != -1))
     return t;

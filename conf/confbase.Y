@@ -43,7 +43,7 @@ CF_DECLS
 
 %type <i> expr bool pxlen datetime
 
-%nonassoc '=' '<' '>' '~' ELSE IF '.'
+%nonassoc '=' '<' '>' '~' IF ELSE '.'
 %left '+' '-'
 %left '*' '/' '%'
 %left '!'

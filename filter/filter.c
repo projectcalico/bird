@@ -54,6 +54,13 @@ struct f_inst *startup_func = NULL;
 int
 val_compare(struct f_val v1, struct f_val v2)
 {
+  if ((v1.type == T_VOID) && (v2.type == T_VOID))
+    return 0;
+  if (v1.type == T_VOID)	/* Hack for else */
+    return -1;
+  if (v2.type == T_VOID)
+    return 1;
+
   if (v1.type != v2.type)
     return CMP_ERROR;
   switch (v1.type) {
@@ -64,7 +71,7 @@ val_compare(struct f_val v1, struct f_val v2)
     return 1;
   case T_IP:
     return ipa_compare(v1.val.ip, v2.val.ip);
-  default: return CMP_ERROR;
+  default: { printf( "Error comparing\n" ); return CMP_ERROR; }
   }
 }
 
@@ -113,40 +120,6 @@ val_print(struct f_val v)
 static struct rte **f_rte;
 
 static struct f_val interpret(struct f_inst *what);
-
-static struct f_val
-interpret_switch(struct f_inst *what, struct f_val control)
-{
-  struct f_val this, res;
-  int i;
-  res.type = T_VOID;
-
-  if (!what)
-    return res;
-
-  switch(what->code) {
-  case 'el':
-    return interpret(what->a2.p);
-
-  case 'of':
-    this = interpret(what->a1.p);
-    i = val_compare(control, this);
-    if (!i)
-      return interpret(what->a2.p);
-    if (i==CMP_ERROR) {
-      i = val_in_range(control, this);
-      if (i==1)
-	return interpret(what->a2.p);
-      if (i==CMP_ERROR)
-	runtime( "incompatible types in case" );
-    }
-    break;
-    
-  default:
-    bug( "This can not happen (%x)\n", what->code );
-  }
-  return interpret_switch(what->next, control);
-}
 
 static struct f_val
 interpret(struct f_inst *what)
@@ -309,9 +282,22 @@ interpret(struct f_inst *what)
     ONEARG;
     res = interpret(what->a2.p);
     break;
-  case 'sw': /* SWITCH alias CASE */
+  case 'SW':
     ONEARG;
-    interpret_switch(what->a2.p, v1);
+    {
+      struct f_tree *t = find_tree(what->a2.p, v1);
+      if (!t) {
+	v1.type = T_VOID;
+	t = find_tree(what->a2.p, v1);
+	if (!t) {
+	  printf( "No else statement?\n ");
+	  break;
+	}
+      }	
+      if (!t->data)
+	die( "Impossible: no code associated!\n" );
+      return interpret(t->data);
+    }
     break;
   case 'iM': /* IP.MASK(val) */
     TWOARGS_C;
