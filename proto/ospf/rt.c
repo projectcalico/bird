@@ -235,14 +235,7 @@ again:
         a0.flags=0;
         a0.aflags=0;
         a0.iface=en->nhi;
-        if(ipa_in_net(en->nh,en->nhi->addr->ip,en->nhi->addr->pxlen))
-        {
-           a0.gw=IPA_NONE;
-        }
-        else
-        {
-           a0.gw=en->nh;
-        }
+        a0.gw=en->nh;
         
         ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
         e=rte_get_temp(&a0);
@@ -654,6 +647,9 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
       if(en->lsa.type==LSA_T_NET) bug("Parent for net is net?");
       if((en->nhi=par->nhi)==NULL)
         bug("Did not find next hop interface for INSPF lsa!");
+      if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL) return;
+      en->nhi=neigh->ifa->iface;
+      en->nh=neigh->ip;	/* Yes, neighbor is it's own next hop */
       return;
     }
     else	/* Parent is some RT neighbor */
