@@ -109,6 +109,7 @@ BIRD_CHECK_TIME_T
 if test "$enable_debug" = yes ; then
 	AC_DEFINE(PATH_CONFIG_DIR, ".")
 	AC_DEFINE(DEBUGGING)
+	AC_CHECK_LIB(efence, malloc)
 else
 	AC_DEFINE_UNQUOTED(PATH_CONFIG_DIR, "$sysconfdir")
 fi
