@@ -425,10 +425,12 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
     {
       list l;
-      struct l_lsr_head llsh;
+      struct l_lsr_head ll;
       init_list(&l);
-      memcpy(&llsh.lsh,&lsadb->lsa,sizeof(struct ospf_lsa_header));
-      add_tail(&l, NODE &llsh);
+      ll.lsh.id=lsadb->lsa.id;
+      ll.lsh.rt=lsadb->lsa.rt;
+      ll.lsh.type=lsadb->lsa.type;
+      add_tail(&l, NODE &ll);
       ospf_lsupd_tx_list(n, &l);
     }
   }
