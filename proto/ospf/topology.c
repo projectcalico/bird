@@ -313,8 +313,8 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
   struct ospf_lsa_ext *ext;
   struct ospf_lsa_ext_tos *et;
   neighbor *nn;
-  u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, 0);
-  u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 0);
+  u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, LSINFINITY);
+  u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 10000);
   u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
   int inas=0;
 

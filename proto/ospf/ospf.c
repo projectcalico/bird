@@ -193,7 +193,7 @@ ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool 
   struct proto_ospf *po=(struct proto_ospf *)p;
 
   if(p==e->attrs->proto) return -1;	/* Reject our own routes */
-  *attrs = ospf_build_attrs(*attrs, pool, 0, 0, 0); /* FIXME: Use better defaults? */
+  *attrs = ospf_build_attrs(*attrs, pool, LSINFINITY, 10000, 0);
   return 0;				/* Leave decision to the filters */
 }
 
@@ -206,8 +206,8 @@ ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool)
 void
 ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
 {
-  rt->u.ospf.metric1 = ea_get_int(attrs, EA_OSPF_METRIC1, 0);
-  rt->u.ospf.metric2 = ea_get_int(attrs, EA_OSPF_METRIC2, 0);
+  rt->u.ospf.metric1 = ea_get_int(attrs, EA_OSPF_METRIC1, LSINFINITY);
+  rt->u.ospf.metric2 = ea_get_int(attrs, EA_OSPF_METRIC2, 10000);
   rt->u.ospf.tag     = ea_get_int(attrs, EA_OSPF_TAG,     0);
 }
 

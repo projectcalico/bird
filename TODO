@@ -87,8 +87,6 @@ Last minute stuff:
 ~~~~~~~~~~~~~~~~~~
 Martin:	DOC: korektury
 	DOC: typograficky doladit, vyrobit titulni stranku (ta, co ji vygeneruji SGMLtools, vypada priserne)
-	progdoc: dopsat kapitoly o resourcech a sysdepu
-	OSPF: zkontrolovat defaultni hodnoty metrik
 	Zinscenovat jeste jeden poradny test OSPF
 	Zjistit, kde se bude tisknout a vazat dokumentace
 	DOC: Linux 2.2 je ten, kdo podporuje vice routing tables
