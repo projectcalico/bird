@@ -292,9 +292,10 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
-  if ((unsigned) size > ifa->iface->mtu)
+  if (((unsigned) size > sk->rbsize) || (ntohs(ps->length) > sk->rbsize))
   {
-    log(L_ERR "%s%I - received larger packet than MTU", mesg, sk->faddr);
+    log(L_ERR "%s%I - packet is too large (%d-%d vs %d)",
+      mesg, sk->faddr, size, ntohs(ps->length), sk->rbsize);
     return 1;
   }
 
