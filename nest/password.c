@@ -51,3 +51,11 @@ password_strncpy(char *to, char *from, int len)
   }
 }
 
+int
+password_same(struct password_item *old, struct password_item *new)
+{
+  return ((old->from == new->from) &&
+	  (old->to == new->to) &&
+	  (old->passive == new->passive) &&
+	  password_same(old, new));
+}
