@@ -31,20 +31,25 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
       {
         if(ifa->dr_sk==NULL)
         {
+          DBG("%s: Adding new multicast socket for (B)DR\n", p->name);
           ifa->dr_sk=sk_new(p->pool);
-              ifa->dr_sk->type=SK_IP_MC;
-              ifa->dr_sk->saddr=AllDRouters;
-              ifa->dr_sk->daddr=AllDRouters;
-              ifa->dr_sk->tos=IP_PREC_INTERNET_CONTROL;
-              ifa->dr_sk->ttl=1;
-              ifa->dr_sk->rx_hook=ospf_rx_hook;
-              ifa->dr_sk->tx_hook=ospf_tx_hook;
-              ifa->dr_sk->err_hook=ospf_err_hook;
-              ifa->dr_sk->iface=ifa->iface;
-              ifa->dr_sk->rbsize=ifa->iface->mtu;
-              ifa->dr_sk->tbsize=ifa->iface->mtu;
-              ifa->dr_sk->data=(void *)ifa;
-              sk_open(ifa->dr_sk);
+          ifa->dr_sk->type=SK_IP_MC;
+	  ifa->dr_sk->dport=OSPF_PROTO;
+          ifa->dr_sk->saddr=AllDRouters;
+          ifa->dr_sk->daddr=AllDRouters;
+          ifa->dr_sk->tos=IP_PREC_INTERNET_CONTROL;
+          ifa->dr_sk->ttl=1;
+          ifa->dr_sk->rx_hook=ospf_rx_hook;
+          ifa->dr_sk->tx_hook=ospf_tx_hook;
+          ifa->dr_sk->err_hook=ospf_err_hook;
+          ifa->dr_sk->iface=ifa->iface;
+          ifa->dr_sk->rbsize=ifa->iface->mtu;
+          ifa->dr_sk->tbsize=ifa->iface->mtu;
+          ifa->dr_sk->data=(void *)ifa;
+          if(sk_open(ifa->dr_sk)!=0)
+	  {
+	    DBG("%s: SK_OPEN: new? mc open failed.\n", p->name);
+	  }
         }
       }
       else
@@ -52,7 +57,7 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
         if(ifa->dr_sk!=NULL)
         {
           sk_close(ifa->dr_sk);
-              rfree(ifa->dr_sk);
+          rfree(ifa->dr_sk);
         }
       }
     }
