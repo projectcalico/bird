@@ -185,23 +185,25 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
 
   DBG(" OSPF: If notify called\n");
 
-  if(((flags & IF_CHANGE_UP)==IF_CHANGE_UP) && is_good_iface(p, new))
+  if((flags & IF_CHANGE_UP) && is_good_iface(p, new))
   {
     debug(" OSPF: using interface %s.\n", new->name);
     /* FIXME: Latter I'll use config - this is incorrect */
     ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
-    bcopy(new, ifa, sizeof(struct ospf_iface));
+    memcpy(ifa, new, sizeof(struct ospf_iface));
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
     add_wait_timer(ifa,p->pool,0);
     init_list(&(ifa->sk_list));
     if((mcsk=ospf_open_socket(p, ifa))!=NULL)
     {
+#if 0	/* FIXME: You cannot do this: the socket nodes are used internally by the resource manager */
       add_tail(&(ifa->sk_list),NODE mcsk);
+#endif
     }
   }
 
-  if((flags & IF_CHANGE_DOWN)==IF_CHANGE_DOWN)
+  if(flags & IF_CHANGE_DOWN)
   {
     if((ifa=find_iface((struct proto_ospf *)p, old))!=NULL)
     {
@@ -209,7 +211,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
     }
   }
 
-  if((flags & IF_CHANGE_MTU)==IF_CHANGE_MTU)
+  if(flags & IF_CHANGE_MTU)
   {
     if((ifa=find_iface((struct proto_ospf *)p, old))!=NULL)
     {
