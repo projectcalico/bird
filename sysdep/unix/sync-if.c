@@ -42,16 +42,18 @@ scan_ifs(struct ifreq *r, int cnt)
       bzero(&i, sizeof(i));
       DBG("%s\n", r->ifr_ifrn.ifrn_name);
       strncpy(i.name, r->ifr_ifrn.ifrn_name, sizeof(i.name) - 1);
-      i.name[sizeof(i.name) - 1] = 0;
       get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &i.ip, NULL);
-      l = ipa_classify(i.ip);
-      if (l < 0 || !(l & IADDR_HOST))
+      if (ipa_nonzero(i.ip))
 	{
-	  log(L_ERR "%s: Invalid interface address", i.name);
-	  goto bad;
+	  l = ipa_classify(i.ip);
+	  if (l < 0 || !(l & IADDR_HOST))
+	    {
+	      log(L_ERR "%s: Invalid interface address", i.name);
+	      i.ip = IPA_NONE;
+	    }
+	  else if ((l & IADDR_SCOPE_MASK) == SCOPE_HOST)
+	    i.flags |= IF_LOOPBACK | IF_IGNORE;
 	}
-      if ((l & IADDR_SCOPE_MASK) == SCOPE_HOST)
-	i.flags |= IF_LOOPBACK | IF_IGNORE;
 
       if (ioctl(if_scan_sock, SIOCGIFFLAGS, r) < 0)
 	{
@@ -59,12 +61,12 @@ scan_ifs(struct ifreq *r, int cnt)
 	faulty:
 	  log(L_ERR "%s(%s): %m", err, i.name);
 	bad:
-	  i.flags = (i.flags & ~IF_UP) | IF_ADMIN_DOWN;
+	  i.flags = (i.flags & ~IF_LINK_UP) | IF_ADMIN_DOWN;
 	  continue;
 	}
       fl = r->ifr_flags;
       if (fl & IFF_UP)
-	i.flags |= IF_UP;
+	i.flags |= IF_LINK_UP;
 
       if (ioctl(if_scan_sock, SIOCGIFNETMASK, r) < 0)
 	{ err = "SIOCGIFNETMASK"; goto faulty; }
@@ -120,6 +122,8 @@ scan_ifs(struct ifreq *r, int cnt)
 	DBG("SIOCGIFINDEX failed: %m\n");
       else
 	i.index = r->ifr_ifindex;
+#else
+      /* FIXME: What else? Guess ifindex (we need it at least for OSPF on unnumbered links)? */
 #endif
 
       if_update(&i);

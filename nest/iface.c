@@ -31,7 +31,7 @@ static list neigh_list;
 static int
 if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
 {
-  if (i->flags & (IF_ADMIN_DOWN | IF_IGNORE))
+  if (!(i->flags & IF_UP))
     return 0;
   if ((i->flags & IF_UNNUMBERED) && ipa_equal(*a, i->opposite))
     return 1;
@@ -41,8 +41,6 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
       ipa_equal(*a, i->brd) ||		/* Broadcast */
       ipa_equal(*a, i->ip))		/* Our own address */
     return -1;
-  if (!(i->flags & IF_UP))
-    return 0;
   return 1;
 }
 
@@ -197,6 +195,10 @@ if_dump(struct iface *i)
     debug(" ADMIN-DOWN");
   if (i->flags & IF_UP)
     debug(" UP");
+  else
+    debug(" DOWN");
+  if (i->flags & IF_LINK_UP)
+    debug(" LINK-UP");
   if (i->flags & IF_MULTIACCESS)
     debug(" MA");
   if (i->flags & IF_UNNUMBERED)
@@ -229,14 +231,16 @@ if_dump_all(void)
 static inline int
 if_change_too_big_p(struct iface *i, struct iface *j)
 {
-  if (!ipa_equal(i->ip, j->ip) ||
+  if ((i->flags ^ j->flags) & IF_UP)	/* Going up/down is always OK */
+    return 0;
+  if (!ipa_equal(i->ip, j->ip) ||	/* Address change isn't */
       !ipa_equal(i->prefix, j->prefix) ||
       i->pxlen != j->pxlen ||
       !ipa_equal(i->brd, j->brd) ||
       !ipa_equal(i->opposite, j->opposite))
-    return 1;				/* Changed addresses */
-  if ((i->flags ^ j->flags) & ~(IF_UP | IF_ADMIN_DOWN | IF_UPDATED))
     return 1;
+  if ((i->flags ^ j->flags) & ~(IF_UP | IF_ADMIN_DOWN | IF_UPDATED | IF_LINK_UP))
+    return 1;				/* Interface type change isn't as well */
   return 0;
 }
 
@@ -295,6 +299,11 @@ if_update(struct iface *new)
   struct iface *i;
   unsigned c;
 
+  if ((new->flags & IF_LINK_UP) && !(new->flags & IF_ADMIN_DOWN) && ipa_nonzero(new->ip))
+    new->flags |= IF_UP;
+  else
+    new->flags &= ~IF_UP;
+
   WALK_LIST(i, iface_list)
     if (!strcmp(new->name, i->name))
       {
@@ -337,8 +346,9 @@ if_end_update(void)
     else
       {
 	memcpy(&j, i, sizeof(struct iface));
-	i->flags = (i->flags & ~IF_UP) | IF_ADMIN_DOWN;
-	if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, &j, i);
+	i->flags = (i->flags & ~(IF_LINK_UP | IF_UP)) | IF_ADMIN_DOWN;
+	if (i->flags != j.flags)
+	  if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, &j, i);
       }
 }
 
@@ -362,7 +372,7 @@ auto_router_id(void)			/* FIXME: What if we run IPv6??? */
   j = NULL;
   WALK_LIST(i, iface_list)
     if ((i->flags & IF_UP) &&
-	!(i->flags & (IF_UNNUMBERED | IF_LOOPBACK | IF_IGNORE)) &&
+	!(i->flags & (IF_UNNUMBERED | IF_IGNORE)) &&
 	(!j || ipa_to_u32(i->ip) < ipa_to_u32(j->ip)))
       j = i;
   if (!j)

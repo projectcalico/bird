@@ -21,7 +21,7 @@ struct iface {
   unsigned flags;
   unsigned mtu;
   unsigned index;			/* OS-dependent interface index */
-  ip_addr ip;				/* IP address of this host */
+  ip_addr ip;				/* IP address of this host (0=unset) */
   ip_addr prefix;			/* Network prefix */
   unsigned pxlen;			/* Prefix length */
   ip_addr brd;				/* Broadcast address */
@@ -29,7 +29,7 @@ struct iface {
   struct neighbor *neigh;		/* List of neighbors on this interface */
 };
 
-#define IF_UP 1
+#define IF_UP 1				/* IF_LINK_UP, not IF_IGNORE and IP address known */
 #define IF_MULTIACCESS 2
 #define IF_UNNUMBERED 4
 #define IF_BROADCAST 8
@@ -38,7 +38,8 @@ struct iface {
 #define IF_ADMIN_DOWN 64
 #define IF_LOOPBACK 128
 #define IF_IGNORE 256
-#define IF_UPDATED 0x1000		/* Touched in last scan */
+#define IF_LINK_UP 512
+#define IF_UPDATED 0x40000000		/* Touched in last scan */
 
 /* Interface change events */
 
