@@ -610,13 +610,18 @@ ospf_hash_get(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
     e = e->next;
   if (e)
     return e;
+
   e = sl_alloc(f->hash_slab);
+  e->color = OUTSPF;
+  e->dist = LSINFINITY;
+  e->nhi = NULL;
+  e->nh = ipa_from_u32(0);
   e->lsa.id = lsa;
   e->lsa.rt = rtr;
   e->lsa.type = type;
   e->lsa_body = NULL;
   e->nhi = NULL;
-  e->next = *ee;		/* MJ you forgot this :-) */
+  e->next = *ee;
   *ee = e;
   if (f->hash_entries++ > f->hash_entries_max)
     ospf_top_rehash(f, HASH_HI_STEP);
