@@ -294,7 +294,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     if((mlen<0)||(mlen>32))
     {
       log("%s: Invalid mask in LSA.\nID: %I, RT: %I, Type: %u, Mask %I",
-        p->proto,en->lsa.id,en->lsa.rt,en->lsa.type,le->netmask);
+        p->name,en->lsa.id,en->lsa.rt,en->lsa.type,le->netmask);
       continue;
     }
 
