@@ -46,6 +46,12 @@ int sk_send(sock *, unsigned len);	/* Send data, <0=err, >0=ok, 0=sleep */
 int sk_send_to(sock *, unsigned len, ip_addr to, unsigned port); /* sk_send to given destination */
 void sk_dump_all(void);
 
+static inline int
+sk_send_buffer_empty(sock *sk)
+{
+	return sk->tbuf == sk->tpos;
+}
+
 /*
  *	Socket types		     SA SP DA DP IF  TTL SendTo	(?=may, -=must not, *=must)
  */
