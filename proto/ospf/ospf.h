@@ -227,7 +227,7 @@ struct ospf_lsa_ext_tos {
   u8 etos;
   u8 padding;
   u16 metric;
-  u32 fwaddr;
+  ip_addr fwaddr;
   u32 tag;
 };
 
