@@ -509,6 +509,7 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
    
    if(n->rid==ifa->drid) pos="dr   ";
    if(n->rid==ifa->bdrid) pos="bdr  ";
+   if(n->ifa->type==OSPF_IT_PTP) pos="ptp  ";
 
 
    cli_msg(-1013,"%-18I\t%3u\t%s/%s\t%-5s\t%-18I\t%-10s",n->rid, n->priority,
