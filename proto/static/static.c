@@ -65,6 +65,7 @@ static_remove(struct proto *p, struct static_route *r)
 static void
 static_add(struct proto *p, struct static_route *r)
 {
+  DBG("static_add(%I/%d,%d)\n", r->net, r->masklen, r->dest);
   switch (r->dest)
     {
     case RTD_ROUTER:
@@ -99,6 +100,20 @@ static_start(struct proto *p)
   WALK_LIST(r, c->other_routes)
     static_add(p, r);
   return PS_UP;
+}
+
+static int
+static_shutdown(struct proto *p)
+{
+  struct static_config *c = (void *) p->cf;
+  struct static_route *r;
+
+  DBG("Static: prepare for landing!\n");
+  WALK_LIST(r, c->iface_routes)
+    static_remove(p, r);
+  WALK_LIST(r, c->other_routes)
+    static_remove(p, r);
+  return PS_DOWN;
 }
 
 static void
@@ -250,6 +265,7 @@ struct protocol proto_static = {
   init:		static_init,
   dump:		static_dump,
   start:	static_start,
+  shutdown:	static_shutdown,
   reconfigure:	static_reconfigure,
 };
 
