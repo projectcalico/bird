@@ -61,7 +61,7 @@ int
 val_simple_in_range(struct f_val v1, struct f_val v2)
 {
   if ((v1.type == T_PATH) && (v2.type == T_PATH_MASK))
-    return path_match(&v1.val.ad->data, v1.val.ad->length, v2.val.path_mask);
+    return path_match(v1.val.ad->data, v1.val.ad->length, v2.val.path_mask);
 
   if ((v1.type == T_IP) && (v2.type == T_PREFIX))
     return !(ipa_compare(ipa_and(v2.val.px.ip, ipa_mkmask(v2.val.px.len)), ipa_and(v1.val.px.ip, ipa_mkmask(v2.val.px.len))));
@@ -136,7 +136,7 @@ val_print(struct f_val v)
   case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
-  case T_PATH: PRINTF( "%s", path_format(&v.val.ad->data, v.val.ad->length)); break;
+  case T_PATH: PRINTF( "%s", path_format(v.val.ad->data, v.val.ad->length)); break;
   case T_PATH_MASK: debug( "(path " ); { struct f_path_mask *p = v.val.s; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF
@@ -346,13 +346,15 @@ interpret(struct f_inst *what)
 	break;
       }
       res.type = what->aux;	/* FIXME: should check type? */
-      switch (what->a1.i) {
+      switch (what->aux) {
       case T_INT:
 	res.val.i = e->u.data;
 	break;
       case T_PATH:
 	res.val.ad = e->u.ptr;
 	break;
+      default:
+	bug("Unknown type in e,a\n");
       }
     }
     break;
@@ -647,7 +649,7 @@ path_format(u8 *p, int len)
       bug("This should not be in path");
     }
   }
-  return strdup(bigbuf);
+  return strdup(bigbuf); /* FIXME: who frees this? */
 }
 #undef PRINTF
 #undef COMMA
