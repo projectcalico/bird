@@ -1011,6 +1011,10 @@ protocol ospf &lt;name&gt; {
 	area &lt;id&gt; {
 		stub cost &lt;num&gt;;
 		tick &lt;num&gt;;
+                networks {
+			&lt;prefix&gt;;
+			&lt;prefix&gt; hidden;
+		}
 		interface &lt;interface pattern&gt;
 		{
 			cost &lt;num&gt;;
@@ -1057,6 +1061,10 @@ protocol ospf &lt;name&gt; {
 	 change arrives. To lower the CPU utilization, it's processed later
 	 at periodical intervals of <m/num/ seconds. The default value is 7.
 
+	<tag>networks { <m/set/ }</tag>
+         Definition of area IP ranges. This is used in summary lsa origination.
+	 Hidden networks are not propagated into other areas.
+
 	<tag>interface <M>pattern</M></tag>
 	 Defines that the specified interfaces belong to the area being defined.
 
@@ -1098,7 +1106,8 @@ protocol ospf &lt;name&gt; {
 	<tag>type broadcast</tag>
 	 BIRD detects a type of a connected network automatically, but sometimes it's
 	 convenient to force use of a different type manually.
-	 On broadcast networks, flooding and Hello messages are sent using multicasts (a single packet for all the neighbors).
+	 On broadcast networks, flooding and Hello messages are sent using multicasts
+	 (a single packet for all the neighbors).
 
 	<tag>type pointopoint</tag>
 	 Point-to-point networks connect just 2 routers together. No election
