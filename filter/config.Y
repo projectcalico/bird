@@ -5,13 +5,6 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
-	FIXME (nonurgent): define keyword
-	FIXME (for BGP): whole system of paths, path ~ string, path.prepend(), path.originate
-	FIXME: create community lists
-	FIXME: IP addresses in ipv6
-
-
-        FIXME: check messages for \n at the end
  */
 
 CF_HDR
@@ -77,7 +70,7 @@ type:
  | type SET { 
 	switch ($1) {
 	  default:
-		cf_error( "You can not create sets of this type\n" );
+		cf_error( "You can not create sets of this type" );
 	  case T_INT: case T_IP: case T_PREFIX: case T_PAIR:
 	}
 	$$ = $1 | T_SET;
@@ -184,7 +177,7 @@ cmds: /* EMPTY */ { $$ = NULL; }
  | cmd cmds {
      if ($1) {
        if ($1->next)
-	 bug("Command has next already set\n");
+	 bug("Command has next already set");
        $1->next = $2;
        $$ = $1;
      } else $$ = $2;
@@ -496,7 +489,7 @@ cmd:
      $$ = f_new_inst();
      DBG( "Ook, we'll set value\n" );
      if (($1->class & ~T_MASK) != SYM_VARIABLE)
-       cf_error( "You may only set variables, and this is %x.\n", $1->class );
+       cf_error( "You may only set variables, and this is %x.", $1->class );
      $$->code = 's';
      $$->a1.p = $1;
      $$->a2.p = $3;

@@ -45,6 +45,14 @@
 
 #define CMP_ERROR 999
 
+struct adata *
+adata_empty(struct linpool *pool)
+{
+  struct adata *res = lp_alloc(pool, sizeof(struct adata));
+  res->length = 0;
+  return res;
+}
+
 static int
 pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
 {
@@ -173,7 +181,7 @@ val_print(struct f_val v)
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   case T_PATH: as_path_format(v.val.ad, buf2, 1020); PRINTF( "(path %s)", buf2 ); break;
   case T_CLIST: int_set_format(v.val.ad, buf2, 1020); PRINTF( "(clist %s)", buf2 ); break;
-  case T_PATH_MASK: debug( "(pathmask " ); { struct f_path_mask *p = v.val.s; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
+  case T_PATH_MASK: debug( "(pathmask " ); { struct f_path_mask *p = v.val.path_mask; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF
   }
@@ -423,7 +431,7 @@ interpret(struct f_inst *what)
 	res.val.ad = e->u.ptr;
 	break;
       default:
-	bug("Unknown type in e,a\n");
+	bug("Unknown type in e,a");
       }
     }
     break;
@@ -519,7 +527,7 @@ interpret(struct f_inst *what)
 	v1.type = T_VOID;
 	t = find_tree(what->a2.p, v1);
 	if (!t) {
-	  debug( "No else statement?\n ");
+	  debug( "No else statement?\n");
 	  break;
 	}
       }	
@@ -726,12 +734,4 @@ filter_same(struct filter *new, struct filter *old)
       new == FILTER_ACCEPT || new == FILTER_REJECT)
     return 0;
   return i_same(new->root, old->root);
-}
-
-struct adata *
-adata_empty(struct linpool *pool)
-{
-  struct adata *res = lp_alloc(pool, sizeof(struct adata));
-  res->length = 0;
-  return res;
 }
