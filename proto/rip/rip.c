@@ -29,6 +29,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "nest/bird.h"
 #include "nest/iface.h"
@@ -519,6 +520,12 @@ rip_dump(struct proto *p)
   }
 }
 
+static void
+rip_get_route_info(rte *rte, char *buf)
+{
+  sprintf(buf, "(%d/%d) t%04x", rte->u.rip.metric, rte->pref, rte->u.rip.tag );
+}
+
 static int
 rip_want_this_if(struct rip_interface *iface)
 {
@@ -635,7 +642,7 @@ rip_gen_attrs(struct proto *p, struct linpool *pool, int metric, u16 tag)
   l->attrs[0].flags = 0;
   l->attrs[0].type = EAF_TYPE_INT | EAF_INLINE;
   l->attrs[0].u.data = tag;
-  l->attrs[1].id = EA_RIP_TAG;
+  l->attrs[1].id = EA_RIP_METRIC;
   l->attrs[1].flags = 0;
   l->attrs[1].type = EAF_TYPE_INT | EAF_INLINE;
   l->attrs[1].u.data = metric;
@@ -669,7 +676,7 @@ rip_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
   struct proto *p = rt->attrs->proto;
 
   rt->u.rip.tag = ea_find(attrs, EA_RIP_TAG)->u.data;
-  rt->u.rip.metric = ea_find(attrs, EA_RIP_TAG)->u.data;
+  rt->u.rip.metric = ea_find(attrs, EA_RIP_METRIC)->u.data;
 }
 
 static void
@@ -692,11 +699,11 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
 
     e->nexthop = new->attrs->gw;
     e->tag = ea_find(attrs, EA_RIP_TAG)->u.data;
-    e->metric = ea_find(attrs, EA_RIP_TAG)->u.data;
+    e->metric = ea_find(attrs, EA_RIP_METRIC)->u.data;
     if (e->metric > P_CF->infinity)
       e->metric = P_CF->infinity;
-    if (!e->metric)
-      e->metric = 1;
+    if (!e->metric)	/* FIXME: this is metric for external routes. Should it be configurable? */
+      e->metric = 5;
     e->whotoldme = new->attrs->from;
     e->updated = e->changed = now;
     e->flags = 0;
@@ -784,6 +791,7 @@ struct protocol proto_rip = {
   name: "RIP",
   preconfig: rip_preconfig,
   postconfig: rip_postconfig,
+  get_route_info: rip_get_route_info,
 
   init: rip_init,
   dump: rip_dump,
