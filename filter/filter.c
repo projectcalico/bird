@@ -28,7 +28,7 @@ struct f_inst *startup_func = NULL, *test1_func, *test2_func;
 
 #define CMP_ERROR 999
 
-int
+static int
 pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
 {
   while (1) {

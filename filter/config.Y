@@ -12,49 +12,6 @@
 
 
         FIXME: check messages for \n at the end
-
-(1) Cesty
-
-   AS paths budtez interne reprezentovany stejne jako v BGP (viz RFC 1771),
-to znamena jako posloupnost segmentu, z nichz kazdy je budto posloupnost nebo
-mnozina cisel ASu. Na cestach nadefinuji nasledujici operace:
-
-        - zformatovani do stringu
-        - append dalsiho AS k ceste
-
-Filtry by mely podporovat:
-
-        - operator pridani AS k ceste [bgppath_prepend]
-        - matchovani na pritomnost podposloupnosti v ceste (pricemz vyskytne-li
-          se tam mnozina, tak si ji lze predstavit prerovnanou v libovolnem
-          poradi)
-
-        - operator zjisteni delky cesty (pro vypocet metrik)
-
-Byl bych rad, kdyby se samotne matchovaci funkce objevily v proto/bgp/attrs.c.
-
-Jsou v sitove endianite. [lib/unaligned.h]
-
-
-(2) Community-listy
-
-posloupnost 32bitovych cisel s delkou.
-
-Community list budiz interne reprezentovan jako posloupnost 32-bitovych cisel.
-
-Filtry by se mely na communities divat jako na usporadane dvojice 16-bitovych
-cisel (prvni je cislo AS, ktery community definoval, druhe pak community ID
-v ramci AS) a melo by byt mozne definovat si konstanty typu community.
-K dispozici by mely byt nasledujici operace:
-
-        - zjisteni pritomnosti community v listu [linearni pruchod]
-        - pridani community do listu [s kopii]
-        - odebrani community z listu [s kopii]
-        - zresetovani listu
-
-Pro operace na cestach i na community listech by se mela pouzivat `teckova'
-notace pouzita v mem puvodnim navrhu syntaxe.
-
  */
 
 CF_HDR
