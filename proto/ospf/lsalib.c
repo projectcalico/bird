@@ -181,9 +181,6 @@ htonlsab(void *h, void *n, u8 type, u16 len)
 		       sizeof(union ospf_lsa_sum_tm)); i++)
       {
 	(nn + i)->metric = htonl((hn + i)->metric);
-	//(nn + i)->tos = (hn + i)->tos;
-	//(nn + i)->metric = htons((hn + i)->metric);
-	//(nn + i)->padding = 0;
       }
       break;
     }
@@ -205,9 +202,6 @@ htonlsab(void *h, void *n, u8 type, u16 len)
 		       sizeof(struct ospf_lsa_ext_tos)); i++)
       {
 	(nt + i)->etm.metric = htonl((ht + i)->etm.metric);
-	//(nt + i)->tos = (ht + i)->tos;
-	//(nt + i)->padding = 0;
-	//(nt + i)->metric = htons((ht + i)->metric);
 	(nt + i)->fwaddr = (ht + i)->fwaddr;
 	ipa_hton((nt + i)->fwaddr);
 	(nt + i)->tag = htonl((ht + i)->tag);
@@ -281,9 +275,6 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
 		       sizeof(union ospf_lsa_sum_tm)); i++)
       {
 	(hn + i)->metric = ntohl((nn + i)->metric);
-	//(hn + i)->tos = (nn + i)->tos;
-	//(hn + i)->metric = ntohs((nn + i)->metric);
-	//(hn + i)->padding = 0;
       }
       break;
     }
@@ -305,9 +296,6 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
 		       sizeof(struct ospf_lsa_ext_tos)); i++)
       {
 	(ht + i)->etm.metric = ntohl((nt + i)->etm.metric);
-	//(ht + i)->etos = (nt + i)->etos;
-	//(ht + i)->padding = 0;
-	//(ht + i)->metric = ntohs((nt + i)->metric);
 	(ht + i)->fwaddr = (nt + i)->fwaddr;
 	ipa_ntoh((ht + i)->fwaddr);
 	(ht + i)->tag = ntohl((nt + i)->tag);
