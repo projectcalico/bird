@@ -7,6 +7,7 @@
  */
 
 #include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <net/if.h>
@@ -39,8 +40,8 @@ scan_ifs(struct ifreq *r, int cnt)
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
     {
       bzero(&i, sizeof(i));
-      DBG("%s\n", r->ifr_ifrn.ifrn_name);
-      strncpy(i.name, r->ifr_ifrn.ifrn_name, sizeof(i.name) - 1);
+      DBG("%s\n", r->ifr_name);
+      strncpy(i.name, r->ifr_name, sizeof(i.name) - 1);
       get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &i.ip, NULL);
       if (ipa_nonzero(i.ip))
 	{
