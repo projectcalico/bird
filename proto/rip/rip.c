@@ -5,8 +5,6 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
-        FIXME: lock interface so we are not started twice on same interface.
-
  	FIXME: IpV6 support: packet size
  	FIXME: IpV6 support: use right address for broadcasts
 	FIXME: IpV6 support: receive "route using" blocks
@@ -119,6 +117,7 @@ rip_tx( sock *s )
   do {
 
     if (c->done) {
+    im_done:
       DBG( "Looks like I'm" );
       c->rif->busy = NULL;
       rem_node(NODE c);
@@ -157,8 +156,11 @@ rip_tx( sock *s )
     if (i == !!P_CF->authtype)
       continue;
 #endif
-    if (!i)
+    if (!i) {
       DBG( "not sending NULL update\n" );
+      c->done = 1;
+      goto im_done;
+    }
     else {
       if (ipa_nonzero(c->daddr))
 	i = sk_send_to( s, packetlen, c->daddr, c->dport );
@@ -579,12 +581,14 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
     rif->sock->ttl = 30;
   rif->sock->tos = IP_PREC_INTERNET_CONTROL;
 
-  rif->sock->daddr = new->addr->brd;
-  if (new->addr->flags & IA_UNNUMBERED)
-    log( L_WARN "%s: rip is not defined over unnumbered links", P_NAME );
-  if (want_multicast) {
-    rif->sock->daddr = ipa_from_u32(0xe0000009);
-    rif->sock->saddr = ipa_from_u32(0xe0000009);
+  if (new) {
+    rif->sock->daddr = new->addr->brd;
+    if (new->addr->flags & IA_UNNUMBERED)
+      log( L_WARN "%s: rip is not defined over unnumbered links", P_NAME );
+    if (want_multicast) {
+      rif->sock->daddr = ipa_from_u32(0xe0000009);
+      rif->sock->saddr = ipa_from_u32(0xe0000009);
+    }
   }
 
   if (!ipa_nonzero(rif->sock->daddr)) {
@@ -602,6 +606,22 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 }
 
 static void
+rip_real_if_add(struct object_lock *lock)
+{
+  struct iface *iface = lock->iface;
+  struct proto *p = lock->data;
+  struct rip_interface *rif;
+  struct iface_patt *k = iface_patt_match(&P_CF->iface_list, iface);
+
+  if (!k)
+    bug("This can not happen! It existed few seconds ago!" );
+  DBG("adding interface %s\n", iface->name );
+  rif = new_iface(p, iface, iface->flags, k);
+  add_head( &P->interfaces, NODE rif );
+  rif->lock = lock;
+}
+
+static void
 rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
 {
   DBG( "RIP: if notify\n" );
@@ -613,16 +633,23 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
     if (i) {
       rem_node(NODE i);
       kill_iface(p, i);
+      rfree(i->lock);
     }
   }
   if (c & IF_CHANGE_UP) {
     struct rip_interface *rif;
     struct iface_patt *k = iface_patt_match(&P_CF->iface_list, iface);
+    struct object_lock *lock;
 
     if (!k) return; /* We are not interested in this interface */
-    DBG("adding interface %s\n", iface->name );
-    rif = new_iface(p, iface, iface->flags, k);
-    add_head( &P->interfaces, NODE rif );
+    
+    lock = olock_new( p->pool );
+    lock->addr = IPA_NONE; /* FIXME: how to set this? */
+    lock->port = P_CF->port;
+    lock->iface = iface;
+    lock->hook = rip_real_if_add;
+    lock->data = p;
+    olock_acquire(lock);
   }
 }
 

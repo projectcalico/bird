@@ -6,6 +6,7 @@
 
 #include "nest/route.h"
 #include "nest/password.h"
+#include "nest/locks.h"
 
 #define EA_RIP_TAG	EA_CODE(EAP_RIP, 0)
 #define EA_RIP_METRIC	EA_CODE(EAP_RIP, 1)
@@ -102,6 +103,7 @@ struct rip_interface {
   struct rip_connection *busy;
   struct rip_patt *patt;  
   int triggered;
+  struct object_lock *lock;
 };
 
 struct rip_patt {
