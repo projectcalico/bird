@@ -24,7 +24,7 @@ CF_HDR
 void rip_dev_add_iface(char *);
 struct rip_patt *rip_get_iface(void);
 
-#define THIS_PROTO ((struct rip_proto *) this_proto)
+#define RIP_PROTO ((struct rip_proto_config *) this_proto)
 
 CF_DECLS
 
@@ -37,18 +37,18 @@ CF_GRAMMAR
 CF_ADDTO(proto, rip_proto '}')
 
 rip_proto_start: proto_start RIP {
-     this_proto = proto_new(&proto_rip, sizeof(struct rip_proto));
-     rip_init_instance(this_proto);
+     RIP_PROTO = proto_new(&proto_rip, sizeof(struct rip_proto));
+     rip_init_instance(RIP_PROTO);
    }
  ;
 
 rip_proto:
    rip_proto_start proto_name '{'
  | rip_proto proto_item ';'
- | rip_proto INFINITY expr ';'	{ THIS_PROTO->infinity = $3; }
- | rip_proto PORT expr ';'	{ THIS_PROTO->port = $3; }
- | rip_proto PERIOD expr ';'	{ THIS_PROTO->period = $3; }
- | rip_proto GARBAGETIME expr ';' { THIS_PROTO->garbage_time = $3; }
+ | rip_proto INFINITY expr ';'	{ RIP_PROTO->infinity = $3; }
+ | rip_proto PORT expr ';'	{ RIP_PROTO->port = $3; }
+ | rip_proto PERIOD expr ';'	{ RIP_PROTO->period = $3; }
+ | rip_proto GARBAGETIME expr ';' { RIP_PROTO->garbage_time = $3; }
  | rip_proto rip_iface_list ';'
  ;
 
@@ -91,13 +91,13 @@ rip_dev_add_iface(char *n)
   struct rip_patt *k = cfg_alloc(sizeof(struct rip_patt));
 
   k->i.pattern = cfg_strdup(n);
-  add_tail(&THIS_PROTO->iface_list, &k->i.n);
+  add_tail(&RIP_PROTO->iface_list, &k->i.n);
 }
 
 struct rip_patt *
 rip_get_iface(void)
 {
-  struct rip_patt *k = TAIL(THIS_PROTO->iface_list);
+  struct rip_patt *k = TAIL(RIP_PROTO->iface_list);
   if (!k)
     cf_error( "This cannot happen" );
   return k;

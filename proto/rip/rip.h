@@ -82,15 +82,8 @@ struct rip_patt {
   int mode;
 };
 
-struct rip_proto {
-  struct proto inherited;
-  timer *timer;
-  list connections;
-  struct fib rtable;
-  list garbage;
-  list interfaces;	/* Interfaces we really know about */
+struct rip_proto_config {
   list iface_list;	/* Patterns configured */
-  int magic;
 
   int infinity;		/* User configurable data */
   int port;
@@ -98,8 +91,16 @@ struct rip_proto {
   int garbage_time;
 };
 
-#define P ((struct rip_proto *) p)
-#define E ((struct rip_entry *) e)
+struct rip_proto {
+  struct proto inherited;
+  timer *timer;
+  list connections;
+  struct fib rtable;
+  list garbage;
+  list interfaces;	/* Interfaces we really know about */
+  int magic;
+};
+
 
 #define RIP_MAGIC 81861253
 #define CHK_MAGIC do { if (P->magic != RIP_MAGIC) bug( "Not enough magic\n" ); } while (0)

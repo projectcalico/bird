@@ -22,6 +22,10 @@
 
 #include "rip.h"
 
+#define P ((struct rip_proto *) p)
+#define P_CF ((struct rip_proto_config *)p->cf)
+#define E ((struct rip_entry *) e)
+
 static void
 rip_reply(struct proto *p)
 {
@@ -89,7 +93,7 @@ rip_tx( sock *s )
       if (ipa_equal(e->whotoldme, s->daddr)) {
 	DBG( "(split horizont)" );
 	/* FIXME: should we do it in all cases? */
-	packet->block[i].metric = P->infinity;
+	packet->block[i].metric = P_CF->infinity;
       }
       ipa_hton( packet->block[i].network );
       ipa_hton( packet->block[i].netmask );
@@ -214,7 +218,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   n = net_get( &master_table, 0, b->network, ipa_mklen( b->netmask )); /* FIXME: should verify that it really is netmask */
   r = rte_get_temp(a);
   r->u.rip.metric = ntohl(b->metric) + i->metric;
-  if (r->u.rip.metric > P->infinity) r->u.rip.metric = P->infinity;
+  if (r->u.rip.metric > P_CF->infinity) r->u.rip.metric = P_CF->infinity;
   r->u.rip.tag = ntohl(b->tag);
   r->net = n;
   r->pflags = 0; /* Here go my flags */
@@ -230,7 +234,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   ip_addr network = block->network;
 
   CHK_MAGIC;
-  if ((!metric) || (metric > P->infinity)) {
+  if ((!metric) || (metric > P_CF->infinity)) {
     log( L_WARN "Got metric %d from %I", metric, whotoldme );
     return;
   }
@@ -262,7 +266,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
     	  rip_sendto( p, whotoldme, port, NULL ); /* no broadcast */
           break;
   case RIPCMD_RESPONSE: DBG( "*** Rtable from %I\n", whotoldme ); 
-          if (port != P->port) {
+          if (port != P_CF->port) {
 	    log( L_ERR "%I send me routing info from port %d", whotoldme, port );
 #if 0
 	    return 0;
@@ -351,7 +355,7 @@ rip_timer(timer *t)
     rte = SKIP_BACK( struct rte, u.rip.garbage, e );
     DBG( "Garbage: " ); rte_dump( rte );
 
-    if (now - rte->lastmod > P->garbage_time) {
+    if (now - rte->lastmod > P_CF->garbage_time) {
       debug( "RIP: entry is too old: " ); rte_dump( rte );
       rte_discard(rte);
     }
@@ -392,7 +396,7 @@ rip_start(struct proto *p)
   P->timer = tm_new( p->pool );
   P->timer->data = p;
   P->timer->randomize = 5;
-  P->timer->recurrent = P->period; 
+  P->timer->recurrent = P_CF->period; 
   P->timer->hook = rip_timer;
   tm_start( P->timer, 5 );
   rif = new_iface(p, NULL, 0);	/* Initialize dummy interface */
@@ -467,7 +471,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
 
   rif->sock = sk_new( p->pool );
   rif->sock->type = want_multicast?SK_UDP_MC:SK_UDP;
-  rif->sock->sport = P->port;
+  rif->sock->sport = P_CF->port;
   rif->sock->rx_hook = rip_rx;
   rif->sock->data = rif;
   rif->sock->rbsize = 10240;
@@ -476,7 +480,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
   rif->sock->tx_hook = rip_tx;
   rif->sock->err_hook = rip_tx_err;
   rif->sock->daddr = IPA_NONE;
-  rif->sock->dport = P->port;
+  rif->sock->dport = P_CF->port;
   rif->sock->ttl = 1; /* FIXME: care must be taken not to send requested responses from this socket */
 
   if (want_multicast)
@@ -510,7 +514,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
   }
   if (new) {
     struct rip_interface *rif;
-    struct iface_patt *k = iface_patt_match(&P->iface_list, new);
+    struct iface_patt *k = iface_patt_match(&P_CF->iface_list, new);
 
     if (!k) return; /* We are not interested in this interface */
     DBG("adding interface %s\n", new->name );
@@ -595,12 +599,13 @@ rip_init_instance(struct proto *p)
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
 
-  P->infinity	= 16;
-  P->port	= 520;
-  P->period	= 30;
-  P->garbage_time = 120+180;
+#warning FIXME: this is almost certianly wrong, I need to setup config elsewhere
+  P_CF->infinity	= 16;
+  P_CF->port	= 520;
+  P_CF->period	= 30;
+  P_CF->garbage_time = 120+180;
 
-  init_list(&P->iface_list);
+  init_list(&P_CF->iface_list);
 }
 
 static void
