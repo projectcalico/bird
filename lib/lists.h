@@ -20,8 +20,14 @@ typedef struct list {			/* In fact two overlayed nodes */
 #define NODE (node *)
 #define HEAD(list) ((void *)((list).head))
 #define TAIL(list) ((void *)((list).tail))
-#define WALK_LIST(n,list) for((n)=HEAD(list);(NODE (n))->next; \
+#define WALK_LIST(n,list) for((NODE (n))=HEAD(list);(NODE (n))->next; \
 				n=(void *)((NODE (n))->next))
+#define WALK_LIST_DELSAFE(n,ne,list) \
+  if ( ((NODE n) = HEAD(list)) ) \
+    for( (NODE ne) = (NODE n)->next; \
+         ne; \
+         (NODE ne) = (NODE (n=ne))->next )
+
 #define EMPTY_LIST(list) (!(list).head->next)
 
 void add_tail(list *, node *);
