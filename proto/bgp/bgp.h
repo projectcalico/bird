@@ -167,4 +167,10 @@ void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subco
 #define BGP_COMM_NO_ADVERTISE		0xffffff02	/* Don't export at all */
 #define BGP_COMM_NO_EXPORT_SUBCONFED	0xffffff03	/* NO_EXPORT even in local confederation */
 
+/* Origins */
+
+#define ORIGIN_IGP		0
+#define ORIGIN_EGP		1
+#define ORIGIN_INCOMPLETE	2
+
 #endif

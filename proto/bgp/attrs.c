@@ -490,9 +490,9 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   a->flags = BAF_TRANSITIVE;
   a->type = EAF_TYPE_INT;
   if (rta->source == RTS_RIP_EXT || rta->source == RTS_OSPF_EXT)
-    a->u.data = 2;			/* Incomplete */
+    a->u.data = ORIGIN_INCOMPLETE;
   else
-    a->u.data = 0;			/* IGP */
+    a->u.data = ORIGIN_IGP;
   a++;
 
   a->id = EA_CODE(EAP_BGP, BA_AS_PATH);
@@ -638,8 +638,8 @@ bgp_rte_better(rte *new, rte *old)
   /* Use origins */
   x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_ORIGIN));
   y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_ORIGIN));
-  n = x ? x->u.data : 2;
-  o = y ? y->u.data : 2;
+  n = x ? x->u.data : ORIGIN_INCOMPLETE;
+  o = y ? y->u.data : ORIGIN_INCOMPLETE;
   if (n < o)
     return 1;
   if (n > o)

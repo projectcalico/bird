@@ -10,6 +10,8 @@ CF_HDR
 
 #include "proto/bgp/bgp.h"
 
+CF_DEFINES
+
 #define BGP_CFG ((struct bgp_config *) this_proto)
 
 CF_DECLS
@@ -74,7 +76,7 @@ CF_ADDTO(dynamic_attr, BGP_LOCAL_PREF
 CF_ADDTO(dynamic_attr, BGP_MED
 	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC)); })
 CF_ADDTO(dynamic_attr, BGP_ORIGIN
-	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_CODE(EAP_BGP, BA_ORIGIN)); })
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_ENUM_BGP_ORIGIN, EA_CODE(EAP_BGP, BA_ORIGIN)); })
 CF_ADDTO(dynamic_attr, BGP_NEXT_HOP
 	{ $$ = f_new_dynamic_attr(EAF_TYPE_IP_ADDRESS, T_IP, EA_CODE(EAP_BGP, BA_NEXT_HOP)); })
 CF_ADDTO(dynamic_attr, BGP_ATOMIC_AGGR
@@ -83,6 +85,8 @@ CF_ADDTO(dynamic_attr, BGP_AGGREGATOR
 	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_CODE(EAP_BGP, BA_AGGREGATOR)); })
 CF_ADDTO(dynamic_attr, BGP_COMMUNITY
 	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT_SET, T_CLIST, EA_CODE(EAP_BGP, BA_COMMUNITY)); })
+
+CF_ENUM(T_ENUM_BGP_ORIGIN, ORIGIN_, IGP, EGP, INCOMPLETE)
 
 CF_CODE
 
