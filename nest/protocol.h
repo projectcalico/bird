@@ -151,6 +151,7 @@ void proto_build(struct proto_config *);
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
 void proto_show(struct symbol *, int);
+struct proto *proto_get_named(struct symbol *, struct protocol *);
 
 extern list proto_list;
 
