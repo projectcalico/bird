@@ -1,0 +1,44 @@
+#!/usr/bin/perl 
+#
+#   sgmltools.in
+#
+#   $Id$
+#
+#   SGML-Tools driver. Calls all other SGML-Tools components, contains
+#   configuration information, etcetera.
+#
+package main;
+
+sub BEGIN 
+{
+  require 5.004;
+}
+use strict;
+
+use vars qw($prefix $LibDir $BinDir $progs);
+
+$prefix = "/usr";
+$LibDir = "sbase";
+$BinDir = "/usr/bin";
+
+use lib "/usr/lib/sgml-tools";
+use lib "/usr/perl5";
+use lib "/usr/lib/perl5";
+$progs = {
+  "NSGMLS" => "/usr/bin/nsgmls",
+  "SGMLSASP" => "/usr/bin/sgmlsasp",
+  "GROFF" => "/usr/bin/groff",
+  "GROFFMACRO" => "-mgs"
+};
+
+require SGMLTools;
+&SGMLTools::init;
+
+my @FileList = SGMLTools::process_options ($0, @ARGV);
+for my $curfile (@FileList)
+  {
+    SGMLTools::process_file ($curfile);
+  }
+
+exit 0;
+
