@@ -15,4 +15,24 @@
 #include "ipv6.h"
 #endif
 
+/*
+ *	ip_classify() returns either a negative number for invalid addresses
+ *	or scope OR'ed together with address type.
+ */
+
+#define IADDR_INVALID		-1
+#define IADDR_SCOPE_MASK       	0xfff
+#define IADDR_HOST		0x1000
+#define IADDR_BROADCAST		0x2000
+#define IADDR_MULTICAST		0x4000
+
+/*
+ *	Address scope
+ */
+
+#define SCOPE_HOST 0
+#define SCOPE_LINK 1
+#define SCOPE_SITE 2
+#define SCOPE_UNIVERSE 3
+
 #endif

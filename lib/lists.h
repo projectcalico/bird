@@ -33,7 +33,7 @@ void insert_node(node *, node *);
 
 #ifndef _BIRD_LISTS_C_
 #define LIST_INLINE extern inline
-#include <lib/lists.c>
+#include "lib/lists.c"
 #undef LIST_INLINE
 #else
 #define LIST_INLINE

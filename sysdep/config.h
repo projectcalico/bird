@@ -47,4 +47,8 @@ typedef u16 word;
 #define CONFIG_BGP
 #define CONFIG_OSPF
 
+/* Autodetected system features */
+
+#define HAVE_SYSLOG
+
 #endif

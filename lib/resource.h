@@ -14,42 +14,43 @@
 /* Resource */
 
 typedef struct resource {
-	node n;				/* Inside resource pool */
-	struct resclass *class;		/* Resource class */
+  node n;				/* Inside resource pool */
+  struct resclass *class;		/* Resource class */
 } resource;
 
 /* Resource class */
 
 struct resclass {
-	char *name;			/* Resource class name */
-	unsigned size;			/* Standard size of single resource */
-	void (*free)(resource *);	/* Freeing function */
-	void (*dump)(resource *);	/* Dump to debug output */
+  char *name;				/* Resource class name */
+  unsigned size;			/* Standard size of single resource */
+  void (*free)(resource *);		/* Freeing function */
+  void (*dump)(resource *);		/* Dump to debug output */
 };
 
 /* Generic resource manipulation */
 
 typedef struct pool pool;
 
+void resource_init(void);
 pool *rp_new(pool *);			/* Create new pool */
-void rp_init(pool *);			/* Initialize static pool */
-void rp_empty(pool *);			/* Free everything in the pool */
+void rp_free(pool *);			/* Free everything in the pool */
 void rfree(void *);			/* Free single resource */
 void rdump(void *);			/* Dump to debug output */
 
-void ralloc(pool *, struct resclass *);
+void *ralloc(pool *, struct resclass *);
+
+extern pool root_pool;
 
 /* Normal memory blocks */
 
 void *mb_alloc(pool *, unsigned size);
-void *mb_free(void *);
+void mb_free(void *);
 
 /* Memory pools with linear allocation */
 
 typedef struct mempool mempool;
 
 mempool *mp_new(pool *, unsigned blk);
-void mp_trim(pool *);				/* Free unused memory */
 void *mp_alloc(mempool *, unsigned size);	/* Aligned */
 void *mp_allocu(mempool *, unsigned size);	/* Unaligned */
 void *mp_allocz(mempool *, unsigned size);	/* With clear */

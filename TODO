@@ -1,58 +1,70 @@
 Core
 ~~~~
-- route validation
 - fake multipath?
 - config file: symbolic constants?
 - counters (according to SNMP MIB?)
 - generation of subnet mask ICMP's for v6?
-- debugging dumps and protocol tracing!
 - unaligned accesses?
+- neighbor cache: local broadcast address?
+- ipv4: recognize site scope addresses?
+- ifdef out some debugging code?
+- better memory allocators
+- precedence of all packets (incl. TCP)
+- default preferences of protocols: prefer BGP over OSPF/RIP external routes?
+- all internal tables are in host order
+
+- filter: logging of dropped routes (?)
+- limitation of memory consumption: per-process and total (?)
+- alloca
+- adding of route: clear all bits not covered by masklen
+- switch: generate default route only if at least one BGP connection exists
+
+- route recalculation timing + flap dampening
+
+- reconfiguration without restart of all protocols?
+- change of interface address: ??? (down and up?)
+- "generate default route" switch for all IGP's
+
+- running protocol on an interface:
+	- interface is not required to exist
+	- can specify a wildcard pattern or an interface list
+
+- timers - one-shot and periodic, resolution 1 sec, randomized
+- re-configuration: restart of routing protocols (shutdown mode)
+- route: originating AS
+
+- Check incoming packets and log errors!!
 
 
 RIP
 ~~~
-- RIP: export-only and import-only mode?
-- drop RIPv1 (Historic protocol)?
+	- RIP: export-only and import-only mode?
+	- drop RIPv1 (Historic protocol)?
+	- Route Tag
+	- limit routing table xfer (frequency, only to neighbors)
+	- multicast on/off
+	- remember routes for all neighbors?
 
 OSPF
 ~~~~
+	- Dijkstra: use Fibonacci heaps?
+	- point-to-point interface with address: advertise as stub network
+	- static routes: stub networks?
+	- modes: PtP, PtP-unnumbered, Broadcast, NBMA, point-to-multipoint
+	- importing of device routes for networks where we don't run OSPF
+	- tie breaking for equal type 2 ext metrics by using internal (type 1) metric
+	- SPF tree recalc timing (per-area timers?)
+	- aggregation: specify network list for each area
+	- stub area: either no external routes or only default route
+	- automatic generation of external route tags (RFC1403)
 
-Almquist & Kastenholz                                         [Page 111]
-RFC 1716          Towards Requirements for IP Routers      November 1994
-
-
-7.2.2.2  Specific Issues
-
-         Virtual Links
-
-              There is a minor error in the specification that can cause
-              routing loops when all of the following conditions are
-              simultaneously true:
-
-              (1)  A virtual link is configured through a transit area,
-
-              (2)  Two separate paths exist, each having the same
-                   endpoints, but one utilizing only non-virtual
-                   backbone links, and the other using links in the
-                   transit area, and
-
-              (3)  The latter path is part of the (underlying physical
-                   representation of the) configured virtual link,
-                   routing loops may occur.
-
-              To prevent this, an implementation of OSPF SHOULD invoke
-              the calculation in Section 16.3 of [ROUTE:1] whenever any
-              part of the path to the destination is a virtual link (the
-              specification only says this is necessary when the first
-              hop is a virtual link).
 
 BGP
 ~~~
-- BGP:
 	- in, local, out RIB
 	- maxsize=4096
 	- BGP identifier aka router id
-	- removal of loops
+	- detection of loops
 	- aggregation, ATOMIC_AGGREGATE
 	- communities
 	- confederations
@@ -71,73 +83,4 @@ BGP
 	- expected neighbor AS
 	- hold time
 	- idle timer after error: initial value, exponential growth, maximum value
-
-- address testing macros (ALL_ZEROS)
-- all internal tables are in network order (?)
-- logging of errors and debug dumps
-- filter: logging of dropped routes (?)
-- limitation of memory consumption: per-process and total
-- alloca
-- precedence of all packets (incl. TCP)
-- adding of route: clear all bits not covered by masklen
-- switch: generate default route only if at least one BGP connection exists
-
-- route update: new, change, remove
-- route recalculation timing
-
-- CONFIG_TOS
-- CONFIG_MULTIPATH
-
-- reconfiguration without restart of all protocols?
-- change of interface address: ??? (down and up?)
-- "generate default route" switch for all IGP's
-
-- RIPv2:
-	- Route Tag
-	- limit routing table xfer (frequency, only to neighbors)
-	- multicast on/off
-	- remember routes for all neighbors?
-
-- BGP:
 	- import of IGP routes (use external route tags from OSPF)
-
-- Interface:
-	- RIP metric
-	- multicast capability flag
-	- MTU
-	- OSPF metrics (per-TOS)
-
-- running protocol on an interface:
-	- interface is not required to exist
-	- can specify a wildcard pattern or an interface list
-
-- preferences:
-	- directly connected
-	- static
-	- OSPF internal, OSPF ext type 1 (comparable metrics), OSPF inter-area
-	- RIP
-	- BGP
-	- OSPF ext type 2
-	- sink
-
-- lib:
-	- MD5
-
-- OSPF:
-	- Dijkstra: use Fibonacci heaps?
-	- point-to-point interface with address: advertise as stub network
-	- static routes: stub networks?
-	- modes: PtP, PtP-unnumbered, Broadcast, NBMA, point-to-multipoint
-	- importing of device routes for networks where we don't run OSPF
-	- tie breaking for equal type 2 ext metrics by using internal (type 1) metric
-	- SPF tree recalc timing (per-area timers?)
-	- aggregation: specify network list for each area
-	- stub area: either no external routes or only default route
-	- automatic generation of external route tags (RFC1403) -- what about
-	  using the same rule for RIPv2? [shared code?]
-
-- timers - one-shot and periodic, resolution 1 sec, randomized
-- re-configuration: restart of routing protocols (shutdown mode)
-- route: originating AS
-
-- Check incoming packets and log errors!!

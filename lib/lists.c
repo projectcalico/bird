@@ -16,7 +16,7 @@ add_tail(list *l, node *n)
 {
   node *z = l->tail;
 
-  n->next = (node *) &l->tail;
+  n->next = (node *) &l->null;
   n->prev = z;
   z->next = n;
   l->tail = n;
