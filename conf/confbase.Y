@@ -30,6 +30,7 @@ CF_DECLS
   struct filter *f;
   struct f_tree *e;
   struct f_val v;
+  struct password_item *p;
 }
 
 %token END
@@ -38,7 +39,7 @@ CF_DECLS
 %token <s> SYM
 %token <t> TEXT
 
-%type <i> expr bool pxlen
+%type <i> expr bool pxlen datetime
 
 %nonassoc '=' '<' '>' '~' ELSE IF '.'
 %left '+' '-'
@@ -106,6 +107,10 @@ pxlen:
      $$ = ipa_mklen($2);
      if ($$ < 0) cf_error("Invalid netmask %I", $2);
    }
+ ;
+
+datetime:	/* Return seconds from epoch, FIXME we want be more user friendly  */
+   NUM { $$ = $1; }
  ;
 
 CF_CODE
