@@ -300,6 +300,30 @@ tm_shot(void)
 }
 
 /**
+ * tm_parse_datetime - parse a date and time
+ * @x: datetime string
+ *
+ * tm_parse_datetime() takes a textual representation of
+ * a date and time (dd-mm-yyyy hh:mm:ss)
+ * and converts it to the corresponding value of type &bird_clock_t.
+ */
+bird_clock_t
+tm_parse_datetime(char *x)
+{
+  struct tm tm;
+  int n;
+  time_t t;
+
+  if (sscanf(x, "%d-%d-%d %d:%d:%d%n", &tm.tm_mday, &tm.tm_mon, &tm.tm_year, &tm.tm_hour, &tm.tm_min, &tm.tm_sec, &n) != 6 || x[n])
+    return tm_parse_date(x);
+  tm.tm_mon--;
+  tm.tm_year -= 1900;
+  t = mktime(&tm);
+  if (t == (time_t) -1)
+    return 0;
+  return t;
+}
+/**
  * tm_parse_date - parse a date
  * @x: date string
  *

@@ -145,9 +145,9 @@ pxlen:
 
 datetime:
    TEXT {
-     $$ = tm_parse_date($1);
+     $$ = tm_parse_datetime($1);
      if (!$$)
-       cf_error("Invalid date");
+       cf_error("Invalid date and time");
    }
  ;
 

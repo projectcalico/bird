@@ -128,6 +128,20 @@ protocol static {
 #			};
 #			strict nonbroadcast yes;
 #		};
+#		interface "xxx0" {
+#                       passwords {
+#				password "abc" {
+#					id 1;
+#					generate to "22-04-2003 11:00:06";
+#					accept to "17-01-2004 12:01:05";
+#				};
+#				password "def" {
+#					id 2;
+#					generate from "22-04-2003 11:00:07";
+#					accept from "17-01-2003 12:01:05";
+#				};
+#                       authentication cryptographic;
+#		};
 #	};
 #	area 20 {
 #		stub 1;
