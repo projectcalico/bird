@@ -65,7 +65,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   struct lsah_n *no;
   struct ospf_iface *ifa=n->ifa;
 
-  DBG("Sending delay ack to %I\n", n->rid);
+  debug("%s: LS ack sent to %I (delayed)\n",n->ifa->proto->proto.name,n->ip);
 
   if(ifa->type==OSPF_IT_BCAST)
   {
@@ -155,6 +155,7 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
   int length;
   u16 nolsa,i;
   struct top_hash_entry *en;
+  u16 lenn=ntohs(ps->ospf_packet.length);
 
   nrid=ntohl(ps->ospf_packet.routerid);
 
@@ -167,15 +168,21 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
     return ;
   }
 
+  debug("%s: Received LS ack from %I\n", p->name, n->ip);
+
   if(n->state<NEIGHBOR_EXCHANGE) return;
 
-  debug("%s: Received LS ack from %I\n", p->name,
-      n->ip);
-
-  nolsa=(ntohs(ps->ospf_packet.length)-sizeof(struct ospf_lsack_packet))/
+  nolsa=(lenn-sizeof(struct ospf_lsack_packet))/
     sizeof(struct ospf_lsa_header);
-  DBG("Received %d lsa ack(s)\n",nolsa);
-  plsa=( struct ospf_lsa_header *)(ps+1);
+
+  if((nolsa<1)||((lenn-sizeof(struct ospf_lsack_packet))!=
+    (nolsa*sizeof(struct ospf_lsa_header))))
+  {
+    log("%s: Received corrupted LS ack from %I\n", p->name, n->ip);
+    return;
+  }
+
+  plsa=(struct ospf_lsa_header *)(ps+1);
 
   for(i=0;i<nolsa;i++)
   {
@@ -184,10 +191,11 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
 
     if(lsa_comp(&lsa,&en->lsa)!=CMP_SAME)
     {
-      log("Strange LS acknoledgement from %I",n->rid);
-      log("Id: %I, Rt: %I, Type: %u",lsa.id, lsa.rt, lsa.type);
-      log("I have: Age: %4u, Seqno: 0x%08x", en->lsa.age, en->lsa.sn);
-      log("He has: Age: %4u, Seqno: 0x%08x", lsa.age, lsa.sn);
+      debug("%s: Strange LS acknoledgement from %I\n",p->name,n->ip);
+      debug("%s: Id: %I, Rt: %I, Type: %u\n",p->name,lsa.id,lsa.rt,lsa.type);
+      debug("%s: I have: Age: %4u, Seqno: 0x%08x\n",p->name,en->lsa.age,
+        en->lsa.sn);
+      debug("%s: He has: Age: %4u, Seqno: 0x%08x\n",p->name,lsa.age,lsa.sn);
       continue;
     }
 
