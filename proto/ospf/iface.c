@@ -69,7 +69,7 @@ downint(struct ospf_iface *ifa)
 
   WALK_LIST(n,ifa->neigh_list)
   {
-    debug("%s: Removing neighbor %I", p->name, n->ip);
+    debug("%s: Removing neighbor %I\n", p->name, n->ip);
     ospf_neigh_remove(n);
   }
   rem_node(NODE ifa);
