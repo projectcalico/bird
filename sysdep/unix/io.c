@@ -618,7 +618,11 @@ sk_open(sock *s)
 	  strcpy(ifr.ifr_name, s->iface->name);
 	  if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
 	    ERR("SO_BINDTODEVICE");
+#if 0					/* FIXME */
 	  mreq_add.imr_interface.s_addr = INADDR_ANY;
+#else
+	mreq_add.imr_interface = mreq;
+#endif
 	}
 #else
 #error Multicasts not supported on PtP devices		/* FIXME: Solve it somehow? */

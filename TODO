@@ -21,6 +21,8 @@ Core
 
 - iface: SIOCGIFINDEX exists on glibc systems, but it doesn't work on 2.0.x kernels!
 
+* glibc problems with struct mreqn
+
 - socket: Use IP_RECVERR for BGP TCP sockets?
 
 - OSPF: refuse running on non-multicast devices

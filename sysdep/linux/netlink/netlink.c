@@ -302,7 +302,11 @@ nl_parse_link(struct nlmsghdr *h, int scan)
       if (fl & IFF_UP)
 	f.flags |= IF_LINK_UP;
       if (fl & IFF_POINTOPOINT)
+#if 0
 	f.flags |= IF_UNNUMBERED | IF_MULTICAST;
+#else	/* FIXME: Are tunnels always unnumbered? */
+        f.flags |= IF_MULTICAST;
+#endif
       if (fl & IFF_LOOPBACK)
 	f.flags |= IF_LOOPBACK | IF_IGNORE;
       if (fl & IFF_BROADCAST)
