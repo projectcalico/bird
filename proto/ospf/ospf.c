@@ -274,14 +274,6 @@ hello_timer_hook(timer *timer)
 }
 
 void
-add_hello_timer(struct ospf_iface *ifa)
-{
-  struct proto *p;
-  p=(struct proto *)(ifa->proto);
-
-}
-
-void
 wait_timer_hook(timer *timer)
 {
   struct ospf_iface *ifa;
@@ -296,6 +288,7 @@ wait_timer_hook(timer *timer)
     /*
      * Wait time fired. Now we must change state
      * to DR or DROTHER depending on priority
+     * FIXME: I can be also BDR
      */
     if(ifa->priority!=0)
     {
@@ -303,6 +296,7 @@ wait_timer_hook(timer *timer)
 
       ifa->state=OSPF_IS_DR;
       ifa->drip=ifa->iface->addr->ip;
+      ifa->drid=p->cf->global->router_id;
       /* FIXME: Set ifa->drid */
     }
     else
@@ -343,7 +337,7 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
     ifa->wait_timer->recurrent=0;
     ifa->wait_timer->expires=0;
     ifa->state=OSPF_IS_WAITING;
-    tm_start(ifa->wait_timer,(wait!=0 ? wait : WAIT_D));
+    tm_start(ifa->wait_timer,(wait!=0 ? wait : WAIT_DMH*ifa->helloint));
     DBG(p->name);
     DBG(": Installing wait timer.\n");
   }

@@ -70,8 +70,7 @@ struct ospf_iface {
 #define PRIORITY_D 1
 #define HELLOINT_D 10
 #define DEADINT_D 4
-#define WAIT_D 20	/* Value of Wait timer - I didn't found it in RFC */
-
+#define WAIT_DMH 2	/* Value of Wait timer - not found it in RFC - using 2*HELLO */
 };
 
 struct ospf_sock {
@@ -111,6 +110,26 @@ struct ospf_hello_packet {
   u32 deadint;
   u32 dr;
   u32 bdr;
+};
+
+/* FIXME: int is not a good idea */
+struct ospf_neighbor
+{
+  int state;
+#define NEIGHBOR_DOWN 0
+#define NEIGHBOR_INIT 1
+#define NEIGHBOR_2WAY 2
+#define NEIGHBOR_ATTEMPT 3
+#define NEIGHBOR_EXSTART 4
+  timer *inactim;	/* Inactivity timer */
+  int ms;		/* Master/slave */
+  int dds;		/* DD Sequence number being sentg */
+  int ddr;		/* last Dat Des packet */
+  u32 rid;		/* Router ID */
+  int pri;		/* Priority */
+  int options;		/* Options */
+  u32 dr;		/* Neigbour's idea of DR */
+  u32 bdr;		/* Neigbour's idea of BDR */
 };
 
 #endif /* _BIRD_OSPF_H_ */
