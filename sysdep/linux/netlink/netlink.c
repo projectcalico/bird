@@ -419,8 +419,7 @@ krt_temp_iface(struct krt_proto *p, unsigned index)
   WALK_LIST(i, p->scan.temp_ifs)
     if (i->index == index)
       return i;
-  i = mb_alloc(p->p.pool, sizeof(struct iface));
-  bzero(i, sizeof(*i));
+  i = mb_allocz(p->p.pool, sizeof(struct iface));
   if (j = if_find_by_index(index))
     strcpy(i->name, j->name);
   else

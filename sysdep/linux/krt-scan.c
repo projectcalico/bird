@@ -33,8 +33,7 @@ krt_temp_iface(struct krt_proto *p, char *name)
   WALK_LIST(i, p->scan.temp_ifs)
     if (!strcmp(i->name, name))
       return i;
-  i = mb_alloc(p->p.pool, sizeof(struct iface));
-  bzero(i, sizeof(*i));
+  i = mb_allocz(p->p.pool, sizeof(struct iface));
   strcpy(i->name, name);
   add_tail(&p->scan.temp_ifs, &i->n);
   return i;
