@@ -92,7 +92,12 @@ void val_print(struct f_val v);
 #define T_INT 0x10
 #define T_BOOL 0x11
 #define T_PAIR 0x12
-#define T_ENUM 0x13
+
+/* Put enumerational types in 0x30..0x7f range */
+#define T_ENUM_LO 0x30
+#define T_ENUM_HI 0x7f
+
+#define T_ENUM T_ENUM_LO ... T_ENUM_HI
 
 /* Bigger ones */
 #define T_IP 0x20

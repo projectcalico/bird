@@ -5,12 +5,11 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
-	FIXME: define keyword
-	FIXME: create ip.mask(x) function
+	FIXME (nonurgent): define keyword
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
 	FIXME: enumerational types
-	FIXME: defined() keyword
+	FIXME: write access to dynamic attributes.
  */
 
 CF_HDR
@@ -32,11 +31,15 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	TRUE, FALSE,
 	RTA, FROM, GW, NET, MASK, RIP_METRIC, RIP_TAG,
 	LEN,
+	DEFINED,
 	IMPOSSIBLE,
 	FILTER
 	)
 
-%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list var_listn
+%nonassoc THEN
+%nonassoc ELSE ';'
+
+%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list var_listn any_dynamic
 %type <f> filter filter_body
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
@@ -237,8 +240,15 @@ constant:
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
  ;
 
+any_dynamic:
+   RIP_METRIC { $$ = f_new_inst(); $$->a1.i = T_INT; $$->a2.i = EA_RIP_METRIC;}
+ | RIP_TAG    { $$ = f_new_inst(); $$->a1.i = T_INT; $$->a2.i = EA_RIP_TAG; }
+ ;
+
+
 term:
-   term '+' term     { $$ = f_new_inst(); $$->code = '+';  $$->a1.p = $1; $$->a2.p = $3; }
+   '(' term ')'      { $$ = $2; }
+ | term '+' term     { $$ = f_new_inst(); $$->code = '+';  $$->a1.p = $1; $$->a2.p = $3; }
  | term '=' term     { $$ = f_new_inst(); $$->code = '=='; $$->a1.p = $1; $$->a2.p = $3; }
  | term '!' '=' term { $$ = f_new_inst(); $$->code = '!='; $$->a1.p = $1; $$->a2.p = $4; }
  | term '<' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $1; $$->a2.p = $3; }
@@ -246,6 +256,7 @@ term:
  | term '>' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $3; $$->a2.p = $1; }
  | term '>' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->a1.p = $4; $$->a2.p = $1; }
  | term '~' term     { $$ = f_new_inst(); $$->code = '~';  $$->a1.p = $1; $$->a2.p = $3; }
+ | DEFINED '(' term ')' { $$ = f_new_inst(); $$->code = 'de';  $$->a1.p = $3; }
 
  | SYM {
      $$ = f_new_inst();
@@ -267,7 +278,7 @@ term:
  | RTA '.' GW { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
  | RTA '.' NET { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_PREFIX; $$->a2.i = 0x12345678; }
 
- | RTA '.' RIP_METRIC { $$ = f_new_inst(); $$->code = 'ea'; $$->a1.i = T_INT; $$->a2.i = EA_RIP_METRIC; }
+ | RTA '.' any_dynamic { $$ = $3; $$->code = 'ea'; }
 
  | term '.' IP { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_IP; }
  | term '.' LEN { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_INT; }

@@ -62,6 +62,7 @@ val_compare(struct f_val v1, struct f_val v2)
   if (v1.type != v2.type)
     return CMP_ERROR;
   switch (v1.type) {
+  case T_ENUM:
   case T_INT: 
   case T_PAIR:
     if (v1.val.i == v2.val.i) return 0;
@@ -219,6 +220,11 @@ interpret(struct f_inst *what)
     if (res.val.i == CMP_ERROR)
       runtime( "~ applied on unknown type pair" );
     break;
+  case 'de':
+    ONEARG;
+    res.type = T_BOOL;
+    res.val.i = (v1.type != T_VOID);
+    break;
 
   /* Set to indirect value, a1 = variable, a2 = value */
   case 's':
@@ -226,6 +232,7 @@ interpret(struct f_inst *what)
     sym = what->a1.p;
     switch (res.type = v2.type) {
     case T_VOID: runtime( "Can not assign void values" );
+    case T_ENUM:
     case T_INT: 
     case T_IP: 
     case T_PREFIX: 
@@ -352,8 +359,16 @@ interpret(struct f_inst *what)
     }
     break;
   case 'iM': /* IP.MASK(val) */
-    TWOARGS_C;
-    bug( "Should implement ip.mask\n" );
+    TWOARGS;
+    if (v2.type != T_INT)
+      runtime( "Can not use this type for mask.");
+    if (v1.type != T_IP)
+      runtime( "You can mask only IP addresses." );
+    {
+      ip_addr mask = ipa_mkmask(v2.val.i);
+      res.type = T_IP;
+      res.val.px.ip = ipa_and(mask, v1.val.px.ip);
+    }
     break;
   default:
     bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
