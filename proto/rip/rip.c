@@ -124,7 +124,8 @@ rip_tx_err( sock *s, int err )
 static void
 rip_tx( sock *s )
 {
-  struct rip_connection *c = s->data;
+  struct rip_interface *rif = s->data;
+  struct rip_connection *c = rif->busy;
   struct proto *p = c->proto;
   struct rip_packet *packet = (void *) s->tbuf;
   int i, done = 0;
@@ -134,8 +135,11 @@ givemore:
   debug( "Preparing packet to send: " );
 
   if (!(NODE c->sendptr)->next) {
-    debug( "Looks like I'm done\n" );
-    /* FIXME: we have to kill that socket & connection NOW! */
+    debug( "Looks like I'm" );
+    c->rif->busy = NULL;
+    rem_node(NODE c);
+    mb_free(c);
+    debug( "done\n" );
     return;
   }
 
@@ -152,7 +156,7 @@ givemore:
     packet->block[i].network = c->sendptr->network;
     packet->block[i].netmask = ipa_mkmask( c->sendptr->pxlen );
     packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? */
-    packet->block[i].metric  = htonl( c->sendptr->metric?:1 );
+    packet->block[i].metric  = htonl( 1+ (c->sendptr->metric?:1) );
     if (ipa_equal(c->sendptr->whotoldme, s->daddr)) {
       debug( "(split horizont)" );
       /* FIXME: should we do it in all cases? */
@@ -167,7 +171,10 @@ givemore:
 
   debug( ", sending %d blocks, ", i );
 
-  i = sk_send( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ) );
+  if (ipa_nonzero(c->daddr))
+    i = sk_send_to( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ), c->daddr, c->dport );
+  else
+    i = sk_send( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ) );
   if (i<0) rip_tx_err( s, i );
   if (i>0) {
     debug( "it wants more\n" );
@@ -178,38 +185,39 @@ givemore:
 }
 
 static void
-rip_sendto( struct proto *p, ip_addr daddr, int dport, struct iface *iface )
+rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif )
 {
+  struct iface *iface = rif->iface;
   struct rip_connection *c = mb_alloc( p->pool, sizeof( struct rip_connection ));
   static int num = 0;
 
-  /* FIXME: maybe we should not send when we are already sending? */
+  if (rif->busy) {
+    log (L_WARN "Interface %s is much too slow, dropping request\n", iface->name);
+    return;
+  }
+  rif->busy = c;
   
   c->addr = daddr;
   c->proto = p;
   c->num = num++;
+  c->rif = rif;
 
-  c->send = sk_new( p->pool );
-  c->send->type = SK_UDP;
-  c->send->sport = RIP_PORT+1;	/* BIG FIXME: have to talk from RIP_PORT */
-  c->send->dport = dport;
-  c->send->daddr = daddr;
-  c->send->rx_hook = NULL;
-  c->send->tx_hook = rip_tx;
-  c->send->err_hook = rip_tx_err;
-  c->send->data = c;
-  c->send->iface = iface;
-  c->send->tbuf = mb_alloc( p->pool, sizeof( struct rip_packet ));
+  c->dport = dport;
+  c->daddr = daddr;
+  if (c->rif->sock->data != rif)
+    die("not enough send magic\n");
+#if 0
   if (sk_open(c->send)<0) {
-    log( L_ERR "Could not open socket for data send to %I:%d\n", daddr, dport );
+    log( L_ERR "Could not open socket for data send to %I:%d on %s\n", daddr, dport, rif->iface->name );
     return;
   }
+#endif
 
   c->sendptr = HEAD( P->rtable );  
   add_head( &P->connections, NODE c );
-  debug( "Sending my routing table to %I:%d\n", daddr, dport );
+  debug( "Sending my routing table to %I:%d on %s\n", daddr, dport, rif->iface->name );
 
-  rip_tx( c->send );
+  rip_tx(c->rif->sock);
 }
 
 /*
@@ -232,7 +240,6 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   net *n;
   neighbor *neighbor;
 
-  debug( "rip: Advertising entry..." );
   bzero(&A, sizeof(A));
   A.proto = p;
   A.source = RTS_RIP;
@@ -305,7 +312,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   case RIPCMD_REQUEST: debug( "Asked to send my routing table\n" ); 
     	  rip_sendto( p, whotoldme, port, NULL ); /* no broadcast */
           break;
-  case RIPCMD_RESPONSE: debug( "*** Part of routing table came from %I\n", whotoldme ); 
+  case RIPCMD_RESPONSE: debug( "*** Rtable from %I\n", whotoldme ); 
           if (port != RIP_PORT) {
 	    log( L_ERR "%I send me routing info from port %d\n", whotoldme, port );
 #if 0
@@ -352,7 +359,8 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 static int
 rip_rx(sock *s, int size)
 {
-  struct proto *p = s->data;
+  struct rip_interface *i = s->data;
+  struct proto *p = i->proto;
   int num;
 
   CHK_MAGIC;
@@ -402,22 +410,15 @@ rip_timer(timer *t)
 
   debug( "RIP: Broadcasting routing tables\n" );
   {
-    struct iface *iface;
+    struct rip_interface *i;
 
-    /* FIXME: needs to be configured */
-    WALK_LIST( iface, iface_list ) {
+    WALK_LIST( i, P->interfaces ) {
+      struct iface *iface = i->iface;
+
       if (!(iface->flags & IF_UP)) continue;
       if (iface->flags & (IF_IGNORE | IF_LOOPBACK)) continue;
 
-      if (iface->flags & IF_BROADCAST) {
-	rip_sendto( p, iface->brd, RIP_PORT, iface );
-	continue;
-      }
-      if (iface->flags & IF_UNNUMBERED) {
-	rip_sendto( p, iface->opposite, RIP_PORT, NULL );
-	continue;
-      }
-      debug( "RIP/send: can not happen\n" );
+      rip_sendto( p, IPA_NONE, 0, i );
     }
   }
 
@@ -429,18 +430,11 @@ rip_start(struct proto *p)
 {
   debug( "RIP: initializing instance...\n" );
 
-  P->listen = sk_new( p->pool );
-  P->listen->type = SK_UDP;
-  P->listen->sport = RIP_PORT;
-  P->listen->rx_hook = rip_rx;
-  P->listen->data = p;
-  P->listen->rbsize = 10240;
   P->magic = RIP_MAGIC;
-  if (sk_open(P->listen)<0)
-    die( "RIP/%s: could not listen\n", p->name );
   init_list( &P->rtable );
   init_list( &P->connections );
   init_list( &P->garbage );
+  init_list( &P->interfaces );
   P->timer = tm_new( p->pool );
   P->timer->data = p;
   P->timer->randomize = 5;
@@ -463,6 +457,7 @@ rip_dump(struct proto *p)
 {
   int i;
   node *w, *e;
+  struct rip_interface *rif;
   i = 0;
   WALK_LIST( w, P->connections ) {
     struct rip_connection *n = (void *) w;
@@ -473,23 +468,89 @@ rip_dump(struct proto *p)
     debug( "RIP: entry #%d: ", i++ );
     rip_dump_entry( E );
   }
+  i = 0;
+  WALK_LIST( rif, P->interfaces ) {
+    debug( "RIP: interface #%d: %s, %I, busy = %x\n", i++, rif->iface->name, rif->sock->daddr, rif->busy );
+  }
+}
+
+static int
+rip_want_this_if(struct rip_interface *iface)
+{
+  return 1;
+}
+
+static void
+kill_iface(struct proto *p, struct rip_interface *i)
+{
+  debug( "RIP: Interface %s disappeared\n", i->iface->name);
+  rfree(i->sock);
+  mb_free(i);
+}
+
+struct rip_interface *
+new_iface(struct proto *p, struct iface *new)
+{
+  struct rip_interface *i;
+  debug( "RIP: New interface %s here\n", new->name);
+  i = mb_alloc(p->pool, sizeof( struct rip_interface ));
+  i->iface = new;
+  i->proto = p;
+
+  i->sock = sk_new( p->pool );
+  i->sock->type = SK_UDP;
+  i->sock->sport = RIP_PORT;
+  i->sock->rx_hook = rip_rx;
+  i->sock->data = i;
+  i->sock->rbsize = 10240;
+  i->sock->iface = new;
+  i->sock->tbuf = mb_alloc( p->pool, sizeof( struct rip_packet ));
+  i->sock->tx_hook = rip_tx;
+  i->sock->err_hook = rip_tx_err;
+  i->sock->daddr = IPA_NONE;
+  i->sock->dport = RIP_PORT;
+
+  if (new->flags & IF_BROADCAST)
+    i->sock->daddr = new->brd;
+  if (new->flags & IF_UNNUMBERED)
+    i->sock->daddr = new->opposite;
+
+  if (!ipa_nonzero(i->sock->daddr))
+    log( L_WARN "RIP: interface %s is too strange for me\n", i->iface->name );
+
+  if (sk_open(i->sock)<0)
+    die( "RIP/%s: could not listen on %s\n", p->name, i->iface->name );
+  
+  return i;
 }
 
 static void
 rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 {
+  debug( "RIP: if notify\n" );
+  if (old) {
+    struct rip_interface *i;
+    WALK_LIST (i, P->interfaces)
+      if (i->iface == old) {
+	rem_node(NODE i);
+	kill_iface(p, i);
+      }
+  }
+  if (new) {
+    struct rip_interface *i;
+    i = new_iface(p, new);
+    add_head( &P->interfaces, NODE i );
+  }
 }
 
 static void
 rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old)
 {
-  debug( "rip: new entry came: " );
   CHK_MAGIC;
 
   if (old) {
     struct rip_entry *e = find_entry( p, net->n.prefix, net->n.pxlen );
 
-    debug( "deleting old\n" );
     if (!e)
       log( L_ERR "Deleting nonexistent entry?!\n" );
 
@@ -499,7 +560,6 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
   if (new) {
     struct rip_entry *e = new_entry( p );
 
-    debug( "inserting new\n" );
     e->network = net->n.prefix;
     e->pxlen = net->n.pxlen;
     e->nexthop = new->attrs->gw;
@@ -532,7 +592,6 @@ rip_rte_better(struct rte *new, struct rte *old)
 static int
 rip_rta_same(rta *a, rta *b)
 {
-  debug( "RIP: they ask me if rta_same\n" );
   /* As we have no specific data in rta, they are always the same */
   return 1;
 }

@@ -10,6 +10,10 @@ struct rip_connection {
   ip_addr addr;
   struct rip_entry *sendptr;
   sock *send;
+  struct rip_interface *rif;
+
+  ip_addr daddr;
+  int dport;
 };
 
 struct rip_packet_heading {
@@ -54,13 +58,21 @@ struct rip_packet {
   struct rip_block block[25];
 };
 
+struct rip_interface {
+  node n;
+  struct proto *proto;
+  struct iface *iface;
+  sock *sock;
+  struct rip_connection *busy;
+};
+
 struct rip_data {
   struct proto inherited;
-  sock *listen;
   timer *timer;
   list connections;
   list rtable;
   list garbage;
+  list interfaces;
   int magic;
 };
 
