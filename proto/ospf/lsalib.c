@@ -44,12 +44,13 @@ ospf_age(struct ospf_area *oa)
   struct proto_ospf *po = (struct proto_ospf *) p;
   struct top_hash_entry *en, *nxt;
   int flush = can_flush_lsa(oa);
+  int cleanup = (oa->rt && (oa->rt->dist != LSINFINITY));
 
   OSPF_TRACE(D_EVENTS, "Running ospf_age");
 
   WALK_SLIST_DELSAFE(en, nxt, oa->lsal)
   {
-    if (oa->rt && (oa->rt->dist != LSINFINITY))
+    if (cleanup)
     {
       en->color = OUTSPF;
       en->dist = LSINFINITY;
