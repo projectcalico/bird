@@ -245,12 +245,6 @@ call other functions, but recursion is not allowed. Filter language contains con
 as if's and switches, but it allows no loops. Filters are
 interpreted. Filter using many features can be found in <file>filter/test.conf</file>. 
 
-<p>You can find sources of filters language in <file>filter/</file>
-directory. <file>filter/config.Y</file> contains filter grammar, and basically translates source from
-user into tree of <cf>f_inst</cf> structures. These trees are later interpreted using code in
-<file>filter/filter.c</file>. Filters internally work with values/variables in <tt>struct
-f_val</tt>, which contains type of value and value.
-
 <p>Filter basically gets the route, looks at its attributes and
 modifies some of them if it wishes. At the end, it decides, whether to
 pass change route through (using <cf/accept/), or whether to <cf/reject/ given route. It looks
