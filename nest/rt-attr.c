@@ -380,6 +380,20 @@ ea_hash(ea_list *e)
   return h;
 }
 
+ea_list *
+ea_append(ea_list *to, ea_list *what)
+{
+  ea_list *res;
+
+  if (!to)
+    return what;
+  res = to;
+  while (to->next)
+    to = to->next;
+  to->next = what;
+  return res;
+}
+
 /*
  *	rta's
  */
@@ -551,18 +565,19 @@ rta_dump_all(void)
 }
 
 void
-rta_show(struct cli *c, rta *a)
+rta_show(struct cli *c, rta *a, ea_list *eal)
 {
   static char *src_names[] = { "dummy", "static", "inherit", "device", "static-device", "redirect",
 			       "RIP", "RIP-ext", "OSPF", "OSPF-ext", "OSPF-IA", "OSPF-boundary",
 			       "BGP" };
   static char *cast_names[] = { "unicast", "broadcast", "multicast", "anycast" };
-  ea_list *eal;
   int i;
   byte buf[EA_FORMAT_BUF_SIZE];
 
   cli_printf(c, -1008, "\tType: %s %s %s", src_names[a->source], cast_names[a->cast], ip_scope_text(a->scope));
-  for(eal=a->eattrs; eal; eal=eal->next)
+  if (!eal)
+    eal = a->eattrs;
+  for(; eal; eal=eal->next)
     for(i=0; i<eal->count; i++)
       {
 	ea_format(&eal->attrs[i], buf);

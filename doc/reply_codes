@@ -41,6 +41,8 @@ Reply codes of BIRD command-line interface
 8001	Route not found
 8002	Configuration file error
 8003	No protocols match
+8004	Stopped due to reconfiguration
+8005	Protocol is down => cannot dump
 
 9000	Command too long
 9001	Parse error

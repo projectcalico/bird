@@ -206,6 +206,9 @@ struct rt_show_data {
   struct filter *filter;
   int verbose;
   struct fib_iterator fit;
+  struct proto *import_protocol;
+  int import_mode, primary_only;
+  struct config *running_on_config;
 };
 void rt_show(struct rt_show_data *);
 
@@ -326,6 +329,7 @@ int ea_same(ea_list *x, ea_list *y);	/* Test whether two ea_lists are identical 
 unsigned int ea_hash(ea_list *e);	/* Calculate 16-bit hash value */
 void ea_format(eattr *e, byte *buf);
 #define EA_FORMAT_BUF_SIZE 256
+ea_list *ea_append(ea_list *to, ea_list *what);
 
 void rta_init(void);
 rta *rta_lookup(rta *);			/* Get rta equivalent to this one, uc++ */
@@ -335,7 +339,7 @@ static inline void rta_free(rta *r) { if (r && !--r->uc) rta__free(r); }
 void rta_dump(rta *);
 void rta_dump_all(void);
 static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->eattrs, ea); }
-void rta_show(struct cli *, rta *);
+void rta_show(struct cli *, rta *, ea_list *);
 
 extern struct protocol *attr_class_to_protocol[EAP_MAX];
 

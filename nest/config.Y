@@ -22,6 +22,7 @@ CF_DECLS
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
+CF_KEYWORDS(PRIMARY)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_EXT, OSPF_IA, OSPF_BOUNDARY, BGP, PIPE)
@@ -32,7 +33,7 @@ CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIREC
 %type <p> password_list password_begin
 %type <s> optsym
 %type <ra> r_args
-%type <i> echo_mask echo_size debug_mask debug_list debug_flag
+%type <i> echo_mask echo_size debug_mask debug_list debug_flag import_or_proto
 %type <t> proto_patt
 
 CF_GRAMMAR
@@ -239,7 +240,7 @@ CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
 CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
 { if_show_summary(); } ;
 
-CF_CLI(SHOW ROUTE, r_args, [<prefix>] [table <t>] [filter <f>] [all], [[Show routing table]])
+CF_CLI(SHOW ROUTE, r_args, [<prefix>] [table <t>] [filter <f>] [all] [primary] [(import|protocol) <p>], [[Show routing table]])
 { rt_show($3); } ;
 
 r_args:
@@ -275,6 +276,25 @@ r_args:
      $$ = $1;
      $$->verbose = 1;
    }
+ | r_args PRIMARY {
+     $$ = $1;
+     $$->primary_only = 1;
+   }
+ | r_args import_or_proto SYM {
+     struct proto_config *c = (struct proto_config *) $3->def;
+     $$ = $1;
+     if ($$->import_mode) cf_error("Protocol specified twice");
+     if ($3->class != SYM_PROTO || !c->proto) cf_error("%s is not a protocol", $3->name);
+     $$->import_mode = $2;
+     $$->primary_only = 1;
+     $$->import_protocol = c->proto;
+     $$->running_on_config = c->proto->cf->global;
+   }
+ ;
+
+import_or_proto:
+   IMPORT { $$ = 1; }
+ | PROTOCOL { $$ = 2; }
  ;
 
 CF_CLI(SHOW SYMBOLS, optsym, [<symbol>], [[Show all known symbolic names]])

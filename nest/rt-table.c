@@ -683,7 +683,7 @@ rt_format_via(rte *e, byte *via)
 }
 
 static void
-rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d)
+rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d, ea_list *tmpa)
 {
   byte via[STD_ADDRESS_P_LENGTH+32], from[STD_ADDRESS_P_LENGTH+6];
   byte tm[TM_RELTIME_BUFFER_SIZE], info[256];
@@ -695,13 +695,21 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d)
     bsprintf(from, " from %I", a->from);
   else
     from[0] = 0;
+  if (a->proto->proto->get_route_info || d->verbose)
+    {
+      /* Need to normalize the extended attributes */
+      ea_list *t = tmpa;
+      t = ea_append(t, a->eattrs);
+      tmpa = alloca(ea_scan(t));
+      ea_merge(t, tmpa);
+    }
   if (a->proto->proto->get_route_info)
-    a->proto->proto->get_route_info(e, info);
+    a->proto->proto->get_route_info(e, info, tmpa);
   else
     bsprintf(info, " (%d)", e->pref);
   cli_printf(c, -1007, "%-18s %s [%s %s%s]%s", ia, via, a->proto->name, tm, from, info);
   if (d->verbose)
-    rta_show(c, a);
+    rta_show(c, a, tmpa);
 }
 
 static void
@@ -709,21 +717,40 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 {
   rte *e, *ee;
   byte ia[STD_ADDRESS_P_LENGTH+8];
+  int ok;
 
   bsprintf(ia, "%I/%d", n->n.prefix, n->n.pxlen);
   for(e=n->routes; e; e=e->next)
     {
-      struct ea_list *tmpa = NULL;
+      struct ea_list *tmpa, *old_tmpa;
+      struct proto *p0 = e->attrs->proto;
+      struct proto *p1 = d->import_protocol;
       ee = e;
       rte_update_lock();		/* We use the update buffer for filtering */
-      if (d->filter == FILTER_ACCEPT || f_run(d->filter, &ee, &tmpa, rte_update_pool, 0) <= F_ACCEPT)
+      old_tmpa = tmpa = p0->make_tmp_attrs ? p0->make_tmp_attrs(e, rte_update_pool) : NULL;
+      ok = (d->filter == FILTER_ACCEPT || f_run(d->filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
+      if (ok && d->import_mode)
 	{
-	  rt_show_rte(c, ia, e, d);
+	  int ic = (p1->import_control ? p1->import_control(p1, &e, &tmpa, rte_update_pool) : 0);
+	  if (ic < 0)
+	    ok = 0;
+	  else if (!ic && d->import_mode > 1)
+	    {
+	      if (p1->out_filter == FILTER_REJECT ||
+		  p1->out_filter && f_run(p1->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
+		ok = 0;
+	    }
+	}
+      if (ok)
+	{
+	  rt_show_rte(c, ia, e, d, tmpa);
 	  ia[0] = 0;
 	}
       if (e != ee)
 	rte_free(ee);
       rte_update_unlock();
+      if (d->import_mode)		/* In import mode, accept only the primary route */
+	break;
     }
 }
 
@@ -742,6 +769,18 @@ rt_show_cont(struct cli *c)
   FIB_ITERATE_START(fib, it, f)
     {
       net *n = (net *) f;
+      if (d->running_on_config && d->running_on_config != config)
+	{
+	  cli_printf(c, 8004, "Stopped due to reconfiguration");
+	  goto done;
+	}
+      if (d->import_protocol &&
+	  d->import_protocol->core_state != FS_HAPPY &&
+	  d->import_protocol->core_state != FS_FEEDING)
+	{
+	  cli_printf(c, 8005, "Protocol is down");
+	  goto done;
+	}
       if (!max--)
 	{
 	  FIB_ITERATE_PUT(it, f);
@@ -751,6 +790,7 @@ rt_show_cont(struct cli *c)
     }
   FIB_ITERATE_END(f);
   cli_printf(c, 0, "");
+done:
   c->cont = c->cleanup = NULL;
 }
 

@@ -535,10 +535,14 @@ rip_dump(struct proto *p)
 }
 
 static void
-rip_get_route_info(rte *rte, byte *buf)
+rip_get_route_info(rte *rte, byte *buf, ea_list *attrs)
 {
-  buf += bsprintf(buf, " (%d/%d)", rte->pref, rte->u.rip.metric );
-  bsprintf(buf, " t%04x", rte->u.rip.tag );
+  eattr *metric = ea_find(attrs, EA_RIP_METRIC);
+  eattr *tag = ea_find(attrs, EA_RIP_TAG);
+
+  buf += bsprintf(buf, " (%d/%d)", rte->pref, metric ? metric->u.data : 0);
+  if (tag && tag->u.data)
+    bsprintf(buf, " t%04x", tag->u.data);
 }
 
 static int

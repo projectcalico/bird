@@ -13,11 +13,9 @@ Core
 - filter-defined internal attributes
 - netlink: realms
 
-- bgp: wait on restart
+- filters: deletion of mandatory attributes?
 
-Commands
-~~~~~~~~
-- showing of routing table as seen by given protocol
+- bgp: wait on restart
 
 Documentation
 ~~~~~~~~~~~~~
