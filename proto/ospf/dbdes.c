@@ -1,13 +1,23 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999-2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 #include "ospf.h"
 
+/**
+ * ospf_dbdes_tx - transmit database description packet
+ * @n: neighbor
+ *
+ * Sending of database description packet is described in 10.6 of RFC 2328.
+ * Reception of each packet is acknoledged in sequence number of another.
+ * When I send a packet to neighbor I keep a copy in buffer. If neighbor
+ * does not reply, I don't create new packet but I just send content
+ * of buffer.
+ */
 void
 ospf_dbdes_tx(struct ospf_neighbor *n)
 {
