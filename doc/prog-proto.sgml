@@ -4,9 +4,9 @@
 	(c) 2000 Martin Mares <mj@ucw.cz>
 -->
 
-<sect1>Routing protocols
+<sect>Routing protocols
 
-<sect2>Introduction
+<sect1>Introduction
 
 <p>The routing protocols are the BIRD's heart and a fine amount of code
 is dedicated to their management and for providing support functions to them.
@@ -41,7 +41,7 @@ running protocols, <param/initial_proto_list/ for protocols being initialized or
 configuration of protocols, please refer to the configuration chapter and also
 to the description of the <func/proto_commit/ function.
 
-<sect2>Protocol states
+<sect1>Protocol states
 
 <p>As startup and shutdown of each protocol are complex processes which can be affected
 by lots of external events (user's actions, reconfigurations, behaviour of neighboring routers etc.),
@@ -86,6 +86,6 @@ new state. There exist the following core states:
 	routing tables.
 </descrip>
 
-<sect2>Functions of the protocol module
+<sect1>Functions of the protocol module
 
 <p>The protocol module provides the following functions:

@@ -33,7 +33,7 @@ sub process {
     if ($cmd eq "C") { process("$dir/$arg"); }
     elsif ($cmd eq "H") {
       push @stack, "H";
-      print OUT "<sect>$arg\n";
+      print OUT "<chapt>$arg\n";
     } elsif ($cmd eq "S") {
       print "    $arg\n";
       open(DOC, "cd $srcdir/$dir ; $srcdir/doc/kernel-doc -bird $arg |") || die "Unable to start kernel-doc";

@@ -1,6 +1,6 @@
-<sect>BIRD Design
+<chapt>BIRD Design
 
-<sect1>Introduction
+<sect>Introduction
 
 <p>This document describes the internal workings of the BIRD, its architecture,
 design decisions and rationale behind them. It also contains documentation on
@@ -17,7 +17,7 @@ is a sister of talent", we've tried to write a much shorter document highlightin
 the most important stuff and leaving the boring technical details better explained
 by the program source itself together with comments contained therein.
 
-<sect1>Design goals
+<sect>Design goals
 
 <p>When planning the architecture of BIRD, we've taken a close look at the other existing routing
 daemons and also at some of the operating systems used on dedicated routers, gathered all important
@@ -81,7 +81,7 @@ our own scheduling of events.
 
 </itemize>
 
-<sect1>Architecture
+<sect>Architecture
 
 <p>The requirements set above have lead to a simple modular architecture containing
 the following types of modules:
@@ -118,7 +118,7 @@ interface to the CLI.
 
 </descrip>
 
-<sect1>Implementation
+<sect>Implementation
 
 <p>BIRD has been written in GNU C. We've considered using of C++, but we've
 preferred the simplicity and straightforward nature of C which gives us fine

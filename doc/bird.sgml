@@ -13,7 +13,7 @@ configuration primitives, <cf> is fragment of configuration within normal text, 
 
  -->
 
-<article>
+<book>
 
 <title>BIRD User's Guide
 <author>
@@ -31,9 +31,9 @@ This document contains user documentation for the BIRD Internet Routing Daemon p
 
 <!-- Begin the document -->
 
-<sect>Introduction
+<chapt>Introduction
 
-<sect1>What is BIRD
+<sect>What is BIRD
 
 <p><label id="intro">
 The name `BIRD' is actually an acronym standing for `BIRD Internet Routing Daemon'.
@@ -94,11 +94,11 @@ Public License.
 tested under Linux 2.0 to 2.3, but porting to other systems (even non-UNIX ones) should
 be relatively easy due to its highly modular architecture.
 
-<sect1>About this documentation
+<sect>About this documentation
 
 <p>This documentation can have 4 forms: sgml (this is master copy), html, ASCII text and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy.
 
-<sect1>About routing tables
+<sect>About routing tables
 
 <p>Bird has one or more routing tables, which may or may not be
 synchronized with kernel and which may or may not be synchronized with
@@ -127,7 +127,7 @@ get list of route attributes in "Route attributes" section in
 filters. Filters can alter routes passed between routing tables and
 protocols.
 
-<sect1>Installing BIRD
+<sect>Installing BIRD
 
 <p>On recent UNIX (with GNU-compatible tools -- BIRD relies on GCC extensions)
 system, installing BIRD should be as easy as:
@@ -160,9 +160,9 @@ options. Most important (and not easily guessed) option is
 	use given filename for socket for communications with bird client, default is <file/bird.ctl/.
 </descrip>
 
-<sect>Configuration
+<chapt>Configuration
 
-<sect1>Introduction
+<sect>Introduction
 
 <p>BIRD is configured using text configuration file. At startup, BIRD reads <file/bird.conf/ (unless
 <tt/-c/ command line option is given). Configuration may be changed on user request: if you modify
@@ -200,7 +200,7 @@ protocol rip {
 </code>
 
 
-<sect1>Global options
+<sect>Global options
 
 <p><descrip>
 	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of classes/ }</tag> 
@@ -244,7 +244,7 @@ protocol rip {
 	is used by us for testing.
 </descrip>
 
-<sect1>Protocol options
+<sect>Protocol options
 
 <p>Several options are per-protocol, but all protocols support them. They are described here.
 
@@ -286,7 +286,7 @@ protocol rip {
 						  
 </descrip>
 
-<sect1>Client
+<sect>Client
 
 <p>You can use command-line client <file>birdc</file> to talk with
 running BIRD. Communications is done using <file/bird.ctl/ unix domain
@@ -301,9 +301,9 @@ own application could do that, too -- format of communication between
 BIRD and BIRDC is stable (see programmer's documentation).
 
 
-<sect>Filters
+<chapt>Filters
 
-<sect1>Introduction
+<sect>Introduction
 
 <p>BIRD contains rather simple programming language. (No, it can not yet read mail :-). There are
 two objects in this language: filters and functions. Filters are called by BIRD core when route is
@@ -390,7 +390,7 @@ bird> show route filter { if 127.0.0.5 ~ net then accept; }
 bird>
 </code>
 
-<sect1>Data types
+<sect>Data types
 
 <p>Each variable and each value has certain type. Unlike C, booleans, integers and enums are
 incompatible with each other (that is to prevent you from shooting in the foot).
@@ -462,7 +462,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 
 </descrip>
 
-<sect1>Operations
+<sect>Operations
 
 <p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parentheses <cf/(a*(b+c))/, comparison
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
@@ -471,7 +471,7 @@ prefix and prefix or on bgppath and bgpmask or on pair and clist. Its result
 is true if element is in given set or if ip address is inside given prefix. Operator <cf/=/ is used to assign value
 to variable. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/>).
 
-<sect1>Control structures
+<sect>Control structures
 
 <p>Filters support two control structures: if/then/else and case. Syntax of if/then/else is <cf>if
 <M>expression</M> then <M>command</M>; else <M>command</M>;</cf> and you can use <cf>{
@@ -498,7 +498,7 @@ case arg1 {
 if 1234 = i then printn "."; else { print "not 1234"; print "You need {} around multiple commands"; }
 </code>
 
-<sect1>Route attributes
+<sect>Route attributes
 
 <p>Filter is implicitly passed route, and it can access its
 attributes, just like it accesses variables. Access to undefined
@@ -533,7 +533,7 @@ defined using <cf>defined( <m>attribute</m> )</cf> syntax.
 
 <p>Plus, there are protocol-specific attributes, which are described in protocol sections.
 
-<sect1>Utility functions
+<sect>Utility functions
 
 <p>There are few functions you might find convenient to use:
 
@@ -552,9 +552,9 @@ defined using <cf>defined( <m>attribute</m> )</cf> syntax.
 	terminates bird. Useful while debugging filter interpreter.
 </descrip>
 
-<sect>Protocols
+<chapt>Protocols
 
-<sect1>BGP
+<sect>BGP
 
 <p>The Border Gateway Protocol is the routing protocol used for backbone
 level routing in the today's Internet. Contrary to other protocols, its convergence
@@ -590,7 +590,7 @@ latest draft <htmlurl url="ftp://ftp.rfc-editor.org/internet-drafts/draft-ietf-i
 and applied to IPv6 according to
 RFC 2545<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2545.txt">.
 
-<sect2>Route selection rules
+<sect1>Route selection rules
 
 <p>BGP doesn't have any simple metric, so the rules for selection of an optimal
 route among multiple BGP routes with the same preference are a bit more complex
@@ -608,7 +608,7 @@ among them and so on.
 	advertising router.
 </itemize>
 
-<sect2>Configuration
+<sect1>Configuration
 
 <p>Each instance of the BGP corresponds to one neighboring router.
 This allows to set routing policy and all other parameters differently
@@ -670,7 +670,7 @@ for each neighbor using the following protocol parameters:
 	is missing. Default: 0.
 </descrip>
 
-<sect2>Attributes
+<sect1>Attributes
 
 <p>BGP defines several route attributes. Some of them (those marked with `I' in the
 table below) are available on internal BGP connections only, some of them (marked
@@ -715,7 +715,7 @@ with `O') are optional.
 	attributes it defines and what their semantics will be.
 </descrip>
 
-<sect2>Example
+<sect1>Example
 
 <p><code>
 protocol bgp {
@@ -736,7 +736,7 @@ protocol bgp {
 }
 </code>
 
-<sect1>Device
+<sect>Device
 
 <p>The Device protocol is not a real routing protocol as it doesn't generate
 any routes and only serves as a module for getting information about network
@@ -765,7 +765,7 @@ protocol device {
 }
 </code>
 
-<sect1>Direct
+<sect>Direct
 
 <p>The Direct protocol is a simple generator of device routes for all the
 directly connected networks according to the list of interfaces provided
@@ -797,7 +797,7 @@ protocol direct {
 }
 </code>
 
-<sect1>Kernel
+<sect>Kernel
 
 <p>The Kernel protocol is not a real routing protocol. Instead of communicating
 with other routers in the network, it performs synchronization of BIRD's routing
@@ -814,7 +814,7 @@ allow policy routing), you can run as many instances as you want, but each of
 them must be connected to a different BIRD routing table and to a different
 kernel table.
 
-<sect2>Configuration
+<sect1>Configuration
 
 <p><descrip>
 	<tag>persist <m/switch/</tag> Tell BIRD to leave all its routes in the
@@ -859,11 +859,11 @@ protocol kernel {		# Secondary routing table
 
 <p>The Kernel protocol doesn't define any route attributes.
 
-<sect1>OSPF
+<sect>OSPF
 
-<sect1>Pipe
+<sect>Pipe
 
-<sect2>Introduction
+<sect1>Introduction
 
 <p>The Pipe protocol serves as a link between two routing tables, allowing routes to be
 passed from a table declared as primary (i.e., the one the pipe is connected using the
@@ -883,18 +883,18 @@ connect them to the kernel ones, use filters to control which routes appear in w
 and also you can employ the Pipe protocol to export a selected subset of one table in
 another one.
 
-<sect2>Configuration
+<sect1>Configuration
 
 <p><descrip>
 	<tag>peer table <m/table/</tag> Define secondary routing table to connect to. The
 	primary one is selected by the <cf/table/ keyword.
 </descrip>
 
-<sect2>Attributes
+<sect1>Attributes
 
 <p>The Pipe protocol doesn't define any route attributes.
 
-<sect2>Example
+<sect1>Example
 
 <p>Let's consider a router which serves as a boundary router of two different autonomous
 systems, each of them connected to a subset of interfaces of the router, having its own
@@ -962,9 +962,9 @@ protocol pipe {				# The Pipe
 }
 </code>
 
-<sect1>Rip
+<sect>Rip
 
-<sect2>Introduction
+<sect1>Introduction
 
 <p>Rip protocol (sometimes called Rest In Pieces) is a simple protocol, where each router broadcasts
 distances to all networks it can reach. When router hears distance to other network, it increments
@@ -984,7 +984,7 @@ makes it pretty much obsolete in IPv4 world. (It is still usable on
 very small networks, through.) It is widely used in IPv6 world,
 because they are no good implementations of OSPFv3.
 
-<sect2>Configuration
+<sect1>Configuration
 
 <p>In addition to options generic to other protocols, rip supports following options:
 
@@ -1034,7 +1034,7 @@ other than equally misconfigured BIRD. I warned you.
 	  </tag>specifies how old route has to be to be discarded. Default is 10*period.
 </descrip>
 
-<sect2>Attributes
+<sect1>Attributes
 
 <p>RIP defines two route attributes:
 
@@ -1048,7 +1048,7 @@ other than equally misconfigured BIRD. I warned you.
 	in case of external routes).
 </descrip>
 
-<sect2>Example
+<sect1>Example
 
 <p><code>
 protocol rip MyRIP_test {
@@ -1064,7 +1064,7 @@ protocol rip MyRIP_test {
 }
 </code>
 
-<sect1>Static
+<sect>Static
 
 <p>The Static protocol doesn't communicate with other routers in the network,
 but instead it allows you to define routes manually. This is often used for
@@ -1111,7 +1111,7 @@ protocol static {
 }
 </code>
 
-<sect>Problems
+<chapt>Problems
 
 <p>BIRD is relatively young system, and probably contains some
 bugs. You can report bugs at <HTMLURL URL="fixme">, but before you do,
@@ -1128,7 +1128,7 @@ relevant reading; you can get them from <HTMLURL URL="fixme">.
 
 <p><it/Good luck!/
 
-</article>
+</book>
 
 <!--
 LocalWords:  GPL IPv GateD BGPv RIPv OSPFv Linux sgml html dvi sgmltools Pavel
