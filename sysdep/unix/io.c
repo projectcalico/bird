@@ -75,13 +75,6 @@ tracked_fopen(pool *p, char *name, char *mode)
   return f;
 }
 
-void
-c_err_hook(struct birdsock *s, int err)
-{
-  s->ttx = s->tpos;	/* empty tx buffer */
-  s->err_hook(s, err);
-}
-
 /**
  * DOC: Timers
  *
@@ -687,7 +680,7 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
   else if (errno != EINTR && errno != EAGAIN)
     {
       log(L_ERR "accept: %m");
-      c_err_hook(s, errno);
+      s->err_hook(s, errno);
     }
   return 0;
 }
@@ -905,7 +898,8 @@ sk_maybe_write(sock *s)
 	    {
 	      if (errno != EINTR && errno != EAGAIN)
 		{
-		  c_err_hook(s, errno);
+                  s->ttx = s->tpos;	/* empty tx buffer */
+		  s->err_hook(s, errno);
 		  return -1;
 		}
 	      return 0;
@@ -930,7 +924,8 @@ sk_maybe_write(sock *s)
 	  {
 	    if (errno != EINTR && errno != EAGAIN)
 	      {
-		c_err_hook(s, errno);
+                s->ttx = s->tpos;	/* empty tx buffer */
+		s->err_hook(s, errno);
 		return -1;
 	      }
 	    return 0;
@@ -1008,10 +1003,10 @@ sk_read(sock *s)
 	if (c < 0)
 	  {
 	    if (errno != EINTR && errno != EAGAIN)
-	      c_err_hook(s, errno);
+	      s->err_hook(s, errno);
 	  }
 	else if (!c)
-	  c_err_hook(s, 0);
+	  s->err_hook(s, 0);
 	else
 	  {
 	    s->rpos += c;
@@ -1036,7 +1031,7 @@ sk_read(sock *s)
 	if (e < 0)
 	  {
 	    if (errno != EINTR && errno != EAGAIN)
-	      c_err_hook(s, errno);
+	      s->err_hook(s, errno);
 	    return 0;
 	  }
 	s->rpos = s->rbuf + e;
@@ -1059,7 +1054,7 @@ sk_write(sock *s)
 	if (connect(s->fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0 || errno == EISCONN)
 	  sk_tcp_connected(s);
 	else if (errno != EINTR && errno != EAGAIN && errno != EINPROGRESS)
-	  c_err_hook(s, errno);
+	  s->err_hook(s, errno);
 	return 0;
       }
     default:
