@@ -8,6 +8,8 @@
 
 #include <string.h>
 
+#define LOCAL_DEBUG
+
 #include "nest/bird.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
@@ -281,4 +283,34 @@ rt_init(void)
   rta_init();
   rt_setup(&master_table, "master");
   rte_slab = sl_new(&root_pool, sizeof(rte));
+}
+
+void
+rt_prune(rtable *tab)
+{
+  struct fib_iterator fit;
+  int cnt = 0;
+
+  DBG("Pruning route table %s\n", tab->name);
+  while (tab)
+    {
+      FIB_ITERATE_INIT(&fit, &tab->fib);
+    again:
+      FIB_ITERATE_START(&tab->fib, &fit, f)
+	{
+	  net *n = (net *) f;
+	  rte *e;
+	  for (e=n->routes; e; e=e->next)
+	    if (e->attrs->proto->core_state != FS_HAPPY)
+	      {
+		FIB_ITERATE_PUT(&fit, f);
+		rte_discard(e);
+		cnt++;
+		goto again;
+	      }
+	}
+      FIB_ITERATE_END(f);
+      tab = tab->sibling;
+    }
+  DBG("Pruned %d routes\n", cnt);
 }

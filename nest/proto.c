@@ -26,23 +26,40 @@ list proto_list;
 
 static list inactive_proto_list;
 static list initial_proto_list;
+static list flush_proto_list;
+
+static event *proto_flush_event;
 
 static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
 static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
 
+static void proto_flush_all(void *);
+
 static void
 proto_relink(struct proto *p)
 {
+  list *l;
+
   rem_node(&p->n);
-  add_tail(p->core_state == FS_HAPPY ? &proto_list : &inactive_proto_list, &p->n);
+  switch (p->core_state)
+    {
+    case FS_HAPPY:
+      l = &proto_list;
+      break;
+    case FS_FLUSHING:
+      l = &flush_proto_list;
+      break;
+    default:
+      l = &inactive_proto_list;
+    }
+  add_tail(l, &p->n);
 }
 
 void *
 proto_new(struct proto_config *c, unsigned size)
 {
   struct protocol *pr = c->proto;
-  pool *r = rp_new(proto_pool, c->name);
-  struct proto *p = mb_alloc(r, size);
+  struct proto *p = mb_alloc(proto_pool, size);
 
   p->cf = c;
   p->debug = c->debug;
@@ -50,10 +67,17 @@ proto_new(struct proto_config *c, unsigned size)
   p->preference = c->preference;
   p->disabled = c->disabled;
   p->proto = pr;
-  p->pool = r;
-  p->attn = ev_new(r);
-  p->attn->data = p;
   return p;
+}
+
+static void
+proto_init_instance(struct proto *p)
+{
+  struct proto_config *c = p->cf;
+
+  p->pool = rp_new(proto_pool, c->name);
+  p->attn = ev_new(p->pool);
+  p->attn->data = p;
 }
 
 void *
@@ -77,6 +101,7 @@ protos_preconfig(struct config *c)
   init_list(&proto_list);
   init_list(&inactive_proto_list);
   init_list(&initial_proto_list);
+  init_list(&flush_proto_list);
   debug("Protocol preconfig:");
   WALK_LIST(p, protocol_list)
     {
@@ -136,6 +161,7 @@ proto_rethink_goal(struct proto *p)
       if (p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
 	{
 	  DBG("Kicking %s up\n", p->name);
+	  proto_init_instance(p);
 	  proto_notify_state(p, (q->start ? q->start(p) : PS_UP));
 	}
     }
@@ -201,6 +227,8 @@ protos_build(void)
   add_tail(&protocol_list, &proto_static.n);
 #endif
   proto_pool = rp_new(&root_pool, "Protocols");
+  proto_flush_event = ev_new(proto_pool);
+  proto_flush_event->hook = proto_flush_all;
 }
 
 static void
@@ -221,15 +249,6 @@ proto_feed(void *P)
   p->core_state = FS_HAPPY;
   proto_relink(p);
   DBG("Protocol %s up and running\n", p->name);
-}
-
-static void
-proto_flush(void *P)
-{
-  struct proto *p = P;
-
-  DBG("Flushing protocol %s\n", p->name);
-  bug("Protocol flushing not supported yet!"); /* FIXME */
 }
 
 void
@@ -270,8 +289,7 @@ proto_notify_state(struct proto *p, unsigned ps)
 	schedule_flush:
 	  DBG("%s: Scheduling flush\n", p->name);
 	  cs = FS_FLUSHING;
-	  p->attn->hook = proto_flush;
-	  ev_schedule(p->attn);
+	  ev_schedule(proto_flush_event);
 	}
     default:
     error:
@@ -280,4 +298,21 @@ proto_notify_state(struct proto *p, unsigned ps)
   p->proto_state = ps;
   p->core_state = cs;
   proto_relink(p);
+}
+
+static void
+proto_flush_all(void *unused)
+{
+  struct proto *p;
+
+  rt_prune(&master_table);
+  while ((p = HEAD(flush_proto_list))->n.next)
+    {
+      DBG("Flushing protocol %s\n", p->name);
+      rfree(p->pool);
+      p->pool = NULL;
+      p->core_state = FS_HUNGRY;
+      proto_relink(p);
+      proto_rethink_goal(p);
+    }
 }
