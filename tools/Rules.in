@@ -6,7 +6,7 @@ objdir=@objdir@
 exedir=@exedir@
 
 protocols=@protocols@
-static-dirs := nest $(addprefix proto/,$(protocols))
+static-dirs := nest filter $(addprefix proto/,$(protocols))
 static-dir-paths := $(addprefix $(srcdir)/,$(static-dirs))
 dynamic-dirs := lib conf
 dynamic-dir-paths := $(dynamic-dirs)
