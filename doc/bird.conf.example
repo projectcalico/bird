@@ -90,7 +90,7 @@ protocol static {
 #	port 1520;
 #	period 7;
 #	infinity 16;
-#	garbagetime 60;
+#	garbage time 60;
 #	interface "*" { mode broadcast; };
 #	honor neighbor;		# To whom do we agree to send the routing table
 #	honor always;

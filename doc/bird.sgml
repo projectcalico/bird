@@ -811,10 +811,10 @@ other than equally misconfigured BIRD. I warned you.
 	  </tag>specifies number of seconds between periodic updates. Default is 30 seconds. Lower
 	  number will mean faster convergence but bigger network load.
 
-	<tag>timeouttime <M>number</M>
+	<tag>timeout time <M>number</M>
 	  </tag>specifies how old route has to be to be considered unreachable. Default is 4*period.
 
-	<tag>garbagetime <M>number</M>
+	<tag>garbage time <M>number</M>
 	  </tag>specifies how old route has to be to be discarded. Default is 10*period.
 </descrip>
 

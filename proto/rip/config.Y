@@ -24,7 +24,7 @@ CF_DEFINES
 
 CF_DECLS
 
-CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, PASSWORDS,
+CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGE, TIMEOUT, PASSWORDS,
 	    MODE, BROADCAST, MULTICAST, QUIET, NOLISTEN, VERSION1, 
 	    AUTHENTICATION, NONE, PLAINTEXT, MD5,
 	    HONOR, NEVER, NEIGHBOR, ALWAYS,
@@ -48,7 +48,8 @@ rip_cfg:
  | rip_cfg INFINITY expr ';'	{ RIP_CFG->infinity = $3; }
  | rip_cfg PORT expr ';'	{ RIP_CFG->port = $3; }
  | rip_cfg PERIOD expr ';'	{ RIP_CFG->period = $3; }
- | rip_cfg GARBAGETIME expr ';' { RIP_CFG->garbage_time = $3; }
+ | rip_cfg GARBAGE TIME expr ';' { RIP_CFG->garbage_time = $4; }
+ | rip_cfg TIMEOUT TIME expr ';' { RIP_CFG->timeout_time = $4; }
  | rip_cfg AUTHENTICATION rip_auth ';' {RIP_CFG->authtype = $3; }
  | rip_cfg PASSWORDS '{' password_list '}' {RIP_CFG->passwords = $4; }
  | rip_cfg HONOR ALWAYS ';'    { RIP_CFG->honor = HO_ALWAYS; }
