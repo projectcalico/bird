@@ -103,6 +103,31 @@ protocol static {
 #	export filter { print "exporting"; accept; };
 #}
 
+# Please note, multiple areas still don't work.
+#protocol ospf MyOSPF {
+#	rfc1583compat yes;
+#	area 0.0.0.0 {
+#		stub no;
+#		tick 1;
+#		interface "eth*" {
+#			hello 9;
+#			retransmit 6;
+#			cost 10;
+#			transit delay 5;
+#			dead count 5;
+#			wait 50;
+#			type broadcast;
+#		};
+#	};
+#	area 20 {
+#		stub 1;
+#		interface "ppp1" {
+#			hello 8;
+#		};
+#	};
+#}
+		
+
 #protocol bgp {
 #	disabled;
 #	local as 65000;
