@@ -36,6 +36,7 @@ CF_DECLS
   struct f_val v;
   struct password_item *p;
   struct rt_show_data *ra;
+  void *g;
 }
 
 %token END CLI_MARKER
