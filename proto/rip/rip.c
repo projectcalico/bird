@@ -8,7 +8,15 @@
  	FIXME: IpV6 support: packet size
  	FIXME: IpV6 support: use right address for broadcasts
 	FIXME: IpV6 support: receive "route using" blocks
-	1 FIXME
+	FIXME: Do we send "triggered updates" correctly?
+	FIXME: When route's metric changes to 16, start garbage collection immediately? Do _not_ restart on new updates with metric == 16.
+	FIXME: When route's 60 seconds old and we get same metric, use that!
+	FIXME: Triggered updates. When triggered update was sent, don't send new one for something between 1 and 5 seconds (and send one after that).
+
+	We are not going to honour requests for sending part of
+	routing table. That would need to turn split horizont off,
+	etc.  
+ 
  */
 
 #define LOCAL_DEBUG
@@ -392,11 +400,18 @@ rip_timer(timer *t)
     rte = SKIP_BACK( struct rte, u.rip.garbage, e );
     DBG( "Garbage: " ); rte_dump( rte );
 
-    if (now - rte->lastmod > P_CF->garbage_time) {
+    if (now - rte->lastmod > P_CF->timeout_time) {
       debug( "RIP: entry is too old: " ); rte_dump( rte );
+      e->metric = P_CF->infinity;
+    }
+
+    if (now - rte->lastmod > P_CF->garbage_time) {
+      debug( "RIP: entry is much too old: " ); rte_dump( rte );
       rte_discard(p->table, rte);
     }
   }
+
+  /* FIXME: we need to do triggered updates */
 
   DBG( "RIP: Broadcasting routing tables\n" );
   {
@@ -662,15 +677,17 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
 static int
 rip_rte_better(struct rte *new, struct rte *old)
 {
+  if (ipa_equal(old->attrs->from, new->attrs->from))
+    return 1;
+
   if (old->u.rip.metric < new->u.rip.metric)
     return 0;
 
   if (old->u.rip.metric > new->u.rip.metric)
     return 1;
 
-  /* FIXME */
-#define old_metric_is_much_older_than_new_metric 0
-  if ((old->u.rip.metric == new->u.rip.metric) && (old_metric_is_much_older_than_new_metric))
+  if ((old->u.rip.metric == new->u.rip.metric) &&
+      ((now - old->lastmod) > 60))	/* FIXME (nonurgent): this probably should be P_CF->timeout_time / 2 if old->attrs->proto == new->attrs->proto, else don't do this check */
     return 1;
 
   return 0;
@@ -712,6 +729,7 @@ rip_init_config(struct rip_proto_config *c)
   c->port	= 520;
   c->period	= 30;
   c->garbage_time = 120+180;
+  c->timeout_time = 120;
   c->passwords	= NULL;
   c->authtype	= AT_NONE;
 }

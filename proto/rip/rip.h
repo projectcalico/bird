@@ -123,6 +123,7 @@ struct rip_proto_config {
   int port;
   int period;
   int garbage_time;
+  int timeout_time;
 
   struct password_item *passwords;
   int authtype;
