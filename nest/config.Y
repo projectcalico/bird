@@ -187,9 +187,29 @@ password_list:
 
 /* Core commands */
 
-CF_CLI(TEST LEDS, <N>, [[Flashes each LED <N> times]]) NUM { cli_msg(0, "%d", $3); } ;
-CF_CLI(TEST, 1, 2) { cli_msg(0, "OK"); }
+/* FIXME: These are examples. Remove them soon. */
+CF_CLI_HELP(TEST, <subsystem>, [[Tests different subsystems]])
+CF_CLI(TEST LEDS, NUM, <N>, [[Flashes each LED <N> times]]) { cli_msg(0, "%d", $3); } ;
+CF_CLI(TEST MEMORY,,, [[Replace all useful information by testing patterns]]) { cli_msg(0, "DONE"); } ;
+CF_CLI(TEST LONG,,, [[Test long replies]]) {
+	static void test_command(struct cli *);
+	this_cli->cont = test_command;
+	this_cli->rover = (void *) 1;
+	cli_msg(-2, "Start");
+} ;
 
 CF_CODE
+
+static void test_command(struct cli *c)
+{
+	int i = (int) c->rover;
+	if (i < 10) {
+		cli_printf(c, -3, "%d", i);
+		c->rover = (void *) ++i;
+	} else {
+		c->cont = NULL;
+		cli_printf(c, 4, "DONE");
+	}
+}
 
 CF_END
