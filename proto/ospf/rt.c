@@ -107,6 +107,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  switch(rtl->type)
 	  {
             case LSART_STUB:
+		/* This violates rfc2328! but I hope it's also correct. */
 	     DBG("\n");
 	     ip=ipa_from_u32(rtl->id);
 	     nf=fib_get(in,&ip, ipa_mklen(ipa_from_u32(rtl->data)));
@@ -128,12 +129,12 @@ ospf_rt_spfa(struct ospf_area *oa)
 	      break;
 	    case LSART_NET:
 	      tmp=ospf_hash_find(oa->gr,rtl->id,rtl->id,LSA_T_NET);
-	      if(tmp==NULL) DBG("Fuck!\n");
+	      if(tmp==NULL) DBG("Not found!\n");
 	      else DBG("Found. :-)\n");
 	      break;
 	    case LSART_PTP:
 	      tmp=ospf_hash_find(oa->gr,rtl->id,rtl->id,LSA_T_RT);
-	      DBG("PTP searched.\n");
+	      DBG("PTP found.\n");
 	      break;
 	    default:
 	      log("Unknown link type in router lsa.");
@@ -161,7 +162,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  DBG("     Working on router %I ", *(rts+i));
 	  tmp=ospf_hash_find(oa->gr, *(rts+i), *(rts+i), LSA_T_RT);
 	  if(tmp!=NULL) DBG("Found :-)\n");
-	  else DBG("Fuck!\n");
+	  else DBG("Not found!\n");
           add_cand(&oa->cand,tmp,act,act->dist,oa);
 	}
         break;
@@ -512,6 +513,7 @@ let:
   FIB_ITERATE_END(nftmp);
 }
 
+/* Add LSA into list of candidates in Dijkstra alogithm */
 void
 add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par, 
   u16 dist, struct ospf_area *oa)
@@ -535,7 +537,7 @@ add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
 
   en->nhi=NULL;
   
-  calc_next_hop(par,en,oa);
+  calc_next_hop(en, par, oa);
 
   if(en->color==CANDIDATE)	/* We found a shorter path */
   {
@@ -572,11 +574,11 @@ add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
       add_tail(l,&en->cn);
     }
   }
-  /* FIXME Some VLINK staff should be here */
+  /* FIXME Some VLINK stuff should be here */
 }
 
 void
-calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
+calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
   struct ospf_area *oa)
 {
   struct ospf_neighbor *neigh;
@@ -585,13 +587,14 @@ calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
   struct ospf_iface *ifa;
   u32 myrid=p->cf->global->router_id;
 
-  DBG("     Next hop called\n");
+  DBG("     Next hop called.\n");
   if(ipa_to_u32(par->nh)==0)
   {
     neighbor *nn;
     DBG("     Next hop calculating for id: %I rt: %I type: %u\n",
       en->lsa.id,en->lsa.rt,en->lsa.type);
 
+/* xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx */
     if(par==oa->rt)
     {
       if(en->lsa.type==LSA_T_NET)
@@ -625,14 +628,23 @@ calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
     if(par->lsa.type==LSA_T_NET)
     {
       if(en->lsa.type==LSA_T_NET) bug("Parent for net is net?");
-      en->nhi=par->nhi;
-      if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL) return;
-      en->nh=neigh->ip;
+      if((en->nhi=par->nhi)==NULL)
+        bug("Did not find next hop interface for INSPF lsa!");
       return;
     }
-    else
+    else	/* Parent is some RT neighbor */
     {
-      if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
+      /* FIXME: I should probably hold ospf_iface in top_hash_entry */
+      neigh=NULL;
+      WALK_LIST(ifa,po->iface_list)
+      {
+        if(ifa->iface==par->nhi)
+        {
+          if((neigh=find_neigh(ifa,par->lsa.rt))==NULL) return;
+          break;
+        }
+      }
+      if(neigh==NULL) bug("I cannot find my neighbor.");
       nn=neigh_find(p,&neigh->ip,0);
       if(nn)
       {
@@ -644,6 +656,6 @@ calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
   }
   en->nh=par->nh;
   en->nhi=par->nhi;
-  DBG("     Next hop calculated: %I..\n", en->nh);
+  DBG("     Next hop calculated: %I.\n", en->nh);
 }
 
