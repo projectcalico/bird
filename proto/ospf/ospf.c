@@ -159,7 +159,7 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
 
   if(new)		/* Got some new route */
   {
-    originate_ext_lsa(n, old, po);
+    originate_ext_lsa(n, new, po);
   }
   else
   {
@@ -201,9 +201,17 @@ static void
 ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs)
 {
   char met=' ';
+  char type=' ';
 
-  if(rte->u.ospf.type=='E') met='1';
+  if(rte->attrs->source==RTS_OSPF_EXT)
+  {
+    met='1';
+    type='E';
+  }
+  //if(rte->u.ospf.type=='E') met='1';
   if(rte->u.ospf.metric2!=0) met='2';
+  if(rte->attrs->source==RTS_OSPF_IA) type='A';
+  if(rte->attrs->source==RTS_OSPF) type='I';
   buf += bsprintf(buf, " %c%c %d", rte->u.ospf.type, met, 
     (rte->u.ospf.metric2==0) ? rte->u.ospf.metric1 : rte->u.ospf.metric2);
 }
