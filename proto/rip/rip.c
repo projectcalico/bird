@@ -218,7 +218,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   }
   n = net_get( p->table, b->network, ipa_mklen( b->netmask ));
   r = rte_get_temp(a);
-  r->u.rip.metric = ntohl(b->metric) + rif->metric;
+  r->u.rip.metric = ntohl(b->metric) + rif->patt->metric;
   if (r->u.rip.metric > P_CF->infinity) r->u.rip.metric = P_CF->infinity;
   r->u.rip.tag = ntohl(b->tag);
   r->net = n;

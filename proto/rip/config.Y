@@ -93,8 +93,8 @@ CF_CODE
 void
 rip_dev_add_iface(char *n)
 {
-  struct rip_patt *k = cfg_alloc(sizeof(struct rip_patt));
-
+  struct rip_patt *k = cfg_allocz(sizeof(struct rip_patt));
+  k->metric = 1;
   k->i.pattern = cfg_strdup(n);
   add_tail(&RIP_CFG->iface_list, &k->i.n);
 }

@@ -87,14 +87,6 @@ struct rip_interface {
   sock *sock;
   struct rip_connection *busy;
   struct rip_patt *patt;  
-
-  int metric;		/* User configurable data */
-  int mode;
-#define IM_MULTICAST 1
-#define IM_BROADCAST 2
-#define IM_QUIET 4
-#define IM_NOLISTEN 8
-#define IM_VERSION1 16
 };
 
 struct rip_patt {
@@ -102,6 +94,11 @@ struct rip_patt {
 
   int metric;
   int mode;
+#define IM_MULTICAST 1
+#define IM_BROADCAST 2
+#define IM_QUIET 4
+#define IM_NOLISTEN 8
+#define IM_VERSION1 16
 };
 
 struct rip_proto_config {
