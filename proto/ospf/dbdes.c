@@ -78,8 +78,8 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
 	    if(sn==STAIL(n->ifa->oa->lsal))
 	    {
-	      break;	/* Should set some flag? */
 	      i--;
+	      break;	/* Should set some flag? */
   	    }
 	    sn=sn->next;
 	    lsa++;
