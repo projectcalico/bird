@@ -36,11 +36,11 @@ scan_ifs(struct ifreq *r, int cnt)
   unsigned fl;
   ip_addr netmask;
   int l;
-  int sec = 0;
 
   if_start_update();
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
     {
+      int sec = 0;
       bzero(&i, sizeof(i));
       bzero(&a, sizeof(a));
       DBG("%s\n", r->ifr_name);
@@ -136,11 +136,12 @@ scan_ifs(struct ifreq *r, int cnt)
       i.mtu = r->ifr_mtu;
 
 #ifdef SIOCGIFINDEX
-      if (ioctl(if_scan_sock, SIOCGIFINDEX, r) < 0)
-	DBG("SIOCGIFINDEX failed: %m\n");
-      else
+      if (ioctl(if_scan_sock, SIOCGIFINDEX, r) >= 0)
 	i.index = r->ifr_ifindex;
-#else
+      else if (errno != -EINVAL)
+	DBG("SIOCGIFINDEX failed: %m\n");
+      else	/* defined, but not supported by the kernel */
+#endif
       /*
        *  The kernel doesn't give us real ifindices, but we still need them
        *  at least for OSPF unnumbered links. So let's make them up ourselves.
@@ -152,7 +153,6 @@ scan_ifs(struct ifreq *r, int cnt)
 	  static int if_index_counter = 1;
 	  i.index = if_index_counter++;
 	}
-#endif
 
       pi = NULL;
       if (sec)
