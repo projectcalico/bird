@@ -63,7 +63,7 @@ struct ospf_iface {
   list neigh_list;	/* List of neigbours */
   u16 cost;		/* Cost of iface */
   u16 rxmtint;		/* number of seconds between LSA retransmissions */
-  u16 iftransdelay;	/* The estimated number of seconds it takes to
+  u16 inftransdelay;	/* The estimated number of seconds it takes to
 			   transmit a Link State Update Packet over this
 			   interface.  LSAs contained in the update */
   u8 priority;		/* A router priority for DR election */
@@ -95,7 +95,7 @@ struct ospf_iface {
 /* Default values for interface parameters */
 #define COST_D 10
 #define RXMTINT_D 5
-#define IFTRANSDELAY_D 1
+#define INFTRANSDELAY_D 1
 #define PRIORITY_D 1
 #define HELLOINT_D 10
 #define DEADC_D 4

@@ -105,9 +105,16 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       {
         u8 *help;
 	struct top_hash_entry *en;
-        htonlsah(hh,(struct ospf_lsa_header *)(pk+1));
-	help=(u8 *)(pk+1);
-	help+=sizeof(struct ospf_lsa_header);
+	struct ospf_lsa_header *lh;
+	u16 age;
+
+	lh=(struct ospf_lsa_header *)(pk+1);
+        htonlsah(hh,lh);
+	age=hh->age;
+	age+=ifa->inftransdelay;
+	if(age>LSA_MAXAGE) age=LSA_MAXAGE;
+	lh->age=htons(age);
+	help=(u8 *)(lh+1);
 	en=ospf_hash_find_header(oa->gr,hh);
 	htonlsab(en->lsa_body,help,hh->type,hh->length);
 	len=hh->length;

@@ -282,7 +282,7 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->an=0;		/* FIXME This should respect config */
   ifa->cost=COST_D;
   ifa->rxmtint=RXMTINT_D;
-  ifa->iftransdelay=IFTRANSDELAY_D;
+  ifa->inftransdelay=INFTRANSDELAY_D;
   ifa->priority=PRIORITY_D;
   ifa->helloint=HELLOINT_D;
   ifa->deadc=DEADC_D;
