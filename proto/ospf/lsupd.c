@@ -485,7 +485,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 	  && lsadb && can_flush_lsa(oa))
       {
 	flush_lsa(lsadb, oa);
-	schedule_rtcalc(oa);
+	schedule_rtcalc(po);
 	continue;
       }				/* FIXME lsack? */
 

@@ -72,6 +72,9 @@
 
 static int ospf_rte_better(struct rte *new, struct rte *old);
 static int ospf_rte_same(struct rte *new, struct rte *old);
+static void area_disp(timer *timer);
+static void ospf_disp(timer *timer);
+
 
 static int
 ospf_start(struct proto *p)
@@ -82,13 +85,24 @@ ospf_start(struct proto *p)
   struct ospf_area *oa;
   struct area_net *anet, *antmp;
 
+  po->rfc1583 = c->rfc1583;
+  po->ebit = 0;
+
+  po->tick = c->tick;
+  po->disp_timer = tm_new(po->proto.pool);
+  po->disp_timer->data = po;
+  po->disp_timer->randomize = 0;
+  po->disp_timer->hook = ospf_disp;
+  po->disp_timer->recurrent = po->tick;
+  tm_start(po->disp_timer, 1);
+
   fib_init(&po->efib, p->pool, sizeof(struct extfib), 16, init_efib);
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
   po->areano = 0;
   if (EMPTY_LIST(c->area_list))
   {
-    log("%s: Cannot start, no OSPF areas configured", p->name);
+    log(L_ERR "Cannot start, no OSPF areas configured!");
     return PS_DOWN;
   }
 
@@ -109,9 +123,7 @@ ospf_start(struct proto *p)
     oa->disp_timer->randomize = 0;
     oa->disp_timer->hook = area_disp;
     oa->disp_timer->recurrent = oa->tick;
-    tm_start(oa->disp_timer, 1);
-    oa->calcrt = 0;
-    oa->origrt = 0;
+    tm_start(oa->disp_timer, 2);
     init_list(&oa->net_list);
     WALK_LIST(anet, ac->net_list)
     {
@@ -174,8 +186,6 @@ ospf_init(struct proto_config *c)
   p->rte_better = ospf_rte_better;
   p->rte_same = ospf_rte_same;
 
-  po->rfc1583 = oc->rfc1583;
-  po->ebit = 0;
   return p;
 }
 
@@ -265,8 +275,7 @@ schedule_net_lsa(struct ospf_iface *ifa)
 void
 schedule_rt_lsa(struct ospf_area *oa)
 {
-  struct proto_ospf *po = oa->po;
-  struct proto *p = &po->proto;
+  struct proto *p = &oa->po->proto;
 
   OSPF_TRACE(D_EVENTS, "Scheduling RT lsa origination for area %I.",
 	     oa->areaid);
@@ -274,16 +283,15 @@ schedule_rt_lsa(struct ospf_area *oa)
 }
 
 void
-schedule_rtcalc(struct ospf_area *oa)
+schedule_rtcalc(struct proto_ospf *po)
 {
-  struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
 
-  if (oa->calcrt)
+  if (po->calcrt)
     return;
 
-  OSPF_TRACE(D_EVENTS, "Scheduling RT calculation for area %I.", oa->areaid);
-  oa->calcrt = 1;
+  OSPF_TRACE(D_EVENTS, "Scheduling RT calculation.");
+  po->calcrt = 1;
 }
 
 /**
@@ -293,8 +301,6 @@ schedule_rtcalc(struct ospf_area *oa)
  *
  * It invokes aging and when @ospf_area->origrt is set to 1, start
  * function for origination of router LSA and network LSAs.
- * It also starts routing
- * table calculation when @ospf_area->calcrt is set.
  */
 void
 area_disp(timer * timer)
@@ -316,12 +322,20 @@ area_disp(timer * timer)
 
   /* Age LSA DB */
   ospf_age(oa);
+}
+
+void
+ospf_disp(timer * timer)
+{
+  struct proto_ospf *po = timer->data;
 
   /* Calculate routing table */
-  if (oa->calcrt)
-    ospf_rt_spfa(oa);
-  oa->calcrt = 0;
+  if (po->calcrt)
+    ospf_rt_spf (po);
+  po->calcrt = 0;
 }
+
+
 
 /**
  * ospf_import_control - accept or reject new route from nest's routing table
@@ -533,10 +547,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   int found;
 
   po->rfc1583 = new->rfc1583;
-  WALK_LIST(oa, po->area_list)	/* Routing table must be recalculated */
-  {
-    schedule_rtcalc(oa);
-  }
+  schedule_rtcalc(po);
 
   ac1 = HEAD(old->area_list);
   ac2 = HEAD(new->area_list);

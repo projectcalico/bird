@@ -49,7 +49,7 @@ ospf_age(struct ospf_area *oa)
 
   WALK_SLIST_DELSAFE(en, nxt, oa->lsal)
   {
-    if (oa->calcrt)
+    if (po->calcrt)
     {
       en->color = OUTSPF;
       en->dist = LSINFINITY;
@@ -82,7 +82,7 @@ ospf_age(struct ospf_area *oa)
       if (flush)
       {
 	flush_lsa(en, oa);
-	schedule_rtcalc(oa);
+	schedule_rtcalc(po);
       }
       else
 	en->lsa.age = LSA_MAXAGE;
@@ -438,6 +438,7 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
   int change = 0;
   unsigned i;
   struct top_hash_entry *en;
+  struct proto_ospf *po = oa->po;
 
   if ((en = ospf_hash_find_header(oa->gr, lsa)) == NULL)
   {
@@ -477,7 +478,7 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
 
   if (change)
   {
-    schedule_rtcalc(oa);
+    schedule_rtcalc(po);
   }
 
   return en;

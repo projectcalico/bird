@@ -52,14 +52,15 @@
 #define MINLSARRIVAL 1
 #define LSINFINITY 0xffff	/* RFC says 0xffffff ??? */
 
-#define DEFAULT_DISPTICK 4
 #define DEFAULT_OSPFTICK 5
-#define DEFAULT_RFC1583 1               /* compatibility with rfc1583 */
+#define DEFAULT_AREATICK 4
+#define DEFAULT_RFC1583 1	/* compatibility with rfc1583 */
 
 
 struct ospf_config
 {
   struct proto_config c;
+  unsigned tick;
   int rfc1583;
   list area_list;
 };
@@ -422,7 +423,6 @@ struct ospf_area
   node n;
   u32 areaid;
   timer *disp_timer;		/* Area's dispatcher hear beat */
-  int calcrt;			/* Routing table calculation scheduled? */
   int origrt;			/* Rt lsa origination scheduled? */
   struct top_graph *gr;		/* LSA graph */
   slist lsal;			/* List of all LSA's */
@@ -439,6 +439,9 @@ struct ospf_area
 struct proto_ospf
 {
   struct proto proto;
+  timer *disp_timer;		/* OSPF proto dispatcher */
+  unsigned tick;
+  int calcrt;			/* Routing table calculation scheduled? */
   list iface_list;		/* Interfaces we really use */
   list area_list;
   int areano;			/* Number of area I belong to */
@@ -470,15 +473,14 @@ struct ospf_iface_patt
   list nbma_list;
 };
 
-int ospf_import_control(struct proto *p, rte ** new, ea_list ** attrs,
+int ospf_import_control(struct proto *p, rte **new, ea_list **attrs,
 			struct linpool *pool);
 struct ea_list *ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool);
 void ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs);
-void ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old,
+void ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old,
 		    ea_list * attrs);
-void area_disp(timer * timer);
 void schedule_rt_lsa(struct ospf_area *oa);
-void schedule_rtcalc(struct ospf_area *oa);
+void schedule_rtcalc(struct proto_ospf *po);
 void schedule_net_lsa(struct ospf_iface *ifa);
 void ospf_sh_neigh(struct proto *p, char *iff);
 void ospf_sh(struct proto *p);

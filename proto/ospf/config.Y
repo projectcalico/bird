@@ -38,6 +38,7 @@ ospf_proto_start: proto_start OSPF {
      this_proto->preference = DEF_PREF_OSPF;
      init_list(&OSPF_CFG->area_list);
      OSPF_CFG->rfc1583 = DEFAULT_RFC1583;
+     OSPF_CFG->tick = DEFAULT_OSPFTICK;
   }
  ;
 
@@ -49,6 +50,7 @@ ospf_proto:
 ospf_proto_item:
    proto_item
  | RFC1583COMPAT bool ';' { OSPF_CFG->rfc1583 = $2; }
+ | TICK expr { OSPF_CFG->tick = $2 ; if($2<=0) cf_error("Tick must be greater than zero"); }
  | ospf_area '}'
  ;
 
@@ -56,7 +58,7 @@ ospf_area_start: AREA idval '{' {
   this_area = cfg_allocz(sizeof(struct ospf_area_config));
   add_tail(&OSPF_CFG->area_list, NODE this_area);
   this_area->areaid = $2;
-  this_area->tick = DEFAULT_DISPTICK;
+  this_area->tick = DEFAULT_AREATICK;
   this_area->stub = 0;
   init_list(&this_area->patt_list);
   init_list(&this_area->net_list);

@@ -202,7 +202,7 @@ originate_rt_lsa(struct ospf_area *oa)
   en = lsa_install_new(&lsa, body, oa);
   oa->rt = en;
   ospf_lsupd_flood(NULL, NULL, &oa->rt->lsa, NULL, oa, 1);
-  schedule_rtcalc(oa);
+  schedule_rtcalc(po);
   oa->origrt = 0;
 }
 
@@ -275,7 +275,7 @@ originate_net_lsa(struct ospf_iface *ifa)
       mb_free(ifa->nlsa->lsa_body);
     ifa->nlsa->lsa_body = NULL;
     ospf_hash_delete(ifa->oa->gr, ifa->nlsa);
-    schedule_rtcalc(ifa->oa);
+    schedule_rtcalc(po);
     ifa->nlsa = NULL;
     return;
   }

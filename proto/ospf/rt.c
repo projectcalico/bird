@@ -1,12 +1,18 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 2000--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 #include "ospf.h"
+static void add_cand(list * l, struct top_hash_entry *en,
+		     struct top_hash_entry *par, u16 dist,
+		     struct ospf_area *oa);
+static void calc_next_hop(struct top_hash_entry *en,
+			  struct top_hash_entry *par, struct ospf_area *oa);
+static void ospf_ext_spfa(struct proto_ospf *po);
 
 void
 init_infib(struct fib_node *fn)
@@ -34,14 +40,14 @@ init_efib(struct fib_node *fn)
 }
 
 /**
- * ospf_rt_spfa - calculate internal routes
- * @oa: OSPF area
+ * ospf_rt_spf - calculate internal routes
+ * @po: OSPF protocol
  *
  * Calculation of internal paths in an area is described in 16.1 of RFC 2328.
  * It's based on Dijkstra's shortest path tree algorithms.
  * RFC recommends to add ASBR routers into routing table. I don't do this
  * and latter parts of routing table calculation look directly into LSA
- * Database. This function is invoked from area_disp().
+ * Database. This function is invoked from ospf_disp().
  */
 void
 ospf_rt_spfa(struct ospf_area *oa)
@@ -270,6 +276,18 @@ skip:
   ospf_ext_spfa(po);
 }
 
+
+void
+ospf_rt_spf(struct proto_ospf *po)
+{
+  struct ospf_area *oa;
+  WALK_LIST(oa, po->area_list)
+  {
+    ospf_rt_spfa(oa);
+  }
+}
+
+
 /**
  * ospf_ext_spfa - calculate external paths
  * @po: protocol
@@ -278,7 +296,7 @@ skip:
  * path is invoked. This process is described in 16.6 of RFC 2328.
  * Inter- and Intra-area paths are always prefered over externals.
  */
-void
+static void
 ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 {
   struct top_hash_entry *en, *etmp, *absr;
@@ -552,7 +570,7 @@ noch:
 }
 
 /* Add LSA into list of candidates in Dijkstra's algorithm */
-void
+static void
 add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
 	 u16 dist, struct ospf_area *oa)
 {
@@ -625,7 +643,7 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   /* FIXME Some VLINK stuff should be here */
 }
 
-void
+static void
 calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
 	      struct ospf_area *oa)
 {
@@ -649,8 +667,8 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
 	if (en->lsa.rt == myrid)
 	{
 	  WALK_LIST(ifa, po->iface_list)
-	    if (ipa_compare(ifa->iface->addr->ip, ipa_from_u32(en->lsa.id)) ==
-		0)
+	    if (ipa_compare
+		(ifa->iface->addr->ip, ipa_from_u32(en->lsa.id)) == 0)
 	  {
 	    en->nhi = ifa->iface;
 	    return;
