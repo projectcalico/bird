@@ -53,7 +53,7 @@ CF_DECLS
 
 %type <i> expr bool pxlen
 %type <time> datetime
-%type <px> prefix
+%type <px> prefix prefix_or_ipa
 
 %nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ
 %left '+' '-'
@@ -116,6 +116,11 @@ prefix:
      if (!ip_is_prefix($1, $2)) cf_error("Invalid prefix");
      $$.addr = $1; $$.len = $2;
    }
+ ;
+
+prefix_or_ipa:
+   prefix
+ | IPA { $$.addr = $1; $$.len = BITS_PER_IP_ADDRESS; }
  ;
 
 pxlen:
