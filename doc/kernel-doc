@@ -76,7 +76,7 @@
 #
 # 'funcname()' - function
 # '$ENVVAR' - environmental variable
-# '&struct_name' - name of a structure
+# '&struct_name' - name of a structure or a type
 # '@parameter' - name of a parameter
 # '%CONST' - name of a constant.
 # '|code|' - literal string
@@ -85,7 +85,7 @@
 $type_constant = "\\\%(\\w+)";
 $type_func = "(\\w+\\(\\))";
 $type_param = "\\\@(\\w+)";
-$type_struct = "\\\\\\\\\\\\amp;(\\w+)";
+$type_struct = "\\\&(\\w+)";
 $type_env = "(\\\$\\w+)";
 $type_code = "\\|([^|]*)\\|";
 
@@ -543,7 +543,12 @@ sub output_bird {
 	    print ", ";
 	}
     }
-    print ")\n";
+    print ")";
+    if (defined $args{'purpose'}) {
+	print " -- ";
+	output_highlight($args{'purpose'});
+    }
+    print "\n";
 
     if ($ntyped) {
 	print "<funcsect>Arguments\n";
@@ -834,7 +839,7 @@ foreach $file (@ARGV) {
 		$newcontents = $2;
 
 		if ($contents ne "") {
-		    $contents =~ s/\&/\\\\\\amp;/g;
+#		    $contents =~ s/\&/\\\\\\amp;/g;
 		    $contents =~ s/\</\\\\\\lt;/g;
 		    $contents =~ s/\>/\\\\\\gt;/g;
 		    dump_section($section, $contents);
@@ -849,7 +854,7 @@ foreach $file (@ARGV) {
 	    } elsif (/$doc_end/) {
 
 		if ($contents ne "") {
-		    $contents =~ s/\&/\\\\\\amp;/g;
+#		    $contents =~ s/\&/\\\\\\amp;/g;
 		    $contents =~ s/\</\\\\\\lt;/g;
 		    $contents =~ s/\>/\\\\\\gt;/g;
 		    dump_section($section, $contents);
@@ -864,7 +869,7 @@ foreach $file (@ARGV) {
 		# miguel-style comment kludge, look for blank lines after
 		# @parameter line to signify start of description
 		if ($1 eq "" && $section =~ m/^@/) {
-		    $contents =~ s/\&/\\\\\\amp;/g;
+#		    $contents =~ s/\&/\\\\\\amp;/g;
 		    $contents =~ s/\</\\\\\\lt;/g;
 		    $contents =~ s/\>/\\\\\\gt;/g;
 		    dump_section($section, $contents);
@@ -904,7 +909,7 @@ foreach $file (@ARGV) {
 	} elsif ($state == 4) {
 		# Documentation block
 	        if (/$doc_block/) {
-		        $contents =~ s/\&/\\\\\\amp;/g;
+#		        $contents =~ s/\&/\\\\\\amp;/g;
 		        $contents =~ s/\</\\\\\\lt;/g;
 		        $contents =~ s/\>/\\\\\\gt;/g;
 			dump_section($section, $contents);
@@ -927,7 +932,7 @@ foreach $file (@ARGV) {
                 }
 		elsif (/$doc_end/)
 		{
-		        $contents =~ s/\&/\\\\\\amp;/g;
+#		        $contents =~ s/\&/\\\\\\amp;/g;
 		        $contents =~ s/\</\\\\\\lt;/g;
 		        $contents =~ s/\>/\\\\\\gt;/g;
 			dump_section($section, $contents);
