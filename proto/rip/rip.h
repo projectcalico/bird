@@ -111,7 +111,7 @@ struct rip_interface {
 struct rip_patt {
   struct iface_patt i;
 
-  int metric;
+  int metric;		/* If you add entries here, don't forget to modify patt_compare! */
   int mode;
 #define IM_BROADCAST 2
 #define IM_QUIET 4
@@ -124,7 +124,7 @@ struct rip_proto_config {
   list iface_list;	/* Patterns configured -- keep it first; see rip_reconfigure why */
   struct password_item *passwords;	/* Passwords, keep second */
 
-  int infinity;		/* User configurable data */
+  int infinity;		/* User configurable data; must be comparable with memcmp */
   int port;
   int period;
   int garbage_time;

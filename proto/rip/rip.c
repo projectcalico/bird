@@ -887,14 +887,20 @@ rip_get_attr(eattr *a, byte *buf)
 }
 
 static int
+rip_pat_compare(struct rip_patt *a, struct rip_patt *b)
+{
+  return ((a->metric == b->metric) &&
+	  (a->mode == b->mode));
+}
+
+static int
 rip_reconfigure(struct proto *p, struct proto_config *c)
 {
   struct rip_proto_config *new = (struct rip_proto_config *) c;
   int generic = sizeof(struct proto_config) + sizeof(list) /* + sizeof(struct password_item *) */;
 
-  /* FIXME: patt_same needed */
-  return 0;
-
+  if (!iface_patts_equal(&P_CF->iface_list, &new->iface_list, (void *) rip_pat_compare))
+    return 0;
   if (!password_same(P_CF->passwords, 
 		     new->passwords))
     return 0;
