@@ -18,8 +18,8 @@ static struct iface_patt *this_ipatt;
 CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
-CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE)
-CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID)
+CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
+CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, RIP_EXT, OSPF, OSPF_EXT, OSPF_IA, OSPF_BOUNDARY, BGP, PIPE)
@@ -30,7 +30,7 @@ CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIREC
 %type <p> password_list password_begin
 %type <s> optsym
 %type <ra> r_args
-%type <i> echo_mask echo_size
+%type <i> echo_mask echo_size debug_mask debug_list debug_flag
 %type <t> proto_patt
 
 CF_GRAMMAR
@@ -91,9 +91,7 @@ proto_item:
      this_proto->preference = $2;
    }
  | DISABLED { this_proto->disabled = 1; }
- | DEBUG expr { this_proto->debug = $2; }
- | DEBUG ALL { this_proto->debug = ~0; }
- | DEBUG OFF { this_proto->debug = 0; }
+ | DEBUG debug_mask { this_proto->debug = $2; }
  | IMPORT imexport { this_proto->in_filter = $2; }
  | EXPORT imexport { this_proto->out_filter = $2; }
  | TABLE rtable { this_proto->table = $2; }
@@ -154,6 +152,27 @@ dev_iface_entry:
 dev_iface_list:
    INTERFACE dev_iface_entry
  | dev_iface_list ',' dev_iface_entry
+ ;
+
+/* Debug flags */
+
+debug_mask:
+   ALL { $$ = ~0; }
+ | OFF { $$ = 0; }
+ | '{' debug_list '}' { $$ = $2; }
+ ;
+
+debug_list:
+   debug_flag
+ | debug_list ',' debug_flag { $$ = $1 | $3; }
+ ;
+
+debug_flag:
+   STATES	{ $$ = D_STATES; }
+ | ROUTES	{ $$ = D_ROUTES; }
+ | FILTERS	{ $$ = D_FILTERS; }
+ | EVENTS	{ $$ = D_EVENTS; }
+ | PACKETS	{ $$ = D_PACKETS; }
  ;
 
 /* Password lists */
@@ -251,20 +270,20 @@ r_args:
 CF_CLI(SHOW SYMBOLS, optsym, [<symbol>], [[Show all known symbolic names]])
 { cmd_show_symbols($3); } ;
 
-CF_CLI_HELP(DEBUG, ..., [[Show debugging information]])
-CF_CLI(DEBUG RESOURCES,,, [[Show all allocated resource]])
+CF_CLI_HELP(DUMP, ..., [[Dump debugging information]])
+CF_CLI(DUMP RESOURCES,,, [[Dump all allocated resource]])
 { rdump(&root_pool); cli_msg(0, ""); } ;
-CF_CLI(DEBUG SOCKETS,,, [[Show open sockets]])
+CF_CLI(DUMP SOCKETS,,, [[Dump open sockets]])
 { sk_dump_all(); cli_msg(0, ""); } ;
-CF_CLI(DEBUG INTERFACES,,, [[Show interface information]])
+CF_CLI(DUMP INTERFACES,,, [[Dump interface information]])
 { if_dump_all(); cli_msg(0, ""); } ;
-CF_CLI(DEBUG NEIGHBORS,,, [[Show neighbor cache]])
+CF_CLI(DUMP NEIGHBORS,,, [[Dump neighbor cache]])
 { neigh_dump_all(); cli_msg(0, ""); } ;
-CF_CLI(DEBUG ATTRIBUTES,,, [[Show attribute cache]])
+CF_CLI(DUMP ATTRIBUTES,,, [[Dump attribute cache]])
 { rta_dump_all(); cli_msg(0, ""); } ;
-CF_CLI(DEBUG ROUTES,,, [[Show routing table]])
+CF_CLI(DUMP ROUTES,,, [[Dump routing table]])
 { rt_dump_all(); cli_msg(0, ""); } ;
-CF_CLI(DEBUG PROTOCOLS,,, [[Show protocol information]])
+CF_CLI(DUMP PROTOCOLS,,, [[Dump protocol information]])
 { protos_dump_all(); cli_msg(0, ""); } ;
 
 CF_CLI(ECHO, echo_mask echo_size, [all | off | <mask>] [<buffer-size>], [[Configure echoing of log messages]]) {
@@ -292,6 +311,10 @@ CF_CLI(ENABLE, proto_patt, <protocol> | <pattern> | all, [[Enable protocol]])
 { proto_xxable($2, 1); } ;
 CF_CLI(RESTART, proto_patt, <protocol> | <pattern> | all, [[Restart protocol]])
 { proto_xxable($2, 2); } ;
+
+CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging]])
+CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging]])
+{ proto_debug($2, $3); }
 
 proto_patt:
    SYM { $$ = $1->name; }

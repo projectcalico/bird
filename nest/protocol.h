@@ -34,7 +34,6 @@ struct protocol {
   node n;
   char *name;
   char *template;			/* Template for automatic generation of names */
-  unsigned debug;			/* Default debugging flags */
   int name_counter;			/* Counter for automatic name generation */
 
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
@@ -156,6 +155,7 @@ void *proto_config_new(struct protocol *, unsigned size);
 void proto_show(struct symbol *, int);
 struct proto *proto_get_named(struct symbol *, struct protocol *);
 void proto_xxable(char *, int);
+void proto_debug(char *, unsigned int);
 
 extern list active_proto_list;
 
@@ -233,6 +233,16 @@ void proto_notify_state(struct proto *p, unsigned state);
 #define FS_FEEDING 1
 #define FS_HAPPY 2
 #define FS_FLUSHING 3
+
+/*
+ *	Debugging flags
+ */
+
+#define D_STATES 1		/* [core] State transitions */
+#define D_ROUTES 2		/* [core] Routes passed by the filters */
+#define D_FILTERS 4		/* [core] Filtering of routes */
+#define D_EVENTS 8		/* Protocol events */
+#define D_PACKETS 16		/* Packets sent/received */
 
 /*
  *	Known unique protocol instances as referenced by config routines

@@ -139,7 +139,6 @@ proto_config_new(struct protocol *pr, unsigned size)
   add_tail(&new_config->protos, &c->n);
   c->global = new_config;
   c->protocol = pr;
-  c->debug = pr->debug;
   c->name = pr->name;
   c->out_filter = FILTER_REJECT;
   c->table = c->global->master_rtc;
@@ -596,6 +595,23 @@ proto_xxable(char *pattern, int xx)
 	    ASSERT(0);
 	  }
 	proto_rethink_goal(p);
+      }
+  WALK_PROTO_LIST_END;
+  if (!cnt)
+    cli_msg(8003, "No protocols match");
+  else
+    cli_msg(0, "");
+}
+
+void
+proto_debug(char *pattern, unsigned int mask)
+{
+  int cnt = 0;
+  WALK_PROTO_LIST(p)
+    if (patmatch(pattern, p->name))
+      {
+	cnt++;
+	p->debug = mask;
       }
   WALK_PROTO_LIST_END;
   if (!cnt)
