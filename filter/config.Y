@@ -269,6 +269,9 @@ any_dynamic:
  | RIP_TAG    { $$ = f_new_inst(); $$->aux = T_INT; $$->a2.i = EA_RIP_TAG; }
  ;
 
+rtadot: /* EMPTY */
+ | RTA '.' { }
+ ;
 
 term:
    '(' term ')'      { $$ = $2; }
@@ -298,13 +301,13 @@ term:
      }
    }
 
- | RTA '.' FROM    { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
+ | rtadot FROM    { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
 
- | RTA '.' GW      { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
- | RTA '.' NET     { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_PREFIX; $$->a2.i = 0x12345678; }
- | RTA '.' SOURCE  { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, gw); }
+ | rtadot GW      { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
+ | rtadot NET     { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_PREFIX; $$->a2.i = 0x12345678; }
+ | rtadot SOURCE  { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, gw); }
 
- | RTA '.' any_dynamic { $$ = $3; $$->code = 'ea'; }
+ | rtadot any_dynamic { $$ = $2; $$->code = 'ea'; }
 
  | term '.' IP { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->aux = T_IP; }
  | term '.' LEN { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->aux = T_INT; }
@@ -379,13 +382,13 @@ cmd:
      $$->a1.p = $1;
      $$->a2.p = $3;
    }
- | RTA '.' any_dynamic '=' term ';' {
-     $$ = $3;
+ | rtadot any_dynamic '=' term ';' {
+     $$ = $2;
      $$->code  = 'eS';
-     $$->a1.p = $5;
+     $$->a1.p = $4;
    }
- | UNSET '(' RTA '.' any_dynamic ')' ';' {
-     $$ = $5;
+ | UNSET '(' rtadot any_dynamic ')' ';' {
+     $$ = $4;
      $$->aux = T_VOID;
      $$->code = 'eS';
      $$->a1.p = NULL;
