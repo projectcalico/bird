@@ -24,7 +24,30 @@
 #include "ospf.h"
 
 void
-neigh_chstate(struct ospf_neighbor *n, int state)
+rxmt_timer_hook(timer *timer)
+{
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  ifa=(struct ospf_iface *)timer->data;
+  p=(struct proto *)(ifa->proto);
+  debug("%s: RXMT timer fired on interface %s.\n",
+    p->name, ifa->iface->name);
+}
+
+struct ospf_neighbor *
+find_neigh(struct ospf_iface *ifa, u32 rid)
+{
+  struct ospf_neighbor *n;
+
+  WALK_LIST (n, ifa->neigh_list)
+    if(n->rid == rid)
+      return n;
+  return NULL;
+}
+
+void
+neigh_chstate(struct ospf_neighbor *n, u8 state)
 {
   struct ospf_iface *ifa;
   struct proto *p;
@@ -37,6 +60,79 @@ neigh_chstate(struct ospf_neighbor *n, int state)
   n->state=state;
 }
 
+void
+ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
+  struct ospf_iface *ifa, u16 size)
+{
+  u32 nrid, myrid;
+  struct ospf_neighbor *n;
+  u8 i;
+
+  nrid=ntohl(((struct ospf_packet *)ps)->routerid);
+
+  myrid=p->cf->global->router_id;
+
+  if((n=find_neigh(ifa, nrid))==NULL)
+  {
+    debug("%s: Received dbdes from unknown neigbor! (%u)\n", p->name,
+      nrid);
+    return ;
+  }
+
+  /* FIXME: Now, I should test MTU */
+
+  switch(n->state)
+  {
+    case NEIGHBOR_DOWN:
+    case NEIGHBOR_ATTEMPT:
+    case NEIGHBOR_2WAY:
+        debug("%s: Received dbdes from %u in bad state. (%u)\n", p->name, nrid);
+        return;
+      break;
+    case NEIGHBOR_INIT:
+        /* 
+         * RFC2328 says, that I sould start SM with 2-Way received.
+         * It's to complicated right now. So I'll rather ignore it and
+         * wait for a hello packet. FIXME
+         */
+        return;
+      break;
+    case NEIGHBOR_EXSTART:
+        if(size!=sizeof(struct ospf_dbdes_packet))
+        {
+          debug("%s: Received bas dbdes from %u in exstart state.\n",
+            p->name, nrid);
+          return;
+	}
+        if(ps->imms==(DBDES_I|DBDES_M|DBDES_MS) && n->rid > myrid)
+        {
+          /* I'm slave! */
+          n->dds=ps->ddseq;
+	  n->options=ps->options;
+	  n->myimms=(n->myimms && DBDES_M);
+          debug("%s: I'm slave to %u. \n", p->name, nrid);
+	  /* FIXME Negotiation done */
+        }
+        if(((ps->imms | DBDES_M)== DBDES_M) && (n->rid < myrid) &&
+          (n->dds == ps->ddseq))
+        {
+          /* I'm master! */
+	  n->options=ps->options;
+          debug("%s: I'm master to %u. \n", p->name, nrid);
+	  /* FIXME Negotiation done */
+        }
+
+      break;
+    case NEIGHBOR_EXCHANGE:
+      break;
+    case NEIGHBOR_LOADING:
+    case NEIGHBOR_FULL:
+      break;
+   }
+   n->ddr=ps->ddseq;
+   n->imms=ps->imms;
+}
+
 
 /* Try to build neighbor adjacency (if does not exists) */
 void
@@ -46,11 +142,11 @@ tryadj(struct ospf_neighbor *n, struct proto *p)
   neigh_chstate(n,NEIGHBOR_EXSTART);
   if(n->adj==0)	/* First time adjacency */
   {
-    n->dds=random_u32;
+    n->dds=random_u32();
   }
   n->dds++;
-  n->ms=NEIGHBOR_MASTER;
-  /* FIXME Go on, start to send DD packets */
+  n->myimms=(DBDES_MS | DBDES_M|DBDES_I );
+  tm_start(n->ifa->rxmt_timer,1);	/* Or some other number ? */
 }
 
 /* Neighbor is inactive for a long time. Remove it. */
@@ -226,11 +322,11 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   char sip[100]; /* FIXME: Should be smaller */
   u32 nrid, *pnrid;
   struct ospf_neighbor *neigh,*n;
-  int i,twoway;
+  u8 i,twoway;
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
-  if(ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
+  if((unsigned)ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
   {
     ip_ntop(ps->netmask,sip);
     log("%s: Bad OSPF packet from %u received: bad netmask %s.",
@@ -263,17 +359,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     return;
   }
 
-  n=NULL;
-  WALK_LIST (neigh, ifa->neigh_list)
-  {
-    if(neigh->rid==nrid)
-    {
-      n=neigh;
-      break;
-    }
-  }
-
-  if(n==NULL)
+  if((n=find_neigh(ifa, nrid))==NULL)
   {
     log("%s: New neighbor found: %u.", p->name,nrid);
     n=mb_alloc(p->pool, sizeof(struct ospf_neighbor));
@@ -390,7 +476,7 @@ ospf_rx_hook(sock *sk, int size)
   struct ospf_packet *ps;
   struct ospf_iface *ifa;
   struct proto *p;
-  int i;
+  u8 i;
   u8 *pu8;
 
 
@@ -407,7 +493,7 @@ ospf_rx_hook(sock *sk, int size)
     return(1);
   }
   
-  if(size < sizeof(struct ospf_packet))
+  if((unsigned)size < sizeof(struct ospf_packet))
   {
     log("%s: Bad OSPF packet received: too short (%u bytes)", p->name, size);
     log("%s: Discarding",p->name);
@@ -474,6 +560,7 @@ ospf_rx_hook(sock *sk, int size)
       break;
     case DBDES:
       DBG("%s: Database description received.\n", p->name);
+      ospf_dbdes_rx((struct ospf_dbdes_packet *)ps, p, ifa, size);
       break;
     case LSREQ:
       DBG("%s: Link state request received.\n", p->name);
@@ -592,7 +679,7 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
  * This will later decide, wheter use iface for OSPF or not
  * depending on config
  */
-int
+u8
 is_good_iface(struct proto *p, struct iface *iface)
 {
   if(iface->flags & IF_UP)
@@ -603,7 +690,7 @@ is_good_iface(struct proto *p, struct iface *iface)
 }
 
 /* Of course, it's NOT true now */
-int
+u8
 ospf_iface_clasify(struct iface *ifa)
 {
   /* FIXME: Latter I'll use config - this is incorrect */
@@ -653,7 +740,7 @@ hello_timer_hook(timer *timer)
   struct ospf_neighbor *neigh;
   u16 length;
   u32 *pp;
-  int i;
+  u8 i;
 
   ifa=(struct ospf_iface *)timer->data;
   p=(struct proto *)(ifa->proto);
@@ -680,7 +767,7 @@ hello_timer_hook(timer *timer)
 
     /* Fill all neighbors */
     i=0;
-    pp=(u32 *)(((byte *)pkt)+sizeof(struct ospf_hello_packet));
+    pp=(u32 *)(((u8 *)pkt)+sizeof(struct ospf_hello_packet));
     WALK_LIST (neigh, ifa->neigh_list)
     {
       *(pp+i)=htonl(neigh->rid);
@@ -717,7 +804,7 @@ wait_timer_hook(timer *timer)
 }
 
 void
-ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
+ospf_add_timers(struct ospf_iface *ifa, pool *pool, u16 wait)
 {
   struct proto *p;
 
@@ -730,6 +817,14 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
   ifa->hello_timer->hook=hello_timer_hook;
   ifa->hello_timer->recurrent=ifa->helloint;
   tm_start(ifa->hello_timer,ifa->helloint);
+
+  ifa->rxmt_timer=tm_new(pool);
+  ifa->rxmt_timer->data=ifa;
+  ifa->rxmt_timer->randomize=0;
+  if(ifa->rxmtint==0) ifa->rxmtint=RXMTINT_D;
+  ifa->rxmt_timer->hook=rxmt_timer_hook;
+  ifa->rxmt_timer->recurrent=ifa->rxmtint;
+
   DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
   if((ifa->type!=OSPF_IT_PTP))
   {
@@ -749,7 +844,7 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
 void
 ospf_iface_default(struct ospf_iface *ifa)
 {
-  int i;
+  u8 i;
 
   ifa->area=0; /* FIXME: Read from config */
   ifa->cost=COST_D;

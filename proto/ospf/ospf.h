@@ -38,8 +38,8 @@ struct ospf_iface {
   list neigh_list;	/* List of neigbours */
   u32 area;		/* OSPF Area */
   u16 cost;		/* Cost of iface */
-  int rxmtint;		/* number of seconds between LSA retransmissions */
-  int iftransdelay;	/* The estimated number of seconds it takes to
+  u16 rxmtint;		/* number of seconds between LSA retransmissions */
+  u16 iftransdelay;	/* The estimated number of seconds it takes to
 			   transmit a Link State Update Packet over this
 			   interface.  LSAs contained in the update */
   u8 priority;		/* A router priority for DR election */
@@ -52,11 +52,11 @@ struct ospf_iface {
   u32 drid;
   ip_addr bdrip;	/* Backup DR */
   u32 bdrid;
-  int type;		/* OSPF view of type */
+  u8 type;		/* OSPF view of type */
 #define OSPF_IT_BROADCAST 0
 #define OSPF_IT_NBMA 1
 #define OSPF_IT_PTP 2
-  int state;		/* Interface state machine */
+  u8 state;		/* Interface state machine */
 #define OSPF_IS_DOWN 0		/* Should never happen */
 #define OSPF_IS_WAITING 1	/* Waiting for Wait timer */
 #define OSPF_IS_PTP 2		/* PTP operational */
@@ -65,6 +65,7 @@ struct ospf_iface {
 #define OSPF_IS_DR 5		/* I'm DR */
   timer *wait_timer;		/* WAIT timer */
   timer *hello_timer;		/* HELLOINT timer */
+  timer *rxmt_timer;		/* RXMT timer */
 /* Default values for interface parameters */
 #define COST_D 10
 #define RXMTINT_D 5
@@ -81,7 +82,7 @@ struct ospf_patt {
   struct iface_patt i;
 
   u16 cost;
-  byte mode;
+  u8 mode;
 };
 
 struct ospf_packet {
@@ -111,18 +112,34 @@ struct ospf_hello_packet {
   u32 bdr;
 };
 
-struct ospf_ddseq_packet {
+struct ospf_dbdes_packet {
   struct ospf_packet ospf_packet;
   u16 iface_mtu;
-  u16 options;
-  u32 ddseq_no;
+  u8 options;
+  u8 imms;		/* I, M, MS bits */
+#define DBDES_MS 1
+#define DBDES_M 2
+#define DBDES_I 4
+  u32 ddseq;
 };
+
+struct ospf_lsaheader {
+  u16 lsage;		/* LS Age */
+  u8 options;
+  u8 lstype;
+  u32 lsid;		
+  u32 advr;		/* Advertising router */
+  u32 lssn;		/* LS Sequence number */
+  u16 checksum;
+  u16 length;
+};
+
 
 struct ospf_neighbor
 {
   node n;
   struct ospf_iface *ifa;
-  int state;
+  u8 state;
 #define NEIGHBOR_DOWN 0
 #define NEIGHBOR_ATTEMPT 1
 #define NEIGHBOR_INIT 2
@@ -132,14 +149,13 @@ struct ospf_neighbor
 #define NEIGHBOR_LOADING 6
 #define NEIGHBOR_FULL 7
   timer *inactim;	/* Inactivity timer */
-  byte ms;		/* Master/slave */
-#define NEIGHBOR_SLAVE 0
-#define NEIGHBOR_MASTER 1
+  u8 imms;		/* I, M, Master/slave */
+  u8 myimms;
   u32 dds;		/* DD Sequence number being sentg */
   u32 ddr;		/* last Dat Des packet */
   u32 rid;		/* Router ID */
-  byte priority;	/* Priority */
-  byte options;		/* Options */
+  u8 priority;		/* Priority */
+  u8 options;		/* Options */
   u32 dr;		/* Neigbour's idea of DR */
   u32 bdr;		/* Neigbour's idea of BDR */
   u8 adj;		/* built adjacency? */
