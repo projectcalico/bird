@@ -190,7 +190,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
       ospf_pkt_finalize(n->ifa, op);
 		       
       sk_send_to(n->ifa->ip_sk,len-SIPH, n->ip, OSPF_PROTO);
-      debug("%s: LS upd sent to %I\n", p->name, n->ip);
+      debug("%s: LS upd sent to %I (%d LSAs)\n", p->name, n->ip, lsano);
 
       DBG("LSupd: next packet\n");
       fill_ospf_pkt_hdr(n->ifa, pk, LSUPD);
@@ -210,7 +210,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
   op->length=htons(len-SIPH);
   ospf_pkt_finalize(n->ifa, op);
 
-  debug("%s: LS upd sent to %I\n", p->name, n->ip);
+  debug("%s: LS upd sent to %I (%d LSAs)\n", p->name, n->ip, lsano);
   sk_send_to(n->ifa->ip_sk,len-SIPH, n->ip, OSPF_PROTO);
 }
 
@@ -245,7 +245,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   }
   if(size<=(sizeof(struct ospf_lsupd_packet)+sizeof(struct ospf_lsa_header)))
   {
-    log("%s: Received lsupd from %I is too short\n", p->name,n->ip);
+    log("%s: Received lsupd from %I is too short!\n", p->name,n->ip);
     return;
   }
 
@@ -264,7 +264,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
     if(((diff+sizeof(struct ospf_lsa_header))>=size) ||
       ((ntohs(lsa->length)+diff)>size))
-      log("%s: Received lsupd from %I is too short\n", p->name,n->ip);
+      log("%s: Received lsupd from %I is too short.\n", p->name,n->ip);
 
     lenn=ntohs(lsa->length);
 
