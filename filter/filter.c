@@ -63,6 +63,8 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
 {
   if ((v1.type == T_PATH) && (v2.type == T_PATH_MASK))
     return as_path_match(v1.val.ad, v2.val.path_mask);
+  if ((v1.type == T_PAIR) && (v2.type == T_CLIST))
+    return int_set_contains(v2.val.ad, v1.val.i);
 
   if ((v1.type == T_IP) && (v2.type == T_PREFIX))
     return !(ipa_compare(ipa_and(v2.val.px.ip, ipa_mkmask(v2.val.px.len)), ipa_and(v1.val.px.ip, ipa_mkmask(v2.val.px.len))));
