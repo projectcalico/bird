@@ -169,6 +169,15 @@ addifa_rtlsa(struct ospf_iface *ifa)
   else ifa->oa=oa;
 }
 
+/**
+ * originate_rt_lsa - build new instance of router LSA
+ * @oa: ospf_area which is LSA built to
+ *
+ * It builds router LSA walking through all OSPF interfaces in
+ * specified OSPF area. This function is mostly called from
+ * area_disp(). Builds new LSA, increases sequence number (if old
+ * instance exists) and sets age of LSA to zero.
+ */
 void
 originate_rt_lsa(struct ospf_area *oa)
 {
@@ -231,9 +240,19 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
   return net;
 }
 
+/**
+ * originate_net_lsa - originates of deletes network LSA
+ * @ifa: interface which is LSA originated for
+ *
+ * Interface counts number of adjacent neighbor. If this number is
+ * lower then one or interface is not in state %OSPF_IS_DR it deletes
+ * and premature ages instance of network LSA for specified interface.
+ * In other case, new instance of network LSA is originated.
+ */
 void
-originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
+originate_net_lsa(struct ospf_iface *ifa)
 {
+  struct proto_ospf *po=ifa->proto;
   struct ospf_lsa_header lsa;
   u32 rtid=po->proto.cf->global->router_id;
   struct top_hash_entry *en;
@@ -247,6 +266,8 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   {
     if(ifa->nlsa==NULL) return;
 
+    OSPF_TRACE(D_EVENTS, "Deleting Net lsa for iface \"%s\".",
+      ifa->iface->name);
     ifa->nlsa->lsa.sn+=1;
     ifa->nlsa->lsa.age=LSA_MAXAGE;
     flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,0);
@@ -256,6 +277,9 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
     ifa->nlsa=NULL;
     return ;
   }
+
+  OSPF_TRACE(D_EVENTS, "Originating Net lsa for iface \"%s\".",
+    ifa->iface->name);
 
   lsa.age=0;
   lsa.id=ipa_to_u32(ifa->iface->addr->ip);
@@ -317,6 +341,18 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
   return ext;
 }
 
+/**
+ * originate_ext_lsa - new route recived from nest and filters
+ * @n: network prefix and mask
+ * @e: rte
+ * @po: current instance of OSPF
+ * @attrs: list of extended attributes
+ *
+ * If I receive message that new route is installed, I try to originate an
+ * external LSA. LSA header of such LSA does not contain information about
+ * prefix lenght, so if I have to originate multiple LSAs for route with
+ * different prefixes I try to increment prefix id to find a "free" one.
+ */
 void
 originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
 {
@@ -417,6 +453,13 @@ return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32((type==LSA_T_NET) ? lsaid :
 #endif
 }
 
+/**
+ * ospf_top_new - allocated new topology database
+ * @p: current instance of OSPF
+ *
+ * This dynamically hashed structure is often used for keeping LSAs. Mainly
+ * its used in @ospf_area structute.
+ */
 struct top_graph *
 ospf_top_new(struct proto_ospf *p)
 {

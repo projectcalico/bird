@@ -158,14 +158,14 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
     case ISM_WAITF:
       if(ifa->state==OSPF_IS_WAITING)
       {
-        bdr_election(ifa ,p);
+        bdr_election(ifa);
       }
       break;
     case ISM_NEICH:
       if((ifa->state==OSPF_IS_DROTHER) || (ifa->state==OSPF_IS_DR) ||
         (ifa->state==OSPF_IS_BACKUP))
       {
-        bdr_election(ifa ,p);
+        bdr_election(ifa);
         schedule_rt_lsa(ifa->oa);
       }
       break;

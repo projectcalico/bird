@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -21,6 +21,15 @@ const char *ospf_inm[]={ "hello received", "neighbor start", "2-way received",
   "negotiation done", "exstart done", "bad ls request", "load done",
   "adjacency ok?", "sequence mismatch", "1-way received", "kill neighbor",
   "inactivity timer", "line down" };
+
+/**
+ * neigh_chstate - handles changes related to new or lod state of neighbor
+ * @n: OSPF neighbor
+ * @state: new state
+ *
+ * Many actions has to be taken acording to state change of neighbor. It
+ * starts rxmt timers, call interface state machine etc.
+ */
 
 void
 neigh_chstate(struct ospf_neighbor *n, u8 state)
@@ -49,14 +58,14 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     {
       ifa->fadj--;
       schedule_rt_lsa(ifa->oa);
-      originate_net_lsa(ifa,po);
+      originate_net_lsa(ifa);
     }
   
     if(state==NEIGHBOR_FULL)	/* Increase number of adjacencies */
     {
       ifa->fadj++;
       schedule_rt_lsa(ifa->oa);
-      originate_net_lsa(ifa,po);
+      originate_net_lsa(ifa);
     }
     if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)
     {
@@ -203,9 +212,20 @@ can_do_adj(struct ospf_neighbor *n)
   return i;
 }
 
+/**
+ * ospf_neigh_sm - ospf neighbor state machine
+ * @n: neighor
+ * @event: actual event
+ *
+ * This part implements neighbor state machine as described in 10.3 of
+ * RFC 2328. the only difference is that state %NEIGHBOR_ATTEMPT is not
+ * used. We discover neighbors on nonbroadcast networks using the
+ * same ways as on broadcast networks. The only difference is in
+ * sending hello packets. These are send to IPs listed in
+ * @ospf_iface->nbma_list .
+ */
 void
 ospf_neigh_sm(struct ospf_neighbor *n, int event)
-	/* Interface state machine */
 {
   struct proto *p=(struct proto *)(n->ifa->proto);
   struct proto_ospf *po=n->ifa->proto;
@@ -217,7 +237,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
   {
     case INM_START:
       neigh_chstate(n,NEIGHBOR_ATTEMPT);
-      /* FIXME No NBMA now */
+      /* NBMA are used different way */
       break;
     case INM_HELLOREC:
       switch(n->state)
@@ -298,14 +318,22 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
   }
 }
 
+/**
+ * bdr_election - (Backup) Designed Router election
+ * @ifa: actual interface
+ *
+ * When wait time fires, it time to elect (Backup) Designed Router.
+ * Structure describing me is added to this list so every electing router
+ * has the same list. Backup Designed Router is elected before Designed
+ * Router. This process is described in 9.4 of RFC 2328.
+ */
 void
-bdr_election(struct ospf_iface *ifa, struct proto *p)
+bdr_election(struct ospf_iface *ifa)
 {
   struct ospf_neighbor *neigh,*ndr,*nbdr,me,*tmp;
   u32 myid, ndrid, nbdrid;
   int doadj;
-
-  p=(struct proto *)(ifa->proto);
+  struct proto *p=&ifa->proto->proto;
 
   DBG("%s: (B)DR election.\n",p->name);
 
@@ -323,7 +351,7 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   nbdr=electbdr(ifa->neigh_list);
   ndr=electdr(ifa->neigh_list);
 
-  if(ndr==NULL) ndr=nbdr;		/* FIXME is this correct? */
+  if(ndr==NULL) ndr=nbdr;
 
   if(((ifa->drid==myid) && (ndr!=&me))
     || ((ifa->drid!=myid) && (ndr==&me))
@@ -510,7 +538,6 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
    if(n->rid==ifa->drid) pos="dr   ";
    if(n->rid==ifa->bdrid) pos="bdr  ";
    if(n->ifa->type==OSPF_IT_PTP) pos="ptp  ";
-
 
    cli_msg(-1013,"%-18I\t%3u\t%s/%s\t%-5s\t%-18I\t%-10s",n->rid, n->priority,
      ospf_ns[n->state], pos, etime, n->ip,ifa->iface->name);

@@ -47,7 +47,7 @@ struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr, u32 t
 void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
 void addifa_rtlsa(struct ospf_iface *ifa);
 void originate_rt_lsa(struct ospf_area *oa);
-void originate_net_lsa(struct ospf_iface *ifa,struct proto_ospf *po);
+void originate_net_lsa(struct ospf_iface *ifa);
 int can_flush_lsa(struct ospf_area *oa);
 void originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs);
 
