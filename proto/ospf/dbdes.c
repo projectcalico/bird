@@ -150,7 +150,7 @@ rxmt_timer_hook(timer *timer)
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
   DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",
-    p->name, ifa->iface->name, n->rid);
+    p->name, ifa->iface->name, n->ip);
   if(n->state<NEIGHBOR_LOADING) ospf_dbdes_tx(n);
   else
   {
@@ -216,16 +216,18 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
   if(ifa->iface->mtu<size)
   {
-    debug("%s: Received dbdes larger than MTU from (%I)!\n", p->name, nrid);
+    debug("%s: Received dbdes larger than MTU from %I!\n", p->name, n->ip);
     return ;
   }
+
+  debug("%s: Received dbdes from %I.\n", p->name, n->ip);
 
   switch(n->state)
   {
     case NEIGHBOR_DOWN:
     case NEIGHBOR_ATTEMPT:
     case NEIGHBOR_2WAY:
-        debug("%s: Received dbdes from %I in bad state.\n", p->name, nrid);
+        debug("%s: Received dbdes from %I in bad state.\n", p->name, n->ip);
         return;
       break;
     case NEIGHBOR_INIT:
@@ -242,7 +244,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  n->options=ps->options;
 	  n->myimms.bit.ms=0;
 	  n->imms.byte=ps->imms.byte;
-          debug("%s: I'm slave to %I. \n", p->name, nrid);
+          debug("%s: I'm slave to %I. \n", p->name, n->ip);
 	  ospf_neigh_sm(n, INM_NEGDONE);
 	  tm_stop(n->rxmt_timer);
 	  ospf_dbdes_tx(n);
@@ -262,7 +264,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
           }
 	  else
           {
-            DBG("%s: Nothing happend to %I (imms=%u)\n", p->name, nrid,
+            DBG("%s: Nothing happend to %I (imms=%u)\n", p->name, n->ip,
               ps->imms.byte);
             break;
           }
@@ -272,7 +274,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  (ntohl(ps->ddseq)==n->ddr))
         {
           /* Duplicate packet */
-          debug("%s: Received duplicate dbdes from (%I)!\n", p->name, nrid);
+          debug("%s: Received duplicate dbdes from %I!\n", p->name, n->ip);
 	  if(n->imms.bit.ms==0)
 	  {
             ospf_dbdes_tx(n);
@@ -346,7 +348,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	if((ps->imms.byte==n->imms.byte) && (ps->options=n->options) &&
 	  (ps->ddseq==n->dds)) /* Only duplicate are accepted */
         {
-          debug("%s: Received duplicate dbdes from (%I)!\n", p->name, nrid);
+          debug("%s: Received duplicate dbdes from %I!\n", p->name, n->ip);
           return;
         }
 	else
@@ -355,7 +357,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         }
       break;
     defaut:
-      die("%s: Received dbdes from %I in unknown state.\n", p->name, nrid);
+      die("%s: Received dbdes from %I in unknown state.\n", p->name, n->ip);
       break;
    }
 }
