@@ -10,6 +10,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
@@ -39,6 +41,21 @@ parse_args(int argc, char **argv)
     usage();
 }
 
+static char *
+get_command(void)
+{
+  static char *cmd_buffer;
+
+  if (cmd_buffer)
+    free(cmd_buffer);
+  cmd_buffer = readline("bird> ");
+  if (!cmd_buffer)
+    exit(0);
+  if (cmd_buffer[0])
+    add_history(cmd_buffer);
+  return cmd_buffer;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -49,5 +66,9 @@ main(int argc, char **argv)
 
   parse_args(argc, argv);
 
-  bug("Not implemented yet!");
+  for(;;)
+    {
+      char *c = get_command();
+      puts(c);
+    }
 }

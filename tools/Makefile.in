@@ -21,7 +21,7 @@ $(exedir)/bird: $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 $(exedir)/birdc: client/all.o lib/birdlib.a
-	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS) $(CLIENT_LIBS)
 
 .dir-stamp:
 	mkdir -p $(static-dirs) $(client-dirs)

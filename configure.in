@@ -134,12 +134,19 @@ else
 	AC_DEFINE_UNQUOTED(PATH_CONTROL_SOCKET_DIR, "$localstatedir")
 fi
 
+CLIENT=
+CLIENT_LIBS=
 if test "$enable_client" = yes ; then
 	CLIENT=client
-else
-	CLIENT=
+	AC_CHECK_LIB(history, add_history, CLIENT_LIBS="-lhistory")
+	AC_CHECK_LIB(ncurses, tgetent, USE_TERMCAP_LIB=-lncurses,
+		AC_CHECK_LIB(curses, tgetent, USE_TERMCAP_LIB=-lcurses,
+			AC_CHECK_LIB(termcap, tgetent, USE_TERMCAP_LIB=-ltermcap)))
+	AC_CHECK_LIB(readline, readline, CLIENT_LIBS="-lreadline $CLIENT_LIBS $USE_TERMCAP_LIB",
+		AC_MSG_ERROR([[The client requires GNU readline library. Either install the library or use --disable-client to compile without the client.]]), $USE_TERMCAP_LIB)
 fi
 AC_SUBST(CLIENT)
+AC_SUBST(CLIENT_LIBS)
 
 mkdir -p $objdir/sysdep
 AC_CONFIG_HEADER($objdir/sysdep/autoconf.h:sysdep/autoconf.h.in)
