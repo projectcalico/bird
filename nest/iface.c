@@ -105,7 +105,7 @@ neigh_dump(neighbor *n)
     debug("[] ");
   debug("%s %p", n->proto->name, n->data);
   if (n->flags & NEF_STICKY)
-    debug("STICKY");
+    debug(" STICKY");
   debug("\n");
 }
 
