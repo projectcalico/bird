@@ -5,7 +5,7 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
-	FIXME: constant prefixes, make prefix.ip and prefix.length work
+	FIXME: prefix variables, make prefix.ip and prefix.length work
 	FIXME: define keyword
 	FIXME: case without { }'s
 	FIXME: allow px+, px- px^pair in prefix sets
@@ -13,6 +13,8 @@
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
 	FIXME: access to dynamic attributes
+	FIXME: do not allow function call by callme(1,2,)
+	FIXME: pairs of integers: define compare
  */
 
 CF_HDR
@@ -147,6 +149,7 @@ block:
 set_atom:
    NUM { $$.type = T_INT; $$.val.i = $1; }
  | IPA { $$.type = T_IP; $$.val.ip = $1; }
+ 
  ; 
 
 set_item:
@@ -165,7 +168,9 @@ constant:
  | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 1;  }
  | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 0;  }
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; }
+ | '(' NUM ',' NUM ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_PAIR;  $$->a2.i = $2 << 16 | $4; }
  | IPA	  { struct f_val * val; val = cfg_alloc(sizeof(struct f_val)); $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_IP; val->val.ip = $1; }
+ | IPA '/' NUM { struct f_val * val; val = cfg_alloc(sizeof(struct f_val)); $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_PREFIX; val->val.px.ip = $1; val->val.px.len = $3; printf( "ook, we have prefix here\n" ); }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
  ;
 

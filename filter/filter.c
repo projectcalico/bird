@@ -6,6 +6,8 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
  *	FIXME: local namespace for functions
+ *
+ * 	Notice that pair is stored as integer: first << 16 | second
  */
 
 #include <stdio.h>
@@ -99,6 +101,8 @@ val_print(struct f_val v)
   case T_INT: PRINTF( "%d ", v.val.i ); break;
   case T_STRING: PRINTF( "%s", v.val.s ); break;
   case T_IP: PRINTF( "%I", v.val.ip ); break;
+  case T_PREFIX: PRINTF( "%I/%d", v.val.px.ip, v.val.px.len ); break;
+  case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   default: PRINTF( "[unknown type %x]", v.type );
   }
