@@ -199,6 +199,44 @@ bgp_tx(sock *sk)
     ;
 }
 
+static int
+bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
+{
+  while (len > 0)
+    {
+      if (len < 2 || len < 2 + opt[1])
+	{ bgp_error(conn, 2, 0, 0, 0); return 0; }
+#ifdef LOCAL_DEBUG
+      {
+	int i;
+	DBG("\tOption %02x:", opt[0]);
+	for(i=0; i<opt[1]; i++)
+	  DBG(" %02x", opt[2+i]);
+	DBG("\n");
+      }
+#endif
+      switch (opt[0])
+	{
+	case 2:
+	  /* Defined in draft-ietf-idr-bgp4-cap-neg-06 */
+	  /* We can safely ignore all capabilities */
+	  break;
+	default:
+	  /*
+	   *  BGP specs don't tell us to send which option
+	   *  we didn't recognize, but it's common practice
+	   *  to do so. Also, capability negotiation with
+	   *  Cisco routers doesn't work without that.
+	   */
+	  bgp_error(conn, 2, 4, opt[0], 1);
+	  return 0;
+	}
+      len -= 2 + opt[1];
+      opt += 2 + opt[1];
+    }
+  return 0;
+}
+
 static void
 bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 {
@@ -226,8 +264,8 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   if (hold > 0 && hold < 3)
     { bgp_error(conn, 2, 6, hold, 0); return; }
   p->remote_id = id;
-  if (pkt[28])				/* Currently we support no optional parameters */
-    { bgp_error(conn, 2, 4, pkt[29], 0); return; }
+  if (bgp_parse_options(conn, pkt+29, pkt[28]))
+    return;
   if (!id || id == 0xffffffff || id == p->local_id)
     { bgp_error(conn, 2, 3, id, 0); return; }
 
