@@ -67,9 +67,10 @@ struct nbma_node {
 
 struct area_net {
   node n;
-  ip_addr net;
-  int mlen;
+  struct prefix px;
   int hidden;
+  int active;
+  int oldactive;
 };
 
 struct ospf_area_config {

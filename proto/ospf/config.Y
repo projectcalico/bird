@@ -112,8 +112,8 @@ pref_el: prefix ';'
  {
    this_pref = cfg_allocz(sizeof(struct area_net));
    add_tail(&this_area->net_list, NODE this_pref);
-   this_pref->net = $1.addr;
-   this_pref->mlen = $1.len;
+   this_pref->px.addr = $1.addr;
+   this_pref->px.len = $1.len;
  }
 ;
 
@@ -121,8 +121,8 @@ pref_hid: prefix HIDDEN ';'
  {
    this_pref = cfg_allocz(sizeof(struct area_net));
    add_tail(&this_area->net_list, NODE this_pref);
-   this_pref->net = $1.addr;
-   this_pref->mlen = $1.len;
+   this_pref->px.addr = $1.addr;
+   this_pref->px.len = $1.len;
    this_pref->hidden = 1;
  }
 ;

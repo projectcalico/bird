@@ -116,8 +116,8 @@ ospf_start(struct proto *p)
     WALK_LIST(anet,ac->net_list)
     {
       antmp=mb_allocz(po->proto.pool, sizeof(struct area_net));
-      antmp->net=anet->net;
-      antmp->mlen=anet->mlen;
+      antmp->px.addr=anet->px.addr;
+      antmp->px.len=anet->px.len;
       antmp->hidden=anet->hidden;
       add_tail(&oa->net_list, NODE antmp);
     }
@@ -542,8 +542,8 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
     WALK_LIST(anet, ac2->net_list)
     {
        antmp=mb_alloc(p->pool, sizeof(struct area_net));
-       antmp->net=anet->net;
-       antmp->mlen=anet->mlen;
+       antmp->px.addr=anet->px.addr;
+       antmp->px.len=anet->px.len;
        antmp->hidden=anet->hidden;
        add_tail(&oa->net_list, NODE antmp);
     }
@@ -836,7 +836,7 @@ ospf_sh(struct proto *p)
       cli_msg(-1014,"\t\tArea networks:");
       WALK_LIST(anet, oa->net_list)
       {
-        cli_msg(-1014,"\t\t\t%1I/%u\t%s", anet->net, anet->mlen,
+        cli_msg(-1014,"\t\t\t%1I/%u\t%s", anet->px.addr, anet->px.len,
           anet->hidden ? "Hidden" : "Advertise");
       }
     }
