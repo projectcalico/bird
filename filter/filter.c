@@ -673,7 +673,7 @@ f_eval_int(struct f_inst *expr)
   f_rte = NULL;
   f_rte_old = NULL;
   f_rta_copy = NULL;
-  f_pool = NULL;
+  f_pool = cfg_mem;
   res = interpret(expr);
   if (res.type != T_INT)
     cf_error("Integer expression expected");
