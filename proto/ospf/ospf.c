@@ -11,10 +11,14 @@
 static int
 ospf_start(struct proto *p)
 {
+  struct proto_ospf *po=(struct proto_ospf *)p;
   DBG("%s: Start\n",p->name);
 
   p->if_notify=ospf_if_notify;
 
+  /* Create graph of LSA's */
+  po->gr=ospf_top_new(po);
+  
   return PS_UP;
 }
 
@@ -25,10 +29,11 @@ ospf_dump(struct proto *p)
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
   struct ospf_config *c = (void *) p->cf;
+  struct proto_ospf *po=(struct proto_ospf *)p;
 
   debug("%s: AreaID: %u\n", p->name, c->area );
 
-  WALK_LIST(ifa, ((struct proto_ospf *)p)->iface_list)
+  WALK_LIST(ifa, po->iface_list)
   {
     debug("%s: Interface: %s\n", p->name, ifa->iface->name);
     debug("%s:  state: %u\n", p->name, ifa->state);
@@ -39,22 +44,24 @@ ospf_dump(struct proto *p)
       debug("%s:   neighbor %u in state %u\n", p->name, n->rid, n->state);
     }
   }
+
+  debug("\n%s: LSA graph dump start:\n", p->name);
+  ospf_top_dump(po->gr);
+  debug("%s: LSA graph dump finished\n\n", p->name);
+
 }
 
 static struct proto *
 ospf_init(struct proto_config *c)
 {
   struct proto *p = proto_new(c, sizeof(struct proto_ospf));
-  struct proto_ospf *pa=(struct proto_ospf *)p;
+  struct proto_ospf *po=(struct proto_ospf *)p;
 
   DBG(" OSPF: Init.\n");
   p->neigh_notify = NULL;
   p->if_notify = NULL;
-  init_list(&(pa->iface_list));
-  /*
-  pa->gr=ospf_top_new(pa);
-  */
-  
+  init_list(&(po->iface_list));
+
   return p;
 }
 
