@@ -164,7 +164,7 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
       WALK_LIST(ptmp, *(ifa->passwords))
       {
         if (pkt->u.md5.keyid != ptmp->id) continue;
-        if ((ptmp->genfrom > now) || (ptmp->gento < now)) continue;
+        if ((ptmp->accfrom > now) || (ptmp->accto < now)) continue;
         pass = ptmp;
         break;
       }
@@ -278,7 +278,7 @@ ospf_rx_hook(sock * sk, int size)
 
   if (ntohl(ps->areaid) != ifa->oa->areaid)
   {
-    log(L_ERR "%s%I - other area %ld", mesg, sk->faddr, ps->areaid);
+    log(L_ERR "%s%I - different area %ld", mesg, sk->faddr, ntohl(ps->areaid));
     return 1;
   }
 
