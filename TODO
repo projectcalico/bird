@@ -1,9 +1,5 @@
 Core
 ~~~~
-- debug: static
-- debug: pipe
-- debug: krt
-
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
 
@@ -28,7 +24,7 @@ Globals
 - cleanup debugging calls
 - logging and tracing; use appropriate log levels
 - check incoming packets and log errors!!
-- check log calls for trailing newlines
+- check log calls for trailing newlines and log levels followed by comma
 - check if all protocols set proper packet priorities and TTL's.
 - replace all NUM, IPA and expr tokens by constant filter expressions
 - try compiling with -Wunused

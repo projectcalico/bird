@@ -1,7 +1,7 @@
 /*
  *	BIRD -- UNIX Kernel Route Syncer
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -69,6 +69,11 @@ extern struct proto_config *cf_krt;
 extern pool *krt_pool;
 
 #define KRT_CF ((struct krt_config *)p->p.cf)
+
+#define KRT_TRACE(pr, fl, msg, args...) do {	\
+  DBG("KRT: " msg "\n" , ## args);		\
+  if (pr->p.debug & fl)				\
+    { log(L_TRACE "%s: " msg, pr->p.name , ## args); } } while(0)
 
 void krt_got_route(struct krt_proto *p, struct rte *e);
 void krt_got_route_async(struct krt_proto *p, struct rte *e, int new);

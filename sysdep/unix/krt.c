@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/iface.h"
@@ -78,7 +78,7 @@ kif_scan(timer *t)
 {
   struct kif_proto *p = t->data;
 
-  DBG("KIF: It's interface scan time...\n");
+  KRT_TRACE(p, D_EVENTS, "Scanning interfaces");
   kif_last_shot = now;
   krt_if_scan(p);
 }
@@ -169,6 +169,24 @@ struct protocol proto_unix_iface = {
 };
 
 /*
+ *	Tracing of routes
+ */
+
+static void
+krt_trace_in_print(struct krt_proto *p, rte *e, char *msg)
+{
+  DBG("KRT: %I/%d: %s\n", e->net->n.prefix, e->net->n.pxlen, msg);
+  log(L_TRACE "%s: %I/%d: %s", p->p.name, e->net->n.prefix, e->net->n.pxlen, msg);
+}
+
+static inline void
+krt_trace_in(struct krt_proto *p, rte *e, char *msg)
+{
+  if (p->p.debug & D_PACKETS)
+    krt_trace_in_print(p, e, msg);
+}
+
+/*
  *	Inherited Routes
  */
 
@@ -219,20 +237,20 @@ krt_learn_scan(struct krt_proto *p, rte *e)
     {
       if (krt_uptodate(m, e))
 	{
-	  DBG("krt_learn_scan: SEEN\n");
+	  krt_trace_in(p, e, "[alien] seen");
 	  rte_free(e);
 	  m->u.krt.seen = 1;
 	}
       else
 	{
-	  DBG("krt_learn_scan: OVERRIDE\n");
+	  krt_trace_in(p, e, "[alien] updated");
 	  *mm = m->next;
 	  rte_free(m);
 	  m = NULL;
 	}
     }
   else
-    DBG("krt_learn_scan: CREATE\n");
+    krt_trace_in(p, e, "[alien] created");
   if (!m)
     {
       e->attrs = rta_lookup(e->attrs);
@@ -248,7 +266,7 @@ krt_learn_prune(struct krt_proto *p)
   struct fib *fib = &p->krt_table.fib;
   struct fib_iterator fit;
 
-  DBG("Pruning inheritance data...\n");
+  KRT_TRACE(p, D_EVENTS, "Pruning inherited routes");
 
   FIB_ITERATE_INIT(&fit, fib);
 again:
@@ -323,29 +341,29 @@ krt_learn_async(struct krt_proto *p, rte *e, int new)
 	{
 	  if (krt_uptodate(g, e))
 	    {
-	      DBG("krt_learn_async: same\n");
+	      krt_trace_in(p, e, "[alien async] same");
 	      rte_free(e);
 	      return;
 	    }
-	  DBG("krt_learn_async: update\n");
+	  krt_trace_in(p, e, "[alien async] updated");
 	  *gg = g->next;
 	  rte_free(g);
 	}
       else
-	DBG("krt_learn_async: create\n");
+	krt_trace_in(p, e, "[alien async] created");
       e->attrs = rta_lookup(e->attrs);
       e->next = n->routes;
       n->routes = e;
     }
   else if (!g)
     {
-      DBG("krt_learn_async: not found\n");
+      krt_trace_in(p, e, "[alien async] delete failed");
       rte_free(e);
       return;
     }
   else
     {
-      DBG("krt_learn_async: delete\n");
+      krt_trace_in(p, e, "[alien async] removed");
       *gg = g->next;
       rte_free(e);
       rte_free(g);
@@ -422,7 +440,7 @@ krt_flush_routes(struct krt_proto *p)
 {
   struct rtable *t = p->p.table;
 
-  DBG("Flushing kernel routes...\n");
+  KRT_TRACE(p, D_EVENTS, "Flushing kernel routes");
   FIB_WALK(&t->fib, f)
     {
       net *n = (net *) f;
@@ -483,7 +501,7 @@ krt_got_route(struct krt_proto *p, rte *e)
       if (KRT_CF->learn)
 	krt_learn_scan(p, e);
       else
-	DBG("krt_parse_entry: Alien route, ignoring\n");
+	krt_trace_in(p, e, "alien route, ignored");
       return;
     }
 #endif
@@ -491,7 +509,7 @@ krt_got_route(struct krt_proto *p, rte *e)
   if (net->n.flags & KRF_VERDICT_MASK)
     {
       /* Route to this destination was already seen. Strange, but it happens... */
-      DBG("Already seen.\n");
+      krt_trace_in(p, e, "already seen");
       return;
     }
 
@@ -508,8 +526,7 @@ krt_got_route(struct krt_proto *p, rte *e)
     verdict = KRF_DELETE;
 
 sentenced:
-  DBG("krt_parse_entry: verdict=%s\n", ((char *[]) { "CREATE", "SEEN", "UPDATE", "DELETE", "IGNORE" }) [verdict]);
-
+  krt_trace_in(p, e, ((char *[]) { "?", "seen", "will be updated", "will be removed", "ignored" }) [verdict]);
   net->n.flags = (net->n.flags & ~KRF_VERDICT_MASK) | verdict;
   if (verdict == KRF_UPDATE || verdict == KRF_DELETE)
     {
@@ -531,7 +548,7 @@ krt_prune(struct krt_proto *p)
   struct rtable *t = p->p.table;
   struct fib_node *f;
 
-  DBG("Pruning routes in table %s...\n", t->name);
+  KRT_TRACE(p, D_EVENTS, "Pruning table %s", t->name);
   FIB_WALK(&t->fib, f)
     {
       net *n = (net *) f;
@@ -552,7 +569,7 @@ krt_prune(struct krt_proto *p)
 	case KRF_CREATE:
 	  if (new && (f->flags & KRF_INSTALLED))
 	    {
-	      DBG("krt_prune: reinstalling %I/%d\n", n->n.prefix, n->n.pxlen);
+	      krt_trace_in(p, new, "reinstalling");
 	      krt_set_notify(p, n, new, NULL);
 	    }
 	  break;
@@ -561,11 +578,11 @@ krt_prune(struct krt_proto *p)
 	  /* Nothing happens */
 	  break;
 	case KRF_UPDATE:
-	  DBG("krt_prune: updating %I/%d\n", n->n.prefix, n->n.pxlen);
+	  krt_trace_in(p, new, "updating");
 	  krt_set_notify(p, n, new, old);
 	  break;
 	case KRF_DELETE:
-	  DBG("krt_prune: deleting %I/%d\n", n->n.prefix, n->n.pxlen);
+	  krt_trace_in(p, new, "deleting");
 	  krt_set_notify(p, n, NULL, old);
 	  break;
 	default:
@@ -594,7 +611,7 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
   switch (src)
     {
     case KRT_SRC_BIRD:
-      ASSERT(0);
+      ASSERT(0);			/* Should be filtered by the back end */
     case KRT_SRC_REDIRECT:
       DBG("It's a redirect, kill him! Kill! Kill!\n");
       krt_set_notify(p, net, NULL, e);
@@ -607,10 +624,6 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
 	  return;
 	}
 #endif
-      /* Fall-thru */
-    default:
-      DBG("Discarding\n");
-      rte_update(p->p.table, net, &p->p, NULL);
     }
   rte_free(e);
 }
@@ -628,7 +641,10 @@ krt_scan(timer *t)
 #ifdef CONFIG_ALL_TABLES_AT_ONCE
   {
     void *q;
-    DBG("KRT: It's route scan time...\n");
+    /* We need some node to decide whether to print the debug messages or not */
+    p = SKIP_BACK(struct krt_proto, instance_node, HEAD(krt_instance_list));
+    if (p->instance_node.next)
+      KRT_TRACE(p, D_EVENTS, "Scanning routing table");
     krt_scan_fire(NULL);
     WALK_LIST(q, krt_instance_list)
       {
@@ -638,7 +654,7 @@ krt_scan(timer *t)
   }
 #else
   p = t->data;
-  DBG("KRT: It's route scan time for %s...\n", p->p.name);
+  KRT_TRACE(p, D_EVENTS, "Scanning routing table");
   krt_scan_fire(p);
   krt_prune(p);
 #endif
