@@ -349,8 +349,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
       ospf_neigh_sm(n, INM_SEQMIS);
     }
     break;
-  defaut:
+  default:
     bug("Received dbdes from %I in undefined state.", n->ip);
-    break;
   }
 }
