@@ -30,6 +30,8 @@ Core
 
 - socket: Use IP_RECVERR for BGP TCP sockets?
 
+- OSPF: refuse running on non-multicast devices
+
 - lib: use better checksum function
 
 Cleanup
