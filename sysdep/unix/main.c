@@ -15,6 +15,7 @@
 #include "lib/lists.h"
 #include "lib/resource.h"
 #include "lib/socket.h"
+#include "lib/event.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
@@ -113,6 +114,7 @@ main(void)
 
   protos_start();
 
+  ev_run_list(&global_event_list);
   handle_sigusr(0);
 
   debug("Entering I/O loop.\n");
