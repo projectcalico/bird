@@ -85,7 +85,8 @@ typedef struct network {
 
 typedef struct rte {
   struct rte *next;
-  struct rtattr *attrs;
+  net *net;				/* Network this RTE belongs to */
+  struct rtattr *attrs;			/* Attributes of this route */
   byte flags;				/* Flags (REF_...) */
   byte pflags;				/* Protocol-specific flags */
   word pref;				/* Route preference */
@@ -125,8 +126,8 @@ net *net_get(rtable *tab, unsigned tos, ip_addr addr, unsigned len);
 rte *rte_find(net *net, struct proto *p);
 rte *rte_get_temp(struct rtattr *);
 void rte_update(net *net, struct proto *p, rte *new);
-void rte_discard(net *net, rte *old);
-void rte_dump(net *, rte *);
+void rte_discard(rte *old);
+void rte_dump(rte *);
 void rt_dump(rtable *);
 void rt_dump_all(void);
 void rt_feed_baby(struct proto *p);

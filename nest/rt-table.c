@@ -209,16 +209,19 @@ rte_update(net *net, struct proto *p, rte *new)
 }
 
 void
-rte_discard(net *net, rte *old)		/* Non-filtered route deletion, used during garbage collection */
+rte_discard(rte *old)			/* Non-filtered route deletion, used during garbage collection */
 {
-  rte_update(net, old->attrs->proto, NULL);
+  rte_update(old->net, old->attrs->proto, NULL);
 }
 
 void
-rte_dump(net *n, rte *e)
+rte_dump(rte *e)
 {
+  net *n = e->net;
   if (n)
     debug("%1I/%2d ", n->n.prefix, n->n.pxlen);
+  else
+    debug("??? ");
   debug("PF=%02x pref=%d lm=%d ", e->pflags, e->pref, now-e->lastmod);
   rta_dump(e->attrs);
   if (e->flags & REF_CHOSEN)
@@ -240,7 +243,7 @@ rt_dump(rtable *t)
 	{
 	  n = (net *) fn;
 	  for(e=n->routes; e; e=e->next)
-	    rte_dump(n, e);
+	    rte_dump(e);
 	}
       FIB_WALK_END;
       t = t->sibling;

@@ -53,6 +53,7 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
       else
 	n = net_get(&master_table, 0, new->prefix, new->pxlen);
       e = rte_get_temp(a);
+      e->net = n;
       e->pflags = 0;
       rte_update(n, p, e);
     }
