@@ -26,12 +26,14 @@ struct symbol {
 };
 
 #define SYM_VOID 0
+#define SYM_PROTO 1
 
 void cf_lex_init_tables(void);
 int cf_lex(void);
 void cf_lex_init(int flag);
 void cf_error(char *msg) NORET;
 void cf_allocate(void);
+struct symbol *cf_default_name(char *prefix);
 
 /* Parser */
 

@@ -32,6 +32,7 @@ static struct keyword *kw_hash[KW_HASH_SIZE];
 static struct symbol **sym_hash;
 static int allow_new_symbols;
 static int cf_lino;
+static int default_counter;
 
 static int cf_hash(byte *c);
 static struct symbol *cf_find_sym(byte *c, unsigned int h0);
@@ -180,12 +181,29 @@ cf_find_sym(byte *c, unsigned int h0)
   return s;
 }
 
+struct symbol *
+cf_default_name(char *prefix)
+{
+  char buf[32];
+  struct symbol *s;
+
+  do
+    {
+      sprintf(buf, "%s%d", prefix, default_counter++);
+      s = cf_find_sym(buf, cf_hash(buf));
+      if (!s) cf_error("Unable to generate default name");
+    }
+  while (s->class != SYM_VOID);
+  return s;
+}
+
 void
 cf_lex_init(int flag)
 {
   if (allow_new_symbols = flag)
     sym_hash = mp_allocz(cfg_mem, SYM_HASH_SIZE * sizeof(struct keyword *));
   cf_lino = 1;
+  default_counter = 1;
 }
 
 void
