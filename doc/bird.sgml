@@ -5,7 +5,7 @@
 
 This is slightly modified linuxdoc dtd.  Anything in <descrip> tags is considered definition of
 configuration primitives, <cf> is fragment of configuration within normal text, <m> is
-"meta" information within fragment of configuration -- something in config which is not keyword.
+"meta" information within fragment of configuration - something in config which is not keyword.
 
     (set-fill-column 100)
 
@@ -102,7 +102,7 @@ be relatively easy due to its highly modular architecture.
 
 <p>Bird has one or more routing tables, which may or may not be
 synchronized with kernel and which may or may not be synchronized with
-each other (see protocol pipe). Each routing table contains list of
+each other (see the Pipe protocol). Each routing table contains list of
 known routes. Each route consists of:
 
 <itemize>
@@ -165,15 +165,14 @@ options. Most important (and not easily guessed) option is
 <sect1>Introduction
 
 <p>BIRD is configured using text configuration file. At startup, BIRD reads <file/bird.conf/ (unless
--c command line parameter is given). Configuration may be changed on user request: if you modify
+<tt/-c/ command line option is given). Configuration may be changed on user request: if you modify
 config file and then signal BIRD with SIGHUP, it will adjust to new
 config. Then there's BIRD client,
 which allows you to talk with BIRD in more extensive way than just telling it to reconfigure. BIRD
 writes messages about its work to log files or syslog (according to config).
 
 <p>In config, everything on a line after <cf/#/ or inside <cf>/*
-*/</cf> is a comment, whitespace is
-ignored, C-style comments <cf>/* comment */</cf> are also
+*/</cf> is a comment, whitespace is ignored, C-style comments <cf>/* comment */</cf> are also
 recognized. If there's variable number of options, they are grouped using
 <cf/{ }/ brackets. Each option is terminated by <cf/;/. Configuration
 is case sensitive.
@@ -461,7 +460,6 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  except that unlike other sets, it can be modified.
 	  You can't write constant of this type.
 
-	  
 </descrip>
 
 <sect1>Operations
@@ -508,26 +506,29 @@ attribute results in runtime error; you can check if attribute is
 defined using <cf>defined( <m>attribute</m> )</cf> syntax.
 
 <descrip>
-	<tag/<m/prefix/ net/
+	<tag><m/prefix/ net</tag>
 	network this route is talking about. (See section about routing tables)
 
-	<tag/<m/int/ preference/
+	<tag><m/int/ preference</tag>
 	preference of this route. (See section about routing tables)
 
-	<tag/<m/ip/ from/
+	<tag><m/ip/ from</tag>
 	who told me about this route.
 	
-	<tag/<m/ip/ gw/
+	<tag><m/ip/ gw</tag>
 	what is next hop packets routed using this route should be forwarded to.
 
-	<tag/<m/enum/ source/
+	<tag><m/enum/ source</tag>
 	what protocol told me about this route. This can have values such as <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/.
 
-	<tag/<m/enum/ scope/
+	<tag><m/enum/ scope</tag>
+	FIXME!
 
-	<tag/<m/enum/ cast/
+	<tag><m/enum/ cast</tag>
+	FIXME!
 
-	<tag/<m/enum/ dest/
+	<tag><m/enum/ dest</tag>
+	FIXME!
 </descrip>
 
 <p>Plus, there are protocol-specific attributes, which are described in protocol sections.
@@ -1110,17 +1111,17 @@ protocol static {
 <sect>Problems
 
 <p>BIRD is relatively young system, and probably contains some
-bugs. You can report bugs at <HTML URL="fixme">, but before you do,
-please make sure you have read available documenation, make sure are running latest version (available at <HTML
+bugs. You can report bugs at <HTMLURL URL="fixme">, but before you do,
+please make sure you have read available documenation, make sure are running latest version (available at <HTMLURL
 URL="fixme">), and that bug was not already reported by someone else
-(mailing list archives are at <HTML URL="fixme">). (Of course, patch
+(mailing list archives are at <HTMLURL URL="fixme">). (Of course, patch
 which fixes the bug along with bug report is always welcome). If you
 want to join the development, join developer's mailing list by sending
-<tt/????/ to <HTML URL="fixme">. You can also get current sources from
-anoncvs at <HTML URL="fixme">. You can find this documentation online
-at <HTML URL="fixme">, main homepage of bird is <HTML URL="fixme">. When
+<tt/????/ to <HTMLURL URL="fixme">. You can also get current sources from
+anoncvs at <HTMLURL URL="fixme">. You can find this documentation online
+at <HTMLURL URL="fixme">, main homepage of bird is <HTMLURL URL="fixme">. When
 trying to understand, what is going on, Internet standards are
-relevant reading; you can get them from <HTML URL="fixme">.
+relevant reading; you can get them from <HTMLURL URL="fixme">.
 
 <p><it/Good luck!/
 
