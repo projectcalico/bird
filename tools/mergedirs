@@ -17,7 +17,7 @@ LIBDIR=$OBJDIR/lib
 CONFDIR=$OBJDIR/conf
 shift
 
-echo "Merging system-dependent modules"
+echo "Merging system-dependent modules ($@)"
 MODULES=`for a in $@ ; do
 		sed <$SRCDIR/$a/Modules "s@\\(.*\\)@\\1 $a/\\1@"
 		done |
