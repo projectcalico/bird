@@ -10,6 +10,10 @@ CF_HDR
 
 #include "nest/bird.h"
 #include "conf/conf.h"
+#include "lib/resource.h"
+#include "lib/socket.h"
+#include "lib/timer.h"
+#include "nest/protocol.h"
 
 CF_DECLS
 

@@ -78,9 +78,12 @@ read_config(void)
   conf_fd = open(PATH_CONFIG, O_RDONLY);
   if (conf_fd < 0)
     die("Unable to open configuration file " PATH_CONFIG ": %m");
+  protos_preconfig();
   cf_read_hook = cf_read;
   cf_lex_init(1);
   cf_parse();
+  add_tail(&protocol_list, &proto_unix_kernel.n); /* FIXME: Must be _always_ the last one */
+  protos_postconfig();
 }
 
 /*
@@ -93,29 +96,25 @@ main(void)
   log(L_INFO "Launching BIRD -1.-1-pre-omega...");
 
   log_init_debug(NULL);
-  resource_init();
-
-  debug("Reading configuration file.\n");
-  read_config();
 
   debug("Initializing.\n");
+  resource_init();
   io_init();
   rt_init();
   if_init();
+
   protos_build();
-  add_tail(&protocol_list, &proto_unix_kernel.n); /* FIXME: Must be _always_ the last one */
   protos_init();
-  protos_preconfig();
-  protos_postconfig();
+
+  debug("Reading configuration file.\n");
+  read_config();
 
   signal_init();
 
   scan_if_init();
   auto_router_id();
 
-#if 0
   protos_start();
-#endif
 
   handle_sigusr(0);
 
