@@ -6,11 +6,11 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
 	FIXME: define keyword
-	FIXME: make px+, px- px^pair work in prefix sets
 	FIXME: create ip.mask(x) function
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
 	FIXME: access to dynamic attributes
+	FIXME: local namespace for functions
  */
 
 CF_HDR
@@ -30,18 +30,18 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE,
-	RTA, FROM, GW, NET, MASK,
+	RTA, FROM, GW, NET, MASK, RIP_METRIC, RIP_TAG,
 	LEN,
 	IMPOSSIBLE,
 	FILTER
 	)
 
-%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list
+%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list var_listn
 %type <f> filter filter_body
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
 %type <v> set_atom prefix prefix_s ipa
-%type <s> decls function_params 
+%type <s> decls declsn one_decl function_params 
 
 CF_GRAMMAR
 
@@ -71,11 +71,11 @@ type:
 	}
  ;
 
-decls: /* EMPTY */ { $$ = NULL; }
- | type SYM ';' decls {
+one_decl:
+   type SYM {
      cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
      printf( "New variable %s type %x\n", $2->name, $1 );
-     $2->aux = $4;
+     $2->aux = NULL;
      {
        struct f_val * val; 
        val = cfg_alloc(sizeof(struct f_val)); 
@@ -85,6 +85,24 @@ decls: /* EMPTY */ { $$ = NULL; }
      $$=$2;
    }
  ;
+
+/* Decls with ';' at the end */
+decls: /* EMPTY */ { $$ = NULL; }
+ | one_decl ';' decls {
+     $$ = $1;
+     $$->aux = $3;
+   }
+ ;
+
+/* Declarations that have no ';' at the end.
+   Ouch, this is responsible for 13 or so shift/reduce conflicts. */
+declsn: one_decl { $$ = $1; }
+ | declsn ';' one_decl {
+     $$ = $3;
+     $$->aux = $1;
+   }
+ ;
+
 
 filter_body:
    function_body {
@@ -104,7 +122,8 @@ filter:
  ;
 
 function_params:
-   '(' decls ')' { printf( "Have function parameters\n" ); $$=$2; }
+   '(' declsn ')' { printf( "Have function parameters\n" ); $$=$2; }
+ | '(' ')' { $$=NULL; }
  ;
 
 function_body:
@@ -166,11 +185,11 @@ prefix:
    prefix_s { $$ = $1; }
  | prefix_s '+' { $$ = $1; $$.val.px.len |= LEN_PLUS; }
  | prefix_s '-' { $$ = $1; $$.val.px.len |= LEN_MINUS; }
-/* | prefix_s '{' NUM ',' NUM '}' How should this be done? */
+ | prefix_s '{' NUM ',' NUM '}' { $$ = $1; $$.val.px.len |= LEN_RANGE | ($3 << 16) | ($5 << 8); }
  ;
 
 ipa:
-   IPA  { $$.type = T_IP; $$.val.ip = $1; }
+   IPA  { $$.type = T_IP; $$.val.px.ip = $1; }
  ;
 
 set_atom:
@@ -213,7 +232,8 @@ constant:
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; }
  | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_PAIR;  $$->a2.i = $1; }
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
- | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
+	   /* Replace with prefix_s to get rid of shift/reduce conflicts. */
+ | prefix  {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
  ;
 
@@ -245,7 +265,9 @@ term:
  | RTA '.' FROM { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
 
  | RTA '.' GW { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
- | RTA '.' NET  { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_PREFIX; $$->a2.i = 0x12345678; }
+ | RTA '.' NET { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_PREFIX; $$->a2.i = 0x12345678; }
+
+ | RTA '.' RIP_METRIC { $$ = f_new_inst(); $$->code = 'ea'; $$->a1.i = T_INT; $$->a2.i = EA_RIP_METRIC; }
 
  | term '.' IP { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_IP; }
  | term '.' LEN { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_INT; }
@@ -283,20 +305,24 @@ print_list: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
-var_list: term { 
+var_listn: term { 
      $$ = f_new_inst();
      $$->code = 's';
      $$->a1.p = NULL;
      $$->a2.p = $1;
      $$->next = NULL;
    }
- | term ',' var_list {
+ | term ',' var_listn {
      $$ = f_new_inst();
      $$->code = 's';
      $$->a1.p = NULL;
      $$->a2.p = $1;
      $$->next = $3;
    }
+ ;
+
+var_list: /* EMPTY */ { $$ = NULL; }
+ | var_listn { $$ = $1; }
  ;
 
 cmd:

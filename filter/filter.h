@@ -32,17 +32,17 @@ struct prefix {
   ip_addr ip;
   int len;
 #define LEN_MASK 0xff
-#define LEN_PLUS  0x10000 
-#define LEN_MINUS 0x20000
-#define LEN_RANGE 0x40000
-  /* If range then prefix must be in range (len >> 8 & 0xff, len & 0xff) */
+#define LEN_PLUS  0x1000000
+#define LEN_MINUS 0x2000000
+#define LEN_RANGE 0x4000000
+  /* If range then prefix must be in range (len >> 16 & 0xff, len >> 8 & 0xff) */
 };
 
 struct f_val {
   int type;
   union {
     int i;
-    ip_addr ip;
+    /*    ip_addr ip; Folded into prefix */	
     struct prefix px;
     char *s;
     struct f_tree *t;

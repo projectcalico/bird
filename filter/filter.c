@@ -5,8 +5,6 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
- *	FIXME: local namespace for functions
- *
  * 	Notice that pair is stored as integer: first << 16 | second
  */
 
@@ -70,16 +68,55 @@ val_compare(struct f_val v1, struct f_val v2)
     if (v1.val.i < v2.val.i) return -1;
     return 1;
   case T_IP:
-    return ipa_compare(v1.val.ip, v2.val.ip);
+  case T_PREFIX:
+    return ipa_compare(v1.val.px.ip, v2.val.px.ip);
   default: { printf( "Error comparing\n" ); return CMP_ERROR; }
   }
+}
+
+int 
+val_simple_in_range(struct f_val v1, struct f_val v2)
+{
+  if ((v1.type == T_IP) && (v2.type == T_PREFIX))
+    return !(ipa_compare(ipa_and(v2.val.px.ip, ipa_mkmask(v2.val.px.len)), ipa_and(v1.val.px.ip, ipa_mkmask(v2.val.px.len))));
+
+  if ((v1.type == T_PREFIX) && (v2.type == T_PREFIX)) {
+    ip_addr mask;
+    if (v1.val.px.len & (LEN_PLUS | LEN_MINUS | LEN_RANGE))
+      return CMP_ERROR;
+    mask = ipa_mkmask( v2.val.px.len & LEN_MASK );
+    if (ipa_compare(ipa_and(v2.val.px.ip, mask), ipa_and(v1.val.px.ip, mask)))
+      return 0;
+    /* FIXME: read rpsl or better ask mj: is it really like this? */
+    if ((v2.val.px.len & LEN_MINUS) && (v1.val.px.len <= (v2.val.px.len & LEN_MASK)))
+      return 0;
+    if ((v2.val.px.len & LEN_PLUS) && (v1.val.px.len < (v2.val.px.len & LEN_MASK)))
+      return 0;
+    if ((v2.val.px.len & LEN_RANGE) && ((v1.val.px.len < (0xff & (v2.val.px.len >> 16)))
+					|| (v1.val.px.len > (0xff & (v2.val.px.len >> 8)))))
+      return 0;
+    return 1;    
+  }
+  return CMP_ERROR;
 }
 
 int
 val_in_range(struct f_val v1, struct f_val v2)
 {
-  if (((v1.type == T_INT) || (v1.type == T_IP)) && (v2.type == T_SET))
-    return !! find_tree(v2.val.t, v1);
+  int res;
+
+  res = val_simple_in_range(v1, v2);
+
+  if (res != CMP_ERROR)
+    return res;
+
+  if (((v1.type == T_INT) || (v1.type == T_IP)) && (v2.type == T_SET)) {
+    struct f_tree *n;
+    n = find_tree(v2.val.t, v1);
+    if (!n)
+      return 0;
+    return !! (val_simple_in_range(v1, n->from));	/* We turn CMP_ERROR into compared ok, and that's fine */
+  }
   return CMP_ERROR;
 }
 
@@ -108,7 +145,7 @@ val_print(struct f_val v)
   case T_BOOL: PRINTF( v.val.i ? "TRUE" : "FALSE" ); break;
   case T_INT: PRINTF( "%d ", v.val.i ); break;
   case T_STRING: PRINTF( "%s", v.val.s ); break;
-  case T_IP: PRINTF( "%I", v.val.ip ); break;
+  case T_IP: PRINTF( "%I", v.val.px.ip ); break;
   case T_PREFIX: PRINTF( "%I/%d", v.val.px.ip, v.val.px.len ); break;
   case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
@@ -254,7 +291,7 @@ interpret(struct f_inst *what)
       res.type = what->a1.i;
       switch(res.type) {
       case T_IP:
-	res.val.ip = * (ip_addr *) ((char *) rta + what->a2.i);
+	res.val.px.ip = * (ip_addr *) ((char *) rta + what->a2.i);
 	break;
       case T_PREFIX:	/* Warning: this works only for prefix of network */
 	{
@@ -267,6 +304,9 @@ interpret(struct f_inst *what)
       }
     }
     break;
+  case 'ea':	/* Access to extended attributes [hmm, but we need it read/write, do we?] */
+    bug( "Implement me" );
+    break;
   case 'cp':	/* Convert prefix to ... */
     ONEARG;
     if (v1.type != T_PREFIX)
@@ -274,7 +314,7 @@ interpret(struct f_inst *what)
     res.type = what->a2.i;
     switch(res.type) {
     case T_INT:	res.val.i = v1.val.px.len; break;
-    case T_IP: res.val.ip = v1.val.px.ip; break;
+    case T_IP: res.val.px.ip = v1.val.px.ip; break;
     default: bug( "Unknown prefix to conversion\n" );
     }
     break;
