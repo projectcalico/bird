@@ -116,3 +116,15 @@ case "$bird_cv_type_time_t" in
 	*)		AC_DEFINE(TIME_T_IS_SIGNED) ;;
 	esac
 ])
+
+AC_DEFUN(BIRD_CHECK_STRUCT_IP_MREQN,
+[AC_CACHE_CHECK([struct ip_mreqn], bird_cv_struct_ip_mreqn,[
+AC_TRY_COMPILE([#include <netinet/in.h>
+],[struct ip_mreqn x;
+],[bird_cv_struct_ip_mreqn=yes
+],[bird_cv_struct_ip_mreqn=no
+])])
+if test "$bird_cv_struct_ip_mreqn" = yes ; then
+	AC_DEFINE(HAVE_STRUCT_IP_MREQN)
+fi
+])

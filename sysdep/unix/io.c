@@ -407,8 +407,7 @@ sk_open(sock *s)
     case SK_UDP_MC:
     case SK_IP_MC:
       {
-#ifdef HAVE_IP_MREQN
-	/* FIXME: Define HAVE_IP_MREQN somewhere :) */
+#ifdef HAVE_STRUCT_IP_MREQN
 	struct ip_mreqn mreq;
 #define mreq_add mreq
 	ASSERT(s->iface);

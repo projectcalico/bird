@@ -29,6 +29,9 @@
 #undef TIME_T_IS_64BIT
 #undef TIME_T_IS_SIGNED
 
+/* We have struct ip_mreqn in <netinet/in.h> */
+#undef HAVE_STRUCT_IP_MREQN
+
 /* Protocols compiled in */
 #undef CONFIG_STATIC
 #undef CONFIG_RIP
