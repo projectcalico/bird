@@ -35,7 +35,6 @@ struct protocol {
   char *name;
   char *template;			/* Template for automatic generation of names */
   unsigned debug;			/* Default debugging flags */
-  int priority;				/* Protocol priority (usually 0) */
   int name_counter;			/* Counter for automatic name generation */
 
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */

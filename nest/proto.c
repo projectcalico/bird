@@ -49,17 +49,7 @@ static void proto_rethink_goal(struct proto *p);
 static void
 proto_enqueue(list *l, struct proto *p)
 {
-  int pri = p->proto->priority;
-
-  if (!pri)
-    add_tail(l, &p->n);
-  else
-    {
-      struct proto *q = HEAD(*l);
-      while (q->n.next && q->proto->priority >= pri)
-	q = (struct proto *) q->n.next;
-      insert_node(&p->n, q->n.prev);
-    }
+  add_tail(l, &p->n);
   p->last_state_change = now;
 }
 
@@ -324,7 +314,7 @@ protos_dump_all(void)
 
   WALK_LIST(p, active_proto_list)
     {
-      debug("  protocol %s (pri=%d): state %s/%s\n", p->name, p->proto->priority,
+      debug("  protocol %s state %s/%s\n", p->name,
 	    p_states[p->proto_state], c_states[p->core_state]);
       if (p->in_filter)
 	debug("\tInput filter: %s\n", filter_name(p->in_filter));
@@ -424,13 +414,6 @@ proto_notify_state(struct proto *p, unsigned ps)
       ASSERT(ops == PS_DOWN || ops == PS_START);
       ASSERT(cs == FS_HUNGRY);
       DBG("%s: Scheduling meal\n", p->name);
-      if (p->proto->priority)		/* FIXME: Terrible hack to get synchronous device/kernel startup! */
-	{
-	  p->proto_state = ps;
-	  p->core_state = FS_FEEDING;
-	  proto_feed(p);
-	  return;
-	}
       cs = FS_FEEDING;
       p->attn->hook = proto_feed;
       ev_schedule(p->attn);

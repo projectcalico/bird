@@ -161,7 +161,6 @@ kif_reconfigure(struct proto *p, struct proto_config *new)
 struct protocol proto_unix_iface = {
   name:		"Device",
   template:	"device%d",
-  priority:	100,
   preconfig:	kif_preconfig,
   init:		kif_init,
   start:	kif_start,
@@ -801,7 +800,6 @@ krt_reconfigure(struct proto *p, struct proto_config *new)
 struct protocol proto_unix_kernel = {
   name:		"Kernel",
   template:	"kernel%d",
-  priority:	80,
   preconfig:	krt_preconfig,
   postconfig:	krt_postconfig,
   init:		krt_init,

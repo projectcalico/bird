@@ -89,7 +89,6 @@ dev_reconfigure(struct proto *p, struct proto_config *new)
 struct protocol proto_device = {
   name:		"Direct",
   template:	"direct%d",
-  priority:	90,
   init:		dev_init,
   reconfigure:	dev_reconfigure
 };

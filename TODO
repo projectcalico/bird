@@ -27,10 +27,9 @@ Core
 - config: when parsing prefix, check zero bits
 - config: useless rules when protocols disabled
 - config: better datetime format
+- config: long disable/enable/restart sequences hang
 
 - krt: rescan interfaces when route addition fails?
-- krt: does PERSIST mode have any sense if kernel syncer is shut down as last?
-- krt: check behaviour wrt. reconfiguration of routing tables
 
 - tagging of external routes?
 
