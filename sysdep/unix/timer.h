@@ -20,6 +20,7 @@ typedef struct timer {
   void (*hook)(struct timer *);
   void *data;
   unsigned randomize;			/* Amount of randomization */
+  unsigned recurrent;			/* Timer recurrence */
   node n;				/* Internal link */
   clock_t expires;			/* 0=inactive */
 } timer;

@@ -59,6 +59,10 @@ tm_dump(resource *r)
   timer *t = (timer *) r;
 
   debug("(code %p, data %p, ");
+  if (t->randomize)
+    debug("rand %d, ", t->randomize);
+  if (t->recurrent)
+    debug("recur %d, ", t->recurrent);
   if (t->expires)
     debug("expires in %d sec)\n", t->expires - now);
   else
@@ -99,7 +103,7 @@ tm_start(timer *t, unsigned after)
   bird_clock_t when;
 
   if (t->randomize)
-    after += random() % t->randomize;
+    after += random() % (t->randomize + 1);
   when = now + after;
   if (t->expires == when)
     return;
@@ -189,11 +193,20 @@ tm_shot(void)
     }
   while ((n = HEAD(near_timers)) -> next)
     {
+      int delay;
       t = SKIP_BACK(timer, n, n);
       if (t->expires > now)
 	break;
       rem_node(n);
+      delay = t->expires - now;
       t->expires = 0;
+      if (t->recurrent)
+	{
+	  int i = t->recurrent - delay;
+	  if (i < 0)
+	    i = 0;
+	  tm_start(t, i);
+	}
       t->hook(t);
     }
 }
@@ -276,10 +289,13 @@ fill_in_sockaddr(struct sockaddr_in *sa, ip_addr a, unsigned port)
   set_inaddr(&sa->sin_addr, a);
 }
 
-static void
+void
 get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port)
 {
-  *port = ntohs(sa->sin_port);
+  if (sa->sin_family != AF_INET)
+    die("get_sockaddr called for wrong address family");
+  if (port)
+    *port = ntohs(sa->sin_port);
   memcpy(a, &sa->sin_addr.s_addr, sizeof(*a));
   *a = ipa_ntoh(*a);
 }
@@ -384,19 +400,22 @@ sk_open(sock *s)
       {
 #ifdef HAVE_IP_MREQN
 	struct ip_mreqn mreq;
+#define mreq_add mreq
 	mreq.imr_ifindex = s->iface->index;
 	if (has_src)
 	  set_inaddr(&mreq.imr_address, s->saddr);
 	else
 	  set_inaddr(&mreq.imr_address, s->iface->ifa->ip);
 #else
-	struct ip_mreq mreq;
+	struct in_addr mreq;
+	struct ip_mreq mreq_add;
 	if (has_src)
-	  set_inaddr(&mreq.imr_interface, s->saddr);
+	  set_inaddr(&mreq, s->saddr);
 	else
-	  set_inaddr(&mreq.imr_interface, s->iface->ifa->ip);
+	  set_inaddr(&mreq, s->iface->ifa->ip);
+	memcpy(&mreq_add.imr_interface, &mreq, sizeof(struct in_addr));
 #endif
-	set_inaddr(&mreq.imr_multiaddr, s->daddr);
+	set_inaddr(&mreq_add.imr_multiaddr, s->daddr);
 	if (has_dest)
 	  {
 	    if (
@@ -414,7 +433,7 @@ sk_open(sock *s)
 	    if (setsockopt(fd, SOL_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0)
 	      ERR("IP_MULTICAST_IF");
 	}
-      if (has_src && setsockopt(fd, SOL_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+      if (has_src && setsockopt(fd, SOL_IP, IP_ADD_MEMBERSHIP, &mreq_add, sizeof(mreq_add)) < 0)
 	ERR("IP_ADD_MEMBERSHIP");
       break;
       }
