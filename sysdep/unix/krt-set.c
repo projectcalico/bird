@@ -22,7 +22,7 @@
 #include "lib/krt.h"
 
 int
-krt_capable(net *net, rte *e)
+krt_capable(rte *e)
 {
   rta *a = e->attrs;
 
@@ -40,11 +40,12 @@ krt_capable(net *net, rte *e)
 }
 
 void
-krt_remove_route(net *net, rte *old)
+krt_remove_route(rte *old)
 {
+  net *net = old->net;
   struct rtentry re;
 
-  if (old && !krt_capable(net, old))
+  if (!krt_capable(old) || old->attrs->source == RTS_INHERIT)
     {
       DBG("krt_remove_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
       return;
@@ -58,12 +59,13 @@ krt_remove_route(net *net, rte *old)
 }
 
 void
-krt_add_route(net *net, rte *new)
+krt_add_route(rte *new)
 {
+  net *net = new->net;
   struct rtentry re;
   rta *a = new->attrs;
 
-  if (!krt_capable(net, new))
+  if (!krt_capable(new) || new->attrs->source == RTS_INHERIT)
     {
       DBG("krt_add_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
       return;
@@ -105,9 +107,9 @@ krt_set_notify(struct proto *x, net *net, rte *new, rte *old)
   if (x->state != PRS_UP)
     return;
   if (old)
-    krt_remove_route(net, old);
+    krt_remove_route(old);
   if (new)
-    krt_add_route(net, new);
+    krt_add_route(new);
 }
 
 void
@@ -117,3 +119,4 @@ krt_set_preconfig(struct krt_proto *x)
     die("krt set: missing socket");
   x->p.rt_notify = krt_set_notify;
 }
+

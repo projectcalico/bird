@@ -14,8 +14,11 @@
 
 /* Flags stored in net->n.flags */
 
+#define KRF_CREATE 0			/* Not seen in kernel table */
 #define KRF_SEEN 1			/* Seen in kernel table during last scan */
 #define KRF_UPDATE 2			/* Need to update this entry */
+#define KRF_DELETE 3			/* Should be deleted */
+#define KRF_LEARN 4			/* We should learn this route */
 
 /* sync-rt.c */
 

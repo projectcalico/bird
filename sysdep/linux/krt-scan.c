@@ -28,54 +28,39 @@ static int krt_scan_fd = -1;
 
 /* FIXME: Filtering */
 
-static void
-krt_magic_route(struct krt_proto *p, net *net, ip_addr gw)
+static int
+krt_uptodate(rte *k, rte *e)
 {
-  neighbor *ng;
-  rta a, *t;
-  rte *e;
+  rta *ka = k->attrs, *ea = e->attrs;
 
-  ng = neigh_find(&p->p, &gw, 0);
-  if (!ng)
-    {
-      log(L_ERR "Kernel told us to use non-neighbor %I for %I/%d\n", gw, net->n.prefix, net->n.pxlen);
-      return;
-    }
-  a.proto = &p->p;
-  a.source = RTS_INHERIT;
-  a.scope = SCOPE_UNIVERSE;
-  a.cast = RTC_UNICAST;
-  a.dest = RTD_ROUTER;
-  a.tos = 0;
-  a.flags = 0;
-  a.gw = gw;
-  a.from = IPA_NONE;
-  a.iface = ng->iface;
-  a.attrs = NULL;
-  t = rta_lookup(&a);
-  e = rte_get_temp(t);
-  e->net = net;
-  rte_update(net, &p->p, e);
+  if (ka->dest != ea->dest)
+    return 0;
+  if (ka->dest == RTD_ROUTER && !ipa_equal(ka->gw, ea->gw))
+    return 0;
+  /* FIXME: Device routes */
+  return 1;
 }
 
 static void
-krt_parse_entry(byte *e, struct krt_proto *p)
+krt_parse_entry(byte *ent, struct krt_proto *p)
 {
   u32 dest0, gw0, mask0;
   ip_addr dest, gw, mask;
-  unsigned int flags;
+  unsigned int flags, verdict;
   int masklen;
   net *net;
-  byte *iface = e;
+  byte *iface = ent;
+  rta a;
+  rte *e, *old;
 
-  if (sscanf(e, "%*s\t%x\t%x\t%x\t%*d\t%*d\t%*d\t%x\t", &dest0, &gw0, &flags, &mask0) != 4)
+  if (sscanf(ent, "%*s\t%x\t%x\t%x\t%*d\t%*d\t%*d\t%x\t", &dest0, &gw0, &flags, &mask0) != 4)
     {
-      log(L_ERR "krt read: unable to parse `%s'", e);
+      log(L_ERR "krt read: unable to parse `%s'", ent);
       return;
     }
-  while (*e != '\t')
-    e++;
-  *e = 0;
+  while (*ent != '\t')
+    ent++;
+  *ent = 0;
 
   dest = ipa_from_u32(dest0);
   ipa_ntoh(dest);
@@ -99,47 +84,69 @@ krt_parse_entry(byte *e, struct krt_proto *p)
       log(L_WARN "krt: Ignoring redirect to %I/%d via %I", dest, masklen, gw);
       return;
     }
+
   net = net_get(&master_table, 0, dest, masklen);
-  if (net->routes)
+  a.proto = &p->p;
+  a.source = RTS_INHERIT;
+  a.scope = SCOPE_UNIVERSE;
+  a.cast = RTC_UNICAST;
+  a.tos = a.flags = a.aflags = 0;
+  a.from = IPA_NONE;
+  a.iface = NULL;
+  a.attrs = NULL;
+
+  if (flags & RTF_GATEWAY)
     {
-      rte *e = net->routes;
-      rta *a = e->attrs;
-      int ok;
-      switch (a->dest)
-	{
-	case RTD_ROUTER:
-	  ok = (flags & RTF_GATEWAY) && ipa_equal(gw, a->gw);
-	  break;
-	case RTD_DEVICE:
-#ifdef CONFIG_AUTO_ROUTES
-	  ok = 1;
-	  /* FIXME: What about static interface routes? */
-#else
-	  ok = !(flags & RTF_GATEWAY) && !strcmp(iface, a->iface->name);
-#endif
-	  break;
-	case RTD_UNREACHABLE:
-	  ok = flags & RTF_REJECT;
-	  break;
-	default:
-	  ok = 0;
-	}
-      net->n.flags |= ok ? KRF_SEEN : KRF_UPDATE;
+      neighbor *ng = neigh_find(&p->p, &gw, 0);
+      if (ng)
+	a.iface = ng->iface;
+      else
+	/* FIXME: Remove this warning? */
+	log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d\n", gw, net->n.prefix, net->n.pxlen);
+      a.dest = RTD_ROUTER;
+      a.gw = gw;
+    }
+  else if (flags & RTF_REJECT)
+    {
+      a.dest = RTD_UNREACHABLE;
+      a.gw = IPA_NONE;
     }
   else
     {
-#ifdef CONFIG_AUTO_ROUTES
-      if (!(flags & RTF_GATEWAY))	/* It's a device route */
-	return;
-#endif
-      DBG("krt_parse_entry: kernel reporting unknown route %I/%d\n", dest, masklen);
-      if (p->scanopt.learn)
-	{
-	  if (flags & RTF_GATEWAY)
-	    krt_magic_route(p, net, gw);
-	}
-      net->n.flags |= KRF_UPDATE;
+      /* FIXME: Should support interface routes? */
+      /* FIXME: What about systems not generating their own if routes? (see CONFIG_AUTO_ROUTES) */
+      return;
     }
+
+  e = rte_get_temp(&a);
+  e->net = net;
+  old = net->routes;
+  if (old && !krt_capable(old))
+    old = NULL;
+  if (old)
+    {
+      if (krt_uptodate(e, net->routes))
+	verdict = KRF_SEEN;
+      else
+	verdict = KRF_UPDATE;
+    }
+  else if (p->scanopt.learn && !net->routes)
+    verdict = KRF_LEARN;
+  else
+    verdict = KRF_DELETE;
+
+  DBG("krt_parse_entry: verdict %d\n", verdict);
+
+  net->n.flags = verdict;
+  if (verdict != KRF_SEEN)
+    {
+      /* Get a cached copy of attributes and link the route */
+      e->attrs = rta_lookup(e->attrs);
+      e->next = net->routes;
+      net->routes = e;
+    }
+  else
+    rte_free(e);
 }
 
 static int
@@ -187,7 +194,7 @@ krt_scan_proc(struct krt_proto *p)
 }
 
 static void
-krt_prune(void)
+krt_prune(struct krt_proto *p)
 {
   struct rtable *t = &master_table;
   struct fib_node *f;
@@ -200,24 +207,57 @@ krt_prune(void)
   FIB_WALK(&t->fib, f)
     {
       net *n = (net *) f;
-      switch (f->flags)
+      int verdict = f->flags;
+      rte *new, *old;
+
+      if (verdict != KRF_CREATE && verdict != KRF_SEEN)
 	{
-	case KRF_UPDATE:
-	  DBG("krt_prune: removing %I/%d\n", n->n.prefix, n->n.pxlen);
-	  krt_remove_route(n, NULL);
-	  /* Fall-thru */
-	case 0:
-	  if (n->routes)
+	  old = n->routes;
+	  n->routes = old->next;
+	}
+      else
+	old = NULL;
+      new = n->routes;
+
+      switch (verdict)
+	{
+	case KRF_CREATE:
+	  if (new)
 	    {
-	      DBG("krt_prune: reinstalling %I/%d\n", n->n.prefix, n->n.pxlen);
-	      krt_add_route(n, n->routes);
+	      if (new->attrs->source == RTS_INHERIT)
+		{
+		  DBG("krt_prune: removing inherited %I/%d\n", n->n.prefix, n->n.pxlen);
+		  rte_update(n, &p->p, NULL);
+		}
+	      else
+		{
+		  DBG("krt_prune: reinstalling %I/%d\n", n->n.prefix, n->n.pxlen);
+		  krt_add_route(new);
+		}
 	    }
 	  break;
 	case KRF_SEEN:
+	  /* Nothing happens */
+	  break;
+	case KRF_UPDATE:
+	  DBG("krt_prune: updating %I/%d\n", n->n.prefix, n->n.pxlen);
+	  krt_remove_route(old);
+	  krt_add_route(new);
+	  break;
+	case KRF_DELETE:
+	  DBG("krt_prune: deleting %I/%d\n", n->n.prefix, n->n.pxlen);
+	  krt_remove_route(old);
+	  break;
+	case KRF_LEARN:
+	  DBG("krt_prune: learning %I/%d\n", n->n.prefix, n->n.pxlen);
+	  rte_update(n, &p->p, new);
 	  break;
 	default:
 	  die("krt_prune: invalid route status");
 	}
+
+      if (old)
+	rte_free(old);
       f->flags = 0;
     }
   FIB_WALK_END;
@@ -229,7 +269,7 @@ krt_scan_fire(timer *t)
   struct krt_proto *p = t->data;
 
   if (krt_scan_proc(p))
-    krt_prune();
+    krt_prune(p);
 }
 
 void
