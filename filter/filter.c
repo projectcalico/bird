@@ -375,7 +375,7 @@ interpret(struct f_inst *what)
       l->flags = EALF_SORTED;
       l->count = 1;
       l->attrs[0].id = what->a2.i;
-      l->attrs[0].flags = 0;
+      l->attrs[0].flags = EAF_ORIGINATED;
       l->attrs[0].type = what->aux;
       switch (what->aux & EAF_TYPE_MASK) {
       case EAF_TYPE_INT:
