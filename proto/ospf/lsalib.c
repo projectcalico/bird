@@ -39,9 +39,13 @@ ospf_age(struct ospf_area *oa)
        lsasum_calculate(&en->lsa,en->lsa_body,po);
        return;
     }
-    if((en->lsa.age+=delta)>LSA_MAXAGE)
+    if((en->lsa.age+=delta)>=LSA_MAXAGE)
     {
-      if(flush) flush_lsa(en,oa);
+      if(flush)
+      {
+        flush_lsa(en,oa);
+        schedule_rtcalc(oa);
+      }
       else en->lsa.age=LSA_MAXAGE;
     }
   }
@@ -364,6 +368,7 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
   if((l1->age==LSA_MAXAGE)&&(l2->age!=LSA_MAXAGE)) return CMP_NEWER;
   if((l2->age==LSA_MAXAGE)&&(l1->age!=LSA_MAXAGE)) return CMP_OLDER;
 
+  debug("Abs=%u\n",abs(l1->age-l2->age));
   if(abs(l1->age-l2->age)>LSA_MAXAGEDIFF)
     return l1->age<l2->age ? CMP_NEWER : CMP_OLDER;
 
@@ -378,6 +383,8 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
   int change=0;
   unsigned i;
   struct top_hash_entry *en;
+
+  if(body==NULL) die("AA");
 
   if((en=ospf_hash_find_header(oa->gr,lsa))==NULL)
   {
@@ -403,18 +410,15 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
     if(change) s_rem_node(SNODE en);
   }
 
+  s_add_tail(&oa->lsal, SNODE en);
+  en->inst_t=now;
+  if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+  en->lsa_body=body;
+  memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
+
   if(change)
   {
-    s_add_tail(&oa->lsal, SNODE en);
-    en->inst_t=now;
-    if(en->lsa_body!=NULL) mb_free(en->lsa_body);
-    en->lsa_body=body;
-    memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
-    /* FIXME decide if route calculation must be done and how */
-    if(oa->rt!=NULL)
-    {
-      schedule_rtcalc(oa);
-    }
+    schedule_rtcalc(oa);
   }
   
   return en;
