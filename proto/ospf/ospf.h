@@ -61,7 +61,8 @@ struct ospf_iface {
 #define OSPF_IS_DROTHER 3	/* I'm on BCAST or NBMA and I'm not DR */
 #define OSPF_IS_BACKUP 4	/* I'm BDR */
 #define OSPF_IS_DR 5		/* I'm DR */
-  timer *timer;			/* WAIT and also HELLOINT time */
+  timer *wait_timer;		/* WAIT timer */
+  timer *hello_timer;		/* HELLOINT timer */
 /* Default values for interface parameters */
 #define COST_D 10
 #define RXMTINT_D 5

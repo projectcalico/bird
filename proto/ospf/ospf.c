@@ -83,7 +83,7 @@ ospf_rx_hook(sock *sk, int size)
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
   if(ps==NULL)
   {
-    log("%s: Bad packet received: bad header", p->name);
+    log("%s: Bad packet received: bad IP header", p->name);
     log("%s: Discarding",p->name);
     return(1);
   }
@@ -97,7 +97,7 @@ ospf_rx_hook(sock *sk, int size)
 
   if(ntohs(ps->length) != size)
   {
-    log("%s: Bad packet received: size fields does not match", p->name);
+    log("%s: Bad packet received: size field does not match", p->name);
     log("%s: Discarding",p->name);
     return(1);
   }
@@ -117,7 +117,6 @@ ospf_rx_hook(sock *sk, int size)
     return(1);
   }
 
-  /* FIXME: Count checksum */
   /* FIXME: Do authetification */
 
   if(ps->areaid!=ifa->area)
@@ -280,14 +279,6 @@ add_hello_timer(struct ospf_iface *ifa)
   struct proto *p;
   p=(struct proto *)(ifa->proto);
 
-  if(ifa->helloint==0) ifa->helloint=HELLOINT_D;
-  
-  ifa->timer->hook=hello_timer_hook;
-  ifa->timer->recurrent=ifa->helloint;
-  ifa->timer->expires=0;
-  tm_start(ifa->timer,0);
-  DBG("%s: Installing hello timer.\n", p->name);
-  if(ifa->type=OSPF_IT_PTP) ifa->state=OSPF_IS_PTP;
 }
 
 void
@@ -319,7 +310,6 @@ wait_timer_hook(timer *timer)
       debug("%s: Changing state into DROTHER.\n",p->name);
       ifa->state=OSPF_IS_DROTHER;
     }
-    add_hello_timer(ifa);
   }
   else
   {
@@ -328,28 +318,37 @@ wait_timer_hook(timer *timer)
 }
 
 void
-add_wait_timer(struct ospf_iface *ifa, pool *pool, int wait)
+ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
 {
   struct proto *p;
 
   p=(struct proto *)(ifa->proto);
-  ifa->timer=tm_new(pool);
-  ifa->timer->data=ifa;
-  ifa->timer->randomize=1;
+  /* Add hello timer */
+  ifa->hello_timer=tm_new(pool);
+  ifa->hello_timer->data=ifa;
+  ifa->hello_timer->randomize=1;
+  if(ifa->helloint==0) ifa->helloint=HELLOINT_D;
+  ifa->hello_timer->hook=hello_timer_hook;
+  ifa->hello_timer->recurrent=ifa->helloint;
+  ifa->hello_timer->expires=0;
+  tm_start(ifa->hello_timer,0);
+  DBG("%s: Installing hello timer.\n", p->name);
   if((ifa->type!=OSPF_IT_PTP))
   {
-    ifa->timer->hook=wait_timer_hook;
-    ifa->timer->recurrent=0;
-    ifa->timer->expires=0;
+    /* Install wait timer on NOT-PtP interfaces */
+    ifa->wait_timer=tm_new(pool);
+    ifa->wait_timer->data=ifa;
+    ifa->wait_timer->randomize=1;
+    ifa->wait_timer->hook=wait_timer_hook;
+    ifa->wait_timer->recurrent=0;
+    ifa->wait_timer->expires=0;
     ifa->state=OSPF_IS_WAITING;
-    tm_start(ifa->timer,(wait!=0 ? wait : WAIT_D));
+    tm_start(ifa->wait_timer,(wait!=0 ? wait : WAIT_D));
     DBG(p->name);
     DBG(": Installing wait timer.\n");
   }
-  else
-  {
-    add_hello_timer(ifa);
-  }
+  else ifa->state=OSPF_IS_PTP;
+
 }
 
 void
@@ -409,7 +408,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
     /* FIXME: This should read config */
-    add_wait_timer(ifa,p->pool,0);
+    ospf_add_timers(ifa,p->pool,0);
     init_list(&(ifa->sk_list));
     if((mcsk=ospf_open_socket(p, ifa))!=NULL)
     {
