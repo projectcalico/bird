@@ -249,7 +249,6 @@ cli_err(sock *s, int err)
 	log(L_INFO "CLI connection closed");
     }
   cli_free(s->data);
-  rfree(s);
 }
 
 static int
