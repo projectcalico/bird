@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2004 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2005 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -59,7 +59,7 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
   ipsk->tx_hook = ospf_tx_hook;
   ipsk->err_hook = ospf_err_hook;
   ipsk->iface = ifa->iface;
-  ipsk->rbsize = ifa->iface->mtu;
+  ipsk->rbsize = OSPF_MAX_PKT_SIZE;
   ipsk->tbsize = ifa->iface->mtu;
   ipsk->data = (void *) ifa;
   if (sk_open(ipsk) != 0)
@@ -126,7 +126,7 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 	    ifa->dr_sk->tx_hook = ospf_tx_hook;
 	    ifa->dr_sk->err_hook = ospf_err_hook;
 	    ifa->dr_sk->iface = ifa->iface;
-	    ifa->dr_sk->rbsize = ifa->iface->mtu;
+	    ifa->dr_sk->rbsize = OSPF_MAX_PKT_SIZE;
 	    ifa->dr_sk->tbsize = ifa->iface->mtu;
 	    ifa->dr_sk->data = (void *) ifa;
 	    if (sk_open(ifa->dr_sk) != 0)
@@ -299,7 +299,7 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
   mcsk->tx_hook = ospf_tx_hook;
   mcsk->err_hook = ospf_err_hook;
   mcsk->iface = ifa->iface;
-  mcsk->rbsize = ifa->iface->mtu;
+  mcsk->rbsize = OSPF_MAX_PKT_SIZE;
   mcsk->tbsize = ifa->iface->mtu;
   mcsk->data = (void *) ifa;
   if (sk_open(mcsk) != 0)
@@ -523,19 +523,19 @@ ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
       OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", iface->name);
       if (ifa->hello_sk)
       {
-	ifa->hello_sk->rbsize = ifa->iface->mtu;
+	ifa->hello_sk->rbsize = OSPF_MAX_PKT_SIZE;
 	ifa->hello_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->hello_sk);
       }
       if (ifa->dr_sk)
       {
-	ifa->dr_sk->rbsize = ifa->iface->mtu;
+	ifa->dr_sk->rbsize = OSPF_MAX_PKT_SIZE;
 	ifa->dr_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->dr_sk);
       }
       if (ifa->ip_sk)
       {
-	ifa->ip_sk->rbsize = ifa->iface->mtu;
+	ifa->ip_sk->rbsize = OSPF_MAX_PKT_SIZE;
 	ifa->ip_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->ip_sk);
       }

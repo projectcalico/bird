@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2005 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -10,6 +10,19 @@
 #define _BIRD_OSPF_H_
 
 #define MAXNETS 10
+#undef OSPF_BIG_PACKETS	/*
+                         * RFC 2328 says, maximum packet size is 65535
+			 * This could be too much for small systems, so I
+			 * normally allocate 2*mtu - (I found one cisco
+			 * sending packets mtu+16)
+			 */
+
+#ifdef OSPF_BIG_PACKETS
+#define OSPF_MAX_PKT_SIZE 65536
+#else
+#define OSPF_MAX_PKT_SIZE (ifa->iface->mtu * 2)
+#endif
+
 #ifdef LOCAL_DEBUG
 #define OSPF_FORCE_DEBUG 1
 #else
