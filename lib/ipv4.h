@@ -54,8 +54,10 @@ typedef u32 ip_addr;
 #define ipa_ntoh(x) x = _MI(ntohl(_I(x)))
 #define ipa_classify(x) ipv4_classify(_I(x))
 #define ipa_opposite(x) _MI(_I(x) ^ 1)
+#define ipa_class_mask(x) x = _MI(ipv4_class_mask(_I(x)))
 
 int ipv4_classify(u32);
+u32 ipv4_class_mask(u32);
 
 /* FIXME: Is this hash function uniformly distributed over standard routing tables? */
 static inline unsigned ipv4_hash(u32 a)

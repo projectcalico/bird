@@ -43,11 +43,26 @@ ip_ntop(ip_addr a, char *b)
 		      (x & 0xff));
 }
 
-
 char *
 ip_ntox(ip_addr a, char *b)
 {
   return b + bsprintf(b, "%08x", _I(a));
+}
+
+u32
+ipv4_class_mask(u32 a)
+{
+	u32 m;
+
+	if (a < 0x80000000)
+		m = 0xff000000;
+	if (a < 0xc0000000)
+		m = 0xffff0000;
+	else
+		m = 0xffffff00;
+	while (a & ~m)
+		m |= m >> 1;
+	return m;
 }
 
 #endif
