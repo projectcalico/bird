@@ -107,6 +107,26 @@ pool_lookup(resource *P, unsigned long a)
 }
 
 /**
+ * rmove - move a resource
+ * @res: resource
+ * @p: pool to move the resource to
+ *
+ * rmove() moves a resource from one pool to another.
+ */
+
+void rmove(void *res, pool *p)
+{
+  resource *r = res;
+
+  if (r)
+    {
+      if (r->n.next)
+        rem_node(&r->n);
+      add_tail(&p->inside, &r->n);
+    }
+}
+
+/**
  * rfree - free a resource
  * @res: resource
  *

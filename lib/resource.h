@@ -37,6 +37,7 @@ pool *rp_new(pool *, char *);		/* Create new pool */
 void rfree(void *);			/* Free single resource */
 void rdump(void *);			/* Dump to debug output */
 void rlookup(unsigned long);		/* Look up address (only for debugging) */
+void rmove(void *, pool *);		/* Move to a different pool */
 
 void *ralloc(pool *, struct resclass *);
 
