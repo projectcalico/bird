@@ -81,6 +81,8 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
 int
 val_compare(struct f_val v1, struct f_val v2)
 {
+  int rc;
+
   if ((v1.type == T_VOID) && (v2.type == T_VOID))
     return 0;
   if (v1.type == T_VOID)	/* Hack for else */
@@ -100,8 +102,15 @@ val_compare(struct f_val v1, struct f_val v2)
     if (v1.val.i < v2.val.i) return -1;
     return 1;
   case T_IP:
-  case T_PREFIX:
     return ipa_compare(v1.val.px.ip, v2.val.px.ip);
+  case T_PREFIX:
+    if (rc = ipa_compare(v1.val.px.ip, v2.val.px.ip))
+      return rc;
+    if (v1.val.px.len < v2.val.px.len)
+      return -1;
+    if (v1.val.px.len > v2.val.px.len)
+      return 1;
+    return 0;
   case T_PATH_MASK:
     return pm_path_compare(v1.val.path_mask, v2.val.path_mask);
   default:
