@@ -15,6 +15,7 @@
 #include "lib/resource.h"
 #include "lib/lists.h"
 #include "lib/event.h"
+#include "lib/string.h"
 #include "conf/conf.h"
 #include "nest/route.h"
 #include "nest/iface.h"
@@ -24,8 +25,15 @@
 static pool *proto_pool;
 
 list protocol_list;
-list proto_list;
+static list proto_list;
 
+#define WALK_PROTO_LIST(p) do {							\
+	node *nn;								\
+	WALK_LIST(nn, proto_list) {						\
+		struct proto *p = SKIP_BACK(struct proto, glob_node, nn);
+#define WALK_PROTO_LIST_END } } while(0)
+
+list active_proto_list;
 static list inactive_proto_list;
 static list initial_proto_list;
 static list flush_proto_list;
@@ -64,7 +72,7 @@ proto_relink(struct proto *p)
   switch (p->core_state)
     {
     case FS_HAPPY:
-      l = &proto_list;
+      l = &active_proto_list;
       break;
     case FS_FLUSHING:
       l = &flush_proto_list;
@@ -153,6 +161,7 @@ protos_preconfig(struct config *c)
   struct protocol *p;
 
   init_list(&proto_list);
+  init_list(&active_proto_list);
   init_list(&inactive_proto_list);
   init_list(&initial_proto_list);
   init_list(&flush_proto_list);
@@ -194,6 +203,7 @@ proto_init(struct proto_config *c)
   q->proto_state = PS_DOWN;
   q->core_state = FS_HUNGRY;
   proto_enqueue(&initial_proto_list, q);
+  add_tail(&proto_list, &q->glob_node);
   /*
    *  HACK ALERT!  In case of multiple kernel routing tables,
    *  the kernel syncer acts as multiple protocols which cooperate
@@ -282,6 +292,7 @@ proto_rethink_goal(struct proto *p)
       DBG("%s has shut down for reconfiguration\n", p->name);
       config_del_obstacle(p->cf->global);
       rem_node(&p->n);
+      rem_node(&p->glob_node);
       mb_free(p);
       if (!nc)
 	return;
@@ -303,8 +314,8 @@ proto_rethink_goal(struct proto *p)
       if (p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
 	{
 	  DBG("Kicking %s up\n", p->name);
-	  ASSERT(q->startup_counter > 0);
-	  q->startup_counter--;
+	  if (q->startup_counter > 0)	/* FIXME: Kill the startup counter hack! */
+	    q->startup_counter--;
 	  proto_init_instance(p);
 	  proto_notify_state(p, (q->start ? q->start(p) : PS_UP));
 	}
@@ -326,7 +337,7 @@ protos_dump_all(void)
 
   debug("Protocols:\n");
 
-  WALK_LIST(p, proto_list)
+  WALK_LIST(p, active_proto_list)
     {
       debug("  protocol %s (pri=%d): state %s/%s\n", p->name, p->proto->priority,
 	    p_states[p->proto_state], c_states[p->core_state]);
@@ -343,6 +354,8 @@ protos_dump_all(void)
     debug("  inactive %s: state %s/%s\n", p->name, p_states[p->proto_state], c_states[p->core_state]);
   WALK_LIST(p, initial_proto_list)
     debug("  initial %s\n", p->name);
+  WALK_LIST(p, flush_proto_list)
+    debug("  flushing %s\n", p->name);
 }
 
 void
@@ -514,15 +527,6 @@ proto_do_show(struct proto *p, int verbose)
     }
 }
 
-static void
-proto_do_show_list(list *l, int verbose)
-{
-  struct proto *p;
-
-  WALK_LIST(p, *l)
-    proto_do_show(p, verbose);
-}
-
 void
 proto_show(struct symbol *s, int verbose)
 {
@@ -536,9 +540,9 @@ proto_show(struct symbol *s, int verbose)
     proto_do_show(((struct proto_config *)s->def)->proto, verbose);
   else
     {
-      proto_do_show_list(&proto_list, verbose);
-      proto_do_show_list(&flush_proto_list, verbose);
-      proto_do_show_list(&inactive_proto_list, verbose);
+      WALK_PROTO_LIST(p)
+	proto_do_show(p, verbose);
+      WALK_PROTO_LIST_END;
     }
   cli_msg(0, "");
 }
@@ -559,7 +563,7 @@ proto_get_named(struct symbol *sym, struct protocol *pr)
   else
     {
       p = NULL;
-      WALK_LIST(q, proto_list)
+      WALK_LIST(q, active_proto_list)
 	if (q->proto == pr)
 	  {
 	    if (p)
@@ -570,4 +574,55 @@ proto_get_named(struct symbol *sym, struct protocol *pr)
 	cf_error("There is no %s protocol running", pr->name);
     }
   return p;
+}
+
+void
+proto_xxable(char *pattern, int xx)
+{
+  int cnt = 0;
+  WALK_PROTO_LIST(p)
+    if (patmatch(pattern, p->name))
+      {
+	cnt++;
+	switch (xx)
+	  {
+	  case 0:
+	    if (p->disabled)
+	      cli_msg(-8, "%s: already disabled", p->name);
+	    else
+	      {
+		cli_msg(-9, "%s: disabled", p->name);
+		p->disabled = 1;
+	      }
+	    break;
+	  case 1:
+	    if (!p->disabled)
+	      cli_msg(-10, "%s: already enabled", p->name);
+	    else
+	      {
+		cli_msg(-11, "%s: enabled", p->name);
+		p->disabled = 0;
+	      }
+	    break;
+	  case 2:
+	    if (p->disabled)
+	      cli_msg(-8, "%s: already disabled", p->name);
+	    else
+	      {
+		p->disabled = 1;
+		proto_rethink_goal(p);
+		p->disabled = 0;
+		cli_msg(-12, "%s: restarted", p->name);
+	      }
+	    break;
+	  default:
+	    ASSERT(0);
+	  }
+	proto_rethink_goal(p);
+      }
+  WALK_PROTO_LIST_END;
+  if (!cnt)
+    cli_msg(8003, "No protocols match");
+  else
+    cli_msg(0, "");
 }

@@ -278,7 +278,7 @@ ifa_notify_change(unsigned c, struct ifa *a)
   struct proto *p;
 
   debug("IFA change notification (%x) for %s:%I\n", c, a->iface->name, a->ip);
-  WALK_LIST(p, proto_list)
+  WALK_LIST(p, active_proto_list)
     if (p->ifa_notify)
       p->ifa_notify(p, c, a);
 }
@@ -307,7 +307,7 @@ if_notify_change(unsigned c, struct iface *i)
 	ifa_notify_change(IF_CHANGE_DOWN, a);
       }
 
-  WALK_LIST(p, proto_list)
+  WALK_LIST(p, active_proto_list)
     if (p->if_notify)
       p->if_notify(p, c, i);
 

@@ -16,6 +16,11 @@ Reply codes of BIRD command-line interface
 0005	Reconfiguration already in progress, queueing
 0006	Reconfiguration ignored, shutting down
 0007	Shutdown ordered
+0008	Already disabled
+0009	Disabled
+0010	Already enabled
+0011	Enabled
+0012	Restarted
 
 1000	BIRD version
 1001	Interface list
@@ -31,6 +36,7 @@ Reply codes of BIRD command-line interface
 8000	Reply too long
 8001	Route not found
 8002	Configuration file error
+8003	No protocols match
 
 9000	Command too long
 9001	Parse error

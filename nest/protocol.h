@@ -87,7 +87,8 @@ struct proto_config {
 };
 
 struct proto {
-  node n;
+  node n;				/* Node in *_proto_list */
+  node glob_node;			/* Node in global proto_list */
   struct protocol *proto;		/* Protocol */
   struct proto_config *cf;		/* Configuration data */
   struct proto_config *cf_new;		/* Configuration we want to switch to after shutdown (NULL=delete) */
@@ -151,10 +152,12 @@ struct proto {
 void proto_build(struct proto_config *);
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
+
 void proto_show(struct symbol *, int);
 struct proto *proto_get_named(struct symbol *, struct protocol *);
+void proto_xxable(char *, int);
 
-extern list proto_list;
+extern list active_proto_list;
 
 /*
  *  Each protocol instance runs two different state machines:

@@ -30,6 +30,7 @@ CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIREC
 %type <s> optsym
 %type <ra> r_args
 %type <i> echo_mask echo_size
+%type <t> proto_patt
 
 CF_GRAMMAR
 
@@ -285,6 +286,19 @@ echo_size:
      if ($1 < 256 || $1 > 65536) cf_error("Invalid log buffer size");
      $$ = $1;
    }
+ ;
+
+CF_CLI(DISABLE, proto_patt, <protocol> | <pattern> | all, [[Disable protocol]])
+{ proto_xxable($2, 0); } ;
+CF_CLI(ENABLE, proto_patt, <protocol> | <pattern> | all, [[Enable protocol]])
+{ proto_xxable($2, 1); } ;
+CF_CLI(RESTART, proto_patt, <protocol> | <pattern> | all, [[Restart protocol]])
+{ proto_xxable($2, 2); } ;
+
+proto_patt:
+   SYM { $$ = $1->name; }
+ | ALL { $$ = "*"; }
+ | TEXT
  ;
 
 CF_CODE
