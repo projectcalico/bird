@@ -894,7 +894,7 @@ io_loop(void)
   fd_set rd, wr;
   struct timeval timo;
   time_t tout;
-  int hi;
+  int hi, events;
   sock *s;
   node *n, *p;
 
@@ -904,7 +904,7 @@ io_loop(void)
   FD_ZERO(&wr);
   for(;;)
     {
-      ev_run_list(&global_event_list);
+      events = ev_run_list(&global_event_list);
       now = time(NULL);
       tout = tm_first_shot();
       if (tout <= now)
@@ -912,11 +912,8 @@ io_loop(void)
 	  tm_shot();
 	  continue;
 	}
-      else
-	{
-	  timo.tv_sec = tout - now;
-	  timo.tv_usec = 0;
-	}
+      timo.tv_sec = events ? 0 : tout - now;
+      timo.tv_usec = 0;
 
       hi = 0;
       WALK_LIST(n, sock_list)
