@@ -36,10 +36,10 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	FILTER
 	)
 
+%nonassoc ELSE
 %nonassoc THEN
-%nonassoc ELSE ';'
 
-%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list var_listn any_dynamic
+%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic
 %type <f> filter filter_body
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
@@ -213,7 +213,6 @@ set_items:
  | set_items ',' set_item { $$ = $3; $$->left = $1; }
  ;
 
-/* 2 shift/reduce conflicts here. Curable by replacing cmds with block which breaks syntax */
 switch_body: /* EMPTY */ { $$ = NULL; }
  | set_item ':' cmds switch_body {
      $$ = $1;
@@ -294,15 +293,6 @@ break_command:
  | PRINTN { $$ = F_NONL }
  ;
 
-ifthen:
-   IF term THEN block {
-     $$ = f_new_inst();
-     $$->code = '?';
-     $$->a1.p = $2;
-     $$->a2.p = $4;
-   }
- ;
-
 print_one:
    term { $$ = f_new_inst(); $$->code = 'p'; $$->a1.p = $1; $$->a2.p = NULL; }
  ;
@@ -337,15 +327,21 @@ var_list: /* EMPTY */ { $$ = NULL; }
  ;
 
 cmd:
-   ifthen { 
-     $$ = $1;
-   }
-	/* FIXME: this leads to shift/reduce conflict. */
- | ifthen ELSE block {
+   IF term THEN block {
      $$ = f_new_inst();
      $$->code = '?';
-     $$->a1.p = $1;
-     $$->a2.p = $3;
+     $$->a1.p = $2;
+     $$->a2.p = $4;
+   }
+ | IF term THEN block ELSE block {
+     struct f_inst *i = f_new_inst();
+     i->code = '?';
+     i->a1.p = $2;
+     i->a2.p = $4;
+     $$ = f_new_inst();
+     $$->code = '?';
+     $$->a1.p = i;
+     $$->a2.p = $6;
    }
  | SYM '=' term ';' {
      $$ = f_new_inst();
