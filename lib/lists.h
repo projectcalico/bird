@@ -23,10 +23,9 @@ typedef struct list {			/* In fact two overlayed nodes */
 #define WALK_LIST(n,list) for((n)=HEAD(list);(NODE (n))->next; \
 				n=(void *)((NODE (n))->next))
 #define WALK_LIST_DELSAFE(n,ne,list) \
-  if ( ((NODE n) = HEAD(list)) ) \
-    for( (NODE ne) = (NODE n)->next; \
+    for( ne = (void *) (NODE n)->next; \
          ne; \
-         (NODE ne) = (NODE (n=ne))->next )
+         ne = (void *) (NODE (n=ne))->next )
 
 #define EMPTY_LIST(list) (!(list).head->next)
 
