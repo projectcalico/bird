@@ -12,7 +12,7 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(OSPF, AREA)
+CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
 
 CF_GRAMMAR
 
@@ -34,6 +34,10 @@ ospf_area: AREA idval {
     ((struct ospf_config *)this_proto)->area = $2;
  }
  ;
+
+CF_ADDTO(dynamic_attr, OSPF_METRIC1 { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_METRIC1); })
+CF_ADDTO(dynamic_attr, OSPF_METRIC2 { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_METRIC2); })
+CF_ADDTO(dynamic_attr, OSPF_TAG { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_TAG); })
 
 CF_CODE
 

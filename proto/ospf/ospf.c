@@ -63,12 +63,13 @@ ospf_init(struct proto_config *c)
   struct proto_ospf *po=(struct proto_ospf *)p;
 
   debug("OSPF: Init requested.\n");
-  p->neigh_notify = NULL;
   p->import_control = ospf_import_control;
+  p->make_tmp_attrs = ospf_make_tmp_attrs;
+  p->store_tmp_attrs = ospf_store_tmp_attrs;
   p->rt_notify = ospf_rt_notify;
   p->if_notify = ospf_if_notify;
-  p->rte_better=ospf_rte_better;
-  p->rte_same=ospf_rte_same;
+  p->rte_better = ospf_rte_better;
+  p->rte_same = ospf_rte_same;
 
   return p;
 }
@@ -104,12 +105,34 @@ ospf_rte_better(struct rte *new, struct rte *old)
 static int
 ospf_rte_same(struct rte *new, struct rte *old)
 {
-  struct proto *p = new->attrs->proto;
+  /* new->attrs == old->attrs always */
+  return
+    new->u.ospf.metric1 == old->u.ospf.metric1 &&
+    new->u.ospf.metric2 == old->u.ospf.metric2 &&
+    new->u.ospf.tag     == old->u.ospf.tag;
+}
 
-  if(new->attrs->source!=old->attrs->source) return 0;
-  if(new->u.ospf.metric1!=old->u.ospf.metric1) return 0;
-  if(new->u.ospf.metric2!=old->u.ospf.metric2) return 0;
-  return 1;
+static ea_list *
+ospf_build_attrs(ea_list *next, struct linpool *pool, u32 m1, u32 m2, u32 tag)
+{
+  struct ea_list *l = lp_alloc(pool, sizeof(struct ea_list) + 3*sizeof(eattr));
+
+  l->next = next;
+  l->flags = EALF_SORTED;
+  l->count = 3;
+  l->attrs[0].id = EA_OSPF_METRIC1;
+  l->attrs[0].flags = 0;
+  l->attrs[0].type = EAF_TYPE_INT | EAF_TEMP;
+  l->attrs[0].u.data = m1;
+  l->attrs[1].id = EA_OSPF_METRIC2;
+  l->attrs[1].flags = 0;
+  l->attrs[1].type = EAF_TYPE_INT | EAF_TEMP;
+  l->attrs[1].u.data = m2;
+  l->attrs[2].id = EA_OSPF_TAG;
+  l->attrs[2].flags = 0;
+  l->attrs[2].type = EAF_TYPE_INT | EAF_TEMP;
+  l->attrs[2].u.data = tag;
+  return l;
 }
 
 int
@@ -118,9 +141,23 @@ ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool 
   rte *e=*new;
   struct proto_ospf *po=(struct proto_ospf *)p;
 
-  if(p==e->attrs->proto) return -1;
+  if(p==e->attrs->proto) return -1;	/* Reject our own routes */
+  *attrs = ospf_build_attrs(*attrs, pool, 0, 0, 0); /* FIXME: Use better defaults? */
+  return 0;				/* Leave decision to the filters */
+}
 
-  return 0;
+struct ea_list *
+ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool)
+{
+  return ospf_build_attrs(NULL, pool, rt->u.ospf.metric1, rt->u.ospf.metric2, rt->u.ospf.tag);
+}
+
+void
+ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
+{
+  rt->u.ospf.metric1 = ea_get_int(attrs, EA_OSPF_METRIC1, 0);
+  rt->u.ospf.metric2 = ea_get_int(attrs, EA_OSPF_METRIC2, 0);
+  rt->u.ospf.tag     = ea_get_int(attrs, EA_OSPF_TAG,     0);
 }
 
 static int
@@ -152,7 +189,7 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
 
   if(new)		/* Got some new route */
   {
-    originate_ext_lsa(n, new, po);
+    originate_ext_lsa(n, new, po, attrs);
   }
   else
   {
@@ -210,13 +247,27 @@ ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs)
     (rte->u.ospf.metric2==0) ? rte->u.ospf.metric1 : rte->u.ospf.metric2);
 }
 
+static int
+ospf_get_attr(eattr *a, byte *buf)
+{
+  switch (a->id)
+    {
+    case EA_OSPF_METRIC1: bsprintf(buf, "metric1"); return GA_NAME;
+    case EA_OSPF_METRIC2: bsprintf(buf, "metric2"); return GA_NAME;
+    case EA_OSPF_TAG: bsprintf(buf, "tag: %08x", a->u.data); return GA_FULL;
+    default: return GA_UNKNOWN;
+    }
+}
+
 struct protocol proto_ospf = {
   name: 		"OSPF",
   template:		"ospf%d",
+  attr_class:		EAP_OSPF,
   init:			ospf_init,
   dump:			ospf_dump,
   start:		ospf_start,
   shutdown:		ospf_shutdown,
   get_route_info:	ospf_get_route_info,
+  get_attr:		ospf_get_attr,
   get_status:		ospf_get_status
 };

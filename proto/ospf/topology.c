@@ -319,38 +319,42 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,1);
 }
 
-void *
-originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po)
+static void *
+originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
 {
   struct proto *p=&po->proto;
   struct ospf_lsa_ext *ext;
   struct ospf_lsa_ext_tos *et;
   neighbor *nn;
+  u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, 0);
+  u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 0);
+  u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
 
   ext=mb_alloc(p->pool,sizeof(struct ospf_lsa_ext)+
     sizeof(struct ospf_lsa_ext_tos));
   ext->netmask=ipa_mkmask(n->n.pxlen);
 
   et=(struct ospf_lsa_ext_tos *)(ext+1);
-  if(e->u.ospf.metric2!=0)
-  {
-    et->etos=0;
-    et->metric=e->u.ospf.metric1;
-  }
+
+  if(!m2)
+    {
+      et->etos=0;
+      et->metric=m1;
+    }
   else
-  {
-    et->etos=1;
-    et->metric=e->u.ospf.metric2;
-  }
+    {
+      et->etos=0x80;
+      et->metric=m2;
+    }
   et->padding=0;
-  et->tag=e->u.ospf.tag;
+  et->tag=tag;
   if(1) et->fwaddr= ipa_from_u32(0); /* FIXME if e->attrs->iface is not in my AS*/
   else et->fwaddr=e->attrs->gw;
   return ext;
 }
 
 void
-originate_ext_lsa(net *n, rte *e, struct proto_ospf *po)
+originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
 {
   struct ospf_lsa_header lsa;
   u32 rtid=po->proto.cf->global->router_id;
@@ -366,7 +370,7 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po)
   lsa.type=LSA_T_EXT;
   lsa.rt=rtid;
   lsa.sn=LSA_INITSEQNO;
-  body=originate_ext_lsa_body(n, e, po);
+  body=originate_ext_lsa_body(n, e, po, attrs);
   lsa.length=sizeof(struct ospf_lsa_ext)+sizeof(struct ospf_lsa_ext_tos)+
     sizeof(struct ospf_lsa_header);
   lsasum_calculate(&lsa,body,po);

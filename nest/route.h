@@ -287,7 +287,8 @@ typedef struct eattr {
 #define EAP_GENERIC 0			/* Generic attributes */
 #define EAP_BGP 1			/* BGP attributes */
 #define EAP_RIP 2			/* RIP */
-#define EAP_MAX 3
+#define EAP_OSPF 3			/* OSPF */
+#define EAP_MAX 4
 
 #define EA_CODE(proto,id) (((proto) << 8) | (id))
 #define EA_PROTO(ea) ((ea) >> 8)

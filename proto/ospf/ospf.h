@@ -353,7 +353,13 @@ static int ospf_rte_better(struct rte *new, struct rte *old);
 static int ospf_rte_same(struct rte *new, struct rte *old);
 int ospf_import_control(struct proto *p, rte **new, ea_list **attrs,
   struct linpool *pool);
+struct ea_list *ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool);
+void ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs);
 void ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old,ea_list *attrs);
+
+#define EA_OSPF_METRIC1	EA_CODE(EAP_OSPF, 0)
+#define EA_OSPF_METRIC2	EA_CODE(EAP_OSPF, 1)
+#define EA_OSPF_TAG	EA_CODE(EAP_OSPF, 2)
 
 #include "proto/ospf/hello.h"
 #include "proto/ospf/packet.h"
