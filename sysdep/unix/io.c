@@ -20,6 +20,7 @@
 #include "lib/resource.h"
 #include "lib/timer.h"
 #include "lib/socket.h"
+#include "lib/event.h"
 #include "nest/iface.h"
 
 #include "lib/unix.h"
@@ -58,7 +59,7 @@ tm_dump(resource *r)
 {
   timer *t = (timer *) r;
 
-  debug("(code %p, data %p, ");
+  debug("(code %p, data %p, ", t->hook, t->data);
   if (t->randomize)
     debug("rand %d, ", t->randomize);
   if (t->recurrent)
@@ -682,6 +683,7 @@ io_init(void)
   init_list(&near_timers);
   init_list(&far_timers);
   init_list(&sock_list);
+  init_list(&global_event_list);
   now = time(NULL);
 }
 
@@ -701,6 +703,7 @@ io_loop(void)
   FD_ZERO(&wr);
   for(;;)
     {
+      ev_run_list(&global_event_list);
       now = time(NULL);
       tout = tm_first_shot();
       if (tout <= now)
