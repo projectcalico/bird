@@ -38,6 +38,22 @@ static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
 static void proto_flush_all(void *);
 
 static void
+proto_enqueue(list *l, struct proto *p)
+{
+  int pri = p->proto->priority;
+
+  if (!pri)
+    add_tail(l, &p->n);
+  else
+    {
+      struct proto *q = HEAD(*l);
+      while (q->n.next && q->proto->priority >= pri)
+	q = (struct proto *) q->n.next;
+      insert_node(&p->n, q->n.prev);
+    }
+}
+
+static void
 proto_relink(struct proto *p)
 {
   list *l;
@@ -54,7 +70,7 @@ proto_relink(struct proto *p)
     default:
       l = &inactive_proto_list;
     }
-  add_tail(l, &p->n);
+  proto_enqueue(l, p);
 }
 
 void *
@@ -146,7 +162,7 @@ protos_commit(struct config *c)
       q = p->init(x);
       q->proto_state = PS_DOWN;
       q->core_state = FS_HUNGRY;
-      add_tail(&initial_proto_list, &q->n);
+      proto_enqueue(&initial_proto_list, q);
     }
   debug("\n");
 }
@@ -224,7 +240,8 @@ protos_dump_all(void)
 
   WALK_LIST(p, proto_list)
     {
-      debug("  protocol %s: state %s/%s\n", p->name, p_states[p->proto_state], c_states[p->core_state]);
+      debug("  protocol %s (pri=%d): state %s/%s\n", p->name, p->proto->priority,
+	    p_states[p->proto_state], c_states[p->core_state]);
       if (p->disabled)
 	debug("\tDISABLED\n");
       else if (p->proto->dump)

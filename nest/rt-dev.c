@@ -92,6 +92,7 @@ dev_preconfig(struct protocol *x, struct config *c)
 
 struct protocol proto_device = {
   name:		"Device",
+  priority:	100,
   preconfig:	dev_preconfig,
   init:		dev_init,
 };

@@ -30,6 +30,7 @@ struct protocol {
   node n;
   char *name;
   unsigned debug;			/* Default debugging flags */
+  int priority;				/* Protocol priority (usually 0) */
 
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
   void (*postconfig)(struct proto_config *);			/* After configuring each instance */
