@@ -38,3 +38,15 @@ get_best_password(struct password_item *head, int flags)
   }
   return best;
 }
+
+void
+password_strncpy(char *to, char *from, int len)
+{
+  int i;
+  for (i=0; i<len; i++) {
+    *to++ = *from;
+    if (*from)
+      from++;
+  }
+}
+

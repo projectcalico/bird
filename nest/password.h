@@ -20,5 +20,7 @@ struct password_item {
 extern struct password_item *last_password_item;
 
 struct password_item *get_best_password(struct password_item *head, int flags);
+extern void password_strncpy(char *to, char *from, int len);
+
 
 #endif
