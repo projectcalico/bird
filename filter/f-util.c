@@ -167,5 +167,4 @@ filters_postconfig(void)
   if (startup_func)
     interpret(startup_func);
   printf( "done\n" );
-  exit(0);
 } 
