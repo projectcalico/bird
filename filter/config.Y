@@ -43,7 +43,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 %nonassoc THEN
 */
 
-%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic
+%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic enums
 %type <f> filter filter_body
 %type <i> type break_command pair enum_rts
 %type <e> set_item set_items switch_body
@@ -248,6 +248,10 @@ enum_rts:
  | RTSPIPE { $$ = 13; }
  ;
 
+enums:
+   enum_rts { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_ENUM_RTS; $$->a2.i = $1; } 
+ ;
+
 constant:
    CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT; $$->a2.i = $3; }
  | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT;  $$->a2.i = $1; }
@@ -258,8 +262,7 @@ constant:
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
-
- | enum_rts { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_ENUM_RTS; $$->a2.i = $1; } 
+ | enums { $$ = $1; }
  ;
 
 any_dynamic:
@@ -280,6 +283,7 @@ term:
  | term '~' term     { $$ = f_new_inst(); $$->code = '~';  $$->a1.p = $1; $$->a2.p = $3; }
  | DEFINED '(' term ')' { $$ = f_new_inst(); $$->code = 'de';  $$->a1.p = $3; }
 
+ | constant { $$ = $1; }
  | SYM {
      $$ = f_new_inst();
      switch ($1->class) {
@@ -291,10 +295,9 @@ term:
 	 $$->a1.p = $1->aux2;
 	 break;
        default:
-	 cf_error("Can not use this class of symbol as variable." );
+	 cf_error("Can not use this class of symbol (%s,%x) as variable.", $1->name, $1->class );
      }
    }
- | constant { $$ = $1; }
  | RTA '.' FROM { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
 
  | RTA '.' GW { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
