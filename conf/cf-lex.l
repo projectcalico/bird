@@ -177,6 +177,10 @@ WHITE [ \t]
 <CCOMM><<EOF>>	cf_error("Unterminated comment");
 <CCOMM>.
 
+\!\= return NEQ;
+\<\= return LEQ;
+\>\= return GEQ;
+
 %%
 
 static int
