@@ -103,6 +103,8 @@ got_line(char *cmd_buffer)
 	  input_hidden = 0;
 	  free(cmd);
 	}
+      else
+	add_history(cmd_buffer);
     }
   free(cmd_buffer);
 }
