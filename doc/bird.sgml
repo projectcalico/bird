@@ -877,6 +877,193 @@ protocol kernel {		# Secondary routing table
 
 <sect>OSPF
 
+<sect1>Introduction
+
+<p>Open Shortest Path First (OSPF) is quite complex interior gateway
+protocol.  Today's version for IPv4 is 2 and it's defined in RFC 2328<htmlurl
+url="ftp://ftp.rfc-editor.org/in-notes/rfc2328.txt">. It's based on
+link-state of SPF technology. Each router maintains a database
+describing the Autonomous System's topology. Each participating router has
+has an identical database and all routers run the exact same algorithm
+calculatin shortest path tree with themselves as roots, in parallel.
+OSPF chooses the least cost path as the best path. In OSPF, the
+Autonomous System can be splitted into more areas. Topology
+of such area is hidden to the rest of the Autonomous System. This enables
+a reduction in routing traffic as well as protection other areas from bad
+routing data. Unfortunatelly multiple OSPF areas are not fully supported
+in this version of BIRD. Another very important feature of OSPF is that
+it can keep routing information from other protocols (like static or BGP)
+in it's link-state database as external routes. Each external route can
+be tagged by the advertising router, enabling the passing of additional
+information between routers on the boundary of the Autonomous System.
+
+<p>OSPF quickly detects topological changes in the Autonomous System (such
+as router interface failures) and calculates new loop-free routes after a
+period of convergence. This period of convergence is short and involves
+a minimum of routing traffic.
+
+<p>Each router joined in OSPF periodically sends hello messages out
+all its interfaces. This allows neighbors to be discovered dynamically.
+Then the neighbors exchange theirs parts of database. And keep it
+identical flooding updates. Flooding proces is reliable and ensures
+that each routes detects the change.
+
+<sect1>Configuration
+
+<p>
+
+<code>
+protocol ospf <name> {
+	rfc1583compat bool;
+	area <id> {
+		stub <bool>;
+		tick <num>;
+		interface <interface>
+		{
+			cost <num>;
+			hello <num>;
+			retransmit <num>;
+			priority <num>;
+			wait <num>;
+			dead count <num>;
+			type [broadcast|nonbroadcast|pointopoint];
+			authetication [none|simple];
+			password "<text>";
+			neighbors {
+				<ip>;
+			};
+		};
+	};
+}
+</code>
+
+<descrip>
+	<tag>rfc1583compat <M>bool</M></tag>
+	 This option can disable or enable compatibility of routing table
+	 calculation with RFC 1583<htmlurl
+	 url="ftp://ftp.rfc-editor.org/in-notes/rfc1583.txt">. Default
+	 value is no.
+	
+	<tag>area <M>id</M></tag>
+	 This specifies area id of configured OSPF area. It can be written
+	 as a number or as an IPv4 number. The most important area is
+	 the backbone (area id 0) to which every other area must be connected.
+
+	<tag>stub <M>bool</M></tag>
+	 No external routes are flooded into stub area. Default value is no.
+
+	<tag>tick <M>num</M></tag>
+	 The routing table calculation is not processed when any single
+	 change comes. To lower the CPU utilization it's processed late
+	 in periodical interval. The default value is 7.
+
+	<tag>interface <M>interface</M></tag>
+	 This mean that specified interface (or interface pattern) belongs
+	 to actual area.
+
+	<tag>cost <M>num</M></tag>
+	 Specifies output cost of interface. Default value is 10.
+
+	<tag>hello <M>num</M></tag>
+	 Specifies interval between sending hello messages. Beware, all
+	 router on the same network has to have the same hello interval.
+	 Default value is 10.
+
+	<tag>retransmit <M>num</M></tag>
+	 Specifies interval between retransmiting unacknoledged update.
+	 Default value is 5.
+
+        <tag>priority <M>num</M></tag>
+	 On every multiple access network (like e.g ethernet) Designed
+	 and Backup Designed router is elected. These routers have some
+	 special functions in flooding process. Higher priority rices
+	 preferences in elections. Routers with priority 0 are not
+	 eligible. Default value is 1.
+
+	<tag>wait <M>num</M></tag>
+	 After start, router waits specified interval between starting
+	 election and building adjacency. Default value is 40.
+	 
+	<tag>dead count <M>num</M></tag>
+	 When router does not receive any message from neighbor in
+	 <dead count>*<hello> seconds, it will declare neighbor down.
+
+	<tag>type <M>broadcast</M><tag>
+	 BIRD detects a type of connected network. However, sometimes is
+	 necessary to change it. On broadcast networks are flooding
+	 and hello messages sent using multicasting. (Single
+	 packet to all neighbors.)
+
+	<tag>type <M>nonbroadcast</M></tag>
+	 On nonbroadcast network are packets sent to each neighbor
+	 separately because of lack of multicast messages.
+
+	<tag>type <M>pointopoint</M></tag>
+	 Pointopoint network connects just 2 routers together. No election
+	 is provided there, this reduces a number of sent messages.
+
+	<tag>authetication <M>none</M></tag>
+	 No passwords are sent in OSPF's packets. This is default value.
+
+	<tag>authetication <M>simple</M></tag>
+	 In every packet is sent an 8 bytes long password. Received packets
+	 without this password are ignored. This autentication mechanism is
+	 very weak.
+
+	<tag>password <M>text</M></tag>
+	 An 8 bytes long password used for authentication.
+
+	<tag>neighbors</tag>
+	 A set of neighbors to which hello messages on nonbroadcast networks
+	 are sent.
+</descrip>
+
+<sect1>Attributes
+
+<p>OSPF defines 3 route attributes. Each internal route has a metric. External
+routes uses metric type 1 or metric type 2. Metric type one is comparable
+with internal metric. Metric type 2 is always longer then metric type 1
+or internal metric. Each external route can also carry a tag. Tag is
+32 bits long number and it's used for exporting routes to other protocols
+in link-state it has no funtion.
+
+<sect1>Example
+
+<p>
+
+<code>
+protocol ospf MyOSPF {
+	area 0.0.0.0 {
+		tick 8;
+		interface "eth*" {
+			cost 11;
+			hello 15;
+			priority 100;
+			retransmit 7;
+			authentication simple;
+			password "aaa";
+		};
+		interface "ppp*" {
+			cost 100;
+		};
+	};
+	area 120 {
+		stub yes;
+		interface "-arc0" , "arc*" {
+			type nonbroadcast;
+			authentication none;
+			wait 50;
+			dead count 6;
+			neighbors {
+				192.168.120.1;
+				192.168.120.2;
+				192.168.120.10;
+			};
+		};
+	};
+}
+</code>
+
 <sect>Pipe
 
 <sect1>Introduction
