@@ -31,6 +31,11 @@ struct f_inst {		/* Instruction */
 struct prefix {
   ip_addr ip;
   int len;
+#define LEN_MASK 0xff
+#define LEN_PLUS  0x10000 
+#define LEN_MINUS 0x20000
+#define LEN_RANGE 0x40000
+  /* If range then prefix must be in range (len >> 8 & 0xff, len & 0xff) */
 };
 
 struct f_val {
@@ -66,11 +71,12 @@ int val_compare(struct f_val v1, struct f_val v2);
 void val_print(struct f_val v);
 
 #define F_NOP 0
-#define F_ACCEPT 1	/* Need to preserve ordering: accepts < rejects! */
-#define F_MODIFY 2	/* FIXME: Introduce modification flags instead? */
-#define F_REJECT 3
-#define F_ERROR 4
-#define F_QUITBIRD 5
+#define F_NONL 1
+#define F_ACCEPT 2	/* Need to preserve ordering: accepts < rejects! */
+#define F_MODIFY 3	/* FIXME: Introduce modification flags instead? */
+#define F_REJECT 4
+#define F_ERROR 5
+#define F_QUITBIRD 6
 
 #define FILTER_ACCEPT NULL
 #define FILTER_REJECT ((void *) 1)
@@ -100,5 +106,7 @@ struct f_tree {
   struct f_val from, to;
   void *data;
 };
+
+#define NEW_F_VAL struct f_val * val; val = cfg_alloc(sizeof(struct f_val));
 
 #endif

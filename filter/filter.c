@@ -58,6 +58,7 @@ val_compare(struct f_val v1, struct f_val v2)
     return CMP_ERROR;
   switch (v1.type) {
   case T_INT: 
+  case T_PAIR:
     if (v1.val.i == v2.val.i) return 0;
     if (v1.val.i < v2.val.i) return -1;
     return 1;
@@ -209,30 +210,31 @@ interpret(struct f_inst *what)
       runtime( "~ applied on unknown type pair" );
     break;
 
-  /* Set to consant, a1 = type, a2 = value */
+  /* Set to indirect value, a1 = variable, a2 = value */
   case 's':
     ARG(v2, a2.p);
     sym = what->a1.p;
     switch (res.type = v2.type) {
     case T_VOID: runtime( "Can not assign void values" );
     case T_INT: 
-      if (sym->class != (SYM_VARIABLE | T_INT))
+    case T_IP: 
+    case T_PREFIX: 
+    case T_PAIR: 
+      if (sym->class != (SYM_VARIABLE | v2.type))
 	runtime( "Variable of bad type" );
-      sym->aux = v2.val.i; 
+      * (struct f_val *) sym->aux2 = v2; 
       break;
+    default:
+      bug( "Set to invalid type\n" );
     }
     break;
 
-  case 'c':
+  case 'c':	/* integer (or simple type) constant */
     res.type = what->a1.i;
-    res.val.i = (int) what->a2.p;
+    res.val.i = what->a2.i;
     break;
   case 'C':
     res = * ((struct f_val *) what->a1.p);
-    break;
-  case 'i':
-    res.type = what->a1.i;
-    res.val.i = * ((int *) what->a2.p);
     break;
   case 'p':
     ONEARG;
@@ -253,7 +255,8 @@ interpret(struct f_inst *what)
     break;
   case 'p,':
     ONEARG;
-    printf( "\n" );
+    if (what->a2.i != F_NONL)
+      printf( "\n" );
 
     switch (what->a2.i) {
     case F_QUITBIRD:
@@ -265,6 +268,7 @@ interpret(struct f_inst *what)
       res.type = T_RETURN;
       res.val.i = what->a1.i;
       break;
+    case F_NONL:
     case F_NOP:
       break;
     default:
@@ -308,6 +312,10 @@ interpret(struct f_inst *what)
   case 'sw': /* SWITCH alias CASE */
     ONEARG;
     interpret_switch(what->a2.p, v1);
+    break;
+  case 'iM': /* IP.MASK(val) */
+    TWOARGS_C;
+    bug( "Should implement ip.mask\n" );
     break;
   default:
     bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);

@@ -5,16 +5,13 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
-	FIXME: prefix variables, make prefix.ip and prefix.length work
 	FIXME: define keyword
-	FIXME: case without { }'s
-	FIXME: allow px+, px- px^pair in prefix sets
+	FIXME: make px+, px- px^pair work in prefix sets
 	FIXME: create ip.mask(x) function
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
 	FIXME: access to dynamic attributes
-	FIXME: do not allow function call by callme(1,2,)
-	FIXME: pairs of integers: define compare
+	FIXME: make case faster
  */
 
 CF_HDR
@@ -29,12 +26,12 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(FUNCTION, PRINT, CONST,
+CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE,
-	RTA, FROM, GW, NET,
+	RTA, FROM, GW, NET, MASK,
 	LEN,
 	IMPOSSIBLE,
 	FILTER
@@ -42,9 +39,9 @@ CF_KEYWORDS(FUNCTION, PRINT, CONST,
 
 %type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list switch_body
 %type <f> filter filter_body
-%type <i> type break_command
+%type <i> type break_command pair
 %type <e> set_item set_items
-%type <v> set_atom
+%type <v> set_atom prefix prefix_s ipa
 %type <s> decls function_params 
 
 CF_GRAMMAR
@@ -80,6 +77,12 @@ decls: /* EMPTY */ { $$ = NULL; }
      cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
      printf( "New variable %s type %x\n", $2->name, $1 );
      $2->aux = $4;
+     {
+       struct f_val * val; 
+       val = cfg_alloc(sizeof(struct f_val)); 
+       val->type = $1; 
+       $2->aux2 = val;
+     }
      $$=$2;
    }
  ;
@@ -146,10 +149,36 @@ block:
    }
  ;
 
+/*
+ * Simple types, their bison value is int
+ */
+pair:
+   '(' NUM ',' NUM ')' { $$ = $2 << 16 | $4; }
+ ;
+
+/*
+ * Complex types, their bison value is struct f_val
+ */
+prefix_s:
+   IPA '/' NUM { $$.type = T_PREFIX; $$.val.px.ip = $1; $$.val.px.len = $3; printf( "ook, we have prefix here\n" ); }
+ ;
+
+prefix:
+   prefix_s { $$ = $1; }
+ | prefix_s '+' { $$ = $1; $$.val.px.len |= LEN_PLUS; }
+ | prefix_s '-' { $$ = $1; $$.val.px.len |= LEN_MINUS; }
+/* | prefix_s '{' NUM ',' NUM '}' How should this be done? */
+ ;
+
+ipa:
+   IPA  { $$.type = T_IP; $$.val.ip = $1; }
+ ;
+
 set_atom:
-   NUM { $$.type = T_INT; $$.val.i = $1; }
- | IPA { $$.type = T_IP; $$.val.ip = $1; }
- 
+   NUM  { $$.type = T_INT; $$.val.i = $1; }
+ | pair { $$.type = T_PAIR; $$.val.i = $1; }
+ | ipa  { $$ = $1; }
+ | prefix { $$ = $1; }
  ; 
 
 set_item:
@@ -162,15 +191,16 @@ set_items:
  | set_items ',' set_item { $$ = $3; $$->left = $1; }
  ;
 
+
 constant:
    CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT; $$->a2.i = $3; }
  | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT;  $$->a2.i = $1; }
  | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 1;  }
  | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 0;  }
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; }
- | '(' NUM ',' NUM ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_PAIR;  $$->a2.i = $2 << 16 | $4; }
- | IPA	  { struct f_val * val; val = cfg_alloc(sizeof(struct f_val)); $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_IP; val->val.ip = $1; }
- | IPA '/' NUM { struct f_val * val; val = cfg_alloc(sizeof(struct f_val)); $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_PREFIX; val->val.px.ip = $1; val->val.px.len = $3; printf( "ook, we have prefix here\n" ); }
+ | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_PAIR;  $$->a2.i = $1; }
+ | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
+ | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
  ;
 
@@ -188,9 +218,11 @@ term:
      $$ = f_new_inst();
      switch ($1->class) {
        case SYM_VARIABLE | T_INT:
-	 $$->code = 'i';
-         $$->a1.i = T_INT;
-	 $$->a2.p = &($1->aux);
+       case SYM_VARIABLE | T_PAIR:
+       case SYM_VARIABLE | T_PREFIX:
+       case SYM_VARIABLE | T_IP:
+	 $$->code = 'C';
+	 $$->a1.p = $1->aux2;
 	 break;
        default:
 	 cf_error("Can not use this class of symbol as variable." );
@@ -204,6 +236,7 @@ term:
 
  | term '.' IP { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_IP; }
  | term '.' LEN { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_INT; }
+ | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = 'iM'; $$->a1.p = $1; $$->a2.p = $5; }
  ;
 
 break_command:
@@ -212,6 +245,7 @@ break_command:
  | REJECT { $$ = F_REJECT }
  | ERROR { $$ = F_ERROR }
  | PRINT { $$ = F_NOP }
+ | PRINTN { $$ = F_NONL }
  ;
 
 ifthen:
@@ -236,7 +270,13 @@ print_list: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
-var_list: /* EMPTY */ { $$ = NULL; }
+var_list: term { 
+     $$ = f_new_inst();
+     $$->code = 's';
+     $$->a1.p = NULL;
+     $$->a2.p = $1;
+     $$->next = NULL;
+   }
  | term ',' var_list {
      $$ = f_new_inst();
      $$->code = 's';
@@ -246,15 +286,16 @@ var_list: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
+/* 2 shift/reduce conflicts here. Curable by replacing cmds with block which breaks syntax */
 switch_body: /* EMPTY */ { $$ = NULL; }
- | term ':' block switch_body {
+ | term ':' cmds switch_body {
      $$ = f_new_inst();
      $$->code = 'of';
      $$->a1.p = $1;
      $$->a2.p = $3;
      $$->next = $4;
    }
- | ELSE ':' block {
+ | ELSE ':' cmds {
      $$ = f_new_inst();
      $$->code = 'el';
      $$->a1.p = NULL;
