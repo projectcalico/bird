@@ -33,8 +33,8 @@ This document contains documentation for BIRD Internet Routing Daemon
 
 <p><label id="intro"> You may wonder what 'bird' means. It is acronym of 'BIRD Internet Routing
 Daemon', and we think that's cool name. Its task is similar to what firmware of Cisco routers does,
-or what gated (<HTMLURL URL="http://www.gated.org/">) or GNU zebra (<HTMLURL
-URL="http://www.zebra.org/">) does. However, you can not run Cisco's firmware on "normal" computer
+or what gated <HTMLURL URL="http://www.gated.org/"> or GNU zebra <HTMLURL
+URL="http://www.zebra.org/"> does. However, you can not run Cisco's firmware on "normal" computer
 and gated is really hard to configure and comes under wrong license. Bird is being developed on
 Charles University, Prague, and can be freely distributed under terms of GNU General Public
 License. Bird is designed to run on Unix and unix-like systems, it is primarily developed on Linux.
@@ -47,7 +47,9 @@ it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is consi
 configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
 "meta" information -- something in config which is not keyword.
 
-<sect1>Configuration
+<sect>Configuration
+
+<sect1>Introduction
 
 <p>Bird is configured using text configuration file. At startup, bird reads <file/bird.conf/
 (unless -c command line parameter is given). Really simple configuration file might look like this:
@@ -75,7 +77,8 @@ ignored. If there's variable number of options, it is grouped using {
 
 <p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
 
-<sect2>Global options
+<sect1>Global options
+
 <p><descrip>
 	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of
 	classes/ }</tag> set logging of classes (either all or <cf/{
@@ -104,11 +107,15 @@ ignored. If there's variable number of options, it is grouped using {
 	router. It is usually one of router's IP addresses.
 
 	<tag>table <m/name/</tag> create new routing table.
+
+	<tag>eval <m/expr/</tag> evaluates give filter expression. It is basically mainly for testing.
 </descrip>
 
-<sect2>Per-protocol options
+<sect1>Per-protocol options
 
-<p><descrip>
+<p>Several options are per-protocol, but all protocols support them. They are described here.
+
+<descrip>
 	<tag>preference <m/expr/</tag> sets preference of this protocol.
 
 	<tag>disabled</tag> disables given protocol.
@@ -122,6 +129,8 @@ ignored. If there's variable number of options, it is grouped using {
 
 	<tag>export <m/filter/</tag> This is similar to <cf>export</cf> keyword, except that it
 	works in direction from main routing table to protocol.
+
+	<tag>table <m/name/</tag> Connect this protocol to non-default table.
 </descrip>
 
 <p>There are per-protocol options that give sense only with certain protocols.
@@ -234,7 +243,7 @@ booleans (that is to prevent you from shooting in the foot).
 <sect1>Operations
 
 <p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parenthesis <cf/(a*(b+c))/, comparation
-<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/~/ for "in" operation. In operation can be
+<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
 used on element and set of that elements, or on ip and prefix, or on prefix and prefix. Its result
 is true if element is in given set or if ip address is inside given prefix.
 
@@ -275,10 +284,22 @@ clause may be omitted.
 
 <p><cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else |
 <m/num_or_prefix [ .. num_or_prefix]/ : <m/statement/ ; [ ... ] }</cf>. Expression after
-<cf>case</cf> can be of any type that can be on the left side of ~ operator, and anything that could
+<cf>case</cf> can be of any type that can be on the left side of &tilde; operator, and anything that could
 be member of set is allowed before :. Multiple commands are allowed without {} grouping. If argument
 matches neither of : clauses, else: clause is used. (Case is actually implemented as set matching,
 internally.)
+
+<p>Here is example that uses if and case structures:
+
+<code>
+case arg1 {
+	2: print "two"; print "I can do more commands without {}";
+	3 .. 5: print "three to five";
+	else: print "something else";
+	}
+
+if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
+</code>
 
 <sect>Protocols
 
@@ -321,7 +342,7 @@ interface but not listen on it.
 
 <p>Following options generally override specified behavior from rfc. If you use any of these
 options, bird will no longer be rfc-compatible, which means it will not be able to talk to anything
-other than equally (mis-)configured bird. I warned you.
+other than equally misconfigured bird. I warned you.
 
 <descrip>
 	<tag>port <M>number</M></tag>
