@@ -24,7 +24,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
   mask = ps->netmask;
   ipa_ntoh(mask);
 
-  if ((ifa->type != OSPF_IT_VLINK) &&
+  if (((ifa->type != OSPF_IT_VLINK) || (ifa->type != OSPF_IT_PTP)) &&
       ((unsigned) ipa_mklen(mask) != ifa->iface->addr->pxlen))
   {
     log(L_ERR "%s%I%sbad netmask %I.", beg, faddr, rec, mask);
