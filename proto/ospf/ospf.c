@@ -24,20 +24,26 @@
 int
 ospf_rx_hook(sock *sk, int size)
 {
-  DBG(" RX_Hook_Called.\n");
+  DBG(" OSPF: RX_Hook called on interface ");
+  DBG(sk->iface->name);
+  DBG(".\n");
   return(1);
 }
 
 void
 ospf_tx_hook(sock *sk)
 {
-  DBG(" TX_Hook_Called.\n");
+  DBG(" OSPF: TX_Hook called on interface ");
+  DBG(sk->iface->name);
+  DBG(".\n");
 }
 
 void
 ospf_err_hook(sock *sk, int err)
 {
-  DBG(" Err_Hook_Called.\n");
+  DBG(" OSPF: Err_Hook called on interface ");
+  DBG(sk->iface->name);
+  DBG(".\n");
 }
 
 /* This will change ! */
@@ -48,7 +54,7 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
 
   /* No NBMA networks now */
 
-  if(ifa->iface->flags & IF_MULTICAST)
+  if(((struct iface *)ifa)->flags & IF_MULTICAST)
   {
     mcsk=sk_new(p->pool);
     mcsk->type=SK_IP_MC;
@@ -59,8 +65,8 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
     mcsk->rx_hook=ospf_rx_hook;
     mcsk->tx_hook=ospf_tx_hook;
     mcsk->err_hook=ospf_err_hook;
-    mcsk->iface=ifa->iface;
-    mcsk->rbsize=ifa->iface->mtu;
+    mcsk->iface=(struct iface *)ifa;
+    mcsk->rbsize=((struct iface *)ifa)->mtu;
     if(sk_open(mcsk)!=0)
     {
       DBG(" OSPF: SK_OPEN: failed\n");
@@ -87,7 +93,7 @@ is_good_iface(struct proto *p, struct iface *iface)
 }
 
 /* Of course, it's NOT true now */
-byte
+int
 ospf_iface_clasify(struct iface *ifa)
 {
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
@@ -116,13 +122,14 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->drid=0;
   ifa->bdrip=ipa_from_u32(0x00000000);
   ifa->bdrid=0;
-  ifa->type=ospf_iface_clasify(ifa->iface);
+  ifa->type=ospf_iface_clasify((struct iface *)ifa);
 }
 
 void
 ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface *old)
 {
-  struct ospf_iface *ospf_iface;
+  struct ospf_iface *ifa;
+  sock *mcsk;
 
   struct ospf_config *c;
   c=(struct ospf_config *)(p->cf);
@@ -133,15 +140,16 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
 
   if(((flags & IF_CHANGE_UP)==IF_CHANGE_UP) && is_good_iface(p, new))
   {
+    debug(" OSPF: using interface %s.\n", new->name);
     /* Latter I'll use config - this is incorrect */
-    ospf_iface=mb_alloc(p->pool, sizeof(struct ospf_iface));
-    ospf_iface->iface=new;
-    add_tail(&c->iface_list, NODE ospf_iface);
-    ospf_iface_default(ospf_iface);
-    init_list(&(ospf_iface->sk_list));
-    if(ospf_open_socket(p, ospf_iface)!=NULL)
+    ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
+    bcopy(new, ifa, sizeof(struct ospf_iface));
+    add_tail(&c->iface_list, NODE ifa);
+    ospf_iface_default(ifa);
+    init_list(&(ifa->sk_list));
+    if((mcsk=ospf_open_socket(p, ifa))!=NULL)
     {
-      add_tail(&(ospf_iface->sk_list),NODE ospf_iface);
+      add_tail(&(ifa->sk_list),NODE mcsk);
     }
   }
 }

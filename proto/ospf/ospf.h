@@ -26,9 +26,8 @@ struct ospf_config {
 };
 
 struct ospf_iface {
-  node n;
+  struct iface i;	/* Nest's iface */
   list sk_list;		/* List of active sockets */
-  struct iface *iface;	/* Nest's iface */
   u32 area;		/* OSPF Area */
   u16 cost;		/* Cost of iface */
   int rxmtint;		/* number of seconds between LSA retransmissions */
@@ -45,7 +44,7 @@ struct ospf_iface {
   u32 drid;
   ip_addr bdrip;	/* Backup DR */
   u32 bdrid;
-  int type;
+  int type;		/* OSPF view of type */
 #define OSPF_IM_BROADCAST 0
 #define OSPF_IM_NBMA 1
 #define OSPF_IM_PTP 2

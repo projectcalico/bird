@@ -31,7 +31,7 @@ ospf_proto:
  | ospf_proto ospf_area ';'
  ;
 
-ospf_area: AREA idval ';' {
+ospf_area: AREA idval {
     ((struct ospf_config *)this_proto)->area = $2;
  }
  ;
