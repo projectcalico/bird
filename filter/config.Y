@@ -72,7 +72,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	LEN,
 	DEFINED,
 	ADD, DELETE, CONTAINS, RESET,
-	APPEND, MATCH,
+	PREPEND, MATCH,
 	EMPTY,
 	FILTER, WHERE)
 
@@ -388,6 +388,7 @@ term:
        case SYM_VARIABLE | T_PREFIX:
        case SYM_VARIABLE | T_IP:
        case SYM_VARIABLE | T_PATH_MASK:
+       case SYM_VARIABLE | T_PATH:
 	 $$->code = 'C';
 	 $$->a1.p = $1->aux2;
 	 break;
@@ -417,10 +418,11 @@ term:
 */
 
 /* Paths */
- | term '.' APPEND '(' term ')' { }
+ | term '.' PREPEND '(' term ')' { }
  | term '.' RESET { }
 
- | EMPTY { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_PATH; }
+ | '+' EMPTY '+' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_PATH; }
+ | PREPEND '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('A','p'); $$->a1.p = $3; $$->a2.p = $5; } 
 
 /* | term '.' LEN { $$->code = P('P','l'); } */
 

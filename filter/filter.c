@@ -253,6 +253,8 @@ interpret(struct f_inst *what)
     case T_IP: 
     case T_PREFIX: 
     case T_PAIR: 
+    case T_PATH:
+    case T_CLIST:
     case T_PATH_MASK:
       if (sym->class != (SYM_VARIABLE | v2.type))
 	runtime( "Variable of bad type" );
@@ -584,6 +586,7 @@ filters_postconfig(void)
   struct f_val res;
   if (startup_func) {
     debug( "Launching startup function...\n" );
+    f_pool = lp_new(&root_pool, 1024);
     res = interpret(startup_func);
     if (res.type == F_ERROR)
       die( "Startup function resulted in error." );
@@ -674,10 +677,9 @@ path_format(u8 *p, int len)
 #define PM_END -1
 #define PM_ASTERIX -2
 
-#define MASK_PLUS do { mask = mask->next; if (mask->val == PM_END) return next == q; \
+#define MASK_PLUS do { mask = mask->next; if (!mask) return next == q; \
 		       asterix = (mask->val == PM_ASTERIX); \
-		       printf( "Asterix now %d\n", asterix ); \
-                       if (asterix) { mask = mask->next; if (mask->val == PM_END) { printf( "Quick exit\n" ); return 1; } } \
+                       if (asterix) { mask = mask->next; if (!mask) { return 1; } } \
 		       } while(0)
 
 int
