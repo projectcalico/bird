@@ -29,6 +29,7 @@ ospf_rt_spfa(struct ospf_area *oa)
   bird_clock_t delta;
   int age=0,flush=0;
   struct proto *p=&oa->po->proto;
+  struct proto_ospf *po=oa->po;
   ip_addr ip;
   struct fib_iterator fit;
   struct ospf_lsa_net *ln;
@@ -45,6 +46,7 @@ ospf_rt_spfa(struct ospf_area *oa)
   {
     en->color=OUTSPF;
     en->dist=LSINFINITY;
+    en->nhi=NULL;
     if(age) ospf_age(en,delta,flush,oa);
   }
 
@@ -184,7 +186,22 @@ again:
     else
     {
       /* Update routing table */
-      if(nf->en->nhi!=NULL)
+      if(nf->en->nhi==NULL)
+      {
+        struct top_hash_entry *en=nf->en;
+        struct ospf_neighbor *neigh;
+        neighbor *nn;
+
+        if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL)
+	{
+	  goto skip;
+	}
+        nn=neigh_find(p,&neigh->ip,0);
+        DBG("     Next hop calculated: %I\n", nn->addr);
+        en->nh=nn->addr;
+        en->nhi=nn->iface;
+      }
+
       {
         net *ne;
         rta a0;
@@ -219,6 +236,7 @@ again:
     }
 
   }
+skip:
   FIB_ITERATE_END(nftmp);
 
 }
