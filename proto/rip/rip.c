@@ -447,7 +447,11 @@ rip_timer(timer *t)
     rte *rte;
     rte = SKIP_BACK( struct rte, u.rip.garbage, e );
 #ifdef LOCAL_DEBUG
-    DBG( "Garbage: " ); rte_dump( rte );
+    {
+      struct proto *p = rte->attrs->proto;
+      CHK_MAGIC;
+    }
+    DBG( "Garbage: (%p)", rte ); rte_dump( rte );
 #endif
 
     if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
@@ -815,6 +819,8 @@ static void
 rip_rte_insert(net *net, rte *rte)
 {
   struct proto *p = rte->attrs->proto;
+  CHK_MAGIC;
+  DBG( "rip_rte_insert: %p\n", rte );
   rte->u.rip.lastmodX = now;
   add_head( &P->garbage, &rte->u.rip.garbage );
 }
@@ -822,6 +828,9 @@ rip_rte_insert(net *net, rte *rte)
 static void
 rip_rte_remove(net *net, rte *rte)
 {
+  struct proto *p = rte->attrs->proto;
+  CHK_MAGIC;
+  DBG( "rip_rte_remove: %p\n", rte );
   rem_node( &rte->u.rip.garbage );
 }
 
