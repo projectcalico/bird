@@ -81,7 +81,7 @@ sysdep_preconfig(struct config *c)
 }
 
 int
-sysdep_commit(struct config *new, struct config *old)
+sysdep_commit(struct config *new, struct config *old UNUSED)
 {
   log_switch(debug_flag, &new->logfiles);
   return 0;
@@ -223,7 +223,7 @@ cli_get_command(cli *c)
 }
 
 static int
-cli_rx(sock *s, int size)
+cli_rx(sock *s, int size UNUSED)
 {
   cli_kick(s->data);
   return 0;
@@ -252,7 +252,7 @@ cli_err(sock *s, int err)
 }
 
 static int
-cli_connect(sock *s, int size)
+cli_connect(sock *s, int size UNUSED)
 {
   cli *c;
 
@@ -306,21 +306,21 @@ sysdep_shutdown_done(void)
  */
 
 static void
-handle_sighup(int sig)
+handle_sighup(int sig UNUSED)
 {
   DBG("Caught SIGHUP...\n");
   async_config_flag = 1;
 }
 
 static void
-handle_sigusr(int sig)
+handle_sigusr(int sig UNUSED)
 {
   DBG("Caught SIGUSR...\n");
   async_dump_flag = 1;
 }
 
 static void
-handle_sigterm(int sig)
+handle_sigterm(int sig UNUSED)
 {
   DBG("Caught SIGTERM...\n");
   async_shutdown_flag = 1;

@@ -19,10 +19,10 @@ struct krt_if_params {
 struct krt_if_status {
 };
 
-static inline void krt_if_construct(struct kif_config *c) { };
-static inline void krt_if_shutdown(struct kif_proto *p) { };
+static inline void krt_if_construct(struct kif_config *c UNUSED) { };
+static inline void krt_if_shutdown(struct kif_proto *p UNUSED) { };
 static inline void krt_if_io_init(void) { };
 
-static inline int kif_params_same(struct krt_if_params *old, struct krt_if_params *new) { return 1; }
+static inline int kif_params_same(struct krt_if_params *old UNUSED, struct krt_if_params *new UNUSED) { return 1; }
 
 #endif

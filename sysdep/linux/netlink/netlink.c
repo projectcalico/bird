@@ -409,7 +409,7 @@ nl_parse_addr(struct nlmsghdr *h)
 }
 
 void
-krt_if_scan(struct kif_proto *p)
+krt_if_scan(struct kif_proto *p UNUSED)
 {
   struct nlmsghdr *h;
 
@@ -518,7 +518,7 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
 }
 
 void
-krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p, net *n UNUSED, rte *new, rte *old)
 {
   if (old && new)
     {
@@ -726,7 +726,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 }
 
 void
-krt_scan_fire(struct krt_proto *p)	/* CONFIG_ALL_TABLES_AT_ONCE => p is NULL */
+krt_scan_fire(struct krt_proto *p UNUSED)	/* CONFIG_ALL_TABLES_AT_ONCE => p is NULL */
 {
   struct nlmsghdr *h;
 
@@ -771,7 +771,7 @@ nl_async_msg(struct nlmsghdr *h)
 }
 
 static int
-nl_async_hook(sock *sk, int size)
+nl_async_hook(sock *sk, int size UNUSED)
 {
   struct iovec iov = { nl_async_rx_buffer, NL_RX_SIZE };
   struct sockaddr_nl sa;
@@ -871,7 +871,7 @@ nl_open_async(void)
 static u8 nl_cf_table[(NL_NUM_TABLES+7) / 8];
 
 void
-krt_scan_preconfig(struct config *c)
+krt_scan_preconfig(struct config *c UNUSED)
 {
   bzero(&nl_cf_table, sizeof(nl_cf_table));
 }
@@ -909,12 +909,12 @@ krt_scan_start(struct krt_proto *p, int first)
 }
 
 void
-krt_scan_shutdown(struct krt_proto *p, int last)
+krt_scan_shutdown(struct krt_proto *p UNUSED, int last UNUSED)
 {
 }
 
 void
-krt_if_start(struct kif_proto *p)
+krt_if_start(struct kif_proto *p UNUSED)
 {
   nl_open();
   nl_open_async();

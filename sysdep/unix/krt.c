@@ -79,7 +79,7 @@ static timer *kif_scan_timer;
 static bird_clock_t kif_last_shot;
 
 static void
-kif_preconfig(struct protocol *P, struct config *c)
+kif_preconfig(struct protocol *P UNUSED, struct config *c UNUSED)
 {
   cf_kif = NULL;
 }
@@ -646,7 +646,7 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
  */
 
 static void
-krt_scan(timer *t)
+krt_scan(timer *t UNUSED)
 {
   struct krt_proto *p;
 
@@ -678,7 +678,7 @@ krt_scan(timer *t)
  */
 
 static void
-krt_notify(struct proto *P, net *net, rte *new, rte *old, struct ea_list *attrs)
+krt_notify(struct proto *P, net *net, rte *new, rte *old, struct ea_list *attrs UNUSED)
 {
   struct krt_proto *p = (struct krt_proto *) P;
 
@@ -703,7 +703,7 @@ krt_notify(struct proto *P, net *net, rte *new, rte *old, struct ea_list *attrs)
 struct proto_config *cf_krt;
 
 static void
-krt_preconfig(struct protocol *P, struct config *c)
+krt_preconfig(struct protocol *P UNUSED, struct config *c)
 {
   cf_krt = NULL;
   krt_scan_preconfig(c);
