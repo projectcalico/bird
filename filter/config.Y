@@ -129,30 +129,30 @@ block:
  ;
 
 constant:
-   CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_INT; $$->arg2 = $3; }
- | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_INT;  $$->arg2 = $1; }
- | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_BOOL; $$->arg2 = 1;  }
- | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_BOOL; $$->arg2 = 0;  }
- | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_STRING; $$->arg2 = $1; } 
+   CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT; $$->a2.i = $3; }
+ | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT;  $$->a2.i = $1; }
+ | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 1;  }
+ | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 0;  }
+ | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; } 
  ;
 
 term:
-   term '+' term     { $$ = f_new_inst(); $$->code = '+';  $$->arg1 = $1; $$->arg2 = $3; }
+   term '+' term     { $$ = f_new_inst(); $$->code = '+';  $$->a1.p = $1; $$->a2.p = $3; }
 
- | term '=' term     { $$ = f_new_inst(); $$->code = '=='; $$->arg1 = $1; $$->arg2 = $3; }
- | term '!' '=' term { $$ = f_new_inst(); $$->code = '!='; $$->arg1 = $1; $$->arg2 = $4; }
- | term '<' term     { $$ = f_new_inst(); $$->code = '<';  $$->arg1 = $1; $$->arg2 = $3; }
- | term '<' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->arg1 = $1; $$->arg2 = $4; }
- | term '>' term     { $$ = f_new_inst(); $$->code = '<';  $$->arg1 = $3; $$->arg2 = $1; }
- | term '>' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->arg1 = $4; $$->arg2 = $1; }
+ | term '=' term     { $$ = f_new_inst(); $$->code = '=='; $$->a1.p = $1; $$->a2.p = $3; }
+ | term '!' '=' term { $$ = f_new_inst(); $$->code = '!='; $$->a1.p = $1; $$->a2.p = $4; }
+ | term '<' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $1; $$->a2.p = $3; }
+ | term '<' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->a1.p = $1; $$->a2.p = $4; }
+ | term '>' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $3; $$->a2.p = $1; }
+ | term '>' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->a1.p = $4; $$->a2.p = $1; }
 
  | SYM {
      $$ = f_new_inst();
      switch ($1->class) {
        case SYM_VARIABLE | T_INT:
 	 $$->code = 'i';
-         $$->arg1 = T_INT;
-	 $$->arg2 = &($1->aux);
+         $$->a1.i = T_INT;
+	 $$->a2.p = &($1->aux);
 	 break;
        default:
 	 cf_error("Can not use this class of symbol as variable" );
@@ -173,13 +173,13 @@ ifthen:
    IF term THEN block {
      $$ = f_new_inst();
      $$->code = '?';
-     $$->arg1 = $2;
-     $$->arg2 = $4;
+     $$->a1.p = $2;
+     $$->a2.p = $4;
    }
  ;
 
 print_one:
-   term { $$ = f_new_inst(); $$->code = 'p'; $$->arg1 = $1; $$->arg2 = NULL; }
+   term { $$ = f_new_inst(); $$->code = 'p'; $$->a1.p = $1; $$->a2.p = NULL; }
  ;
 
 print_list: /* EMPTY */ { $$ = NULL; }
@@ -199,8 +199,8 @@ cmd:
  | ifthen ELSE block {
      $$ = f_new_inst();
      $$->code = '?';
-     $$->arg1 = $1;
-     $$->arg2 = $3;
+     $$->a1.p = $1;
+     $$->a2.p = $3;
    }
  | SYM '=' term ';' {
      $$ = f_new_inst();
@@ -208,10 +208,10 @@ cmd:
      if (($1->class & ~T_MASK) != SYM_VARIABLE)
        cf_error( "You may only set variables, and this is %x.\n", $1->class );
      $$->code = 's';
-     $$->arg1 = $1;
-     $$->arg2 = $3;
+     $$->a1.p = $1;
+     $$->a2.p = $3;
    }
- | break_command print_list ';' { $$ = f_new_inst(); $$->code = 'p,'; $$->arg1 = $2; $$->arg2 = $1; }
+ | break_command print_list ';' { $$ = f_new_inst(); $$->code = 'p,'; $$->a1.p = $2; $$->a2.i = $1; }
  ;
 
 CF_END

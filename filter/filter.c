@@ -36,9 +36,9 @@ struct f_inst *startup_func = NULL;
 	if (x.type == T_RETURN) \
 		return x;
 
-#define ONEARG ARG(v1, arg1)
-#define TWOARGS ARG(v1, arg1) \
-		ARG(v2, arg2)
+#define ONEARG ARG(v1, a1.p)
+#define TWOARGS ARG(v1, a1.p) \
+		ARG(v2, a2.p)
 #define TWOARGS_C TWOARGS \
                   if (v1.type != v2.type) \
 		    runtime( "Can not operate with values of incompatible types" );
@@ -113,8 +113,8 @@ interpret(struct f_inst *what)
 
 /* Set */
   case 's':
-    ARG(v2, arg2);
-    sym = what->arg1;
+    ARG(v2, a2.p);
+    sym = what->a1.p;
     switch (res.type = v2.type) {
     case T_VOID: runtime( "Can not assign void values" );
     case T_INT: 
@@ -126,12 +126,12 @@ interpret(struct f_inst *what)
     break;
 
   case 'c':
-    res.type = (int) what->arg1;
-    res.val.i = (int) what->arg2;
+    res.type = what->a1.i;
+    res.val.i = (int) what->a2.p;
     break;
   case 'i':
-    res.type = (int) what->arg1;
-    res.val.i = * ((int *) what->arg2);
+    res.type = what->a1.i;
+    res.val.i = * ((int *) what->a2.p);
     break;
   case 'p':
     ONEARG;
@@ -147,7 +147,7 @@ interpret(struct f_inst *what)
     if (v1.type != T_BOOL)
       runtime( "If requires bool expression" );
     if (v1.val.i) {
-      ARG(res,arg2);
+      ARG(res,a2.p);
       res.val.i = 0;
     } else res.val.i = 1;
     res.type = T_BOOL;
@@ -159,7 +159,7 @@ interpret(struct f_inst *what)
     ONEARG;
     printf( "\n" );
 
-    switch ((int) what->arg2) {
+    switch (what->a2.i) {
     case F_QUITBIRD:
       die( "Filter asked me to die" );
     case F_ACCEPT:
@@ -167,7 +167,7 @@ interpret(struct f_inst *what)
     case F_ERROR:
     case F_REJECT:
       res.type = T_RETURN;
-      res.val.i = (int) what->arg1;
+      res.val.i = what->a1.i;
       break;
     case F_NOP:
       break;

@@ -15,8 +15,18 @@
 struct f_inst {		/* Instruction */
   struct f_inst *next;	/* Structure is 16 bytes, anyway */
   int code;
-  void *arg1, *arg2;
+  union {
+    int i;
+    void *p;
+  } a1;
+  union {
+    int i;
+    void *p;
+  } a2;
 };
+
+#define arg1 a1.p
+#define arg2 a2.p
 
 struct prefix {
   ip_addr ip;
@@ -27,7 +37,8 @@ struct f_val {
   int type;
   union {
     int i;
-    struct prefix *px;
+    ip_addr ip;
+    struct prefix px;
     char *s;
   } val;
 };
