@@ -16,6 +16,10 @@
 
 #undef FAKE_SLAB	/* Turn on if you want to debug memory allocations */
 
+#ifdef DEBUGGING
+#define POISON		/* Poison all regions after they are freed */
+#endif
+
 static void slab_free(resource *r);
 static void slab_dump(resource *r);
 static resource *slab_lookup(resource *r, unsigned long addr);
@@ -221,6 +225,9 @@ sl_free(slab *s, void *oo)
   struct sl_obj *o = SKIP_BACK(struct sl_obj, u.data, oo);
   struct sl_head *h = o->slab;
 
+#ifdef POISON
+  memset(oo, 0xdb, s->obj_size);
+#endif
   o->u.next = h->first_free;
   h->first_free = o;
   if (!--h->num_full)
