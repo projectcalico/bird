@@ -17,8 +17,9 @@ flush_lsa(struct top_hash_entry *en)
 
 void
 ospf_age(struct top_hash_entry *en, bird_clock_t delta, int flush,
-  struct proto *p)
+  struct ospf_area *oa)
 {
+  struct proto *p=&oa->po->proto;
   if(en->lsa.age==LSA_MAXAGE)
   {
     if(flush) flush_lsa(en);
@@ -391,7 +392,7 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
     if(oa->rt!=NULL)
     {
       DBG("Starting routing table calculation.\n");
-      ospf_rt_spfa(oa, p);
+      ospf_rt_spfa(oa);
     }
   }
   

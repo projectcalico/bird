@@ -163,7 +163,7 @@ age_timer_hook(timer *timer)
 
   if((delta=now-oa->lage)>=AGINGDELTA)
   {
-    WALK_SLIST_DELSAFE(en,nxt,oa->lsal) ospf_age(en,delta,flush,&oa->po->proto);
+    WALK_SLIST_DELSAFE(en,nxt,oa->lsal) ospf_age(en,delta,flush,oa);
     oa->lage=now;
   }
 }

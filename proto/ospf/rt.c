@@ -18,7 +18,7 @@ init_stub_fib(struct fib_node *fn)
 }
 
 void
-ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
+ospf_rt_spfa(struct ospf_area *oa)
 {
   struct top_hash_entry *en, *nx;
   u32 i,*rts;
@@ -28,6 +28,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
   struct stub_fib *sf;
   bird_clock_t delta;
   int age=0,flush=0;
+  struct proto *p=&oa->po->proto;
 
   /* FIXME if I'm not in LOADING or EXCHANGE set flush=1 */
   if((delta=now-oa->lage)>=AGINGDELTA)
@@ -40,7 +41,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
   {
     en->color=OUTSPF;
     en->dist=LSINFINITY;
-    if(age) ospf_age(en,delta,flush,p);
+    if(age) ospf_age(en,delta,flush,oa);
   }
 
   init_list(&oa->cand);		/* Empty list of candidates */
@@ -99,7 +100,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 	      log("Unknown link type in router lsa.\n");
 	      break;
 	  }
-	  add_cand(&oa->cand,tmp,act,act->dist+rtl->metric,p,oa);
+	  add_cand(&oa->cand,tmp,act,act->dist+rtl->metric,oa);
 	}
         break;
       case LSA_T_NET:
@@ -112,7 +113,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 	  tmp=ospf_hash_find(oa->gr, *(rts+i), *(rts+i), LSA_T_RT);
 	  if(tmp!=NULL) DBG("Found :-)\n");
 	  else DBG("Fuck!\n");
-          add_cand(&oa->cand,tmp,act,act->dist,p,oa);
+          add_cand(&oa->cand,tmp,act,act->dist,oa);
 	}
         break;
     }
@@ -199,7 +200,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 	    if(sf->metric>(en->dist+rtl->metric))
 	    {
 	      sf->metric=en->dist+rtl->metric;
-	      calc_next_hop_fib(en,sf,p,oa);
+	      calc_next_hop_fib(en,sf,oa);
 	      if(sf->nhi!=NULL)
 	      {
                 net *ne;
@@ -240,11 +241,12 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 
 void
 add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par, 
-  u16 dist, struct proto *p, struct ospf_area *oa)
+  u16 dist, struct ospf_area *oa)
 {
   node *prev,*n;
   int flag=0,added=0;
   struct top_hash_entry *act;
+  struct proto *p=&oa->po->proto;
 
   if(en==NULL) return;
   if(en->lsa.age==LSA_MAXAGE) return;
@@ -260,7 +262,7 @@ add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
 
   en->nhi=NULL;
   
-  calc_next_hop(par,en,p,oa);
+  calc_next_hop(par,en,oa);
 
   if(en->color==CANDIDATE)	/* We found a shorter path */
   {
@@ -302,10 +304,11 @@ add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
 
 void
 calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
-  struct proto *p, struct ospf_area *oa)
+  struct ospf_area *oa)
 {
   struct ospf_neighbor *neigh;
-  struct proto_ospf *po=(struct proto_ospf *)p;
+  struct proto *p=&oa->po->proto;
+  struct proto_ospf *po=oa->po;
   DBG("     Next hop called\n");
   if(par==oa->rt) return;
   if(par->nhi==NULL)
@@ -327,10 +330,11 @@ calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
 
 void
 calc_next_hop_fib(struct top_hash_entry *par, struct stub_fib *en,
-  struct proto *p, struct ospf_area *oa)
+  struct ospf_area *oa)
 {
   struct ospf_neighbor *neigh;
-  struct proto_ospf *po=(struct proto_ospf *)p;
+  struct proto *p=&oa->po->proto;
+  struct proto_ospf *po=oa->po;
   DBG("     Next hop called\n");
   if(par==oa->rt) return;
   if(par->nhi==NULL)
