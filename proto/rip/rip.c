@@ -8,8 +8,7 @@
  	FIXME: IpV6 support: packet size
  	FIXME: IpV6 support: use right address for broadcasts
 	FIXME: IpV6 support: receive "route using" blocks
-	FIXME: be able to transmit "route using" blocks [Is this possible?]
-	6 FIXMEs in code
+	1 FIXME
  */
 
 #define LOCAL_DEBUG
@@ -97,7 +96,7 @@ rip_tx( sock *s )
       packet->block[i].nexthop = IPA_NONE;	
       {
 	neighbor *n1, *n2;
-	n1 = neigh_find( p, &s->daddr, 0 );
+	n1 = neigh_find( p, &s->daddr, 0 );	/* FIXME, mj: this is neccessary for responses, still it is too complicated for common case */
 	n2 = neigh_find( p, &e->nexthop, 0 );
 	if (n1->iface == n2->iface)
 	  packet->block[i].nexthop = e->nexthop;
@@ -221,7 +220,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
 #endif
   A.from = whotoldme;
 
-  /* FIXME: Check if destination looks valid - ie not net 0 or 127 */
+  /* No need to look if destination looks valid - ie not net 0 or 127 -- core will do for us. */
 
   neighbor = neigh_find( p, &A.gw, 0 );
   if (!neighbor) {
