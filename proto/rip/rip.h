@@ -28,7 +28,7 @@ struct rip_connection {
   int done;
 };
 
-struct rip_packet_heading {
+struct rip_packet_heading {		/* 4 bytes */
   u8 command;
 #define RIPCMD_REQUEST          1       /* want info */
 #define RIPCMD_RESPONSE         2       /* responding to request */

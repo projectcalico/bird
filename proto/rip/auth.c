@@ -56,7 +56,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       struct password_item *head;
       struct rip_md5_tail *tail;
 
-      if (block->packetlen != PACKETLEN(num) + 20) {
+      if (block->packetlen != PACKETLEN(num)) {
 	log( L_ERR "packetlen in md5 does not match computed value\n" );
 	return 1;
       }
@@ -145,7 +145,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       MD5Init(&ctxt);
       MD5Update(&ctxt, (char *) packet, block->packetlen );
       MD5Final((char *) (&tail->md5), &ctxt);
-      return block->packetlen;
+      return PACKETLEN(num) + block->authlen;
     }
   default:
     bug( "Uknown authtype in outgoing authentication?\n" );

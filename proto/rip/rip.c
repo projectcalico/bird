@@ -352,7 +352,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    struct rip_block *block = &packet->block[i];
 	    if (block->family == 0xffff) {
 	      if (i)
-		BAD( "Authentication header is not the first" );
+		continue;	/* md5 tail has this family */
 	      if (rip_incoming_authentication(p, (void *) block, packet, num))
 		BAD( "Authentication failed" );
 	      authenticated = 1;
