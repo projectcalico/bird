@@ -76,6 +76,33 @@ protocol rip {
 }
 </verb></cf>
 
+<p>Everything on a line after # is a comment, whitespace is
+ignored. If there's variable number of options, it is grouped using {
+} brackets. 
+				
+<descrip>
+	<tag>log "<i/filename/"|syslog|stderr all|{ debug, trace, info,
+	remote, warning, error, auth, fatal, bug }</tag> set logging of
+	classes (either all or { error, trace } etc.) into selected destination. 
+				  
+	<tag>debug protocols all|off|{ states, routes, filters,
+	interfaces, events, packets }</tag> set debugging options.
+
+	<tag>filter <i/name/ { <i/commands/ }</tag> define filter. You can
+	learn more about filters in next chapter.
+
+	<tag>protocol rip|ospf|bgp <i/name/ { <i>protocol options</i> }</tag> define
+	protocol instance, called name. You can learn more about
+	configuring protocols in their own chapters.
+
+	<tag>define constant = expression</tag> define constant. You can
+	use it later in every place you could use simple integer.
+
+	<tag>router id <i/ip_address/</tag> set router id.
+
+	<tag>table <i/name/</tag> create new routing table.
+</descrip>
+
 <p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
 
 <sect>Filters
@@ -145,7 +172,7 @@ booleans (that is to prevent you from shooting in the foot).
 	<tag/string/ this is string of characters. There are no ways to modify strings in filters. You can
 	  pass them between functions, assign to variable of type string, print such variables, but
 	  you can not concatenate two strings (for example). String constants are written as <cf/
-	  "This is string constant".
+	  "This is string constant"/.
 
 	<tag/ip/ this type can hold single ip address. Depending on version of bird you are using, it
 	  can be ipv4 or ipv6 address. Ipv4 addresses addresses are written (as you would expect) as
