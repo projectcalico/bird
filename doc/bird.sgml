@@ -402,7 +402,74 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 
 <sect1>Device
 
+<sect2>Introduction
+
+<p>The Device protocol is not a real routing protocol as it doesn't generate
+any routes and only serves as a module for getting information about network
+interfaces from the kernel.
+
+<p>Except for very unusual circumstances, you probably should always include
+this protocol in the configuration since almost all other protocol don't
+do anything if they are not provided with network interfaces.
+
+<sect2>Configuration
+
+<p><descrip>
+	<tag>scan time <m/number/</tag> Time in seconds between two scans
+	of the network interface list. On systems where we are notified about
+	interface status changes asynchronously (such as newer versions of
+	Linux), we need to scan the list only to avoid confusion by lost
+	notifications, so the default time is set to a large value.
+</descrip>
+
+<sect2>Attributes
+
+<p>As the Device protocol doesn't generate any routes, it cannot have
+any attributes.
+
+<sect2>Example
+
+<p><code>
+protocol device {
+	scan time 10;		# Scan the interfaces often
+}
+</code>
+
 <sect1>Direct
+
+<sect2>Introduction
+
+<p>The Direct protocol is a simple generator of device routes for all the
+directly connected networks according to the list of interfaces provided
+by the kernel via the Device protocol.
+
+<p>It's highly recommended to include this protocol in your configuration
+unless you want to use BIRD as a route server or a route reflector, that is
+on a machine which doesn't forward packets and only participates in
+distribution of routing information.
+
+<sect2>Configuration
+
+<p><descrip>
+	<tag>interface <m/pattern/, <m/.../</tag> By default, the Direct
+	protocol will generate device routes for all the interfaces
+	available. If you want to restrict it to some subset of interfaces
+	(for example if you're using multiple routing tables for policy
+	routing and some of the policy domains don't contain all interfaces),
+	just use this clause.
+</descrip>
+
+<sect2>Attributes
+
+<p>Direct device routes don't contain any specific attributes.
+
+<sect2>Example
+
+<p><code>
+protocol direct {
+	interface "-arc*", "*";		# Exclude the ARCnets
+}
+</code>
 
 <sect1>Kernel
 
@@ -505,6 +572,58 @@ protocol rip MyRIP_test {
 </code>
 
 <sect1>Static
+
+<sect2>Introduction
+
+<p>The static protocol doesn't communicate with other routers in the network,
+but instead it allows you to define routes manually which is often used for
+specifying how to forward packets to parts of the network which don't use
+dynamic routing at all and also for defining sink routes (i.e., those
+telling to return packets as undeliverable if they are in your IP block,
+you don't have any specific destination for them and you don't want to send
+them out through the default route to prevent routing loops).
+
+<p>There are three types of static routes: `classical' routes telling to
+forward packets to a neighboring router, device routes specifying forwarding
+to hosts on a directly connected network and special routes (sink, blackhole
+etc.) which specify a special action to be done instead of forwarding the
+packet.
+
+<p>When the particular destination is not available (the interface is down or
+the next hop of the route is not a neighbor at the moment), Static just
+uninstalls the route from the table its connected to and adds it again as soon
+as the destinations becomes adjacent again.
+
+<sect2>Configuration
+
+<p>The Static protocol has no configuration options. Instead, the
+definition of the protocol contains a list of static routes which
+can contain:
+
+<descrip>
+	<tag>route <m/prefix/ via <m/ip/</tag> Static route through
+	a neighboring router.
+	<tag>route <m/prefix/ via <m/"interface"/</tag> Static device
+	route through an interface to hosts on a directly connected network.
+	<tag>route <m/prefix/ drop|reject|prohibit</tag> Special routes
+	specifying to drop the packet, return it as unreachable or return
+	it as administratively prohibited.
+</descrip>
+
+<sect2>Attributes
+
+<p>Static routes have no specific attributes.
+
+<sect2>Example
+
+<p><code>
+protocol static {
+	table testable;				# Connect to non-default routing table
+	route 0.0.0.0/0 via 62.168.0.13;	# Default route
+	route 62.168.0.0/25 reject;		# Sink route
+	route 10.2.0.0/24 via "arc0";		# Secondary network
+}
+</code>
 
 <sect>Getting more help
 
