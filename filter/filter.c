@@ -748,7 +748,21 @@ i_same(struct f_inst *f1, struct f_inst *f2)
     }
     break;
 
-  case 'c': A2_SAME; break;
+  case 'c': 
+    if (f1->aux & T_SET) {
+      if (!same_tree(f1->a2.p, f2->a2.p))
+	return 0;
+      break;
+    } 
+    switch (f1->aux) {
+    case T_STRING:
+      if (strcmp(f1->a2.p, f2->a2.p))
+	return 0;
+      break;
+    default:
+      A2_SAME;
+    }
+    break;
   case 'C': 
     if (val_compare(* (struct f_val *) f1->a1.p, * (struct f_val *) f2->a1.p))
       return 0;
