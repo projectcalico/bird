@@ -79,7 +79,8 @@ rte_find(net *net, struct proto *p)
 
 /**
  * rte_get_temp - get a temporary &rte
- * @a: attributes to assign to the new route (a &rta)
+ * @a: attributes to assign to the new route (a &rta; in case it's
+ * uncached, rte_update() will create a cached copy automatically)
  *
  * Create a temporary &rte and bind it with the attributes @a.
  * Also set route preference to the default preference set for
@@ -438,6 +439,10 @@ rte_update_unlock(void)
  * for network @n, replace it by the new one (or removing it if @new is %NULL),
  * recalculate the optimal route for this destination and finally broadcast
  * the change (if any) to all routing protocols.
+ *
+ * All memory used for attribute lists and other temporary allocations is taken
+ * from a special linear pool @rte_update_pool and freed when rte_update()
+ * finishes.
  */
 void
 rte_update(rtable *table, net *net, struct proto *p, rte *new)
@@ -1046,3 +1051,56 @@ rt_show(struct rt_show_data *d)
 	cli_msg(8001, "Network not in table");
     }
 }
+
+/*
+ *  Documentation for functions declared inline in route.h
+ */
+#if 0
+
+/**
+ * net_find - find a network entry
+ * @tab: a routing table
+ * @addr: address of the network
+ * @len: length of the network prefix
+ *
+ * net_find() looks up the given network in routing table @tab and
+ * returns a pointer to its &net entry or %NULL if no such network
+ * exists.
+ */
+static inline net *net_find(rtable *tab, ip_addr addr, unsigned len)
+{ DUMMY; }
+
+/**
+ * net_get - obtain a network entry
+ * @tab: a routing table
+ * @addr: address of the network
+ * @len: length of the network prefix
+ *
+ * net_get() looks up the given network in routing table @tab and
+ * returns a pointer to its &net entry. If no such entry exists, it's
+ * created.
+ */
+static inline net *net_get(rtable *tab, ip_addr addr, unsigned len)
+{ DUMMY; }
+
+/**
+ * rte_cow - copy a route for writing
+ * @r: a route entry to be copied
+ *
+ * rte_cow() takes a &rte and prepares it for modification. The exact action
+ * taken depends on the flags of the &rte -- if it's a temporary entry, it's
+ * just returned unchanged, else a new temporary entry with the same contents
+ * is created.
+ *
+ * The primary use of this function is inside the filter machinery -- when
+ * a filter wants to modify &rte contents (to change the preference or to
+ * attach another set of attributes), it must ensure that the &rte is not
+ * shared with anyone else (and especially that it isn't stored in any routing
+ * table).
+ *
+ * Result: a pointer to the new writeable &rte.
+ */
+static inline rte * rte_cow(rte *r)
+{ DUMMY; }
+
+#endif

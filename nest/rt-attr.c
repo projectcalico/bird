@@ -6,6 +6,44 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Route attribute cache
+ *
+ * Each route entry carries a set of route attributes. Several of them
+ * vary from route to route, but most attributes are usually common
+ * for a large number of routes. To conserve memory, we've decided to
+ * store only the varying ones directly in the &rte and hold the rest
+ * in a special structure called &rta which is shared among all the
+ * &rte's with these attributes.
+ *
+ * Each &rta contains all the static attributes of the route (i.e.,
+ * those which are always present) as structure members and a list of
+ * dynamic attributes represented by a linked list of &ea_list
+ * structures, each of them consisting of an array of &eattr's containing
+ * the individual attributes. An attribute can be specified more than once
+ * in the &ea_list chain and in such case the first occurence overrides
+ * the others. This semantics is used especially when someone (for example
+ * a filter) wishes to alter values of several dynamic attributes, but
+ * it wants to preserve the original attribute lists maintained by
+ * another module.
+ *
+ * Each &eattr contains an attribute identifier (split to protocol ID and
+ * per-protocol attribute ID), protocol dependent flags, a type code (consisting
+ * of several bit fields describing attribute characteristics) and either an
+ * embedded 32-bit value or a pointer to a &adata structure holding attribute
+ * contents.
+ *
+ * There exist two variants of &rta's -- cached and uncached ones. Uncached
+ * &rta's can have arbitrarily complex structure of &ea_list's and they
+ * can be modified by any module in the route processing chain. Cached
+ * &rta's have their attribute lists normalized (that means at most one
+ * &ea_list is present and its values are sorted in order to speed up
+ * searching), they are stored in a hash table to make fast lookup possible
+ * and they are provided with a use count to allow sharing.
+ *
+ * Routing tables always contain only cached &rta's.
+ */
+
 #include <alloca.h>
 
 #include "nest/bird.h"
@@ -59,6 +97,15 @@ ea__find(ea_list *e, unsigned id)
   return NULL;
 }
 
+/**
+ * ea_find - find an extended attribute
+ * @e: attribute list to search in
+ * @id: attribute ID to search for
+ *
+ * Given an extended attribute list, ea_find() searches for a first
+ * occurence of an attribute with specified ID, returning either a pointer
+ * to its &eattr structure or %NULL if no such attribute exists.
+ */
 eattr *
 ea_find(ea_list *e, unsigned id)
 {
@@ -70,6 +117,16 @@ ea_find(ea_list *e, unsigned id)
   return a;
 }
 
+/**
+ * ea_get_int - fetch an integer attribute
+ * @e: attribute list
+ * @id: attribute ID
+ * @def: default value
+ *
+ * This function is a shortcut for retrieving a value of an integer attribute
+ * by calling ea_find() to find the attribute, extracting its value or returning
+ * a provided default if no such attribute is present.
+ */
 int
 ea_get_int(ea_list *e, unsigned id, int def)
 {
@@ -149,6 +206,16 @@ ea_do_prune(ea_list *e)
   e->count = i;
 }
 
+/**
+ * ea_sort - sort an attribute list
+ * @e: list to be sorted
+ *
+ * This function takes a &ea_list chain and sorts the attributes
+ * within each of its entries.
+ *
+ * If an attribute occurs multiple times in a single &ea_list,
+ * ea_sort() leaves only the first (the only significant) occurence.
+ */
 void
 ea_sort(ea_list *e)
 {
@@ -166,6 +233,13 @@ ea_sort(ea_list *e)
     }
 }
 
+/**
+ * ea_scan - estimate attribute list size
+ * @e: attribute list
+ *
+ * This function calculates an upper bound of the size of
+ * a given &ea_list after merging with ea_merge().
+ */
 unsigned
 ea_scan(ea_list *e)
 {
@@ -179,6 +253,20 @@ ea_scan(ea_list *e)
   return sizeof(ea_list) + sizeof(eattr)*cnt;
 }
 
+/**
+ * ea_merge - merge segments of an attribute list
+ * @e: attribute list
+ * @t: buffer to store the result to
+ *
+ * This function takes a possibly multi-segment attribute list
+ * and merges all of its segments to one.
+ *
+ * The primary use of this function is for &ea_list normalization:
+ * first call ea_scan() to determine how much memory will the result
+ * take, then allocate a buffer (usually using alloca()), merge the
+ * segments with ea_merge() and finally sort and prune the result
+ * by calling ea_sort().
+ */
 void
 ea_merge(ea_list *e, ea_list *t)
 {
@@ -196,6 +284,14 @@ ea_merge(ea_list *e, ea_list *t)
     }
 }
 
+/**
+ * ea_same - compare two &ea_list's
+ * @x: attribute list
+ * @y: attribute list
+ *
+ * ea_same() compares two normalized attribute lists @x and @y and returns
+ * 1 if they contain the same attributes, 0 otherwise.
+ */
 int
 ea_same(ea_list *x, ea_list *y)
 {
@@ -266,6 +362,18 @@ ea_free(ea_list *o)
     }
 }
 
+/**
+ * ea_format - format an &eattr for printing
+ * @e: attribute to be formatted
+ * @buf: destination buffer of size %EA_FORMAT_BUF_SIZE
+ *
+ * This function takes an extended attribute represented by its
+ * &eattr structure and formats it nicely for printing according
+ * to the type information.
+ *
+ * If the protocol defining the attribute provides its own
+ * get_attr() hook, it's consulted first.
+ */
 void
 ea_format(eattr *e, byte *buf)
 {
@@ -331,6 +439,13 @@ ea_format(eattr *e, byte *buf)
     }
 }
 
+/**
+ * ea_dump - dump an extended attribute
+ * @e: attribute to be dumped
+ *
+ * ea_dump() dumps contents of the extended attribute given to
+ * the debug output.
+ */
 void
 ea_dump(ea_list *e)
 {
@@ -371,6 +486,13 @@ ea_dump(ea_list *e)
     }
 }
 
+/**
+ * ea_hash - calculate an &ea_list hash key
+ * @e: attribute list
+ *
+ * ea_hash() takes an extended attribute list and calculated a hopefully
+ * uniformly distributed hash value from its contents.
+ */
 inline unsigned int
 ea_hash(ea_list *e)
 {
@@ -407,6 +529,14 @@ ea_hash(ea_list *e)
   return h;
 }
 
+/**
+ * ea_append - concatenate &ea_list's
+ * @to: destination list (can be %NULL)
+ * @what: list to be appended (can be %NULL)
+ *
+ * This function appends the &ea_list @what at the end of
+ * &ea_list @to and returns a pointer to the resulting list.
+ */
 ea_list *
 ea_append(ea_list *to, ea_list *what)
 {
@@ -505,6 +635,19 @@ rta_rehash(void)
   mb_free(oht);
 }
 
+/**
+ * rta_lookup - look up a &rta in attribute cache
+ * @o: a uncached &rta
+ *
+ * rta_lookup() gets an uncached &rta structure and returns its cached
+ * counterpart. It starts with examining the attribute cache to see whether
+ * there exists a matching entry. If such an entry exists, it's returned and
+ * its use count is incremented, else a new entry is created with use count
+ * set to 1.
+ *
+ * The extended attribute lists attached to the &rta are automatically
+ * converted to the normalized form.
+ */
 rta *
 rta_lookup(rta *o)
 {
@@ -552,6 +695,12 @@ rta__free(rta *a)
   sl_free(rta_slab, a);
 }
 
+/**
+ * rta_dump - dump route attributes
+ * @a: attribute structure to dump
+ *
+ * This function takes a &rta and dumps its contents to the debug output.
+ */
 void
 rta_dump(rta *a)
 {
@@ -579,6 +728,12 @@ rta_dump(rta *a)
     }
 }
 
+/**
+ * rta_dump_all - dump attribute cache
+ *
+ * This function dumps the whole contents of route attribute cache
+ * to the debug output.
+ */
 void
 rta_dump_all(void)
 {
@@ -616,6 +771,12 @@ rta_show(struct cli *c, rta *a, ea_list *eal)
       }
 }
 
+/**
+ * rta_init - initialize route attribute cache
+ *
+ * This function is called during initialization of the routing
+ * table module to set up the internals of the attribute cache.
+ */
 void
 rta_init(void)
 {
@@ -623,3 +784,33 @@ rta_init(void)
   rta_slab = sl_new(rta_pool, sizeof(rta));
   rta_alloc_hash();
 }
+
+/*
+ *  Documentation for functions declared inline in route.h
+ */
+#if 0
+
+/**
+ * rta_clone - clone route attributes
+ * @r: a &rta to be cloned
+ *
+ * rta_clone() takes a cached &rta and returns its identical cached
+ * copy. Currently it works by just returning the original &rta with
+ * its use count incremented.
+ */
+static inline rta *rta_clone(rta *r)
+{ DUMMY; }
+
+/**
+ * rta_free - free route attributes
+ * @r: a &rta to be freed
+ *
+ * If you stop using a &rta (for example when deleting a route which uses
+ * it), you need to call rta_free() to notify the attribute cache the
+ * attribute is no longer in use and can be freed if you were the last
+ * user (which rta_free() tests by inspecting the use count).
+ */
+static inline void rta_free(rta *r)
+{ DUMMY; }
+
+#endif

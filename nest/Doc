@@ -1,8 +1,8 @@
 H Core
 S rt-fib.c
 S rt-table.c
+S rt-attr.c
 S neighbor.c
-#S rt-attr.c
 #S cli.c
 #S iface.c
 S locks.c
