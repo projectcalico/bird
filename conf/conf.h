@@ -76,8 +76,8 @@ void cf_lex_init(int is_cli);
 struct symbol *cf_find_symbol(byte *c);
 struct symbol *cf_default_name(char *prefix, int *counter);
 void cf_define_symbol(struct symbol *symbol, int type, void *def);
-void cf_push_context(struct symbol *);
-void cf_pop_context(void);
+void cf_push_scope(struct symbol *);
+void cf_pop_scope(void);
 
 /* Parser */
 
