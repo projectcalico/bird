@@ -98,42 +98,6 @@ be relatively easy due to its highly modular architecture.
 
 <p>This documentation can have 4 forms: sgml (this is master copy), html, ASCII text and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy.
 
-<sect>About routing tables
-
-<p>Bird has one or more routing tables, which may or may not be
-synchronized with kernel and which may or may not be synchronized with
-each other (see the Pipe protocol). Each routing table contains list of
-known routes. Each route consists of:
-
-<itemize>
-	<item>network this route is for
-	<item>preference of this route (taken from preference of
-	protocol and possibly altered by filters)
-	<item>ip address of router who told us about this route
-	<item>ip address of router we should use for packets routing
-	using this route
-	<item>other attributes common to all routes
-	<item>dynamic attributes defined by protocols, which may or
-	may not be present (typically protocol metric)
-</itemize>
-
-Routing table maintains more than
-one entry for network, but at most one entry for one network and one
-protocol. The entry with biggest preference is used for routing. If
-there are more entries with same preference and they are from same
-protocol, protocol decides (typically according to metrics). If not,
-internal ordering is used to decide. You can
-get list of route attributes in "Route attributes" section in
-filters. 
-
-<p>Protocols are connected to routing tables using filters. Routes
-that come from network go to the protocol, it then passes them to
-filters, if import filter accepts route, it gets to main routing
-table. It is then broadcasted to all other protocols (filtered through
-their export filters), which typically send it to the network.
-
-Filters can alter routes passed between routing tables and
-protocols.
 
 <sect>Installing BIRD
 
@@ -172,6 +136,43 @@ options. Most important (and not easily guessed) option is
 	<tag>-s <m/name of communication socket/</tag>
 	use given filename for socket for communications with bird client, default is <file/bird.ctl/.
 </descrip>
+
+<chapt>About routing tables
+
+<p>Bird has one or more routing tables, which may or may not be
+synchronized with kernel and which may or may not be synchronized with
+each other (see the Pipe protocol). Each routing table contains list of
+known routes. Each route consists of:
+
+<itemize>
+	<item>network this route is for
+	<item>preference of this route (taken from preference of
+	protocol and possibly altered by filters)
+	<item>ip address of router who told us about this route
+	<item>ip address of router we should use for packets routing
+	using this route
+	<item>other attributes common to all routes
+	<item>dynamic attributes defined by protocols, which may or
+	may not be present (typically protocol metric)
+</itemize>
+
+Routing table maintains more than
+one entry for network, but at most one entry for one network and one
+protocol. The entry with biggest preference is used for routing. If
+there are more entries with same preference and they are from same
+protocol, protocol decides (typically according to metrics). If not,
+internal ordering is used to decide. You can
+get list of route attributes in "Route attributes" section in
+filters. 
+
+<p>Protocols are connected to routing tables using filters. Routes
+that come from network go to the protocol, it then passes them to
+filters, if import filter accepts route, it gets to main routing
+table. It is then broadcasted to all other protocols (filtered through
+their export filters), which typically send it to the network.
+
+Filters can alter routes passed between routing tables and
+protocols.
 
 <chapt>Configuration
 
@@ -741,9 +742,12 @@ protocol bgp {
 	multihop 20 via 62.168.0.13;		# Which is connected indirectly
 	export filter {				# We use non-trivial export rules
 		if source = RTS_STATIC then {	# Export only static routes
-			bgp_community.add((65000,5678));  # Assign our community
-			if bgp_path ~ / 65000 / then	  # Artificially increase path length
-				bgp_path.prepend(65000);  # by prepending local AS number twice
+		        # Assign our community
+			bgp_community.add((65000,5678));
+			# Artificially increase path length
+			# by prepending local AS number twice
+			if bgp_path ~ / 65000 / then	  
+				bgp_path.prepend(65000);  
 			accept;
 		}
 		reject;
