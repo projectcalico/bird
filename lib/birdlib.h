@@ -39,7 +39,7 @@ void debug(char *msg, ...);		/* Printf to debug output */
 /* Debugging */
 
 #ifdef LOCAL_DEBUG
-#define DBG(x, y...) log(L_DEBUG x, ##y)
+#define DBG(x, y...) debug(x, ##y)
 #else
 #define DBG(x, y...)
 #endif

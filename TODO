@@ -4,12 +4,10 @@ Core
 - config file: symbolic constants?
 - counters (according to SNMP MIB?)
 - generation of subnet mask ICMP's for v6?
-- unaligned accesses?
 - neighbor cache: local broadcast address?
 - ipv4: recognize site scope addresses?
 - ifdef out some debugging code?
 - better memory allocators
-- precedence of all packets (incl. TCP)
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
 - all internal tables are in host order
 
@@ -18,8 +16,9 @@ Core
 - alloca
 - adding of route: clear all bits not covered by masklen
 - switch: generate default route only if at least one BGP connection exists
+- "interface kill" list
 
-- route recalculation timing + flap dampening
+- route recalculation timing + flap dampening (?)
 
 - reconfiguration without restart of all protocols?
 - change of interface address: ??? (down and up?)
@@ -29,9 +28,7 @@ Core
 	- interface is not required to exist
 	- can specify a wildcard pattern or an interface list
 
-- timers - one-shot and periodic, resolution 1 sec, randomized
 - re-configuration: restart of routing protocols (shutdown mode)
-- route: originating AS
 
 - Check incoming packets and log errors!!
 
