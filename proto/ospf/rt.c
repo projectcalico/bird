@@ -235,7 +235,15 @@ again:
         a0.flags=0;
         a0.aflags=0;
         a0.iface=en->nhi;
-        a0.gw=en->nh;
+        if(ipa_in_net(en->nh,en->nhi->addr->ip,en->nhi->addr->pxlen))
+        {
+           a0.gw=IPA_NONE;
+        }
+        else
+        {
+           a0.gw=en->nh;
+        }
+        
         ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
         e=rte_get_temp(&a0);
         e->u.ospf.metric1=nf->metric;
@@ -604,13 +612,12 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
   u32 myrid=p->cf->global->router_id;
 
   DBG("     Next hop called.\n");
-  if(ipa_to_u32(par->nh)==0)
+  if(ipa_equal(par->nh,IPA_NONE))
   {
     neighbor *nn;
     DBG("     Next hop calculating for id: %I rt: %I type: %u\n",
       en->lsa.id,en->lsa.rt,en->lsa.type);
 
-/* xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx */
     if(par==oa->rt)
     {
       if(en->lsa.type==LSA_T_NET)
@@ -637,6 +644,7 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
       {
         if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL) return;
         en->nhi=neigh->ifa->iface;
+        en->nh=neigh->ip;	/* Yes, neighbor is it's own next hop */
         return;
       }
     }
@@ -651,6 +659,7 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
     else	/* Parent is some RT neighbor */
     {
       /* FIXME: I should probably hold ospf_iface in top_hash_entry */
+      /* FIXME: Isn't this useless */
       neigh=NULL;
       WALK_LIST(ifa,po->iface_list)
       {
