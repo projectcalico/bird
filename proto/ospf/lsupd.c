@@ -194,7 +194,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
 
     DBG("Sending ID=%I, Type=%u, RT=%I\n", llsh->lsh.id, llsh->lsh.type,
       llsh->lsh.rt);
-    if((len+en->lsa.length)>n->ifa->iface->mtu)
+    if(((u32)(len+en->lsa.length))>n->ifa->iface->mtu)
     {
       pk->lsano=htonl(lsano);
       op->length=htons(len-SIPH);
