@@ -50,11 +50,13 @@ ev_new(pool *p)
   return e;
 }
 
-inline void
+inline int
 ev_run(event *e)
 {
-  if (!e->hook(e->data))
+  int keep = e->hook(e->data);
+  if (!keep)
     ev_postpone(e);
+  return keep;
 }
 
 inline void
@@ -71,14 +73,16 @@ ev_schedule(event *e)
   ev_enqueue(&global_event_list, e);
 }
 
-void
+int
 ev_run_list(event_list *l)
 {
   node *n, *p;
+  int keep = 0;
 
   WALK_LIST_DELSAFE(n, p, *l)
     {
       event *e = SKIP_BACK(event, n, n);
-      ev_run(e);
+      keep += ev_run(e);
     }
+  return keep;
 }

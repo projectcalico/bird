@@ -23,11 +23,11 @@ typedef list event_list;
 extern event_list global_event_list;
 
 event *ev_new(pool *);
-void ev_run(event *);
+int ev_run(event *);
 #define ev_init_list(el) init_list(el)
 void ev_enqueue(event_list *, event *);
 void ev_schedule(event *);
 void ev_postpone(event *);
-void ev_run_list(event_list *);
+int ev_run_list(event_list *);
 
 #endif
