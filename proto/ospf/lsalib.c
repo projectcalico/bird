@@ -73,7 +73,7 @@ ospf_age(struct ospf_area *oa)
       en->lsa.age = 0;
       en->inst_t = now;
       en->ini_age = 0;
-      lsasum_calculate(&en->lsa, en->lsa_body, po);
+      lsasum_calculate(&en->lsa, en->lsa_body);
       ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
       continue;
     }
@@ -321,7 +321,7 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
 
 /* FIXME This is VERY uneficient, I have huge endianity problems */
 void
-lsasum_calculate(struct ospf_lsa_header *h, void *body, struct proto_ospf *po)
+lsasum_calculate(struct ospf_lsa_header *h, void *body)
 {
   u16 length;
 
@@ -330,7 +330,7 @@ lsasum_calculate(struct ospf_lsa_header *h, void *body, struct proto_ospf *po)
   htonlsah(h, h);
   htonlsab(body, body, h->type, length - sizeof(struct ospf_lsa_header));
 
-  (void) lsasum_check(h, body, po);
+  (void) lsasum_check(h, body);
 
   ntohlsah(h, h);
   ntohlsab(body, body, h->type, length - sizeof(struct ospf_lsa_header));
@@ -341,7 +341,7 @@ lsasum_calculate(struct ospf_lsa_header *h, void *body, struct proto_ospf *po)
  * It also returns value in big endian
  */
 u16
-lsasum_check(struct ospf_lsa_header *h, void *body, struct proto_ospf *po)
+lsasum_check(struct ospf_lsa_header *h, void *body)
 {
   u8 *sp, *ep, *p, *q, *b;
   int c0 = 0, c1 = 0;

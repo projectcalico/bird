@@ -114,7 +114,7 @@ ospf_start(struct proto *p)
     oa->stub = ac->stub;
     oa->tick = ac->tick;
     oa->areaid = ac->areaid;
-    oa->gr = ospf_top_new(po->proto.pool, po);
+    oa->gr = ospf_top_new(p->pool);
     s_init_list(&(oa->lsal));
     oa->rt = NULL;
     oa->po = po;
@@ -175,8 +175,6 @@ static struct proto *
 ospf_init(struct proto_config *c)
 {
   struct proto *p = proto_new(c, sizeof(struct proto_ospf));
-  struct proto_ospf *po = (struct proto_ospf *) p;
-  struct ospf_config *oc = (struct ospf_config *) c;
 
   p->import_control = ospf_import_control;
   p->make_tmp_attrs = ospf_make_tmp_attrs;

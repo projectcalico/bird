@@ -44,7 +44,7 @@ struct top_graph
   unsigned int hash_entries_min, hash_entries_max;
 };
 
-struct top_graph *ospf_top_new(pool *, struct proto_ospf *);
+struct top_graph *ospf_top_new(pool *);
 void ospf_top_free(struct top_graph *);
 void ospf_top_dump(struct top_graph *, struct proto *);
 struct top_hash_entry *ospf_hash_find_header(struct top_graph *f,

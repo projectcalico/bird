@@ -350,7 +350,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 
     /* pg 143 (1) */
     chsum = lsa->checksum;
-    if (chsum != lsasum_check(lsa, NULL, po))
+    if (chsum != lsasum_check(lsa, NULL))
     {
       log(L_WARN "Received bad lsa checksum from %I", n->ip);
       continue;
@@ -433,7 +433,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 	OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa.");
 	OSPF_TRACE(D_EVENTS, "Type: %d, Id: %I, Rt: %I", lsatmp.type,
 		   lsatmp.id, lsatmp.rt);
-	lsasum_check(lsa, (lsa + 1), po);	/* It also calculates chsum! */
+	lsasum_check(lsa, (lsa + 1));	/* It also calculates chsum! */
 	lsatmp.checksum = ntohs(lsa->checksum);
 	ospf_lsupd_flood(NULL, lsa, &lsatmp, NULL, oa, 0);
 	if (en = ospf_hash_find_header(oa->gr, &lsatmp))
@@ -566,7 +566,7 @@ ospf_lsupd_flush_nlsa(struct top_hash_entry *en, struct ospf_area *oa)
 
   lsa->age = LSA_MAXAGE;
   lsa->sn = LSA_MAXSEQNO;
-  lsasum_calculate(lsa, en->lsa_body, po);
+  lsasum_calculate(lsa, en->lsa_body);
   OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa!");
   OSPF_TRACE(D_EVENTS, "Type: %d, Id: %I, Rt: %I", lsa->type,
 	     lsa->id, lsa->rt);

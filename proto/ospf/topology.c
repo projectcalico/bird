@@ -198,7 +198,7 @@ originate_rt_lsa(struct ospf_area *oa)
     lsa.sn = oa->rt->lsa.sn + 1;
   }
   body = originate_rt_lsa_body(oa, &lsa.length);
-  lsasum_calculate(&lsa, body, po);
+  lsasum_calculate(&lsa, body);
   en = lsa_install_new(&lsa, body, oa);
   oa->rt = en;
   en->dist = 0; /* Force area aging */
@@ -299,7 +299,7 @@ originate_net_lsa(struct ospf_iface *ifa)
   }
 
   body = originate_net_lsa_body(ifa, &lsa.length, po);
-  lsasum_calculate(&lsa, body, po);
+  lsasum_calculate(&lsa, body);
   ifa->nlsa = lsa_install_new(&lsa, body, ifa->oa);
   ospf_lsupd_flood(NULL, NULL, &ifa->nlsa->lsa, NULL, ifa->oa, 1);
   ifa->orignet = 0;
@@ -437,7 +437,7 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
     mb_free(body);
     return;
   }
-  lsasum_calculate(&lsa, body, po);
+  lsasum_calculate(&lsa, body);
   WALK_LIST(oa, po->area_list)
   {
     en = lsa_install_new(&lsa, body, oa);
@@ -514,7 +514,7 @@ ospf_top_hash(struct top_graph *f, u32 lsaid, u32 rtrid, u32 type)
  * its used in @ospf_area structure.
  */
 struct top_graph *
-ospf_top_new(pool * pool, struct proto_ospf *p)
+ospf_top_new(pool *pool)
 {
   struct top_graph *f;
 

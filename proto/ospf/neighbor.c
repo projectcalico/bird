@@ -57,9 +57,9 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   n->rxmt_timer->hook = rxmt_timer_hook;
   n->rxmt_timer->recurrent = ifa->rxmtint;
   s_init_list(&(n->lsrql));
-  n->lsrqh = ospf_top_new(pool, n->ifa->proto);
+  n->lsrqh = ospf_top_new(pool);
   s_init_list(&(n->lsrtl));
-  n->lsrth = ospf_top_new(pool, n->ifa->proto);
+  n->lsrth = ospf_top_new(pool);
   s_init(&(n->lsrqi), &(n->lsrql));
   s_init(&(n->lsrti), &(n->lsrtl));
   tm_start(n->rxmt_timer, n->ifa->rxmtint);
