@@ -141,3 +141,13 @@ o  Davej si pozor na rody -- router je vzdycky `it', nikdy `he'.
 > `...' hlaska. Viceradkove odpovedi maji na vsech radcich mimo posledniho misto `s'
 > minus a nebo na druhem az predposlednim radku misto celeho prefixu jen whitespace
 > (presne jako ve FTP).
+
+Jeste by to chtelo trosku podrobneji:
+
+(1) zminit se o atributech, rici, co vsechno o route rikaji a odkazat  
+    na kapitolu o filtrech, kde jsou presne nadefinovany
+(2) kdyz mluvis o preferenci, mel bys rici, co to je (ze to je atribut)
+    a kdo jej vlastne nastavuje (ze existuje globalni default pro typ
+    protokolu, ktery muzes overridovat v konfiguraci protokolu, coz
+    muzes pro konkretni routu overridovat filtrem).
+(3) popsat spojeni mezi routovacimi tabulkami, filtry a protokoly
