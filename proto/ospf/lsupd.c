@@ -16,7 +16,8 @@ ospf_lsupd_tx(struct ospf_neighbor *n)
 
 void
 flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
-  struct ospf_lsa_header *hh, struct proto_ospf *po, struct ospf_iface *iff)
+  struct ospf_lsa_header *hh, struct proto_ospf *po, struct ospf_iface *iff,
+  struct ospf_area *oa)
 {
   struct ospf_iface *ifa;
   struct ospf_neighbor *nn;
@@ -33,13 +34,13 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
     }
     else
     {
-      if(iff->oa->areaid==BACKBONE)
+      if(oa->areaid==BACKBONE)
       {
-        if((ifa->type!=OSPF_IT_VLINK)&&(ifa->oa!=iff->oa)) continue;
+        if((ifa->type!=OSPF_IT_VLINK)&&(ifa->oa!=oa)) continue;
       }
       else
       {
-        if(ifa->oa!=iff->oa) continue;
+        if(ifa->oa!=oa) continue;
       }
     }
     ret=0;
@@ -92,16 +93,30 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       struct ospf_lsupd_packet *pk;
       struct ospf_packet *op;
 
-      if(ifa->type==OSPF_IT_NBMA)  sk=iff->ip_sk;
-      else sk=iff->hello_sk;	/* FIXME is this tru for PTP? */
+      if(ifa->type==OSPF_IT_NBMA)  sk=ifa->ip_sk;
+      else sk=ifa->hello_sk;	/* FIXME is this true for PTP? */
 
       pk=(struct ospf_lsupd_packet *)sk->tbuf;
       op=(struct ospf_packet *)sk->tbuf;
 
       fill_ospf_pkt_hdr(ifa, pk, LSUPD);
       pk->lsano=htonl(1);
-      memcpy(pk+1,hn,ntohs(hn->length));
-      len=sizeof(struct ospf_lsupd_packet)+ntohs(hn->length);
+      if(hn!=NULL)
+      {
+        memcpy(pk+1,hn,ntohs(hn->length));
+        len=sizeof(struct ospf_lsupd_packet)+ntohs(hn->length);
+      }
+      else
+      {
+        u8 *help;
+	struct top_hash_entry *en;
+        htonlsah(hh,(struct ospf_lsa_header *)(pk+1));
+	help=(u8 *)(pk+1);
+	help+=sizeof(struct ospf_lsa_header);
+	en=ospf_hash_find_header(oa->gr,hh);
+	htonlsab(en->lsa_body,help,hh->type,hh->length);
+	len=hh->length;
+      }
       op->length=htons(len);
       ospf_pkt_finalize(ifa, op);
 
@@ -278,7 +293,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       /* pg 144 (5a) */
       if(lsadb && ((lsadb->inst_t-now)<MINLSARRIVAL)) continue;
 
-      flood_lsa(n,lsa,&lsatmp,po,ifa);
+      flood_lsa(n,lsa,&lsatmp,po,ifa,ifa->oa);
 
       /* Remove old from all ret lists */
       /* pg 144 (5c) */

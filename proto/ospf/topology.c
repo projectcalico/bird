@@ -188,6 +188,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
   ifa->oa=oa;
 
   oa->rt=originate_rt_lsa(oa,po);
+  flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa);
 }
 
 struct top_hash_entry *
