@@ -92,7 +92,7 @@ struct rip_entry {
 
 struct rip_packet {
   struct rip_packet_heading heading;
-  struct rip_block block[25];
+  struct rip_block block[PACKET_MAX];
 };
 
 struct rip_interface {

@@ -75,8 +75,8 @@ rip_tx_err( sock *s, int err )
   log( L_ERR "Unexpected error at rip transmit: %m" );
 }
 
-static void
-rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e, struct rip_interface *rif )
+static int
+rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e, struct rip_interface *rif, int pos )
 {
   DBG( "." );
   b->family  = htons( 2 ); /* AF_INET */
@@ -100,6 +100,8 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
     b->metric = htonl( P_CF->infinity );
   }
   ipa_hton( b->network );
+
+  return pos+1;
 }
 
 static void
@@ -110,6 +112,7 @@ rip_tx( sock *s )
   struct proto *p = c->proto;
   struct rip_packet *packet = (void *) s->tbuf;
   int i, packetlen;
+  int maxi, nullupdate = 1;
 
   DBG( "Sending to %I\n", s->daddr );
   do {
@@ -124,13 +127,15 @@ rip_tx( sock *s )
     packet->heading.unused  = 0;
 
     i = !!P_CF->authtype;
+    maxi = ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX);
+    
     FIB_ITERATE_START(&P->rtable, &c->iter, z) {
       struct rip_entry *e = (struct rip_entry *) z;
 
       if (!rif->triggered || (!(e->updated < now-5))) {
-
-	rip_tx_prepare( p, s->daddr, packet->block + i, e, rif );
-	if (i++ == ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX)) {
+	nullupdate = 0;
+	i = rip_tx_prepare( p, s->daddr, packet->block + i, e, rif, i );
+	if (i >= maxi) {
 	  FIB_ITERATE_PUT(&c->iter, z);
 	  goto break_loop;
 	}
@@ -143,7 +148,7 @@ rip_tx( sock *s )
     packetlen = rip_outgoing_authentication(p, (void *) &packet->block[0], packet, i);
 
     DBG( ", sending %d blocks, ", i );
-    if (i == !!P_CF->authtype) {
+    if (nullupdate) {
       DBG( "not sending NULL update\n" );
       c->done = 1;
       goto done;
@@ -389,7 +394,7 @@ rip_rx(sock *s, int size)
   if (size < 0) BAD( "Too small packet" );
   if (size % sizeof( struct rip_block )) BAD( "Odd sized packet" );
   num = size / sizeof( struct rip_block );
-  if (num>25) BAD( "Too many blocks" );
+  if (num>PACKET_MAX) BAD( "Too many blocks" );
 
   rip_process_packet( p, (struct rip_packet *) s->rbuf, num, s->faddr, s->fport );
   return 1;
