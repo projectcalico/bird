@@ -179,7 +179,7 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
 
     if(lsa_comp(&lsa,&en->lsa)!=CMP_SAME)
     {
-      log("Strange LS acknoledgement from %d\n",n->rid);
+      log("Strange LS acknoledgement from %I\n",n->rid);
       continue;
     }
 
