@@ -11,19 +11,28 @@
 
 #include "lib/resource.h"
 
-/* Lexer */
-
-struct f_instruction {
-  struct f_instruction *next;	/* Structure is 16 bytes, anyway */
+struct f_inst {		/* Instruction */
+  struct f_inst *next;	/* Structure is 16 bytes, anyway */
   int code;
   void *arg1, *arg2;
 };
 
+struct f_val {
+  int type;
+  union {
+    int i;
+  } val;
+};
+
 void filters_postconfig(void);
-struct f_instruction *f_new_inst(void);
+struct f_inst *f_new_inst(void);
 
 #define F_ACCEPT 1
 #define F_REJECT 2
 #define F_MODIFY 3
+
+#define T_VOID 0
+#define T_INT 1
+#define T_PX 2
 
 #endif

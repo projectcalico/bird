@@ -19,7 +19,7 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT)
+CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT, CONST, VAR, PUTS, DIE, IF)
 
 %type <x> term
 %type <x> cmds
@@ -29,7 +29,7 @@ CF_GRAMMAR
 CF_ADDTO(conf, function)
 function:
    FUNCTION SYM '(' ')' '{' cmds '}' { 
-     extern struct f_instruction *last_func;
+     extern struct f_inst *last_func;
      if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
      $2->class = SYM_FUNCTION;
      $2->def = $6;
@@ -69,13 +69,47 @@ term:
    /* EMPTY */ { 
      $$ = NULL;
    }
+ | term '+' term {
+     $$ = f_new_inst();
+     $$->code = '+';
+     $$->arg1 = $1;
+     $$->arg2 = $3;
+   }
+ | IF '(' term ')' '{' cmds '}' {
+     $$ = f_new_inst();
+     $$->code = '?';
+     $$->arg1 = $3;
+     $$->arg2 = $6;
+   }
+ | IF '(' term ')' term {
+     $$ = f_new_inst();
+     $$->code = '?';
+     $$->arg1 = $3;
+     $$->arg2 = $5;
+   }
  | INT SYM {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined, can not use as variable\n" );
      $2->class = SYM_VARIABLE_INT;
      printf( "New variable\n" );
      $$ = NULL;
    }
- | SYM '=' expr {
+ | VAR '(' SYM ')' {
+     $$ = f_new_inst();
+     switch ($3->class) {
+       case SYM_VARIABLE_INT:
+	 $$->code = 'i';
+         $$->arg1 = &($3->aux);
+	 break;
+       default:
+	 cf_error("Can not use this class of symbol as variable" );
+     }
+   }
+ | CONST '(' expr ')' {
+     $$ = f_new_inst();
+     $$->code = 'c';
+     $$->arg1 = $3;
+   }
+ | SYM '=' term {
      $$ = f_new_inst();
      printf( "Ook, we'll set value\n" );
      if ($1->class != SYM_VARIABLE_INT)
@@ -84,12 +118,21 @@ term:
      $$->arg1 = $1;
      $$->arg2 = $3;
    }
- | PRINT '(' SYM ')' {
+ | PRINT '(' term ')' {
      $$ = f_new_inst();
      printf( "Ook, we'll print something\n" );
      $$->code = 'p';
      $$->arg1 = $3;
      $$->arg2 = NULL;
+   }
+ | PUTS '(' TEXT ')' {
+     $$ = f_new_inst();
+     $$->code = 'd';
+     $$->arg1 = $3;
+   }
+ | DIE {
+     $$ = f_new_inst();
+     $$->code = '!';
    }
  | PRINTDEBUG {
      $$ = f_new_inst();

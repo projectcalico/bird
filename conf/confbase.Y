@@ -25,7 +25,7 @@ CF_DECLS
   ip_addr a;
   struct symbol *s;
   char *t;
-  struct f_instruction *x; 
+  struct f_inst *x; 
 }
 
 %token END
