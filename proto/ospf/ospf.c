@@ -57,7 +57,8 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
     (pkt+1),ntohs(pkt->length)-sizeof(struct ospf_packet),NULL);
 }
 
-void ospf_dbdes_tx(struct ospf_iface *ifa)
+void
+ospf_dbdes_tx(struct ospf_iface *ifa)
 {
   struct ospf_dbdes_packet *pkt;
   struct ospf_packet *op;
@@ -123,12 +124,15 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
   struct ospf_iface *ifa;
   struct proto *p;
 
-  ifa=n->ifa;
-  p=(struct proto *)(ifa->proto);
+  if(n->state!=state)
+  {
+    ifa=n->ifa;
+    p=(struct proto *)(ifa->proto);
   
-  debug("%s: Neigbor '%u' changes state from %u to %u.\n", p->name, n->rid,
-    n->state, state);
-  n->state=state;
+    debug("%s: Neigbor '%u' changes state from %u to %u.\n", p->name, n->rid,
+      n->state, state);
+    n->state=state;
+  }
 }
 
 
@@ -143,7 +147,7 @@ tryadj(struct ospf_neighbor *n, struct proto *p)
     n->dds=random_u32();
   }
   n->dds++;
-  n->myimms=(DBDES_MS | DBDES_M|DBDES_I );
+  n->myimms=(DBDES_MS | DBDES_M | DBDES_I );
   tm_start(n->ifa->rxmt_timer,1);	/* Or some other number ? */
 }
 
@@ -410,6 +414,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       break;
     case INM_SEQMIS:
     case INM_BADLSREQ:
+      debug("%s: Bad LS req!\n", p->name);
       if(n->state>=NEIGHBOR_EXCHANGE)
       {
         neigh_chstate(n,NEIGHBOR_EXSTART);
@@ -615,13 +620,6 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         ospf_neigh_sm(n, INM_2WAYREC);
 	if(n->state!=NEIGHBOR_EXSTART) return;
     case NEIGHBOR_EXSTART:
-        if(size!=sizeof(struct ospf_dbdes_packet))
-        {
-          debug("%s: Received bad dbdes from %u in exstart state.\n",
-            p->name, nrid);
-          return;
-	}
-
         if(ps->imms==(DBDES_I|DBDES_M|DBDES_MS) && (n->rid > myrid) &&
           (size == sizeof(struct ospf_dbdes_packet)))
         {
@@ -650,10 +648,11 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
           {
             debug("%s: Nothing happend to %u (imms=%u)", p->name, nrid,
               ps->imms);
+            break;
           }
         }
+        break;	/* I should probably continue processing packet */
 
-      break;
     case NEIGHBOR_EXCHANGE:
 	if((ps->imms==n->imms) && (ps->options=n->options) &&
 	  (ps->ddseq==n->dds))
@@ -667,6 +666,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  else
 	  {
             /* FIXME: Send response! */
+            return;
 	  }
         }
 
