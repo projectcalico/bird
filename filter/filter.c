@@ -283,7 +283,8 @@ interpret(struct f_inst *what)
     TWOARGS_C;
     switch (res.type = v1.type) {
     case T_VOID: runtime( "Can not operate with values of type void" );
-    case T_INT: res.val.i = v1.val.i / v2.val.i; break;
+    case T_INT: if (v2.val.i == 0) runtime( "Mother told me not to divide by 0" );
+      	        res.val.i = v1.val.i / v2.val.i; break;
     case T_IP: if (v2.type != T_INT)
                  runtime( "Operator / is <ip>/<int>" );
                break;
