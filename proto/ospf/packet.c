@@ -48,16 +48,17 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
   char password[OSPF_AUTH_CRYPT_SIZE];
 
   pkt->autype = htons(ifa->autype);
+  bzero(pkt->u, sizeof(union ospf_auth));
 
   switch(ifa->autype)
   {
-    case OSPF_AUTH_NONE:
     case OSPF_AUTH_SIMPLE:
+      password_cpy(pkt->u.password, passwd->password, 8);
+    case OSPF_AUTH_NONE:
       pkt->checksum = ipsum_calculate(pkt, sizeof(struct ospf_packet) - 8,
 				  (pkt + 1),
 				  ntohs(pkt->length) -
 				  sizeof(struct ospf_packet), NULL);
-      password_cpy(pkt->u.password, passwd->password, 8);
       break;
     case OSPF_AUTH_CRYPT:
       if (!passwd)
@@ -89,10 +90,9 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 }
 
 static int
-ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_packet *pkt, int size)
+ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_packet *pkt, int size)
 {
   int i;
-  struct ospf_iface *ifa = n->ifa;
   struct proto_ospf *po = ifa->proto;
   struct proto *p = &po->proto;
   struct password_item *pass = NULL, *ptmp;
@@ -105,6 +105,13 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_packet *pkt, int size)
   if (pkt->autype != htons(ifa->autype))
   {
     OSPF_TRACE(D_PACKETS, "OSPF_auth: Method differs (%d)", ntohs(pkt->autype));
+    return 0;
+  }
+
+  if (n && (ifa != n->ifa))
+  {
+    OSPF_TRACE(D_PACKETS, "OSPF_auth: received packet from strange interface (%s/%s)",
+      ifa->iface->name, n->ifa->iface->name);
     return 0;
   }
 
@@ -282,7 +289,7 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
-  if (!ospf_pkt_checkauth(n, ps, size))
+  if (!ospf_pkt_checkauth(n, ifa, ps, size))
   {
     log(L_ERR "%s%I - authentification failed", mesg, sk->faddr);
     return 1;
@@ -371,7 +378,7 @@ void
 ospf_send_to(sock *sk, ip_addr ip, struct ospf_iface *ifa)
 {
   struct ospf_packet *pkt = (struct ospf_packet *) sk->tbuf;
-  int len = ntohs(pkt->length) + (pkt->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0;
+  int len = ntohs(pkt->length) + ((ifa->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0);
   ospf_pkt_finalize(ifa, pkt);
 
   if (ipa_equal(ip, IPA_NONE))
