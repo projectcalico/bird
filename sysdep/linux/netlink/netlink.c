@@ -276,7 +276,7 @@ nl_parse_link(struct nlmsghdr *h, int scan)
   ifi = if_find_by_index(i->ifi_index);
   if (!new)
     {
-      DBG("KRT: IF%d(%s) goes down\n", i->ifi_index, name);
+      DBG("KIF: IF%d(%s) goes down\n", i->ifi_index, name);
       if (ifi && !scan)
 	{
 	  memcpy(&f, ifi, sizeof(struct iface));
@@ -286,7 +286,7 @@ nl_parse_link(struct nlmsghdr *h, int scan)
     }
   else
     {
-      DBG("KRT: IF%d(%s) goes up (mtu=%d,flg=%x)\n", i->ifi_index, name, mtu, i->ifi_flags);
+      DBG("KIF: IF%d(%s) goes up (mtu=%d,flg=%x)\n", i->ifi_index, name, mtu, i->ifi_flags);
       if (ifi)
 	memcpy(&f, ifi, sizeof(f));
       else
@@ -332,14 +332,14 @@ nl_parse_addr(struct nlmsghdr *h)
     }
   if (i->ifa_flags & IFA_F_SECONDARY)
     {
-      DBG("KRT: Received address message for secondary address which is not supported.\n"); /* FIXME */
+      DBG("KIF: Received address message for secondary address which is not supported.\n"); /* FIXME */
       return;
     }
 
   ifi = if_find_by_index(i->ifa_index);
   if (!ifi)
     {
-      log(L_ERR "KRT: Received address message for unknown interface %d\n", i->ifa_index);
+      log(L_ERR "KIF: Received address message for unknown interface %d\n", i->ifa_index);
       return;
     }
   memcpy(&f, ifi, sizeof(f));
@@ -347,14 +347,14 @@ nl_parse_addr(struct nlmsghdr *h)
   if (i->ifa_prefixlen > 32 || i->ifa_prefixlen == 31 ||
       (f.flags & IF_UNNUMBERED) && i->ifa_prefixlen != 32)
     {
-      log(L_ERR "KRT: Invalid prefix length for interface %s: %d\n", f.name, i->ifa_prefixlen);
+      log(L_ERR "KIF: Invalid prefix length for interface %s: %d\n", f.name, i->ifa_prefixlen);
       new = 0;
     }
 
   f.ip = f.brd = f.opposite = IPA_NONE;
   if (!new)
     {
-      DBG("KRT: IF%d IP address deleted\n");
+      DBG("KIF: IF%d IP address deleted\n");
       f.pxlen = 0;
     }
   else
@@ -374,7 +374,7 @@ nl_parse_addr(struct nlmsghdr *h)
 	}
       /* else a NBMA link */
       f.prefix = ipa_and(f.ip, ipa_mkmask(f.pxlen));
-      DBG("KRT: IF%d IP address set to %I, net %I/%d, brd %I, opp %I\n", f.index, f.ip, f.prefix, f.pxlen, f.brd, f.opposite);
+      DBG("KIF: IF%d IP address set to %I, net %I/%d, brd %I, opp %I\n", f.index, f.ip, f.prefix, f.pxlen, f.brd, f.opposite);
     }
   if_update(&f);
 }
@@ -485,12 +485,8 @@ nl_send_route(rte *e, int new)
 }
 
 void
-krt_set_notify(struct proto *p, net *n, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old)
 {
-  if (old && !krt_capable(old))
-    old = NULL;
-  if (new && !krt_capable(new))
-    new = NULL;
   if (old && new && old->attrs->tos == new->attrs->tos)
     {
       /* FIXME: Priorities should be identical as well, but we don't use them yet. */
@@ -546,6 +542,7 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
     return;
   if ((a[RTA_DST] && RTA_PAYLOAD(a[RTA_DST]) != sizeof(ip_addr)) ||
       (a[RTA_OIF] && RTA_PAYLOAD(a[RTA_OIF]) != 4) ||
+      (a[RTA_PRIORITY] && RTA_PAYLOAD(a[RTA_PRIORITY]) != 4) ||
       (a[RTA_GATEWAY] && RTA_PAYLOAD(a[RTA_GATEWAY]) != sizeof(ip_addr)))
     {
       log(L_ERR "nl_parse_route: Malformed message received");
@@ -649,9 +646,22 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
       DBG("KRT: Ignoring route with type=%d\n", i->rtm_type);
       return;
     }
+
+  if (i->rtm_scope != RT_SCOPE_UNIVERSE)	/* FIXME: Other scopes? */
+    {
+      DBG("KRT: Ignoring route with scope=%d\n", i->rtm_scope);
+      return;
+    }
+
   e = rte_get_temp(&ra);
   e->net = net;
-  e->u.krt_sync.src = src;
+  e->u.krt.src = src;
+  e->u.krt.proto = i->rtm_protocol;
+  e->u.krt.type = i->rtm_type;
+  if (a[RTA_PRIORITY])
+    memcpy(&e->u.krt.metric, RTA_DATA(a[RTA_PRIORITY]), sizeof(e->u.krt.metric));
+  else
+    e->u.krt.metric = 0;
   if (scan)
     krt_got_route(p, e);
   else
@@ -797,7 +807,7 @@ krt_scan_start(struct krt_proto *p)
 {
   init_list(&p->scan.temp_ifs);
   nl_open();
-  if (KRT_CF->scan.async)
+  if (KRT_CF->scan.async)	/* FIXME: Async is for debugging only. Get rid of it some day. */
     nl_open_async(p);
 }
 
@@ -810,4 +820,5 @@ void
 krt_if_start(struct kif_proto *p)
 {
   nl_open();
+  /* FIXME: nl_open_async() after scan.async is gone */
 }

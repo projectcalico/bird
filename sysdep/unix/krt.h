@@ -20,11 +20,20 @@ struct kif_proto;
 
 /* Flags stored in net->n.flags */
 
+#define KRF_VERDICT_MASK 0x0f
 #define KRF_CREATE 0			/* Not seen in kernel table */
 #define KRF_SEEN 1			/* Seen in kernel table during last scan */
 #define KRF_UPDATE 2			/* Need to update this entry */
 #define KRF_DELETE 3			/* Should be deleted */
-#define KRF_LEARN 4			/* We should learn this route */
+#define KRF_IGNORE 4			/* To be ignored */
+
+#define KRF_INSTALLED 0x80		/* This route should be installed in the kernel */
+
+/* Whenever we recognize our own routes, we allow learing of foreign routes */
+
+#ifdef CONFIG_SELF_CONSCIOUS
+#define KRT_ALLOW_LEARN
+#endif
 
 /* krt.c */
 
@@ -45,6 +54,9 @@ struct krt_proto {
   struct krt_set_status set;
   struct krt_scan_status scan;
   struct krt_if_status iface;
+#ifdef KRT_ALLOW_LEARN
+  struct rtable krt_table;	/* Internal table of inherited routes */
+#endif
 };
 
 extern struct proto_config *cf_krt;
@@ -92,7 +104,7 @@ void krt_set_start(struct krt_proto *);
 void krt_set_shutdown(struct krt_proto *);
 
 int krt_capable(rte *e);
-void krt_set_notify(struct proto *x, net *net, rte *new, rte *old);
+void krt_set_notify(struct krt_proto *x, net *net, rte *new, rte *old);
 
 /* krt-iface.c */
 

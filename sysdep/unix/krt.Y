@@ -45,7 +45,13 @@ kern_item:
       /* Scan time of 0 means scan on startup only */
       THIS_KRT->scan_time = $3;
    }
- | LEARN bool { THIS_KRT->learn = $2; }
+ | LEARN bool {
+      THIS_KRT->learn = $2;
+#ifndef KRT_ALLOW_LEARN
+      if ($2)
+	cf_error("Learning of kernel routes not supported in this configuration");
+#endif
+   }
  ;
 
 /* Kernel interface protocol */

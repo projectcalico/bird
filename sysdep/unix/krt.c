@@ -17,6 +17,8 @@
 #include "unix.h"
 #include "krt.h"
 
+static int krt_uptodate(rte *k, rte *e);
+
 /*
  *	Global resources
  */
@@ -107,6 +109,247 @@ struct protocol proto_unix_iface = {
 };
 
 /*
+ *	Inherited Routes
+ */
+
+#ifdef KRT_ALLOW_LEARN
+
+static inline int
+krt_same_key(rte *a, rte *b)
+{
+  return a->u.krt.proto == b->u.krt.proto &&
+         a->u.krt.metric == b->u.krt.metric &&
+         a->u.krt.type == b->u.krt.type;
+}
+
+static void
+krt_learn_announce_update(struct krt_proto *p, rte *e)
+{
+  net *n = e->net;
+  rta *aa = rta_clone(e->attrs);
+  rte *ee = rte_get_temp(aa);
+  net *nn = net_get(p->p.table, 0, n->n.prefix, n->n.pxlen);		/* FIXME: TOS */
+  ee->net = nn;
+  ee->pflags = 0;
+  ee->u.krt = e->u.krt;
+  rte_update(nn, &p->p, ee);
+}
+
+static void
+krt_learn_announce_delete(struct krt_proto *p, net *n)
+{
+  n = net_find(p->p.table, 0, n->n.prefix, n->n.pxlen);	      		/* FIXME: TOS */
+  if (n)
+    rte_update(n, &p->p, NULL);
+}
+
+static void
+krt_learn_scan(struct krt_proto *p, rte *e)
+{
+  net *n0 = e->net;
+  net *n = net_get(&p->krt_table, 0, n0->n.prefix, n0->n.pxlen);	/* FIXME: TOS */
+  rte *m, **mm;
+
+  e->attrs->source = RTS_INHERIT;
+
+  for(mm=&n->routes; m = *mm; mm=&m->next)
+    if (krt_same_key(m, e))
+      break;
+  if (m)
+    {
+      if (krt_uptodate(m, e))
+	{
+	  DBG("krt_learn_scan: SEEN\n");
+	  rte_free(e);
+	  m->u.krt.seen = 1;
+	}
+      else
+	{
+	  DBG("krt_learn_scan: OVERRIDE\n");
+	  *mm = m->next;
+	  rte_free(m);
+	  m = NULL;
+	}
+    }
+  else
+    DBG("krt_learn_scan: CREATE\n");
+  if (!m)
+    {
+      e->attrs = rta_lookup(e->attrs);
+      e->next = n->routes;
+      n->routes = e;
+      e->u.krt.seen = 1;
+    }
+}
+
+/* FIXME: Add dump function */
+
+static void
+krt_learn_prune(struct krt_proto *p)
+{
+  struct fib *fib = &p->krt_table.fib;
+  struct fib_iterator fit;
+
+  DBG("Pruning inheritance data...\n");
+
+  FIB_ITERATE_INIT(&fit, fib);
+again:
+  FIB_ITERATE_START(fib, &fit, f)
+    {
+      net *n = (net *) f;
+      rte *e, **ee, *best, **pbest, *old_best;
+
+      old_best = n->routes;
+      best = NULL;
+      pbest = NULL;
+      ee = &n->routes;
+      while (e = *ee)
+	{
+	  if (!e->u.krt.seen)
+	    {
+	      *ee = e->next;
+	      rte_free(e);
+	      continue;
+	    }
+	  if (!best || best->u.krt.metric > e->u.krt.metric)
+	    {
+	      best = e;
+	      pbest = ee;
+	    }
+	  e->u.krt.seen = 0;
+	  ee = &e->next;
+	}
+      if (!n->routes)
+	{
+	  DBG("%I/%d: deleting\n", n->n.prefix, n->n.pxlen);
+	  if (old_best)
+	    {
+	      krt_learn_announce_delete(p, n);
+	      n->n.flags &= ~KRF_INSTALLED;
+	    }
+	  FIB_ITERATE_PUT(&fit, f);
+	  fib_delete(fib, f);
+	  goto again;
+	}
+      *pbest = best->next;
+      best->next = n->routes;
+      n->routes = best;
+      if (best != old_best || !(n->n.flags & KRF_INSTALLED))
+	{
+	  DBG("%I/%d: announcing (metric=%d)\n", n->n.prefix, n->n.pxlen, best->u.krt.metric);
+	  krt_learn_announce_update(p, best);
+	  n->n.flags |= KRF_INSTALLED;
+	}
+      else
+	DBG("%I/%d: uptodate (metric=%d)\n", n->n.prefix, n->n.pxlen, best->u.krt.metric);
+    }
+  FIB_ITERATE_END(f);
+}
+
+static void
+krt_learn_async(struct krt_proto *p, rte *e, int new)
+{
+  net *n0 = e->net;
+  net *n = net_get(&p->krt_table, 0, n0->n.prefix, n0->n.pxlen);	/* FIXME: TOS */
+  rte *g, **gg, *best, **bestp, *old_best;
+
+  e->attrs->source = RTS_INHERIT;
+
+  old_best = n->routes;
+  for(gg=&n->routes; g = *gg; gg = &g->next)
+    if (krt_same_key(g, e))
+      break;
+  if (new)
+    {
+      if (g)
+	{
+	  if (krt_uptodate(g, e))
+	    {
+	      DBG("krt_learn_async: same\n");
+	      rte_free(e);
+	      return;
+	    }
+	  DBG("krt_learn_async: update\n");
+	  *gg = g->next;
+	  rte_free(g);
+	}
+      else
+	DBG("krt_learn_async: create\n");
+      e->attrs = rta_lookup(e->attrs);
+      e->next = n->routes;
+      n->routes = e;
+    }
+  else if (!g)
+    {
+      DBG("krt_learn_async: not found\n");
+      rte_free(e);
+      return;
+    }
+  else
+    {
+      DBG("krt_learn_async: delete\n");
+      *gg = g->next;
+      rte_free(e);
+      rte_free(g);
+    }
+  best = n->routes;
+  bestp = &n->routes;
+  for(gg=&n->routes; g=*gg; gg=&g->next)
+    if (best->u.krt.metric > g->u.krt.metric)
+      {
+	best = g;
+	bestp = gg;
+      }
+  if (best)
+    {
+      *bestp = best->next;
+      best->next = n->routes;
+      n->routes = best;
+    }
+  if (best != old_best)
+    {
+      DBG("krt_learn_async: distributing change\n");
+      if (best)
+	{
+	  krt_learn_announce_update(p, best);
+	  n->n.flags |= KRF_INSTALLED;
+	}
+      else
+	{
+	  n->routes = NULL;
+	  krt_learn_announce_delete(p, n);
+	  n->n.flags &= ~KRF_INSTALLED;
+	}
+    }
+}
+
+static void
+krt_learn_init(struct krt_proto *p)
+{
+  if (KRT_CF->learn)
+    rt_setup(p->p.pool, &p->krt_table, "Inherited");
+}
+
+static void
+krt_dump(struct proto *P)
+{
+  struct krt_proto *p = (struct krt_proto *) P;
+
+  if (!KRT_CF->learn)
+    return;
+  debug("KRT: Table of inheritable routes\n");
+  rt_dump(&p->krt_table);
+}
+
+static void
+krt_dump_attrs(rte *e)
+{
+  debug(" [m=%d,p=%d,t=%d]", e->u.krt.metric, e->u.krt.proto, e->u.krt.type);
+}
+
+#endif
+
+/*
  *	Routes
  */
 
@@ -128,13 +371,12 @@ krt_flush_routes(struct krt_proto *p)
 	{
 	  rta *a = e->attrs;
 	  if (a->source != RTS_DEVICE && a->source != RTS_INHERIT)
-	    krt_set_notify(&p->p, e->net, NULL, e);
+	    krt_set_notify(p, e->net, NULL, e);
 	}
     }
   FIB_WALK_END;
 }
 
-/* FIXME: Inbound/outbound route filtering? */
 /* FIXME: Synchronization of multiple routing tables? */
 
 static int
@@ -165,41 +407,53 @@ krt_got_route(struct krt_proto *p, rte *e)
 {
   rte *old;
   net *net = e->net;
-  int src = e->u.krt_sync.src;
+  int src = e->u.krt.src;
   int verdict;
 
-  if (net->n.flags)
+#ifdef CONFIG_AUTO_ROUTES
+  if (e->attrs->dest == RTD_DEVICE)
+    {
+      /* It's a device route. Probably a kernel-generated one. */
+      verdict = KRF_IGNORE;
+      goto sentenced;
+    }
+#endif
+
+#ifdef KRT_ALLOW_LEARN
+  if (src == KRT_SRC_ALIEN)
+    {
+      if (KRT_CF->learn)
+	krt_learn_scan(p, e);
+      else
+	DBG("krt_parse_entry: Alien route, ignoring\n");
+      return;
+    }
+#endif
+
+  if (net->n.flags & KRF_VERDICT_MASK)
     {
       /* Route to this destination was already seen. Strange, but it happens... */
       DBG("Already seen.\n");
       return;
     }
 
-  if (old = net->routes)
+  if (net->n.flags & KRF_INSTALLED)
     {
-      if (!krt_capable(old))
-	{
-#ifdef CONFIG_AUTO_ROUTES
-	  if (old->attrs->source == RTS_DEVICE)
-	    verdict = KRF_SEEN;
-	  else
-#endif
-	    verdict = krt_capable(e) ? KRF_DELETE : KRF_SEEN;
-	}
-      else if (krt_uptodate(e, net->routes))
+      old = net->routes;
+      ASSERT(old);
+      if (krt_uptodate(e, old))
 	verdict = KRF_SEEN;
       else
 	verdict = KRF_UPDATE;
     }
-  else if (KRT_CF->learn && !net->routes && (src == KRT_SRC_ALIEN || src < 0))
-    verdict = KRF_LEARN;
   else
     verdict = KRF_DELETE;
 
-  DBG("krt_parse_entry: verdict=%s\n", ((char *[]) { "CREATE", "SEEN", "UPDATE", "DELETE", "LEARN" }) [verdict]);
+sentenced:
+  DBG("krt_parse_entry: verdict=%s\n", ((char *[]) { "CREATE", "SEEN", "UPDATE", "DELETE", "IGNORE" }) [verdict]);
 
-  net->n.flags = verdict;
-  if (verdict != KRF_SEEN)
+  net->n.flags = (net->n.flags & ~KRF_VERDICT_MASK) | verdict;
+  if (verdict == KRF_UPDATE || verdict == KRF_DELETE)
     {
       /* Get a cached copy of attributes and link the route */
       rta *a = e->attrs;
@@ -227,10 +481,10 @@ krt_prune(struct krt_proto *p)
   FIB_WALK(&t->fib, f)
     {
       net *n = (net *) f;
-      int verdict = f->flags;
+      int verdict = f->flags & KRF_VERDICT_MASK;
       rte *new, *old;
 
-      if (verdict != KRF_CREATE && verdict != KRF_SEEN)
+      if (verdict != KRF_CREATE && verdict != KRF_SEEN && verdict != KRF_IGNORE)
 	{
 	  old = n->routes;
 	  n->routes = old->next;
@@ -242,44 +496,37 @@ krt_prune(struct krt_proto *p)
       switch (verdict)
 	{
 	case KRF_CREATE:
-	  if (new)
+	  if (new && (f->flags & KRF_INSTALLED))
 	    {
-	      if (new->attrs->source == RTS_INHERIT)
-		{
-		  DBG("krt_prune: removing inherited %I/%d\n", n->n.prefix, n->n.pxlen);
-		  rte_update(n, pp, NULL);
-		}
-	      else if (krt_capable(new))
-		{
-		  DBG("krt_prune: reinstalling %I/%d\n", n->n.prefix, n->n.pxlen);
-		  krt_set_notify(pp, n, new, NULL);
-		}
+	      DBG("krt_prune: reinstalling %I/%d\n", n->n.prefix, n->n.pxlen);
+	      krt_set_notify(p, n, new, NULL);
 	    }
 	  break;
 	case KRF_SEEN:
+	case KRF_IGNORE:
 	  /* Nothing happens */
 	  break;
 	case KRF_UPDATE:
 	  DBG("krt_prune: updating %I/%d\n", n->n.prefix, n->n.pxlen);
-	  krt_set_notify(pp, n, new, old);
+	  krt_set_notify(p, n, new, old);
 	  break;
 	case KRF_DELETE:
 	  DBG("krt_prune: deleting %I/%d\n", n->n.prefix, n->n.pxlen);
-	  krt_set_notify(pp, n, NULL, old);
-	  break;
-	case KRF_LEARN:
-	  DBG("krt_prune: learning %I/%d\n", n->n.prefix, n->n.pxlen);
-	  rte_update(n, pp, new);
+	  krt_set_notify(p, n, NULL, old);
 	  break;
 	default:
 	  bug("krt_prune: invalid route status");
 	}
-
       if (old)
 	rte_free(old);
-      f->flags = 0;
+      f->flags &= ~KRF_VERDICT_MASK;
     }
   FIB_WALK_END;
+
+#ifdef KRT_ALLOW_LEARN
+  if (KRT_CF->learn)
+    krt_learn_prune(p);
+#endif
 }
 
 void
@@ -287,7 +534,7 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
 {
   net *net = e->net;
   rte *old = net->routes;
-  int src = e->u.krt_sync.src;
+  int src = e->u.krt.src;
 
   switch (src)
     {
@@ -295,26 +542,22 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
       ASSERT(0);
     case KRT_SRC_REDIRECT:
       DBG("It's a redirect, kill him! Kill! Kill!\n");
-      krt_set_notify(&p->p, net, NULL, e);
+      krt_set_notify(p, net, NULL, e);
       break;
-    default:	/* Alien or unspecified */
-      if (KRT_CF->learn && new)
+    case KRT_SRC_ALIEN:
+#ifdef KRT_ALLOW_LEARN
+      if (KRT_CF->learn)
 	{
-	  /*
-	   * FIXME: This is limited to one inherited route per destination as we
-	   * use single protocol for all inherited routes. Probably leave it
-	   * as-is (and document it :)), because the correct solution is to
-	   * use multiple kernel tables anyway.
-	   */
-	  DBG("Learning\n");
-	  rte_update(net, &p->p, e);
+	  krt_learn_async(p, e, new);
+	  return;
 	}
-      else
-	{
-	  DBG("Discarding\n");
-	  rte_update(net, &p->p, NULL);
-	}
+#endif
+      /* Fall-thru */
+    default:
+      DBG("Discarding\n");
+      rte_update(net, &p->p, NULL);
     }
+  rte_free(e);
 }
 
 /*
@@ -335,6 +578,26 @@ krt_scan(timer *t)
 }
 
 /*
+ *	Updates
+ */
+
+static void
+krt_notify(struct proto *P, net *net, rte *new, rte *old)
+{
+  struct krt_proto *p = (struct krt_proto *) P;
+
+  if (new && (!krt_capable(new) || new->attrs->source == RTS_INHERIT))
+    new = NULL;
+  if (!(net->n.flags & KRF_INSTALLED))
+    old = NULL;
+  if (new)
+    net->n.flags |= KRF_INSTALLED;
+  else
+    net->n.flags &= ~KRF_INSTALLED;
+  krt_set_notify(p, net, new, old);
+}
+
+/*
  *	Protocol glue
  */
 
@@ -344,6 +607,10 @@ static int
 krt_start(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
+
+#ifdef KRT_ALLOW_LEARN
+  krt_learn_init(p);
+#endif
 
   krt_scan_start(p);
   krt_set_start(p);
@@ -380,7 +647,7 @@ krt_init(struct proto_config *c)
 {
   struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
 
-  p->p.rt_notify = krt_set_notify;
+  p->p.rt_notify = krt_notify;
   return &p->p;
 }
 
@@ -390,4 +657,8 @@ struct protocol proto_unix_kernel = {
   init:		krt_init,
   start:	krt_start,
   shutdown:	krt_shutdown,
+#ifdef KRT_ALLOW_LEARN
+  dump:		krt_dump,
+  dump_attrs:	krt_dump_attrs,
+#endif
 };

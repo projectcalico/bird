@@ -77,41 +77,19 @@ krt_ioctl(int ioc, rte *e, char *name)
     log(L_ERR "%s(%I/%d): %m", name, net->n.prefix, net->n.pxlen);
 }
 
-static inline void
-krt_remove_route(rte *old)
-{
-  net *net = old->net;
-
-  if (!krt_capable(old))
-    {
-      DBG("krt_remove_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
-      return;
-    }
-  DBG("krt_remove_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
-  krt_ioctl(SIOCDELRT, old, "SIOCDELRT");
-}
-
-static inline void
-krt_add_route(rte *new)
-{
-  net *net = new->net;
-
-  if (!krt_capable(new))
-    {
-      DBG("krt_add_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
-      return;
-    }
-  DBG("krt_add_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
-  krt_ioctl(SIOCADDRT, new, "SIOCADDRT");
-}
-
 void
-krt_set_notify(struct proto *x, net *net, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p, net *net, rte *new, rte *old)
 {
   if (old)
-    krt_remove_route(old);
+    {
+      DBG("krt_remove_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
+      krt_ioctl(SIOCDELRT, old, "SIOCDELRT");
+    }
   if (new)
-    krt_add_route(new);
+    {
+      DBG("krt_add_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
+      krt_ioctl(SIOCADDRT, new, "SIOCADDRT");
+    }
 }
 
 void

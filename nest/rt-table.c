@@ -38,10 +38,10 @@ rte_init(struct fib_node *N)
 }
 
 void
-rt_setup(rtable *t, char *name)
+rt_setup(pool *p, rtable *t, char *name)
 {
   bzero(t, sizeof(*t));
-  fib_init(&t->fib, &root_pool, sizeof(rte), 0, rte_init);
+  fib_init(&t->fib, p, sizeof(rte), 0, rte_init);
   t->name = name;
 }
 
@@ -67,7 +67,7 @@ net_get(rtable *tab, unsigned tos, ip_addr mask, unsigned len)
       while (tab->sibling)
 	tab = tab->sibling;
       t = mb_alloc(&root_pool, sizeof(rtable));
-      rt_setup(t, NULL);
+      rt_setup(&root_pool, t, NULL);	/* FIXME: Either delete all the TOS logic or use the right pool */
       tab->sibling = t;
       t->tos = tos;
     }
@@ -305,10 +305,10 @@ rte_dump(rte *e)
     debug("%1I/%2d ", n->n.prefix, n->n.pxlen);
   else
     debug("??? ");
-  debug("PF=%02x pref=%d lm=%d ", e->pflags, e->pref, now-e->lastmod);
+  debug("KF=%02x PF=%02x pref=%d lm=%d ", n->n.flags, e->pflags, e->pref, now-e->lastmod);
   rta_dump(e->attrs);
-  if (e->flags & REF_CHOSEN)
-    debug(" [*]");
+  if (e->attrs->proto->proto->dump_attrs)
+    e->attrs->proto->proto->dump_attrs(e);
   debug("\n");
 }
 
@@ -357,7 +357,7 @@ rt_init(void)
 {
   rta_init();
   rt_table_pool = rp_new(&root_pool, "Routing tables");
-  rt_setup(&master_table, "master");
+  rt_setup(rt_table_pool, &master_table, "master");
   rte_slab = sl_new(rt_table_pool, sizeof(rte));
   rt_last_gc = now;
   rt_gc_event = ev_new(rt_table_pool);

@@ -127,7 +127,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
 
   e = rte_get_temp(&a);
   e->net = net;
-  e->u.krt_sync.src = KRT_SRC_UNKNOWN;
+  e->u.krt.src = KRT_SRC_UNKNOWN;
   krt_got_route(p, e);
 }
 
