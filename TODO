@@ -18,6 +18,10 @@ Core
 - check if all protocols set proper packet priorities and TTL's.
 - better default protocol names
 - config: comments at end of line -> explicit ';' needed?
+- remove post-config hooks?
+
+- static: check validity of route destination?
+- static: device routes
 
 - filter: logging of dropped routes (?)
 - limitation of memory consumption: per-process and total (?)

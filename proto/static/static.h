@@ -11,20 +11,20 @@
 
 struct static_proto {
   struct proto p;
-  list routes;
+  list iface_routes;			/* Routes to search on interface events */
+  list other_routes;			/* Routes hooked to neighbor cache and reject routes */
 };
 
 void static_init_instance(struct static_proto *);
 
 struct static_route {
   node n;
-  u32 net;				/* Network we route */
+  ip_addr net;				/* Network we route */
   int masklen;				/* Mask length */
   int dest;				/* Destination type (RTD_*) */
-  u32 via;				/* Destination router */
+  ip_addr via;				/* Destination router */
   struct neighbor *neigh;
-  /* FIXME: Device routes, maybe via device patterns? */
-  /* FIXME: More route attributes, probably via filter syntax */
+  byte *if_name;			/* Name for RTD_DEVICE routes */
 };
 
 #endif
