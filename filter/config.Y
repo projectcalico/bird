@@ -21,7 +21,7 @@ CF_DECLS
 CF_KEYWORDS(FUNCTION, PRINT, CONST,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
-	IF, THEN, ELSE,
+	IF, THEN, ELSE, CASE,
 	TRUE, FALSE,
 	RTA, FROM, GW, NET,
 	LEN,
@@ -29,7 +29,7 @@ CF_KEYWORDS(FUNCTION, PRINT, CONST,
 	FILTER
 	)
 
-%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list
+%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list switch_body
 %type <f> filter filter_body
 %type <i> type break_command
 %type <e> set_item set_items
@@ -118,6 +118,8 @@ function_def:
 cmds: /* EMPTY */ { $$ = NULL; }
  | cmd cmds {
      if ($1) {
+       if ($1->next)
+	 bug("Command has next already set\n");
        $1->next = $2;
        $$ = $1;
      } else $$ = $2;
@@ -160,7 +162,6 @@ constant:
 
 term:
    term '+' term     { $$ = f_new_inst(); $$->code = '+';  $$->a1.p = $1; $$->a2.p = $3; }
-
  | term '=' term     { $$ = f_new_inst(); $$->code = '=='; $$->a1.p = $1; $$->a2.p = $3; }
  | term '!' '=' term { $$ = f_new_inst(); $$->code = '!='; $$->a1.p = $1; $$->a2.p = $4; }
  | term '<' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $1; $$->a2.p = $3; }
@@ -231,6 +232,22 @@ var_list: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
+switch_body: /* EMPTY */ { $$ = NULL; }
+ | term ':' block switch_body {
+     $$ = f_new_inst();
+     $$->code = 'of';
+     $$->a1.p = $1;
+     $$->a2.p = $3;
+     $$->next = $4;
+   }
+ | ELSE ':' block {
+     $$ = f_new_inst();
+     $$->code = 'el';
+     $$->a1.p = NULL;
+     $$->a2.p = $3;
+   }
+ ;
+
 cmd:
    ifthen { 
      $$ = $1;
@@ -271,6 +288,12 @@ cmd:
        sym = sym->aux;
        inst = inst->next;
      }
+   }
+ | CASE term '{' switch_body '}' {
+      $$ = f_new_inst();
+      $$->code = 'sw';
+      $$->a1.p = $2;
+      $$->a2.p = $4;
    }
  ;
 

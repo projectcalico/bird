@@ -53,6 +53,8 @@ struct f_inst *startup_func = NULL;
 int
 val_compare(struct f_val v1, struct f_val v2)
 {
+  if (v1.type != v2.type)
+    return CMP_ERROR;
   switch (v1.type) {
   case T_INT: 
     if (v1.val.i == v2.val.i) return 0;
@@ -62,6 +64,14 @@ val_compare(struct f_val v1, struct f_val v2)
     return ipa_compare(v1.val.ip, v2.val.ip);
   default: return CMP_ERROR;
   }
+}
+
+int
+val_in_range(struct f_val v1, struct f_val v2)
+{
+  if (((v1.type == T_INT) || (v1.type == T_IP)) && (v2.type == T_SET))
+    return !! find_tree(v2.val.t, v1);
+  return CMP_ERROR;
 }
 
 static void
@@ -97,6 +107,42 @@ val_print(struct f_val v)
 }
 
 static struct rte **f_rte;
+
+static struct f_val interpret(struct f_inst *what);
+
+static struct f_val
+interpret_switch(struct f_inst *what, struct f_val control)
+{
+  struct f_val this, res;
+  int i;
+  res.type = T_VOID;
+
+  if (!what)
+    return res;
+
+  switch(what->code) {
+  case 'el':
+    return interpret(what->a2.p);
+
+  case 'of':
+    this = interpret(what->a1.p);
+    i = val_compare(control, this);
+    if (!i)
+      return interpret(what->a2.p);
+    if (i==CMP_ERROR) {
+      i = val_in_range(control, this);
+      if (i==1)
+	return interpret(what->a2.p);
+      if (i==CMP_ERROR)
+	runtime( "incompatible types in case" );
+    }
+    break;
+    
+  default:
+    bug( "This can not happen (%x)\n", what->code );
+  }
+  return interpret_switch(what->next, control);
+}
 
 static struct f_val
 interpret(struct f_inst *what)
@@ -155,11 +201,9 @@ interpret(struct f_inst *what)
   case '~':
     TWOARGS;
     res.type = T_BOOL;
-    if (((v1.type == T_INT) || (v1.type == T_IP)) && (v2.type == T_SET)) {
-      res.val.i = !! find_tree(v2.val.t, v1);
-      break;
-    }
-    runtime( "~ applied on unknown type pair" );
+    res.val.i = val_in_range(v1, v2);
+    if (res.val.i == CMP_ERROR)
+      runtime( "~ applied on unknown type pair" );
     break;
 
   /* Set to consant, a1 = type, a2 = value */
@@ -257,6 +301,10 @@ interpret(struct f_inst *what)
   case 'ca': /* CALL */
     ONEARG;
     res = interpret(what->a2.p);
+    break;
+  case 'sw': /* SWITCH alias CASE */
+    ONEARG;
+    interpret_switch(what->a2.p, v1);
     break;
   default:
     bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
