@@ -353,7 +353,11 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
 static void
 process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 {
+#ifndef IPV6
   int metric = ntohl( block->metric );
+#else
+  int metric = block->metric;
+#endif
   ip_addr network = block->network;
 
   CHK_MAGIC;
