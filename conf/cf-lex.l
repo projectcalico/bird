@@ -183,6 +183,12 @@ cf_find_sym(byte *c, unsigned int h0)
 }
 
 struct symbol *
+cf_find_symbol(byte *c)
+{
+  return cf_find_sym(c, cf_hash(c));
+}
+
+struct symbol *
 cf_default_name(char *prefix, int *counter)
 {
   char buf[32];
@@ -196,6 +202,15 @@ cf_default_name(char *prefix, int *counter)
     }
   while (s->class != SYM_VOID);
   return s;
+}
+
+void
+cf_define_symbol(struct symbol *sym, int type, void *def)
+{
+  if (sym->class)
+    cf_error("Symbol already defined");
+  sym->class = type;
+  sym->def = def;
 }
 
 void

@@ -40,9 +40,7 @@ CF_GRAMMAR
 CF_ADDTO(conf, filter_def)
 filter_def:
    FILTER SYM filter_body {
-     if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
-     $2->class = SYM_FILTER;
-     $2->def = $3;
+     cf_define_symbol($2, SYM_FILTER, $3);
      $3->name = $2->name;
      printf( "We have new filter defined (%s)\n", $2->name )
    }
@@ -67,8 +65,7 @@ type:
 
 decls: /* EMPTY */
  | type SYM ';' decls {
-     if ($2->class != SYM_VOID) cf_error("Symbol already defined, can not use as variable\n" );
-     $2->class = SYM_VARIABLE | $1;
+     cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
      printf( "New variable %s type %x\n", $2->name, $1 );
    }
  ;
@@ -104,9 +101,7 @@ CF_ADDTO(conf, function_def)
 function_def:
    FUNCTION SYM function_params function_body {
      extern struct f_inst *startup_func;
-     if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
-     $2->class = SYM_FUNCTION;
-     $2->def = $4;
+     cf_define_symbol($2, SYM_FUNCTION, $4);
      if (!strcasecmp($2->name, "startup"))
 	startup_func = $4;
      printf("Hmm, we've got one function here - %s\n", $2->name); 

@@ -17,6 +17,8 @@ struct config {
   pool *pool;				/* Pool the configuration is stored in */
   linpool *mem;				/* Linear pool containing configuration data */
   list protos;				/* Configured protocol instances (struct proto_config) */
+  list tables;				/* Configured routing tables (struct rtable_config) */
+  struct rtable_config *master_rtc;	/* Configuration of master routing table */
   u32 router_id;			/* Our Router ID */
   char *err_msg;			/* Parser error message */
   int err_lino;				/* Line containing error */
@@ -60,6 +62,7 @@ struct symbol {
 #define SYM_STAT 3 /* statement */
 #define SYM_FUNCTION 5
 #define SYM_FILTER 6
+#define SYM_TABLE 7
 
 #define SYM_VARIABLE 0x100	/* Reserved 0x100..0x1ff */
 
@@ -68,7 +71,9 @@ extern int conf_lino;
 void cf_lex_init_tables(void);
 int cf_lex(void);
 void cf_lex_init(int flag);
+struct symbol *cf_find_symbol(byte *c);
 struct symbol *cf_default_name(char *prefix, int *counter);
+void cf_define_symbol(struct symbol *symbol, int type, void *def);
 
 /* Parser */
 
