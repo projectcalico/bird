@@ -230,6 +230,22 @@ interpret(struct f_inst *what)
     default: runtime( "Usage of unknown type" );
     }
     break;
+  case '-':
+    TWOARGS_C;
+    switch (res.type = v1.type) {
+    case T_VOID: runtime( "Can not operate with values of type void" );
+    case T_INT: res.val.i = v1.val.i - v2.val.i; break;
+    default: runtime( "Usage of unknown type" );
+    }
+    break;
+  case '*':
+    TWOARGS_C;
+    switch (res.type = v1.type) {
+    case T_VOID: runtime( "Can not operate with values of type void" );
+    case T_INT: res.val.i = v1.val.i * v2.val.i; break;
+    default: runtime( "Usage of unknown type" );
+    }
+    break;
   case '/':
     TWOARGS_C;
     switch (res.type = v1.type) {
@@ -582,6 +598,8 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   switch(f1->code) {
   case ',': /* fall through */
   case '+':
+  case '-':
+  case '*':
   case '/':
   case P('!','='):
   case P('=','='):
