@@ -9,7 +9,7 @@
  *
  */
 
-#undef LOCAL_DEBUG
+#define LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "lib/lists.h"
@@ -592,24 +592,22 @@ path_getlen(u8 *p, int len)
 }
 
 
-#define PRINTF(a...) { int l; bsnprintf( buf, 8000, a ); s -= (l = strlen(buf)); if (s<bigbuf) return "Path was much too long"; memcpy(s, buf, l); }
+#define PRINTF(a...) { int l; bsnprintf( s, bigbuf+4090-s, a ); s += strlen(s); }
 #define COMMA if (first) first = 0; else PRINTF( ", " );
 char *
 path_format(u8 *p, int len)
 {
   char bigbuf[4096];	/* Keep it smaller than buf */
-  char *s = bigbuf+4095;
-  char buf[8000];
+  char *s = bigbuf;
   int first = 1;
   int i;
   u8 *q = p+len;
-  *s-- = 0;
   while (p<q) {
     switch (*p++) {
     case 1:	/* This is a set */
       len = *p++;
       COMMA;
-      PRINTF( "}" );
+      PRINTF( "{" );
       {
 	int first = 1;
 	for (i=0; i<len; i++) {
@@ -618,7 +616,7 @@ path_format(u8 *p, int len)
 	  p+=2;
 	}
       }
-      PRINTF( "{" );
+      PRINTF( "}" );
       break;
 
     case 2:	/* This is a sequence */
@@ -635,7 +633,7 @@ path_format(u8 *p, int len)
       bug("This should not be in path");
     }
   }
-  return strdup(s);
+  return strdup(bigbuf);
 }
 #undef PRINTF
 #undef COMMA
