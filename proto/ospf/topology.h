@@ -10,8 +10,8 @@
 #define _BIRD_OSPF_TOPOLOGY_H_
 
 struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
-   snode n;
-   node cn;
+  snode n;
+  node cn;
   struct top_hash_entry *next;		/* Next in hash chain */
   struct ospf_lsa_header lsa;
   void *lsa_body;
