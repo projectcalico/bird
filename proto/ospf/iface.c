@@ -429,11 +429,23 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
       struct ospf_neighbor *n;
       OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", iface->name);
       if (ifa->hello_sk)
+      {
+        ifa->hello_sk->rbsize = ifa->iface->mtu;
+        ifa->hello_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->hello_sk);
+      }
       if (ifa->dr_sk)
+      {
+        ifa->dr_sk->rbsize = ifa->iface->mtu;
+        ifa->dr_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->dr_sk);
+      }
       if (ifa->ip_sk)
+      {
+        ifa->ip_sk->rbsize = ifa->iface->mtu;
+        ifa->ip_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->ip_sk);
+      }
 
       WALK_LIST(n,ifa->neigh_list)
       {
