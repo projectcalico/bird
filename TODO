@@ -115,10 +115,6 @@ o  Co se stane, kdyz filtr skonci, aniz by vydal verdikt?
 
 Protocols:
 
-o  U kazdeho protokolu rici, jestli podporujeme pouze IPv4 nebo i IPv6 verzi.
-o  RIP: Vysvetlit, na ktere site se RIP hodi a na ktere ne, rici, ze je
-   hodnoty spise historicke, ale ze ve svete IPv6 se bezne pouziva, protoze
-   zatim neexistuji slusne implementace OSPFv3.
 o  RIP: Per-interface optiony uvadet tez jako definition list.
 o  RIP: U RIP-specific atributu zminit, jakeho jsou typu a jak vznikaji.
 o  passwords: syntaxe data uz, tusim, davno vypada jinak.

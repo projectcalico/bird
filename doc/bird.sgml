@@ -98,6 +98,17 @@ it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is consi
 configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
 "meta" information within fragment of configuration -- something in config which is not keyword.
 
+<sect1>Installing bird
+
+<p>On unix system, installing bird should be as easy as:
+
+<code>
+        ./configure
+        make
+        make install
+        vi /usr/local/etc/bird.conf
+</code>
+
 <sect1>About routing tables
 
 <p>Bird has one or more routing tables. Each routing table contains
@@ -430,8 +441,9 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 <p>There are few functions you might find convenient to use:
 
 <descrip>
-	<tag>print <m/expr/ [ <m/, expr .../ ]</tag>
-	prints given expressions, useful mainly while debugging filters.
+	<tag>print|printn <m/expr/ [ <m/, expr .../ ]</tag>
+	prints given expressions, useful mainly while debugging
+	filters. Printn variant does not go to new line.
 
 	<tag>quitbird</tag>
 	terminates bird. Useful while debugging filter interpreter.
@@ -530,7 +542,13 @@ interface metric, which is usually one). After some time, distance reaches infin
 rip) and all routers know that network is unreachable. Rip tries to minimize situations where
 counting to infinity is necessary, because it is slow. Due to infinity being 16, you can not use
 rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <HTMLURL
-URL="http://www.ietf.org/html.charters/rip-charter.html">.
+URL="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4 and IPv6 versions of rip are supported by BIRD.
+
+<p>Rip is very simple protocol, and it is not too good. Slow
+convergence, big network load and inability to handle bigger networks
+makes it pretty much obsolete in IPv4 world. (It is still usable on
+very small networks, through.) It is widely used in IPv6 world,
+because they are no good implementations of OSPFv3.
 
 <sect2>Configuration
 
