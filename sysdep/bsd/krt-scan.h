@@ -16,6 +16,6 @@ struct krt_scan_status {
   list temp_ifs;			/* Temporary interfaces */
 };
 
-static inline int krt_scan_params_same(struct krt_scan_params *o, struct krt_scan_params *n) { return 1; }
+static inline int krt_scan_params_same(struct krt_scan_params *o UNUSED, struct krt_scan_params *n UNUSED) { return 1; }
 
 #endif

@@ -12,6 +12,6 @@
 /*
  *  We don't have split iface/scan/set parts. See krt-sock.h.
  */
-static inline int kif_params_same(struct krt_if_params *old, struct krt_if_params *new) { return 1; }
+static inline int kif_params_same(struct krt_if_params *old UNUSED, struct krt_if_params *new UNUSED) { return 1; }
 
 #endif

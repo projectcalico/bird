@@ -203,7 +203,7 @@ krt_sock_send(int cmd, rte *e)
 }
 
 void
-krt_set_notify(struct krt_proto *p, net *net, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p UNUSED, net *net UNUSED, rte *new, rte *old)
 {
   if (old)
     {
@@ -218,7 +218,7 @@ krt_set_notify(struct krt_proto *p, net *net, rte *new, rte *old)
 }
 
 void
-krt_set_start(struct krt_proto *x, int first)
+krt_set_start(struct krt_proto *x, int first UNUSED)
 {
   sock *sk_rt;
   static int ks_open_tried = 0;
@@ -243,7 +243,7 @@ krt_set_start(struct krt_proto *x, int first)
 }
 
 static int
-krt_set_hook(sock *sk, int size)
+krt_set_hook(sock *sk, int size UNUSED)
 {
   struct ks_msg msg;
   int l = read(sk->fd, (char *)&msg, sizeof(msg));
@@ -548,28 +548,28 @@ krt_read_msg(struct proto *p, struct ks_msg *msg, int scan)
 }
 
 void
-krt_scan_construct(struct krt_config *c)
+krt_scan_construct(struct krt_config *c UNUSED)
 {
 }
 
 void
-krt_scan_preconfig(struct config *c)
+krt_scan_preconfig(struct config *c UNUSED)
 {
 }
 
 void
-krt_scan_postconfig(struct krt_config *c)
+krt_scan_postconfig(struct krt_config *c UNUSED)
 {
 }
 
 void
-krt_scan_start(struct krt_proto *x, int first)
+krt_scan_start(struct krt_proto *x, int first UNUSED)
 {
   init_list(&x->scan.temp_ifs);
 }
 
 void
-krt_scan_shutdown(struct krt_proto *x, int last)
+krt_scan_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
 {
 }
 
@@ -639,12 +639,12 @@ krt_if_scan(struct kif_proto *p)
 
 
 void
-krt_set_construct(struct krt_config *c)
+krt_set_construct(struct krt_config *c UNUSED)
 {
 }
 
 void
-krt_set_shutdown(struct krt_proto *x, int last)
+krt_set_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
 {
 } 
 
@@ -654,17 +654,17 @@ krt_if_io_init(void)
 }
 
 void
-krt_if_construct(struct kif_config *c)
+krt_if_construct(struct kif_config *c UNUSED)
 {
 }
 
 void
-krt_if_start(struct kif_proto *p)
+krt_if_start(struct kif_proto *p UNUSED)
 {
 }
 
 void
-krt_if_shutdown(struct kif_proto *p)
+krt_if_shutdown(struct kif_proto *p UNUSED)
 {
 }
 

@@ -41,7 +41,7 @@ struct krt_if_status {
 };
 
 static int krt_set_hook(sock *sk, int size);
-static inline int krt_set_params_same(struct krt_set_params *o, struct krt_set_params *n) { return 1; }
+static inline int krt_set_params_same(struct krt_set_params *o UNUSED, struct krt_set_params *n UNUSED) { return 1; }
 void krt_read_msg(struct proto *p, struct ks_msg *msg, int scan);
 
 #endif
