@@ -629,7 +629,7 @@ ospf_top_dump(struct top_graph *f, struct proto *p)
       struct top_hash_entry *e = f->hash_table[i];
       while (e)
 	{
-	  OSPF_TRACE(D_EVENTS, "\t%1x %8I %8I %4u 0x%08x",
+	  OSPF_TRACE(D_EVENTS, "\t%1x %-1I %-1I %4u 0x%08x",
 	    e->lsa.type, e->lsa.id,
             e->lsa.rt, e->lsa.age, e->lsa.sn);
 	  e = e->next;

@@ -538,7 +538,7 @@ rte_dump(rte *e)
 {
   net *n = e->net;
   if (n)
-    debug("%1I/%2d ", n->n.prefix, n->n.pxlen);
+    debug("%-1I/%2d ", n->n.prefix, n->n.pxlen);
   else
     debug("??? ");
   debug("KF=%02x PF=%02x pref=%d lm=%d ", n->n.flags, e->pflags, e->pref, now-e->lastmod);

@@ -88,7 +88,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	    en=(struct top_hash_entry *)sn;
 	    htonlsah(&(en->lsa), lsa);
 	    DBG("Working on: %d\n", i);
-            DBG("\tX%01x %08I %08I %p\n", en->lsa.type, en->lsa.id,
+            DBG("\tX%01x %-1I %-1I %p\n", en->lsa.type, en->lsa.id,
               en->lsa.rt, en->lsa_body);
 
 	    if(sn==STAIL(n->ifa->oa->lsal))

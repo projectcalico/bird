@@ -836,7 +836,7 @@ ospf_sh(struct proto *p)
       cli_msg(-1014,"\t\tArea networks:");
       WALK_LIST(anet, oa->net_list)
       {
-        cli_msg(-1014,"\t\t\t%18I/%u\t%s", anet->net, anet->mlen,
+        cli_msg(-1014,"\t\t\t%1I/%u\t%s", anet->net, anet->mlen,
           anet->hidden ? "Hidden" : "Advertise");
       }
     }

@@ -150,7 +150,7 @@ static_neigh_notify(struct neighbor *n)
 static void
 static_dump_rt(struct static_route *r)
 {
-  debug("%16I/%2d: ", r->net, r->masklen);
+  debug("%-1I/%2d: ", r->net, r->masklen);
   switch (r->dest)
     {
     case RTD_ROUTER:
