@@ -22,6 +22,8 @@ list (bird-users@atrey.karlin.mff.cuni.cz, send subscribes to majordomo
 at the same machine).  Bug reports, suggestions, feature requests (: and
 code :) are welcome.
 
+You can download the latest version from ftp://atrey.karlin.mff.cuni.cz/pub/bird/.
+
 BIRD has been developed as a student project at the Faculty of Math
 and Physics, Charles University, Prague, Czech Republic under supervision
 of RNDr. Libor Forst <forst@cuni.cz>.
@@ -70,7 +72,7 @@ What do we support:
 Missing (see also the TODO file):
 
 	o  Rest of OSPF
-	o  Documentation
+	o  Documentation (see the doc/ directory for a skeleton)
 
 
 Good Luck and enjoy the BIRD :)
