@@ -30,6 +30,7 @@ rt_setup(rtable *t, char *name)
 {
   bzero(t, sizeof(*t));
   fib_init(&t->fib, &root_pool, sizeof(rte), 0, rte_init);
+  t->name = name;
 }
 
 net *
@@ -77,6 +78,7 @@ rte_get_temp(rta *a)
   rte *e = sl_alloc(rte_slab);
 
   e->attrs = a;
+  e->flags = 0;
   e->pref = a->proto->preference;
   e->lastmod = 0;			/* FIXME */
   return e;
@@ -122,12 +124,11 @@ rte_free(rte *e)
 }
 
 void
-rte_update(net *net, rte *new)
+rte_update(net *net, struct proto *p, rte *new)
 {
   rte *old_best = net->routes;
   rte *old = NULL;
   rte **k, *r, *s;
-  struct proto *p = new->attrs->proto;
 
   k = &net->routes;			/* Find and remove original route from the same protocol */
   while (old = *k)
@@ -140,7 +141,7 @@ rte_update(net *net, rte *new)
       k = &old->next;
     }
 
-  if (rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
+  if (new && rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
     {
       rte_announce(new, old_best);
       new->next = net->routes;
@@ -181,18 +182,43 @@ rte_update(net *net, rte *new)
 }
 
 void
-rte_dump(rte *r)
+rte_dump(net *n, rte *e)
 {
+  if (n)
+    debug("%08x/%2d ", _I(n->n.prefix), n->n.pxlen);
+  debug("PF=%02x pref=%d lm=%d ", e->pflags, e->pref, e->lastmod);
+  rta_dump(e->attrs);
+  if (e->flags & REF_CHOSEN)
+    debug(" [*]");
+  debug("\n");
 }
 
 void
 rt_dump(rtable *t)
 {
+  rte *e;
+  net *n;
+
+  debug("Dump of routing table <%s>\n", t->name);
+  while (t)
+    {
+      debug("Routes for TOS %02x:\n", t->tos);
+      FIB_WALK(&t->fib, fn)
+	{
+	  n = (net *) fn;
+	  for(e=n->routes; e; e=e->next)
+	    rte_dump(n, e);
+	}
+      FIB_WALK_END;
+      t = t->sibling;
+    }
+  debug("\n");
 }
 
 void
 rt_dump_all(void)
 {
+  rt_dump(&master_table);
 }
 
 void
