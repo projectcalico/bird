@@ -140,6 +140,24 @@ kif_shutdown(struct proto *P)
   return PS_DOWN;
 }
 
+static int
+kif_reconfigure(struct proto *p, struct proto_config *new)
+{
+  struct kif_config *o = (struct kif_config *) p->cf;
+  struct kif_config *n = (struct kif_config *) new;
+
+  if (!kif_params_same(&o->iface, &n->iface))
+    return 0;
+  if (o->scan_time != n->scan_time)
+    {
+      tm_stop(kif_scan_timer);
+      kif_scan_timer->recurrent = n->scan_time;
+      kif_scan(kif_scan_timer);
+      tm_start(kif_scan_timer, n->scan_time);
+    }
+  return 1;
+}
+
 struct protocol proto_unix_iface = {
   name:		"Device",
   priority:	100,
@@ -147,6 +165,7 @@ struct protocol proto_unix_iface = {
   init:		kif_init,
   start:	kif_start,
   shutdown:	kif_shutdown,
+  reconfigure:	kif_reconfigure,
 };
 
 /*
