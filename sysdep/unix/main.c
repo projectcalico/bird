@@ -183,10 +183,12 @@ cli_write(cli *c)
   if (c->tx_pos)
     {
       struct cli_out *o = c->tx_pos;
-      c->tx_pos = o->next;
       s->tbuf = o->outpos;
       if (sk_send(s, o->wpos - o->outpos) > 0)
-	ev_schedule(c->event);
+	{
+	  c->tx_pos = o->next;
+	  ev_schedule(c->event);
+	}
     }
   return !c->tx_pos;
 }

@@ -281,6 +281,10 @@ server_got_reply(char *x)
     }
   else
     printf("??? <%s>\n", x);
+  /* need this, otherwise some lib seems to eat pending output when
+     the prompt is displayed */
+  fflush(stdout);
+  tcdrain(fileno(stdout));
 }
 
 static void
