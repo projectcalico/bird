@@ -25,10 +25,9 @@ list inactive_proto_list;
 void *
 proto_new(struct protocol *pr, unsigned size)
 {
-  struct proto *p = mp_alloc(cfg_mem, size);
+  struct proto *p = cfg_allocz(size);
 
   debug("proto_new(%s)\n", pr->name);
-  bzero(p, sizeof(*p));
   p->proto = pr;
   p->name = pr->name;
   p->debug = pr->debug;
@@ -71,6 +70,8 @@ static void
 proto_start(struct proto *p)
 {
   rem_node(&p->n);
+  if (p->disabled)
+    return;
   p->state = PRS_STARTING;
   if (p->start)
     p->start(p);
@@ -103,7 +104,9 @@ protos_dump_all(void)
   WALK_LIST(p, proto_list)
     {
       debug("  protocol %s:\n", p->name);
-      if (p->dump)
+      if (p->disabled)
+	debug("\tDISABLED\n");
+      else if (p->dump)
 	p->dump(p);
     }
   WALK_LIST(p, inactive_proto_list)
