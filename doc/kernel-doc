@@ -544,7 +544,7 @@ sub output_bird {
 	}
     }
     print ")";
-    if (defined $args{'purpose'}) {
+    if ($args{'purpose'} ne "") {
 	print " -- ";
 	output_highlight($args{'purpose'});
     }
