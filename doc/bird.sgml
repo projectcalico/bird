@@ -51,8 +51,15 @@ configuration primitives, &lt;cf&gt; is fragment of configuration within normal 
 
 <sect1>Introduction
 
-<p>Bird is configured using text configuration file. At startup, bird reads <file/bird.conf/
-(unless -c command line parameter is given). Really simple configuration file might look like this:
+<p>Bird is configured using text configuration file. At startup, bird
+reads <file/bird.conf/ (unless -c command line parameter is
+given). Everything on a line after <cf/#/ is a comment, whitespace is
+ignored. If there's variable number of options, it is grouped using
+<cf/{ }/ brackets. Each option is terminated by <cf/;/.
+
+<p>Really simple configuration file might look like this, you can find
+example of more complicated configuration file in
+<file>doc/bird.conf.example</file>.
 
 <code>
 protocol kernel {
@@ -70,12 +77,6 @@ protocol rip {
 	import all;
 }
 </code>
-
-<p>Everything on a line after <cf/#/ is a comment, whitespace is
-ignored. If there's variable number of options, it is grouped using
-<cf/{ }/ brackets. Each option is terminated by <cf/;/.
-
-<p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
 
 <sect1>Global options
 
@@ -269,10 +270,19 @@ booleans (that is to prevent you from shooting in the foot).
 	  protection.
 
 	<tag/bgppath/
+	  bgp path is list of autonomous systems.
 
-	<tag/clist/
+	<tag/bgpmask/ 
+	  bgp mask is mask used for matching bgp paths
+	  (using <cf>path ~ / 2 3 5 ? / syntax </cf>). <cf/?/ is
+	  really serving in "any number of autonomous systems", but we
+	  did not want to use * because then it becomes too easy to
+	  write <cf>/*</cf> which is start of comment.
 
-	<tag/bgpmask/
+	<tag/clist/ 
+	  community list. This is similar to set of pairs,
+	  except that unlike other sets, it can be modified.
+
 	  
 </descrip>
 
@@ -280,7 +290,7 @@ booleans (that is to prevent you from shooting in the foot).
 
 <p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parenthesis <cf/(a*(b+c))/, comparation
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
-used on element and set of that elements, or on ip and prefix, or on prefix and prefix. Its result
+used on element and set of that elements, or on ip and prefix, or on prefix and prefix or on bgpath and bgpmask. Its result
 is true if element is in given set or if ip address is inside given prefix. Operator <cf/=/ is used to assign value
 to variable.
 
@@ -315,7 +325,7 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 <p>Filter is implicitly passed route, and it can access its attributes, just like it accesses variables.
 
 <descrip>
-	<tag>defined( <m>attribute</m></tag>
+	<tag>defined( <m>attribute</m> )</tag>
 	returns TRUE if given attribute is defined. Access to undefined attribute results in runtime error.
 
 	<tag/prefix network/
