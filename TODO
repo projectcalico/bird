@@ -2,6 +2,8 @@ Core
 ~~~~
 - Remove TOS support?
 
+* protocols: implement dumping of protocol-dependent rte attributes
+
 - config: executable config files
 
 - do we really need preconfig?
