@@ -285,14 +285,14 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
 	if(ps->imms.bit.ms!=n->imms.bit.ms) /* M/S bit differs */
         {
-          debug("SEQMIS-BIT-MS\n");
+          DBG("SEQMIS-BIT-MS\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
 
 	if(ps->imms.bit.i)	/* I bit is set */
         {
-          debug("SEQMIS-BIT-I\n");
+          DBG("SEQMIS-BIT-I\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
@@ -301,7 +301,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
 	if(ps->options!=n->options)	/* Options differs */
         {
-          debug("SEQMIS-OPT\n");
+          DBG("SEQMIS-OPT\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
@@ -310,7 +310,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         {
           if(ntohl(ps->ddseq)!=n->dds)		/* MASTER */
 	  {
-            debug("SEQMIS-MASTER\n");
+            DBG("SEQMIS-MASTER\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
@@ -331,7 +331,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         {
           if(ntohl(ps->ddseq)!=(n->dds+1))	/* SLAVE */
 	  {
-            debug("SEQMIS-SLAVE\n");
+            DBG("SEQMIS-SLAVE\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
@@ -352,7 +352,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         }
 	else
         {
-	  debug("SEQMIS-FULL\n");
+	  DBG("SEQMIS-FULL\n");
 	  ospf_neigh_sm(n, INM_SEQMIS);
         }
       break;
