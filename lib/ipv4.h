@@ -55,6 +55,8 @@ typedef u32 ip_addr;
 #define ipa_classify(x) ipv4_classify(_I(x))
 #define ipa_opposite(x) _MI(_I(x) ^ 1)
 #define ipa_class_mask(x) x = _MI(ipv4_class_mask(_I(x)))
+#define ipa_from_u32(x) _MI(x)
+#define ipa_to_u32(x) _I(x)
 
 int ipv4_classify(u32);
 u32 ipv4_class_mask(u32);
