@@ -13,14 +13,13 @@
 
 /*
  *	Generic data structure for storing network prefixes. Also used
- *	for the master routing table. Currently implemented as a radix
- *	trie.
+ *	for the master routing table. Currently implemented as a hash 
+ *	table.
  *
  *	Available operations:
  *		- insertion of new entry
  *		- deletion of entry
- *		- searching of entry by network prefix
- *		- searching of entry by IP address (longest match)
+ *		- searching for entry by network prefix
  */
 
 struct fib_node {
@@ -32,9 +31,11 @@ struct fib_node {
 };
 
 struct fib {
-  slab fib_slab;			/* Slab holding all fib nodes */
-  struct fib_node *hash_table;		/* Node hash table */
+  pool *fib_pool;			/* Pool holding all our data */
+  slab *fib_slab;			/* Slab holding all fib nodes */
+  struct fib_node **hash_table;		/* Node hash table */
   unsigned int hash_size;		/* Number of hash table entries (a power of two) */
+  unsigned int hash_mask;		/* hash_size - 1 */
   unsigned int entries;			/* Number of entries */
   unsigned int entries_min, entries_max;/* Entry count limits (else start rehashing) */
   void (*init)(struct fib_node *);	/* Constructor */
@@ -43,18 +44,18 @@ struct fib {
 void fib_init(struct fib *, pool *, unsigned node_size, unsigned hash_size, void (*init)(struct fib_node *));
 void *fib_find(struct fib *, ip_addr *, int);	/* Find or return NULL if doesn't exist */
 void *fib_get(struct fib *, ip_addr *, int); 	/* Find or create new if nonexistent */
-void fib_delete(void *);		/* Remove fib entry */
+void fib_delete(struct fib *, void *);	/* Remove fib entry */
 void fib_free(struct fib *);		/* Destroy the fib */
 
-#define FIB_WALK(fib, op) {					\
-	struct fib_node *f, **ff = (fib)->hash_table;		\
+#define FIB_WALK(fib, z, op) do {				\
+	struct fib_node *z, **ff = (fib)->hash_table;		\
 	unsigned int count = (fib)->hash_size;			\
 	while (count--)						\
-	  for(f = *ff++; f; f=f->next)				\
+	  for(z = *ff++; z; z=z->next)				\
 	    {							\
-	      op						\
+	      op;						\
 	    }							\
-	}
+	} while (0)
 
 /*
  *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen
@@ -76,11 +77,20 @@ typedef struct neighbor {
 neighbor *neigh_find(ip_addr *);	/* NULL if not a neighbor */
 
 /*
- *	Master Routing Table. Generally speaking, it's a FIB with each entry
- *	pointing to a list of route entries representing routes to given network.
+ *	Master Routing Tables. Generally speaking, each of them is a list
+ *	of FIB (one per TOS) with each entry pointing to a list of route entries
+ *	representing routes to given network.
  *	Each of the RTE's contains variable data (the preference and protocol-dependent
- *	metrics) and a pointer to route attribute block common for many routes).
+ *	metrics) and a pointer to a route attribute block common for many routes).
  */
+
+typedef struct rtable {
+  struct rtable *sibling;		/* Our sibling for different TOS */
+  byte tos;				/* TOS for this table */
+  struct fib fib;
+  char *name;				/* Name of this table */
+  /* FIXME: Data for kernel synchronization */
+} rtable;
 
 typedef struct network {
   struct fib_node n;
@@ -120,8 +130,6 @@ typedef struct rte {
 } rte;
 
 #define REF_CHOSEN 1			/* Currently chosen route */
-
-typedef struct rte rte;
 
 /*
  *	Route Attributes
