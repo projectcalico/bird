@@ -753,7 +753,7 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
       if (e != ee)
 	rte_free(ee);
       rte_update_unlock();
-      if (d->import_mode)		/* In import mode, accept only the primary route */
+      if (d->primary_only)
 	break;
     }
 }
