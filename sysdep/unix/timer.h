@@ -9,7 +9,7 @@
 #ifndef _BIRD_TIMER_H_
 #define _BIRD_TIMER_H_
 
-#include <sys/time.h>
+#include <time.h>
 
 #include "lib/resource.h"
 
