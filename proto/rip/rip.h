@@ -2,18 +2,21 @@
  * Structures for RIP protocol
  */
 
+#include "nest/route.h"
+
 struct rip_connection {
   node n;
 
   int num;
   struct proto *proto;
   ip_addr addr;
-  struct rip_entry *sendptr;
   sock *send;
   struct rip_interface *rif;
+  struct fib_iterator iter;
 
   ip_addr daddr;
   int dport;
+  int done;
 };
 
 struct rip_packet_heading {
@@ -39,11 +42,9 @@ struct rip_block {
 };
 
 struct rip_entry {
-  node n;
+  struct fib_node n;
 
   ip_addr whotoldme;
-  ip_addr network;
-  int pxlen;
   ip_addr nexthop;
   int metric;
   u16 tag;
@@ -72,7 +73,7 @@ struct rip_proto {
   struct proto inherited;
   timer *timer;
   list connections;
-  list rtable;
+  struct fib rtable;
   list garbage;
   list interfaces;	/* Interfaces we really know about */
   list iface_list;	/* Patterns configured */
@@ -91,3 +92,4 @@ struct rip_proto {
 #define CHK_MAGIC do { if (P->magic != RIP_MAGIC) bug( "Not enough magic\n" ); } while (0)
 
 void rip_init_instance(struct proto *p);
+struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags);

@@ -4,6 +4,14 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/*
+To add:
+
+passive option (== do not send routing updates to this interface)
+
+
+
+
 CF_HDR
 
 #include "proto/rip/rip.h"

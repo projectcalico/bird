@@ -32,73 +32,6 @@ rip_reply(struct proto *p)
 }
 
 /*
- * Entries
- */
-
-static struct rip_entry *
-new_entry( struct proto *p )
-{
-  struct rip_entry *e;
-  e = mb_alloc(p->pool, sizeof( struct rip_entry ));
-  bzero( e, sizeof( struct rip_entry ));
-  return e;
-}
-
-static struct rip_entry *
-find_entry( struct proto *p, ip_addr network, int pxlen )
-{
-  struct node *e;
-
-  CHK_MAGIC;
-  WALK_LIST( e, P->rtable ) {
-    if (ipa_equal( network, E->network ) &&
-	(pxlen == E->pxlen)) {
-      return E;
-    }
-  }
-  return NULL;
-}
-
-/* Delete one of entries */
-static void
-kill_entry_ourrt( struct proto *p, struct rip_entry *e )
-{
-  struct rip_connection *c;
-  net *n;
-
-  rem_node( NODE e );
-  WALK_LIST( c, P->connections ) {
-    if (c->sendptr == e) {
-      DBG( "Deleting from under someone's sendptr...\n" );
-      c->sendptr = (void *) (NODE c->sendptr)->next;
-    }
-  }
-  mb_free( e );
-}
-
-#if 0
-/* Currently unreferenced, and likely may stay that way */ 
-/* Delete one of entries */
-static void
-kill_entry_mainrt( struct proto *p, struct rip_entry *e )
-{
-  struct rip_connection *c;
-  net *n;
-
-  n = net_find(&master_table, 0, e->network, e->pxlen );
-  if (!n) log( L_ERR "Could not find entry to delete in main routing table." );
-     else rte_update( n, p, NULL );
-}
-
-static void
-kill_entry( struct proto *p, struct rip_entry *e )
-{
-  kill_entry_mainrt( p, e );
-  kill_entry_ourrt( p, e );
-}
-#endif
-
-/*
  * Output processing
  */
 
@@ -117,59 +50,70 @@ rip_tx( sock *s )
   struct rip_connection *c = rif->busy;
   struct proto *p = c->proto;
   struct rip_packet *packet = (void *) s->tbuf;
-  int i, done = 0;
+  int i;
 
-givemore:
+  do {
 
-  DBG( "Preparing packet to send: " );
-
-  if (!(NODE c->sendptr)->next) {
-    DBG( "Looks like I'm" );
-    c->rif->busy = NULL;
-    rem_node(NODE c);
-    mb_free(c);
-    DBG( " done\n" );
-    return;
-  }
-
-  packet->heading.command = RIPCMD_RESPONSE;
-  packet->heading.version = RIP_V2;
-  packet->heading.unused  = 0;
-
-  for (i = 0; i < 25; i++) {
-    if (!(NODE c->sendptr)->next)
-      break;
-    DBG( "." );
-    packet->block[i].family  = htons( 2 ); /* AF_INET */
-    packet->block[i].tag     = htons( 0 ); /* FIXME: What should I set it to? */
-    packet->block[i].network = c->sendptr->network;
-    packet->block[i].netmask = ipa_mkmask( c->sendptr->pxlen );
-    packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? */
-    packet->block[i].metric  = htonl( 1+ (c->sendptr->metric?:1) );
-    if (ipa_equal(c->sendptr->whotoldme, s->daddr)) {
-      DBG( "(split horizont)" );
-      /* FIXME: should we do it in all cases? */
-      packet->block[i].metric = P->infinity;
+    if (c->done) {
+      DBG( "Looks like I'm" );
+      c->rif->busy = NULL;
+      rem_node(NODE c);
+      mb_free(c);
+      DBG( " done\n" );
+      return;
     }
-    ipa_hton( packet->block[i].network );
-    ipa_hton( packet->block[i].netmask );
-    ipa_hton( packet->block[i].nexthop );
 
-    c->sendptr = (void *) (NODE c->sendptr)->next;
-  }
+    if (c->done) {
+      DBG( "looks like I'm done!\n" );
+      return;
+    }
 
-  DBG( ", sending %d blocks, ", i );
+    DBG( "Preparing packet to send: " );
 
-  if (ipa_nonzero(c->daddr))
-    i = sk_send_to( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ), c->daddr, c->dport );
-  else
-    i = sk_send( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ) );
-  if (i<0) rip_tx_err( s, i );
-  if (i>0) {
+    packet->heading.command = RIPCMD_RESPONSE;
+    packet->heading.version = RIP_V2;
+    packet->heading.unused  = 0;
+
+    i = 0;
+    FIB_ITERATE_START(&P->rtable, &c->iter, z) {
+      struct rip_entry *e = (struct rip_entry *) z;
+      DBG( "." );
+      packet->block[i].family  = htons( 2 ); /* AF_INET */
+      packet->block[i].tag     = htons( 0 ); /* FIXME: What should I set it to? */
+      packet->block[i].network = e->n.prefix;
+      packet->block[i].netmask = ipa_mkmask( e->n.pxlen );
+      packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? */
+      packet->block[i].metric  = htonl( 1+ (e->metric?:1) );
+      if (ipa_equal(e->whotoldme, s->daddr)) {
+	DBG( "(split horizont)" );
+	/* FIXME: should we do it in all cases? */
+	packet->block[i].metric = P->infinity;
+      }
+      ipa_hton( packet->block[i].network );
+      ipa_hton( packet->block[i].netmask );
+      ipa_hton( packet->block[i].nexthop );
+
+      if (i++ == 25) {
+	FIB_ITERATE_PUT(&c->iter, z);
+	goto break_loop;
+      }
+    } FIB_ITERATE_END;
+    c->done = 1;
+
+  break_loop:
+
+    DBG( ", sending %d blocks, ", i );
+
+    if (ipa_nonzero(c->daddr))
+      i = sk_send_to( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ), c->daddr, c->dport );
+    else
+      i = sk_send( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ) );
+
     DBG( "it wants more\n" );
-    goto givemore;
-  }
   
+  } while (i>0);
+  
+  if (i<0) rip_tx_err( s, i );
   DBG( "blocked\n" );
 }
 
@@ -202,7 +146,8 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   }
 #endif
 
-  c->sendptr = HEAD( P->rtable );  
+  c->done = 0;
+  fit_init( &c->iter, &P->rtable );
   add_head( &P->connections, NODE c );
   debug( "Sending my routing table to %I:%d on %s\n", daddr, dport, rif->iface->name );
 
@@ -385,7 +330,7 @@ static void
 rip_dump_entry( struct rip_entry *e )
 {
   debug( "%I told me %d/%d ago: to %I/%d go via %I, metric %d ", 
-  e->whotoldme, e->updated-now, e->changed-now, e->network, e->pxlen, e->nexthop, e->metric );
+  e->whotoldme, e->updated-now, e->changed-now, e->n.prefix, e->n.pxlen, e->nexthop, e->metric );
   if (e->flags & RIP_F_EXTERNAL) debug( "[external]" );
   debug( "\n" );
 }
@@ -412,15 +357,16 @@ rip_timer(timer *t)
 
   DBG( "RIP: Broadcasting routing tables\n" );
   {
-    struct rip_interface *i;
+    struct rip_interface *rif;
 
-    WALK_LIST( i, P->interfaces ) {
-      struct iface *iface = i->iface;
+    WALK_LIST( rif, P->interfaces ) {
+      struct iface *iface = rif->iface;
 
+      if (!iface) continue;
       if (!(iface->flags & IF_UP)) continue;
       if (iface->flags & (IF_IGNORE | IF_LOOPBACK)) continue;
 
-      rip_sendto( p, IPA_NONE, 0, i );
+      rip_sendto( p, IPA_NONE, 0, rif );
     }
   }
 
@@ -430,10 +376,11 @@ rip_timer(timer *t)
 static void
 rip_start(struct proto *p)
 {
+  struct rip_interface *rif;
   DBG( "RIP: starting instance...\n" );
 
   P->magic = RIP_MAGIC;
-  init_list( &P->rtable );
+  fib_init( &P->rtable, p->pool, sizeof( struct rip_entry ), 0, NULL );
   init_list( &P->connections );
   init_list( &P->garbage );
   init_list( &P->interfaces );
@@ -443,6 +390,8 @@ rip_start(struct proto *p)
   P->timer->recurrent = P->period; 
   P->timer->hook = rip_timer;
   tm_start( P->timer, 5 );
+  rif = new_iface(p, NULL, 0);	/* Initialize dummy interface */
+  add_head( &P->interfaces, NODE rif );
   CHK_MAGIC;
 
   DBG( "RIP: ...done\n");
@@ -466,10 +415,10 @@ rip_dump(struct proto *p)
     debug( "RIP: connection #%d: %I\n", n->num, n->addr );
   }
   i = 0;
-  WALK_LIST( e, P->rtable ) {
+  FIB_WALK( &P->rtable, e ) {
     debug( "RIP: entry #%d: ", i++ );
     rip_dump_entry( E );
-  }
+  } FIB_WALK_END;
   i = 0;
   WALK_LIST( rif, P->interfaces ) {
     debug( "RIP: interface #%d: %s, %I, busy = %x\n", i++, rif->iface?rif->iface->name:"(dummy)", rif->sock->daddr, rif->busy );
@@ -502,6 +451,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
   rif = mb_alloc(p->pool, sizeof( struct rip_interface ));
   rif->iface = new;
   rif->proto = p;
+  rif->busy = NULL;
 
   want_multicast = 0 && (flags & IF_MULTICAST);
   /* FIXME: should have config option to disable this one */
@@ -512,7 +462,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
   rif->sock->rx_hook = rip_rx;
   rif->sock->data = rif;
   rif->sock->rbsize = 10240;
-  rif->sock->iface = new;
+  rif->sock->iface = new;		/* Automagically works for dummy interface */
   rif->sock->tbuf = mb_alloc( p->pool, sizeof( struct rip_packet ));
   rif->sock->tx_hook = rip_tx;
   rif->sock->err_hook = rip_tx_err;
@@ -528,10 +478,10 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
     rif->sock->daddr = new->opposite;
 
   if (!ipa_nonzero(rif->sock->daddr))
-    log( L_WARN "RIP: interface %s is too strange for me", rif->iface->name );
+    log( L_WARN "RIP: interface %s is too strange for me", rif->iface ? rif->iface->name : "(dummy)" );
 
   if (sk_open(rif->sock)<0)
-    die( "RIP/%s: could not listen on %s", p->name, rif->iface->name );
+    die( "RIP/%s: could not listen on %s", p->name, rif->iface ? rif->iface->name : "(dummy)" );
   /* FIXME: Should not be fatal, since the interface might have gone */
   
   return rif;
@@ -567,27 +517,24 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
   CHK_MAGIC;
 
   if (old) {
-    struct rip_entry *e = find_entry( p, net->n.prefix, net->n.pxlen );
-
+    struct rip_entry *e = fib_find( &P->rtable, &net->n.prefix, net->n.pxlen );
     if (!e)
-      log( L_ERR "Deleting nonexistent entry?!" );
-
-    kill_entry_ourrt( p, e );
+      log( L_BUG "Deleting nonexistent entry?!" );
+    fib_delete( &P->rtable, e );
   }
 
   if (new) {
-    struct rip_entry *e = new_entry( p );
+    struct rip_entry *e;
+    if (fib_find( &P->rtable, &net->n.prefix, net->n.pxlen ))
+      log( L_BUG "Inserting entry which is already there?" );
+    e = fib_get( &P->rtable, &net->n.prefix, net->n.pxlen );
 
-    e->network = net->n.prefix;
-    e->pxlen = net->n.pxlen;
     e->nexthop = new->attrs->gw;
     e->tag = new->u.rip.tag;
     e->metric = new->u.rip.metric;
     e->whotoldme = new->attrs->from;
     e->updated = e->changed = now;
     e->flags = 0;
-
-    add_head( &P->rtable, NODE e );
   }
 }
 
@@ -658,9 +605,6 @@ rip_preconfig(struct protocol *x)
 static void
 rip_postconfig(struct protocol *p)
 {
-#if 0					/* Cannot do this since it crashes when RIP is unconfigured */
-  new_iface(p, NULL, 0);
-#endif
 }
 
 struct protocol proto_rip = {
