@@ -43,6 +43,7 @@ void olock_init(void);
 
 #define OBJLOCK_UDP 1			/* UDP port */
 #define OBJLOCK_TCP 2			/* TCP port */
+#define OBJLOCK_IP 3			/* IP protocol */
 
 #define OLOCK_STATE_FREE 0
 #define OLOCK_STATE_LOCKED 1

@@ -310,7 +310,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
       OSPF_TRACE(D_EVENTS, "Using interface %s.", iface->name);
       lock = olock_new( p->pool );
       lock->addr = AllSPFRouters;
-      lock->type = OBJLOCK_UDP;
+      lock->type = OBJLOCK_IP;
       lock->port = OSPF_PROTO;
       lock->iface = iface;
       lock->data = p;
