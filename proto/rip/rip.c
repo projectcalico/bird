@@ -313,6 +313,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 
   switch( packet->heading.command ) {
   case RIPCMD_REQUEST: debug( "Asked to send my routing table\n" ); 
+    /* FIXME: should have configurable: ignore always, honour to neighbours, honour always. FIXME: use one global socket for these. FIXME: synchronization - if two ask me at same time */
     	  rip_sendto( p, whotoldme, port, NULL ); /* no broadcast */
           break;
   case RIPCMD_RESPONSE: debug( "*** Rtable from %I\n", whotoldme ); 
@@ -473,7 +474,7 @@ rip_dump(struct proto *p)
   }
   i = 0;
   WALK_LIST( rif, P->interfaces ) {
-    debug( "RIP: interface #%d: %s, %I, busy = %x\n", i++, rif->iface->name, rif->sock->daddr, rif->busy );
+    debug( "RIP: interface #%d: %s, %I, busy = %x\n", i++, rif->iface?rif->iface->name:"(dummy)", rif->sock->daddr, rif->busy );
   }
 }
 
@@ -491,40 +492,50 @@ kill_iface(struct proto *p, struct rip_interface *i)
   mb_free(i);
 }
 
+/*
+ * new maybe null if we are creating initial send socket 
+ */
 struct rip_interface *
-new_iface(struct proto *p, struct iface *new)
+new_iface(struct proto *p, struct iface *new, unsigned long flags)
 {
-  struct rip_interface *i;
-  debug( "RIP: New interface %s here\n", new->name);
-  i = mb_alloc(p->pool, sizeof( struct rip_interface ));
-  i->iface = new;
-  i->proto = p;
+  struct rip_interface *rif;
+  int want_multicast;
 
-  i->sock = sk_new( p->pool );
-  i->sock->type = SK_UDP;
-  i->sock->sport = P->port;
-  i->sock->rx_hook = rip_rx;
-  i->sock->data = i;
-  i->sock->rbsize = 10240;
-  i->sock->iface = new;
-  i->sock->tbuf = mb_alloc( p->pool, sizeof( struct rip_packet ));
-  i->sock->tx_hook = rip_tx;
-  i->sock->err_hook = rip_tx_err;
-  i->sock->daddr = IPA_NONE;
-  i->sock->dport = P->port;
+  rif = mb_alloc(p->pool, sizeof( struct rip_interface ));
+  rif->iface = new;
+  rif->proto = p;
 
-  if (new->flags & IF_BROADCAST)
-    i->sock->daddr = new->brd;
-  if (new->flags & IF_UNNUMBERED)
-    i->sock->daddr = new->opposite;
+  want_multicast = 0 && (flags & IF_MULTICAST);
+  /* FIXME: should have config option to disable this one */
 
-  if (!ipa_nonzero(i->sock->daddr))
-    log( L_WARN "RIP: interface %s is too strange for me", i->iface->name );
+  rif->sock = sk_new( p->pool );
+  rif->sock->type = want_multicast?SK_UDP_MC:SK_UDP;
+  rif->sock->sport = P->port;
+  rif->sock->rx_hook = rip_rx;
+  rif->sock->data = rif;
+  rif->sock->rbsize = 10240;
+  rif->sock->iface = new;
+  rif->sock->tbuf = mb_alloc( p->pool, sizeof( struct rip_packet ));
+  rif->sock->tx_hook = rip_tx;
+  rif->sock->err_hook = rip_tx_err;
+  rif->sock->daddr = IPA_NONE;
+  rif->sock->dport = P->port;
+  rif->sock->ttl = 1; /* FIXME: care must be taken not to send requested responses from this socket */
 
-  if (sk_open(i->sock)<0)
-    die( "RIP/%s: could not listen on %s\n", p->name, i->iface->name );
+  if (want_multicast)
+    rif->sock->daddr = ipa_from_u32(0x7f000001); /* FIXME: must lookup address in rfc's */
+  if (flags & IF_BROADCAST)
+    rif->sock->daddr = new->brd;
+  if (flags & IF_UNNUMBERED)
+    rif->sock->daddr = new->opposite;
+
+  if (!ipa_nonzero(rif->sock->daddr))
+    log( L_WARN "RIP: interface %s is too strange for me", rif->iface->name );
+
+  if (sk_open(rif->sock)<0)
+    die( "RIP/%s: could not listen on %s\n", p->name, rif->iface->name );
   
-  return i;
+  return rif;
 }
 
 static void
@@ -540,13 +551,14 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
     }
   }
   if (new) {
-    struct rip_interface *i;
+    struct rip_interface *rif;
     struct iface_patt *k = iface_patt_match(&P->iface_list, new);
 
     if (!k) return; /* We are not interested in this interface */
-    i = new_iface(p, new);
-    i->metric = k->u.rip.metric;
-    add_head( &P->interfaces, NODE i );
+    DBG("adding interface %s\n", new->name );
+    rif = new_iface(p, new, new->flags);
+    rif->metric = k->u.rip.metric;
+    add_head( &P->interfaces, NODE rif );
   }
 }
 
@@ -647,6 +659,7 @@ rip_preconfig(struct protocol *x)
 static void
 rip_postconfig(struct protocol *p)
 {
+  new_iface(p, NULL, 0);
 }
 
 struct protocol proto_rip = {
