@@ -100,6 +100,11 @@ struct iface_patt {
   byte *pattern;			/* Interface name pattern */
 
   /* Protocol-specific data follow */
+  union {
+    struct {
+      int metric;
+    } rip;
+  } u;
 };
 
 struct iface_patt *iface_patt_match(list *, struct iface *);

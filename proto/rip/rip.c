@@ -22,15 +22,6 @@
 
 #include "rip.h"
 
-/* FIXME: should be 520 */
-#define RIP_PORT 1520
-
-/* FIXME: should be 30 */
-#define RIP_TIME 5
-
-/* FIXME: should be 120+180 */
-#define RIP_GB_TIME 30
-
 static void
 rip_reply(struct proto *p)
 {
@@ -218,6 +209,17 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   rip_tx(c->rif->sock);
 }
 
+struct rip_interface*
+find_interface(struct proto *p, struct iface *what)
+{
+  struct rip_interface *i;
+  /* FIXME: We really want to use some kind of hash-table */ 
+  WALK_LIST (i, P->interfaces)
+    if (i->iface == what)
+      return i;
+  return NULL;
+}
+
 /*
  * Input processing
  */
@@ -237,6 +239,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   rte *r;
   net *n;
   neighbor *neighbor;
+  struct rip_interface *i;
 
   bzero(&A, sizeof(A));
   A.proto = p;
@@ -256,11 +259,13 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   }
 
   A.iface = neighbor->iface;
+  i = find_interface(p, A.iface);
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
   n = net_get( &master_table, 0, b->network, ipa_mklen( b->netmask )); /* FIXME: should verify that it really is netmask */
   r = rte_get_temp(a);
-  r->u.rip.metric = ntohl(b->metric);
+  r->u.rip.metric = ntohl(b->metric) + i->metric;
+  if (r->u.rip.metric > P->infinity) r->u.rip.metric = P->infinity;
   r->u.rip.tag = ntohl(b->tag);
   r->net = n;
   r->pflags = 0; /* Here go my flags */
@@ -311,7 +316,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
     	  rip_sendto( p, whotoldme, port, NULL ); /* no broadcast */
           break;
   case RIPCMD_RESPONSE: debug( "*** Rtable from %I\n", whotoldme ); 
-          if (port != RIP_PORT) {
+          if (port != P->port) {
 	    log( L_ERR "%I send me routing info from port %d\n", whotoldme, port );
 #if 0
 	    return 0;
@@ -400,7 +405,7 @@ rip_timer(timer *t)
     rte = SKIP_BACK( struct rte, u.rip.garbage, e );
     debug( "Garbage: " ); rte_dump( rte );
 
-    if (now - rte->lastmod > (RIP_GB_TIME)) {
+    if (now - rte->lastmod > P->garbage_time) {
       debug( "RIP: entry is too old: " ); rte_dump( rte );
       rte_discard(rte);
     }
@@ -436,7 +441,7 @@ rip_start(struct proto *p)
   P->timer = tm_new( p->pool );
   P->timer->data = p;
   P->timer->randomize = 5;
-  P->timer->recurrent = RIP_TIME; 
+  P->timer->recurrent = P->period; 
   P->timer->hook = rip_timer;
   tm_start( P->timer, 5 );
   CHK_MAGIC;
@@ -497,7 +502,7 @@ new_iface(struct proto *p, struct iface *new)
 
   i->sock = sk_new( p->pool );
   i->sock->type = SK_UDP;
-  i->sock->sport = RIP_PORT;
+  i->sock->sport = P->port;
   i->sock->rx_hook = rip_rx;
   i->sock->data = i;
   i->sock->rbsize = 10240;
@@ -506,7 +511,7 @@ new_iface(struct proto *p, struct iface *new)
   i->sock->tx_hook = rip_tx;
   i->sock->err_hook = rip_tx_err;
   i->sock->daddr = IPA_NONE;
-  i->sock->dport = RIP_PORT;
+  i->sock->dport = P->port;
 
   if (new->flags & IF_BROADCAST)
     i->sock->daddr = new->brd;
@@ -528,15 +533,19 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
   debug( "RIP: if notify\n" );
   if (old) {
     struct rip_interface *i;
-    WALK_LIST (i, P->interfaces)
-      if (i->iface == old) {
-	rem_node(NODE i);
-	kill_iface(p, i);
-      }
+    i = find_interface(p, old);
+    if (i) {
+      rem_node(NODE i);
+      kill_iface(p, i);
+    }
   }
   if (new) {
     struct rip_interface *i;
+    struct iface_patt *k = iface_patt_match(&P->iface_list, new);
+
+    if (!k) return; /* We are not interested in this interface */
     i = new_iface(p, new);
+    i->metric = k->u.rip.metric;
     add_head( &P->interfaces, NODE i );
   }
 }
@@ -620,7 +629,13 @@ rip_init_instance(struct proto *p)
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
   p->dump = rip_dump;
-  P->infinity = 16;
+
+  P->infinity	= 16;
+  P->port	= 520;
+  P->period	= 30;
+  P->garbage_time = 120+180;
+
+  init_list(&P->iface_list);
 }
 
 static void

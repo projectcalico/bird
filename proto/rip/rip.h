@@ -64,21 +64,27 @@ struct rip_interface {
   struct iface *iface;
   sock *sock;
   struct rip_connection *busy;
+
+  int metric;		/* User configurable data */
 };
 
-struct rip_data {
+struct rip_proto {
   struct proto inherited;
   timer *timer;
   list connections;
   list rtable;
   list garbage;
-  list interfaces;
+  list interfaces;	/* Interfaces we really know about */
+  list iface_list;	/* Patterns configured */
   int magic;
 
-  int infinity;		/* How much is infinity? Should be 16 */
+  int infinity;		/* User configurable data */
+  int port;
+  int period;
+  int garbage_time;
 };
 
-#define P ((struct rip_data *) p)
+#define P ((struct rip_proto *) p)
 #define E ((struct rip_entry *) e)
 
 #define RIP_MAGIC 81861253
