@@ -1,7 +1,7 @@
 /*
  *	BIRD Library
  *
- *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2004 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -31,6 +31,7 @@
 /* Functions which don't return */
 
 #define NORET __attribute__((noreturn))
+#define UNUSED __attribute__((unused))
 
 /* Logging and dying */
 
