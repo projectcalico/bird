@@ -433,7 +433,7 @@ neighbor_timer_hook(timer *timer)
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
   debug("%s: Inactivity timer fired on interface %s for neighbor %I.\n",
-    p->name, ifa->iface->name, n->rid);
+    p->name, ifa->iface->name, n->ip);
   ospf_neigh_remove(n);
 }
 
