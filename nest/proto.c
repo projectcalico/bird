@@ -127,6 +127,7 @@ protos_preconfig(struct config *c)
   WALK_LIST(p, protocol_list)
     {
       debug(" %s", p->name);
+      p->name_counter = 0;
       if (p->preconfig)
 	p->preconfig(p, c);
     }

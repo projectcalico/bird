@@ -67,7 +67,7 @@ extern int conf_lino;
 void cf_lex_init_tables(void);
 int cf_lex(void);
 void cf_lex_init(int flag);
-struct symbol *cf_default_name(char *prefix);
+struct symbol *cf_default_name(char *prefix, int *counter);
 
 /* Parser */
 
