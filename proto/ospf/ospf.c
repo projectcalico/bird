@@ -165,7 +165,6 @@ wait_timer_hook(timer *timer)
     }
     add_hello_timer(ifa);
   }
-  /* FIXME: Destroy timer */
 }
 
 void
@@ -231,7 +230,6 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
   struct ospf_config *c;
   c=(struct ospf_config *)(p->cf);
 
-  
   DBG(" OSPF: If notify called\n");
 
   if((flags & IF_CHANGE_UP) && is_good_iface(p, new))
