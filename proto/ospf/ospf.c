@@ -153,13 +153,29 @@ ospf_start(struct proto *p)
   }
 
   /* Add all virtual links as interfaces */
-  if(po->backbone)
   {
     struct ospf_iface_patt *ipatt;
     WALK_LIST(ac, c->area_list)
     {
       WALK_LIST(ipatt, ac->vlink_list)
+      {
+        if(!po->backbone)
+	{
+          oa = mb_allocz(p->pool, sizeof(struct ospf_area));
+          add_tail(&po->area_list, NODE oa);
+          po->areano++;
+          oa->stub = 0;
+          oa->areaid = 0;
+          oa->rt = NULL;
+          oa->po = po;
+	  fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 16, ospf_area_initfib);
+          fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
+          po->backbone = oa;
+          oa->opt.byte = 0;
+          oa->opt.bit.e = 1;
+	}
         ospf_iface_new(po, NULL, ac, ipatt);
+      }
     }
   }
   return PS_UP;

@@ -24,6 +24,7 @@ static void *
 originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 {
   struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
   struct ospf_iface *ifa;
   int j = 0, k = 0;
   u16 i = 0;
@@ -51,8 +52,12 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 
   WALK_LIST(ifa, po->iface_list)
   {
-    if ((ifa->type == OSPF_IT_VLINK) && (ifa->voa == oa) && (ifa->state > OSPF_IS_DOWN))
-      rt->veb.bit.v = 1;
+    if ((ifa->type == OSPF_IT_VLINK) && (ifa->voa == oa) && (!EMPTY_LIST(ifa->neigh_list)))
+    {
+      neigh = (struct ospf_neighbor *) HEAD(ifa->neigh_list);
+      if ((neigh->state == NEIGHBOR_FULL) && (ifa->cost <= 0xffff))
+        rt->veb.bit.v = 1;
+    }
 
     if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
@@ -413,7 +418,7 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
     if ((en = ospf_hash_find_header(po->gr, oa->areaid, &lsa)) != NULL)
     {
       sum = en->lsa_body;
-      if (fn->pxlen == ipa_mklen(sum->netmask))
+      if ((type == ORT_ROUTER) || (fn->pxlen == ipa_mklen(sum->netmask)))
       {
         en->lsa.age = LSA_MAXAGE;
         en->lsa.sn = LSA_MAXSEQNO;
@@ -521,27 +526,36 @@ check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
     flush = 0;
     if ((nf->n.metric1 >= LSINFINITY) || (nf->n.type > RTS_OSPF_IA))
       flush = 1;
-    if ((dest == ORT_ROUTER) && (!(nf->n.capa & ORTA_ABR)))
+    if ((dest == ORT_ROUTER) && (!(nf->n.capa & ORTA_ASBR)))
       flush = 1;
     if ((!nf->n.oa) || (nf->n.oa->areaid == oa->areaid))
       flush = 1;
-    /* FIXME: Test next hop - is it in actual area? */
+
+    if (nf->n.ifa) {
+      if (nf->n.ifa->oa->areaid == oa->areaid)
+        flush = 1;
+      }
+    else flush = 1;
+
     if ((dest == ORT_ROUTER) && oa->stub)
       flush = 1;
     /* FIXME stub for networks? */
 
     mlen = nf->fn.pxlen;
     ip = ipa_and(nf->fn.prefix, ipa_mkmask(mlen));
-    if ((!flush) && (!nf->n.oa->trcap) &&
-        fib_route(&nf->n.oa->net_fib, ip, mlen))	/* The route fits into area networks */
-      flush = 1;
 
-    if(flush)		/* FIXME Go on... */
+    if ((oa == po->backbone) && (nf->n.type == RTS_OSPF_IA)) flush = 1;	/* Only intra-area can go to the backbone */
+
+    if ((!flush) && (dest == ORT_NET) && fib_route(&nf->n.oa->net_fib, ip, mlen))	/* The route fits into area networks */
     {
-      flush_sum_lsa(oa, &nf->fn, dest);
-      continue;
+      flush = 1;
+      if ((nf->n.oa == po->backbone) && (oa->trcap)) flush = 0;
     }
-    originate_sum_lsa(oa, &nf->fn, dest, nf->n.metric1);
+
+    if(flush)
+      flush_sum_lsa(oa, &nf->fn, dest);
+    else
+      originate_sum_lsa(oa, &nf->fn, dest, nf->n.metric1);
   }
 }
 

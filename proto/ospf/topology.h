@@ -23,7 +23,7 @@ struct top_hash_entry
   bird_clock_t inst_t;		/* Time of installation into DB */
   ip_addr nh;			/* Next hop */
   ip_addr lb;			/* Link back */
-  struct iface *nhi;
+  struct ospf_iface *nhi;	/* Next hop interface */
   u32 dist;			/* Distance from the root */
   u16 ini_age;
   u8 color;

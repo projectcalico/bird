@@ -149,7 +149,8 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
       }
       if (ntohs(pkt->length) + OSPF_AUTH_CRYPT_SIZE != size)
       {
-        OSPF_TRACE(D_PACKETS, "OSPF_auth: size mismatch");
+        OSPF_TRACE(D_PACKETS, "OSPF_auth: size mismatch (%d vs %s)",
+	  ntohs(pkt->length) + OSPF_AUTH_CRYPT_SIZE, size);
         return 0;
       }
 
@@ -356,7 +357,7 @@ ospf_tx_hook(sock * sk)
 {
   struct ospf_iface *ifa= (struct ospf_iface *) (sk->data);
   struct proto *p = (struct proto *) (ifa->oa->po);
-  DBG("%s: TX_Hook called on interface %s\n", p->name, sk->iface->name);
+  log(L_ERR "%s: TX_Hook called on interface %s\n", p->name, sk->iface->name);
 }
 
 void
@@ -364,7 +365,7 @@ ospf_err_hook(sock * sk, int err UNUSED)
 {
   struct ospf_iface *ifa= (struct ospf_iface *) (sk->data);
   struct proto *p = (struct proto *) (ifa->oa->po);
-  DBG("%s: Err_Hook called on interface %s\n", p->name, sk->iface->name);
+  log(L_ERR "%s: Err_Hook called on interface %s\n", p->name, sk->iface->name);
 }
 
 void

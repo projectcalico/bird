@@ -24,7 +24,7 @@ typedef struct orta
   int metric1;
   int metric2;
   ip_addr nh;			/* Next hop */
-  struct iface *ifa;		/* Outgoing interface */
+  struct ospf_iface *ifa;	/* Outgoing interface */
   struct top_hash_entry *ar;	/* Advertising router */
   u32 tag;
 }

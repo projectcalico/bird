@@ -7,9 +7,10 @@
  */
 
 #include "ospf.h"
+
 static void
 add_cand(list * l, struct top_hash_entry *en,
-	 struct top_hash_entry *par, u16 dist, struct ospf_area *oa, int vlink);
+	 struct top_hash_entry *par, u16 dist, struct ospf_area *oa);
 static void
 calc_next_hop(struct top_hash_entry *en,
 	      struct top_hash_entry *par, struct ospf_area *oa);
@@ -145,7 +146,6 @@ ospf_rt_spfa(struct ospf_area *oa)
   struct ospf_iface *iface;
   struct top_hash_entry *act, *tmp;
   node *n;
-  int vlink;
 
 
   if (oa->rt == NULL)
@@ -202,7 +202,6 @@ ospf_rt_spfa(struct ospf_area *oa)
       DBG("  Number of links: %u\n", rt->links);
       for (i = 0; i < rt->links; i++)
       {
-        vlink = 0;
 	tmp = NULL;
 	rtl = (rr + i);
 	DBG("     Working on link: %I (type: %u)  ", rtl->id, rtl->type);
@@ -230,10 +229,10 @@ ospf_rt_spfa(struct ospf_area *oa)
 
 	    WALK_LIST(iff, po->iface_list)
 	    {
-               if (rtl->id == (ipa_to_u32(ipa_mkmask(iff->iface->addr->pxlen))
-	         & ipa_to_u32(iff->iface->addr->prefix)))
+               if (iff->iface && (rtl->id == (ipa_to_u32(ipa_mkmask(iff->iface->addr->pxlen))
+	         & ipa_to_u32(iff->iface->addr->prefix))))
 	       {
-		 nf.ifa = iff->iface;
+		 nf.ifa = iff;
 	         break;
 	       }
             }
@@ -256,7 +255,6 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  break;
 
 	case LSART_VLNK:
-          vlink = 1;
 	case LSART_PTP:
 	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->id, rtl->id, LSA_T_RT);
 	  DBG("PTP found.\n");
@@ -268,7 +266,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	if (tmp)
 	  DBG("Going to add cand, Mydist: %u, Req: %u\n",
 	      tmp->dist, act->dist + rtl->metric);
-	add_cand(&oa->cand, tmp, act, act->dist + rtl->metric, oa, vlink);
+	add_cand(&oa->cand, tmp, act, act->dist + rtl->metric, oa);
       }
       break;
     case LSA_T_NET:
@@ -294,7 +292,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  DBG("Found :-)\n");
 	else
 	  DBG("Not found!\n");
-	add_cand(&oa->cand, tmp, act, act->dist, oa, 0);
+	add_cand(&oa->cand, tmp, act, act->dist, oa);
       }
       break;
     }
@@ -308,11 +306,11 @@ ospf_rt_spfa(struct ospf_area *oa)
       if ((tmp = ospf_hash_find(po->gr, oa->areaid, iface->vid, iface->vid, LSA_T_RT)) &&
         (!ipa_equal(tmp->lb, IPA_NONE)))
       {
-        if ((iface->state != OSPF_IS_PTP) || (iface->iface != tmp->nhi) || (!ipa_equal(iface->vip, tmp->lb)))
+        if ((iface->state != OSPF_IS_PTP) || (iface->iface != tmp->nhi->iface) || (!ipa_equal(iface->vip, tmp->lb)))
         {
           OSPF_TRACE(D_EVENTS, "Vlink peer %I found", tmp->lsa.id);
           ospf_iface_sm(iface, ISM_DOWN);
-          iface->iface = tmp->nhi;
+          iface->iface = tmp->nhi->iface;
           iface->vip = tmp->lb;
           ospf_iface_sm(iface, ISM_UP);
         }
@@ -499,11 +497,21 @@ ospf_rt_sum(struct ospf_area *oa)
 
     if (en->lsa.type == LSA_T_SUM_NET)
     {
+      struct ospf_area *oaa;
+      int skip = 0;
       mlen = ipa_mklen(*mask);
       ip = ipa_and(ipa_from_u32(en->lsa.id), *mask);
       /* Page 169 (3) */
-      if ((anet = fib_route(&oa->net_fib, ip, mlen)) && anet->active)
-        continue;
+      WALK_LIST(oaa, po->area_list)
+      {
+        if ((anet = fib_find(&oaa->net_fib, &ip, mlen)) && anet->active)
+	{
+	  skip = 1;
+	  break;
+	}
+      }
+      if (skip) continue;
+
       type = ORT_NET;
     }
     else
@@ -573,9 +581,6 @@ ospf_rt_spf(struct proto_ospf *po)
     }
     FIB_WALK_END;
 
-    fib_free(&oa->rtr);
-    fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
-
     FIB_WALK(&oa->net_fib, nftmp)
     {
       anet = (struct area_net *) nftmp;
@@ -585,13 +590,13 @@ ospf_rt_spf(struct proto_ospf *po)
     ospf_rt_spfa(oa);
   }
 
-  if (po->areano == 1)
+  if ((po->areano == 1) || (!po->backbone))
   {
     ospf_rt_sum(HEAD(po->area_list));
   }
   else
   {
-    if (po->backbone) ospf_rt_sum(po->backbone);	/* And if backbone is not connected? */
+    ospf_rt_sum(po->backbone);
   }
 
   WALK_LIST(oa, po->area_list)
@@ -630,7 +635,7 @@ ospf_ext_spf(struct proto_ospf *po)
   struct ospf_lsa_ext_tos *lt;
   int mlen;
   ip_addr ip, nh, rtid;
-  struct iface *nhi = NULL;
+  struct ospf_iface *nhi = NULL;
   int met1, met2;
   neighbor *nn;
   struct ospf_lsa_rt *rt;
@@ -731,7 +736,7 @@ ospf_ext_spf(struct proto_ospf *po)
       if ((nn = neigh_find(p, &lt->fwaddr, 0)) != NULL)
       {
 	nh = lt->fwaddr;
-	nhi = nn->iface;
+	nhi = ospf_iface_find(po, nn->iface);
       }
       else
       {
@@ -760,7 +765,7 @@ ospf_ext_spf(struct proto_ospf *po)
 /* Add LSA into list of candidates in Dijkstra's algorithm */
 static void
 add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
-	 u16 dist, struct ospf_area *oa, int vlink)
+	 u16 dist, struct ospf_area *oa)
 {
   node *prev, *n;
   int added = 0;
@@ -791,7 +796,6 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   en->nh = IPA_NONE;
 
   calc_next_hop(en, par, oa);
-  //if (vlink) en->nh = IPA_NONE;
 
   if (!en->nhi)
     return;			/* We cannot find next hop, ignore it */
@@ -861,7 +865,7 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
 	    if (ifa->iface && (ipa_compare
 		(ifa->iface->addr->ip, ipa_from_u32(en->lsa.id)) == 0))
 	  {
-	    en->nhi = ifa->iface;
+	    en->nhi = ifa;
 	    return;
 	  }
 	  log(L_ERR "I didn't find interface for my self originated LSA!\n");
@@ -873,7 +877,7 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
 	  ip_addr ip = ipa_from_u32(en->lsa.id);
 	  nn = neigh_find(p, &ip, 0);
 	  if (nn)
-	    en->nhi = nn->iface;
+	    en->nhi = ospf_iface_find(po, nn->iface);
 	  return;
 	}
       }
@@ -881,7 +885,8 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
       {
 	if ((neigh = find_neigh_noifa(po, en->lsa.rt)) == NULL)
 	  return;
-	en->nhi = neigh->ifa->iface;
+	en->nhi = neigh->ifa;
+	if (neigh->ifa->type == OSPF_IT_VLINK) 
 	en->nh = neigh->ip;	/* Yes, neighbor is it's
 				 * own next hop */
 	return;
@@ -895,7 +900,7 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
 	bug("Did not find next hop interface for INSPF lsa!");
       if ((neigh = find_neigh_noifa(po, en->lsa.rt)) == NULL)
 	return;
-      en->nhi = neigh->ifa->iface;
+      en->nhi = neigh->ifa;
       en->nh = neigh->ip;	/* Yes, neighbor is it's own
 				 * next hop */
       return;
@@ -932,6 +937,7 @@ again1:
   FIB_ITERATE_START(fib, &fit, nftmp)
   {
     nf = (ort *) nftmp;
+    check_sum_lsa(po, nf, ORT_NET);
     if (memcmp(&nf->n, &nf->o, sizeof(orta)))
     {				/* Some difference */
       net *ne;
@@ -947,7 +953,8 @@ again1:
       a0.dest = RTD_ROUTER;
       a0.flags = 0;
       a0.aflags = 0;
-      a0.iface = nf->n.ifa;
+      a0.iface = NULL;
+      if (nf->n.ifa) a0.iface = nf->n.ifa->iface;
       a0.gw = nf->n.nh;
 
       if (ipa_equal(nf->n.nh, IPA_NONE)) a0.dest = RTD_DEVICE;
@@ -974,7 +981,6 @@ again1:
         if (!found) nf->n.metric1 = LSINFINITY; /* Delete it */
       }
       ne = net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
-      check_sum_lsa(po, nf, ORT_NET);
       if (nf->n.metric1 < LSINFINITY)
       {
         e = rte_get_temp(&a0);
@@ -1024,13 +1030,18 @@ again2:
     {
       flush = 1;
       anet = (struct area_net *) nftmp;
-      if((!anet->hidden) && anet->active && (!oa->trcap))
+      if((!anet->hidden) && anet->active)
         flush = 0;
           
       WALK_LIST(oaa, po->area_list)
       {
+        int fl = flush;
+
         if (oaa == oa) continue;
-        if(flush) flush_sum_lsa(oaa, &anet->fn, ORT_NET);
+
+	if ((oa == po->backbone) && oaa->trcap) fl = 1;
+
+        if(fl) flush_sum_lsa(oaa, &anet->fn, ORT_NET);
         else originate_sum_lsa(oaa, &anet->fn, ORT_NET, 1);
       }
     }

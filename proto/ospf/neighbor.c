@@ -115,6 +115,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     {
       ifa->fadj--;
       schedule_rt_lsa(ifa->oa);
+      if (ifa->type == OSPF_IT_VLINK) schedule_rt_lsa(ifa->voa);
       schedule_net_lsa(ifa);
     }
 
@@ -507,7 +508,7 @@ find_neigh(struct ospf_iface *ifa, u32 rid)
 }
 
 
-/* Find a closest neighbor which is at leas 2-Way */
+/* Find a closest neighbor which is at least 2-Way */
 struct ospf_neighbor *
 find_neigh_noifa(struct proto_ospf *po, u32 rid)
 {
