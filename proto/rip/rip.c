@@ -504,8 +504,8 @@ rip_dump(struct proto *p)
 static void
 rip_get_route_info(rte *rte, byte *buf)
 {
-  buf += sprintf(buf, " (%d/%d)", rte->pref, rte->u.rip.metric );
-  sprintf(buf, " t%04x", rte->u.rip.tag );
+  buf += bsprintf(buf, " (%d/%d)", rte->pref, rte->u.rip.metric );
+  bsprintf(buf, " t%04x", rte->u.rip.tag );
 }
 
 static int

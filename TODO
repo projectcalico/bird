@@ -36,6 +36,7 @@ Globals
 - protocols: implement CLI hooks and per-procotol CLI commands
 - protocols: implement reconfigure hook
 - protocols: use locking
+- check use of system includes and sprintf()
 
 Various ideas
 ~~~~~~~~~~~~~

@@ -288,7 +288,7 @@ tm_format_date(char *x, bird_clock_t t)
   struct tm *tm;
 
   tm = localtime(&t);
-  sprintf(x, "%02d-%02d-%04d", tm->tm_mday, tm->tm_mon+1, tm->tm_year+1900);
+  bsprintf(x, "%02d-%02d-%04d", tm->tm_mday, tm->tm_mon+1, tm->tm_year+1900);
 }
 
 void

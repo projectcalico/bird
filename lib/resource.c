@@ -90,7 +90,7 @@ rdump(void *res)
   char x[16];
   resource *r = res;
 
-  sprintf(x, "%%%ds%%08x ", indent);
+  bsprintf(x, "%%%ds%%08x ", indent);
   debug(x, "", (int) r);
   if (r)
     {

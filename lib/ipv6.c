@@ -167,12 +167,12 @@ ip_ntop(ip_addr a, char *b)
        bestlen == 6))
     {
       u32 x = a.addr[3];
-      b += sprintf(b, "::%s%d.%d.%d.%d",
-		   a.addr[2] ? "ffff:" : "",
-		   ((x >> 24) & 0xff),
-		   ((x >> 16) & 0xff),
-		   ((x >> 8) & 0xff),
-		   (x & 0xff));
+      b += bsprintf(b, "::%s%d.%d.%d.%d",
+		    a.addr[2] ? "ffff:" : "",
+		    ((x >> 24) & 0xff),
+		    ((x >> 16) & 0xff),
+		    ((x >> 8) & 0xff),
+		    (x & 0xff));
       return b;
     }
 
@@ -190,7 +190,7 @@ ip_ntop(ip_addr a, char *b)
 	{
 	  if (i)
 	    *b++ = ':';
-	  b += sprintf(b, "%x", words[i]);
+	  b += bsprintf(b, "%x", words[i]);
 	}
     }
   *b = 0;
@@ -206,7 +206,7 @@ ip_ntox(ip_addr a, char *b)
     {
       if (i)
 	*b++ = '.';
-      b += sprintf(b, "%08x", a.addr[i]);
+      b += bsprintf(b, "%08x", a.addr[i]);
     }
   return b;
 }
