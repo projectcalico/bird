@@ -104,6 +104,8 @@ static struct attr_desc bgp_attr_table[] = {
 #endif
 };
 
+#define ATTR_KNOWN(code) ((code) < ARRAY_SIZE(bgp_attr_table) && bgp_attr_table[code].name)
+
 byte *
 bgp_encode_attrs(byte *w, struct bgp_bucket *buck)
 {
@@ -119,7 +121,7 @@ bgp_encode_attrs(byte *w, struct bgp_bucket *buck)
       ASSERT(EA_PROTO(a->id) == EAP_BGP);
       code = EA_ID(a->id);
       flags = a->flags & (BAF_OPTIONAL | BAF_TRANSITIVE | BAF_PARTIAL);
-      if (code && code < ARRAY_SIZE(bgp_attr_table))
+      if (ATTR_KNOWN(code))
 	{
 	  struct attr_desc *desc = &bgp_attr_table[code];
 	  len = desc->expected_length;
@@ -376,15 +378,21 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
       if (EA_PROTO(a->id) != EAP_BGP)
 	continue;
       code = EA_ID(a->id);
-      if (code < ARRAY_SIZE(bgp_attr_table))
+      if (ATTR_KNOWN(code))
 	{
 	  if (!bgp_attr_table[code].allow_in_ebgp && !p->is_internal)
 	    continue;
 	  /* The flags might have been zero if the attr was added by filters */
 	  a->flags = (a->flags & BAF_PARTIAL) | bgp_attr_table[code].expected_flags;
+	  if (code < 32)
+	    seen |= 1 << code;
 	}
-      if (code < 32)
-	seen |= 1 << code;
+      else
+	{
+	  /* Don't re-export unknown non-transitive attributes */
+	  if (!(a->flags & BAF_TRANSITIVE))
+	    continue;
+	}
       *d = *a;
       if ((d->type & EAF_ORIGINATED) && !originate && (d->flags & BAF_TRANSITIVE) && (d->flags & BAF_OPTIONAL))
 	d->flags |= BAF_PARTIAL;
@@ -747,7 +755,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
       DBG("Attr %02x %02x %d\n", code, flags, l);
       if (seen[code/8] & (1 << (code%8)))
 	goto malformed;
-      if (code && code < ARRAY_SIZE(bgp_attr_table))
+      if (ATTR_KNOWN(code))
 	{
 	  struct attr_desc *desc = &bgp_attr_table[code];
 	  if (desc->expected_length >= 0 && desc->expected_length != (int) l)
@@ -877,7 +885,7 @@ bgp_get_attr(eattr *a, byte *buf)
   unsigned int i = EA_ID(a->id);
   struct attr_desc *d;
 
-  if (i && i < ARRAY_SIZE(bgp_attr_table))
+  if (ATTR_KNOWN(i))
     {
       d = &bgp_attr_table[i];
       buf += bsprintf(buf, "%s", d->name);
@@ -890,7 +898,7 @@ bgp_get_attr(eattr *a, byte *buf)
 	}
       return GA_NAME;
     }
-  bsprintf(buf, "%02x%s", i, (a->flags & BAF_TRANSITIVE) ? "[t]" : "");
+  bsprintf(buf, "%02x%s", i, (a->flags & BAF_TRANSITIVE) ? " [t]" : "");
   return GA_NAME;
 }
 
