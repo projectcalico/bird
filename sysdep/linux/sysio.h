@@ -7,9 +7,24 @@
  */
 
 #ifdef IPV6
+
 #include <linux/in6.h>			/* FIXMEv6: glibc variant? */
 
+static inline void
+set_inaddr(struct in6_addr *ia, ip_addr a)
+{
+  ipa_hton(a);
+  memcpy(ia, &a, sizeof(a));
+}
+
 #else
+
+static inline void
+set_inaddr(struct in_addr *ia, ip_addr a)
+{
+  ipa_hton(a);
+  memcpy(&ia->s_addr, &a, sizeof(a));
+}
 
 /*
  *  Multicasting in Linux systems is a real mess. Not only different kernels

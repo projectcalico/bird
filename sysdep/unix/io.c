@@ -27,6 +27,7 @@
 #include "nest/iface.h"
 
 #include "lib/unix.h"
+#include "lib/sysio.h"
 
 /*
  *	Random Numbers
@@ -379,13 +380,6 @@ sk_new(pool *p)
 
 #ifdef IPV6
 
-static inline void
-set_inaddr(struct in6_addr *ia, ip_addr a)
-{
-  ipa_hton(a);
-  memcpy(ia, &a, sizeof(a));
-}
-
 void
 fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
 {
@@ -408,13 +402,6 @@ get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port)
 
 #else
 
-static inline void
-set_inaddr(struct in_addr *ia, ip_addr a)
-{
-  ipa_hton(a);
-  memcpy(&ia->s_addr, &a, sizeof(a));
-}
-
 void
 fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
 {
@@ -435,8 +422,6 @@ get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port)
 }
 
 #endif
-
-#include "lib/sysio.h"
 
 static char *
 sk_setup(sock *s)
