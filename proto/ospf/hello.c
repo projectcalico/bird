@@ -41,6 +41,13 @@ restart_hellotim(struct ospf_iface *ifa)
 }
 
 void
+restart_polltim(struct ospf_iface *ifa)
+{
+  if(ifa->poll_timer)
+    tm_start(ifa->poll_timer,ifa->pollint);
+}
+
+void
 restart_waittim(struct ospf_iface *ifa)
 {
   tm_start(ifa->wait_timer,ifa->waitint);
@@ -56,6 +63,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   ip_addr olddr,oldbdr;
   ip_addr mask;
   char *beg=": Bad OSPF hello packet from ", *rec=" received: ";
+  int eligible=0;
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
@@ -90,6 +98,36 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
+    if((ifa->type==OSPF_IT_NBMA))
+    {
+      struct nbma_node *nn;
+      int found=0;
+
+      WALK_LIST(nn,ifa->nbma_list)
+      {
+        if(ipa_compare(faddr,nn->ip)==0)
+	{
+	  found=1;
+	  break;
+	}
+      }
+      if((found==0)&&(ifa->strictnbma))
+      {
+        OSPF_TRACE(D_EVENTS, "Ignoring new neighbor: %I on %s.", faddr,
+          ifa->iface->name);
+	return;
+      }
+      if(found)
+      {
+        eligible=nn->eligible;
+        if(((ps->priority==0)&&eligible)||((ps->priority>0)&&(eligible==0)))
+        {
+          OSPF_TRACE(D_EVENTS, "Eligibility mismatch for neighbor: %I on %s",
+            faddr, ifa->iface->name);
+	  return;
+        }
+      }
+    }
     OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s.", faddr,
       ifa->iface->name);
     n=mb_allocz(p->pool, sizeof(struct ospf_neighbor));
@@ -177,11 +215,27 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
       ospf_int_sm(ifa, ISM_NEICH);
   }
 
+  if(ifa->type!=OSPF_IT_NBMA)
+  {
+    if((ifa->priority==0)&&(n->priority>0)) hello_send(NULL,0, n);
+  }
   ospf_neigh_sm(n, INM_HELLOREC);
 }
 
 void
+poll_timer_hook(timer *timer)
+{
+  hello_send(timer,1, NULL);
+}
+
+void
 hello_timer_hook(timer *timer)
+{
+  hello_send(timer,0, NULL);
+}
+
+void
+hello_send(timer *timer,int poll, struct ospf_neighbor *dirn)
 {
   struct ospf_iface *ifa;
   struct ospf_hello_packet *pkt;
@@ -192,9 +246,11 @@ hello_timer_hook(timer *timer)
   u32 *pp;
   u8 i;
 
-  ifa=(struct ospf_iface *)timer->data;
+  if(timer==NULL) ifa=dirn->ifa;
+  else ifa=(struct ospf_iface *)timer->data;
+
   p=(struct proto *)(ifa->proto);
-  DBG("%s: Hello timer fired on interface %s.\n",
+  DBG("%s: Hello/Poll timer fired on interface %s.\n",
     p->name, ifa->iface->name);
   /* Now we should send a hello packet */
   /* First a common packet header */
@@ -248,20 +304,44 @@ hello_timer_hook(timer *timer)
     struct nbma_node *nb;
     int send;
 
-    WALK_LIST(nb,ifa->nbma_list)
+    if(timer==NULL)	/* Response to received hello */
     {
-      send=1;
-      WALK_LIST(n1, ifa->neigh_list)
+      sk_send_to(ifa->ip_sk, length, dirn->ip, OSPF_PROTO);
+    }
+    else
+    {
+      int toall=0;
+      int meeli=0;
+      if(ifa->state>OSPF_IS_DROTHER) toall=1;
+      if(ifa->priority>0) meeli=1;
+
+      WALK_LIST(nb,ifa->nbma_list)
       {
-        if(ipa_compare(nb->ip,n1->ip)==0)
+        send=1;
+        WALK_LIST(n1, ifa->neigh_list)
+        {
+          if(ipa_compare(nb->ip,n1->ip)==0)
+	  {
+	    send=0;
+	    break;
+          }
+        }
+        if((poll==1)&&(send))
 	{
-	  send=0;
-	  break;
+          if(toall||(meeli&&nb->eligible))
+            sk_send_to(ifa->ip_sk, length, nb->ip, OSPF_PROTO);
 	}
       }
-      if(send) sk_send_to(ifa->ip_sk, length, nb->ip, OSPF_PROTO);
+      if(poll==0)
+      {
+        WALK_LIST(n1,ifa->neigh_list)
+        {
+          if(toall||(n1->rid==ifa->drid)||(n1->rid==ifa->bdrid)||
+            (meeli&&(n1->priority>0)))
+            sk_send_to(ifa->ip_sk, length, n1->ip, OSPF_PROTO);
+        }
+      }
     }
-    sk_send_to_agt(ifa->ip_sk, length, ifa, NEIGHBOR_DOWN);
   }
   OSPF_TRACE(D_PACKETS, "Hello sent via %s",ifa->iface->name);
 }

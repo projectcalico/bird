@@ -1015,15 +1015,18 @@ protocol ospf &lt;name&gt; {
 		{
 			cost &lt;num&gt;;
 			hello &lt;num&gt;;
+			poll &lt;num&gt;;
 			retransmit &lt;num&gt;;
 			priority &lt;num&gt;;
 			wait &lt;num&gt;;
 			dead count &lt;num&gt;;
 			type [broadcast|nonbroadcast|pointopoint];
+			strict nonbroadcast &lt;switch&gt;;
 			authetication [none|simple];
 			password "&lt;text&gt;";
 			neighbors {
 				&lt;ip&gt;;
+				&lt;ip&gt; eligible;
 			};
 		};
 	};
@@ -1061,6 +1064,10 @@ protocol ospf &lt;name&gt; {
 	 Specifies interval in seconds between sending of Hello messages. Beware, all
 	 routers on the same network need to have the same hello interval.
 	 Default value is 10.
+
+	<tag>poll <M>num</M></tag>
+	 Specifies interval in seconds between sending of Hello messages for
+	 some neighbors on NBMA netwok. Default value is 20.
 
 	<tag>retransmit <M>num</M></tag>
 	 Specifies interval in seconds between retransmissions of unacknowledged updates.
@@ -1107,7 +1114,12 @@ protocol ospf &lt;name&gt; {
 
 	<tag>neighbors { <m/set/ } </tag>
 	 A set of neighbors to which Hello messages on nonbroadcast networks
-	 are to be sent.
+	 are to be sent. Some of them could be marked as eligible.
+
+	<tag>strict nonbroadcast <M>switch</M></tag>
+	 If set, don't send hello to any undefined neighbor. This switch
+	 is ignored on on any non-NBMA network. Default is No.
+
 </descrip>
 
 <sect1>Attributes
@@ -1156,10 +1168,12 @@ protocol ospf MyOSPF {
 		interface "-arc0" , "arc*" {
 			type nonbroadcast;
 			authentication none;
-			wait 50;
-			dead count 6;
+			strict nonbroadcast no;
+			wait 120;
+			poll 40;
+			dead count 8;
 			neighbors {
-				192.168.120.1;
+				192.168.120.1 eligible;
 				192.168.120.2;
 				192.168.120.10;
 			};

@@ -23,7 +23,8 @@ CF_DECLS
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
 CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
 CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
-CF_KEYWORDS(NEIGHBORS, NONE, SIMPLE, AUTHENTICATION, PASSWORD)
+CF_KEYWORDS(NEIGHBORS, NONE, SIMPLE, AUTHENTICATION, PASSWORD, STRICT)
+CF_KEYWORDS(ELIGIBLE, POLL)
 
 %type <t> opttext
 
@@ -77,6 +78,7 @@ ospf_area_item:
 ospf_iface_item:
    COST expr { OSPF_PATT->cost = $2 ; if($2<=0) cf_error("Cost must be greater than zero"); }
  | HELLO expr { OSPF_PATT->helloint = $2 ; if($2<=0) cf_error("Hello int must be greater than zero"); }
+ | POLL expr { OSPF_PATT->pollint = $2 ; if($2<=0) cf_error("Poll int must be greater than zero"); }
  | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if($2<=0) cf_error("Retransmit int must be greater than zero"); }
  | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if($3<=0) cf_error("Transmit delay must be greater than zero"); }
  | PRIORITY expr { OSPF_PATT->priority = $2 ; }
@@ -85,6 +87,7 @@ ospf_iface_item:
  | TYPE BROADCAST { OSPF_PATT->type = OSPF_IT_BCAST ; }
  | TYPE NONBROADCAST { OSPF_PATT->type = OSPF_IT_NBMA ; }
  | TYPE POINTOPOINT { OSPF_PATT->type = OSPF_IT_PTP ; }
+ | STRICT NONBROADCAST bool { OSPF_PATT->strictnbma = $3 ; }
  | NEIGHBORS '{' ipa_list '}'
  | AUTHENTICATION NONE { OSPF_PATT->autype=AU_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype=AU_SIMPLE ; }
@@ -96,12 +99,26 @@ ipa_list:
  /* empty */
  | ipa_list ipa_item
  ;
+
+ipa_item:
+    ipa_el;
+  | ipa_ne;
  
-ipa_item: IPA ';'
+ipa_el: IPA ';'
  {
    this_nbma = cfg_allocz(sizeof(struct nbma_node));
    add_tail(&OSPF_PATT->nbma_list, NODE this_nbma);
    this_nbma->ip=$1;
+   this_nbma->eligible=0;
+ }
+;
+
+ipa_ne: IPA ELIGIBLE ';'
+ {
+   this_nbma = cfg_allocz(sizeof(struct nbma_node));
+   add_tail(&OSPF_PATT->nbma_list, NODE this_nbma);
+   this_nbma->ip=$1;
+   this_nbma->eligible=1;
  }
 ;
 
@@ -112,12 +129,14 @@ ospf_iface_start:
   add_tail(&this_area->patt_list, NODE this_ipatt);
   OSPF_PATT->cost = COST_D;
   OSPF_PATT->helloint = HELLOINT_D;
+  OSPF_PATT->pollint = POLLINT_D;
   OSPF_PATT->rxmtint = RXMTINT_D;
   OSPF_PATT->inftransdelay = INFTRANSDELAY_D;
   OSPF_PATT->priority = PRIORITY_D;
   OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
   OSPF_PATT->type = OSPF_IT_UNDEF;
+  OSPF_PATT->strictnbma = 0;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype=AU_NONE;
  }

@@ -122,6 +122,11 @@ downint(struct ospf_iface *ifa)
     tm_stop(ifa->hello_timer);
     rfree(ifa->hello_timer);
   }
+  if(ifa->poll_timer!=NULL)
+  {
+    tm_stop(ifa->poll_timer);
+    rfree(ifa->poll_timer);
+  }
   rfree(ifa->lock);
   mb_free(ifa);
 }
@@ -151,6 +156,7 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
       {
         /* Now, nothing should be adjacent */
         restart_hellotim(ifa);
+	restart_polltim(ifa);
         if((ifa->type==OSPF_IT_PTP) || (ifa->type==OSPF_IT_VLINK))
         {
           iface_chstate(ifa, OSPF_IS_PTP);
@@ -358,13 +364,20 @@ void
 ospf_iface_info(struct ospf_iface *ifa)
 {
   int x;
+  char *strict="(strict)";
+
+  if((ifa->type!=OSPF_IT_NBMA)||(ifa->strictnbma==0)) strict="";
   cli_msg(-1015,"Interface \"%s\":", ifa->iface->name);
   cli_msg(-1015,"\tArea: %I (%u)", ifa->oa->areaid, ifa->oa->areaid);
-  cli_msg(-1015,"\tType: %s", ospf_it[ifa->type]);
+  cli_msg(-1015,"\tType: %s %s", ospf_it[ifa->type], strict);
   cli_msg(-1015,"\tState: %s", ospf_is[ifa->state]);
   cli_msg(-1015,"\tPriority: %u", ifa->priority);
   cli_msg(-1015,"\tCost: %u", ifa->cost);
   cli_msg(-1015,"\tHello timer: %u", ifa->helloint);
+  if(ifa->type==OSPF_IT_NBMA)
+  {
+    cli_msg(-1015,"\tPoll timer: %u", ifa->pollint);
+  }
   cli_msg(-1015,"\tWait timer: %u", ifa->waitint);
   cli_msg(-1015,"\tDead timer: %u", ifa->deadc*ifa->helloint);
   cli_msg(-1015,"\tRetransmit timer: %u", ifa->rxmtint);
@@ -412,6 +425,8 @@ ospf_ifa_add(struct object_lock *lock)
   ifa->inftransdelay=ip->inftransdelay;
   ifa->priority=ip->priority;
   ifa->helloint=ip->helloint;
+  ifa->pollint=ip->pollint;
+  ifa->strictnbma=ip->strictnbma;
   ifa->waitint=ip->waitint;
   ifa->deadc=ip->deadc;
   ifa->autype=ip->autype;
@@ -453,6 +468,7 @@ ospf_ifa_add(struct object_lock *lock)
   {
     nbma=mb_alloc(p->pool,sizeof(struct nbma_node));
     nbma->ip=nb->ip;
+    nbma->eligible=nb->eligible;
     add_tail(&ifa->nbma_list, NODE nbma);
   }
   
@@ -463,6 +479,17 @@ ospf_ifa_add(struct object_lock *lock)
   ifa->hello_timer->hook=hello_timer_hook;
   ifa->hello_timer->recurrent=ifa->helloint;
   DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
+
+  if(ifa->type==OSPF_IT_NBMA)
+  {
+    ifa->poll_timer=tm_new(p->pool);
+    ifa->poll_timer->data=ifa;
+    ifa->poll_timer->randomize=0;
+    ifa->poll_timer->hook=poll_timer_hook;
+    ifa->poll_timer->recurrent=ifa->pollint;
+    DBG("%s: Installing poll timer. (%u)\n", p->name, ifa->pollint);
+  }
+  else ifa->poll_timer=NULL;
 
   ifa->wait_timer=tm_new(p->pool);
   ifa->wait_timer->data=ifa;

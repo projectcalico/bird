@@ -62,6 +62,7 @@ struct ospf_config {
 struct nbma_node {
   node n;
   ip_addr ip;
+  int eligible;
 };
 
 struct ospf_area_config {
@@ -91,6 +92,7 @@ struct ospf_iface {
   u8 priority;		/* A router priority for DR election */
   u16 helloint;		/* number of seconds between hello sending */
   u16 waitint;		/* number of sec before changing state from wait */
+  u16 pollint;		/* Poll interval */
   u32 deadc;		/* after "deadint" missing hellos is router dead */
   u16 autype;
   u8 aukey[8];
@@ -100,6 +102,7 @@ struct ospf_iface {
   ip_addr bdrip;	/* Backup DR */
   u32 bdrid;
   u8 type;		/* OSPF view of type */
+  u8 strictnbma;	/* Can I talk with unknown neighbors? */
 #define OSPF_IT_BCAST 0
 #define OSPF_IT_NBMA 1
 #define OSPF_IT_PTP 2
@@ -115,12 +118,14 @@ struct ospf_iface {
 #define OSPF_IS_DR 6		/* I'm DR */
   timer *wait_timer;		/* WAIT timer */
   timer *hello_timer;		/* HELLOINT timer */
+  timer *poll_timer;		/* Poll Interval - for NBMA */
 /* Default values for interface parameters */
 #define COST_D 10
 #define RXMTINT_D 5
 #define INFTRANSDELAY_D 1
 #define PRIORITY_D 1
 #define HELLOINT_D 10
+#define POLLINT_D 20
 #define DEADC_D 4
 #define WAIT_DMH 4	/* Value of Wait timer - not found it in RFC 
 			 * - using 4*HELLO
@@ -377,12 +382,14 @@ struct ospf_iface_patt {
   int cost;
   int helloint;
   int rxmtint;
+  int pollint;
   int inftransdelay; 
   int priority; 
   int waitint;
   int deadc;
   int type;
   int autype;
+  int strictnbma;
 #define AU_NONE 0
 #define AU_SIMPLE 1
 #define AU_CRYPT 2
