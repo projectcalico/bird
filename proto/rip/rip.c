@@ -221,7 +221,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
     
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
-  if (!ipa_equal( ipa_mkmask(ipa_mklen(b->netmask)), b->netmask)) {
+  if (ipa_mklen(b->netmask)==-1)  {
     log( L_ERR "%I asked me to route %I/%I, but that is not valid netmask.", A.from, b->network, b->netmask );
     return;
   }
