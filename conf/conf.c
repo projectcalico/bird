@@ -25,7 +25,7 @@ struct config *
 config_alloc(byte *name)
 {
   pool *p = rp_new(&root_pool, "Config");
-  linpool *l = lp_new(p, 1024);
+  linpool *l = lp_new(p, 4080);
   struct config *c = lp_allocz(l, sizeof(struct config));
 
   c->pool = p;
