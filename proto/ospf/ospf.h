@@ -10,12 +10,18 @@
 #define _BIRD_OSPF_H_
 
 #define OSPF_PROTO 89
+#ifndef IPV6
 #define AllSPFRouters ipa_from_u32(0xe0000005)	/* 224.0.0.5 */
 #define AllDRouters ipa_from_u32(0xe0000006)	/* 224.0.0.6 */
+#else
+#error Multicast address not defined
+#endif
+
 
 struct ospf_config {
   struct proto_config c;
-  ip_addr area;		/* Area ID  !!! This is wrong !!! */
+  u32 area;		/* Area ID  !!! This is wrong !!!
+                         * Should respect interface */
   list iface_list;
 };
 
@@ -35,12 +41,14 @@ struct ospf_iface {
   u16 autype;
   u8 aukey[8];
   u8 options;
-  ip_addr dr;		/* Designated router */
-  ip_addr bdr;		/* Backup DR */
-  byte mode;
-#define OSPF_IM_MULTICAST 0
-#define OSPF_IM_PTP 1
-#define OSPF_IM_NBMA 2
+  ip_addr drip;		/* Designated router */
+  u32 drid;
+  ip_addr bdrip;	/* Backup DR */
+  u32 bdrid;
+  int type;
+#define OSPF_IM_BROADCAST 0
+#define OSPF_IM_NBMA 1
+#define OSPF_IM_PTP 2
 
 /* Default values for interface parameters */
 #define COST_D 10

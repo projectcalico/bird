@@ -91,7 +91,7 @@ byte
 ospf_iface_clasify(struct iface *ifa)
 {
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
-    IF_MULTIACCESS|IF_MULTICAST) return OSPF_IM_MULTICAST;
+    IF_MULTIACCESS|IF_MULTICAST) return OSPF_IM_BROADCAST;
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
     IF_MULTIACCESS) return OSPF_IM_NBMA;
   return OSPF_IM_PTP;
@@ -112,9 +112,11 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->autype=0;
   for(i=0;i<8;i++) ifa->aukey[i]=0;
   ifa->options=0;
-  ifa->dr=ipa_from_u32(0x00000000);
-  ifa->bdr=ipa_from_u32(0x00000000);
-  ifa->mode=ospf_iface_clasify(ifa->iface);
+  ifa->drip=ipa_from_u32(0x00000000);
+  ifa->drid=0;
+  ifa->bdrip=ipa_from_u32(0x00000000);
+  ifa->bdrid=0;
+  ifa->type=ospf_iface_clasify(ifa->iface);
 }
 
 void

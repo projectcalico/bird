@@ -14,6 +14,8 @@ CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA)
 
+%type <i> idval
+
 CF_GRAMMAR
 
 CF_ADDTO(proto, ospf_proto '}')
@@ -29,7 +31,7 @@ ospf_proto:
  | ospf_proto ospf_area ';'
  ;
 
-ospf_area: AREA IPA {
+ospf_area: AREA idval ';' {
     ((struct ospf_config *)this_proto)->area = $2;
  }
  ;
