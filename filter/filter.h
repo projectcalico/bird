@@ -25,12 +25,13 @@ struct f_inst {		/* Instruction */
     int i;
     void *p;
   } a2;
+  int lineno;
 };
 
 #define arg1 a1.p
 #define arg2 a2.p
 
-struct f_prefix {
+struct prefix {
   ip_addr ip;
   int len;
 #define LEN_MASK 0xff
@@ -45,7 +46,7 @@ struct f_val {
   union {
     int i;
     /*    ip_addr ip; Folded into prefix */	
-    struct f_prefix px;
+    struct prefix px;
     char *s;
     struct f_tree *t;
     struct adata *ad;
@@ -58,6 +59,7 @@ struct filter {
   struct f_inst *root;
 };
 
+void filters_postconfig(void);
 struct f_inst *f_new_inst(void);
 struct f_inst *f_new_dynamic_attr(int type, int f_type, int code);	/* Type as core knows it, type as filters know it, and code of dynamic attribute */
 struct f_tree *f_new_tree(void);
@@ -70,7 +72,6 @@ struct ea_list;
 struct rte;
 
 int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool, int flags);
-int f_eval_int(struct f_inst *expr);
 char *filter_name(struct filter *filter);
 int filter_same(struct filter *new, struct filter *old);
 

@@ -43,6 +43,8 @@
 
 #define P(a,b) ((a<<8) | b)
 
+struct f_inst *startup_func = NULL, *test1_func, *test2_func;
+
 #define CMP_ERROR 999
 
 static int
@@ -187,7 +189,7 @@ static int f_flags;
 static rta *f_rta_copy;
 
 #define runtime(x) do { \
-    log( L_ERR x ); \
+    log( L_ERR "filters, line %d: %s", what->lineno, x); \
     res.type = T_RETURN; \
     res.val.i = F_ERROR; \
     return res; \
@@ -227,22 +229,6 @@ interpret(struct f_inst *what)
     switch (res.type = v1.type) {
     case T_VOID: runtime( "Can not operate with values of type void" );
     case T_INT: res.val.i = v1.val.i + v2.val.i; break;
-    default: runtime( "Usage of unknown type" );
-    }
-    break;
-  case '-':
-    TWOARGS_C;
-    switch (res.type = v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
-    case T_INT: res.val.i = v1.val.i - v2.val.i; break;
-    default: runtime( "Usage of unknown type" );
-    }
-    break;
-  case '*':
-    TWOARGS_C;
-    switch (res.type = v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
-    case T_INT: res.val.i = v1.val.i * v2.val.i; break;
     default: runtime( "Usage of unknown type" );
     }
     break;
@@ -598,8 +584,6 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   switch(f1->code) {
   case ',': /* fall through */
   case '+':
-  case '-':
-  case '*':
   case '/':
   case P('!','='):
   case P('=','='):
@@ -681,22 +665,24 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   return res.val.i;
 }
 
-int
-f_eval_int(struct f_inst *expr)
+void
+filters_postconfig(void)
 {
   struct f_val res;
 
-  f_flags = 0;
-  f_tmp_attrs = NULL;
-  f_rte = NULL;
-  f_rte_old = NULL;
-  f_rta_copy = NULL;
-  f_pool = cfg_mem;
-  res = interpret(expr);
-  if (res.type != T_INT)
-    cf_error("Integer expression expected");
-  return res.val.i;
-}
+#if 1
+  if (!i_same(test1_func, test2_func))
+    bug("i_same does not work");
+#endif
+  if (startup_func) {
+    debug( "Launching startup function...\n" );
+    f_pool = lp_new(&root_pool, 1024);
+    res = interpret(startup_func);
+    if (res.type == F_ERROR)
+      die( "Startup function resulted in error." );
+    debug( "done\n" );
+  }
+} 
 
 /**
  * filter_same - compare two filters
