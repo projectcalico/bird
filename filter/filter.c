@@ -43,8 +43,6 @@
 
 #define P(a,b) ((a<<8) | b)
 
-struct f_inst *startup_func = NULL, *test1_func, *test2_func;
-
 #define CMP_ERROR 999
 
 static int
@@ -681,25 +679,6 @@ f_eval_int(struct f_inst *expr)
     cf_error("Integer expression expected");
   return res.val.i;
 }
-
-void
-filters_postconfig(void)
-{
-  struct f_val res;
-
-#if 1
-  if (!i_same(test1_func, test2_func))
-    bug("i_same does not work");
-#endif
-  if (startup_func) {
-    debug( "Launching startup function...\n" );
-    f_pool = lp_new(&root_pool, 1024);
-    res = interpret(startup_func);
-    if (res.type == F_ERROR)
-      die( "Startup function resulted in error." );
-    debug( "done\n" );
-  }
-} 
 
 /**
  * filter_same - compare two filters

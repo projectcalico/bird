@@ -58,7 +58,6 @@ config_parse(struct config *c)
   protos_preconfig(c);
   rt_preconfig(c);
   cf_parse();
-  filters_postconfig();			/* FIXME: Do we really need this? */
   protos_postconfig(c);
 #ifdef IPV6
   if (!c->router_id)

@@ -58,7 +58,6 @@ struct filter {
   struct f_inst *root;
 };
 
-void filters_postconfig(void);
 struct f_inst *f_new_inst(void);
 struct f_inst *f_new_dynamic_attr(int type, int f_type, int code);	/* Type as core knows it, type as filters know it, and code of dynamic attribute */
 struct f_tree *f_new_tree(void);
