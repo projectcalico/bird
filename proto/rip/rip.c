@@ -213,9 +213,12 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
 #endif
 
   c->done = 0;
-  fit_init( &c->iter, &P->rtable );
+  FIB_ITERATE_INIT( &c->iter, &P->rtable );
   add_head( &P->connections, NODE c );
-  TRACE(D_PACKETS, "Sending my routing table to %I:%d on %s", daddr, dport, rif->iface->name );
+  if (ipa_nonzero(daddr))
+    TRACE(D_PACKETS, "Sending my routing table to %I:%d on %s", daddr, dport, rif->iface->name );
+  else
+    TRACE(D_PACKETS, "Broadcasting routing table to %s", rif->iface->name );
 
   rip_tx(c->rif->sock);
 }
@@ -315,6 +318,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 
   CHK_MAGIC;
   TRACE(D_ROUTES, "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
+  /* FIXME: Why `???'? If prefix is unknown, just don't print it.  [mj] */
   if ((!metric) || (metric > P_CF->infinity)) {
 #ifdef IPV6 /* Someone is sedning us nexthop and we are ignoring it */
     if (metric == 0xff)
@@ -406,7 +410,7 @@ rip_rx(sock *s, int size)
   int num;
 
   CHK_MAGIC;
-  DBG( "RIP: message came: %d bytes\n", size );
+  DBG( "RIP: message came: %d bytes from %I via %s\n", size, s->faddr, i->iface ? i->iface->name : "(dummy)" );
   size -= sizeof( struct rip_packet_heading );
   if (size < 0) BAD( "Too small packet" );
   if (size % sizeof( struct rip_block )) BAD( "Odd sized packet" );
@@ -456,7 +460,7 @@ rip_timer(timer *t)
 #endif
 
     if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
-      TRACE(D_EVENTS, "RIP: entry is too old: %I", rte->net->n.prefix );
+      TRACE(D_EVENTS, "entry is too old: %I", rte->net->n.prefix );
       if (rte->u.rip.entry) {
 	rte->u.rip.entry->metric = P_CF->infinity;
 	rte->u.rip.metric = P_CF->infinity;
@@ -464,7 +468,7 @@ rip_timer(timer *t)
     }
 
     if (now - rte->u.rip.lastmodX > P_CF->garbage_time) {
-      TRACE(D_EVENTS, "RIP: entry is much too old: %I", rte->net->n.prefix );
+      TRACE(D_EVENTS, "entry is much too old: %I", rte->net->n.prefix );
       rte_discard(p->table, rte);
     }
   }
@@ -616,8 +620,8 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   if (new)
     rif->sock->ttl = 1;
   else
-    rif->sock->ttl = 30;
-  rif->sock->tos = IP_PREC_INTERNET_CONTROL;
+    rif->sock->ttl = 30;		/* FIXME: Shouldn't we leave default TTL in this case?  [mj] */
+  rif->sock->tos = IP_PREC_INTERNET_CONTROL; /* FIXME: Interface sockets only, I guess  [mj] */
 
   if (new) {
     if (new->addr->flags & IA_UNNUMBERED)
@@ -627,11 +631,13 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
       rif->sock->daddr = ipa_from_u32(0xe0000009);
       rif->sock->saddr = ipa_from_u32(0xe0000009);
 #else
-      ip_pton("FF02::9", &rif->sock->daddr);
+      ip_pton("FF02::9", &rif->sock->daddr); /* FIXME  [mj] */
       ip_pton("FF02::9", &rif->sock->saddr);
 #endif
-    } else
+    } else {
       rif->sock->daddr = new->addr->brd;
+      rif->sock->saddr = new->addr->brd;
+    }
   }
 
   if (!ipa_nonzero(rif->sock->daddr)) {
@@ -641,9 +647,10 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
       if (sk_open(rif->sock)<0) {
 	log( L_ERR "%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
 	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
+	/* FIXME: This is *wrong*! Try it. */
       }
 
-  TRACE(D_EVENTS, "%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, rif->multicast ? "multicast" : "broadcast", rif->sock->daddr );
+  TRACE(D_EVENTS, "Listening on %s, port %d, mode %s (%I)", rif->iface ? rif->iface->name : "(dummy)", P_CF->port, rif->multicast ? "multicast" : "broadcast", rif->sock->daddr );
   
   return rif;
 }
