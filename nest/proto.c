@@ -321,6 +321,7 @@ proto_notify_state(struct proto *p, unsigned ps)
       DBG("%s: Scheduling meal\n", p->name);
       if (p->proto->priority)		/* FIXME: Terrible hack to get synchronous device/kernel startup! */
 	{
+	  p->proto_state = ps;
 	  p->core_state = FS_FEEDING;
 	  proto_feed(p);
 	  return;

@@ -41,7 +41,7 @@ krt_flush_routes(struct krt_proto *p)
 	{
 	  rta *a = e->attrs;
 	  if (a->source != RTS_DEVICE && a->source != RTS_INHERIT)
-	    krt_set_notify(&p->p, e->net, e, NULL);
+	    krt_set_notify(&p->p, e->net, NULL, e);
 	}
     }
   FIB_WALK_END;
@@ -221,7 +221,7 @@ krt_start(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
 
-  p->accum_time = 0;
+  p->accum_time = KRT_CF->route_scan_time - KRT_CF->scan_time;
 
   krt_if_start(p);
   krt_scan_start(p);
