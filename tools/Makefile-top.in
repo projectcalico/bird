@@ -3,8 +3,11 @@
 
 objdir=@objdir@
 
-all depend tags docs userdocs progdocs install:
+all depend tags install:
 	$(MAKE) -C $(objdir) $@
+
+docs userdocs progdocs:
+	$(MAKE) -C doc $@
 
 clean:
 	$(MAKE) -C $(objdir) clean
