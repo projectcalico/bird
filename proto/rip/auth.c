@@ -146,7 +146,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
 	bug(  "We can not add MD5 authentication to this long packet" );
 
       /* need to preset the sequence number to a sane value */
-      if(!sequence)
+      if (!sequence)
 	sequence = (u32) time(NULL);
 
       block->keyid = passwd->id;
