@@ -51,6 +51,51 @@ random_u32(void)
 }
 
 /*
+ *	Tracked Files
+ */
+
+struct rfile {
+  resource r;
+  FILE *f;
+};
+
+static void
+rf_free(resource *r)
+{
+  struct rfile *a = (struct rfile *) r;
+
+  fclose(a->f);
+}
+
+static void
+rf_dump(resource *r)
+{
+  struct rfile *a = (struct rfile *) r;
+
+  debug("(FILE *%p)\n", a->f);
+}
+
+static struct resclass rf_class = {
+  "FILE",
+  sizeof(struct rfile),
+  rf_free,
+  rf_dump
+};
+
+void *
+rfopen(pool *p, char *name, char *mode)
+{
+  FILE *f = fopen(name, mode);
+
+  if (f)
+    {
+      struct rfile *r = ralloc(p, &rf_class);
+      r->f = f;
+    }
+  return f;
+}
+
+/*
  *	Timers
  */
 
