@@ -641,7 +641,8 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   }
 
   if (!ipa_nonzero(rif->sock->daddr)) {
-    log( L_WARN "%s: interface %s is too strange for me", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
+    if (rif->iface)
+      log( L_WARN "%s: interface %s is too strange for me", P_NAME, rif->iface->name );
   } else
     if (!(rif->mode & IM_NOLISTEN))
       if (sk_open(rif->sock)<0) {
