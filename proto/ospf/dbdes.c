@@ -52,6 +52,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
   switch(n->state)
   {
     case NEIGHBOR_EXSTART:		/* Send empty packets */
+      n->myimms.bit.i=1;
       pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
       op=(struct ospf_packet *)pkt;
       fill_ospf_pkt_hdr(ifa, pkt, DBDES);
@@ -67,6 +68,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       break;
 
     case NEIGHBOR_EXCHANGE:
+      n->myimms.bit.i=0;
       if(! (((n->myimms.bit.ms) && (n->dds==n->ddr+1)) ||
          ((!(n->myimms.bit.ms)) && (n->dds==n->ddr))))
       {
@@ -112,15 +114,17 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	  DBG("Number of LSA NOT sent: %d\n", i);
 	  DBG("M bit unset.\n");
 	  n->myimms.bit.m=0;	/* Unset more bit */
+	  DBG("Ini: %d, M: %d MS: %d.\n",n->imms.bit.i, n->imms.bit.m, n->imms.bit.ms);
 	}
 
 	s_put(&(n->dbsi),sn);
 
-        pkt->imms=n->myimms;
+        pkt->imms.byte=n->myimms.byte;
 
 	length=(j-i)*sizeof(struct ospf_lsa_header)+
 		sizeof(struct ospf_dbdes_packet);
 	op->length=htons(length);
+	
         ospf_pkt_finalize(ifa, op);
       }
 
@@ -131,7 +135,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
       for(i=0; i<ifa->iface->mtu; i++)
       {
-        *(bb+i)=*(aa+i);	/* Copy last sent packet again */
+        *(aa+i)=*(bb+i);	/* Copy last sent packet again */
       }
 
       {
