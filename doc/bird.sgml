@@ -95,9 +95,9 @@ no equivalent of while() or for() command, and recursive functions are not permi
 <p pgm>You can find sources of filters language in
 <file>filter/</file> directory. <file>filter/config.Y</file> contains
 filter gramar, and basically translates source from user into tree of
-<TT c>f_inst</cf> structures. These trees are later interpreted using
+<cf>f_inst</cf> structures. These trees are later interpreted using
 code in <file>filter/filter.c</file>. Filters internally work with
-values/variables in <TT c>struct f_val</cf>, which contains type of
+values/variables in <TT c>struct f_val</TT>, which contains type of
 value and value.
 
 <p>Filter basically looks like this:
@@ -161,10 +161,10 @@ booleans (that is to prevent you from shooting in the foot).
 
 	<tag/set int|ip|prefix|pair/
 	  filters know four types of sets. Sets are similar to strings: you can pass them around
-	  but you can not modify them. Constant of type <TT filt>set int</cf> looks like <TT filt>
+	  but you can not modify them. Constant of type <cf>set int</cf> looks like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
 	  sets. Sets of prefixes are special: you can specify which prefixes should match them by
-	  using <TT filt>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. 3.0.0.0/8{5,6} matches
+	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. 3.0.0.0/8{5,6} matches
 	  prefixes 3.X.X.X, whose prefixlength is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
 	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}.
 
@@ -211,7 +211,7 @@ parameters. They get route table entry as implicit parameter.
 
 <p>Filters support two control structures: if/then/else and
 case. Syntax of if/then/else is <cf>if <I>expression</I> then
-<I>command</I>; else <I>command</I>;<TT> and you can use <cf>{
+<I>command</I>; else <I>command</I>;</cf> and you can use <cf>{
 <I>command_1</I>; <I>command_2</I>; <I>...</I> }</cf> instead of one
 or both commands. <cf>else</cf> clause may be ommited. Case is
 used like this:
@@ -255,7 +255,7 @@ HREF="fixme">rfc1234</A>.
 	  all, password means that plaintext password is embedded into each packet, and md5 means
 	  that packets are authenticated using md5 cryptographics hash. See <A
 	  HREF="fixme">rfc1234</A>. If you set authentication to non-none, it is good idea to add
-	  <TT conf>passwords { }</cf> section.
+	  <cf>passwords { }</cf> section.
 </descrip>
 
 <p>There are two options that can be specified per-interface. First is <cf>metric</cf>, with
