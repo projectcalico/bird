@@ -30,7 +30,7 @@ struct fib_node {
   ip_addr prefix;			/* In host order */
   byte pxlen;
   byte flags;				/* User-defined */
-  byte pad0, pad1;			/* ??? use ??? */
+  byte x0, x1;				/* User-defined */
   struct fib_node *next;		/* Next in hash chain */
 };
 
@@ -76,12 +76,9 @@ typedef struct rtable {
 } rtable;
 
 typedef struct network {
-  struct fib_node n;			/* FIB flags hold kernel sync info (KRF_...) */
+  struct fib_node n;			/* FIB flags,x0 reserved for kernel syncer */
   struct rte *routes;			/* Available routes for this network */
 } net;
-
-#define KRF_SEEN 1			/* Seen in kernel table during last scan */
-#define KRF_UPDATE 2			/* Need to update this entry */
 
 typedef struct rte {
   struct rte *next;

@@ -12,6 +12,11 @@
 #include "lib/krt-scan.h"
 #include "lib/krt-set.h"
 
+/* Flags stored in net->n.flags */
+
+#define KRF_SEEN 1			/* Seen in kernel table during last scan */
+#define KRF_UPDATE 2			/* Need to update this entry */
+
 /* sync-rt.c */
 
 extern struct protocol proto_unix_kernel;
