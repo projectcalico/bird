@@ -60,8 +60,9 @@ typedef struct rte {
   struct rte *next;
   struct rtattr *attrs;
   byte flags;				/* Flags (REF_...) */
-  byte rfu;
+  byte pflags;				/* Protocol-specific flags */
   word pref;				/* Route preference */
+  u32 lastmod;				/* Last modified (time) */
   union {				/* Protocol-dependent data (metrics etc.) */
 #ifdef CONFIG_STATIC
     struct {
@@ -70,11 +71,13 @@ typedef struct rte {
 #ifdef CONFIG_RIP
     struct {
       byte metric;			/* RIP metric */
+      u16 tag;				/* External route tag */
     } rip;
 #endif
 #ifdef CONFIG_OSPF
     struct {
       u32 metric1, metric2;		/* OSPF Type 1 and Type 2 metrics */
+      u32 tag;				/* External route tag */
     } ospf;
 #endif
 #ifdef CONFIG_BGP
@@ -107,7 +110,6 @@ struct rtattr {
   byte dest;				/* Route destination type (RTD_...) */
   byte tos;				/* TOS of this route */
   byte flags;				/* Route flags (RTF_...) */
-  word source_as;			/* Source AS of this route (0=local) */
   ip_addr gw;				/* Next hop */
   struct iface *iface;			/* Outgoing interface */
   struct ea_list *attrs;		/* Extended Attribute chain */
@@ -123,13 +125,13 @@ struct rtattr {
 #define RTS_OSPF 8			/* OSPF route */
 #define RTS_OSPF_EXT 9			/* OSPF external route */
 #define RTS_OSPF_IA 10			/* OSPF inter-area route */
-#define RTS_OSPF_BOUNDARY 11		/* OSPF route to boundary router */
+#define RTS_OSPF_BOUNDARY 11		/* OSPF route to boundary router (???) */
 #define RTS_BGP 12			/* BGP route */
 
 #define SCOPE_HOST 0			/* Address scope */
-#define SCOPE_LINK 0x10
-#define SCOPE_SITE 0x80
-#define SCOPE_UNIVERSE 0xff
+#define SCOPE_LINK 1
+#define SCOPE_SITE 2
+#define SCOPE_UNIVERSE 3
 
 #define RTC_UNICAST 0
 #define RTC_BROADCAST 1
@@ -141,6 +143,9 @@ struct rtattr {
 #define RTD_BLACKHOLE 2			/* Silently drop packets */
 #define RTD_UNREACHABLE 3		/* Reject as unreachable */
 #define RTD_PROHIBIT 4			/* Administratively prohibited */
+
+#define RTF_EXTERIOR 1			/* Learned via exterior protocol */
+#define RTF_TAGGED 2			/* Tagged route learned via IGP */
 
 /*
  *	Extended Route Attributes
