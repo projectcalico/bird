@@ -25,13 +25,6 @@ CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT)
 
 CF_GRAMMAR
 
-config:
-   program { 
-     printf( "Wow, we have full program\n" );
-     return 0;
-   }
- ;
-
 program: /* EMPTY */
  | program function
  ;
@@ -68,7 +61,7 @@ term: /* EMPTY */ { $$ = NULL; }
      $$->arg1 = $1;
      $$->arg2 = $3;
    }
- | INT SYM ';' {
+ | INT SYM {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined, can not use as variable\n" );
      $2->class = SYM_VARIABLE_INT;
      printf( "New variable\n" );
