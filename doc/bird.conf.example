@@ -118,6 +118,13 @@ protocol static {
 #			wait 50;
 #			type broadcast;
 #		};
+#		interface "arc0" {
+#			type nonbroadcast;
+#			neighbors {
+#				10.1.1.2;
+#				10.1.1.4;
+#			};
+#		};
 #	};
 #	area 20 {
 #		stub 1;
