@@ -361,11 +361,12 @@ ospf_tx_hook(sock * sk)
 }
 
 void
-ospf_err_hook(sock * sk, int err UNUSED)
+ospf_err_hook(sock * sk, int err)
 {
   struct ospf_iface *ifa= (struct ospf_iface *) (sk->data);
   struct proto *p = (struct proto *) (ifa->oa->po);
-  log(L_ERR "%s: Err_Hook called on interface %s\n", p->name, sk->iface->name);
+  log(L_ERR "%s: Err_Hook called on interface %s with err=%d\n",
+    p->name, sk->iface->name, err);
 }
 
 void
