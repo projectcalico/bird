@@ -173,11 +173,12 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
     p->rt_notify(p, net, NULL, old, NULL);
   else if (tmpa)
     {
-      while (tmpa->next)
-	tmpa = tmpa->next;
-      tmpa->next = new->attrs->eattrs;
+      ea_list *t = tmpa;
+      while (t->next)
+	t = t->next;
+      t->next = new->attrs->eattrs;
       p->rt_notify(p, net, new, old, tmpa);
-      tmpa->next = NULL;
+      t->next = NULL;
     }
   else
     p->rt_notify(p, net, new, old, new->attrs->eattrs);
@@ -763,6 +764,7 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d, ea_list *tm
       t = ea_append(t, a->eattrs);
       tmpa = alloca(ea_scan(t));
       ea_merge(t, tmpa);
+      ea_sort(tmpa);
     }
   if (a->proto->proto->get_route_info)
     a->proto->proto->get_route_info(e, info, tmpa);
