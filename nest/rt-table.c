@@ -185,7 +185,7 @@ void
 rte_dump(net *n, rte *e)
 {
   if (n)
-    debug("%08x/%2d ", _I(n->n.prefix), n->n.pxlen);
+    debug("%1I/%2d ", n->n.prefix, n->n.pxlen);
   debug("PF=%02x pref=%d lm=%d ", e->pflags, e->pref, e->lastmod);
   rta_dump(e->attrs);
   if (e->flags & REF_CHOSEN)

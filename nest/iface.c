@@ -95,7 +95,7 @@ neigh_find(struct proto *p, ip_addr *a, unsigned flags)
 void
 neigh_dump(neighbor *n)
 {
-  debug("%p %08x ", n, _I(n->addr));
+  debug("%p %I ", n, n->addr);
   if (n->iface)
     debug("%s ", n->iface->name);
   else
@@ -129,7 +129,7 @@ neigh_if_up(struct iface *i)
 	n->iface = i;
 	n->sibling = i->neigh;
 	i->neigh = n;
-	DBG("Waking up sticky neighbor %08x\n", _I(n->addr));
+	DBG("Waking up sticky neighbor %I\n", n->addr);
 	if (n->proto->neigh_notify)
 	  n->proto->neigh_notify(n);
       }
@@ -143,7 +143,7 @@ neigh_if_down(struct iface *i)
   for(m=i->neigh; n = m;)
     {
       m = n->sibling;
-      DBG("Flushing neighbor %08x on %s\n", _I(n->addr), n->iface->name);
+      DBG("Flushing neighbor %I on %s\n", n->addr, n->iface->name);
       n->iface = NULL;
       if (n->proto->neigh_notify)
 	n->proto->neigh_notify(n);
@@ -185,7 +185,7 @@ if_dump(struct iface *i)
   if (i->flags & IF_IGNORE)
     debug(" IGN");
   debug(" MTU=%d\n", i->mtu);
-  debug("\t%08x, net %08x/%-2d bc %08x -> %08x\n", _I(i->ip), _I(i->prefix), i->pxlen, _I(i->brd), _I(i->opposite));
+  debug("\t%I, net %I/%-2d bc %I -> %I\n", i->ip, i->prefix, i->pxlen, i->brd, i->opposite);
 }
 
 void

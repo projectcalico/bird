@@ -144,9 +144,9 @@ rta_dump(rta *a)
     debug(" EXT");
   if (a->flags & RTF_TAGGED)
     debug(" TAG");
-  debug(" <-%08x", _I(a->from));
+  debug(" <-%I", a->from);
   if (a->dest == RTD_ROUTER)
-    debug(" ->%08x", _I(a->gw));
+    debug(" ->%I", a->gw);
   if (a->dest == RTD_DEVICE || a->dest == RTD_ROUTER)
     debug(" [%s]", a->iface->name);
 }
