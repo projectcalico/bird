@@ -8,6 +8,9 @@
 #define EA_RIP_TAG	EA_CODE(EAP_RIP, 0)
 #define EA_RIP_METRIC	EA_CODE(EAP_RIP, 1)
 
+#define PACKET_MAX 25
+#define PACKET_MD5_MAX 18	/* FIXME */
+
 struct rip_connection {
   node n;
 
@@ -115,6 +118,10 @@ struct rip_proto_config {
 #define AT_NONE 0
 #define AT_PLAINTEXT 2
 #define AT_MD5 3
+  int honour;
+#define HO_NEVER 0
+#define HO_NEIGHBOUR 1
+#define HO_ALWAYS 2
 };
 
 struct rip_proto {

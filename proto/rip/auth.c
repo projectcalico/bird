@@ -31,7 +31,6 @@ int
 rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
 {
   DBG( "Incoming authentication: " );
-
   switch (block->authtype) {	/* Authentication type */
   case AT_PLAINTEXT:
     DBG( "Plaintext passwd" );
@@ -50,10 +49,13 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       struct password_item *head;
       struct rip_md5_tail *tail;
 
+      /* FIXME: check that block->packetlen looks valid */
+
       tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
 
       head = P_CF->passwords;
-      while (head) {
+      while (head) {	/* FIXME: should not we check that password is not expired? */
+	/* FIXME: should check serial numbers, somehow */
 	if (head->id == block->keyid) {
 	  struct MD5Context ctxt;
 	  char md5sum_packet[16];
@@ -81,16 +83,45 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 void
 rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
 {
+  struct password_item *passwd = get_best_password( P_CF->passwords, 0 );
   DBG( "Outgoing authentication: " );
 
+  if (!passwd) {
+    log( L_ERR "no suitable password found for authentication\n" );
+    return;
+  }
+
   block->authtype = P_CF->authtype;
+  block->mustbeFFFF = 0xffff;
   switch (P_CF->authtype) {
   case AT_PLAINTEXT:
-    if (!P_CF->passwords) {
-      log( L_ERR "no passwords set and password authentication requested\n" );
+    password_strncpy( (char *) (&block->packetlen), passwd->password, 16);
+    return;
+  case AT_MD5:
+    {
+      struct rip_md5_tail *tail;
+      struct MD5Context ctxt;
+      static int sequence = 0;
+
+      if (num > PACKET_MD5_MAX)
+	bug(  "we can not add MD5 authentication to this long packet\n" );
+
+      block->keyid = passwd->id;
+      block->authlen = 20;
+      block->seq = sequence++;
+      block->zero0 = 0;
+      block->zero1 = 1;
+      block->packetlen = 0 /* FIXME */;
+
+      tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
+      tail->mustbeFFFF = 0xffff;
+      tail->mustbe0001 = 0x0001;
+      password_strncpy( (char *) (&tail->md5), passwd->password, 16 );
+
+      MD5Init(&ctxt);
+      MD5Update(&ctxt, (char *) packet, block->packetlen );
+      MD5Final((char *) (&tail->md5), &ctxt);
       return;
     }
-    password_strncpy( (char *) (&block->packetlen), P_CF->passwords->password, 16);
-    return;
   }
 }

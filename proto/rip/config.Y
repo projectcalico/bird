@@ -24,7 +24,8 @@ CF_DECLS
 
 CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, PASSWORDS,
 	    MODE, BROADCAST, QUIET, NOLISTEN, VERSION1, 
-	    AUTHENTICATION, NONE, PLAINTEXT, MD5)
+	    AUTHENTICATION, NONE, PLAINTEXT, MD5,
+	    HONOUR, NEVER, NEIGHBOUR, ALWAYS)
 
 %type <i> rip_mode rip_auth
 
@@ -47,6 +48,9 @@ RIP_CFG:
  | RIP_CFG GARBAGETIME expr ';' { RIP_CFG->garbage_time = $3; }
  | RIP_CFG AUTHENTICATION rip_auth ';' {RIP_CFG->authtype = $3; }
  | RIP_CFG PASSWORDS '{' password_list '}' {RIP_CFG->passwords = $4; }
+ | RIP_CFG HONOUR ALWAYS ';'    { RIP_CFG->honour = HO_ALWAYS; }
+ | RIP_CFG HONOUR NEIGHBOUR ';'    { RIP_CFG->honour = HO_NEIGHBOUR; }
+ | RIP_CFG HONOUR NEVER ';'    { RIP_CFG->honour = HO_NEVER; }
  | RIP_CFG rip_iface_list ';'
  ;
 

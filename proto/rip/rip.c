@@ -96,7 +96,7 @@ rip_tx( sock *s )
       ipa_hton( packet->block[i].netmask );
       ipa_hton( packet->block[i].nexthop );
 
-      if (i++ == 25) {
+      if (i++ == ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX)) {
 	FIB_ITERATE_PUT(&c->iter, z);
 	goto break_loop;
       }
@@ -263,8 +263,15 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 
   switch( packet->heading.command ) {
   case RIPCMD_REQUEST: DBG( "Asked to send my routing table\n" ); 
-    /* FIXME: should have configurable: ignore always, honour to neighbours, honour always. FIXME: use one global socket for these. FIXME: synchronization - if two ask me at same time */
-    	  rip_sendto( p, whotoldme, port, NULL ); /* no broadcast */
+	  if (P_CF->honour == HO_NEVER) {
+	    log( L_WARN "They asked me to send routing table, but I was told not to do it\n" );
+	    return 0;
+	  }
+	  if ((P_CF->honour == HO_NEIGHBOUR) && (!neigh_find( p, &whotoldme, 0 ))) {
+	    log( L_WARN "They asked me to send routing table, but he is not my neighbour\n" );
+	    return 0;
+	  }
+    	  rip_sendto( p, whotoldme, port, HEAD(P->interfaces) ); /* no broadcast */
           break;
   case RIPCMD_RESPONSE: DBG( "*** Rtable from %I\n", whotoldme ); 
           if (port != P_CF->port) {
@@ -280,8 +287,6 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    log( L_ERR "%I send me routing info but he is not my neighbour", whotoldme );
 	    return 0;
 	  }
-
-	  /* FIXME: Should check if it is not my own packet */
 
           for (i=0; i<num; i++) {
 	    struct rip_block *block = &packet->block[i];
@@ -487,7 +492,10 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   rif->sock->err_hook = rip_tx_err;
   rif->sock->daddr = IPA_NONE;
   rif->sock->dport = P_CF->port;
-  rif->sock->ttl = 1; /* FIXME: care must be taken not to send requested responses from this socket */
+  if (new)
+    rif->sock->ttl = 1;
+  else
+    rif->sock->ttl = 30;
   rif->sock->tos = IP_PREC_INTERNET_CONTROL;
 
   if (flags & IF_BROADCAST)
@@ -504,8 +512,8 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   } else
     if (!(rif->patt->mode & IM_NOLISTEN))
       if (sk_open(rif->sock)<0) {
-	log( L_WARN "RIP/%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
-	/* FIXME: Don't try to transmit into this one */
+	log( L_ERR "RIP/%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
+	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
       }
 
   log( L_DEBUG "RIP/%s: listening on %s, port %d, mode %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast" );
