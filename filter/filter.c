@@ -6,6 +6,8 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
  * 	Notice that pair is stored as integer: first << 16 | second
+ *
+ *	FIXME: Check if prefixes are really prefixes.
  */
 
 #include <stdio.h>
@@ -111,7 +113,7 @@ val_in_range(struct f_val v1, struct f_val v2)
   if (res != CMP_ERROR)
     return res;
 
-  if (((v1.type == T_INT) || (v1.type == T_IP)) && (v2.type == T_SET)) {
+  if (((v1.type == T_INT) || ((v1.type == T_IP) || (v1.type == T_PREFIX)) && (v2.type == T_SET))) {
     struct f_tree *n;
     n = find_tree(v2.val.t, v1);
     if (!n)

@@ -235,7 +235,7 @@ constant:
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; }
  | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_PAIR;  $$->a2.i = $1; }
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
- | prefix  {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
+ | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
  ;
 
