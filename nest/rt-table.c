@@ -106,14 +106,14 @@ rte_better(rte *new, rte *old)
 }
 
 void
-rte_announce(rte *new, rte *old)
+rte_announce(net *net, rte *new, rte *old)
 {
   struct proto *p;
 
   WALK_LIST(p, proto_list)
     if (!new || new->attrs->proto != p)
       if (p->rt_notify)
-	p->rt_notify(p, new, old);
+	p->rt_notify(p, net, new, old);
 }
 
 static inline void
@@ -143,7 +143,7 @@ rte_update(net *net, struct proto *p, rte *new)
 
   if (new && rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
     {
-      rte_announce(new, old_best);
+      rte_announce(net, new, old_best);
       new->next = net->routes;
       net->routes = new;
     }
@@ -155,7 +155,7 @@ rte_update(net *net, struct proto *p, rte *new)
 	  for(s=net->routes; s; s=s->next)
 	    if (rte_better(s, r))
 	      r = s;
-	  rte_announce(r, old_best);
+	  rte_announce(net, r, old_best);
 	  if (r)			/* Re-link the new optimal route */
 	    {
 	      k = &net->routes;

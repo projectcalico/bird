@@ -16,6 +16,7 @@ struct iface;
 struct rte;
 struct neighbor;
 struct rtattr;
+struct network;
 
 /*
  *	Routing Protocol
@@ -59,7 +60,7 @@ struct proto {
   unsigned preference;			/* Default route preference */
 
   void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
-  void (*rt_notify)(struct proto *, struct rte *new, struct rte *old);
+  void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
   void (*neigh_notify)(struct neighbor *neigh);
   void (*dump)(struct proto *);			/* Debugging dump */
   void (*start)(struct proto *);		/* Start the instance */
