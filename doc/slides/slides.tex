@@ -1,0 +1,190 @@
+\input epsf.tex
+
+\language=\czech
+\chyph
+
+\hsize=170mm
+\vsize=250mm
+\nopagenumbers
+
+\font\srm=csss12 scaled \magstep3
+\font\stit=csb12 scaled \magstep3
+\font\sem=csssbx12 scaled \magstep3
+\font\sit=csssi12 scaled \magstep3
+\font\stt=cstt12 scaled \magstep3
+\font\stitle=cscsc12 scaled \magstep4
+
+\baselineskip=25pt
+\lineskip=2.1pt
+\parindent=0pt
+\parskip=4pt
+\def\em#1{{\emfont #1}}
+\srm
+
+\font\rmfont=cmr10 scaled \magstep4
+\font\ttfont=cmtt10 scaled \magstep4
+\font\ifont=cmmi10 scaled \magstep4
+\font\symfont=cmsy10 scaled \magstep4
+\font\exfont=cmex10 scaled \magstep4
+\font\rmfonts=cmr7 scaled \magstep4
+\font\ifonts=cmmi7 scaled \magstep4
+\font\symfonts=cmsy7 scaled \magstep4
+\font\exfonts=cmex7 scaled \magstep4
+\textfont0=\rmfont
+\textfont1=\ifont
+\textfont2=\symfont
+\textfont3=\exfont
+\scriptfont0=\rmfonts
+\scriptfont1=\ifonts
+\scriptfont2=\symfonts
+\scriptfont3=\exfonts
+
+\newbox\birdbox
+{\epsfxsize=2em\global\setbox\birdbox=\hbox{\epsfbox{logo.eps}}}
+
+\def\slide#1{\begingroup
+\ifx:#1:\else
+\line{\vrule width 0pt height 25pt depth 4pt \stit #1\hfill\smash{\lower1ex\copy\birdbox}}
+\medskip
+\hrule height 2pt
+\bigskip
+\fi
+}
+\def\endslide{\vfill\eject\endgroup}
+
+\def\\{\hfil\break}
+\def\itemize#1{\par{\advance\leftskip by 35pt{\parskip=5pt #1}\par}}
+\def\:{\par\leavevmode\llap{$\bullet$\hskip 7pt}}
+\def\>{\par\leavevmode\llap{$\circ$\hskip 7pt}}
+
+\slide{}
+\vglue 1in
+\centerline{\epsfxsize=0.6\hsize\epsfbox{logo.eps}}
+\centerline{\vbox{\offinterlineskip\halign{#\cr
+\stitle Bird Internet Routing Daemon\cr
+\noalign{\medskip}%
+\leaders\hrule height 2pt\hfil\cr}}}
+\vskip 0.5in
+\centerline{\vbox{\sit\halign{\hfil # & # \hfil \cr
+Vedoucí: & RNDr. Libor Forst \cr
+Tým: & Ondøej Filip, Pavel Machek, Martin Mare¹ \cr
+Home: & http:/\kern-0.2em/bird.network.cz/ \cr
+E-mail: & bird@bird.network.cz \cr}}}
+\endslide
+
+\slide{Propojování sítí a routing}
+\medskip
+\centerline{\epsfxsize=0.9\hsize\epsfbox{obr1.eps}}
+\endslide
+
+\slide{Sítì jsou pøíli¹ velké $\Rightarrow$ Autonomní systémy}
+\medskip
+\centerline{\epsfxsize=0.9\hsize\epsfbox{obr2.eps}}
+\endslide
+
+\slide{Cíle projektu}
+\itemize{
+\:podpora v¹ech bì¾ných routovacích protokolù\\a snadné pøidávání nových
+\:IPv4 i IPv6
+\:výmìna dat mezi rùznými protokoly
+\:policy routing
+\:snadná konfigurace a údr¾ba
+\:kvalitní dokumentace
+\:minimální závislost na pou¾itém OS
+}
+\endslide
+
+\slide{Implementované protokoly}
+\itemize{
+\:RIP v2 (Routing Information Protocol)
+\itemize{
+\>interní protokol
+\>distance vector (Bellman-Ford)
+\>pomalá konvergence, omezení prùmìru sítì
+\>IPv4 i IPv6
+}
+\:OSPF v2 (Open Shortest Path First)
+\itemize{
+\>interní protokol
+\>link state algorithm (Dijkstra)
+\>rychlá konvergence, ale velmi slo¾itý
+\>zatím pouze IPv4
+}
+\:BGP v4 (Border Gateway Protocol)
+\itemize{
+\>externí protokol (jediný dnes pou¾ívaný)
+\>path vector
+\>rychlá konvergence, neomezená filtrace
+\>IPv4 i IPv6
+}
+}
+\endslide
+
+\slide{Propojení protokolù}
+\medskip
+\centerline{\epsfxsize=0.9\hsize\epsfbox{obr5.eps}}
+\endslide
+
+\slide{Správa routeru}
+\itemize{
+\:konfiguraèní soubory a on-line rekonfigurace:
+\medskip
+{\stt\advance\leftskip by 1cm
+protocol ospf \char123 \\
+\hbox{}~~~area 0 \char123\ interface "eth*"; \char125; \\
+\hbox{}~~~export where source=RTS\char95STATIC; \\
+\hbox{}~~~import all; \\
+\char125
+\medskip
+}
+\:filtry: jednoduchý procedurální jazyk
+\:logování událostí a tracing protokolù
+\:dálkové ovládání
+\:jednoduchý client
+}
+\endslide
+
+\slide{Architektura}
+\itemize{
+\:modulární architektura se striktním rozdìlením\\kompetencí:
+\itemize{
+\>jádro
+\>protokoly
+\>filtry
+\>knihovny
+}
+\:oddìlení platformnì závislého kódu
+\:vlastní datové typy: pøesné integery, IP adresy, \dots
+\:øízení událostmi
+\:``chytré'' datové struktury
+}
+\bigskip
+Platformy:
+\itemize{
+\:Zatím pouze Linux 2.0, Linux 2.1--2.4
+\:Èásteèný port na FreeBSD
+}
+\endslide
+
+\slide{Testování}
+``Laboratorní'' testy:
+\itemize{
+\:testovací sí» na~MFF: 3 poèítaèe a router Cisco 7000
+\:test zátì¾e (BGP, páteøní tabulka s~$72\,000$ polo¾kami)
+\:test spolupráce (Cisco, GateD, Cyclades)
+\:test portability: Linux 2.0--2.4; i386, Sparc, M680x0
+}
+\bigskip
+``Real world'' testy -- praktické pou¾ití:
+\itemize{
+\:nasazen ve~firmì Ipex (sí» s~cca 1000 poèítaèi)
+\:distribuováno veøejnì pod GPL:
+\itemize{
+\>236 downloadù, 2244 shlédnutí stránek (k~26. 6.)
+\>kladné ohlasy (zejména na konfiguraci)
+\>5 bug reportù, vyøe¹eny
+}
+}
+\endslide
+
+\end
