@@ -370,7 +370,6 @@ rip_timer(timer *t)
       if (!iface) continue;
       if (rif->patt->mode & IM_QUIET) continue;
       if (!(iface->flags & IF_UP)) continue;
-      if (iface->flags & (IF_IGNORE | IF_LOOPBACK)) continue;
 
       rip_sendto( p, IPA_NONE, 0, rif );
     }
@@ -461,7 +460,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   struct rip_interface *rif;
   int want_multicast = 0;
 
-  rif = mb_alloc(p->pool, sizeof( struct rip_interface ));
+  rif = mb_allocz(p->pool, sizeof( struct rip_interface ));
   rif->iface = new;
   rif->proto = p;
   rif->busy = NULL;
