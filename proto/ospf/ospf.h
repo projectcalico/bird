@@ -33,7 +33,8 @@ struct ospf_iface {
   node n;
   struct proto_ospf *proto;
   struct iface *iface;	/* Nest's iface */
-  list sk_list;		/* List of active sockets */
+  sock *hello_sk;	/* List of active sockets */
+  list neigh_list;	/* List of neigbours */
   u32 area;		/* OSPF Area */
   u16 cost;		/* Cost of iface */
   int rxmtint;		/* number of seconds between LSA retransmissions */
@@ -71,11 +72,6 @@ struct ospf_iface {
 #define HELLOINT_D 10
 #define DEADINT_D 4
 #define WAIT_DMH 2	/* Value of Wait timer - not found it in RFC - using 2*HELLO */
-};
-
-struct ospf_sock {
-  node n;
-  sock *sk;
 };
 
 struct ospf_patt {

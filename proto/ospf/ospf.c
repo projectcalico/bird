@@ -196,7 +196,7 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
 {
   sock *mcsk;
 
-  /* No NBMA networks now */
+  /* FIXME: No NBMA networks now */
 
   if(ifa->iface->flags & IF_MULTICAST)
   {
@@ -262,15 +262,82 @@ ospf_iface_clasify(struct iface *ifa)
 }
 
 void
+fill_ospf_pkt_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
+{
+  struct ospf_packet *pkt;
+  struct proto *p;
+  
+  p=(struct proto *)(ifa->proto);
+
+  pkt=(struct ospf_packet *)buf;
+
+  pkt->version=OSPF_VERSION;
+
+  pkt->type=h_type;
+
+  pkt->routerid=htonl(p->cf->global->router_id);
+  pkt->areaid=htonl(ifa->area);
+  pkt->autype=htons(ifa->autype);
+}
+
+void
 hello_timer_hook(timer *timer)
 {
   struct ospf_iface *ifa;
+  struct ospf_hello_packet *pkt;
+  struct ospf_packet *op;
   struct proto *p;
+  struct ospf_neighbor *neigh;
+  u16 length;
+  u32 *pp;
+  int i;
 
   ifa=(struct ospf_iface *)timer->data;
   p=(struct proto *)(ifa->proto);
   debug("%s: Hello timer fired on interface %s.\n",
     p->name, ifa->iface->name);
+  /* Now we should send a hello packet */
+  /* First a common packet header */
+  //if(ifa->type!=OSPF_IT_NBMA)
+  if(ifa->hello_sk!=NULL)
+  {
+    /* Now fill ospf_hello header */
+    pkt=(struct ospf_hello_packet *)(ifa->hello_sk->tbuf);
+    op=(struct ospf_packet *)pkt;
+
+    fill_ospf_pkt_hdr(ifa, pkt, HELLO);
+
+    pkt->netmask=ipa_mkmask(ifa->iface->addr->pxlen);
+    ipa_hton(pkt->netmask);
+    pkt->hello_int=ntohs(ifa->helloint);
+    pkt->options=ifa->options;
+    pkt->priority=ifa->priority;
+    pkt->deadint=htonl(ifa->deadint*ifa->helloint);
+    pkt->dr=ifa->drid;
+    pkt->bdr=ifa->bdrid;
+
+    /* Fill all neighbors */
+    i=0;
+    pp=(u32 *)(((byte *)pkt)+sizeof(struct ospf_hello_packet));
+    WALK_LIST (neigh, ifa->neigh_list)
+    {
+      *(pp+i)=neigh->rid;
+      i++;
+    }
+
+    length=sizeof(struct ospf_hello_packet)+i*sizeof(u32);
+
+    op->length=ntohs(length);
+
+    /* Do authentification */
+
+    op->checksum=ipsum_calculate(op,sizeof(struct ospf_packet)-8,
+      &(pkt->netmask),length-sizeof(struct ospf_packet),NULL);
+
+    sk_send(ifa->hello_sk,length);
+
+    /* XXXX */
+  }
 }
 
 void
@@ -325,7 +392,7 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
   ifa->hello_timer->hook=hello_timer_hook;
   ifa->hello_timer->recurrent=ifa->helloint;
   ifa->hello_timer->expires=0;
-  tm_start(ifa->hello_timer,0);
+  tm_start(ifa->hello_timer,ifa->helloint);
   DBG("%s: Installing hello timer.\n", p->name);
   if((ifa->type!=OSPF_IT_PTP))
   {
@@ -359,7 +426,7 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->deadint=DEADINT_D;
   ifa->autype=0;
   for(i=0;i<8;i++) ifa->aukey[i]=0;
-  ifa->options=0;
+  ifa->options=2;
   ifa->drip=ipa_from_u32(0x00000000);
   ifa->drid=0;
   ifa->bdrip=ipa_from_u32(0x00000000);
@@ -382,8 +449,7 @@ void
 ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 {
   struct ospf_iface *ifa;
-  sock *mcsk, *newsk;
-  struct ospf_sock *osk;
+  sock *mcsk;
 
   struct ospf_config *c;
   c=(struct ospf_config *)(p->cf);
@@ -403,13 +469,17 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     ospf_iface_default(ifa);
     /* FIXME: This should read config */
     ospf_add_timers(ifa,p->pool,0);
-    init_list(&(ifa->sk_list));
-    if((mcsk=ospf_open_socket(p, ifa))!=NULL)
+    if(ifa->type!=OSPF_IT_NBMA)
     {
-      osk=(struct ospf_sock *)mb_alloc(p->pool, sizeof(struct ospf_sock));
-      osk->sk=mcsk;
-      add_tail(&(ifa->sk_list),NODE osk);
+      if((mcsk=ospf_open_socket(p, ifa))!=NULL)
+      {
+	ifa->hello_sk=mcsk;
+      }
+      else log("Huh? could not open socket?");
+      /* FIXME: In fail case??? */
+      init_list(&(ifa->neigh_list));
     }
+    /* FIXME: NBMA? */
   }
 
   if(flags & IF_CHANGE_DOWN)
