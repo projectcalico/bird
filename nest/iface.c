@@ -11,6 +11,7 @@
 #include "nest/bird.h"
 #include "nest/iface.h"
 #include "nest/protocol.h"
+#include "nest/cli.h"
 #include "lib/resource.h"
 #include "lib/string.h"
 #include "conf/conf.h"
@@ -625,4 +626,80 @@ iface_patts_equal(list *a, list *b, int (*comp)(struct iface_patt *, struct ifac
       y = (void *) y->n.next;
     }
   return (!x->n.next && !y->n.next);
+}
+
+/*
+ *  CLI commands.
+ */
+
+static void
+if_show_addr(struct ifa *a)
+{
+  byte broad[STD_ADDRESS_P_LENGTH + 16];
+  byte opp[STD_ADDRESS_P_LENGTH + 16];
+
+  if (ipa_nonzero(a->brd))
+    bsprintf(broad, ", broadcast %I", a->brd);
+  else
+    broad[0] = 0;
+  if (ipa_nonzero(a->opposite))
+    bsprintf(opp, ", opposite %I", a->opposite);
+  else
+    opp[0] = 0;
+  cli_msg(-2003, "\t%I/%d (%s%s%s, scope %s)",
+	  a->ip, a->pxlen,
+	  (a->flags & IA_PRIMARY) ? "Primary" : (a->flags & IA_SECONDARY) ? "Secondary" : "???",
+	  broad, opp,
+	  ip_scope_text(a->scope));
+}
+
+void
+if_show(void)
+{
+  struct iface *i;
+  struct ifa *a;
+  char *type;
+
+  WALK_LIST(i, iface_list)
+    {
+      cli_msg(-2001, "%s %s (index=%d)", i->name, (i->flags & IF_UP) ? "up" : "DOWN", i->index);
+      if (i->flags & IF_UNNUMBERED)
+	type = "UnNum-PtP";
+      else if (!(i->flags & IF_MULTIACCESS))
+	type = "PtP";
+      else
+	type = "MultiAccess";
+      cli_msg(-2004, "\t%s%s%s Admin%s Link%s%s%s MTU=%d",
+	      type,
+	      (i->flags & IF_BROADCAST) ? " Broadcast" : "",
+	      (i->flags & IF_MULTICAST) ? " Multicast" : "",
+	      (i->flags & IF_ADMIN_DOWN) ? "Down" : "Up",
+	      (i->flags & IF_LINK_UP) ? "Up" : "Down",
+	      (i->flags & IF_LOOPBACK) ? " Loopback" : "",
+	      (i->flags & IF_IGNORE) ? " Ignored" : "",
+	      i->mtu);
+      if (i->addr)
+	if_show_addr(i->addr);
+      WALK_LIST(a, i->addrs)
+	if (a != i->addr)
+	  if_show_addr(a);
+    }
+  cli_msg(0, "");
+}
+
+void
+if_show_summary(void)
+{
+  struct iface *i;
+  byte addr[STD_ADDRESS_P_LENGTH + 16];
+
+  WALK_LIST(i, iface_list)
+    {
+      if (i->addr)
+	bsprintf(addr, "%I/%d", i->addr->ip, i->addr->pxlen);
+      else
+	addr[0] = 0;
+      cli_msg(-2005, "%s\t%s\t%s", i->name, (i->flags & IF_UP) ? "up" : "DOWN", addr);
+    }
+  cli_msg(0, "");
 }

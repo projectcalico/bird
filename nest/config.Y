@@ -27,6 +27,7 @@ CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIREC
 %type <f> imexport
 %type <r> rtable
 %type <p> password_list password_begin
+%type <s> optsym
 
 CF_GRAMMAR
 
@@ -187,9 +188,25 @@ password_list:
 
 /* Core commands */
 
+CF_CLI_HELP(SHOW,,[[Show status information]])
+
+CF_CLI(SHOW STATUS,,, [[Show router status]]) {
+  cli_msg(2000, "BIRD " BIRD_VERSION);
+  /* FIXME: Should include uptime, shutdown flag et cetera */
+} ;
+
+CF_CLI(SHOW PROTOCOLS, optsym, [<name>], [[Show routing protocols]])
+{ proto_show($3); } ;
+
+CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
+{ if_show(); } ;
+
+CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
+{ if_show_summary(); } ;
+
 /* FIXME: These are examples. Remove them soon. */
 CF_CLI_HELP(TEST, <subsystem>, [[Tests different subsystems]])
-CF_CLI(TEST LEDS, NUM, <N>, [[Flashes each LED <N> times]]) { cli_msg(0, "%d", $3); } ;
+CF_CLI(TEST LEDS, NUM, <N>, [[Flash each LED <N> times]]) { cli_msg(0, "%d", $3); } ;
 CF_CLI(TEST MEMORY,,, [[Replace all useful information by testing patterns]]) { cli_msg(0, "DONE"); } ;
 CF_CLI(TEST LONG,,, [[Test long replies]]) {
 	static void test_command(struct cli *);
@@ -198,8 +215,14 @@ CF_CLI(TEST LONG,,, [[Test long replies]]) {
 	cli_msg(-2, "Start");
 } ;
 
+optsym:
+   SYM
+ | /* empty */ { $$ = NULL; }
+ ;
+
 CF_CODE
 
+/* FIXME: Test only, remove */
 static void test_command(struct cli *c)
 {
 	int i = (int) c->rover;

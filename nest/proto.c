@@ -18,6 +18,7 @@
 #include "conf/conf.h"
 #include "nest/route.h"
 #include "nest/iface.h"
+#include "nest/cli.h"
 #include "filter/filter.h"
 
 static pool *proto_pool;
@@ -419,4 +420,12 @@ proto_flush_all(void *unused)
       proto_fell_down(p);
     }
   return 0;
+}
+
+void
+proto_show(struct symbol *s)
+{
+  cli_msg(-1002, "");
+  cli_msg(-2002, "");
+  cli_msg(0, "");
 }

@@ -11,6 +11,15 @@ Reply codes of BIRD command-line interface
 0000	OK
 0001	Welcome
 
+1002	Protocol list
+
+2000	BIRD version
+2001	Interface list
+2002	Protocol list
+2003	Interface address
+2004	Interface flags
+2005	Interface summary
+
 8000	Reply too long
 
 9000	Command too long

@@ -23,6 +23,7 @@ struct config;
 struct proto;
 struct event;
 struct ea_list;
+struct symbol;
 
 /*
  *	Routing Protocol
@@ -143,6 +144,7 @@ struct proto {
 void proto_build(struct proto_config *);
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
+void proto_show(struct symbol *);
 
 extern list proto_list;
 
