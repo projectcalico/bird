@@ -269,7 +269,8 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   A.gw = ipa_nonzero(b->nexthop) ? b->nexthop : whotoldme;
   pxlen = ipa_mklen(b->netmask);
 #else
-  A.gw = whotoldme; /* FIXME: next hop is in other packet for v6 */
+  /* FIXME: next hop is in other packet for v6 */
+  A.gw = whotoldme; 
   pxlen = b->pxlen;
 #endif
   A.from = whotoldme;
@@ -412,6 +413,11 @@ rip_rx(sock *s, int size)
   if (size % sizeof( struct rip_block )) BAD( "Odd sized packet" );
   num = size / sizeof( struct rip_block );
   if (num>PACKET_MAX) BAD( "Too many blocks" );
+
+#ifdef IPV6
+  /* Try to absolutize link scope addresses */
+  ipa_absolutize(&s->faddr, &i->iface->addr->ip);
+#endif
 
   if (ipa_equal(i->iface->addr->ip, s->faddr)) {
     DBG("My own packet\n");
@@ -626,8 +632,8 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
       rif->sock->daddr = ipa_from_u32(0xe0000009);
       rif->sock->saddr = ipa_from_u32(0xe0000009);
 #else
-      ip_pton("FF02::9", &rif->sock->daddr); /* FIXME  [mj] */
-      ip_pton("FF02::9", &rif->sock->saddr);
+      rif->sock->daddr = ipa_build(0xff020000, 0, 0, 9);
+      rif->sock->saddr = new->addr->ip;
 #endif
     } else {
       rif->sock->daddr = new->addr->brd;
