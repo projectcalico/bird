@@ -842,8 +842,8 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
 	if (en->lsa.rt == myrid)
 	{
 	  WALK_LIST(ifa, po->iface_list)
-	    if (ipa_compare
-		(ifa->iface->addr->ip, ipa_from_u32(en->lsa.id)) == 0)
+	    if (ifa->iface && (ipa_compare
+		(ifa->iface->addr->ip, ipa_from_u32(en->lsa.id)) == 0))
 	  {
 	    en->nhi = ifa->iface;
 	    return;
