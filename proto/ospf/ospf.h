@@ -56,6 +56,7 @@ struct ospf_area_config {
   u32 areaid;
   int stub;
   unsigned tick;
+  list patt_list;
 };
 
 struct ospf_iface {
@@ -117,11 +118,11 @@ struct ospf_iface {
 struct ospf_packet {
   u8 version;
   u8 type;
-#define HELLO 1 /* Hello */
-#define DBDES 2 /* Database description */
-#define LSREQ 3 /* Link state request */
-#define LSUPD 4 /* Link state update */
-#define LSACK 5 /* Link state acknowledgement */
+#define HELLO_P 1 /* Hello */
+#define DBDES_P 2 /* Database description */
+#define LSREQ_P 3 /* Link state request */
+#define LSUPD_P 4 /* Link state update */
+#define LSACK_P 5 /* Link state acknowledgement */
   u16 length;
   u32 routerid;
   u32 areaid;
@@ -354,6 +355,13 @@ struct proto_ospf {
   int areano;			/* Number of area I belong to */
   struct fib efib;		/* FIB for external routes */
   int rfc1583;
+};
+
+struct ospf_iface_patt {
+  struct iface_patt i;
+  int cost;
+  int helloint;
+  int rxmtint;
 };
 
 static int ospf_start(struct proto *p);

@@ -127,23 +127,23 @@ ospf_rx_hook(sock *sk, int size)
 
   switch(ps->type)
   {
-    case HELLO:
+    case HELLO_P:
       DBG("%s: Hello received.\n", p->name);
       ospf_hello_rx((struct ospf_hello_packet *)ps, p, ifa, size, sk->faddr);
       break;
-    case DBDES:
+    case DBDES_P:
       DBG("%s: Database description received.\n", p->name);
       ospf_dbdes_rx((struct ospf_dbdes_packet *)ps, p, ifa, size);
       break;
-    case LSREQ:
+    case LSREQ_P:
       DBG("%s: Link state request received.\n", p->name);
       ospf_lsreq_rx((struct ospf_lsreq_packet *)ps, p, ifa, size);
       break;
-    case LSUPD:
+    case LSUPD_P:
       DBG("%s: Link state update received.\n", p->name);
       ospf_lsupd_rx((struct ospf_lsupd_packet *)ps, p, ifa, size);
       break;
-    case LSACK:
+    case LSACK_P:
       DBG("%s: Link state ack received.\n", p->name);
       ospf_lsack_rx((struct ospf_lsack_packet *)ps, p, ifa, size);
       break;

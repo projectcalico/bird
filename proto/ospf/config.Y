@@ -14,11 +14,14 @@ CF_DEFINES
 
 #define OSPF_CFG ((struct ospf_config *) this_proto)
 static struct ospf_area_config *this_area;
+static struct iface_patt *this_ipatt;
+#define OSPF_PATT ((struct ospf_iface_patt *) this_ipatt)
 
 CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
-CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK)
+CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
+CF_KEYWORDS(HELLO)
 
 %type <t> opttext
 
@@ -46,6 +49,7 @@ ospf_area_start: AREA idval '{' {
   this_area->areaid = $2;
   this_area->tick = DISPTICK;
   this_area->stub = 0;
+  init_list(&this_area->patt_list);
  }
 ;
 
@@ -56,8 +60,42 @@ ospf_area: ospf_area_start
 ospf_area_item:
  | STUB bool ';' { this_area->stub = $2 ; }
  | TICK NUM ';' { this_area->tick = $2 ; }
+ | ospf_iface_list
+;
+
+ospf_iface_item:
+ | COST NUM { OSPF_PATT->cost = $2 ; }
+ | HELLO NUM { OSPF_PATT->helloint = $2 ; }
+ | RETRANSMIT NUM { OSPF_PATT->rxmtint = $2 ; }
 ;
  
+ospf_iface_opts:
+   '{'
+ | ospf_iface_opts ospf_iface_item ';'
+ ;
+
+ospf_iface_opt_list: /* EMPTY */ | ospf_iface_opts '}'
+;
+
+ospf_iface_start:
+ {
+  this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
+  add_tail(&this_area->patt_list, NODE this_ipatt);
+  OSPF_PATT->cost=10;
+  OSPF_PATT->helloint=10;
+  OSPF_PATT->rxmtint=5;
+ }
+;
+
+ospf_iface:
+  ospf_iface_start iface_patt ospf_iface_opt_list
+;
+
+ospf_iface_list:
+   INTERFACE ospf_iface
+ | ospf_iface_list ',' ospf_iface
+ ;
+
 opttext:
     TEXT
 | /* empty */ { $$ = NULL; }

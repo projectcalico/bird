@@ -24,7 +24,7 @@ ospf_lsack_direct_tx(struct ospf_neighbor *n,struct ospf_lsa_header *h)
   pk=(struct ospf_lsack_packet *)sk->tbuf;
   op=(struct ospf_packet *)sk->tbuf;
 
-  fill_ospf_pkt_hdr(n->ifa, pk, LSACK);
+  fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
 
   memcpy(pk+1,h,sizeof(struct ospf_lsa_header));
   len=sizeof(struct ospf_lsack_packet)+sizeof(struct ospf_lsa_header);
@@ -79,7 +79,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   pk=(struct ospf_lsack_packet *)sk->tbuf;
   op=(struct ospf_packet *)sk->tbuf;
 
-  fill_ospf_pkt_hdr(n->ifa, pk, LSACK);
+  fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
   h=(struct ospf_lsa_header *)(pk+1);
 
   while(!EMPTY_LIST(n->ackl))
@@ -116,7 +116,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
           sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
 	}
 
-	fill_ospf_pkt_hdr(n->ifa, pk, LSACK);
+	fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
 	i=0;
       }
     }

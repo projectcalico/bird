@@ -198,7 +198,7 @@ hello_timer_hook(timer *timer)
     pkt=(struct ospf_hello_packet *)(ifa->hello_sk->tbuf);
     op=(struct ospf_packet *)pkt;
 
-    fill_ospf_pkt_hdr(ifa, pkt, HELLO);
+    fill_ospf_pkt_hdr(ifa, pkt, HELLO_P);
 
     pkt->netmask=ipa_mkmask(ifa->iface->addr->pxlen);
     ipa_hton(pkt->netmask);

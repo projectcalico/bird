@@ -117,7 +117,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       pk=(struct ospf_lsupd_packet *)sk->tbuf;
       op=(struct ospf_packet *)sk->tbuf;
 
-      fill_ospf_pkt_hdr(ifa, pk, LSUPD);
+      fill_ospf_pkt_hdr(ifa, pk, LSUPD_P);
       pk->lsano=htonl(1);
       if(hn!=NULL)
       {
@@ -183,7 +183,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
 
   DBG("LSupd: 1st packet\n");
        
-  fill_ospf_pkt_hdr(n->ifa, pk, LSUPD);
+  fill_ospf_pkt_hdr(n->ifa, pk, LSUPD_P);
   len=SIPH+sizeof(struct ospf_lsupd_packet);
   lsano=0;
   pktpos=(pk+1);
@@ -205,7 +205,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
       debug("%s: LS upd sent to %I (%d LSAs)\n", p->name, n->ip, lsano);
 
       DBG("LSupd: next packet\n");
-      fill_ospf_pkt_hdr(n->ifa, pk, LSUPD);
+      fill_ospf_pkt_hdr(n->ifa, pk, LSUPD_P);
       len=SIPH+sizeof(struct ospf_lsupd_packet);
       lsano=0;
       pktpos=(pk+1);

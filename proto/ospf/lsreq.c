@@ -23,7 +23,7 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
   pk=(struct ospf_lsreq_packet *)n->ifa->ip_sk->tbuf;
   op=(struct ospf_packet *)n->ifa->ip_sk->tbuf;
 
-  fill_ospf_pkt_hdr(n->ifa, pk, LSREQ);
+  fill_ospf_pkt_hdr(n->ifa, pk, LSREQ_P);
 
   sn=SHEAD(n->lsrql);
   if(EMPTY_SLIST(n->lsrql))
