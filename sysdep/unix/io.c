@@ -408,21 +408,18 @@ sk_open(sock *s)
     case SK_IP_MC:
       {
 #ifdef HAVE_IP_MREQN
+	/* FIXME: Define HAVE_IP_MREQN somewhere :) */
 	struct ip_mreqn mreq;
 #define mreq_add mreq
+	ASSERT(s->iface);
 	mreq.imr_ifindex = s->iface->index;
-	if (has_src)
-	  set_inaddr(&mreq.imr_address, s->saddr);
-	else
-	  set_inaddr(&mreq.imr_address, s->iface->ifa->ip);
+	set_inaddr(&mreq.imr_address, s->iface->ip);
 #else
 	struct in_addr mreq;
 	struct ip_mreq mreq_add;
-	if (has_src)
-	  set_inaddr(&mreq, s->saddr);
-	else
-	  set_inaddr(&mreq, s->iface->ip);
-	memcpy(&mreq_add.imr_interface, &mreq, sizeof(struct in_addr));
+	ASSERT(s->iface);
+	set_inaddr(&mreq, s->iface->ip);
+	mreq_add.imr_interface = mreq;
 #endif
 	set_inaddr(&mreq_add.imr_multiaddr, s->daddr);
 	if (has_dest)
@@ -439,9 +436,11 @@ sk_open(sock *s)
 #endif
 		setsockopt(fd, SOL_IP, IP_MULTICAST_LOOP, &zero, sizeof(zero)) < 0)
 	      ERR("IP_MULTICAST_LOOP");
+	    /* This defines where should we send _outgoing_ multicasts */
 	    if (setsockopt(fd, SOL_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0)
 	      ERR("IP_MULTICAST_IF");
 	}
+      /* And this one sets interface for _receiving_ multicasts from */
       if (has_src && setsockopt(fd, SOL_IP, IP_ADD_MEMBERSHIP, &mreq_add, sizeof(mreq_add)) < 0)
 	ERR("IP_ADD_MEMBERSHIP");
       break;

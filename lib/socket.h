@@ -55,8 +55,16 @@ void sk_dump_all(void);
 #define SK_TCP		2
 #define SK_UDP		3          /* ?  ?  -  -  -  ?   ?	*/
 #define SK_UDP_MC       4          /* ?  ?  *  *  *  *   -	*/
-#define SK_IP		5          /* ?  ?  -  *  -  ?   ?	*/
-#define SK_IP_MC	6          /* ?  ?  *  *  *  *   -	*/
+#define SK_IP		5          /* ?  -  -  *  -  ?   ?	*/
+#define SK_IP_MC	6          /* ?  -  *  *  *  *   -	*/
 #define SK_MAGIC	7	   /* Internal use by sysdep code */
+
+/*
+ *  Multicast sockets are slightly different from the other ones:
+ *  If you want to send packets only, just set the destination
+ *  address to the corresponding multicast group and iface to
+ *  the interface to be used. If you also want receiving, set
+ *  source address to the same multicast group as well.
+ */
 
 #endif
