@@ -54,7 +54,8 @@ configuration primitives, &lt;cf&gt; is fragment of configuration within normal 
 <p>Bird is configured using text configuration file. At startup, bird
 reads <file/bird.conf/ (unless -c command line parameter is
 given). Everything on a line after <cf/#/ is a comment, whitespace is
-ignored. If there's variable number of options, it is grouped using
+ignored, C-style comments <cf>/* comment */</cf> are also
+recognized. If there's variable number of options, it is grouped using
 <cf/{ }/ brackets. Each option is terminated by <cf/;/.
 
 <p>Really simple configuration file might look like this, you can find
@@ -328,20 +329,32 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 	<tag>defined( <m>attribute</m> )</tag>
 	returns TRUE if given attribute is defined. Access to undefined attribute results in runtime error.
 
-	<tag/prefix network/
+	<tag/<m/prefix/ network/
 	network this route is talking about.
 
-	<tag/ip from/
+	<tag/<m/ip/ from/
 	who told me about this route.
 	
-	<tag/ip gw/
+	<tag/<m/ip/ gw/
 	what is nexthop packets routed using this route should be forwarded to.
 
-	<tag/enum source/
+	<tag/<m/enum/ source/
 	what protocol told me about this route. This can have values such as <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/.
 </descrip>
 
 <p>Plus, there are protocol-specific attributes, which are described in protocol sections.
+
+<sect1>Utility functions
+
+<p>There are few functions you might find convient to use:
+
+<descrip>
+	<tag>print <m/expr/ [ <m/, expr .../ ]</tag>
+	prints given expressions, usefull mainly while debugging filters.
+
+	<tag>quitbird</tag>
+	terminates bird. Usefull while debugging filter interpretter.
+</descrip>
 
 <sect>Protocols
 
@@ -426,7 +439,14 @@ protocol rip MyRIP_test {
 }
 </code>
 
+<sect>Getting more help
+
+<p>This is really last section of this file, should give pointers to
+programmers documentation, web pages mailing lists and similar stuff.
+
+
 </article>
+
 
 <!--
 # LocalWords: IPv doctype verb GPL Cisco sgml html Cisco's unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md rfc doc
