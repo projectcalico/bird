@@ -45,7 +45,7 @@ ospf_rt_initort(struct fib_node *fn)
 /* 
  * This is hard to understand:
  * If rfc1583 is set to 1, it work likes normal route_better()
- * But if it is set to 0, it prunes number of AS bondary
+ * But if it is set to 0, it prunes number of AS boundary
  * routes before it starts the router decision
  */
 static int
@@ -60,35 +60,35 @@ ri_better(struct proto_ospf *po, orta * new, ort *nefn, orta * old, ort *oefn, i
   if (old->metric1 == LSINFINITY)
     return 1;
 
-  if(!rfc1583)
+  if (!rfc1583)
   {
-    if(new->oa->areaid == 0) newtype = RTS_OSPF_IA;
-    if(old->oa->areaid == 0) oldtype = RTS_OSPF_IA;
+    if ((new->type < RTS_OSPF_EXT1) && (new->oa->areaid == 0)) newtype = RTS_OSPF_IA;
+    if ((old->type < RTS_OSPF_EXT2) && (old->oa->areaid == 0)) oldtype = RTS_OSPF_IA;
   }
 
-  if (new->type < old->type)
+  if (newtype < oldtype)
     return 1;
 
-  if (new->type > old->type)
+  if (newtype > oldtype)
     return 0;
 
   /* Same type */
-  if(new->type == RTS_OSPF_EXT2)
+  if (new->type == RTS_OSPF_EXT2)
   {
     if (new->metric2 < old->metric2) return 1;
     if (new->metric2 > old->metric2) return 0;
   }
 
-  if(((new->type == RTS_OSPF_EXT2) || (new->type == RTS_OSPF_EXT1)) && (!po->rfc1583))
+  if (((new->type == RTS_OSPF_EXT2) || (new->type == RTS_OSPF_EXT1)) && (!po->rfc1583))
   {
-    int newtype = nefn->n.type;
-    int oldtype = oefn->n.type;
+    newtype = nefn->n.type;
+    oldtype = oefn->n.type;
 
-    if(nefn->n.oa->areaid == 0) newtype = RTS_OSPF_IA;
-    if(oefn->n.oa->areaid == 0) oldtype = RTS_OSPF_IA;
+    if (nefn->n.oa->areaid == 0) newtype = RTS_OSPF_IA;
+    if (oefn->n.oa->areaid == 0) oldtype = RTS_OSPF_IA;
 
-    if(newtype < oldtype) return 1;
-    if(newtype > oldtype) return 0;
+    if (newtype < oldtype) return 1;
+    if (newtype > oldtype) return 0;
   }
 
   if (new->metric1 < old->metric1)
@@ -339,8 +339,8 @@ link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entr
   struct ospf_lsa_rt_link *rtl, *rr;
   struct proto_ospf *po = oa->po;
 
-  if(!pre) return 0;
-  if(!fol) return 0;
+  if (!pre) return 0;
+  if (!fol) return 0;
   switch (fol->lsa.type)
   {
     case LSA_T_RT:
@@ -405,7 +405,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
   ort *re = NULL, *abr;
   orta nf;
 
-  if(!bb) return;
+  if (!bb) return;
 
   WALK_SLIST(en, po->lsal)
   {
@@ -439,14 +439,14 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       type = ORT_ROUTER;
       re = (ort *) fib_find(&bb->rtr, &ip, 32);
     }
-    if(!re) continue;
-    if(re->n.oa->areaid != 0) continue;
-    if((re->n.type != RTS_OSPF) && (re->n.type != RTS_OSPF_IA)) continue;
+    if (!re) continue;
+    if (re->n.oa->areaid != 0) continue;
+    if ((re->n.type != RTS_OSPF) && (re->n.type != RTS_OSPF_IA)) continue;
 
     abrip = ipa_from_u32(en->lsa.rt);
 
     abr = fib_find(&oa->rtr, &abrip, 32);
-    if(!abr) continue;
+    if (!abr) continue;
 
     tm = (union ospf_lsa_sum_tm *)(mask + 1);
 
@@ -489,13 +489,13 @@ ospf_rt_sum(struct ospf_area *oa)
     if (en->lsa.rt == p->cf->global->router_id)
       continue;
 
-    if((en->lsa.type != LSA_T_SUM_RT) && (en->lsa.type != LSA_T_SUM_NET))
+    if ((en->lsa.type != LSA_T_SUM_RT) && (en->lsa.type != LSA_T_SUM_NET))
       continue;
 
     mask = (ip_addr *)en->lsa_body;
     tm = (union ospf_lsa_sum_tm *)(mask + 1);
 
-    if((tm->metric & METRIC_MASK) == LSINFINITY)
+    if ((tm->metric & METRIC_MASK) == LSINFINITY)
       continue;
 
     if (en->lsa.type == LSA_T_SUM_NET)
@@ -683,9 +683,9 @@ ospf_ext_spf(struct proto_ospf *po)
     WALK_LIST(atmp, po->area_list)
     {
       nfh = fib_find(&atmp->rtr, &rtid, 32);
-      if(nfh == NULL) continue;
-      if(nf1 == NULL) nf1 = nfh;
-      else if(ri_better(po, &nfh->n, NULL, &nf1->n, NULL, po->rfc1583)) nf1 = nfh;
+      if (nfh == NULL) continue;
+      if (nf1 == NULL) nf1 = nfh;
+      else if (ri_better(po, &nfh->n, NULL, &nf1->n, NULL, po->rfc1583)) nf1 = nfh;
     }
 
     if (!nf1)
@@ -746,15 +746,15 @@ ospf_ext_spf(struct proto_ospf *po)
 	nhi = nf2->n.ifa;
       }
 
-      nfh = nf2;
+      if (nf2->n.metric1 == LSINFINITY)
+        continue;			/* distance is INF */
     }
 
-    nfa.type = RTS_OSPF_EXT2;
-    if(met2 == LSINFINITY) nfa.type = RTS_OSPF_EXT1;
+    nfa.type = (met2 == LSINFINITY) ? RTS_OSPF_EXT1 : RTS_OSPF_EXT2;
     nfa.capa = 0;
     nfa.metric1 = met1;
     nfa.metric2 = met2;
-    nfa.oa = po->backbone;
+    nfa.oa = (po->backbone == NULL) ? HEAD(po->area_list) : po->backbone;
     nfa.ar = nf1->n.ar;
     nfa.nh = nh;
     nfa.ifa = nhi;
@@ -1021,7 +1021,7 @@ again2:
       if (memcmp(&nf->n, &nf->o, sizeof(orta)))
       {				/* Some difference */
         check_sum_lsa(po, nf, ORT_ROUTER);
-        if(nf->n.metric1 >= LSINFINITY)
+        if (nf->n.metric1 >= LSINFINITY)
         {
           FIB_ITERATE_PUT(&fit, nftmp);
           fib_delete(&oa->rtr, nftmp);
@@ -1036,7 +1036,7 @@ again2:
     {
       flush = 1;
       anet = (struct area_net *) nftmp;
-      if((!anet->hidden) && anet->active)
+      if ((!anet->hidden) && anet->active)
         flush = 0;
           
       WALK_LIST(oaa, po->area_list)
@@ -1049,7 +1049,7 @@ again2:
 
 	if (oaa->stub) fl = 1;
 
-        if(fl) flush_sum_lsa(oaa, &anet->fn, ORT_NET);
+        if (fl) flush_sum_lsa(oaa, &anet->fn, ORT_NET);
         else originate_sum_lsa(oaa, &anet->fn, ORT_NET, anet->metric);
       }
     }
@@ -1063,7 +1063,7 @@ again2:
 
       fnn.prefix = IPA_NONE;
       fnn.pxlen = 0;
-      if(oa->stub) originate_sum_lsa(oa, &fnn, ORT_NET, oa->stub);
+      if (oa->stub) originate_sum_lsa(oa, &fnn, ORT_NET, oa->stub);
       else flush_sum_lsa(oa, &fnn, ORT_NET);
     }
   }
