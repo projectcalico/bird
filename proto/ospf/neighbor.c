@@ -274,11 +274,11 @@ can_do_adj(struct ospf_neighbor *n)
 void
 ospf_neigh_sm(struct ospf_neighbor *n, int event)
 {
-  struct proto *p=(struct proto *)(n->ifa->proto);
   struct proto_ospf *po=n->ifa->proto;
+  struct proto *p=(struct proto *)po;
 
-  DBG("%s: Neighbor state machine for neighbor %I, event \"%s\".\n",
-    p->name, n->rid, ospf_inm[event]);
+  OSPF_TRACE(D_EVENTS, "Neighbor state machine for neighbor %I, event \"%s\".",
+    n->ip, ospf_inm[event]);
 
   switch(event)
   {
