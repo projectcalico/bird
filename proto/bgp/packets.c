@@ -76,10 +76,11 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   struct bgp_proto *p = conn->bgp;
   struct bgp_bucket *buck;
   int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
-  byte *w, *wold;
+  byte *w;
   ip_addr ip;
   int wd_size = 0;
   int r_size = 0;
+  int a_size = 0;
 
   BGP_TRACE(D_PACKETS, "Sending UPDATE");
   w = buf+2;
@@ -104,9 +105,10 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	      continue;
 	    }
 	  DBG("Processing bucket %p\n", buck);
-	  w = bgp_encode_attrs(w, buck);
-	  remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - (w-buf);
-	  r_size = bgp_encode_prefixes(p, w, buck, remains);
+	  a_size = bgp_encode_attrs(w+2, buck->eattrs, 1024);
+	  put_u16(w, a_size);
+	  w += a_size + 2;
+	  r_size = bgp_encode_prefixes(p, w, buck, remains - a_size);
 	  w += r_size;
 	  break;
 	}
@@ -124,7 +126,94 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 static byte *
 bgp_create_update(struct bgp_conn *conn, byte *buf)
 {
-  return NULL;
+  struct bgp_proto *p = conn->bgp;
+  struct bgp_bucket *buck;
+  int size, is_ll;
+  int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
+  byte *w, *tmp, *tstart;
+  ip_addr ip, ip_ll;
+  ea_list *ea;
+  eattr *nh;
+  neighbor *n;
+
+  BGP_TRACE(D_PACKETS, "Sending UPDATE");
+  put_u16(buf, 0);
+  w = buf+4;
+
+  if ((buck = p->withdraw_bucket) && !EMPTY_LIST(buck->prefixes))
+    {
+      DBG("Withdrawn routes:\n");
+      tmp = bgp_attach_attr(&ea, bgp_linpool, BA_MP_UNREACH_NLRI, remains-8);
+      *tmp++ = 0;
+      *tmp++ = BGP_AF_IPV6;
+      *tmp++ = 1;
+      ea->attrs[0].u.ptr->length = bgp_encode_prefixes(p, tmp, buck, remains-11);
+      size = bgp_encode_attrs(w, ea, remains);
+      w += size;
+      remains -= size;
+    }
+
+  if (remains >= 2048)
+    {
+      while ((buck = (struct bgp_bucket *) HEAD(p->bucket_queue))->send_node.next)
+	{
+	  if (EMPTY_LIST(buck->prefixes))
+	    {
+	      DBG("Deleting empty bucket %p\n", buck);
+	      rem_node(&buck->send_node);
+	      bgp_free_bucket(p, buck);
+	      continue;
+	    }
+	  DBG("Processing bucket %p\n", buck);
+	  size = bgp_encode_attrs(w, buck->eattrs, 1024);
+	  w += size;
+	  remains -= size;
+	  tstart = tmp = bgp_attach_attr(&ea, bgp_linpool, BA_MP_REACH_NLRI, remains-8);
+	  *tmp++ = 0;
+	  *tmp++ = BGP_AF_IPV6;
+	  *tmp++ = 1;
+	  nh = ea_find(buck->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
+	  ASSERT(nh);
+	  ip = *(ip_addr *) nh->u.ptr->data;
+	  if (ipa_equal(ip, p->local_addr))
+	    is_ll = 1;
+	  else
+	    {
+	      n = neigh_find(&p->p, &ip, 0);
+	      if (n && n->iface == p->neigh->iface)
+		is_ll = 1;
+	      else
+		is_ll = 0;
+	    }
+	  if (is_ll)
+	    {
+	      *tmp++ = 32;
+	      ip_ll = ipa_or(ipa_build(0xfe80,0,0,0), ipa_and(ip, ipa_build(0,0,~0,~0)));
+	      ipa_hton(ip);
+	      memcpy(tmp, &ip, 16);
+	      ipa_hton(ip_ll);
+	      memcpy(tmp+16, &ip_ll, 16);
+	      tmp += 32;
+	    }
+	  else
+	    {
+	      *tmp++ = 16;
+	      ipa_hton(ip);
+	      memcpy(tmp, &ip, 16);
+	      tmp += 16;
+	    }
+	  *tmp++ = 0;			/* No SNPA information */
+	  tmp += bgp_encode_prefixes(p, tmp, buck, remains - (8+3+32+1));
+	  ea->attrs[0].u.ptr->length = tmp - tstart;
+	  w += bgp_encode_attrs(w, ea, remains);
+	  break;
+	}
+    }
+
+  size = w - (buf+4);
+  put_u16(buf+2, size);
+  lp_flush(bgp_linpool);
+  return size ? w : NULL;
 }
 
 #endif
@@ -476,16 +565,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
       /* Create fake NEXT_HOP attribute */
       if (len < 1 || (*x != 16 && *x != 32) || len < *x + 2)
 	goto bad;
-      e->next = a0->eattrs;
-      a0->eattrs = e;
-      e->flags = EALF_SORTED;
-      e->count = 1;
-      e->attrs[0].id = EA_CODE(EAP_BGP, BA_NEXT_HOP);
-      e->attrs[0].flags = BAF_TRANSITIVE;
-      e->attrs[0].type = EAF_TYPE_IP_ADDRESS;
-      e->attrs[0].u.ptr = ad;
-      ad->length = 16;
-      memcpy(ad->data, x+1, 16);
+      memcpy(bgp_attach_attr(&a0->eattrs, bgp_linpool, BA_NEXT_HOP, 16), x+1, 16);
       len -= *x + 1;
       x += *x + 1;
 

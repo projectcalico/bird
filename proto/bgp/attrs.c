@@ -93,10 +93,8 @@ bgp_check_reach_nlri(struct bgp_proto *p, byte *a, int len)
 #ifdef IPV6
   p->mp_reach_start = a;
   p->mp_reach_len = len;
-  return 0;
-#else
-  return -1;
 #endif
+  return -1;
 }
 
 static int
@@ -105,10 +103,8 @@ bgp_check_unreach_nlri(struct bgp_proto *p, byte *a, int len)
 #ifdef IPV6
   p->mp_unreach_start = a;
   p->mp_unreach_len = len;
-  return 0;
-#else
-  return -1;
 #endif
+  return -1;
 }
 
 static struct attr_desc bgp_attr_table[] = {
@@ -143,20 +139,54 @@ static struct attr_desc bgp_attr_table[] = {
 
 #define ATTR_KNOWN(code) ((code) < ARRAY_SIZE(bgp_attr_table) && bgp_attr_table[code].name)
 
-byte *
-bgp_encode_attrs(byte *w, struct bgp_bucket *buck)
+static byte *
+bgp_set_attr(eattr *e, struct linpool *pool, unsigned attr, unsigned val)
 {
-  int remains = 1024;
+  ASSERT(ATTR_KNOWN(attr));
+  e->id = EA_CODE(EAP_BGP, attr);
+  e->type = bgp_attr_table[attr].type;
+  e->flags = bgp_attr_table[attr].expected_flags;
+  if (e->type & EAF_EMBEDDED)
+    {
+      e->u.data = val;
+      return NULL;
+    }
+  else
+    {
+      e->u.ptr = lp_alloc(pool, sizeof(struct adata) + val);
+      e->u.ptr->length = val;
+      return e->u.ptr->data;
+    }
+}
+
+byte *
+bgp_attach_attr(ea_list **to, struct linpool *pool, unsigned attr, unsigned val)
+{
+  ea_list *a = lp_alloc(pool, sizeof(ea_list) + sizeof(eattr));
+  a->next = *to;
+  *to = a;
+  a->flags = EALF_SORTED;
+  a->count = 1;
+  return bgp_set_attr(a->attrs, pool, attr, val);
+}
+
+unsigned int
+bgp_encode_attrs(byte *w, ea_list *attrs, int remains)
+{
   unsigned int i, code, flags;
   byte *start = w;
   int len;
 
-  w += 2;
-  for(i=0; i<buck->eattrs->count; i++)
+  for(i=0; i<attrs->count; i++)
     {
-      eattr *a = &buck->eattrs->attrs[i];
+      eattr *a = &attrs->attrs[i];
       ASSERT(EA_PROTO(a->id) == EAP_BGP);
       code = EA_ID(a->id);
+#ifdef IPV6
+      /* When talking multiprotocol BGP, the NEXT_HOP attributes are used only temporarily. */
+      if (code == BA_NEXT_HOP)
+	continue;
+#endif
       flags = a->flags & (BAF_OPTIONAL | BAF_TRANSITIVE | BAF_PARTIAL);
       if (ATTR_KNOWN(code))
 	{
@@ -228,8 +258,7 @@ bgp_encode_attrs(byte *w, struct bgp_bucket *buck)
       remains -= len;
       w += len;
     }
-  put_u16(start, w-start-2);
-  return w;
+  return w - start;
 }
 
 static void
@@ -523,60 +552,36 @@ static int
 bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *pool)
 {
   ea_list *ea = lp_alloc(pool, sizeof(ea_list) + 4*sizeof(eattr));
-  eattr *a = ea->attrs;
   rta *rta = e->attrs;
+  byte *z;
 
   ea->next = *attrs;
   *attrs = ea;
   ea->flags = EALF_SORTED;
   ea->count = 4;
 
-  a->id = EA_CODE(EAP_BGP, BA_ORIGIN);
-  a->flags = BAF_TRANSITIVE;
-  a->type = EAF_TYPE_INT;
-  if (rta->source == RTS_RIP_EXT || rta->source == RTS_OSPF_EXT)
-    a->u.data = ORIGIN_INCOMPLETE;
-  else
-    a->u.data = ORIGIN_IGP;
-  a++;
+  bgp_set_attr(ea->attrs, pool, BA_ORIGIN,
+       (rta->source == RTS_RIP_EXT || rta->source == RTS_OSPF_EXT) ? ORIGIN_INCOMPLETE : ORIGIN_IGP);
 
-  a->id = EA_CODE(EAP_BGP, BA_AS_PATH);
-  a->flags = BAF_TRANSITIVE;
-  a->type = EAF_TYPE_AS_PATH;
   if (p->is_internal)
-    {
-      a->u.ptr = lp_alloc(pool, sizeof(struct adata));
-      a->u.ptr->length = 0;
-    }
+    bgp_set_attr(ea->attrs+1, pool, BA_AS_PATH, 0);
   else
     {
-      byte *z;
-      a->u.ptr = lp_alloc(pool, sizeof(struct adata) + 4);
-      a->u.ptr->length = 4;
-      z = a->u.ptr->data;
+      z = bgp_set_attr(ea->attrs+1, pool, BA_AS_PATH, 4);
       z[0] = AS_PATH_SEQUENCE;
       z[1] = 1;				/* 1 AS */
       put_u16(z+2, p->local_as);
     }
-  a++;
 
-  a->id = EA_CODE(EAP_BGP, BA_NEXT_HOP);
-  a->flags = BAF_TRANSITIVE;
-  a->type = EAF_TYPE_IP_ADDRESS;
-  a->u.ptr = lp_alloc(pool, sizeof(struct adata) + sizeof(ip_addr));
-  a->u.ptr->length = sizeof(ip_addr);
+  z = bgp_set_attr(ea->attrs+2, pool, BA_NEXT_HOP, sizeof(ip_addr));
   if (p->cf->next_hop_self ||
       !p->is_internal ||
       rta->dest != RTD_ROUTER)
-    *(ip_addr *)a->u.ptr->data = p->local_addr;
+    *(ip_addr *)z = p->local_addr;
   else
-    *(ip_addr *)a->u.ptr->data = e->attrs->gw;
-  a++;
+    *(ip_addr *)z = e->attrs->gw;
 
-  a->id = EA_CODE(EAP_BGP, BA_LOCAL_PREF);
-  a->flags = BAF_OPTIONAL;
-  a->type = EAF_TYPE_INT;
-  a->u.data = 0;
+  bgp_set_attr(ea->attrs+3, pool, BA_LOCAL_PREF, 0);
 
   return 0;				/* Leave decision to the filters */
 }
@@ -602,8 +607,8 @@ bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
 {
   eattr *a;
 
-  if (!p->is_internal)
-    *attrs = bgp_path_prepend(pool, ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH)), *attrs, p->local_as);
+  if (!p->is_internal && (a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH))))
+    *attrs = bgp_path_prepend(pool, a, *attrs, p->local_as);
 
   a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
   if (a && (p->is_internal || (!p->is_internal && e->attrs->iface == p->neigh->iface)))
@@ -613,18 +618,7 @@ bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   else
     {
       /* Need to create new one */
-      ea_list *ea = lp_alloc(pool, sizeof(ea_list) + sizeof(eattr));
-      ea->next = *attrs;
-      *attrs = ea;
-      ea->flags = EALF_SORTED;
-      ea->count = 1;
-      a = ea->attrs;
-      a->id = EA_CODE(EAP_BGP, BA_NEXT_HOP);
-      a->flags = BAF_TRANSITIVE;
-      a->type = EAF_TYPE_IP_ADDRESS;
-      a->u.ptr = lp_alloc(pool, sizeof(struct adata) + sizeof(ip_addr));
-      a->u.ptr->length = sizeof(ip_addr);
-      *(ip_addr *)a->u.ptr->data = p->local_addr;
+      *(ip_addr *) bgp_attach_attr(attrs, pool, BA_NEXT_HOP, sizeof(ip_addr)) = p->local_addr;
     }
 
   return 0;				/* Leave decision to the filters */
@@ -884,17 +878,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 
   /* If there's no local preference, define one */
   if (!(seen[0] && (1 << BA_LOCAL_PREF)))
-    {
-      ea = lp_alloc(pool, sizeof(ea_list) + sizeof(eattr));
-      ea->next = a->eattrs;
-      a->eattrs = ea;
-      ea->flags = 0;
-      ea->count = 1;
-      ea->attrs[0].id = EA_CODE(EAP_BGP, BA_LOCAL_PREF);
-      ea->attrs[0].flags = BAF_OPTIONAL;
-      ea->attrs[0].type = EAF_TYPE_INT;
-      ea->attrs[0].u.data = 0;
-    }
+    bgp_attach_attr(&a->eattrs, pool, BA_LOCAL_PREF, 0);
   return a;
 
 malformed:

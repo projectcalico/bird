@@ -115,13 +115,14 @@ void bgp_close_conn(struct bgp_conn *c);
 
 /* attrs.c */
 
+byte *bgp_attach_attr(struct ea_list **to, struct linpool *, unsigned attr, unsigned val);
 struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool, int mandatory);
 int bgp_get_attr(struct eattr *e, byte *buf);
 int bgp_rte_better(struct rte *, struct rte *);
 void bgp_rt_notify(struct proto *, struct network *, struct rte *, struct rte *, struct ea_list *);
 int bgp_import_control(struct proto *, struct rte **, struct ea_list **, struct linpool *);
 void bgp_attr_init(struct bgp_proto *);
-byte *bgp_encode_attrs(byte *w, struct bgp_bucket *buck);
+unsigned int bgp_encode_attrs(byte *w, struct ea_list *attrs, int remains);
 void bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck);
 
 /* packets.c */
