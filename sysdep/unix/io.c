@@ -451,13 +451,10 @@ sk_setup(sock *s)
 #else
   if ((s->tos >= 0) && setsockopt(fd, SOL_IP, IP_TOS, &s->tos, sizeof(s->tos)) < 0)
     WARN("IP_TOS");
-  if (s->ttl >= 0)
-    {
-      if (setsockopt(fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
-	ERR("IP_TTL");
-      if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
-	ERR("SO_DONTROUTE");
-    }
+  if (s->ttl >= 0 && setsockopt(fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
+    ERR("IP_TTL");
+  if (s->ttl == 1 && setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
+    ERR("SO_DONTROUTE");
 #endif
   /* FIXME: Set send/receive buffers? */
   /* FIXME: Set keepalive for TCP connections? */
@@ -618,7 +615,7 @@ sk_open(sock *s)
     case SK_TCP_ACTIVE:
       if (connect(fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0)
 	sk_tcp_connected(s);
-      else if (errno != EINTR && errno != EAGAIN)
+      else if (errno != EINTR && errno != EAGAIN && errno != EINPROGRESS)
 	ERR("connect");
       break;
     case SK_TCP_PASSIVE:
@@ -776,7 +773,7 @@ sk_read(sock *s)
 	fill_in_sockaddr(&sa, s->daddr, s->dport);
 	if (connect(s->fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0)
 	  sk_tcp_connected(s);
-	else if (errno != EINTR && errno != EAGAIN)
+	else if (errno != EINTR && errno != EAGAIN && errno != EINPROGRESS)
 	  {
 	    log(L_ERR "connect: %m");
 	    s->err_hook(s, errno);
