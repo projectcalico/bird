@@ -244,10 +244,6 @@ originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
   en=lsa_install_new(&lsa, body, oa, &po->proto);
   oa->rt=en;
   flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa);
-  {
-    struct ospf_lsa_rt *rt=body;
-    debug("Originated, size=%u, link=%u\n",lsa.length,rt->links);
-  }
 }
 
 void *
