@@ -54,13 +54,13 @@ all.o: $(objs)
 endif
 
 %.o: $(src-path)%.c
-	$(CC) $(CFLAGS) -o $@ -c $^
+	$(CC) $(CFLAGS) -o $@ -c $<
 
 depend:
 	gcc $(CPPFLAGS) -MM $(addprefix $(src-path),$(source)) >depend
 
-ifneq ($(wildcard .depend),)
-include .depend
+ifneq ($(wildcard depend),)
+include depend
 endif
 
 endif
