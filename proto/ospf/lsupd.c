@@ -81,7 +81,6 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
         }
         s_add_tail(&nn->lsrtl, SNODE en);
         memcpy(&en->lsa,hh,sizeof(struct ospf_lsa_header));
-        ret=1;
         DBG("Adding LSA lsrt RT: %I, Id: %I, Type: %u for n: %I\n",
           en->lsa.rt,en->lsa.id, en->lsa.type, nn->ip);
       }
@@ -92,8 +91,8 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
           s_rem_node(SNODE en);
           ospf_hash_delete(nn->lsrth, en);
         }
-        ret=1;
       }
+      ret=1;
     }
 
     if(ret==0) continue;
@@ -379,16 +378,13 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 	 continue;
        }
 
-
-
       /* pg 144 (5a) */
-      if(lsadb && ((now-lsadb->inst_t)<MINLSARRIVAL))
+      if(lsadb && ((now-lsadb->inst_t)<=MINLSARRIVAL))
       {
         DBG("I got it in less that MINLSARRIVAL\n");
 	continue;
       }
         
-
       if(flood_lsa(n,lsa,&lsatmp,po,ifa,ifa->oa,1)==0)
       {
         DBG("Wasn't flooded back\n");
