@@ -100,7 +100,7 @@ ospf_vlink_item:
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
  | AUTHENTICATION CRYPTOGRAPHIC { OSPF_PATT->autype = OSPF_AUTH_CRYPT ; }
- | password_list {OSPF_PATT->passwords = $1; }
+ | password_list {OSPF_PATT->passwords = (list *) $1; }
  ;
 
 ospf_vlink_start: VIRTUAL LINK idval
@@ -139,7 +139,7 @@ ospf_iface_item:
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
  | AUTHENTICATION CRYPTOGRAPHIC { OSPF_PATT->autype = OSPF_AUTH_CRYPT ; }
- | password_list {OSPF_PATT->passwords = $1; }
+ | password_list {OSPF_PATT->passwords = (list *) $1; }
  ;
 
 pref_list:

@@ -373,7 +373,7 @@ ospf_send_to_agt(sock * sk, struct ospf_iface *ifa, u8 state)
 {
   struct ospf_neighbor *n;
 
-  WALK_LIST(NODE n, ifa->neigh_list) if (n->state >= state)
+  WALK_LIST(n, ifa->neigh_list) if (n->state >= state)
     ospf_send_to(sk, n->ip, ifa);
 }
 

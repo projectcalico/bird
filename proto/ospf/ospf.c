@@ -776,8 +776,8 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
       }
     }
 
-    NODE ac1 = (NODE(ac1))->next;
-    NODE ac2 = (NODE(ac2))->next;
+    ac1 = (struct ospf_area_config *)(NODE(ac1))->next;
+    ac2 = (struct ospf_area_config *)(NODE(ac2))->next;
   }
 
   if (((NODE(ac1))->next) != ((NODE(ac2))->next))

@@ -532,7 +532,7 @@ struct ospf_area *
 ospf_find_area(struct proto_ospf *po, u32 aid)
 {
   struct ospf_area *oa;
-  WALK_LIST(NODE oa, po->area_list)
+  WALK_LIST(oa, po->area_list)
     if (((struct ospf_area *) oa)->areaid == aid)
     return oa;
   return NULL;
@@ -630,7 +630,7 @@ rxmt_timer_hook(timer * timer)
       init_list(&uplist);
       upslab = sl_new(n->pool, sizeof(struct l_lsr_head));
 
-      WALK_SLIST(SNODE en, n->lsrtl)
+      WALK_SLIST(en, n->lsrtl)
       {
 	if ((SNODE en)->next == (SNODE en))
 	  bug("RTList is cycled");

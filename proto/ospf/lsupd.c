@@ -33,7 +33,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   int ret, retval = 0;
 
   /* pg 148 */
-  WALK_LIST(NODE ifa, po->iface_list)
+  WALK_LIST(ifa, po->iface_list)
   {
     if (ifa->stub)
       continue;
@@ -51,7 +51,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
         continue;
     }
     ret = 0;
-    WALK_LIST(NODE nn, ifa->neigh_list)
+    WALK_LIST(nn, ifa->neigh_list)
     {
       if (nn->state < NEIGHBOR_EXCHANGE)
 	continue;
@@ -456,8 +456,8 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
       /* Remove old from all ret lists */
       /* pg 144 (5c) */
       if (lsadb)
-	WALK_LIST(NODE ift, po->iface_list)
-	  WALK_LIST(NODE ntmp, ift->neigh_list)
+	WALK_LIST(ift, po->iface_list)
+	  WALK_LIST(ntmp, ift->neigh_list)
       {
 	struct top_hash_entry *en;
 	if (ntmp->state > NEIGHBOR_EXSTART)
