@@ -26,7 +26,6 @@ CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
 CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
 CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, PASSWORD, STRICT)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN)
-CF_KEYWORDS(DELAY, BROADCAST, WAIT)
 
 %type <t> opttext
 
@@ -106,7 +105,7 @@ pref_list:
  ;
 
 pref_item:
-   pref_el;
+   pref_el
  | pref_hid;
 
 pref_el: prefix ';'
@@ -134,7 +133,7 @@ ipa_list:
  ;
 
 ipa_item:
-    ipa_el;
+    ipa_el
   | ipa_ne;
  
 ipa_el: IPA ';'
