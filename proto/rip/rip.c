@@ -5,7 +5,10 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
- 	FIXME: IpV6 support
+ 	FIXME: IpV6 support: packet size
+ 	FIXME: IpV6 support: use right address for broadcasts
+	FIXME: IpV6 support: receive "route using" blocks
+	FIXME: be able to transmit "route using" blocks [Is this possible?]
  */
 
 #define LOCAL_DEBUG
