@@ -94,7 +94,7 @@ rip_tx_err( sock *s, int err )
  * that could be fixed but it is not real problem).
  */
 static int
-rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e, struct rip_interface *rif, int pos )
+rip_tx_prepare(struct proto *p, struct rip_block *b, struct rip_entry *e, struct rip_interface *rif, int pos )
 {
   int metric;
   DBG( "." );
@@ -163,7 +163,7 @@ rip_tx( sock *s )
 
       if (!rif->triggered || (!(e->updated < now-5))) {
 	nullupdate = 0;
-	i = rip_tx_prepare( p, s->daddr, packet->block + i, e, rif, i );
+	i = rip_tx_prepare( p, packet->block + i, e, rif, i );
 	if (i >= maxi) {
 	  FIB_ITERATE_PUT(&c->iter, z);
 	  goto break_loop;
@@ -637,14 +637,8 @@ rip_get_route_info(rte *rte, byte *buf, ea_list *attrs)
     bsprintf(buf, " t%04x", tag->u.data);
 }
 
-static int
-rip_want_this_if(struct rip_interface *iface)
-{
-  return 1;
-}
-
 static void
-kill_iface(struct proto *p, struct rip_interface *i)
+kill_iface(struct rip_interface *i)
 {
   DBG( "RIP: Interface %s disappeared\n", i->iface->name);
   rfree(i->sock);
@@ -766,7 +760,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
     if (i) {
       rem_node(NODE i);
       rfree(i->lock);
-      kill_iface(p, i);
+      kill_iface(i);
     }
   }
   if (c & IF_CHANGE_UP) {
@@ -795,7 +789,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
 }
 
 static struct ea_list *
-rip_gen_attrs(struct proto *p, struct linpool *pool, int metric, u16 tag)
+rip_gen_attrs(struct linpool *pool, int metric, u16 tag)
 {
   struct ea_list *l = lp_alloc(pool, sizeof(struct ea_list) + 2*sizeof(eattr));
 
@@ -820,7 +814,7 @@ rip_import_control(struct proto *p, struct rte **rt, struct ea_list **attrs, str
     return 1;
 
   if ((*rt)->attrs->source != RTS_RIP) {
-    struct ea_list *new = rip_gen_attrs(p, pool, 1, 0);
+    struct ea_list *new = rip_gen_attrs(pool, 1, 0);
     new->next = *attrs;
     *attrs = new;
   }
@@ -830,8 +824,7 @@ rip_import_control(struct proto *p, struct rte **rt, struct ea_list **attrs, str
 static struct ea_list *
 rip_make_tmp_attrs(struct rte *rt, struct linpool *pool)
 {
-  struct proto *p = rt->attrs->proto;
-  return rip_gen_attrs(p, pool, rt->u.rip.metric, rt->u.rip.tag);
+  return rip_gen_attrs(pool, rt->u.rip.metric, rt->u.rip.tag);
 }
 
 static void 
@@ -915,7 +908,7 @@ rip_rte_better(struct rte *new, struct rte *old)
  * walks the list.
  */
 static void
-rip_rte_insert(net *net, rte *rte)
+rip_rte_insert(net *net UNUSED, rte *rte)
 {
   struct proto *p = rte->attrs->proto;
   CHK_MAGIC;
@@ -927,7 +920,7 @@ rip_rte_insert(net *net, rte *rte)
  * rip_rte_remove - link list maintenance
  */
 static void
-rip_rte_remove(net *net, rte *rte)
+rip_rte_remove(net *net UNUSED, rte *rte)
 {
   struct proto *p = rte->attrs->proto;
   CHK_MAGIC;
