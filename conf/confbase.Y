@@ -16,7 +16,10 @@ CF_HDR
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "nest/route.h"
+#include "nest/cli.h"
 #include "filter/filter.h"
+
+#define cli_msg(x...) cli_printf(this_cli, x)
 
 CF_DECLS
 
@@ -34,7 +37,7 @@ CF_DECLS
   struct password_item *p;
 }
 
-%token END
+%token END CLI_MARKER
 %token <i> NUM
 %token <i32> RTRID
 %token <a> IPA
@@ -54,9 +57,8 @@ CF_GRAMMAR
 
 /* Basic config file structure */
 
-config: conf_entries END {
-	return 0;
-   }
+config: conf_entries END { return 0; }
+ | CLI_MARKER cli_cmd END { return 0; }
  ;
 
 conf_entries:

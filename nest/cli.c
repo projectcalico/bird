@@ -7,8 +7,9 @@
  */
 
 #include "nest/bird.h"
-#include "lib/string.h"
 #include "nest/cli.h"
+#include "conf/conf.h"
+#include "lib/string.h"
 
 pool *cli_pool;
 
@@ -88,6 +89,47 @@ cli_free_out(cli *c)
     }
 }
 
+static byte *cli_rh_pos;
+static unsigned int cli_rh_len;
+static int cli_rh_trick_flag;
+struct cli *this_cli;
+
+static int
+cli_cmd_read_hook(byte *buf, unsigned int max)
+{
+  if (!cli_rh_trick_flag)
+    {
+      cli_rh_trick_flag = 1;
+      buf[0] = '!';
+      return 1;
+    }
+  if (max > cli_rh_len)
+    max = cli_rh_len;
+  memcpy(buf, cli_rh_pos, max);
+  cli_rh_pos += max;
+  cli_rh_len -= max;
+  return max;
+}
+
+static void
+cli_command(struct cli *c)
+{
+  struct config f;
+  int res;
+
+  f.pool = NULL;
+  f.mem = c->parser_pool;
+  cf_read_hook = cli_cmd_read_hook;
+  cli_rh_pos = c->rx_buf;
+  cli_rh_len = strlen(c->rx_buf);
+  cli_rh_trick_flag = 0;
+  this_cli = c;
+  res = cli_parse(&f);
+  lp_flush(c->parser_pool);
+  if (!res)
+    cli_printf(c, 9001, f.err_msg);
+}
+
 static int
 cli_event(void *data)
 {
@@ -106,10 +148,7 @@ cli_event(void *data)
       if (err < 0)
 	cli_printf(c, 9000, "Command too long");
       else
-	{
-	  cli_printf(c, -9001, "Parse error in:");
-	  cli_printf(c, 9001, c->rx_buf);
-	}
+	cli_command(c);
     }
   if (cli_write(c))
     {
@@ -133,6 +172,7 @@ cli_new(void *priv)
   c->tx_buf = c->tx_pos = c->tx_write = NULL;
   c->cont = cli_hello;
   c->last_reply = 0;
+  c->parser_pool = lp_new(c->pool, 4096);
   ev_schedule(c->event);
   return c;
 }

@@ -182,6 +182,11 @@ password_list:
    }
  ;
 
+/* Core commands */
+
+CF_CLI(TEST LEDS, <N>, [[Flashes each LED <N> times]]) NUM { cli_msg(0, "%d", $3); } ;
+CF_CLI(TEST, 1, 2) { cli_msg(0, "OK"); }
+
 CF_CODE
 
 CF_END

@@ -34,14 +34,12 @@ static struct keyword {
 
 static struct keyword *kw_hash[KW_HASH_SIZE];
 static struct symbol **sym_hash;
-static int allow_new_symbols;
 
 int conf_lino;
 
 static int cf_hash(byte *c);
 static struct symbol *cf_find_sym(byte *c, unsigned int h0);
 
-pool *cfg_pool;
 linpool *cfg_mem;
 
 int (*cf_read_hook)(byte *buf, unsigned int max);
@@ -54,7 +52,7 @@ int (*cf_read_hook)(byte *buf, unsigned int max);
 
 %option noyywrap
 
-%x COMMENT CCOMM
+%x COMMENT CCOMM CLI
 
 ALPHA [a-zA-Z_]
 DIGIT [0-9]
@@ -121,6 +119,11 @@ WHITE [ \t]
   return SYM;
 }
 
+<CLI>! {
+  BEGIN(INITIAL);
+  return CLI_MARKER;
+}
+
 [={}:;,()+*/%-<>~\[\]] {
   return yytext[0];
 }
@@ -174,17 +177,18 @@ static struct symbol *
 cf_find_sym(byte *c, unsigned int h0)
 {
   unsigned int h = h0 & (SYM_HASH_SIZE-1);
-  struct symbol *s = sym_hash[h];
+  struct symbol *s;
   int l;
 
-  while (s)
-    {
-      if (!strcmp(s->name, c))
-        return s;
-      s = s->next;
-    }
-  if (!allow_new_symbols)
-    return NULL;
+  if (!sym_hash)
+    sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
+  else
+    for(s = sym_hash[h]; s; s=s->next)
+      {
+	if (!strcmp(s->name, c))
+	  return s;
+	s = s->next;
+      }
   l = strlen(c);
   if (l > SYM_MAX_LEN)
     cf_error("Symbol too long");
@@ -230,11 +234,15 @@ cf_define_symbol(struct symbol *sym, int type, void *def)
 }
 
 void
-cf_lex_init(int flag)
+cf_lex_init(int is_cli)
 {
-  if (allow_new_symbols = flag)
-    sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
+  sym_hash = NULL;
   conf_lino = 1;
+  yyrestart(NULL);
+  if (is_cli)
+    BEGIN(CLI);
+  else
+    BEGIN(INITIAL);
 }
 
 void

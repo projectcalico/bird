@@ -39,15 +39,12 @@ config_alloc(byte *name)
 int
 config_parse(struct config *c)
 {
-  struct proto_config *p;
-
   debug("Parsing configuration file `%s'\n", c->file_name);
   new_config = c;
-  cfg_pool = c->pool;
   cfg_mem = c->mem;
   if (setjmp(conf_jmpbuf))
     return 0;
-  cf_lex_init(1);
+  cf_lex_init(0);
   cf_lex_init_tables();
   protos_preconfig(c);
   rt_preconfig(c);
@@ -58,6 +55,18 @@ config_parse(struct config *c)
   if (!c->router_id)
     cf_error("Router ID must be configured manually on IPv6 routers");
 #endif
+  return 1;
+}
+
+int
+cli_parse(struct config *c)
+{
+  new_config = c;
+  cfg_mem = c->mem;
+  if (setjmp(conf_jmpbuf))
+    return 0;
+  cf_lex_init(1);
+  cf_parse();
   return 1;
 }
 

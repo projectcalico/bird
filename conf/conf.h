@@ -30,13 +30,13 @@ extern struct config *config, *new_config;
 
 struct config *config_alloc(byte *name);
 int config_parse(struct config *);
+int cli_parse(struct config *);
 void config_free(struct config *);
 void config_commit(struct config *);
 void cf_error(char *msg, ...) NORET;
 
 /* Pools */
 
-extern pool *cfg_pool;
 extern linpool *cfg_mem;
 
 #define cfg_alloc(size) lp_alloc(cfg_mem, size)
@@ -71,7 +71,7 @@ extern int conf_lino;
 
 void cf_lex_init_tables(void);
 int cf_lex(void);
-void cf_lex_init(int flag);
+void cf_lex_init(int is_cli);
 struct symbol *cf_find_symbol(byte *c);
 struct symbol *cf_default_name(char *prefix, int *counter);
 void cf_define_symbol(struct symbol *symbol, int type, void *def);

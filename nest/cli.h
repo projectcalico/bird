@@ -31,9 +31,11 @@ typedef struct cli {
   void (*cont)(struct cli *c);
   void *rover;				/* Private to continuation routine */
   int last_reply;
+  struct linpool *parser_pool;		/* Pool used during parsing */
 } cli;
 
 extern pool *cli_pool;
+extern struct cli *this_cli;		/* Used during parsing */
 
 /* Functions to be called by command handlers */
 

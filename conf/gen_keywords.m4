@@ -2,7 +2,7 @@ m4_divert(-1)m4_dnl
 #
 #	BIRD -- Generator of Configuration Keyword List
 #
-#	(c) 1998 Martin Mares <mj@atrey.karlin.mff.cuni.cz>
+#	(c) 1998--1999 Martin Mares <mj@atrey.karlin.mff.cuni.cz>
 #
 #	Can be freely distributed and used under the terms of the GNU GPL.
 #
@@ -17,6 +17,10 @@ m4_divert(-1)')
 m4_define(CF_keywd, `m4_ifdef([[CF_tok_$1]],,[[m4_define([[CF_tok_$1]],1)CF_handle_kw($1)]])')
 m4_define(CF_KEYWORDS, `m4_define([[CF_toks]],[[]])CF_iterate([[CF_keywd]], [[$@]])m4_ifelse(CF_toks,,,%token[[]]CF_toks
 )DNL')
+
+# CLI commands generate keywords as well
+m4_define(CF_CLI, `CF_KEYWORDS(m4_translit($1, [[ ]], [[,]]))
+')
 
 # As we are processing C source, we must access all M4 primitives via
 # m4_* and also set different quoting convention: `[[' and ']]'
