@@ -293,8 +293,9 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     mlen=ipa_mklen(le->netmask);
     if((mlen<0)||(mlen>32))
     {
-      die("Invalid length of prefix! ID: %I, RT: %I, Type: %u, mask %I",
-        en->lsa.id,en->lsa.rt,en->lsa.type,le->netmask);
+      log("%s: Invalid mask in LSA.\nID: %I, RT: %I, Type: %u, Mask %I",
+        p->proto,en->lsa.id,en->lsa.rt,en->lsa.type,le->netmask);
+      continue;
     }
 
     nf=NULL;
