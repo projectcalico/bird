@@ -38,7 +38,8 @@ struct bgp_conn {
   struct timer *hold_timer;
   struct timer *keepalive_timer;
   int packets_to_send;			/* Bitmap of packet types to be sent */
-  int notify_code, notify_subcode, notify_arg, notify_arg_size;
+  int notify_code, notify_subcode, notify_size;
+  byte *notify_data;
   int error_flag;			/* Error state, ignore all input */
   int primary;				/* This connection is primary */
   unsigned hold_time, keepalive_time;	/* Times calculated from my and neighbor's requirements */
@@ -90,7 +91,7 @@ extern struct linpool *bgp_linpool;
 
 void bgp_start_timer(struct timer *t, int value);
 void bgp_check(struct bgp_config *c);
-void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, unsigned data, unsigned len);
+void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len);
 void bgp_close_conn(struct bgp_conn *c);
 
 /* attrs.c */
@@ -109,6 +110,7 @@ void bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck);
 void bgp_schedule_packet(struct bgp_conn *conn, int type);
 void bgp_tx(struct birdsock *sk);
 int bgp_rx(struct birdsock *sk, int size);
+void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, byte *data, unsigned len);
 
 /* Packet types */
 

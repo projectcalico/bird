@@ -94,7 +94,7 @@ bgp_graceful_close_conn(struct bgp_conn *c)
     case BS_OPENSENT:
     case BS_OPENCONFIRM:
     case BS_ESTABLISHED:
-      bgp_error(c, 6, 0, 0, 0);
+      bgp_error(c, 6, 0, NULL, 0);
       return 1;
     default:
       bug("bgp_graceful_close_conn: Unknown state %d", c->state);
@@ -160,7 +160,7 @@ bgp_hold_timeout(timer *t)
   struct bgp_conn *conn = t->data;
 
   DBG("BGP: Hold timeout, closing connection\n");
-  bgp_error(conn, 4, 0, 0, 0);
+  bgp_error(conn, 4, 0, NULL, 0);
 }
 
 static void
@@ -408,16 +408,16 @@ bgp_init(struct proto_config *C)
 }
 
 void
-bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, unsigned data, unsigned len)
+bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len)
 {
-  DBG("BGP: Error %d,%d,%d,%d\n", code, subcode, data, len); /* FIXME: Better messages */
   if (c->error_flag)
     return;
+  bgp_log_error(c->bgp, "Error", code, subcode, data, (len > 0) ? len : -len);
   c->error_flag = 1;
   c->notify_code = code;
   c->notify_subcode = subcode;
-  c->notify_arg = data;
-  c->notify_arg_size = len;
+  c->notify_data = data;
+  c->notify_size = (len > 0) ? len : 0;
   if (c->primary)
     proto_notify_state(&c->bgp->p, PS_STOP);
   bgp_schedule_packet(c, PKT_NOTIFICATION);

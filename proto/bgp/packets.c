@@ -21,17 +21,11 @@
 static byte *
 bgp_create_notification(struct bgp_conn *conn, byte *buf)
 {
-  DBG("BGP: Sending notification: code=%d, sub=%d, arg=%d:%d\n", conn->notify_code, conn->notify_subcode, conn->notify_arg, conn->notify_arg_size);
+  DBG("BGP: Sending notification: code=%d, sub=%d\n", conn->notify_code, conn->notify_subcode);
   buf[0] = conn->notify_code;
   buf[1] = conn->notify_subcode;
-  switch (conn->notify_arg_size)
-    {
-    case 0:	return buf + 1;
-    case 1:	buf[2] = conn->notify_arg; return buf+3;
-    case 2:	put_u16(buf+2, conn->notify_arg); return buf+4;
-    case 4:	put_u32(buf+2, conn->notify_arg); return buf+6;
-    default:	bug("bgp_create_notification: unknown error code size");
-    }
+  memcpy(buf+2, conn->notify_data, conn->notify_size);
+  return buf + 2 + conn->notify_size;
 }
 
 static byte *
@@ -205,7 +199,7 @@ bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
   while (len > 0)
     {
       if (len < 2 || len < 2 + opt[1])
-	{ bgp_error(conn, 2, 0, 0, 0); return 0; }
+	{ bgp_error(conn, 2, 0, NULL, 0); return 0; }
 #ifdef LOCAL_DEBUG
       {
 	int i;
@@ -228,7 +222,7 @@ bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
 	   *  to do so. Also, capability negotiation with
 	   *  Cisco routers doesn't work without that.
 	   */
-	  bgp_error(conn, 2, 4, opt[0], 1);
+	  bgp_error(conn, 2, 4, opt, opt[1]);
 	  return 0;
 	}
       len -= 2 + opt[1];
@@ -248,26 +242,26 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 
   /* Check state */
   if (conn->state != BS_OPENSENT)
-    { bgp_error(conn, 5, 0, conn->state, 0); }
+    { bgp_error(conn, 5, 0, NULL, 0); }
 
   /* Check message contents */
   if (len < 29 || len != 29 + pkt[28])
-    { bgp_error(conn, 1, 2, len, 2); return; }
+    { bgp_error(conn, 1, 2, pkt+16, 2); return; }
   if (pkt[19] != BGP_VERSION)
-    { bgp_error(conn, 2, 1, pkt[19], 1); return; } /* RFC 1771 says 16 bits, draft-09 tells to use 8 */
+    { bgp_error(conn, 2, 1, pkt+19, 1); return; } /* RFC 1771 says 16 bits, draft-09 tells to use 8 */
   as = get_u16(pkt+20);
   hold = get_u16(pkt+22);
   id = get_u32(pkt+24);
   DBG("BGP: OPEN as=%d hold=%d id=%08x\n", as, hold, id);
   if (cf->remote_as && as != p->remote_as)
-    { bgp_error(conn, 2, 2, as, 0); return; }
+    { bgp_error(conn, 2, 2, pkt+20, -2); return; }
   if (hold > 0 && hold < 3)
-    { bgp_error(conn, 2, 6, hold, 0); return; }
+    { bgp_error(conn, 2, 6, pkt+22, 2); return; }
   p->remote_id = id;
   if (bgp_parse_options(conn, pkt+29, pkt[28]))
     return;
   if (!id || id == 0xffffffff || id == p->local_id)
-    { bgp_error(conn, 2, 3, id, 0); return; }
+    { bgp_error(conn, 2, 3, pkt+24, -4); return; }
 
   /* Check the other connection */
   other = (conn == &p->outgoing_conn) ? &p->incoming_conn : &p->outgoing_conn;
@@ -286,14 +280,14 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 	{
 	  /* Should close the other connection */
 	  DBG("BGP: Collision, closing the other connection\n");
-	  bgp_error(other, 6, 0, 0, 0);
+	  bgp_error(other, 6, 0, NULL, 0);
 	  break;
 	}
       /* Fall thru */
     case BS_ESTABLISHED:
       /* Should close this connection */
       DBG("BGP: Collision, closing this connection\n");
-      bgp_error(conn, 6, 0, 0, 0);
+      bgp_error(conn, 6, 0, NULL, 0);
       return;
     default:
       bug("bgp_rx_open: Unknown state");
@@ -322,7 +316,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   int b = *pp++;				\
   int q;					\
   ll--;						\
-  if (b > BITS_PER_IP_ADDRESS) { bgp_error(conn, 3, 10, b, 0); return; } \
+  if (b > BITS_PER_IP_ADDRESS) { bgp_error(conn, 3, 10, NULL, 0); return; } \
   q = (b+7) / 8;				\
   if (ll < q) goto malformed;			\
   memcpy(&prefix, pp, q);			\
@@ -348,13 +342,13 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 
   DBG("BGP: UPDATE\n");
   if (conn->state != BS_ESTABLISHED)
-    { bgp_error(conn, 5, 0, conn->state, 0); return; }
+    { bgp_error(conn, 5, 0, NULL, 0); return; }
   bgp_start_timer(conn->hold_timer, conn->hold_time);
 
   /* Find parts of the packet and check sizes */
   if (len < 23)
     {
-      bgp_error(conn, 1, 2, len, 2);
+      bgp_error(conn, 1, 2, pkt+16, 2);
       return;
     }
   withdrawn = pkt + 21;
@@ -403,7 +397,69 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 malformed:
   if (a)
     rta_free(a);
-  bgp_error(conn, 3, 1, len, 0);
+  bgp_error(conn, 3, 1, NULL, 0);
+}
+
+static struct {
+  byte major, minor;
+  byte *msg;
+} bgp_msg_table[] = {
+  { 1, 0, "Invalid message header" },
+  { 1, 1, "Connection not synchronized" },
+  { 1, 2, "Bad message length" },
+  { 1, 3, "Bad message type" },
+  { 2, 0, "Invalid OPEN message" },
+  { 2, 1, "Unsupported version number" },
+  { 2, 2, "Bad peer AS" },
+  { 2, 3, "Bad BGP identifier" },
+  { 2, 4, "Unsupported optional parameter" },
+  { 2, 5, "Authentication failure" },
+  { 2, 6, "Unacceptable hold time" },
+  { 2, 7, "Required capability missing" }, /* capability negotiation draft */
+  { 3, 0, "Invalid UPDATE message" },
+  { 3, 1, "Malformed attribute list" },
+  { 3, 2, "Unrecognized well-known attribute" },
+  { 3, 3, "Missing mandatory attribute" },
+  { 3, 4, "Invalid attribute flags" },
+  { 3, 5, "Invalid attribute length" },
+  { 3, 6, "Invalid ORIGIN attribute" },
+  { 3, 7, "AS routing loop" },		/* Deprecated */
+  { 3, 8, "Invalid NEXT_HOP attribute" },
+  { 3, 9, "Optional attribute error" },
+  { 3, 10, "Invalid network field" },
+  { 3, 11, "Malformed AS_PATH" },
+  { 4, 0, "Hold timer expired" },
+  { 5, 0, "Finite state machine error" },
+  { 6, 0, "Cease" }
+};
+
+void
+bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, byte *data, unsigned len)
+{
+  byte *name, namebuf[16];
+  byte *t, argbuf[36];
+  unsigned i;
+
+  bsprintf(namebuf, "%d.%d", code, subcode);
+  name = namebuf;
+  for (i=0; i < ARRAY_SIZE(bgp_msg_table); i++)
+    if (bgp_msg_table[i].major == code && bgp_msg_table[i].minor == subcode)
+      {
+	name = bgp_msg_table[i].msg;
+	break;
+      }
+  t = argbuf;
+  if (len)
+    {
+      *t++ = ':';
+      *t++ = ' ';
+      if (len > 16)
+	len = 16;
+      for (i=0; i<len; i++)
+	t += bsprintf(t, "%02x", data[i]);
+    }
+  *t = 0;
+  log(L_REMOTE "%s: %s: %s%s", p->p.name, msg, name, argbuf);
 }
 
 static void
@@ -413,18 +469,10 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
 
   if (len < 21)
     {
-      bgp_error(conn, 1, 2, len, 2);
+      bgp_error(conn, 1, 2, pkt+16, 2);
       return;
     }
-  switch (len)
-    {
-    case 21: arg = 0; break;
-    case 22: arg = pkt[21]; break;
-    case 23: arg = get_u16(pkt+21); break;
-    case 25: arg = get_u32(pkt+23); break;
-    default: DBG("BGP: NOTIFICATION with too much data\n"); /* FIXME */ arg = 0;
-    }
-  DBG("BGP: NOTIFICATION %d.%d %08x\n", pkt[19], pkt[20], arg);	/* FIXME: Better reporting */
+  bgp_log_error(conn->bgp, "Received error notification", pkt[19], pkt[20], pkt+21, len-21);
   conn->error_flag = 1;
   if (conn->primary)
     proto_notify_state(&conn->bgp->p, PS_STOP);
@@ -447,7 +495,7 @@ bgp_rx_keepalive(struct bgp_conn *conn, byte *pkt, unsigned len)
     case BS_ESTABLISHED:
       break;
     default:
-      bgp_error(conn, 5, 0, conn->state, 0);
+      bgp_error(conn, 5, 0, NULL, 0);
     }
 }
 
@@ -461,7 +509,7 @@ bgp_rx_packet(struct bgp_conn *conn, byte *pkt, unsigned len)
     case PKT_UPDATE:		return bgp_rx_update(conn, pkt, len);
     case PKT_NOTIFICATION:      return bgp_rx_notification(conn, pkt, len);
     case PKT_KEEPALIVE:		return bgp_rx_keepalive(conn, pkt, len);
-    default:			bgp_error(conn, 1, 3, pkt[18], 1);
+    default:			bgp_error(conn, 1, 3, pkt+18, 1);
     }
 }
 
@@ -478,19 +526,26 @@ bgp_rx(sock *sk, int size)
     {
       if (conn->error_flag)
 	{
+	  /*
+	   *  We still need to remember the erroneous packet, so that
+	   *  we can generate error notifications properly.  To avoid
+	   *  subsequent reads rewriting the buffer, we just reset the
+	   *  rx_hook.
+	   */
 	  DBG("BGP: Error, dropping input\n");
-	  return 1;
+	  sk->rx_hook = NULL;
+	  return 0;
 	}
       for(i=0; i<16; i++)
 	if (pkt_start[i] != 0xff)
 	  {
-	    bgp_error(conn, 1, 1, 0, 0);
+	    bgp_error(conn, 1, 1, NULL, 0);
 	    break;
 	  }
       len = get_u16(pkt_start+16);
       if (len < BGP_HEADER_LENGTH || len > BGP_MAX_PACKET_LENGTH)
 	{
-	  bgp_error(conn, 1, 2, len, 2);
+	  bgp_error(conn, 1, 2, pkt_start+16, 2);
 	  break;
 	}
       if (end < pkt_start + len)

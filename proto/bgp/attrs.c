@@ -22,7 +22,7 @@
 
 #include "bgp.h"
 
-static int bgp_mandatory_attrs[] = { BA_ORIGIN, BA_AS_PATH, BA_NEXT_HOP };
+static byte bgp_mandatory_attrs[] = { BA_ORIGIN, BA_AS_PATH, BA_NEXT_HOP };
 
 struct attr_desc {
   char *name;				/* FIXME: Use the same names as in filters */
@@ -805,12 +805,12 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   /* Check if all mandatory attributes are present */
   if (mandatory)
     {
-      for(i=0; i < sizeof(bgp_mandatory_attrs)/sizeof(bgp_mandatory_attrs[0]); i++)
+      for(i=0; i < ARRAY_SIZE(bgp_mandatory_attrs); i++)
 	{
 	  code = bgp_mandatory_attrs[i];
 	  if (!(seen[code/8] & (1 << (code%8))))
 	    {
-	      bgp_error(conn, 3, 3, code, 1);
+	      bgp_error(conn, 3, 3, &bgp_mandatory_attrs[i], 1);
 	      return NULL;
 	    }
 	}
@@ -854,11 +854,11 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   return a;
 
 malformed:
-  bgp_error(conn, 3, 1, len, 0);
+  bgp_error(conn, 3, 1, NULL, 0);
   return NULL;
 
 err:
-  bgp_error(conn, 3, errcode, code, 0);	/* FIXME: Return attribute data! */
+  bgp_error(conn, 3, errcode, z-2, l+2);
   return NULL;
 }
 
@@ -868,7 +868,7 @@ bgp_get_attr(eattr *a, byte *buf)
   unsigned int i = EA_ID(a->id);
   struct attr_desc *d;
 
-  if (i && i < sizeof(bgp_attr_table)/sizeof(bgp_attr_table[0]))
+  if (i && i < ARRAY_SIZE(bgp_attr_table))
     {
       d = &bgp_attr_table[i];
       buf += bsprintf(buf, "%s", d->name);
