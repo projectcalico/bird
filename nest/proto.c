@@ -319,6 +319,12 @@ proto_notify_state(struct proto *p, unsigned ps)
       ASSERT(ops == PS_DOWN || ops == PS_START);
       ASSERT(cs == FS_HUNGRY);
       DBG("%s: Scheduling meal\n", p->name);
+      if (p->proto->priority)		/* FIXME: Terrible hack to get synchronous device/kernel startup! */
+	{
+	  p->core_state = FS_FEEDING;
+	  proto_feed(p);
+	  return;
+	}
       cs = FS_FEEDING;
       p->attn->hook = proto_feed;
       ev_schedule(p->attn);
