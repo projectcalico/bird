@@ -121,7 +121,7 @@ ri_install(struct proto_ospf *po, ip_addr prefix, int pxlen, int dest,
     if ((new->type == RTS_OSPF) && (anet = (struct area_net *)fib_route(&oa->net_fib, prefix, pxlen)))
     {
        anet->active = 1;
-       if (new->metric1 < anet->metric) anet->metric = new->metric1;
+       if (new->metric1 > anet->metric) anet->metric = new->metric1;
     }
   }
   else
@@ -588,7 +588,7 @@ ospf_rt_spf(struct proto_ospf *po)
     {
       anet = (struct area_net *) nftmp;
       anet->active = 0;
-      anet->metric = LSINFINITY;
+      anet->metric = 1;
     }
     FIB_WALK_END;
     ospf_rt_spfa(oa);
