@@ -10,9 +10,10 @@
 
 /* FIXME Go on */
 void
-flush_lsa(struct top_hash_entry *en)
+flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
 {
-  return;
+  s_rem_node(SNODE en);
+  ospf_hash_delete(oa->gr,en);
 }
 
 void
@@ -22,7 +23,7 @@ ospf_age(struct top_hash_entry *en, bird_clock_t delta, int flush,
   struct proto *p=&oa->po->proto;
   if(en->lsa.age==LSA_MAXAGE)
   {
-    if(flush) flush_lsa(en);
+    if(flush) flush_lsa(en,oa);
     return;
   }
   if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>LSREFRESHTIME))
@@ -31,7 +32,7 @@ ospf_age(struct top_hash_entry *en, bird_clock_t delta, int flush,
   }
   if((en->lsa.age+=delta)>LSA_MAXAGE)
   {
-    if(flush) flush_lsa(en);
+    if(flush) flush_lsa(en,oa);
     else en->lsa.age=LSA_MAXAGE;
     return;
   }
@@ -375,7 +376,6 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
 	  break;
 	}
       }
-      /* FIXME delete routes to stub networks! */
     }
     if(change) s_rem_node(SNODE en);
   }
@@ -386,7 +386,6 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
     en->inst_t=now;
     if(en->lsa_body!=NULL) mb_free(en->lsa_body);
     en->lsa_body=body;
-    en->lsa.length=lsa->length;
     memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
     /* FIXME decide if route calcualtion must be done and how */
     if(oa->rt!=NULL)
