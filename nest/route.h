@@ -94,17 +94,17 @@ void fit_put(struct fib_iterator *, struct fib_node *);
 #define FIB_ITERATE_PUT(it, z) fit_put(it, z)
 
 /*
- *	Master Routing Tables. Generally speaking, each of them is a list
- *	of FIB (one per TOS) with each entry pointing to a list of route entries
- *	representing routes to given network.
+ *	Master Routing Tables. Generally speaking, each of them contains a FIB
+ *	with each entry pointing to a list of route entries representing routes
+ *	to given network (with the selected one at the head).
+ *
  *	Each of the RTE's contains variable data (the preference and protocol-dependent
  *	metrics) and a pointer to a route attribute block common for many routes).
- *	It's guaranteed that there is at most one RTE for every (prefix,proto,source) triplet.
+ *
+ *	It's guaranteed that there is at most one RTE for every (prefix,proto) pair.
  */
 
 typedef struct rtable {
-  struct rtable *sibling;		/* Our sibling for different TOS */
-  byte tos;				/* TOS for this table */
   struct fib fib;
   char *name;				/* Name of this table */
 } rtable;
@@ -156,8 +156,8 @@ extern rtable master_table;
 
 void rt_init(void);
 void rt_setup(pool *, rtable *, char *);
-net *net_find(rtable *tab, unsigned tos, ip_addr addr, unsigned len);
-net *net_get(rtable *tab, unsigned tos, ip_addr addr, unsigned len);
+static inline net *net_find(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_find(&tab->fib, &addr, len); }
+static inline net *net_get(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_get(&tab->fib, &addr, len); }
 rte *rte_find(net *net, struct proto *p);
 rte *rte_get_temp(struct rta *);
 void rte_update(net *net, struct proto *p, rte *new);
@@ -188,10 +188,9 @@ typedef struct rta {
   byte scope;				/* Route scope (SCOPE_... -- see ip.h) */
   byte cast;				/* Casting type (RTC_...) */
   byte dest;				/* Route destination type (RTD_...) */
-  byte tos;				/* TOS of this route */
   byte flags;				/* Route flags (RTF_...) */
   byte aflags;				/* Attribute cache flags (RTAF_...) */
-  byte rfu;				/* Padding */
+  byte rfu, rfu2;			/* Padding */
   ip_addr gw;				/* Next hop */
   ip_addr from;				/* Advertising router */
   struct iface *iface;			/* Outgoing interface */

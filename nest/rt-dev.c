@@ -31,7 +31,7 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
       net *n;
 
       debug("dev_if_notify: %s going down\n", old->name);
-      n = net_find(p->table, 0, old->prefix, old->pxlen);
+      n = net_find(p->table, old->prefix, old->pxlen);
       if (!n)
 	{
 	  debug("dev_if_notify: device shutdown: prefix not found\n");
@@ -56,9 +56,9 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
       A.attrs = NULL;
       a = rta_lookup(&A);
       if (new->flags & IF_UNNUMBERED)
-	n = net_get(p->table, 0, new->opposite, new->pxlen);
+	n = net_get(p->table, new->opposite, new->pxlen);
       else
-	n = net_get(p->table, 0, new->prefix, new->pxlen);
+	n = net_get(p->table, new->prefix, new->pxlen);
       e = rte_get_temp(a);
       e->net = n;
       e->pflags = 0;

@@ -271,7 +271,6 @@ rta_same(rta *x, rta *y)
 	  x->scope == y->scope &&
 	  x->cast == y->cast &&
 	  x->dest == y->dest &&
-	  x->tos == y->tos &&
 	  x->flags == y->flags &&
 	  ipa_equal(x->gw, y->gw) &&
 	  ipa_equal(x->from, y->from) &&
@@ -334,9 +333,9 @@ rta_dump(rta *a)
   static char *rtc[] = { "", " BC", " MC", " AC" };
   static char *rtd[] = { "", " DEV", " HOLE", " UNREACH", " PROHIBIT" };
 
-  debug("p=%s uc=%d %s %s%s%s TOS=%d",
+  debug("p=%s uc=%d %s %s%s%s",
 	a->proto->name, a->uc, rts[a->source], sco[a->scope], rtc[a->cast],
-	rtd[a->dest], a->tos);
+	rtd[a->dest]);
   if (a->flags & RTF_EXTERIOR)
     debug(" EXT");
   if (a->flags & RTF_TAGGED)

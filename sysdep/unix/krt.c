@@ -128,7 +128,7 @@ krt_learn_announce_update(struct krt_proto *p, rte *e)
   net *n = e->net;
   rta *aa = rta_clone(e->attrs);
   rte *ee = rte_get_temp(aa);
-  net *nn = net_get(p->p.table, 0, n->n.prefix, n->n.pxlen);		/* FIXME: TOS */
+  net *nn = net_get(p->p.table, n->n.prefix, n->n.pxlen);
   ee->net = nn;
   ee->pflags = 0;
   ee->u.krt = e->u.krt;
@@ -138,7 +138,7 @@ krt_learn_announce_update(struct krt_proto *p, rte *e)
 static void
 krt_learn_announce_delete(struct krt_proto *p, net *n)
 {
-  n = net_find(p->p.table, 0, n->n.prefix, n->n.pxlen);	      		/* FIXME: TOS */
+  n = net_find(p->p.table, n->n.prefix, n->n.pxlen);
   if (n)
     rte_update(n, &p->p, NULL);
 }
@@ -147,7 +147,7 @@ static void
 krt_learn_scan(struct krt_proto *p, rte *e)
 {
   net *n0 = e->net;
-  net *n = net_get(&p->krt_table, 0, n0->n.prefix, n0->n.pxlen);	/* FIXME: TOS */
+  net *n = net_get(&p->krt_table, n0->n.prefix, n0->n.pxlen);
   rte *m, **mm;
 
   e->attrs->source = RTS_INHERIT;
@@ -250,7 +250,7 @@ static void
 krt_learn_async(struct krt_proto *p, rte *e, int new)
 {
   net *n0 = e->net;
-  net *n = net_get(&p->krt_table, 0, n0->n.prefix, n0->n.pxlen);	/* FIXME: TOS */
+  net *n = net_get(&p->krt_table, n0->n.prefix, n0->n.pxlen);
   rte *g, **gg, *best, **bestp, *old_best;
 
   e->attrs->source = RTS_INHERIT;
@@ -359,10 +359,6 @@ krt_flush_routes(struct krt_proto *p)
   struct rtable *t = &master_table;
 
   DBG("Flushing kernel routes...\n");
-  while (t && t->tos)
-    t = t->sibling;
-  if (!t)
-    return;
   FIB_WALK(&t->fib, f)
     {
       net *n = (net *) f;
@@ -474,10 +470,6 @@ krt_prune(struct krt_proto *p)
   struct fib_node *f;
 
   DBG("Pruning routes...\n");
-  while (t && t->tos)
-    t = t->sibling;
-  if (!t)
-    return;
   FIB_WALK(&t->fib, f)
     {
       net *n = (net *) f;

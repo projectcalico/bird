@@ -487,9 +487,9 @@ nl_send_route(rte *e, int new)
 void
 krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old)
 {
-  if (old && new && old->attrs->tos == new->attrs->tos)
+  if (old && new)
     {
-      /* FIXME: Priorities should be identical as well, but we don't use them yet. */
+      /* FIXME: Priorities and TOS should be identical as well, but we don't use them yet. */
       nl_send_route(new, 1);
     }
   else
@@ -594,12 +594,12 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
       src = KRT_SRC_ALIEN;
     }
 
-  net = net_get(&master_table, 0, dst, i->rtm_dst_len);
+  net = net_get(&master_table, dst, i->rtm_dst_len);
   ra.proto = &p->p;
   ra.source = RTS_INHERIT;
   ra.scope = SCOPE_UNIVERSE;	/* FIXME: Use kernel scope? */
   ra.cast = RTC_UNICAST;
-  ra.tos = ra.flags = ra.aflags = 0;
+  ra.flags = ra.aflags = 0;
   ra.from = IPA_NONE;
   ra.gw = IPA_NONE;
   ra.iface = NULL;

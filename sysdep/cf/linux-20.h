@@ -6,7 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#undef CONFIG_TOS
 #undef CONFIG_AUTO_ROUTES
 #define CONFIG_ALL_MULTICAST
 #undef CONFIG_SELF_CONSCIOUS

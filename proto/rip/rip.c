@@ -198,7 +198,6 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   A.scope = SCOPE_UNIVERSE;
   A.cast = RTC_UNICAST;
   A.dest = RTD_ROUTER;
-  A.tos = 0;
   A.flags = 0;
   A.gw = ipa_nonzero(b->nexthop) ? b->nexthop : whotoldme;
   A.from = whotoldme;
@@ -226,7 +225,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
     log( L_ERR "%I asked me to route %I/%I, but that is not valid netmask.", A.from, b->network, b->netmask );
     return;
   }
-  n = net_get( p->table, 0, b->network, ipa_mklen( b->netmask ));
+  n = net_get( p->table, b->network, ipa_mklen( b->netmask ));
   r = rte_get_temp(a);
   r->u.rip.metric = ntohl(b->metric) + rif->metric;
   if (r->u.rip.metric > P_CF->infinity) r->u.rip.metric = P_CF->infinity;

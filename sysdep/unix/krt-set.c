@@ -38,8 +38,7 @@ krt_capable(rte *e)
 #ifdef RTF_REJECT
      || a->dest == RTD_UNREACHABLE
 #endif
-     ) &&
-    !a->tos;
+     );
 }
 
 static void

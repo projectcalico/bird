@@ -46,35 +46,6 @@ rt_setup(pool *p, rtable *t, char *name)
   t->name = name;
 }
 
-net *
-net_find(rtable *tab, unsigned tos, ip_addr mask, unsigned len)
-{
-  while (tab && tab->tos != tos)
-    tab = tab->sibling;
-  if (!tab)
-    return NULL;
-  return (net *) fib_find(&tab->fib, &mask, len);
-}
-
-net *
-net_get(rtable *tab, unsigned tos, ip_addr mask, unsigned len)
-{
-  rtable *t = tab;
-
-  while (t && t->tos != tos)
-    t = t->sibling;
-  if (!t)
-    {
-      while (tab->sibling)
-	tab = tab->sibling;
-      t = mb_alloc(&root_pool, sizeof(rtable));
-      rt_setup(&root_pool, t, NULL);	/* FIXME: Either delete all the TOS logic or use the right pool */
-      tab->sibling = t;
-      t->tos = tos;
-    }
-  return (net *) fib_get(&t->fib, &mask, len);
-}
-
 rte *
 rte_find(net *net, struct proto *p)
 {
@@ -181,23 +152,19 @@ rt_feed_baby(struct proto *p)
   if (!p->rt_notify)
     return;
   debug("Announcing routes to new protocol %s\n", p->name);
-  while (t)
+  FIB_WALK(&t->fib, fn)
     {
-      FIB_WALK(&t->fib, fn)
+      net *n = (net *) fn;
+      rte *e;
+      for(e=n->routes; e; e=e->next)
 	{
-	  net *n = (net *) fn;
-	  rte *e;
-	  for(e=n->routes; e; e=e->next)
-	    {
-	      struct proto *q = e->attrs->proto;
-	      ea_list *tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
-	      do_rte_announce(p, n, e, NULL, tmpa);
-	      lp_flush(rte_update_pool);
-	    }
+	  struct proto *q = e->attrs->proto;
+	  ea_list *tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
+	  do_rte_announce(p, n, e, NULL, tmpa);
+	  lp_flush(rte_update_pool);
 	}
-      FIB_WALK_END;
-      t = t->sibling;
     }
+  FIB_WALK_END;
 }
 
 static inline int
@@ -396,21 +363,16 @@ rt_dump(rtable *t)
   net *n;
 
   debug("Dump of routing table <%s>\n", t->name);
-  while (t)
-    {
-      debug("Routes for TOS %02x:\n", t->tos);
 #ifdef DEBUGGING
-      fib_check(&t->fib);
+  fib_check(&t->fib);
 #endif
-      FIB_WALK(&t->fib, fn)
-	{
-	  n = (net *) fn;
-	  for(e=n->routes; e; e=e->next)
-	    rte_dump(e);
-	}
-      FIB_WALK_END;
-      t = t->sibling;
+  FIB_WALK(&t->fib, fn)
+    {
+      n = (net *) fn;
+      for(e=n->routes; e; e=e->next)
+	rte_dump(e);
     }
+  FIB_WALK_END;
   debug("\n");
 }
 
@@ -449,33 +411,29 @@ rt_prune(rtable *tab)
   int rcnt = 0, rdel = 0, ncnt = 0, ndel = 0;
 
   DBG("Pruning route table %s\n", tab->name);
-  while (tab)
+  FIB_ITERATE_INIT(&fit, &tab->fib);
+again:
+  FIB_ITERATE_START(&tab->fib, &fit, f)
     {
-      FIB_ITERATE_INIT(&fit, &tab->fib);
-    again:
-      FIB_ITERATE_START(&tab->fib, &fit, f)
+      net *n = (net *) f;
+      rte *e;
+      ncnt++;
+    rescan:
+      for (e=n->routes; e; e=e->next, rcnt++)
+	if (e->attrs->proto->core_state != FS_HAPPY)
+	  {
+	    rte_discard(e);
+	    rdel++;
+	    goto rescan;
+	  }
+      if (!n->routes)		/* Orphaned FIB entry? */
 	{
-	  net *n = (net *) f;
-	  rte *e;
-	  ncnt++;
-	rescan:
-	  for (e=n->routes; e; e=e->next, rcnt++)
-	    if (e->attrs->proto->core_state != FS_HAPPY)
-	      {
-		rte_discard(e);
-		rdel++;
-		goto rescan;
-	      }
-	  if (!n->routes)		/* Orphaned FIB entry? */
-	    {
-	      FIB_ITERATE_PUT(&fit, f);
-	      fib_delete(&tab->fib, f);
-	      ndel++;
-	      goto again;
-	    }
+	  FIB_ITERATE_PUT(&fit, f);
+	  fib_delete(&tab->fib, f);
+	  ndel++;
+	  goto again;
 	}
-      FIB_ITERATE_END(f);
-      tab = tab->sibling;
     }
+  FIB_ITERATE_END(f);
   DBG("Pruned %d of %d routes and %d of %d networks\n", rcnt, rdel, ncnt, ndel);
 }

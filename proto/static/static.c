@@ -32,12 +32,11 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
   a.scope = SCOPE_UNIVERSE;
   a.cast = RTC_UNICAST;
   a.dest = r->dest;
-  a.tos = 0;
   a.gw = r->via;
   a.iface = ifa;
   aa = rta_lookup(&a);
 
-  n = net_get(p->table, a.tos, r->net, r->masklen);
+  n = net_get(p->table, r->net, r->masklen);
   e = rte_get_temp(aa);
   e->net = n;
   e->pflags = 0;
@@ -50,7 +49,7 @@ static_remove(struct proto *p, struct static_route *r)
   net *n;
 
   DBG("Removing static route %I/%d\n", r->net, r->masklen);
-  n = net_find(p->table, 0, r->net, r->masklen);
+  n = net_find(p->table, r->net, r->masklen);
   if (n)
     rte_update(n, p, NULL);
 }

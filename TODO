@@ -1,8 +1,8 @@
 Core
 ~~~~
-- Remove TOS support?
-
 * protocols: implement dumping of protocol-dependent rte attributes
+
+- prefer loopback addresses as router IDs (dummy interface?)
 
 - config: executable config files
 
@@ -19,13 +19,11 @@ Core
 
 - adding of route: check whether all bits not covered by masklen are zero
 
-- incoming packets: interface the packet came from? (esp. for multicasts)
-- broadcast/multicast echoing suppresion
-
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
 
 - iface: when seen an invalid broadcast, fix it up or at least report
 - iface: we always need ifindex at least for PtP links (OSPF)
+- iface: interface filters should support filtering by IP address as well
 
 Cleanup
 ~~~~~~~

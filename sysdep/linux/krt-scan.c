@@ -86,13 +86,13 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
       return;
     }
 
-  net = net_get(&master_table, 0, dest, masklen);
+  net = net_get(&master_table, dest, masklen);
 
   a.proto = &p->p;
   a.source = RTS_INHERIT;
   a.scope = SCOPE_UNIVERSE;
   a.cast = RTC_UNICAST;
-  a.tos = a.flags = a.aflags = 0;
+  a.flags = a.aflags = 0;
   a.from = IPA_NONE;
   a.iface = NULL;
   a.attrs = NULL;
