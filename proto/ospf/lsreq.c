@@ -109,7 +109,7 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
     if (ospf_hash_find(n->ifa->oa->gr, llsh->lsh.id, llsh->lsh.rt,
 		       llsh->lsh.type) == NULL)
     {
-      log("Received bad LS req from: %I looking: RT: %I, ID: %I, Type: %u",
+      log(L_WARN "Received bad LS req from: %I looking: RT: %I, ID: %I, Type: %u",
 	  n->ip, lsh->rt, lsh->id, lsh->type);
       ospf_neigh_sm(n, INM_BADLSREQ);
       rfree(upslab);
