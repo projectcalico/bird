@@ -33,6 +33,7 @@ ospf_proto_start: proto_start OSPF {
      this_proto = proto_config_new(&proto_ospf, sizeof(struct ospf_config));
      this_proto->preference = DEF_PREF_OSPF;
      init_list(&OSPF_CFG->area_list);
+     OSPF_CFG->rfc1583=1;
   }
  ;
 
@@ -40,7 +41,7 @@ ospf_proto:
    ospf_proto_start proto_name '{'
  | ospf_proto proto_item ';'
  | ospf_proto RFC1583COMPAT bool ';' { OSPF_CFG->rfc1583 = $3; }
- | ospf_proto ospf_area
+ | ospf_proto ospf_area '}'
 ;
 
 ospf_area_start: AREA idval '{' {
@@ -54,7 +55,7 @@ ospf_area_start: AREA idval '{' {
 ;
 
 ospf_area: /* EMPTY */
- | ospf_area_start ospf_area_opts '}'
+ | ospf_area_start ospf_area_opts
 ;
 
 ospf_area_opts:
@@ -63,7 +64,7 @@ ospf_area_opts:
 ospf_area_item:
  | STUB bool ';' { this_area->stub = $2 ; }
  | TICK NUM ';' { this_area->tick = $2 ; }
- | ospf_iface_list
+ | ospf_iface_list '}'
 ;
 
 ospf_iface_item:
@@ -100,7 +101,7 @@ ospf_iface_opts:
  | ospf_iface_opts ospf_iface_item ';'
  ;
 
-ospf_iface_opt_list: /* EMPTY */ | ospf_iface_opts '}'
+ospf_iface_opt_list: /* EMPTY */ | ospf_iface_opts
 ;
 
 ospf_iface:
