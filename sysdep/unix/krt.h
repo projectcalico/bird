@@ -62,6 +62,7 @@ struct krt_proto {
 #ifdef CONFIG_ALL_TABLES_AT_ONCE
   node instance_node;		/* Node in krt instance list */
 #endif
+  int initialized;		/* First scan has already been finished */
 };
 
 extern struct proto_config *cf_krt;

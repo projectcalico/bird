@@ -582,6 +582,7 @@ krt_prune(struct krt_proto *p)
   if (KRT_CF->learn)
     krt_learn_prune(p);
 #endif
+  p->initialized = 1;
 }
 
 void
@@ -661,7 +662,8 @@ krt_notify(struct proto *P, net *net, rte *new, rte *old, struct ea_list *tmpa)
     net->n.flags |= KRF_INSTALLED;
   else
     net->n.flags &= ~KRF_INSTALLED;
-  krt_set_notify(p, net, new, old);
+  if (p->initialized)			/* Before first scan we don't touch the routes */
+    krt_set_notify(p, net, new, old);
 }
 
 /*
@@ -703,7 +705,7 @@ krt_start_timer(struct krt_proto *p)
   t->hook = krt_scan;
   t->data = p;
   t->recurrent = KRT_CF->scan_time;
-  tm_start(t, KRT_CF->scan_time);
+  tm_start(t, 0);
   return t;
 }
 
@@ -735,13 +737,11 @@ krt_start(struct proto *P)
 #ifdef CONFIG_ALL_TABLES_AT_ONCE
   if (first)
     krt_scan_timer = krt_start_timer(p);
+  else
+    tm_start(p->scan_timer, 0);
   p->scan_timer = krt_scan_timer;
-  /* If this is the last instance to be initialized, kick the timer */
-  if (!P->proto->startup_counter)
-    krt_scan(p->scan_timer);
 #else
   p->scan_timer = krt_start_timer(p);
-  krt_scan(p->scan_timer);
 #endif
 
   return PS_UP;
@@ -785,6 +785,19 @@ krt_init(struct proto_config *c)
   return &p->p;
 }
 
+static int
+krt_reconfigure(struct proto *p, struct proto_config *new)
+{
+  struct krt_config *o = (struct krt_config *) p->cf;
+  struct krt_config *n = (struct krt_config *) new;
+
+  return o->scan_time == n->scan_time
+    && o->learn == n->learn		/* persist needn't be the same */
+    && krt_set_params_same(&o->set, &n->set)
+    && krt_scan_params_same(&o->scan, &n->scan)
+    ;
+}
+
 struct protocol proto_unix_kernel = {
   name:		"Kernel",
   template:	"kernel%d",
@@ -794,6 +807,7 @@ struct protocol proto_unix_kernel = {
   init:		krt_init,
   start:	krt_start,
   shutdown:	krt_shutdown,
+  reconfigure:	krt_reconfigure,
 #ifdef KRT_ALLOW_LEARN
   dump:		krt_dump,
   dump_attrs:	krt_dump_attrs,

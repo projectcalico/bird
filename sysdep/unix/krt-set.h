@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Unix Kernel Route Syncer -- Setting
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -14,5 +14,7 @@ struct krt_set_params {
 
 struct krt_set_status {
 };
+
+static inline int krt_set_params_same(struct krt_set_params *o, struct krt_set_params *n) { return 1; }
 
 #endif
