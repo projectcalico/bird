@@ -77,4 +77,6 @@ static inline int ipv4_compare(u32 x, u32 y)
   return (x > y) - (x < y);
 }
 
+#define IP_PREC_INTERNET_CONTROL 0xc0
+
 #endif

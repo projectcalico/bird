@@ -488,6 +488,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   rif->sock->daddr = IPA_NONE;
   rif->sock->dport = P_CF->port;
   rif->sock->ttl = 1; /* FIXME: care must be taken not to send requested responses from this socket */
+  rif->sock->tos = IP_PREC_INTERNET_CONTROL;
 
   if (flags & IF_BROADCAST)
     rif->sock->daddr = new->addr->brd;

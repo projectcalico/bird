@@ -229,7 +229,7 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
     mcsk->dport=OSPF_PROTO;
     mcsk->saddr=AllSPFRouters;
     mcsk->daddr=AllSPFRouters;
-    mcsk->tos=OSPF_IP_PRI;
+    mcsk->tos=IP_PREC_INTERNET_CONTROL;
     mcsk->ttl=1;
     mcsk->rx_hook=ospf_rx_hook;
     mcsk->tx_hook=ospf_tx_hook;
