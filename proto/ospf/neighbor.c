@@ -29,8 +29,10 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
   {
     ifa=n->ifa;
     n->state=state;
-    if(state==2WAY && oldstate<2WAY) ospf_int_sm(n->ifa, ISM_NEICH);
-    if(state<2WAY && oldstate>=2WAY) ospf_int_sm(n->ifa, ISM_NEICH);
+    if((state==NEIGHBOR_2WAY) && (oldstate<NEIGHBOR_2WAY))
+      ospf_int_sm(n->ifa, ISM_NEICH);
+    if((state<NEIGHBOR_2WAY) && (oldstate>=NEIGHBOR_2WAY))
+      ospf_int_sm(n->ifa, ISM_NEICH);
     if(oldstate==NEIGHBOR_FULL)	/* Decrease number of adjacencies */
     {
       ifa->fadj--;
