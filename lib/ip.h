@@ -49,5 +49,6 @@
 
 char *ip_ntop(ip_addr a, char *);
 char *ip_ntox(ip_addr a, char *);
+int ip_pton(char *a, ip_addr *o);
 
 #endif

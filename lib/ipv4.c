@@ -8,6 +8,9 @@
 
 #ifndef IPV6
 
+#include <string.h>
+#include <stdlib.h>
+
 #include "nest/bird.h"
 #include "lib/ip.h"
 #include "lib/string.h"
@@ -63,6 +66,31 @@ ipv4_class_mask(u32 a)
 	while (a & ~m)
 		m |= m >> 1;
 	return m;
+}
+
+int
+ip_pton(char *a, ip_addr *o)
+{
+  int i,j;
+  unsigned long int l;
+  u32 ia = 0;
+
+  i=4;
+  while (i--)
+    {
+      char *d, *c = strchr(a, '.');
+      if (!c != !i)
+	return 0;
+      if (c)
+	*c++ = 0;
+      l = strtoul(a, &d, 10);
+      if (d && *d || l > 255)
+	return 0;
+      ia = (ia << 8) | l;
+      a = c;
+    }
+  *o = ipa_from_u32(ia);
+  return 1;
 }
 
 #endif
