@@ -17,6 +17,37 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
   debug("%s: Changing state of iface: %s from %u into %u.\n",
     p->name, ifa->iface->name, ifa->state, state);
   ifa->state=state;
+  if(ifa->iface->flags & IF_MULTICAST)
+  {
+    if((state==OSPF_IS_BACKUP)||(state==OSPF_IS_DR))
+    {
+      if(ifa->dr_sk==NULL)
+      {
+        ifa->dr_sk=sk_new(p->pool);
+	ifa->dr_sk->type=SK_IP_MC;
+	ifa->dr_sk->saddr=AllDRouters;
+	ifa->dr_sk->daddr=AllDRouters;
+	ifa->dr_sk->tos=IP_PREC_INTERNET_CONTROL;
+	ifa->dr_sk->ttl=1;
+	ifa->dr_sk->rx_hook=ospf_rx_hook;
+	ifa->dr_sk->tx_hook=ospf_tx_hook;
+	ifa->dr_sk->err_hook=ospf_err_hook;
+	ifa->dr_sk->iface=ifa->iface;
+	ifa->dr_sk->rbsize=ifa->iface->mtu;
+	ifa->dr_sk->tbsize=ifa->iface->mtu;
+	ifa->dr_sk->data=(void *)ifa;
+	sk_open(ifa->dr_sk);
+      }
+    }
+    else
+    {
+      if(ifa->dr_sk!=NULL)
+      {
+        sk_close(ifa->dr_sk);
+	rfree(ifa->dr_sk);
+      }
+    }
+  }
 }
 
 void
@@ -101,7 +132,7 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
   p=(struct proto *)(ifa->proto);
 
 
-  /* FIXME: No NBMA networks now */
+  /* FIXME: No NBMA and PTP networks */
 
   if(ifa->iface->flags & IF_MULTICAST)
   {
@@ -287,6 +318,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 	log("%s: Ignoring this interface\n", p->name);
 	return;
       }
+      ifa->dr_sk=NULL;
 
       if((ifa->ip_sk=ospf_open_ip_socket(ifa))==NULL)
       {

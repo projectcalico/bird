@@ -56,6 +56,7 @@ struct ospf_iface {
   struct ospf_area *oa;
   u32 an;		/* Area number */
   sock *hello_sk;	/* Hello socket */
+  sock *dr_sk;		/* For states DR or BACKUP */
   sock *ip_sk;		/* IP socket (for DD ...) */
   list neigh_list;	/* List of neigbours */
   u16 cost;		/* Cost of iface */
