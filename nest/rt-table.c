@@ -186,7 +186,7 @@ rte_update(net *net, struct proto *p, rte *new)
 		      *k = r->next;
 		      break;
 		    }
-		  k = &r->next;
+		  k = &s->next;
 		}
 	      r->next = net->routes;
 	      net->routes = r;
