@@ -1,5 +1,7 @@
 /*
  * Structures for RIP protocol
+ *
+   FIXME: in V6, they insert additional entry whenever next hop differs. Such entry is identified by 0xff in metric.
  */
 
 #include "nest/route.h"
@@ -39,6 +41,7 @@ struct rip_packet_heading {
   u16 unused;
 };
 
+#ifndef IPV6
 struct rip_block {
   u16 family;	/* 0xffff on first message means this is authentication */
   u16 tag;
@@ -47,6 +50,14 @@ struct rip_block {
   ip_addr nexthop;
   u32 metric;
 };
+#else
+struct rip_block {
+  ip_addr network;
+  u16 tag;
+  u8 pxlen;
+  u8 metric
+};
+#endif
 
 struct rip_block_auth {
   u16 mustbeFFFF;

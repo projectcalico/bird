@@ -4,6 +4,8 @@
  *	Copyright (c) 1998, 1999 Pavel Machek <pavel@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ *
+ 	FIXME: IpV6 support
  */
 
 #define LOCAL_DEBUG
@@ -85,8 +87,14 @@ rip_tx( sock *s )
       packet->block[i].family  = htons( 2 ); /* AF_INET */
       packet->block[i].tag     = htons( e->tag );
       packet->block[i].network = e->n.prefix;
+#ifndef IPV6
       packet->block[i].netmask = ipa_mkmask( e->n.pxlen );
-      packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? My own IP address? */
+      ipa_hton( packet->block[i].netmask );
+      packet->block[i].nexthop = IPA_NONE;	/* FIXME: does it make sense to set this to not-me in some cases? */
+      ipa_hton( packet->block[i].nexthop );
+#else
+      packet->block[i].pxlen = e->n.pxlen;
+#endif
       packet->block[i].metric  = htonl( e->metric );
       if (ipa_equal(e->whotoldme, s->daddr)) {
 	DBG( "(split horizont)" );
@@ -94,8 +102,6 @@ rip_tx( sock *s )
 	packet->block[i].metric = P_CF->infinity;
       }
       ipa_hton( packet->block[i].network );
-      ipa_hton( packet->block[i].netmask );
-      ipa_hton( packet->block[i].nexthop );
 
       if (i++ == ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX)) {
 	FIB_ITERATE_PUT(&c->iter, z);
@@ -185,6 +191,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   net *n;
   neighbor *neighbor;
   struct rip_interface *rif;
+  int pxlen;
 
   bzero(&A, sizeof(A));
   A.proto = p;
@@ -193,14 +200,20 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   A.cast = RTC_UNICAST;
   A.dest = RTD_ROUTER;
   A.flags = 0;
+#ifndef IPV6
   A.gw = ipa_nonzero(b->nexthop) ? b->nexthop : whotoldme;
+  pxlen = ipa_mklen(b->netmask);
+#else
+  A.gw = whotoldme; /* FIXME: next hop is in other packet for v6 */
+  pxlen = b->pxlen;
+#endif
   A.from = whotoldme;
 
   /* FIXME: Check if destination looks valid - ie not net 0 or 127 */
 
   neighbor = neigh_find( p, &A.gw, 0 );
   if (!neighbor) {
-    log( L_ERR "%I asked me to route %I/%I using not-neighbor %I.", A.from, b->network, b->netmask, A.gw );
+    log( L_ERR "%I asked me to route %I/%d using not-neighbor %I.", A.from, b->network, pxlen, A.gw );
     return;
   }
 
@@ -215,11 +228,11 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
     
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
-  if (ipa_mklen(b->netmask)==-1)  {
-    log( L_ERR "%I asked me to route %I/%I, but that is not valid netmask.", A.from, b->network, b->netmask );
+  if (pxlen==-1)  {
+    log( L_ERR "%I gave me invalid pxlen/netmask for %I.", A.from, b->network );
     return;
   }
-  n = net_get( p->table, b->network, ipa_mklen( b->netmask ));
+  n = net_get( p->table, b->network, pxlen );
   r = rte_get_temp(a);
   r->u.rip.metric = ntohl(b->metric) + rif->patt->metric;
   if (r->u.rip.metric > P_CF->infinity) r->u.rip.metric = P_CF->infinity;
@@ -243,7 +256,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
     return;
   }
 
-  debug( "block: %I tells me: %I/%I available, metric %d... ", whotoldme, network, block->netmask, metric );
+  debug( "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
 
   advertise_entry( p, block, whotoldme );
 }
@@ -302,12 +315,14 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	      } 
 	    /* FIXME: Need to reject packets which have no authentication */
 	    ipa_ntoh( block->network );
+#ifndef IPV6
 	    ipa_ntoh( block->netmask );
 	    ipa_ntoh( block->nexthop );
 	    if (packet->heading.version == RIP_V1) {
 	      block->netmask = block->network; /* MJ: why are macros like this?! */
 	      ipa_class_mask( block->netmask );
 	    }
+#endif
 	    process_block( p, block, whotoldme );
 	  }
           break;
