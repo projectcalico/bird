@@ -704,15 +704,19 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
     e->nexthop = new->attrs->gw;
     e->metric = 0;
     e->whotoldme = IPA_NONE;
-    if (new->attrs->proto == p) {
-      e->tag = ea_find(attrs, EA_RIP_TAG)->u.data;
-      e->metric = ea_find(attrs, EA_RIP_METRIC)->u.data;
-      if (e->metric > P_CF->infinity)
-	e->metric = P_CF->infinity;
-      e->whotoldme = new->attrs->from;
-    }
 
-    if (!e->metric)	/* FIXME: this is metric for external routes. Should it be configurable? */
+    e->tag = ea_find(attrs, EA_RIP_TAG)->u.data;
+    e->metric = ea_find(attrs, EA_RIP_METRIC)->u.data;
+    if (e->metric > P_CF->infinity)
+      e->metric = P_CF->infinity;
+
+    if (new->attrs->proto == p)
+      e->whotoldme = new->attrs->from;
+
+    if (!e->metric)	/* This is metric for external routes. Notice
+			   that I do honour it even if it comes from other protocol than this
+			   rip. That's okay: this way user can set his own value for external
+			   routes in rip. */
       e->metric = 5;
     e->updated = e->changed = now;
     e->flags = 0;
@@ -722,6 +726,8 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
 static int
 rip_rte_better(struct rte *new, struct rte *old)
 {
+  struct proto *p = new->attrs->proto;
+
   if (ipa_equal(old->attrs->from, new->attrs->from))
     return 1;
 
@@ -731,14 +737,14 @@ rip_rte_better(struct rte *new, struct rte *old)
   if (old->u.rip.metric > new->u.rip.metric)
     return 1;
 
-  if ((old->u.rip.metric != 16) && (new->u.rip.metric == 16)) {	/* FIXME: check wrt. strange infinity values */
-    struct proto *p = new->attrs->proto;
+  if ((old->u.rip.metric < 16) && (new->u.rip.metric == P_CF->infinity)) {
     new->u.rip.lastmodX = now - P_CF->timeout_time;	/* Check this: if new metric is 16, act as it was timed out */
   }
 
-  if ((old->u.rip.metric == new->u.rip.metric) &&
-      ((now - old->u.rip.lastmodX) > 60))	/* FIXME (nonurgent): this probably should be P_CF->timeout_time / 2 if old->attrs->proto == new->attrs->proto, else don't do this check */
-    return 1;
+  if (old->attrs->proto == new->attrs->proto)		/* This does not make much sense for different protocols */
+    if ((old->u.rip.metric == new->u.rip.metric) &&
+	((now - old->u.rip.lastmodX) > (P_CF->timeout_time / 2)))
+      return 1;
 
   return 0;
 }
