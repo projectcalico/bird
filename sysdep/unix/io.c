@@ -693,6 +693,7 @@ io_init(void)
   init_list(&far_timers);
   init_list(&sock_list);
   init_list(&global_event_list);
+  krt_io_init();
   now = time(NULL);
 }
 

@@ -11,6 +11,8 @@
 
 struct krt_config;
 struct krt_proto;
+struct kif_config;
+struct kif_proto;
 
 #include "lib/krt-scan.h"
 #include "lib/krt-set.h"
@@ -34,8 +36,7 @@ struct krt_config {
   struct krt_scan_params scan;
   struct krt_if_params iface;
   int persist;			/* Keep routes when we exit */
-  int scan_time;		/* How often we re-scan interfaces */
-  int route_scan_time;		/* How often we re-scan routes */
+  int scan_time;		/* How often we re-scan routes */
   int learn;			/* Learn routes from other sources */
 };
 
@@ -44,7 +45,6 @@ struct krt_proto {
   struct krt_set_status set;
   struct krt_scan_status scan;
   struct krt_if_status iface;
-  int accum_time;	        /* Accumulated route scanning time */
 };
 
 extern struct proto_config *cf_krt;
@@ -59,6 +59,23 @@ void krt_got_route_async(struct krt_proto *p, struct rte *e, int new);
 #define KRT_SRC_BIRD	 0	/* Our route (not passed in async mode) */
 #define KRT_SRC_REDIRECT 1	/* Redirect route, delete it */
 #define KRT_SRC_ALIEN	 2	/* Route installed by someone else */
+
+extern struct protocol proto_unix_iface;
+
+struct kif_config {
+  struct proto_config c;
+  struct krt_if_params iface;
+  int scan_time;		/* How often we re-scan interfaces */
+};
+
+struct kif_proto {
+  struct proto p;
+  struct krt_if_status iface;
+};
+
+extern struct proto_config *cf_kif;
+
+#define KIF_CF ((struct kif_config *)p->p.cf)
 
 /* krt-scan.c */
 
@@ -79,10 +96,11 @@ void krt_set_notify(struct proto *x, net *net, rte *new, rte *old);
 
 /* krt-iface.c */
 
-void krt_if_preconfig(struct krt_config *);
-void krt_if_start(struct krt_proto *);
-void krt_if_shutdown(struct krt_proto *);
+void krt_if_preconfig(struct kif_config *);
+void krt_if_start(struct kif_proto *);
+void krt_if_shutdown(struct kif_proto *);
 
-void krt_if_scan(struct krt_proto *);
+void krt_if_scan(struct kif_proto *);
+void krt_if_io_init(void);
 
 #endif

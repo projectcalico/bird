@@ -205,6 +205,7 @@ main(int argc, char **argv)
 
   protos_build();
   add_tail(&protocol_list, &proto_unix_kernel.n);
+  add_tail(&protocol_list, &proto_unix_iface.n);
 
   read_config();
 

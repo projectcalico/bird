@@ -392,7 +392,7 @@ nl_parse_addr(struct nlmsghdr *h)
 }
 
 void
-krt_if_scan(struct krt_proto *p)
+krt_if_scan(struct kif_proto *p)
 {
   struct nlmsghdr *h;
 

@@ -26,4 +26,8 @@ void io_loop(void);
 void fill_in_sockaddr(struct sockaddr_in *sa, ip_addr a, unsigned port);
 void get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port);
 
+/* krt.c bits */
+
+void krt_io_init(void);
+
 #endif

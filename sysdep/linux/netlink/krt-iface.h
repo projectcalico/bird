@@ -19,8 +19,9 @@ struct krt_if_params {
 struct krt_if_status {
 };
 
-static inline void krt_if_preconfig(struct krt_config *c) { };
-static inline void krt_if_start(struct krt_proto *p) { };
-static inline void krt_if_shutdown(struct krt_proto *p) { };
+static inline void krt_if_preconfig(struct kif_config *c) { };
+static inline void krt_if_start(struct kif_proto *p) { };
+static inline void krt_if_shutdown(struct kif_proto *p) { };
+static inline void krt_if_io_init(void) { };
 
 #endif

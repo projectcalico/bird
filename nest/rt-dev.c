@@ -18,8 +18,6 @@
 #include "conf/conf.h"
 #include "lib/resource.h"
 
-struct proto_config *cf_dev_proto;
-
 static void
 dev_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
 {
@@ -77,22 +75,8 @@ dev_init(struct proto_config *c)
   return p;
 }
 
-static void
-dev_preconfig(struct protocol *x, struct config *c)
-{
-  struct rt_dev_config *p = proto_config_new(&proto_device, sizeof(struct rt_dev_config));
-  struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
-
-  cf_dev_proto = &p->c;
-  p->c.preference = DEF_PREF_DIRECT;
-  init_list(&p->iface_list);
-  k->pattern = "*";
-  add_tail(&p->iface_list, &k->n);
-}
-
 struct protocol proto_device = {
-  name:		"Device",
-  priority:	100,
-  preconfig:	dev_preconfig,
+  name:		"Direct",
+  priority:	90,
   init:		dev_init,
 };

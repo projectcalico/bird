@@ -16,7 +16,7 @@ void rt_dev_add_iface(char *);
 
 CF_DECLS
 
-CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DEVICE)
+CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, INPUT, OUTPUT, FILTER)
 
 %type <i> idval
@@ -44,7 +44,7 @@ proto_start: PROTOCOL
 
 proto_name:
    /* EMPTY */ {
-     struct symbol *s = cf_default_name(this_proto->proto->name);
+     struct symbol *s = cf_default_name(this_proto->proto->name, &this_proto->proto->name_counter);
      s->class = SYM_PROTO;
      s->def = this_proto;
      this_proto->name = s->name;
@@ -71,24 +71,30 @@ proto_item:
  | OUTPUT FILTER filter { this_proto->out_filter = $3; }
  ;
 
-/* Device protocol */
+/* Direct device route protocol */
 
 CF_ADDTO(proto, dev_proto '}')
 
-dev_proto_start: proto_start DEVICE {
-     if (!(this_proto = cf_dev_proto)) cf_error("Device protocol already defined");
-     cf_dev_proto = NULL;
+dev_proto_start: proto_start DIRECT {
+     struct rt_dev_config *p = proto_config_new(&proto_device, sizeof(struct rt_dev_config));
+     struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
+     this_proto = &p->c;
+     p->c.preference = DEF_PREF_DIRECT;
+     init_list(&p->iface_list);
+     k->pattern = "*";
+     add_tail(&p->iface_list, &k->n);
    }
  ;
 
 dev_proto:
-   dev_proto_start '{'
+   dev_proto_start proto_name '{'
  | dev_proto proto_item ';'
  | dev_proto dev_iface_list ';'
  ;
 
 dev_iface_list:
    INTERFACE TEXT {
+     /* FIXME: Beware of obscure semantics. */
      init_list(&((struct rt_dev_config *) this_proto)->iface_list);
      rt_dev_add_iface($2);
    }

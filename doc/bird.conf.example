@@ -16,7 +16,7 @@
 #	debug all
 #}
 
-protocol device {
+protocol direct {
 #	disabled
 #	interface "-eth*", "*"
 }
@@ -25,11 +25,14 @@ protocol kernel {
 #	disabled
 #	learn			# Learn all routes from the kernel
 	persist			# Don't remove routes on bird shutdown
-	scan time 10		# Scan kernel tables every 10 seconds
-	route scan time 20	# But routes only every 20 seconds
+	scan time 20		# Scan kernel routing table every 20 seconds
 #	async off		# Netlink: Disable asynchronous events
 #	input filter sink
 #	output filter okay
+}
+
+protocol device {
+	scan time 10		# Scan interfaces every 10 seconds
 }
 
 protocol static {

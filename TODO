@@ -6,6 +6,8 @@ Core
 - config: define ipaddr constants?
 - config: better default protocol names
 
+- do we really need preconfig?
+
 - counters (according to SNMP MIB?)
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?

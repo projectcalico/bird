@@ -17,7 +17,94 @@
 #include "unix.h"
 #include "krt.h"
 
-struct proto_config *cf_krt;
+/*
+ *	Global resources
+ */
+
+void
+krt_io_init(void)
+{
+  krt_if_io_init();
+}
+
+/*
+ *	Interfaces
+ */
+
+struct proto_config *cf_kif;
+
+static struct kif_proto *kif_proto;
+static timer *kif_scan_timer;
+static bird_clock_t kif_last_shot;
+
+static void
+kif_scan(timer *t)
+{
+  struct kif_proto *p = t->data;
+
+  DBG("KIF: It's interface scan time...\n");
+  kif_last_shot = now;
+  krt_if_scan(p);
+}
+
+static void
+kif_force_scan(void)
+{
+  if (kif_proto && kif_last_shot + 2 < now)
+    {
+      kif_scan(kif_scan_timer);
+      tm_start(kif_scan_timer, ((struct kif_config *) kif_proto->p.cf)->scan_time);
+    }
+}
+
+static struct proto *
+kif_init(struct proto_config *c)
+{
+  struct kif_proto *p = proto_new(c, sizeof(struct kif_proto));
+  return &p->p;
+}
+
+static int
+kif_start(struct proto *P)
+{
+  struct kif_proto *p = (struct kif_proto *) P;
+
+  kif_proto = p;
+  krt_if_start(p);
+
+  /* Start periodic interface scanning */
+  kif_scan_timer = tm_new(P->pool);
+  kif_scan_timer->hook = kif_scan;
+  kif_scan_timer->data = p;
+  kif_scan_timer->recurrent = KIF_CF->scan_time;
+  kif_scan(kif_scan_timer);
+  tm_start(kif_scan_timer, KIF_CF->scan_time);
+
+  return PS_UP;
+}
+
+static int
+kif_shutdown(struct proto *P)
+{
+  struct kif_proto *p = (struct kif_proto *) P;
+
+  tm_stop(kif_scan_timer);
+  krt_if_shutdown(p);
+  kif_proto = NULL;
+
+  if_start_update();	/* Remove all interfaces */
+  if_end_update();
+
+  return PS_DOWN;
+}
+
+struct protocol proto_unix_iface = {
+  name:		"Device",
+  priority:	100,
+  init:		kif_init,
+  start:	kif_start,
+  shutdown:	kif_shutdown,
+};
 
 /*
  *	Routes
@@ -210,7 +297,7 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
 	   * FIXME: This is limited to one inherited route per destination as we
 	   * use single protocol for all inherited routes. Probably leave it
 	   * as-is (and document it :)), because the correct solution is to
-	   * multiple kernel tables anyway.
+	   * use multiple kernel tables anyway.
 	   */
 	  DBG("Learning\n");
 	  rte_update(net, &p->p, e);
@@ -234,35 +321,27 @@ krt_scan(timer *t)
 {
   struct krt_proto *p = t->data;
 
-  DBG("KRT: It's scan time...\n");
-  krt_if_scan(p);
-
-  p->accum_time += KRT_CF->scan_time;
-  if (KRT_CF->route_scan_time && p->accum_time >= KRT_CF->route_scan_time)
-    {
-      p->accum_time %= KRT_CF->route_scan_time;
-      DBG("Scanning kernel routing table...\n");
-      krt_scan_fire(p);
-      krt_prune(p);
-    }
+  kif_force_scan();
+  DBG("KRT: It's route scan time...\n");
+  krt_scan_fire(p);
+  krt_prune(p);
 }
 
 /*
  *	Protocol glue
  */
 
+struct proto_config *cf_krt;
+
 static int
 krt_start(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
 
-  p->accum_time = KRT_CF->route_scan_time - KRT_CF->scan_time;
-
-  krt_if_start(p);
   krt_scan_start(p);
   krt_set_start(p);
 
-  /* Start periodic interface scanning */
+  /* Start periodic routing table scanning */
   krt_scan_timer = tm_new(P->pool);
   krt_scan_timer->hook = krt_scan;
   krt_scan_timer->data = p;
@@ -278,33 +357,15 @@ krt_shutdown(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
 
+  tm_stop(krt_scan_timer);
+
   if (!KRT_CF->persist)
     krt_flush_routes(p);
 
   krt_set_shutdown(p);
   krt_scan_shutdown(p);
 
-  /* Stop periodic interface scans */
-  tm_stop(krt_scan_timer);
-  krt_if_shutdown(p);
-  /* FIXME: What should we do with interfaces? */
-
   return PS_DOWN;
-}
-
-static void
-krt_preconfig(struct protocol *x, struct config *c)
-{
-  struct krt_config *z = proto_config_new(&proto_unix_kernel, sizeof(struct krt_config));
-
-  cf_krt = &z->c;
-  z->c.preference = DEF_PREF_UKR;
-  z->scan_time = z->route_scan_time = 60;
-  z->learn = z->persist = 0;
-
-  krt_scan_preconfig(z);
-  krt_set_preconfig(z);
-  krt_if_preconfig(z);
 }
 
 static struct proto *
@@ -318,8 +379,7 @@ krt_init(struct proto_config *c)
 
 struct protocol proto_unix_kernel = {
   name:		"Kernel",
-  priority:	90,
-  preconfig:	krt_preconfig,
+  priority:	80,
   init:		krt_init,
   start:	krt_start,
   shutdown:	krt_shutdown,

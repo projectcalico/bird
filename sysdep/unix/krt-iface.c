@@ -131,7 +131,7 @@ scan_ifs(struct ifreq *r, int cnt)
 }
 
 void
-krt_if_scan(struct krt_proto *p)
+krt_if_scan(struct kif_proto *p)
 {
   struct ifconf ic;
   static int last_ifbuf_size = 4*sizeof(struct ifreq);
@@ -172,23 +172,25 @@ krt_if_scan(struct krt_proto *p)
 }
 
 void
-krt_if_preconfig(struct krt_config *c)
+krt_if_preconfig(struct kif_config *c)
 {
 }
 
 void
-krt_if_start(struct krt_proto *p)
+krt_if_start(struct kif_proto *p)
 {
+}
+
+void
+krt_if_shutdown(struct kif_proto *p)
+{
+}
+
+void
+krt_if_io_init(void)
+{
+  if_scan_sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+  DBG("Using socket %d for interface and route scanning\n", if_scan_sock);
   if (if_scan_sock < 0)
-    {
-      if_scan_sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
-      DBG("Using socket %d for interface and route scanning\n", if_scan_sock);
-      if (if_scan_sock < 0)
-	die("Cannot create scanning socket: %m");
-    }
-}
-
-void
-krt_if_shutdown(struct krt_proto *p)
-{
+    die("Cannot create scanning socket: %m");
 }
