@@ -28,6 +28,11 @@ struct bgp_config {
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
+  unsigned start_delay_time;		/* Minimum delay between connects */
+  unsigned error_amnesia_time;		/* Errors are forgotten after */
+  unsigned error_delay_time_min;	/* Time to wait after an error is detected */
+  unsigned error_delay_time_max;
+  unsigned disable_after_error;		/* Disable the protocol when error is detected */
 };
 
 struct bgp_conn {
@@ -65,6 +70,8 @@ struct bgp_proto {
   struct fib prefix_fib;		/* Prefixes to be sent */
   list bucket_queue;			/* Queue of buckets to send */
   struct bgp_bucket *withdraw_bucket;	/* Withdrawn routes */
+  unsigned startup_delay;		/* Time to delay protocol startup by due to errors */
+  bird_clock_t last_connect;		/* Time of last connect attempt */
 };
 
 struct bgp_prefix {

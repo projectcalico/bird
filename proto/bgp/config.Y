@@ -16,6 +16,7 @@ CF_DECLS
 
 CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
 	MULTIHOP, STARTUP, VIA, NEXT, HOP, SELF, DEFAULT, PATH, METRIC,
+	ERROR, START, DELAY, FORGET, WAIT, DISABLE, AFTER,
 	BGP_PATH, BGP_LOCAL_PREF, BGP_MED, BGP_ORIGIN, BGP_NEXT_HOP,
 	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY, SOURCE, ADDRESS)
 
@@ -31,7 +32,11 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->initial_hold_time = 240;
      BGP_CFG->default_med = ~0;		/* RFC 1771 doesn't specify this, draft-09 says ~0 */
      BGP_CFG->compare_path_lengths = 1;
-  }
+     BGP_CFG->start_delay_time = 5;
+     BGP_CFG->error_amnesia_time = 300;
+     BGP_CFG->error_delay_time_min = 60;
+     BGP_CFG->error_delay_time_max = 300;
+ }
  ;
 
 bgp_proto:
@@ -56,6 +61,10 @@ bgp_proto:
  | bgp_proto DEFAULT BGP_MED NUM ';' { BGP_CFG->default_med = $4; }
  | bgp_proto DEFAULT BGP_LOCAL_PREF NUM ';' { BGP_CFG->default_local_pref = $4; }
  | bgp_proto SOURCE ADDRESS IPA ';' { BGP_CFG->source_addr = $4; }
+ | bgp_proto START DELAY TIME NUM ';' { BGP_CFG->start_delay_time = $5; }
+ | bgp_proto ERROR FORGET TIME NUM ';' { BGP_CFG->error_amnesia_time = $5; } 
+ | bgp_proto ERROR WAIT TIME NUM ',' NUM ';' { BGP_CFG->error_delay_time_min = $5; BGP_CFG->error_delay_time_max = $7; }
+ | bgp_proto DISABLE AFTER ERROR ';' { BGP_CFG->disable_after_error = 1; }
  ;
 
 CF_ADDTO(dynamic_attr, BGP_PATH

@@ -26,6 +26,7 @@ static list bgp_list;			/* List of active BGP instances */
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established" };
 
 static void bgp_connect(struct bgp_proto *p);
+static void bgp_initiate(struct bgp_proto *p);
 
 void
 bgp_close(struct bgp_proto *p)
@@ -40,7 +41,6 @@ bgp_close(struct bgp_proto *p)
       rfree(bgp_linpool);
       bgp_linpool = NULL;
     }
-  /* FIXME: Automatic restart after errors? */
 }
 
 void
@@ -60,6 +60,7 @@ void
 bgp_close_conn(struct bgp_conn *conn)
 {
   struct bgp_proto *p = conn->bgp;
+  struct bgp_config *cf = p->cf;
 
   DBG("BGP: Closing connection\n");
   conn->packets_to_send = 0;
@@ -72,14 +73,29 @@ bgp_close_conn(struct bgp_conn *conn)
   sk_close(conn->sk);
   conn->sk = NULL;
   conn->state = BS_IDLE;
+  if (conn->error_flag > 1)
+    {
+      if (cf->disable_after_error)
+	p->p.disabled = 1;
+      if (p->last_connect && (bird_clock_t)(p->last_connect + cf->error_amnesia_time) < now)
+	p->startup_delay = 0;
+      if (!p->startup_delay)
+	p->startup_delay = cf->error_delay_time_min;
+      else
+	{
+	  p->startup_delay *= 2;
+	  if (p->startup_delay > cf->error_delay_time_max)
+	    p->startup_delay = cf->error_delay_time_max;
+	}
+    }
   if (conn->primary)
     {
       bgp_close(p);
       p->conn = NULL;
-      if (conn->error_flag)		/* FIXME: Enable automatically? */
-	p->p.disabled = 1;
       proto_notify_state(&p->p, PS_DOWN);
     }
+  else if (conn->error_flag > 1)
+    bgp_initiate(p);
 }
 
 static int
@@ -175,19 +191,12 @@ bgp_keepalive_timeout(timer *t)
 }
 
 static void
-bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
+bgp_setup_conn(struct bgp_proto *p, struct bgp_conn *conn)
 {
   timer *t;
 
-  s->data = conn;
-  s->ttl = p->cf->multihop ? : 1;
-  s->rbsize = BGP_RX_BUFFER_SIZE;
-  s->tbsize = BGP_TX_BUFFER_SIZE;
-  s->err_hook = bgp_sock_err;
-  s->tos = IP_PREC_INTERNET_CONTROL;
-
+  conn->sk = NULL;
   conn->bgp = p;
-  conn->sk = s;
   conn->packets_to_send = 0;
   conn->error_flag = 0;
   conn->primary = 0;
@@ -204,12 +213,25 @@ bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
 }
 
 static void
+bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
+{
+  s->data = conn;
+  s->ttl = p->cf->multihop ? : 1;
+  s->rbsize = BGP_RX_BUFFER_SIZE;
+  s->tbsize = BGP_TX_BUFFER_SIZE;
+  s->err_hook = bgp_sock_err;
+  s->tos = IP_PREC_INTERNET_CONTROL;
+  conn->sk = s;
+}
+
+static void
 bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing connection */
 {
   sock *s;
   struct bgp_conn *conn = &p->outgoing_conn;
 
   DBG("BGP: Connecting\n");
+  p->last_connect = now;
   s = sk_new(p->p.pool);
   s->type = SK_TCP_ACTIVE;
   if (ipa_nonzero(p->cf->source_addr))
@@ -218,6 +240,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
     s->saddr = p->local_addr;
   s->daddr = p->cf->remote_ip;
   s->dport = BGP_PORT;
+  bgp_setup_conn(p, conn);
   bgp_setup_sk(p, conn, s);
   s->tx_hook = bgp_connected;
   conn->state = BS_CONNECT;
@@ -228,6 +251,24 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
     }
   DBG("BGP: Waiting for connect success\n");
   bgp_start_timer(conn->connect_retry_timer, p->cf->connect_retry_time);
+}
+
+static void
+bgp_initiate(struct bgp_proto *p)
+{
+  unsigned delay;
+
+  delay = p->cf->start_delay_time;
+  if (p->startup_delay > delay)
+    delay = p->startup_delay;
+  if (delay)
+    {
+      DBG("BGP: Connect delayed by %d seconds\n", delay);
+      bgp_setup_conn(p, &p->outgoing_conn);
+      bgp_start_timer(p->outgoing_conn.connect_retry_timer, delay);
+    }
+  else
+    bgp_connect(p);
 }
 
 static int
@@ -247,6 +288,7 @@ bgp_incoming_connection(sock *sk, int dummy)
 	      DBG("BGP: But one incoming connection already exists, how is that possible?\n");
 	      break;
 	    }
+	  bgp_setup_conn(p, &p->incoming_conn);
 	  bgp_setup_sk(p, &p->incoming_conn, sk);
 	  bgp_send_open(&p->incoming_conn);
 	  return 0;
@@ -285,7 +327,7 @@ bgp_start_neighbor(struct bgp_proto *p)
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);
   add_tail(&bgp_list, &p->bgp_node);
-  bgp_connect(p);
+  bgp_initiate(p);
 }
 
 static void
@@ -305,7 +347,6 @@ bgp_neigh_notify(neighbor *n)
       bgp_graceful_close_conn(&p->outgoing_conn);
       bgp_graceful_close_conn(&p->incoming_conn);
       proto_notify_state(&p->p, PS_DOWN);
-      /* FIXME: Remember to delay protocol startup here! */
     }
 }
 
@@ -340,6 +381,7 @@ bgp_start(struct proto *P)
   DBG("BGP: Startup.\n");
   p->outgoing_conn.state = BS_IDLE;
   p->incoming_conn.state = BS_IDLE;
+  p->startup_delay = 0;
 
   /*
    *  Before attempting to create the connection, we need to lock the
@@ -415,7 +457,7 @@ bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int l
   if (c->error_flag)
     return;
   bgp_log_error(c->bgp, "Error", code, subcode, data, (len > 0) ? len : -len);
-  c->error_flag = 1;
+  c->error_flag = 1 + (code != 6);
   c->notify_code = code;
   c->notify_subcode = subcode;
   c->notify_data = data;
