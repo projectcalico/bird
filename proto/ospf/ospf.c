@@ -64,7 +64,7 @@ ospf_dump(struct proto *p)
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct ospf_area *oa;
 
-  OSPF_TRACE(D_EVENTS, "Area number: %d\n", po->areano);
+  OSPF_TRACE(D_EVENTS, "Area number: %d", po->areano);
 
   WALK_LIST(ifa, po->iface_list)
   {
@@ -74,7 +74,7 @@ ospf_dump(struct proto *p)
     OSPF_TRACE(D_EVENTS, "BDR: %I", ifa->bdrid);
     WALK_LIST(n, ifa->neigh_list)
     {
-      OSPF_TRACE(D_EVENTS, "  neighbor %I in state %u\n", n->rid, n->state);
+      OSPF_TRACE(D_EVENTS, "  neighbor %I in state %u", n->rid, n->state);
     }
   }
 
@@ -240,7 +240,7 @@ ospf_shutdown(struct proto *p)
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
   struct ospf_area *oa;
-  OSPF_TRACE(D_EVENTS, "Shutdown requested\n");
+  OSPF_TRACE(D_EVENTS, "Shutdown requested");
 
   /* And send to all my neighbors 1WAY */
   WALK_LIST(ifa, po->iface_list)
@@ -257,7 +257,7 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
 {
   struct proto_ospf *po=(struct proto_ospf *)p;
 
-  OSPF_TRACE(D_EVENTS, "Got route %I/%d %s\n", p->name, n->n.prefix,
+  OSPF_TRACE(D_EVENTS, "Got route %I/%d %s", p->name, n->n.prefix,
     n->n.pxlen, new ? "up" : "down");
 
   if(new)		/* Got some new route */
