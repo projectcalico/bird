@@ -61,10 +61,12 @@ typedef u32 ip_addr;
 int ipv4_classify(u32);
 u32 ipv4_class_mask(u32);
 
-/* FIXME: Is this hash function uniformly distributed over standard routing tables? */
 static inline unsigned ipv4_hash(u32 a)
 {
-  return a ^ (a >> 16) ^ (a >> 24);
+  /* Returns a 16-bit value */
+  a ^= a >> 16;
+  a ^= a << 10;
+  return a & 0xffff;
 }
 
 #endif

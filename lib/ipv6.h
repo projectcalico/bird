@@ -59,7 +59,7 @@ void ipv6_ntoh(ip_addr *);
 static inline unsigned ipv6_hash(ip_addr *a)
 {
   u32 x = _I0(*a) ^ _I1(*a) ^ _I2(*a) ^ _I3(*a);
-  return x ^ (x >> 16) ^ (x >> 8);
+  return (x ^ (x >> 16) ^ (x >> 8)) & 0xffff;
 }
 
 #endif
