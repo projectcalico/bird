@@ -410,7 +410,7 @@ rip_start(struct proto *p)
 static struct proto *
 rip_init(struct proto_config *cfg)
 {
-  struct proto *p = proto_new(cfg, sizeof(struct proto));
+  struct proto *p = proto_new(cfg, sizeof(struct rip_proto));
 
   return p;
 }
@@ -422,6 +422,8 @@ rip_dump(struct proto *p)
   node *w, *e;
   struct rip_interface *rif;
   i = 0;
+
+  CHK_MAGIC;
   WALK_LIST( w, P->connections ) {
     struct rip_connection *n = (void *) w;
     debug( "RIP: connection #%d: %I\n", n->num, n->addr );
@@ -598,14 +600,16 @@ rip_init_instance(struct proto *p)
   p->rta_same = rip_rta_same;
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
+}
 
-#warning FIXME: this is almost certianly wrong, I need to setup config elsewhere
-  P_CF->infinity	= 16;
-  P_CF->port	= 520;
-  P_CF->period	= 30;
-  P_CF->garbage_time = 120+180;
-
-  init_list(&P_CF->iface_list);
+void
+rip_init_config(struct rip_proto_config *c)
+{
+  init_list(&c->iface_list);
+  c->infinity	= 16;
+  c->port	= 520;
+  c->period	= 30;
+  c->garbage_time = 120+180;
 }
 
 static void

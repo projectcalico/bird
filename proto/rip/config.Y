@@ -24,7 +24,7 @@ CF_HDR
 void rip_dev_add_iface(char *);
 struct rip_patt *rip_get_iface(void);
 
-#define RIP_PROTO ((struct rip_proto_config *) this_proto)
+#define RIP_CFG ((struct rip_proto_config *) this_proto)
 
 CF_DECLS
 
@@ -34,22 +34,22 @@ CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, MODE, MULTICAST, B
 
 CF_GRAMMAR
 
-CF_ADDTO(proto, rip_proto '}')
+CF_ADDTO(proto, RIP_CFG '}')
 
-rip_proto_start: proto_start RIP {
-     RIP_PROTO = proto_new(&proto_rip, sizeof(struct rip_proto));
-     rip_init_instance(RIP_PROTO);
+RIP_CFG_start: proto_start RIP {
+     RIP_CFG = proto_config_new(&proto_rip, sizeof(struct rip_proto_config));
+     rip_init_config(RIP_CFG);
    }
  ;
 
-rip_proto:
-   rip_proto_start proto_name '{'
- | rip_proto proto_item ';'
- | rip_proto INFINITY expr ';'	{ RIP_PROTO->infinity = $3; }
- | rip_proto PORT expr ';'	{ RIP_PROTO->port = $3; }
- | rip_proto PERIOD expr ';'	{ RIP_PROTO->period = $3; }
- | rip_proto GARBAGETIME expr ';' { RIP_PROTO->garbage_time = $3; }
- | rip_proto rip_iface_list ';'
+RIP_CFG:
+   RIP_CFG_start proto_name '{'
+ | RIP_CFG proto_item ';'
+ | RIP_CFG INFINITY expr ';'	{ RIP_CFG->infinity = $3; }
+ | RIP_CFG PORT expr ';'	{ RIP_CFG->port = $3; }
+ | RIP_CFG PERIOD expr ';'	{ RIP_CFG->period = $3; }
+ | RIP_CFG GARBAGETIME expr ';' { RIP_CFG->garbage_time = $3; }
+ | RIP_CFG rip_iface_list ';'
  ;
 
 
@@ -91,13 +91,13 @@ rip_dev_add_iface(char *n)
   struct rip_patt *k = cfg_alloc(sizeof(struct rip_patt));
 
   k->i.pattern = cfg_strdup(n);
-  add_tail(&RIP_PROTO->iface_list, &k->i.n);
+  add_tail(&RIP_CFG->iface_list, &k->i.n);
 }
 
 struct rip_patt *
 rip_get_iface(void)
 {
-  struct rip_patt *k = TAIL(RIP_PROTO->iface_list);
+  struct rip_patt *k = TAIL(RIP_CFG->iface_list);
   if (!k)
     cf_error( "This cannot happen" );
   return k;

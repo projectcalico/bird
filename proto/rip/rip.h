@@ -83,6 +83,7 @@ struct rip_patt {
 };
 
 struct rip_proto_config {
+  struct proto_config c;
   list iface_list;	/* Patterns configured */
 
   int infinity;		/* User configurable data */
@@ -106,4 +107,5 @@ struct rip_proto {
 #define CHK_MAGIC do { if (P->magic != RIP_MAGIC) bug( "Not enough magic\n" ); } while (0)
 
 void rip_init_instance(struct proto *p);
+void rip_init_config(struct rip_proto_config *c);
 struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags);
