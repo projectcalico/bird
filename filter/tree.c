@@ -44,7 +44,7 @@ find_nth(struct f_tree *from, int nth)
 }
 
 /*
- * Gets list linked by left, finds its median, trashes pointers in right */
+ * find_median - Gets list linked by left, finds its median, trashes pointers in right
  */
 static struct f_tree *
 find_median(struct f_tree *from)
