@@ -298,6 +298,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   n = net_get( p->table, b->network, pxlen );
   r = rte_get_temp(a);
   r->u.rip.metric = ntohl(b->metric) + rif->metric;
+  r->u.rip.entry = NULL;
   if (r->u.rip.metric > P_CF->infinity) r->u.rip.metric = P_CF->infinity;
   r->u.rip.tag = ntohl(b->tag);
   r->net = n;
@@ -438,7 +439,7 @@ static void
 rip_timer(timer *t)
 {
   struct proto *p = t->data;
-  struct rip_entry *e, *et;
+  struct fib_node *e, *et;
 
   CHK_MAGIC;
   DBG( "RIP: tick tock\n" );
@@ -456,7 +457,10 @@ rip_timer(timer *t)
 
     if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
       TRACE(D_EVENTS, "RIP: entry is too old: %I", rte->net->n.prefix );
-      e->metric = P_CF->infinity;
+      if (rte->u.rip.entry) {
+	rte->u.rip.entry->metric = P_CF->infinity;
+	rte->u.rip.metric = P_CF->infinity;
+      }
     }
 
     if (now - rte->u.rip.lastmodX > P_CF->garbage_time) {
@@ -772,6 +776,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
     e->nexthop = new->attrs->gw;
     e->metric = 0;
     e->whotoldme = IPA_NONE;
+    new->u.rip.entry = e;
 
     e->tag = ea_get_int(attrs, EA_RIP_TAG, 0);
     e->metric = ea_get_int(attrs, EA_RIP_METRIC, 1);
@@ -879,6 +884,9 @@ rip_reconfigure(struct proto *p, struct proto_config *c)
 {
   struct rip_proto_config *new = (struct rip_proto_config *) c;
   int generic = sizeof(struct proto_config) + sizeof(list) /* + sizeof(struct password_item *) */;
+
+  /* FIXME: patt_same needed */
+  return 0;
 
   if (!password_same(P_CF->passwords, 
 		     new->passwords))
