@@ -1331,8 +1331,8 @@ because there are no good implementations of OSPFv3.
 <p>In addition to options common for all to other protocols, RIP supports the following ones:
 
 <descrip>
-	<tag/authentication none|password|md5/ selects authentication method to be used. <cf/none/ means that
-	  packets are not authenticated at all, <cf/password/ means that a plaintext password is embedded
+	<tag/authentication none|plaintext|md5/ selects authentication method to be used. <cf/none/ means that
+	  packets are not authenticated at all, <cf/plaintext/ means that a plaintext password is embedded
 	  into each packet, and <cf/md5/ means that packets are authenticated using a md5 cryptographic
 	  hash. If you set authentication to not-none, it is a good idea to add <cf>passwords { }</cf>
 	  section. Default: none.
