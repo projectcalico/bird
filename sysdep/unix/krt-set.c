@@ -115,8 +115,6 @@ krt_add_route(rte *new)
 void
 krt_set_notify(struct proto *x, net *net, rte *new, rte *old)
 {
-  if (x->proto_state != PS_UP)
-    bug("FIXME: krt_set_notify called for downed protocol");
   if (old)
     krt_remove_route(old);
   if (new)

@@ -112,8 +112,11 @@ rte_announce(net *net, rte *new, rte *old)
   struct proto *p;
 
   WALK_LIST(p, proto_list)
-    if (p->rt_notify)
-      p->rt_notify(p, net, new, old);
+    {
+      ASSERT(p->core_state == FS_HAPPY);
+      if (p->rt_notify)
+	p->rt_notify(p, net, new, old);
+    }
 }
 
 void
