@@ -189,6 +189,13 @@ originate_rt_lsa(struct ospf_area *oa)
   struct top_hash_entry *en;
   void *body;
 
+  if((oa->rt)&&((oa->rt->inst_t+MINLSINTERVAL))>now) return;
+	/*
+         * Tick is probably set to very low value. We cannot
+	 * originate new LSA before MINLSINTERVAL. We will
+	 * try to do it next tick.
+         */
+
   OSPF_TRACE(D_EVENTS, "Originating RT_lsa for area \"%I\".",oa->areaid);
 
   lsa.age=0;
@@ -210,6 +217,7 @@ originate_rt_lsa(struct ospf_area *oa)
   oa->rt=en;
   flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa,1);
   schedule_rtcalc(oa);
+  oa->origrt=0;
 }
 
 void *
@@ -260,6 +268,12 @@ originate_net_lsa(struct ospf_iface *ifa)
   struct proto *p=&po->proto;
   void *body;
 
+  if(ifa->nlsa&&((ifa->nlsa->inst_t+MINLSINTERVAL)>now)) return;
+  /*
+   * It's too early to originate new network LSA. We will
+   * try to do it next tick
+   */
+
   OSPF_TRACE(D_EVENTS, "Originating Net lsa for iface \"%s\".",
     ifa->iface->name);
 
@@ -300,6 +314,7 @@ originate_net_lsa(struct ospf_iface *ifa)
   lsasum_calculate(&lsa,body,po);
   ifa->nlsa=lsa_install_new(&lsa, body, ifa->oa);
   flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,1);
+  ifa->orignet=0;
 }
 
 static void *

@@ -494,3 +494,8 @@ ospf_ifa_add(struct object_lock *lock)
   ospf_int_sm(ifa, ISM_UP);
 }
 
+void
+schedule_net_lsa(struct ospf_iface *ifa)
+{
+  ifa->orignet=1;
+}

@@ -265,7 +265,8 @@ schedule_rtcalc(struct ospf_area *oa)
  * @timer: it's called every @ospf_area->tick seconds
  *
  * It ivokes aging and when @ospf_area->origrt is set to 1, start
- * function for origination of router LSA. It also start routing
+ * function for origination of router LSA and network LSA's.
+ * It also start routing
  * table calculation when @ospf_area->calcrt is set.
  */
 void
@@ -273,13 +274,20 @@ area_disp(timer *timer)
 {
   struct ospf_area *oa=timer->data;
   struct top_hash_entry *en,*nxt;
+  struct proto_ospf *po=oa->po;
+  struct ospf_iface *ifa;
 
   /* First of all try to age LSA DB */
   ospf_age(oa);
 
   /* Now try to originage rt_lsa */
   if(oa->origrt) originate_rt_lsa(oa);
-  oa->origrt=0;
+
+  /* Now try to originate network LSA's */
+  WALK_LIST(ifa, po->iface_list)
+  {
+    if(ifa->orignet&&(ifa->an==oa->areaid)) originate_net_lsa(ifa);
+  }
 
   if(oa->calcrt) ospf_rt_spfa(oa);
   oa->calcrt=0;

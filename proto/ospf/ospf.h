@@ -136,6 +136,7 @@ struct ospf_iface {
 			 * - using 4*HELLO
 			 */
   struct top_hash_entry *nlsa;	/* Originated net lsa */
+  int orignet;		/* Schedule network LSA origination */
   int fadj;		/* Number of full adjacent neigh */
   list nbma_list;
 };
