@@ -98,7 +98,6 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
 	op->length=htons(len);
 	ospf_pkt_finalize(n->ifa, op);
 	DBG("Sending and continueing! Len=%u\n",len);
-	/*
         if(ifa->type==OSPF_IT_BCAST)
 	{
           if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
@@ -114,7 +113,6 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
 	{
           sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
 	}
-	*/
 
 	fill_ospf_pkt_hdr(n->ifa, pk, LSACK);
 	i=0;
@@ -126,7 +124,6 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   op->length=htons(len);
   ospf_pkt_finalize(n->ifa, op);
   DBG("Sending! Len=%u\n",len);
-  /*
   if(ifa->type==OSPF_IT_BCAST)
   {
     if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
@@ -142,7 +139,6 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   {
     sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
   }
-  */
 }
 
 
