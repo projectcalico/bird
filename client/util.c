@@ -16,12 +16,15 @@
 
 /* Client versions of logging functions */
 
+/* FIXME: Use bsprintf, so that %m works */
+
 void
 bug(char *msg, ...)
 {
   va_list args;
 
   va_start(args, msg);
+  cleanup();
   fputs("Internal error: ", stderr);
   vfprintf(stderr, msg, args);
   fputc('\n', stderr);
@@ -34,6 +37,7 @@ die(char *msg, ...)
   va_list args;
 
   va_start(args, msg);
+  cleanup();
   vfprintf(stderr, msg, args);
   fputc('\n', stderr);
   exit(1);

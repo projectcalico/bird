@@ -46,7 +46,10 @@ Roadmap
 
 Client
 ~~~~~~
-- write it!
+- command completion
+- online help
+- builtin command and aliases
+- access control
 
 Documentation
 ~~~~~~~~~~~~~

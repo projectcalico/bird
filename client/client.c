@@ -9,7 +9,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -17,12 +23,25 @@
 #include "lib/resource.h"
 #include "client/client.h"
 
-static char *opt_list = "";
+static char *opt_list = "s:v";
+static int verbose;
+
+static char *server_path = PATH_CONTROL_SOCKET_DIR "/bird.ctl";
+static int server_fd;
+static int server_reply;
+static byte server_read_buf[4096];
+static byte *server_read_pos = server_read_buf;
+
+static int input_initialized;
+static int input_hidden;
+static int input_hidden_end;
+
+/*** Parsing of arguments ***/
 
 static void
 usage(void)
 {
-  fprintf(stderr, "Usage: birdc\n");
+  fprintf(stderr, "Usage: birdc [-s <control-socket>] [-v]\n");
   exit(1);
 }
 
@@ -34,6 +53,12 @@ parse_args(int argc, char **argv)
   while ((c = getopt(argc, argv, opt_list)) >= 0)
     switch (c)
       {
+      case 's':
+	server_path = optarg;
+	break;
+      case 'v':
+	verbose++;
+	break;
       default:
 	usage();
       }
@@ -41,19 +66,211 @@ parse_args(int argc, char **argv)
     usage();
 }
 
-static char *
-get_command(void)
-{
-  static char *cmd_buffer;
+/*** Input ***/
 
-  if (cmd_buffer)
-    free(cmd_buffer);
-  cmd_buffer = readline("bird> ");
+static void server_send(char *);
+static void io_loop(int);
+
+static void
+got_line(char *cmd_buffer)
+{
   if (!cmd_buffer)
-    exit(0);
+    {
+      cleanup();
+      exit(0);
+    }
   if (cmd_buffer[0])
-    add_history(cmd_buffer);
-  return cmd_buffer;
+    {
+      add_history(cmd_buffer);
+      /* FIXME: Builtin commands: exit, ... */
+      server_send(cmd_buffer);
+      input_hidden = -1;
+      io_loop(0);
+      input_hidden = 0;
+    }
+  free(cmd_buffer);
+}
+
+static void
+input_init(void)
+{
+  rl_readline_name = "birdc";
+  rl_callback_handler_install("bird> ", got_line);
+  input_initialized = 1;
+  if (fcntl(0, F_SETFL, O_NONBLOCK) < 0)
+    die("fcntl: %m");
+}
+
+static void
+input_hide(void)
+{
+  if (input_hidden)
+    return;
+  if (rl_line_buffer)
+    {
+      input_hidden_end = rl_end;
+      rl_end = 0;
+      rl_expand_prompt("");
+      rl_redisplay();
+      input_hidden = 1;
+    }
+}
+
+static void
+input_reveal(void)
+{
+  if (input_hidden <= 0)
+    return;
+  rl_end = input_hidden_end;
+  rl_expand_prompt("bird> ");
+  rl_forced_update_display();
+  input_hidden = 0;
+}
+
+void
+cleanup(void)
+{
+  if (input_initialized)
+    {
+      input_initialized = 0;
+      input_hide();
+      rl_callback_handler_remove();
+    }
+}
+
+/*** Communication with server ***/
+
+static void
+server_connect(void)
+{
+  struct sockaddr_un sa;
+
+  server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (server_fd < 0)
+    die("Cannot create socket: %m");
+  bzero(&sa, sizeof(sa));
+  sa.sun_family = AF_UNIX;
+  strcpy(sa.sun_path, server_path);
+  if (connect(server_fd, (struct sockaddr *) &sa, sizeof(struct sockaddr)) < 0)
+    die("Unable to connect to server control socket (%s): %m", server_path);
+  if (fcntl(server_fd, F_SETFL, O_NONBLOCK) < 0)
+    die("fcntl: %m");
+}
+
+static void
+server_got_reply(char *x)
+{
+  int code;
+
+  input_hide();
+  if (*x == '+')			/* Async reply */
+    printf(">>> %s\n", x+1);
+  else if (x[0] == ' ')			/* Continuation */
+    printf("%s%s\n", x+1, verbose ? "     " : "");
+  else if (strlen(x) > 4 &&
+	   sscanf(x, "%d", &code) == 1 && code >= 0 && code < 10000 &&
+	   (x[4] == ' ' || x[4] == '-'))
+    {
+      if (code)
+	printf("%s\n", verbose ? x : x+5);
+      if (x[4] == ' ')
+	server_reply = code;
+    }
+  else
+    printf("??? <%s>\n", x);
+}
+
+static void
+server_read(void)
+{
+  int c;
+  byte *start, *p;
+
+  c = read(server_fd, server_read_pos, server_read_buf + sizeof(server_read_buf) - server_read_pos);
+  if (!c)
+    die("Connection closed by server.");
+  if (c < 0)
+    die("Server read error: %m");
+  start = server_read_buf;
+  p = server_read_pos;
+  server_read_pos += c;
+  while (p < server_read_pos)
+    if (*p++ == '\n')
+      {
+	p[-1] = 0;
+	server_got_reply(start);
+	start = p;
+      }
+  if (start != server_read_buf)
+    {
+      int l = server_read_pos - start;
+      memmove(server_read_buf, start, l);
+      server_read_pos = server_read_buf + l;
+    }
+  else if (server_read_pos == server_read_buf + sizeof(server_read_buf))
+    {
+      strcpy(server_read_buf, "?<too-long>");
+      server_read_pos = server_read_buf + 11;
+    }
+}
+
+static fd_set select_fds;
+
+static void
+io_loop(int mode)
+{
+  server_reply = -1;
+  while (mode || server_reply < 0)
+    {
+      FD_SET(server_fd, &select_fds);
+      if (mode)
+	FD_SET(0, &select_fds);
+      select(server_fd+1, &select_fds, NULL, NULL, NULL);
+      if (FD_ISSET(server_fd, &select_fds))
+	{
+	  server_read();
+	  if (mode)
+	    input_reveal();
+	}
+      if (FD_ISSET(0, &select_fds))
+	rl_callback_read_char();
+    }
+  input_reveal();
+}
+
+static void
+server_send(char *cmd)
+{
+  int l = strlen(cmd);
+  byte *z = alloca(l + 1);
+
+  memcpy(z, cmd, l);
+  z[l++] = '\n';
+  while (l)
+    {
+      int cnt = write(server_fd, z, l);
+      if (cnt < 0)
+	{
+	  if (errno == -EAGAIN)
+	    {
+	      fd_set set;
+	      FD_ZERO(&set);
+	      do
+		{
+		  FD_SET(server_fd, &set);
+		  select(server_fd+1, NULL, &set, NULL, NULL);
+		}
+	      while (!FD_ISSET(server_fd, &set));
+	    }
+	  else
+	    die("Server write error: %m");
+	}
+      else
+	{
+	  l -= cnt;
+	  z += cnt;
+	}
+    }
 }
 
 int
@@ -65,10 +282,11 @@ main(int argc, char **argv)
 #endif
 
   parse_args(argc, argv);
+  server_connect();
+  io_loop(0);
 
-  for(;;)
-    {
-      char *c = get_command();
-      puts(c);
-    }
+  input_init();
+
+  io_loop(1);
+  return 0;
 }
