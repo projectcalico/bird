@@ -57,7 +57,6 @@ proto_item:
  | PREFERENCE expr {
      if ($2 < 0 || $2 > 255) cf_error("Invalid preference");
      this_proto->preference = $2;
-die("pref=%d", $2);
    }
  ;
 
