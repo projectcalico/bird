@@ -35,7 +35,7 @@ struct iface {
   unsigned index;			/* OS-dependent interface index */
   list addrs;				/* Addresses assigned to this interface */
   struct ifa *addr;			/* Primary address */
-  struct neighbor *neigh;		/* List of neighbors on this interface */
+  list neighbors;			/* All neighbors on this interface */
 };
 
 #define IF_UP 1				/* IF_LINK_UP and IP address known */
@@ -94,9 +94,9 @@ struct iface *if_find_by_name(char *);
 
 typedef struct neighbor {
   node n;				/* Node in global neighbor list */
+  node if_n;				/* Node in per-interface neighbor list */
   ip_addr addr;				/* Address of the neighbor */
   struct iface *iface;			/* Interface it's connected to */
-  struct neighbor *sibling;		/* Next in per-device chain */
   struct proto *proto;			/* Protocol this belongs to */
   void *data;				/* Protocol-specific data */
   unsigned aux;				/* Protocol-specific data */

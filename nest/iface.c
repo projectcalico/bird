@@ -87,12 +87,7 @@ neigh_find(struct proto *p, ip_addr *a, unsigned flags)
   n->iface = j;
   add_tail(&neigh_list, &n->n);
   if (j)
-    {
-      n->sibling = j->neigh;
-      j->neigh = n;
-    }
-  else
-    n->sibling = NULL;
+    add_tail(&j->neighbors, &n->if_n);
   n->proto = p;
   n->data = NULL;
   n->aux = 0;
@@ -135,8 +130,7 @@ neigh_if_up(struct iface *i)
 	if_connected(&n->addr, i) > 0)
       {
 	n->iface = i;
-	n->sibling = i->neigh;
-	i->neigh = n;
+	add_tail(&i->neighbors, &n->if_n);
 	DBG("Waking up sticky neighbor %I\n", n->addr);
 	if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
 	  n->proto->neigh_notify(n);
@@ -146,12 +140,13 @@ neigh_if_up(struct iface *i)
 static void
 neigh_if_down(struct iface *i)
 {
-  neighbor *n, *m;
+  node *x, *y;
 
-  for(m=i->neigh; n = m;)
+  WALK_LIST_DELSAFE(x, y, i->neighbors)
     {
-      m = n->sibling;
+      neighbor *n = SKIP_BACK(neighbor, if_n, x);
       DBG("Flushing neighbor %I on %s\n", n->addr, i->name);
+      rem_node(&n->if_n);
       n->iface = NULL;
       if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
 	n->proto->neigh_notify(n);
@@ -161,31 +156,23 @@ neigh_if_down(struct iface *i)
 	  sl_free(neigh_slab, n);
 	}
     }
-  i->neigh = NULL;
 }
 
 void
 neigh_prune(void)
 {
-  neighbor *n, *m, **N;
-  struct iface *i;
+  neighbor *n;
+  node *m;
 
   DBG("Pruning neighbors\n");
-  WALK_LIST(i, iface_list)
-    {
-      N = &i->neigh;
-      while (n = *N)
-	{
-	  if (n->proto->core_state == FS_FLUSHING)
-	    {
-	      *N = n->sibling;
-	      rem_node(&n->n);
-	      sl_free(neigh_slab, n);
-	      continue;
-	    }
-	  N = &n->sibling;
-	}
-    }
+  WALK_LIST_DELSAFE(n, m, neigh_list)
+    if (n->proto->core_state == FS_FLUSHING)
+      {
+	rem_node(&n->n);
+	if (n->iface)
+	  rem_node(&n->if_n);
+	sl_free(neigh_slab, n);
+      }
 }
 
 /*
@@ -377,6 +364,7 @@ if_update(struct iface *new)
   i = mb_alloc(if_pool, sizeof(struct iface));
   memcpy(i, new, sizeof(*i));
   init_list(&i->addrs);
+  init_list(&i->neighbors);
 newif:
   i->flags |= IF_UPDATED | IF_TMP_DOWN;		/* Tmp down as we don't have addresses yet */
   add_tail(&iface_list, &i->n);
