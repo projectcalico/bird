@@ -184,7 +184,7 @@ ospf_rx_hook (sock * sk, int size)
       break;
     case LSREQ_P:
       DBG ("%s: Link state request received.\n", p->name);
-      ospf_lsreq_rx ((struct ospf_lsreq_packet *) ps, p, ifa, size);
+      ospf_lsreq_receive((struct ospf_lsreq_packet *) ps, ifa, size);
       break;
     case LSUPD_P:
       DBG ("%s: Link state update received.\n", p->name);

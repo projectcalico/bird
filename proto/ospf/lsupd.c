@@ -522,7 +522,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
   if(n->state==NEIGHBOR_LOADING)
   {
-    ospf_lsreq_tx(n);	/* Send me another part of database */
+    ospf_lsreq_send(n);	/* Send me another part of database */
   }
 }
 

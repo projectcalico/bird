@@ -1,7 +1,7 @@
 /*
  *      BIRD -- OSPF
  *
- *      (c) 2000 Ondrej Filip <feela@network.cz>
+ *      (c) 2000--2004 Ondrej Filip <feela@network.cz>
  *
  *      Can be freely distributed and used under the terms of the GNU GPL.
  *
@@ -10,8 +10,8 @@
 #ifndef _BIRD_OSPF_LSREQ_H_
 #define _BIRD_OSPF_LSREQ_H_
 
-void ospf_lsreq_tx(struct ospf_neighbor *n);
-void ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
-  struct ospf_iface *ifa, u16 size);
+void ospf_lsreq_send(struct ospf_neighbor *n);
+void ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
+			struct ospf_iface *ifa, u16 size);
 
 #endif /* _BIRD_OSPF_LSREQ_H_ */

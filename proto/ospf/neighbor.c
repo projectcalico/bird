@@ -579,7 +579,7 @@ rxmt_timer_hook(timer *timer)
     p->name, ifa->iface->name, n->ip);
   if (n->state < NEIGHBOR_LOADING) ospf_dbdes_tx(n);
 
-  if(n->state < NEIGHBOR_FULL) ospf_lsreq_tx(n);
+  if(n->state < NEIGHBOR_FULL) ospf_lsreq_send(n);
   else
   {
     if(!EMPTY_SLIST(n->lsrtl))
