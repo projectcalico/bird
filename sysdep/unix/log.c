@@ -1,7 +1,7 @@
 /*
  *	BIRD Library -- Logging Functions
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -12,6 +12,7 @@
 #include <sys/time.h>
 
 #include "nest/bird.h"
+#include "nest/cli.h"
 #include "lib/string.h"
 
 static int log_inited;
@@ -42,40 +43,21 @@ static char *class_names[] = {
   "FATAL"
 };
 
-/* FIXME: Use better buffering */
-
-static void
-bvfprintf(FILE *f, char *fmt, va_list args)
-{
-  char buf[4096];
-  int n;
-
-  n = bvsnprintf(buf, sizeof(buf), fmt, args);
-  if (n >= 0)
-    fwrite(buf, n, sizeof(char), f);
-  else
-    fprintf(stderr, "BIRD: warning: logging buffer overflow!\n");
-}
-
-static void
-bfprintf(FILE *f, char *fmt, ...)
-{
-  va_list args;
-
-  va_start(args, fmt);
-  bvfprintf(f, fmt, args);
-  va_end(args);
-}
-
 static void
 vlog(int class, char *msg, va_list args)
 {
+  char buf[1024];
+  char date[32];
+
+  if (bvsnprintf(buf, sizeof(buf)-1, msg, args) < 0)
+    bsprintf(buf + sizeof(buf) - 100, " ... <too long>");
+
   if (logf)
     {
       time_t now = time(NULL);
       struct tm *tm = localtime(&now);
 
-      bfprintf(logf, "%02d-%02d-%04d %02d:%02d:%02d <%s> ",
+      bsprintf(date, "%02d-%02d-%04d %02d:%02d:%02d <%s> ",
 	       tm->tm_mday,
 	       tm->tm_mon+1,
 	       tm->tm_year+1900,
@@ -83,21 +65,23 @@ vlog(int class, char *msg, va_list args)
 	       tm->tm_min,
 	       tm->tm_sec,
 	       class_names[class]);
-      bvfprintf(logf, msg, args);
+      fputs(date, logf);
+      fputs(buf, logf);
       fputc('\n', logf);
       fflush(logf);
     }
 #ifdef HAVE_SYSLOG
   else if (log_inited)
-    vsyslog(syslog_priorities[class], msg, args);
+    syslog(syslog_priorities[class], "%s", buf);
 #endif
   else
     {
       fputs("bird: ", stderr);
-      bvfprintf(stderr, msg, args);
+      fputs(buf, stderr);
       fputc('\n', stderr);
       fflush(stderr);
     }
+  cli_echo(class, buf);
 }
 
 void
@@ -137,10 +121,13 @@ void
 debug(char *msg, ...)
 {
   va_list args;
+  char buf[1024];
 
   va_start(args, msg);
+  if (bvsnprintf(buf, sizeof(buf), msg, args) < 0)
+    bsprintf(buf + sizeof(buf) - 100, " ... <too long>\n");
   if (dbgf)
-    bvfprintf(dbgf, msg, args);
+    fputs(buf, dbgf);
   va_end(args);
 }
 

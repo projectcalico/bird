@@ -14,6 +14,7 @@
 #include "nest/bird.h"
 #include "lib/resource.h"	/* For dmalloc */
 #include "client/client.h"
+#include "nest/cli.h"
 
 #include "unix.h"
 
@@ -39,6 +40,11 @@ parse_args(int argc, char **argv)
       }
   if (optind < argc)
     usage();
+}
+
+void
+cli_echo(unsigned int class, byte *buf)
+{
 }
 
 int

@@ -29,6 +29,7 @@ CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIREC
 %type <p> password_list password_begin
 %type <s> optsym
 %type <ra> r_args
+%type <i> echo_mask echo_size
 
 CF_GRAMMAR
 
@@ -253,19 +254,38 @@ r_args:
 
 CF_CLI_HELP(DEBUG, <subsystem>, [[Show debugging information]])
 CF_CLI(DEBUG RESOURCES,,, [[Show all allocated resource]])
-{ rdump(&root_pool); cli_msg(0, ""); }
+{ rdump(&root_pool); cli_msg(0, ""); } ;
 CF_CLI(DEBUG SOCKETS,,, [[Show open sockets]])
-{ sk_dump_all(); cli_msg(0, ""); }
+{ sk_dump_all(); cli_msg(0, ""); } ;
 CF_CLI(DEBUG INTERFACES,,, [[Show interface information]])
-{ if_dump_all(); cli_msg(0, ""); }
+{ if_dump_all(); cli_msg(0, ""); } ;
 CF_CLI(DEBUG NEIGHBORS,,, [[Show neighbor cache]])
-{ neigh_dump_all(); cli_msg(0, ""); }
+{ neigh_dump_all(); cli_msg(0, ""); } ;
 CF_CLI(DEBUG ATTRIBUTES,,, [[Show attribute cache]])
-{ rta_dump_all(); cli_msg(0, ""); }
+{ rta_dump_all(); cli_msg(0, ""); } ;
 CF_CLI(DEBUG ROUTES,,, [[Show routing table]])
-{ rt_dump_all(); cli_msg(0, ""); }
+{ rt_dump_all(); cli_msg(0, ""); } ;
 CF_CLI(DEBUG PROTOCOLS,,, [[Show protocol information]])
-{ protos_dump_all(); cli_msg(0, ""); }
+{ protos_dump_all(); cli_msg(0, ""); } ;
+
+CF_CLI(ECHO, echo_mask echo_size, [all | off | <mask>] [<buffer-size>], [[Configure echoing of log messages]]) {
+  cli_set_log_echo(this_cli, $2, $3);
+  cli_msg(0, "");
+} ;
+
+echo_mask:
+   ALL { $$ = ~0; }
+ | OFF { $$ = 0; }
+ | NUM
+ ;
+
+echo_size:
+   /* empty */ { $$ = 4096; }
+ | NUM {
+     if ($1 < 256 || $1 > 65536) cf_error("Invalid log buffer size");
+     $$ = $1;
+   }
+ ;
 
 CF_CODE
 
