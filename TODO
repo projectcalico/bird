@@ -5,22 +5,22 @@ Core
 * cleanup debugging calls
 * logging and tracing; use appropriate log levels
 * check log calls for trailing newlines
+* check if all protocols set proper packet priorities and TTL's.
 * replace all NUM's by expr's
 
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
+
 - config: executable config files
+- config: define ipaddr constants?
+- config: better default protocol names
 
 - fake multipath?
-- config file: define ipaddr constants?
 - counters (according to SNMP MIB?)
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
 - secondary addresses -> subinterfaces
-- check if all protocols set proper packet priorities and TTL's.
 
-- better default protocol names
 - config: comments at end of line -> explicit ';' needed?
-- command-line arguments: name of config file
 
 - static: check validity of route destination?
 - static: device routes

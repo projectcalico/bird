@@ -310,7 +310,7 @@ krt_scan_ifaces_done(struct krt_proto *x)
   SCANOPT;
   SCANSTAT;
 
-  s->accum_time += p->scan_time;
+  s->accum_time += ((struct krt_config *) x->p.cf)->ifopt.scan_time;
   if (p->scan_time && s->accum_time >= p->scan_time)
     {
       s->accum_time %= p->scan_time;
@@ -322,7 +322,7 @@ krt_scan_ifaces_done(struct krt_proto *x)
 void
 krt_scan_preconfig(struct krt_config *c)
 {
-  c->scanopt.scan_time = 1;
+  c->scanopt.scan_time = 60;
   c->scanopt.learn = 0;
 }
 
