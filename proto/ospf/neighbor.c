@@ -349,11 +349,31 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   doadj=0;
   if((ifa->drid!=ndrid) || (ifa->bdrid!=nbdrid)) doadj=1;
   ifa->drid=ndrid;
-  if((tmp=find_neigh(ifa,ndrid))==NULL) die("Error i BDR election.\n");
-  ifa->drip=tmp->ip;
-  ifa->bdrid=nbdrid;
-  if((tmp=find_neigh(ifa,nbdrid))==NULL) die("Error i BDR election.\n");
-  ifa->bdrip=tmp->ip;
+  if(ndrid==0)
+  {
+    ifa->drid=0;
+    ifa->drip=ipa_from_u32(0);
+  }
+  else
+  {
+    if((tmp=find_neigh(ifa,ndrid))==NULL)
+      die("Error in DR election.\n");
+    ifa->drid=ndrid;
+    ifa->drip=tmp->ip;
+  }
+
+  if(nbdrid==0)
+  {
+    ifa->bdrid=0;
+    ifa->bdrip=ipa_from_u32(0);
+  }
+  else
+  {
+    if((tmp=find_neigh(ifa,nbdrid))==NULL)
+      die("Error in BDR election.\n");
+    ifa->bdrid=nbdrid;
+    ifa->bdrip=tmp->ip;
+  }
 
   DBG("%s: DR=%I, BDR=%I\n",p->name, ifa->drid, ifa->bdrid);
 
