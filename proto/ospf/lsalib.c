@@ -36,6 +36,7 @@ ospf_age(struct ospf_area *oa)
        en->lsa.sn++;
        en->lsa.age=0;
        flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
+       lsasum_calculate(&en->lsa,en->lsa_body,po);
        return;
     }
     if((en->lsa.age+=delta)>LSA_MAXAGE)
