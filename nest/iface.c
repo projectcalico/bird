@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/iface.h"
@@ -99,15 +99,44 @@ if_copy(struct iface *to, struct iface *from)
   to->mtu = from->mtu;
 }
 
+static inline void
+ifa_send_notify(struct proto *p, unsigned c, struct ifa *a)
+{
+  if (p->ifa_notify)
+    {
+      if (p->debug & D_IFACES)
+	log(L_TRACE "%s < %s address %I/%d on interface %s %s",
+	    p->name, (a->flags & IA_PRIMARY) ? "primary" : "secondary",
+	    a->prefix, a->pxlen, a->iface->name,
+	    (c & IF_CHANGE_UP) ? "added" : "removed");
+      p->ifa_notify(p, c, a);
+    }
+}
+
 static void
 ifa_notify_change(unsigned c, struct ifa *a)
 {
   struct proto *p;
 
-  debug("IFA change notification (%x) for %s:%I\n", c, a->iface->name, a->ip);
+  DBG("IFA change notification (%x) for %s:%I\n", c, a->iface->name, a->ip);
   WALK_LIST(p, active_proto_list)
-    if (p->ifa_notify)
-      p->ifa_notify(p, c, a);
+    ifa_send_notify(p, c, a);
+}
+
+static inline void
+if_send_notify(struct proto *p, unsigned c, struct iface *i)
+{
+  if (p->if_notify)
+    {
+      if (p->debug & D_IFACES)
+	log(L_TRACE "%s < interface %s %s", p->name, i->name,
+	    (c & IF_CHANGE_UP) ? "goes up" :
+	    (c & IF_CHANGE_DOWN) ? "goes down" :
+	    (c & IF_CHANGE_MTU) ? "changes MTU" :
+	    (c & IF_CHANGE_CREATE) ? "created" :
+	    "sends unknown event");
+      p->if_notify(p, c, i);
+    }
 }
 
 static void
@@ -122,7 +151,7 @@ if_notify_change(unsigned c, struct iface *i)
       c |= IF_CHANGE_CREATE | IF_CHANGE_MTU;
     }
 
-  debug("Interface change notification (%x) for %s\n", c, i->name);
+  DBG("Interface change notification (%x) for %s\n", c, i->name);
   if_dump(i);
 
   if (c & IF_CHANGE_UP)
@@ -135,8 +164,7 @@ if_notify_change(unsigned c, struct iface *i)
       }
 
   WALK_LIST(p, active_proto_list)
-    if (p->if_notify)
-      p->if_notify(p, c, i);
+    if_send_notify(p, c, i);
 
   if (c & IF_CHANGE_UP)
     WALK_LIST(a, i->addrs)
@@ -261,16 +289,15 @@ if_feed_baby(struct proto *p)
   struct iface *i;
   struct ifa *a;
 
-  if (!p->if_notify && !p->ifa_notify)
+  if (!p->if_notify && !p->ifa_notify)	/* shortcut */
     return;
-  debug("Announcing interfaces to new protocol %s\n", p->name);
+  DBG("Announcing interfaces to new protocol %s\n", p->name);
   WALK_LIST(i, iface_list)
     {
-      if (p->if_notify)
-	p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), i);
-      if (p->ifa_notify && (i->flags & IF_UP))
+      if_send_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), i);
+      if (i->flags & IF_UP)
 	WALK_LIST(a, i->addrs)
-	  p->ifa_notify(p, IF_CHANGE_CREATE | IF_CHANGE_UP, a);
+	  ifa_send_notify(p, IF_CHANGE_CREATE | IF_CHANGE_UP, a);
     }
 }
 
@@ -399,7 +426,7 @@ auto_router_id(void)
       j = i;
   if (!j)
     die("Cannot determine router ID (no suitable network interface found), please configure it manually");
-  debug("Guessed router ID %I (%s)\n", j->addr->ip, j->name);
+  log(L_INFO, "Guessed router ID %I according to interface %s", j->addr->ip, j->name);
   config->router_id = ipa_to_u32(j->addr->ip);
 #endif
 }

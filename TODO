@@ -1,6 +1,5 @@
 Core
 ~~~~
-- debug: interfaces
 - debug: static
 - debug: pipe
 - debug: krt

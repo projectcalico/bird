@@ -240,9 +240,10 @@ void proto_notify_state(struct proto *p, unsigned state);
 
 #define D_STATES 1		/* [core] State transitions */
 #define D_ROUTES 2		/* [core] Routes passed by the filters */
-#define D_FILTERS 4		/* [core] Filtering of routes */
-#define D_EVENTS 8		/* Protocol events */
-#define D_PACKETS 16		/* Packets sent/received */
+#define D_FILTERS 4		/* [core] Routes rejected by the filters */
+#define D_IFACES 8		/* [core] Interface events */
+#define D_EVENTS 16		/* Protocol events */
+#define D_PACKETS 32		/* Packets sent/received */
 
 /*
  *	Known unique protocol instances as referenced by config routines
