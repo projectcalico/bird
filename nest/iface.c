@@ -133,7 +133,7 @@ neigh_if_up(struct iface *i)
 	n->sibling = i->neigh;
 	i->neigh = n;
 	DBG("Waking up sticky neighbor %I\n", n->addr);
-	if (n->proto->neigh_notify)
+	if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
 	  n->proto->neigh_notify(n);
       }
 }
@@ -148,7 +148,7 @@ neigh_if_down(struct iface *i)
       m = n->sibling;
       DBG("Flushing neighbor %I on %s\n", n->addr, n->iface->name);
       n->iface = NULL;
-      if (n->proto->neigh_notify)
+      if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
 	n->proto->neigh_notify(n);
       if (!(n->flags & NEF_STICKY))
 	{
@@ -171,7 +171,7 @@ neigh_prune(void)
       N = &i->neigh;
       while (n = *N)
 	{
-	  if (n->proto->core_state == FS_HUNGRY || n->proto->core_state == FS_FLUSHING)
+	  if (n->proto->core_state == FS_FLUSHING)
 	    {
 	      *N = n->sibling;
 	      rem_node(&n->n);
