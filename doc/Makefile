@@ -1,10 +1,21 @@
 root-rel=../
 dir-name=doc
 
+ifneq ($(wildcard ../Rules),)
 include ../Rules
+else
+srcdir=$(shell cd $(root-rel) ; pwd)
+srcdir_abs=$(srcdir)
+endif
 
-progdocs:
-	mkdir -p prog
+# Force rebuilds
+.PHONY: prog.sgml bird.sgml
+
+docs: progdocs userdocs
+
+progdocs: prog.html
+
+prog.sgml:
 	$(srcdir)/tools/progdoc $(srcdir_abs)
 
 %.html: %.sgml
@@ -13,16 +24,17 @@ progdocs:
 %.info: %.sgml
 	sgml2info $<
 
-%.txt: %.sgml
-	sgml2txt $<
-
 %.dvi: %.sgml
 	./sgml2latex $<
 
 %.tex: %.sgml
 	./sgml2latex --output=tex $<
 
-userdocs: bird.html bird.dvi
+%.txt: %.sgml
+	./sgml2txt $<
+
+userdocs: bird.html bird.dvi bird.txt
 
 clean:
-	rm *.html *.tex *.dvi *.log
+	rm -f *.html *.tex *.dvi *.log *.ps *.txt
+	rm -f prog.sgml
