@@ -64,13 +64,13 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
 	  ifa->dr_sk=NULL;
 	}
       }
-      if(oldstate==OSPF_IS_DR)
+      if((oldstate==OSPF_IS_DR)&&(ifa->nlsa!=NULL))
       {
+	ifa->nlsa->lsa.age=LSA_MAXAGE;
         if(state>=OSPF_IS_WAITING)
 	{
 	  net_flush_lsa(ifa->nlsa,po,ifa->oa);
 	}
-	ifa->nlsa->lsa.age=LSA_MAXAGE;
         if(can_flush_lsa(ifa->oa)) flush_lsa(ifa->nlsa,ifa->oa);
         ifa->nlsa=NULL;
       }
@@ -250,25 +250,10 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
   return(ipsk);
 }
 
-/* 
- * This will later decide, wheter use iface for OSPF or not
- * depending on config
- */
-u8
-is_good_iface(struct proto *p, struct iface *iface)
-{
-  if(iface->flags & IF_UP)
-  {
-    if(!(iface->flags & IF_IGNORE)) return 1;
-  }
-  return 0;
-}
-
 /* Of course, it's NOT true now */
 u8
 ospf_iface_clasify(struct iface *ifa, struct proto *p)
 {
-  /* FIXME: Latter I'll use config - this is incorrect */
   DBG("%s: Iface flags=%x.\n", p->name, ifa->flags);
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
     (IF_MULTIACCESS|IF_MULTICAST))
@@ -284,55 +269,6 @@ ospf_iface_clasify(struct iface *ifa, struct proto *p)
   }
   DBG("%s: Clasifying P-T-P.\n", p->name);
   return OSPF_IT_PTP;
-}
-
-void
-ospf_add_timers(struct ospf_iface *ifa, pool *pool)
-{
-  struct proto *p;
-
-  p=(struct proto *)(ifa->proto);
-  /* Add hello timer */
-  ifa->hello_timer=tm_new(pool);
-  ifa->hello_timer->data=ifa;
-  ifa->hello_timer->randomize=0;
-  if(ifa->helloint==0) ifa->helloint=HELLOINT_D;
-  ifa->hello_timer->hook=hello_timer_hook;
-  ifa->hello_timer->recurrent=ifa->helloint;
-  DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
-
-  ifa->wait_timer=tm_new(pool);
-  ifa->wait_timer->data=ifa;
-  ifa->wait_timer->randomize=0;
-  ifa->wait_timer->hook=wait_timer_hook;
-  ifa->wait_timer->recurrent=0;
-  if(ifa->waitint==0) ifa->waitint= WAIT_DMH*ifa->helloint;
-  DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
-
-  if(ifa->rxmtint==0) ifa->rxmtint=RXMTINT_D;
-}
-
-void
-ospf_iface_default(struct ospf_iface *ifa)
-{
-  u8 i;
-
-  ifa->oa=NULL;
-  ifa->an=0;		/* FIXME This should respect config */
-  ifa->cost=COST_D;
-  ifa->rxmtint=RXMTINT_D;
-  ifa->inftransdelay=INFTRANSDELAY_D;
-  ifa->priority=PRIORITY_D;
-  ifa->helloint=HELLOINT_D;
-  ifa->deadc=DEADC_D;
-  ifa->autype=0;
-  for(i=0;i<8;i++) ifa->aukey[i]=0;
-  ifa->options=2;
-  ifa->drip=ipa_from_u32(0x00000000);
-  ifa->drid=0;
-  ifa->bdrip=ipa_from_u32(0x00000000);
-  ifa->bdrid=0;
-  ifa->type=ospf_iface_clasify(ifa->iface, (struct proto *)ifa->proto);
 }
 
 struct ospf_iface*
@@ -351,54 +287,87 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 {
   struct ospf_iface *ifa;
   sock *mcsk;
-
-  struct ospf_config *c;
-  c=(struct ospf_config *)(p->cf);
+  struct ospf_config *c=(struct ospf_config *)(p->cf);
+  struct ospf_area_config *ac;
+  struct ospf_iface_patt *ip=NULL;
+  u8 i;
 
   DBG("%s: If notify called\n", p->name);
   if (iface->flags & IF_IGNORE)
     return;
 
-  if((flags & IF_CHANGE_UP) && is_good_iface(p, iface))
+  if(flags & IF_CHANGE_UP)
   {
     debug("%s: using interface %s.\n", p->name, iface->name);
-    /* FIXME: Latter I'll use config - this is incorrect */
-    ifa=mb_allocz(p->pool, sizeof(struct ospf_iface));
-    ifa->proto=(struct proto_ospf *)p;
-    ifa->iface=iface;
-    ospf_iface_default(ifa);
-    if(ifa->type!=OSPF_IT_NBMA)
+    WALK_LIST(ac, c->area_list)
     {
-      if((ifa->hello_sk=ospf_open_mc_socket(ifa))==NULL)
-      {
-        log("%s: Huh? could not open mc socket on interface %s?", p->name,
-          iface->name);
-	mb_free(ifa);
-	log("%s: Ignoring this interface.", p->name);
-	return;
-      }
-      ifa->dr_sk=NULL;
-
-      if((ifa->ip_sk=ospf_open_ip_socket(ifa))==NULL)
-      {
-        log("%s: Huh? could not open ip socket on interface %s?", p->name,
-          iface->name);
-	mb_free(ifa);
-	log("%s: Ignoring this interface", p->name);
-	return;
-      }
-
-      init_list(&(ifa->neigh_list));
+      if(ip=(struct ospf_iface_patt *)
+        iface_patt_match(&ac->patt_list, iface)) break;
     }
-    /* FIXME: This should read config */
-    ifa->helloint=0;
-    ifa->waitint=0;
-    ospf_add_timers(ifa,p->pool);
-    add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
-    ifa->state=OSPF_IS_DOWN;
-    ifa->nlsa=NULL;
-    ifa->fadj=0;
-    ospf_int_sm(ifa, ISM_UP);
+
+    if(ip)
+    {
+      ifa=mb_allocz(p->pool, sizeof(struct ospf_iface));
+      ifa->proto=(struct proto_ospf *)p;
+      ifa->iface=iface;
+
+      ifa->an=ac->areaid;		/* FIXME This should respect config */
+      ifa->cost=ip->cost;
+      ifa->rxmtint=ip->rxmtint;
+      ifa->inftransdelay=ip->inftransdelay;
+      ifa->priority=ip->priority;
+      ifa->helloint=ip->helloint;
+      ifa->waitint=ip->waitint;
+      ifa->deadc=ip->deadc;
+      ifa->autype=0;	/* FIXME add authentification */
+      for(i=0;i<8;i++) ifa->aukey[i]=0;
+      ifa->options=2;	/* FIXME what options? */
+
+      if(ip->type=OSPF_IT_UNDEF)
+        ifa->type=ospf_iface_clasify(ifa->iface, (struct proto *)ifa->proto);
+      else ifa->type=ip->type;
+
+      if(ifa->type!=OSPF_IT_NBMA)
+      {
+        if((ifa->hello_sk=ospf_open_mc_socket(ifa))==NULL)
+        {
+          log("%s: Huh? could not open mc socket on interface %s?", p->name,
+            iface->name);
+              mb_free(ifa);
+              log("%s: Ignoring this interface.", p->name);
+              return;
+        }
+        ifa->dr_sk=NULL;
+ 
+        if((ifa->ip_sk=ospf_open_ip_socket(ifa))==NULL)
+        {
+          log("%s: Huh? could not open ip socket on interface %s?", p->name,
+            iface->name);
+              mb_free(ifa);
+              log("%s: Ignoring this interface", p->name);
+              return;
+        }
+ 
+        init_list(&(ifa->neigh_list));
+      }
+      /* Add hello timer */
+      ifa->hello_timer=tm_new(p->pool);
+      ifa->hello_timer->data=ifa;
+      ifa->hello_timer->randomize=0;
+      ifa->hello_timer->hook=hello_timer_hook;
+      ifa->hello_timer->recurrent=ifa->helloint;
+      DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
+  
+      ifa->wait_timer=tm_new(p->pool);
+      ifa->wait_timer->data=ifa;
+      ifa->wait_timer->randomize=0;
+      ifa->wait_timer->hook=wait_timer_hook;
+      ifa->wait_timer->recurrent=0;
+      DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
+      add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
+      ifa->state=OSPF_IS_DOWN;
+      ospf_int_sm(ifa, ISM_UP);
+    }
   }
 
   if(flags & IF_CHANGE_DOWN)

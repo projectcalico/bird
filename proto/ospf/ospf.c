@@ -75,14 +75,6 @@ ospf_init(struct proto_config *c)
   p->rte_same = ospf_rte_same;
 
   po->rfc1583=oc->rfc1583;
-  WALK_LIST(ac, oc->area_list)
-  {
-    debug("OSPF: area: %I, stub=%u tick=%u\n", ac->areaid, ac->stub, ac->tick);
-    WALK_LIST(patt, ac->patt_list)
-      debug("Patt cost=%d hello=%d ret=%d\n",patt->cost, patt->helloint,
-        patt->rxmtint);
-  }
-
   return p;
 }
 
@@ -425,10 +417,12 @@ ospf_sh(struct proto *p)
         if(n->state==NEIGHBOR_FULL) adjno++;
       }
     }
-    cli_msg(-1014,"\t\tNumber of interfaces: %u", ifano);
-    cli_msg(-1014,"\t\tNumber of LSAs: %u", oa->gr->hash_entries);
-    cli_msg(-1014,"\t\tNumber of neighbors: %u", nno);
-    cli_msg(-1014,"\t\tNumber of fully adjacent neighbors: %u", adjno);
+    cli_msg(-1014,"\t\tStub:\t%s", oa->stub ? "Yes" : "No");
+    cli_msg(-1014,"\t\tRT scheduler tick:\t%u", oa->tick);
+    cli_msg(-1014,"\t\tNumber of interfaces:\t%u", ifano);
+    cli_msg(-1014,"\t\tNumber of LSAs in DB:\t%u", oa->gr->hash_entries);
+    cli_msg(-1014,"\t\tNumber of neighbors:\t%u", nno);
+    cli_msg(-1014,"\t\tNumber of adjacent neighbors:\t%u", adjno);
   }
   cli_msg(0,"");
 }

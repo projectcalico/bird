@@ -51,97 +51,96 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
 
   WALK_LIST (ifa, p->iface_list)
   {
-    if((ifa->an==oa->areaid) && (ifa->state!=OSPF_IS_DOWN))
+    if((ifa->an!=oa->areaid) || (ifa->state==OSPF_IS_DOWN)) continue;
+
+    if(ifa->state==OSPF_IS_LOOP)
     {
-      if(ifa->state==OSPF_IS_LOOP)
+      ln->type=3;
+      ln->id=ipa_to_u32(ifa->iface->addr->ip);
+      ln->data=0xffffffff;
+      ln->metric=0;
+      ln->notos=0;
+    }
+    else
+    {
+      switch(ifa->type)
       {
-        ln->type=3;
-	ln->id=ipa_to_u32(ifa->iface->addr->ip);
-	ln->data=0xffffffff;
-	ln->metric=0;
-	ln->notos=0;
-      }
-      else
-      {
-        switch(ifa->type)
-	{
-          case OSPF_IT_PTP:		/* rfc2328 - pg126 */
-            neigh=(struct ospf_neighbor *)HEAD(ifa->neigh_list);
-	    if((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state==NEIGHBOR_FULL))
-	    {
-               ln->type=LSART_PTP;
-               ln->id=neigh->rid;
-               ln->metric=ifa->cost;
-               ln->notos=0;
-               if(ifa->iface->flags && IA_UNNUMBERED)
-               {
-                 ln->data=ifa->iface->index;
-               }
-               else
-               {
-                 ln->id=ipa_to_u32(ifa->iface->addr->ip);
-               }
-	    }
-	    else
-	    {
-	      if(ifa->state==OSPF_IS_PTP)
-              {
-		ln->type=LSART_STUB;
-		ln->id=ln->id=ipa_to_u32(ifa->iface->addr->opposite);
-		ln->metric=ifa->cost;
-		ln->notos=0;
-		ln->data=0xffffffff;
-              }
-              else
-              {
-		i--; /* No link added */
-              }
-	    }
-            break;
-	  case OSPF_IT_BCAST:
-	  case OSPF_IT_NBMA:
-            if(ifa->state==OSPF_IS_WAITING)
+        case OSPF_IT_PTP:		/* rfc2328 - pg126 */
+          neigh=(struct ospf_neighbor *)HEAD(ifa->neigh_list);
+          if((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state==NEIGHBOR_FULL))
+          {
+             ln->type=LSART_PTP;
+             ln->id=neigh->rid;
+             ln->metric=ifa->cost;
+             ln->notos=0;
+             if(ifa->iface->flags && IA_UNNUMBERED)
+             {
+               ln->data=ifa->iface->index;
+             }
+             else
+             {
+               ln->id=ipa_to_u32(ifa->iface->addr->ip);
+             }
+          }
+          else
+          {
+            if(ifa->state==OSPF_IS_PTP)
             {
               ln->type=LSART_STUB;
-	      ln->id=ipa_to_u32(ifa->iface->addr->prefix);
-	      ln->data=ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
+              ln->id=ln->id=ipa_to_u32(ifa->iface->addr->opposite);
+              ln->metric=ifa->cost;
+              ln->notos=0;
+              ln->data=0xffffffff;
+            }
+            else
+            {
+              i--; /* No link added */
+            }
+          }
+          break;
+        case OSPF_IT_BCAST:
+        case OSPF_IT_NBMA:
+          if(ifa->state==OSPF_IS_WAITING)
+          {
+            ln->type=LSART_STUB;
+            ln->id=ipa_to_u32(ifa->iface->addr->prefix);
+            ln->data=ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
+            ln->metric=ifa->cost;
+            ln->notos=0;
+          }
+          else
+          {
+            j=0,k=0;
+            WALK_LIST(neigh, ifa->neigh_list)
+            {
+              if((neigh->rid==ifa->drid) &&
+                (neigh->state==NEIGHBOR_FULL)) k=1;
+              if(neigh->state==NEIGHBOR_FULL) j=1;
+            }
+            if(((ifa->state==OSPF_IS_DR) && (j==1)) || (k==1))
+            {
+              ln->type=LSART_NET;
+              ln->id=ipa_to_u32(ifa->drip);
+              ln->data=ipa_to_u32(ifa->iface->addr->ip);
               ln->metric=ifa->cost;
               ln->notos=0;
             }
-	    else
+            else
             {
-              j=0,k=0;
-              WALK_LIST(neigh, ifa->neigh_list)
-	      {
-	        if((neigh->rid==ifa->drid) &&
-	          (neigh->state==NEIGHBOR_FULL)) k=1;
-		if(neigh->state==NEIGHBOR_FULL) j=1;
-	      }
-              if(((ifa->state==OSPF_IS_DR) && (j==1)) || (k==1))
-	      {
-	        ln->type=LSART_NET;
-		ln->id=ipa_to_u32(ifa->drip);
-		ln->data=ipa_to_u32(ifa->iface->addr->ip);
-		ln->metric=ifa->cost;
-		ln->notos=0;
-	      }
-	      else
-	      {
-                ln->type=LSART_STUB;
-  	        ln->id=ipa_to_u32(ifa->iface->addr->prefix);
-	        ln->data=ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
-                ln->metric=ifa->cost;
-                ln->notos=0;
-	      }
+              ln->type=LSART_STUB;
+              ln->id=ipa_to_u32(ifa->iface->addr->prefix);
+              ln->data=ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
+              ln->metric=ifa->cost;
+              ln->notos=0;
             }
-	    break;
-	  case OSPF_IT_VLINK:	/* FIXME Add virtual links! */
-	    i--;
-	    break;
-	}
+          }
+          break;
+        case OSPF_IT_VLINK:	/* FIXME Add virtual links! */
+          i--;
+          break;
       }
-      if(ifa->type==OSPF_IT_VLINK) v=1;
     }
+    if(ifa->type==OSPF_IT_VLINK) v=1;
     ln=(ln+1);
   }
   rt->links=i;
@@ -155,11 +154,13 @@ addifa_rtlsa(struct ospf_iface *ifa)
 {
   struct ospf_area *oa;
   struct proto_ospf *po=ifa->proto;
+  struct proto *p=&po->proto;
   u32 rtid;
   struct top_graph_rtlsa_link *li, *lih;
+  struct ospf_config *c=(struct ospf_config *)(p->cf);
+  struct ospf_area_config *ac=NULL,*a;
 
   rtid=po->proto.cf->global->router_id;
-  DBG("%s: New OSPF area \"%d\" adding.\n", po->proto.name, ifa->an);
   oa=NULL;
 
 
@@ -171,29 +172,46 @@ addifa_rtlsa(struct ospf_iface *ifa)
   if(EMPTY_LIST(po->area_list) || (oa->areaid!=ifa->an))	/* New area */
   {
     struct ospf_lsa_header *lsa;
+    DBG("%s: New OSPF area \"%d\" adding.\n", po->proto.name, ifa->an);
+    WALK_LIST(a,c->area_list)
+    {
+      if(a->areaid==ifa->an)
+      {
+        ac=a;
+	break;
+      }
+    }
 
-    oa=mb_allocz(po->proto.pool, sizeof(struct ospf_area));
-    add_tail(&po->area_list,NODE oa);
-    oa->areaid=ifa->an;
-    oa->gr=ospf_top_new(po);
-    s_init_list(&(oa->lsal));
-    oa->rt=NULL;
-    oa->po=po;
-    oa->disp_timer=tm_new(po->proto.pool);
-    oa->disp_timer->data=oa;
-    oa->disp_timer->randomize=0;
-    oa->disp_timer->hook=area_disp;
-    oa->disp_timer->recurrent=DISPTICK;
-    oa->lage=now;
-    tm_start(oa->disp_timer,DISPTICK);
-    oa->calcrt=1;
-    oa->origrt=0;
-    fib_init(&oa->infib,po->proto.pool,sizeof(struct infib),16,init_infib);
-    	/* FIXME 16?? (Oh, sweet 16.... :-) */
-    po->areano++;
-    DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
-    ifa->oa=oa;
-    schedule_rt_lsa(oa);
+    if(ac)
+    {
+      oa=mb_allocz(po->proto.pool, sizeof(struct ospf_area));
+      add_tail(&po->area_list,NODE oa);
+      oa->areaid=ifa->an;
+      oa->stub=ac->stub;
+      oa->tick=ac->tick;
+      oa->gr=ospf_top_new(po);
+      s_init_list(&(oa->lsal));
+      oa->rt=NULL;
+      oa->po=po;
+      oa->disp_timer=tm_new(po->proto.pool);
+      oa->disp_timer->data=oa;
+      oa->disp_timer->randomize=0;
+      oa->disp_timer->hook=area_disp;
+      oa->disp_timer->recurrent=oa->tick;
+      oa->lage=now;
+      tm_start(oa->disp_timer,oa->tick);
+      oa->calcrt=1;
+      oa->origrt=0;
+      fib_init(&oa->infib,po->proto.pool,sizeof(struct infib),16,init_infib);
+      po->areano++;
+      DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
+      ifa->oa=oa;
+      schedule_rt_lsa(oa);
+    }
+    else
+    {
+      bug("I didn't find area for interface.\n");
+    }
   }
   else ifa->oa=oa;
 }

@@ -114,7 +114,6 @@ struct ospf_iface {
 			 */
   struct top_hash_entry *nlsa;	/* Originated net lsa */
   int fadj;		/* Number of full adjacent neigh */
-  unsigned tick;
 };
 
 struct ospf_packet {
@@ -348,6 +347,7 @@ struct ospf_area {
   int trcap;			/* Transit capability? */
   struct proto_ospf *po;
   struct fib infib;		/* FIB for intra-area routes */
+  unsigned tick;
 };
 
 struct proto_ospf {
