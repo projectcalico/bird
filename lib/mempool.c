@@ -12,32 +12,32 @@
 #include "nest/bird.h"
 #include "lib/resource.h"
 
-struct mp_chunk {
-  struct mp_chunk *next;
+struct lp_chunk {
+  struct lp_chunk *next;
   byte data[0];
 };
 
-struct mempool {
+struct linpool {
   resource r;
   byte *ptr, *end;
-  struct mp_chunk *first, **plast;
+  struct lp_chunk *first, **plast;
   unsigned chunk_size, threshold, total;
 };
 
-void mp_free(resource *);
-void mp_dump(resource *);
+void lp_free(resource *);
+void lp_dump(resource *);
 
-static struct resclass mp_class = {
-  "MemPool",
-  sizeof(struct mempool),
-  mp_free,
-  mp_dump
+static struct resclass lp_class = {
+  "LinPool",
+  sizeof(struct linpool),
+  lp_free,
+  lp_dump
 };
 
-mempool
-*mp_new(pool *p, unsigned blk)
+linpool
+*lp_new(pool *p, unsigned blk)
 {
-  mempool *m = ralloc(p, &mp_class);
+  linpool *m = ralloc(p, &lp_class);
   m->ptr = m->end = NULL;
   m->first = NULL;
   m->plast = &m->first;
@@ -48,7 +48,7 @@ mempool
 }
 
 void *
-mp_alloc(mempool *m, unsigned size)
+lp_alloc(linpool *m, unsigned size)
 {
   byte *a = (byte *) ALIGN((unsigned long) m->ptr, CPU_STRUCT_ALIGN);
   byte *e = a + size;
@@ -60,15 +60,15 @@ mp_alloc(mempool *m, unsigned size)
     }
   else
     {
-      struct mp_chunk *c;
+      struct lp_chunk *c;
       if (size >= m->threshold)
 	{
-	  c = xmalloc(sizeof(struct mp_chunk) + size);
+	  c = xmalloc(sizeof(struct lp_chunk) + size);
 	  m->total += size;
 	}
       else
 	{
-	  c = xmalloc(sizeof(struct mp_chunk) + m->chunk_size);
+	  c = xmalloc(sizeof(struct lp_chunk) + m->chunk_size);
 	  m->ptr = c->data + size;
 	  m->end = c->data + m->chunk_size;
 	  m->total += m->chunk_size;
@@ -81,7 +81,7 @@ mp_alloc(mempool *m, unsigned size)
 }
 
 void *
-mp_allocu(mempool *m, unsigned size)
+lp_allocu(linpool *m, unsigned size)
 {
   byte *a = m->ptr;
   byte *e = a + size;
@@ -91,23 +91,23 @@ mp_allocu(mempool *m, unsigned size)
       m->ptr = e;
       return a;
     }
-  return mp_alloc(m, size);
+  return lp_alloc(m, size);
 }
 
 void *
-mp_allocz(mempool *m, unsigned size)
+lp_allocz(linpool *m, unsigned size)
 {
-  void *z = mp_alloc(m, size);
+  void *z = lp_alloc(m, size);
 
   bzero(z, size);
   return z;
 }
 
 void
-mp_free(resource *r)
+lp_free(resource *r)
 {
-  mempool *m = (mempool *) r;
-  struct mp_chunk *c, *d;
+  linpool *m = (linpool *) r;
+  struct lp_chunk *c, *d;
 
   for(d=m->first; d; d = c)
     {
@@ -117,10 +117,10 @@ mp_free(resource *r)
 }
 
 void
-mp_dump(resource *r)
+lp_dump(resource *r)
 {
-  mempool *m = (mempool *) r;
-  struct mp_chunk *c;
+  linpool *m = (linpool *) r;
+  struct lp_chunk *c;
   int cnt;
 
   for(cnt=0, c=m->first; c; c=c->next, cnt++)

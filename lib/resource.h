@@ -47,12 +47,12 @@ void mb_free(void *);
 
 /* Memory pools with linear allocation */
 
-typedef struct mempool mempool;
+typedef struct linpool linpool;
 
-mempool *mp_new(pool *, unsigned blk);
-void *mp_alloc(mempool *, unsigned size);	/* Aligned */
-void *mp_allocu(mempool *, unsigned size);	/* Unaligned */
-void *mp_allocz(mempool *, unsigned size);	/* With clear */
+linpool *lp_new(pool *, unsigned blk);
+void *lp_alloc(linpool *, unsigned size);	/* Aligned */
+void *lp_allocu(linpool *, unsigned size);	/* Unaligned */
+void *lp_allocz(linpool *, unsigned size);	/* With clear */
 
 /* Slabs */
 

@@ -14,12 +14,12 @@
 /* Pools */
 
 extern pool *cfg_pool;
-extern mempool *cfg_mem;
+extern linpool *cfg_mem;
 
-#define cfg_alloc(size) mp_alloc(cfg_mem, size)
-#define cfg_allocu(size) mp_allocu(cfg_mem, size)
-#define cfg_allocz(size) mp_allocz(cfg_mem, size)
-char *cfg_strcpy(char *c);
+#define cfg_alloc(size) lp_alloc(cfg_mem, size)
+#define cfg_allocu(size) lp_allocu(cfg_mem, size)
+#define cfg_allocz(size) lp_allocz(cfg_mem, size)
+char *cfg_strdup(char *c);
 
 /* Lexer */
 

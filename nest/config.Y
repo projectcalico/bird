@@ -101,7 +101,7 @@ rt_dev_add_iface(char *n)
   struct rt_dev_proto *p = (void *) this_proto;
   struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
 
-  k->pattern = cfg_strcpy(n);
+  k->pattern = cfg_strdup(n);
   add_tail(&p->iface_list, &k->n);
 }
 

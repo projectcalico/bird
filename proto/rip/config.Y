@@ -64,7 +64,7 @@ rip_dev_add_iface(char *n)
 {
   struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
 
-  k->pattern = cfg_strcpy(n);
+  k->pattern = cfg_strdup(n);
   add_tail(&THIS_PROTO->iface_list, &k->n);
 }
 

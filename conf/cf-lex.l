@@ -38,7 +38,7 @@ static int cf_hash(byte *c);
 static struct symbol *cf_find_sym(byte *c, unsigned int h0);
 
 pool *cfg_pool;
-mempool *cfg_mem;
+linpool *cfg_mem;
 
 int (*cf_read_hook)(byte *buf, unsigned int max);
 
@@ -232,11 +232,11 @@ cf_allocate(void)
   if (cfg_pool)
     rfree(cfg_pool);
   cfg_pool = rp_new(&root_pool, "Config");
-  cfg_mem = mp_new(cfg_pool, 1024);
+  cfg_mem = lp_new(cfg_pool, 1024);
 }
 
 char *
-cfg_strcpy(char *c)
+cfg_strdup(char *c)
 {
   int l = strlen(c) + 1;
   char *z = cfg_allocu(l);
