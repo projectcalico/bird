@@ -3,10 +3,12 @@
  *
  *	Copyright (c) 1999 Pavel Machek <pavel@ucw.cz>
  *
+ *	Bug fixes by Eric Leblond <eleblond@init-sys.com>, April 2003
+ * 
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/iface.h"
@@ -33,7 +35,7 @@ int
 rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num, ip_addr whotoldme )
 {
   DBG( "Incoming authentication: " );
-  switch (block->authtype) {	/* Authentication type */
+  switch (ntohs(block->authtype)) {	/* Authentication type */
   case AT_PLAINTEXT: 
     {
       struct password_item *passwd = get_best_password( P_CF->passwords, 0 );
@@ -54,14 +56,13 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
     {
       struct password_item *head;
       struct rip_md5_tail *tail;
-
-      if (block->packetlen != PACKETLEN(num)) {
+      if (ntohs(block->packetlen) != PACKETLEN(num) - sizeof(struct rip_md5_tail) ) {
 	log( L_ERR "Packet length in MD5 does not match computed value" );
 	return 1;
       }
 
-      tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
-      if ((tail->mustbeFFFF != 0xffff) || (tail->mustbe0001 != 0x0001)) {
+      tail = (struct rip_md5_tail *) ((char *) packet + (ntohs(block->packetlen) ));
+      if ((tail->mustbeFFFF != 0xffff) || (tail->mustbe0001 != 0x0100)) {
 	log( L_ERR "MD5 tail signature is not there" );
 	return 1;
       }
@@ -89,13 +90,13 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 	  char md5sum_packet[16];
 	  char md5sum_computed[16];
 
+	  memset(md5sum_packet,0,16);
 	  memcpy(md5sum_packet, tail->md5, 16);
 	  password_strncpy(tail->md5, head->password, 16);
 
 	  MD5Init(&ctxt);
-	  MD5Update(&ctxt, (char *) packet, block->packetlen );
+	  MD5Update(&ctxt, (char *) packet, ntohs(block->packetlen) +  sizeof(struct rip_block_auth) );
 	  MD5Final(md5sum_computed, &ctxt);
-
 	  if (memcmp(md5sum_packet, md5sum_computed, 16))
 	    return 1;
 	  return 0;
@@ -129,7 +130,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
     return PACKETLEN(num);
   }
 
-  block->authtype = P_CF->authtype;
+  block->authtype = htons(P_CF->authtype);
   block->mustbeFFFF = 0xffff;
   switch (P_CF->authtype) {
   case AT_PLAINTEXT:
@@ -139,26 +140,26 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
     {
       struct rip_md5_tail *tail;
       struct MD5Context ctxt;
-      static int sequence = 0;
+      static uint32_t sequence = 0;
 
       if (num > PACKET_MD5_MAX)
 	bug(  "We can not add MD5 authentication to this long packet" );
 
       block->keyid = passwd->id;
-      block->authlen = 20;
+      block->authlen = sizeof(struct rip_block_auth);
       block->seq = sequence++;
       block->zero0 = 0;
       block->zero1 = 0;
-      block->packetlen = PACKETLEN(num) + block->authlen;
-
-      tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
+      block->packetlen = htons(PACKETLEN(num));
+      tail = (struct rip_md5_tail *) ((char *) packet + PACKETLEN(num) );
       tail->mustbeFFFF = 0xffff;
-      tail->mustbe0001 = 0x0001;
-      password_strncpy( (char *) (&tail->md5), passwd->password, 16 );
+      tail->mustbe0001 = 0x0100;
 
+      memset(tail->md5,0,16);
+      password_strncpy( tail->md5, passwd->password, 16 );
       MD5Init(&ctxt);
-      MD5Update(&ctxt, (char *) packet, block->packetlen );
-      MD5Final((char *) (&tail->md5), &ctxt);
+      MD5Update(&ctxt, (char *) packet, PACKETLEN(num) + sizeof(struct  rip_md5_tail));
+      MD5Final(tail->md5, &ctxt);
       return PACKETLEN(num) + block->authlen;
     }
   default:
