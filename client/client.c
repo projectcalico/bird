@@ -307,6 +307,7 @@ io_loop(int mode)
   server_reply = -1;
   while (mode || server_reply < 0)
     {
+      FD_ZERO(&select_fds);
       FD_SET(server_fd, &select_fds);
       if (mode)
 	FD_SET(0, &select_fds);
