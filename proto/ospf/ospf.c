@@ -175,24 +175,32 @@ ospf_rte_better(struct rte *new, struct rte *old)
 
   if(new->u.ospf.metric1=LSINFINITY) return 0;
 
+  /* External paths are always longer that internal */
   if(((new->attrs->source==RTS_OSPF) || (new->attrs->source==RTS_OSPF_IA))
     && (old->attrs->source==RTS_OSPF_EXT)) return 1;
-
   if(((old->attrs->source==RTS_OSPF) || (old->attrs->source==RTS_OSPF_IA))
     && (new->attrs->source==RTS_OSPF_EXT)) return 0;
 
-  if(new->u.ospf.metric2!=0)
+  if(new->u.ospf.metric2<old->u.ospf.metric2)
   {
-    if(old->u.ospf.metric2==0) return 0;
-    if(new->u.ospf.metric2<old->u.ospf.metric2) return 1;
-    return 0;
+    if(old->u.ospf.metric2==LSINFINITY) return 0; /* Old is E1, new is E2 */
+    return 1;	/* Both are E2 */
   }
-  else
+	
+  if(new->u.ospf.metric2>old->u.ospf.metric2)
   {
-    if(old->u.ospf.metric2!=0) return 1;
-    if(new->u.ospf.metric1<old->u.ospf.metric1) return 1;
-    return 0;
+    if(new->u.ospf.metric2==LSINFINITY) return 1; /* New is E1, old is E2 */
+    return 0;	/* Both are E2 */
   }
+
+  /* 
+   * E2 metrics are the same. It means that:
+   * 1) Paths are E2 with same metric
+   * 2) Paths are E1.
+   */
+
+  if(new->u.ospf.metric1<old->u.ospf.metric1) return 1;
+  return 0;	/* Old is shorter or same */
 }
 
 static int
@@ -419,9 +427,9 @@ ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs)
   if(rte->attrs->source==RTS_OSPF) type='I';
   buf += bsprintf(buf, " %c", type);
   if(met!=' ') buf += bsprintf(buf, "%c", met);
-  buf += bsprintf(buf, " (%d/%d)", rte->pref,
-    (rte->u.ospf.metric2==LSINFINITY) ? rte->u.ospf.metric1 :
-    rte->u.ospf.metric2);
+  buf += bsprintf(buf, " (%d/%d", rte->pref, rte->u.ospf.metric1);
+  if(rte->u.ospf.metric2!=LSINFINITY) buf += bsprintf(buf, "/%d", rte->u.ospf.metric2);
+  buf += bsprintf(buf, ")");
   if(rte->attrs->source==RTS_OSPF_EXT && rte->u.ospf.tag)
   {
     buf += bsprintf(buf, " [%x]", rte->u.ospf.tag);
