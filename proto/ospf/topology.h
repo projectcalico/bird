@@ -14,7 +14,6 @@ struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
   struct top_hash_entry *next;		/* Next in hash chain */
   struct ospf_lsa_header lsa;
   void *lsa_body;
-  unsigned int body_len;
 };
 
 struct top_graph {

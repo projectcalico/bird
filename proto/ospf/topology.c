@@ -27,7 +27,8 @@ unsigned int
 make_rt_lsa(struct ospf_area *oa, struct proto_ospf *p)
 {
   struct ospf_iface *ifa;
-  int i=0,j=0,k=0,v=0,e=0,b=0;
+  int j=0,k=0,v=0,e=0,b=0;
+  u16 i=0;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *ln;
   struct ospf_neighbor *neigh;
@@ -147,7 +148,7 @@ make_rt_lsa(struct ospf_area *oa, struct proto_ospf *p)
   rt->links=i;
   if(old->lsa_body!=NULL) mb_free(old->lsa_body);
   old->lsa_body=rt;
-  return rt->links*sizeof(struct ospf_lsa_rt_link)+sizeof(struct ospf_lsa_rt);
+  return i*sizeof(struct ospf_lsa_rt_link)+sizeof(struct ospf_lsa_rt);
 }
 	
 
@@ -188,14 +189,14 @@ addifa_rtlsa(struct ospf_iface *ifa)
     lsa=&(oa->rt->lsa);
     oa->rt->lsa_body=NULL;
     lsa->age=0;
-    lsa->sn=LSA_INITSEQNO-1;	/* FIXME Check it latter */
+    lsa->sn=LSA_INITSEQNO;	/* FIXME Check it latter */
     lsa->checksum=0;
     lsa->checksum=ipsum_calculate(lsa,sizeof(struct ospf_lsa_header),NULL);
     ifa->oa=oa;
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
 
   }
-  oa->rt->body_len=make_rt_lsa(oa, po);
+  oa->rt->lsa.length=make_rt_lsa(oa, po)+sizeof(struct ospf_lsa_header);
   /*FIXME seq no++ */
   /*FIXME lsa_flood(oa->rt) */
 }

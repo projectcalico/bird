@@ -103,12 +103,12 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
   for(i=0;i<(length-sizeof(struct ospf_lsreq_packet))/
     sizeof(struct ospf_lsreq_header);i++);
   {
-    DBG("Processing LSA: ID=%u, Type=%u, Router=%u\n", lsh->id,
-    ntohl(lsh->type), ntohl(lsh->rt));
+    DBG("Processing LSA: ID=%u, Type=%u, Router=%u\n", ntohl(lsh->id),
+    lsh->type, ntohl(lsh->rt));
     llsh=sl_alloc(upslab);
     llsh->lsh.id=ntohl(lsh->id);
     llsh->lsh.rt=ntohl(lsh->rt);
-    llsh->lsh.type=ntohl(lsh->type);
+    llsh->lsh.type=lsh->type;
     add_tail(&uplist, NODE llsh);
     if(ospf_hash_find(n->ifa->oa->gr, llsh->lsh.id, llsh->lsh.rt,
       llsh->lsh.type)==NULL)
