@@ -51,9 +51,9 @@ the topology of the network which allows them to find optimal (in terms of some 
 forwarding of packets (which will be called routes in the rest of this document) and to adapt to the
 changing conditions such as outages of network links, building of new connections and so on. Most of
 these routers are costly dedicated devices running obscure firmware which is hard to configure and
-not open to any changes. (But these costly dedicated beasts are a
-requirement for routing of many fast interfaces - PCclass machine can not keep up with more than 4
-100Mbps interfaces) Fortunately, most operating systems of the UNIX family allow an ordinary 
+not open to any changes (but these costly dedicated beasts are needed
+for routing on many fast interfaces -- a PC class machine can not keep up with more than 4
+100Mbps cards). Fortunately, most operating systems of the UNIX family allow an ordinary 
 computer to act as a router and forward packets belonging to the other hosts, but only according to
 a statically configured table.
 
@@ -108,7 +108,7 @@ known routes. Each route consists of:
 <itemize>
 	<item>network this route is for
 	<item>preference of this route (taken from preference of
-	protocol and possibly alterred by filters)
+	protocol and possibly altered by filters)
 	<item>ip address of router who told us about this route
 	<item>ip address of router we should use for packets routing
 	using this route
@@ -129,7 +129,7 @@ protocols.
 
 <sect1>Installing BIRD
 
-<p>On recent UNIX (with GNU-compatible tools - BIRD relies on GCC extensions)
+<p>On recent UNIX (with GNU-compatible tools -- BIRD relies on GCC extensions)
 system, installing BIRD should be as easy as:
 
 <code>
@@ -142,7 +142,7 @@ system, installing BIRD should be as easy as:
 
 <p>You can use <tt>./configure --help</tt> to get list of configure
 options. Most important (and not easily guessed) option is
-<tt/--enable-ipv6/, which enables IpV6 support.
+<tt/--enable-ipv6/, which enables IPv6 support.
 
 <p>You can pass several command-line options to bird:
 
@@ -282,7 +282,7 @@ protocol rip {
 	"*" { mode broadcast; };</cf> will start given protocol on all interfaces, with <cf>mode
 	broadcast;</cf> option. If first character of mask is <cf/-/, such interfaces are
 	excluded. Masks are parsed left-to-right, thus <cf/interface "-eth0", "*";/ means all but
-	ethernets.
+	the ethernets.
 						  
 </descrip>
 
@@ -296,9 +296,9 @@ protocols, telling BIRD to show various information, telling it to
 show routing table filtered by any filter, or telling bird to
 reconfigure. Press <tt/?/ at any time to get online help. Option
 <tt/-v/ can be passed to client, telling it to dump numeric return
-codes. You do not neccessarily need to use BIRDC to talk to BIRD, your
+codes. You do not necessarily need to use BIRDC to talk to BIRD, your
 own application could do that, too -- format of communication between
-BIRD and BIRDC is stable (see programmer's documenation).
+BIRD and BIRDC is stable (see programmer's documentation).
 
 
 <sect>Filters
@@ -975,7 +975,7 @@ rip) and all routers know that network is unreachable. Rip tries to minimize sit
 counting to infinity is necessary, because it is slow. Due to infinity being 16, you can not use
 rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <HTMLURL
 URL="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4
-and IPv6 versions of rip are supported by BIRD, historical Ripv1 is
+and IPv6 versions of rip are supported by BIRD, historical RIPv1 is
 currently not fully supported.
 
 <p>Rip is very simple protocol, and it is not too good. Slow
@@ -1115,14 +1115,14 @@ protocol static {
 
 <p>BIRD is relatively young system, and probably contains some
 bugs. You can report bugs at <HTMLURL URL="fixme">, but before you do,
-please make sure you have read available documenation, make sure are running latest version (available at <HTMLURL
+please make sure you have read available documentation, make sure are running latest version (available at <HTMLURL
 URL="fixme">), and that bug was not already reported by someone else
 (mailing list archives are at <HTMLURL URL="fixme">). (Of course, patch
 which fixes the bug along with bug report is always welcome). If you
 want to join the development, join developer's mailing list by sending
 <tt/????/ to <HTMLURL URL="fixme">. You can also get current sources from
 anoncvs at <HTMLURL URL="fixme">. You can find this documentation online
-at <HTMLURL URL="fixme">, main homepage of bird is <HTMLURL URL="fixme">. When
+at <HTMLURL URL="fixme">, main home page of bird is <HTMLURL URL="fixme">. When
 trying to understand, what is going on, Internet standards are
 relevant reading; you can get them from <HTMLURL URL="fixme">.
 
@@ -1131,12 +1131,12 @@ relevant reading; you can get them from <HTMLURL URL="fixme">.
 </article>
 
 <!--
-LocalWords:  GPL IPv GateD BGPv RIPv OSPFv Linux sgml html dvi sgmltools
-LocalWords:  linuxdoc dtd descrip config conf syslog stderr auth ospf bgp
-LocalWords:  router's eval expr num birdc ctl unix if's enums bool int ip
-LocalWords:  len ipaddress pxlen netmask enum bgppath bgpmask clist gw md
-LocalWords:  RTS printn quitbird iBGP AS'es eBGP RFC multiprotocol IGP
+LocalWords:  GPL IPv GateD BGPv RIPv OSPFv Linux sgml html dvi sgmltools Pavel
+LocalWords:  linuxdoc dtd descrip config conf syslog stderr auth ospf bgp Mbps
+LocalWords:  router's eval expr num birdc ctl unix if's enums bool int ip GCC
+LocalWords:  len ipaddress pxlen netmask enum bgppath bgpmask clist gw md eth
+LocalWords:  RTS printn quitbird iBGP AS'es eBGP RFC multiprotocol IGP Machek
 LocalWords:  EGP misconfigurations keepalive pref aggr aggregator BIRD's
 LocalWords:  OS'es AS's multicast nolisten misconfigured UID blackhole
-LocalWords:  uninstalls
+LocalWords:  uninstalls ethernets
  -->
