@@ -31,6 +31,8 @@ rip_reply(struct proto *p)
 #endif
 }
 
+#define P_NAME "rip/unknown" /* FIXME */
+
 /*
  * Output processing
  */
@@ -240,7 +242,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   advertise_entry( p, block, whotoldme );
 }
 
-#define BAD( x ) { log( L_WARN "RIP/%s: " x, p->name ); return 1; }
+#define BAD( x ) { log( L_WARN "RIP/%s: " x, P_NAME ); return 1; }
 
 static int
 rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr whotoldme, int port )
@@ -376,7 +378,7 @@ rip_timer(timer *t)
   DBG( "RIP: tick tock done\n" );
 }
 
-static void
+static int
 rip_start(struct proto *p)
 {
   struct rip_interface *rif;
@@ -398,12 +400,15 @@ rip_start(struct proto *p)
   CHK_MAGIC;
 
   DBG( "RIP: ...done\n");
+  return PS_UP;
 }
 
-static void
-rip_init(struct protocol *p)
+static struct proto *
+rip_init(struct proto_config *cfg)
 {
-  DBG( "RIP: initializing RIP...\n" );
+  struct proto *p = proto_new(cfg, sizeof(struct proto));
+
+  return p;
 }
 
 static void
@@ -485,7 +490,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
     log( L_WARN "RIP: interface %s is too strange for me", rif->iface ? rif->iface->name : "(dummy)" );
 
   if (sk_open(rif->sock)<0)
-    die( "RIP/%s: could not listen on %s", p->name, rif->iface ? rif->iface->name : "(dummy)" );
+    die( "RIP/%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
   /* FIXME: Should not be fatal, since the interface might have gone */
   
   return rif;
@@ -510,7 +515,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
     if (!k) return; /* We are not interested in this interface */
     DBG("adding interface %s\n", new->name );
     rif = new_iface(p, new, new->flags);
-    rif->patt = k;
+    rif->patt = (void *) k;
     add_head( &P->interfaces, NODE rif );
   }
 }
@@ -583,14 +588,12 @@ void
 rip_init_instance(struct proto *p)
 {
   p->preference = DEF_PREF_RIP;
-  p->start = rip_start;
   p->if_notify = rip_if_notify;
   p->rt_notify = rip_rt_notify;
   p->rte_better = rip_rte_better;
   p->rta_same = rip_rta_same;
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
-  p->dump = rip_dump;
 
   P->infinity	= 16;
   P->port	= 520;
@@ -601,21 +604,22 @@ rip_init_instance(struct proto *p)
 }
 
 static void
-rip_preconfig(struct protocol *x)
+rip_preconfig(struct protocol *x, struct config *c)
 {
   DBG( "RIP: preconfig\n" );
 }
 
 static void
-rip_postconfig(struct protocol *p)
+rip_postconfig(struct proto_config *c)
 {
 }
 
 struct protocol proto_rip = {
-  { NULL, NULL },
-  "RIP",
-  0,
-  rip_init,
-  rip_preconfig,
-  rip_postconfig
+  name: "RIP",
+  preconfig: rip_preconfig,
+  postconfig: rip_postconfig,
+
+  init: rip_init,
+  dump: rip_dump,
+  start: rip_start,
 };

@@ -4,7 +4,7 @@
 
 objdir=obj
 
-all:
+all depend:
 	$(MAKE) -C $(objdir) $@
 
 clean:
