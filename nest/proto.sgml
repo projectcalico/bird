@@ -44,7 +44,7 @@ to the description of the <func/proto_commit/ function.
 <sect1>Protocol states
 
 <p>As startup and shutdown of each protocol are complex processes which can be affected
-by lots of external events (user's actions, reconfigurations, behaviour of neighboring routers etc.),
+by lots of external events (user's actions, reconfigurations, behavior of neighboring routers etc.),
 we have decided to supervise them by a pair of simple state machines -- the protocol
 state machine and a core state machine.
 
