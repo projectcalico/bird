@@ -33,9 +33,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	LEN,
 	DEFINED,
 	IMPOSSIBLE,
-	RTSDUMMY, RTSSTATIC, RTSINHERIT, RTSDEVICE, RTSSTATIC_DEVICE, RTSREDIRECT, RTSRIP, RTSRIP_EXT, RTSOSPF, RTSOSPF_EXT, RTSOSPF_IA, RTSOSPF_BOUNDARY, RTSBGP, RTSPIPE,
-	FILTER
-	)
+	FILTER)
 
 %nonassoc THEN
 %nonassoc ELSE
@@ -238,6 +236,7 @@ constant:
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
+ | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = $1 >> 16; $$->a2.i = $1 & 0xffff; }
  ;
 
 any_dynamic:
