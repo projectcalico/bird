@@ -2,7 +2,7 @@ birdlib.h
 bitops.c
 bitops.h
 ip.h
-#ifdef CONFIG_IPV6
+#ifdef IPV6
 ipv6.c
 ipv6.h
 #else

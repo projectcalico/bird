@@ -35,7 +35,8 @@
 #define SCOPE_HOST 0
 #define SCOPE_LINK 1
 #define SCOPE_SITE 2
-#define SCOPE_UNIVERSE 3
+#define SCOPE_ORGANIZATION 3
+#define SCOPE_UNIVERSE 4
 
 /*
  *	Is it a valid network prefix?

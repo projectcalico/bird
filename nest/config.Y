@@ -20,7 +20,7 @@ CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID)
 
-%type <i> idval
+%type <i32> idval
 %type <f> imexport
 %type <r> rtable
 %type <p> password_list password_begin
@@ -37,8 +37,15 @@ rtrid: ROUTER ID idval ';' {
  ;
 
 idval:
-   NUM
- | IPA { $$ = ipa_to_u32($1); }
+   NUM { $$ = $1; }
+ | RTRID
+ | IPA {
+#ifndef IPV6
+     $$ = ipa_to_u32($1);
+#else
+     cf_error("Router IDs must be entered as hexadecimal numbers in IPv6 version");
+#endif
+   }
  ;
 
 /* Creation of routing tables */

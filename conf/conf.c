@@ -54,6 +54,10 @@ config_parse(struct config *c)
   cf_parse();
   filters_postconfig();			/* FIXME: Do we really need this? */
   protos_postconfig(c);
+#ifdef IPV6
+  if (!c->router_id)
+    cf_error("Router ID must be configured manually on IPv6 routers");
+#endif
   return 1;
 }
 

@@ -22,6 +22,7 @@ CF_DECLS
 
 %union {
   int i;
+  u32 i32;
   ip_addr a;
   struct symbol *s;
   char *t;
@@ -35,6 +36,7 @@ CF_DECLS
 
 %token END
 %token <i> NUM
+%token <i32> RTRID
 %token <a> IPA
 %token <s> SYM
 %token <t> TEXT

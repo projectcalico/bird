@@ -242,7 +242,7 @@ nl_add_attr_ipa(struct nlmsghdr *h, unsigned maxsize, int code, ip_addr ipa)
   a = (struct rtattr *)((char *)h + NLMSG_ALIGN(h->nlmsg_len));
   a->rta_type = code;
   a->rta_len = len;
-  ipa = ipa_hton(ipa);
+  ipa_hton(ipa);
   memcpy(RTA_DATA(a), &ipa, sizeof(ipa));
   h->nlmsg_len = NLMSG_ALIGN(h->nlmsg_len) + len;
 }
@@ -351,17 +351,18 @@ nl_parse_addr(struct nlmsghdr *h)
   if (i->ifa_flags & IFA_F_SECONDARY)
     ifa.flags |= IA_SECONDARY;
   memcpy(&ifa.ip, RTA_DATA(a[IFA_LOCAL]), sizeof(ifa.ip));
-  ifa.ip = ipa_ntoh(ifa.ip);
+  ipa_ntoh(ifa.ip);
   ifa.pxlen = i->ifa_prefixlen;
   if (ifi->flags & IF_UNNUMBERED)
     {
       memcpy(&ifa.opposite, RTA_DATA(a[IFA_ADDRESS]), sizeof(ifa.opposite));
-      ifa.opposite = ifa.brd = ipa_ntoh(ifa.opposite);
+      ipa_ntoh(ifa.opposite);
+      ifa.brd = ifa.opposite;
     }
   else if ((ifi->flags & IF_BROADCAST) && a[IFA_BROADCAST])
     {
       memcpy(&ifa.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(ifa.brd));
-      ifa.brd = ipa_ntoh(ifa.brd);
+      ipa_ntoh(ifa.brd);
     }
   /* else a NBMA link */
   ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(ifa.pxlen));
@@ -575,7 +576,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   if (a[RTA_DST])
     {
       memcpy(&dst, RTA_DATA(a[RTA_DST]), sizeof(dst));
-      dst = ipa_ntoh(dst);
+      ipa_ntoh(dst);
     }
   else
     dst = IPA_NONE;
@@ -630,7 +631,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 	  neighbor *ng;
 	  ra.dest = RTD_ROUTER;
 	  memcpy(&ra.gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ra.gw));
-	  ra.gw = ipa_ntoh(ra.gw);
+	  ipa_ntoh(ra.gw);
 	  ng = neigh_find(&p->p, &ra.gw, 0);
 	  if (ng)
 	    ra.iface = ng->iface;

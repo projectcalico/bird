@@ -314,7 +314,7 @@ sk_new(pool *p)
 static inline void
 set_inaddr(struct in_addr *ia, ip_addr a)
 {
-  a = ipa_hton(a);
+  ipa_hton(a);
   memcpy(&ia->s_addr, &a, sizeof(a));
 }
 
@@ -334,7 +334,7 @@ get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port)
   if (port)
     *port = ntohs(sa->sin_port);
   memcpy(a, &sa->sin_addr.s_addr, sizeof(*a));
-  *a = ipa_ntoh(*a);
+  ipa_ntoh(*a);
 }
 
 static char *

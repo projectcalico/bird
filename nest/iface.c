@@ -549,8 +549,9 @@ ifa_delete(struct ifa *a)
 }
 
 static void
-auto_router_id(void)			/* FIXME: What if we run IPv6??? */
+auto_router_id(void)
 {
+#ifndef IPV6
   struct iface *i, *j;
 
   j = NULL;
@@ -564,6 +565,7 @@ auto_router_id(void)			/* FIXME: What if we run IPv6??? */
     die("Cannot determine router ID (no suitable network interface found), please configure it manually");
   debug("Guessed router ID %I (%s)\n", j->addr->ip, j->name);
   config->router_id = ipa_to_u32(j->addr->ip);
+#endif
 }
 
 void

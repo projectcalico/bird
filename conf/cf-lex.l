@@ -65,9 +65,25 @@ WHITE [ \t]
 %%
 
 {DIGIT}+\.{DIGIT}+\.{DIGIT}+\.{DIGIT}+ {
+#ifdef IPV6
+  if (ipv4_pton_u32(yytext, &cf_lval.i32))
+    return RTRID;
+  cf_error("Invalid IPv4 address %s", yytext);
+#else
   if (ip_pton(yytext, &cf_lval.a))
     return IPA;
-  cf_error("Invalid IP address");
+  cf_error("Invalid IP address %s", yytext);
+#endif
+}
+
+({XIGIT}*::|({XIGIT}*:){3,})({XIGIT}*|{DIGIT}+\.{DIGIT}+\.{DIGIT}+\.{DIGIT}+) {
+#ifdef IPV6
+  if (ip_pton(yytext, &cf_lval.a))
+    return IPA;
+  cf_error("Invalid IP address %s", yytext);
+#else
+  cf_error("This is an IPv4 router, therefore IPv6 addresses are not supported");
+#endif
 }
 
 0x{DIGIT}+ {
