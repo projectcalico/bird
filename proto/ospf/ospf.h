@@ -9,7 +9,6 @@
 #ifndef _BIRD_OSPF_H_
 #define _BIRD_OSPF_H_
 
-#define SIPH SIZE_OF_IP_HEADER
 #define MAXNETS 10
 #ifdef LOCAL_DEBUG
 #define OSPF_FORCE_DEBUG 1
@@ -122,8 +121,9 @@ struct ospf_iface
   ip_addr vip;			/* IP of peer of virtual link */
   struct ospf_area *voa;	/* Area wich the vlink goes through */
   u16 autype;
-  u8 aukey[8];
   u8 options;
+  list *passwords;
+  u32 csn;                      /* Crypt seq num. that will be sent net */
   ip_addr drip;			/* Designated router */
   u32 drid;
   ip_addr bdrip;		/* Backup DR */
@@ -168,6 +168,20 @@ struct ospf_iface
   list nbma_list;
 };
 
+struct ospf_md5
+{
+  u16 zero;
+  u8 keyid;
+  u8 len;
+  u32 csn;
+};
+
+union ospf_auth
+{
+  u8 password[8];
+  struct ospf_md5 md5;
+};
+
 struct ospf_packet
 {
   u8 version;
@@ -183,7 +197,7 @@ struct ospf_packet
 #define BACKBONE 0
   u16 checksum;
   u16 autype;
-  u8 authetication[8];
+  union ospf_auth u;
 };
 
 struct ospf_hello_packet
@@ -437,6 +451,7 @@ struct ospf_neighbor
 #define ACKL_DIRECT 0
 #define ACKL_DELAY 1
   timer *ackd_timer;		/* Delayed ack timer */
+  u32 csn;                      /* Last received crypt seq number (for MD5) */
 };
 
 /* Definitions for interface state machine */
@@ -512,11 +527,11 @@ struct ospf_iface_patt
   u32 strictnbma;
   u32 stub;
   u32 vid;
-/* must be in network byte order */
-#define AU_NONE htons(0)
-#define AU_SIMPLE htons(1)
-#define AU_CRYPT htons(2)
-  u8 password[8];
+#define OSPF_AUTH_NONE 0
+#define OSPF_AUTH_SIMPLE 1
+#define OSPF_AUTH_CRYPT 2
+#define OSPF_AUTH_CRYPT_SIZE 16
+  list *passwords;
   list nbma_list;
 };
 

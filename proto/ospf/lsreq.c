@@ -23,7 +23,7 @@ ospf_lsreq_send(struct ospf_neighbor *n)
   pk = (struct ospf_lsreq_packet *) n->ifa->ip_sk->tbuf;
   op = (struct ospf_packet *) n->ifa->ip_sk->tbuf;
 
-  fill_ospf_pkt_hdr(n->ifa, pk, LSREQ_P);
+  ospf_pkt_fill_hdr(n->ifa, pk, LSREQ_P);
 
   sn = SHEAD(n->lsrql);
   if (EMPTY_SLIST(n->lsrql))
@@ -33,7 +33,7 @@ ospf_lsreq_send(struct ospf_neighbor *n)
     return;
   }
 
-  i = j = (n->ifa->iface->mtu - SIPH - sizeof(struct ospf_lsreq_packet)) /
+  i = j = (ospf_pkt_maxsize(n->ifa) - sizeof(struct ospf_lsreq_packet)) /
     sizeof(struct ospf_lsreq_header);
   lsh = (struct ospf_lsreq_header *) (pk + 1);
 
@@ -59,8 +59,7 @@ ospf_lsreq_send(struct ospf_neighbor *n)
     sizeof(struct ospf_lsreq_packet) + (j -
 					i) * sizeof(struct ospf_lsreq_header);
   op->length = htons(length);
-  ospf_pkt_finalize(n->ifa, op);
-  ospf_send_to(n->ifa->ip_sk, length, n->ip);
+  ospf_send_to(n->ifa->ip_sk, n->ip, n->ifa);
   OSPF_TRACE(D_PACKETS, "LS request sent to: %I", n->rid);
 }
 

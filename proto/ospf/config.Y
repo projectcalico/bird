@@ -24,7 +24,7 @@ CF_DECLS
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
 CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
 CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
-CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, PASSWORD, STRICT)
+CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, LINK)
 
 %type <t> opttext
@@ -96,9 +96,9 @@ ospf_vlink_item:
  | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
  | WAIT expr { OSPF_PATT->waitint = $2 ; }
  | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
- | AUTHENTICATION NONE { OSPF_PATT->autype = AU_NONE ; }
- | AUTHENTICATION SIMPLE { OSPF_PATT->autype = AU_SIMPLE ; }
- | PASSWORD TEXT { memcpy(OSPF_PATT->password, $2, 8); }
+ | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
+ | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
+ | password_list {OSPF_PATT->passwords = $1; }
  ;
 
 ospf_vlink_start: VIRTUAL LINK '{'
@@ -114,7 +114,7 @@ ospf_vlink_start: VIRTUAL LINK '{'
   OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
   OSPF_PATT->type = OSPF_IT_VLINK;
-  OSPF_PATT->autype = AU_NONE;
+  OSPF_PATT->autype = OSPF_AUTH_NONE;
  }
 ;
 
@@ -133,9 +133,9 @@ ospf_iface_item:
  | STRICT NONBROADCAST bool { OSPF_PATT->strictnbma = $3 ; }
  | STUB bool { OSPF_PATT->stub = $2 ; }
  | NEIGHBORS '{' ipa_list '}'
- | AUTHENTICATION NONE { OSPF_PATT->autype = AU_NONE ; }
- | AUTHENTICATION SIMPLE { OSPF_PATT->autype = AU_SIMPLE ; }
- | PASSWORD TEXT { memcpy(OSPF_PATT->password, $2, 8); }
+ | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
+ | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
+ | password_list {OSPF_PATT->passwords = $1; }
  ;
 
 pref_list:
@@ -210,7 +210,7 @@ ospf_iface_start:
   OSPF_PATT->strictnbma = 0;
   OSPF_PATT->stub = 0;
   init_list(&OSPF_PATT->nbma_list);
-  OSPF_PATT->autype = AU_NONE;
+  OSPF_PATT->autype = OSPF_AUTH_NONE;
  }
 ;
 

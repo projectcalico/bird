@@ -160,7 +160,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       pk = (struct ospf_lsupd_packet *) sk->tbuf;
       op = (struct ospf_packet *) sk->tbuf;
 
-      fill_ospf_pkt_hdr(ifa, pk, LSUPD_P);
+      ospf_pkt_fill_hdr(ifa, pk, LSUPD_P);
       pk->lsano = htonl(1);
 
       lh = (struct ospf_lsa_header *) (pk + 1);
@@ -191,23 +191,22 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       lh->age = htons(age);
 
       op->length = htons(len);
-      ospf_pkt_finalize(ifa, op);
       OSPF_TRACE(D_PACKETS, "LS upd flooded via %s", ifa->iface->name);
 
       if (ifa->type == OSPF_IT_NBMA)
       {
 	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR))
-	  ospf_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+	  ospf_send_to_agt(sk, ifa, NEIGHBOR_EXCHANGE);
 	else
-	  ospf_send_to_bdr(sk, len, ifa);
+	  ospf_send_to_bdr(sk, ifa);
       }
       else
       {
 	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR) ||
 	    (ifa->type == OSPF_IT_PTP))
-	  ospf_send_to(sk, len, AllSPFRouters);
+	  ospf_send_to(sk, AllSPFRouters, ifa);
 	else
-	  ospf_send_to(sk, len, AllDRouters);
+	  ospf_send_to(sk, AllDRouters, ifa);
       }
     }
   }
@@ -234,8 +233,8 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 
   DBG("LSupd: 1st packet\n");
 
-  fill_ospf_pkt_hdr(n->ifa, pk, LSUPD_P);
-  len = SIPH + sizeof(struct ospf_lsupd_packet);
+  ospf_pkt_fill_hdr(n->ifa, pk, LSUPD_P);
+  len = sizeof(struct ospf_lsupd_packet);
   lsano = 0;
   pktpos = (pk + 1);
 
@@ -247,18 +246,17 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 
     DBG("Sending ID=%I, Type=%u, RT=%I Sn: 0x%x Age: %u\n",
 	llsh->lsh.id, llsh->lsh.type, llsh->lsh.rt, en->lsa.sn, en->lsa.age);
-    if (((u32) (len + en->lsa.length)) > n->ifa->iface->mtu)
+    if (((u32) (len + en->lsa.length)) > ospf_pkt_maxsize(n->ifa))
     {
       pk->lsano = htonl(lsano);
-      op->length = htons(len - SIPH);
-      ospf_pkt_finalize(n->ifa, op);
+      op->length = htons(len);
 
-      ospf_send_to(n->ifa->ip_sk, len - SIPH, n->ip);
+      ospf_send_to(n->ifa->ip_sk, n->ip, n->ifa);
       OSPF_TRACE(D_PACKETS, "LS upd sent to %I (%d LSAs)", n->ip, lsano);
 
       DBG("LSupd: next packet\n");
-      fill_ospf_pkt_hdr(n->ifa, pk, LSUPD_P);
-      len = SIPH + sizeof(struct ospf_lsupd_packet);
+      ospf_pkt_fill_hdr(n->ifa, pk, LSUPD_P);
+      len = sizeof(struct ospf_lsupd_packet);
       lsano = 0;
       pktpos = (pk + 1);
     }
@@ -273,11 +271,10 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
   if (lsano > 0)
   {
     pk->lsano = htonl(lsano);
-    op->length = htons(len - SIPH);
-    ospf_pkt_finalize(n->ifa, op);
+    op->length = htons(len);
 
     OSPF_TRACE(D_PACKETS, "LS upd sent to %I (%d LSAs)", n->ip, lsano);
-    ospf_send_to(n->ifa->ip_sk, len - SIPH, n->ip);
+    ospf_send_to(n->ifa->ip_sk, n->ip, n->ifa);
   }
 }
 

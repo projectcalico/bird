@@ -38,15 +38,14 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     n->myimms.bit.i = 1;
     pkt = (struct ospf_dbdes_packet *) (ifa->ip_sk->tbuf);
     op = (struct ospf_packet *) pkt;
-    fill_ospf_pkt_hdr(ifa, pkt, DBDES_P);
+    ospf_pkt_fill_hdr(ifa, pkt, DBDES_P);
     pkt->iface_mtu = htons(ifa->iface->mtu);
     pkt->options = ifa->options;
     pkt->imms = n->myimms;
     pkt->ddseq = htonl(n->dds);
     length = sizeof(struct ospf_dbdes_packet);
     op->length = htons(length);
-    ospf_pkt_finalize(ifa, op);
-    ospf_send_to(ifa->ip_sk, length, n->ip);
+    ospf_send_to(ifa->ip_sk, n->ip, ifa);
     OSPF_TRACE(D_PACKETS, "DB_DES (I) sent to %I via %s.", n->ip,
 	       ifa->iface->name);
     break;
@@ -63,12 +62,12 @@ ospf_dbdes_send(struct ospf_neighbor *n)
       pkt = n->ldbdes;
       op = (struct ospf_packet *) pkt;
 
-      fill_ospf_pkt_hdr(ifa, pkt, DBDES_P);
+      ospf_pkt_fill_hdr(ifa, pkt, DBDES_P);
       pkt->iface_mtu = htons(ifa->iface->mtu);
       pkt->options = ifa->options;
       pkt->ddseq = htonl(n->dds);
 
-      j = i = (ifa->iface->mtu - sizeof(struct ospf_dbdes_packet) - SIPH) / sizeof(struct ospf_lsa_header);	/* Number of possible lsaheaders to send */
+      j = i = (ospf_pkt_maxsize(ifa) - sizeof(struct ospf_dbdes_packet)) / sizeof(struct ospf_lsa_header);	/* Number of possible lsaheaders to send */
       lsa = (n->ldbdes + sizeof(struct ospf_dbdes_packet));
 
       if (n->myimms.bit.m)
@@ -117,7 +116,6 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 	sizeof(struct ospf_dbdes_packet);
       op->length = htons(length);
 
-      ospf_pkt_finalize(ifa, op);
       DBG("%s: DB_DES (M) prepared for %I.\n", p->name, n->ip);
     }
 
@@ -136,7 +134,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     memcpy(ifa->ip_sk->tbuf, n->ldbdes, length);
     /* Copy last sent packet again */
 
-    ospf_send_to(ifa->ip_sk, length, n->ip);
+    ospf_send_to(ifa->ip_sk, n->ip, n->ifa);
 
     if(n->myimms.bit.ms) tm_start(n->rxmt_timer, n->ifa->rxmtint);		/* Restart timer */
 

@@ -52,7 +52,7 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   pk = (struct ospf_lsack_packet *) sk->tbuf;
   op = (struct ospf_packet *) sk->tbuf;
 
-  fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
+  ospf_pkt_fill_hdr(n->ifa, pk, LSACK_P);
   h = (struct ospf_lsa_header *) (pk + 1);
 
   while (!EMPTY_LIST(n->ackl[queue]))
@@ -65,7 +65,7 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
     rem_node(NODE no);
     mb_free(no);
     if ((i * sizeof(struct ospf_lsa_header) +
-	 sizeof(struct ospf_lsack_packet) + SIPH) > n->ifa->iface->mtu)
+	 sizeof(struct ospf_lsack_packet)) > ospf_pkt_maxsize(n->ifa))
     {
       if (!EMPTY_LIST(n->ackl[queue]))
       {
@@ -73,24 +73,23 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 	  sizeof(struct ospf_lsack_packet) +
 	  i * sizeof(struct ospf_lsa_header);
 	op->length = htons(len);
-	ospf_pkt_finalize(n->ifa, op);
 	DBG("Sending and continuing! Len=%u\n", len);
 	if (ifa->type == OSPF_IT_BCAST)
 	{
 	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
-	    ospf_send_to(sk, len, AllSPFRouters);
+	    ospf_send_to(sk, AllSPFRouters, ifa);
 	  else
-	    ospf_send_to(sk, len, AllDRouters);
+	    ospf_send_to(sk, AllDRouters, ifa);
 	}
 	else
 	{
 	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
-	    ospf_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+	    ospf_send_to_agt(sk, ifa, NEIGHBOR_EXCHANGE);
 	  else
-	    ospf_send_to_bdr(sk, len, ifa);
+	    ospf_send_to_bdr(sk, ifa);
 	}
 
-	fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
+	ospf_pkt_fill_hdr(n->ifa, pk, LSACK_P);
 	i = 0;
       }
     }
@@ -98,22 +97,21 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 
   len = sizeof(struct ospf_lsack_packet) + i * sizeof(struct ospf_lsa_header);
   op->length = htons(len);
-  ospf_pkt_finalize(n->ifa, op);
   DBG("Sending! Len=%u\n", len);
   if (ifa->type == OSPF_IT_BCAST)
   {
     if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
     {
-      ospf_send_to(sk, len, AllSPFRouters);
+      ospf_send_to(sk, AllSPFRouters, ifa);
     }
     else
     {
-      ospf_send_to(sk, len, AllDRouters);
+      ospf_send_to(sk, AllDRouters, ifa);
     }
   }
   else
   {
-    ospf_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+    ospf_send_to_agt(sk, ifa, NEIGHBOR_EXCHANGE);
   }
 }
 

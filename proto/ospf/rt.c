@@ -483,8 +483,7 @@ ospf_rt_sum(struct ospf_area *oa)
         continue;
       type = ORT_NET;
     }
-
-    if (en->lsa.type == LSA_T_SUM_RT)
+    else
     {
       ip = ipa_from_u32(en->lsa.id);
       mlen = 32;

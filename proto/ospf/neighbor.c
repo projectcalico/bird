@@ -41,6 +41,7 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   n->ifa = ifa;
   add_tail(&ifa->neigh_list, NODE n);
   n->adj = 0;
+  n->csn = 0;
   n->ldbdes = mb_allocz(pool, ifa->iface->mtu);
   n->state = NEIGHBOR_DOWN;
 

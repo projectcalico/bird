@@ -373,7 +373,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ospf_area_conf
   ifa->deadc = ip->deadc;
   ifa->stub = ip->stub;
   ifa->autype = ip->autype;
-  memcpy(ifa->aukey, ip->password, 8);
+  ifa->passwords = ip->passwords;
   ifa->options = 2;		/* FIXME what options? */
 
   if (ip->type == OSPF_IT_UNDEF)

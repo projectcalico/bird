@@ -200,7 +200,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   /* Now fill ospf_hello header */
   op = (struct ospf_packet *) pkt;
 
-  fill_ospf_pkt_hdr(ifa, pkt, HELLO_P);
+  ospf_pkt_fill_hdr(ifa, pkt, HELLO_P);
 
   pkt->netmask = ipa_mkmask(ifa->iface->addr->pxlen);
   ipa_hton(pkt->netmask);
@@ -218,6 +218,11 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   pp = (u32 *) (((u8 *) pkt) + sizeof(struct ospf_hello_packet));
   WALK_LIST(neigh, ifa->neigh_list)
   {
+    if ((i+1) * sizeof(u32) + sizeof(struct ospf_hello_packet) > ospf_pkt_maxsize(ifa))
+    {
+      OSPF_TRACE(D_PACKETS, "Too many neighbors on the interface!");
+      break;
+    }
     *(pp + i) = htonl(neigh->rid);
     i++;
   }
@@ -225,15 +230,12 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   length = sizeof(struct ospf_hello_packet) + i * sizeof(u32);
   op->length = htons(length);
 
-  ospf_pkt_finalize(ifa, op);
-
-  /* And finally send it :-) */
   switch(ifa->type)
   {
     case OSPF_IT_NBMA:
       if (timer == NULL)		/* Response to received hello */
       {
-        ospf_send_to(ifa->ip_sk, length, dirn->ip);
+        ospf_send_to(ifa->ip_sk, dirn->ip, ifa);
       }
       else
       {
@@ -258,7 +260,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
           if ((poll == 1) && (send))
           {
             if (toall || (meeli && nb->eligible))
-              ospf_send_to(ifa->ip_sk, length, nb->ip);
+              ospf_send_to(ifa->ip_sk, nb->ip, ifa);
           }
         }
         if (poll == 0)
@@ -267,16 +269,16 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
           {
             if (toall || (n1->rid == ifa->drid) || (n1->rid == ifa->bdrid) ||
                 (meeli && (n1->priority > 0)))
-              ospf_send_to(ifa->ip_sk, length, n1->ip);
+              ospf_send_to(ifa->ip_sk, n1->ip, ifa);
           }
         }
       }
       break;
     case OSPF_IT_VLINK:
-      ospf_send_to(ifa->ip_sk, length, ifa->vip);
+      ospf_send_to(ifa->ip_sk, ifa->vip, ifa);
       break;
     default:
-      sk_send(ifa->hello_sk, length);
+      ospf_send_to(ifa->hello_sk, IPA_NONE, ifa);
   }
   OSPF_TRACE(D_PACKETS, "Hello sent via %s", ifa->iface->name);
 }

@@ -675,12 +675,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 		     "Changing authentication type on interface %s",
 		     ifa->iface->name);
 	}
-	if (strncmp(ip1->password, ip2->password, 8) != 0)
-	{
-	  memcpy(ifa->aukey, ip2->password, 8);
-	  OSPF_TRACE(D_EVENTS,
-		     "Changing password on interface %s", ifa->iface->name);
-	}
+        /* FIXME Add *passwords */
 
 	/* RXMT */
 	if (ip1->rxmtint != ip2->rxmtint)
