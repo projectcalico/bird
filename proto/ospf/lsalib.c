@@ -117,7 +117,8 @@ htonlsab(void *h, void *n, u8 type, u16 len)
       hs=h;
       ns=n;
 
-      ns->netmask=ipa_hton(hs->netmask);
+      ns->netmask=hs->netmask;
+      ipa_hton(ns->netmask);
 
       hn=(struct ospf_lsa_summ_net *)(hs+1);
       nn=(struct ospf_lsa_summ_net *)(ns+1);
@@ -139,7 +140,8 @@ htonlsab(void *h, void *n, u8 type, u16 len)
       he=h;
       ne=n;
 
-      ne->netmask=ipa_hton(he->netmask);
+      ne->netmask=he->netmask;
+      ipa_hton(ne->netmask);
 
       ht=(struct ospf_lsa_ext_tos *)(he+1);
       nt=(struct ospf_lsa_ext_tos *)(ne+1);
@@ -212,7 +214,8 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
       hs=h;
       ns=n;
 
-      hs->netmask=ipa_ntoh(ns->netmask);
+      hs->netmask=ns->netmask;
+      ipa_ntoh(hs->netmask);
 
       hn=(struct ospf_lsa_summ_net *)(hs+1);
       nn=(struct ospf_lsa_summ_net *)(ns+1);
@@ -234,7 +237,8 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
       he=h;
       ne=n;
 
-      he->netmask=ipa_ntoh(ne->netmask);
+      he->netmask=ne->netmask;
+      ipa_ntoh(he->netmask);
 
       ht=(struct ospf_lsa_ext_tos *)(he+1);
       nt=(struct ospf_lsa_ext_tos *)(ne+1);
