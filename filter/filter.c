@@ -206,7 +206,7 @@ filters_postconfig(void)
   if (startup_func) {
     printf( "Launching startup function...\n" );
     res = interpret(startup_func);
-    if (res.type = F_ERROR)
+    if (res.type == F_ERROR)
       die( "Startup function resulted in error." );
     printf( "done\n" );
   }
