@@ -14,8 +14,6 @@ CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA)
 
-%type <i> idval
-
 CF_GRAMMAR
 
 CF_ADDTO(proto, ospf_proto '}')
