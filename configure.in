@@ -50,57 +50,6 @@ else
 fi
 
 AC_CANONICAL_HOST
-AC_MSG_CHECKING([which OS configuration should we use])
-if test -n "$with_sysconfig" -a "$with_sysconfig" != no ; then
-	if test -f $with_sysconfig ; then
-		sysdesc=$with_sysconfig
-	else
-		sysdesc=$srcdir/sysdep/cf/$with_sysconfig
-		if ! test -f $sysdesc ; then
-			sysdesc=$sysdesc.h
-		fi
-	fi
-elif test -f sysconfig.h ; then
-	sysdesc=sysconfig
-else
-	case "$ip:$host_os" in
-		ipv4:linux*)	case `uname -r` in
-					1.*|2.0.*)	sysdesc=linux-20 ;;
-					*)		sysdesc=linux-22 ;;
-					esac
-				;;
-		ipv6:linux*)	sysdesc=linux-v6
-				;;
-		*)		AC_MSG_RESULT(unknown)
-				AC_MSG_ERROR([Cannot determine correct system configuration.])
-				;;
-		esac
-	sysdesc=$srcdir/sysdep/cf/$sysdesc.h
-fi
-AC_MSG_RESULT($sysdesc)
-if ! test -f $sysdesc ; then
-	AC_MSG_ERROR([The system configuration file is missing.])
-fi
-sysname=`echo $sysdesc | sed 's/\.h$//'`
-AC_DEFINE_UNQUOTED(SYSCONF_INCLUDE, "$sysdesc")
-
-AC_MSG_CHECKING([system-dependent directories])
-sysdep_dirs="`sed <$sysdesc '/^Link: /!d;s/^Link: \(.*\)$/\1/' | tr '\012' ' '` lib"
-AC_MSG_RESULT($sysdep_dirs)
-AC_SUBST(sysdep_dirs)
-
-AC_MSG_CHECKING([protocols])
-protocols=`echo "$with_protocols" | sed 's/,/ /g'`
-if test "$protocols" = no ; then protocols= ; fi
-for a in $protocols ; do
-	if ! test -f $srcdir/proto/$a/Makefile ; then
-		AC_MSG_RESULT(failed)
-		AC_MSG_ERROR([Requested protocol $a not found.])
-		fi
-	AC_DEFINE_UNQUOTED(CONFIG_`echo $a | tr 'a-z' 'A-Z'`)
-	done
-AC_MSG_RESULT(ok)
-AC_SUBST(protocols)
 
 AC_PROG_CC
 if test -z "$GCC" ; then
@@ -129,6 +78,62 @@ AC_CHECK_PROGS(M4, gm4 m4, m4)
 if test -z "$FLEX" -o -z "$BISON" -o -z "$M4" ; then
 	AC_MSG_ERROR([Some tools required for building BIRD are missing.])
 	fi
+
+if test -n "$with_sysconfig" -a "$with_sysconfig" != no ; then
+	if test -f $with_sysconfig ; then
+		sysdesc=$with_sysconfig
+	else
+		sysdesc=$srcdir/sysdep/cf/$with_sysconfig
+		if ! test -f $sysdesc ; then
+			sysdesc=$sysdesc.h
+		fi
+	fi
+elif test -f sysconfig.h ; then
+	sysdesc=sysconfig
+else
+	case "$ip:$host_os" in
+		ipv4:linux*)	BIRD_CHECK_LINUX_VERSION
+				case $bird_cv_sys_linux_version in
+					1.*|2.0.*)	sysdesc=linux-20 ;;
+					*)		sysdesc=linux-22 ;;
+					esac
+				;;
+		ipv6:linux*)	BIRD_CHECK_LINUX_VERSION
+				case $bird_cv_sys_linux_version in
+					1.*|2.0.*)	AC_MSG_ERROR([This version of Linux doesn't support IPv6.]) ;;
+					*)		sysdesc=linux-v6 ;;
+					esac
+				;;
+		*)		AC_MSG_ERROR([Cannot determine correct system configuration. Please use --with-sysconfig to set it manually.])
+				;;
+		esac
+	sysdesc=$srcdir/sysdep/cf/$sysdesc.h
+fi
+AC_MSG_CHECKING([which OS configuration should we use])
+AC_MSG_RESULT($sysdesc)
+if ! test -f $sysdesc ; then
+	AC_MSG_ERROR([The system configuration file is missing.])
+fi
+sysname=`echo $sysdesc | sed 's/\.h$//'`
+AC_DEFINE_UNQUOTED(SYSCONF_INCLUDE, "$sysdesc")
+
+AC_MSG_CHECKING([system-dependent directories])
+sysdep_dirs="`sed <$sysdesc '/^Link: /!d;s/^Link: \(.*\)$/\1/' | tr '\012' ' '` lib"
+AC_MSG_RESULT($sysdep_dirs)
+AC_SUBST(sysdep_dirs)
+
+AC_MSG_CHECKING([protocols])
+protocols=`echo "$with_protocols" | sed 's/,/ /g'`
+if test "$protocols" = no ; then protocols= ; fi
+for a in $protocols ; do
+	if ! test -f $srcdir/proto/$a/Makefile ; then
+		AC_MSG_RESULT(failed)
+		AC_MSG_ERROR([Requested protocol $a not found.])
+		fi
+	AC_DEFINE_UNQUOTED(CONFIG_`echo $a | tr 'a-z' 'A-Z'`)
+	done
+AC_MSG_RESULT(ok)
+AC_SUBST(protocols)
 
 case $sysdesc in
 	*/linux-22*|*/linux-v6*)
