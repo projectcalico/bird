@@ -25,7 +25,11 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
   fill_ospf_pkt_hdr(n->ifa, pk, LSREQ);
 
   sn=SHEAD(n->lsrql);
-  if(sn==NULL) return;
+  if(sn==NULL)
+  {
+    if(n->state==NEIGHBOR_LOADING) ospf_neigh_sm(n, INM_LOADDONE);
+    return;
+  }
  
   i=j=(n->ifa->iface->mtu-SIPH-sizeof(struct ospf_lsreq_packet))/
     sizeof(struct ospf_lsreq_header);
