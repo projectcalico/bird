@@ -671,7 +671,7 @@ rip_real_if_add(struct object_lock *lock)
     add_head( &P->interfaces, NODE rif );
     DBG("Adding object lock of %p for %p\n", lock, rif);
     rif->lock = lock;
-  } else { rfree(rif->lock); }
+  } else { rfree(lock); }
 }
 
 static void
