@@ -337,7 +337,12 @@ signal_init(void)
  */
 
 static char *opt_list = "c:dD:s:";
-static int debug_flag = 1;		/* FIXME: Turn off for production use */
+
+#ifdef DEBUGGING
+static int debug_flag = 1;
+#else
+static int debug_flag = 0;
+#endif
 
 static void
 usage(void)
@@ -405,6 +410,16 @@ main(int argc, char **argv)
   proto_build(&proto_unix_iface);
 
   read_config();
+
+  if (!debug_flag)
+    {
+      pid_t pid = fork();
+      if (pid < 0)
+	die("fork: %m");
+      if (!pid)
+	return 0;
+      setsid();
+    }
 
   signal_init();
 
