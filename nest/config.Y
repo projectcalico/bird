@@ -244,7 +244,7 @@ CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
 CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
 { if_show_summary(); } ;
 
-CF_CLI(SHOW ROUTE, r_args, [<prefix>] [table <t>] [filter <f>] [all] [primary] [(import|protocol) <p>] [stats], [[Show routing table]])
+CF_CLI(SHOW ROUTE, r_args, [[for] <prefix>|<ip>] [table <t>] [filter <f>|where <cond>] [all] [primary] [(import|protocol) <p>] [stats|count], [[Show routing table]])
 { rt_show($3); } ;
 
 r_args:
@@ -353,11 +353,11 @@ echo_size:
    }
  ;
 
-CF_CLI(DISABLE, proto_patt, <protocol> | <pattern> | all, [[Disable protocol]])
+CF_CLI(DISABLE, proto_patt, <protocol> | "<pattern>" | all, [[Disable protocol]])
 { proto_xxable($2, 0); } ;
-CF_CLI(ENABLE, proto_patt, <protocol> | <pattern> | all, [[Enable protocol]])
+CF_CLI(ENABLE, proto_patt, <protocol> | "<pattern>" | all, [[Enable protocol]])
 { proto_xxable($2, 1); } ;
-CF_CLI(RESTART, proto_patt, <protocol> | <pattern> | all, [[Restart protocol]])
+CF_CLI(RESTART, proto_patt, <protocol> | "<pattern>" | all, [[Restart protocol]])
 { proto_xxable($2, 2); } ;
 
 CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging]])
