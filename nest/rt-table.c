@@ -227,6 +227,24 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
     rte_free(old);
 }
 
+/**
+ * rte_announce - announce a routing table change
+ * @tab: table the route has been added to
+ * @net: network in question
+ * @new: the new route to be announced
+ * @old: previous optimal route for the same network
+ * @tmpa: a list of temporary attributes belonging to the new route
+ *
+ * This function gets a routing table update and announces it
+ * to all protocols connected to the same table by their announcement hooks.
+ *
+ * For each such protocol, we first call its import_control() hook which
+ * performs basic checks on the route (each protocol has a right to veto
+ * or force accept of the route before any filter is asked) and adds default
+ * values of attributes specific to the new protocol (metrics, tags etc.).
+ * Then it consults the protocol's export filter and if it accepts the
+ * route, the rt_notify() hook of the protocol gets called.
+ */
 static void
 rte_announce(rtable *tab, net *net, rte *new, rte *old, ea_list *tmpa)
 {
@@ -435,10 +453,19 @@ rte_update_unlock(void)
  * rta_clone()), call rte_get_temp() to obtain a temporary &rte, fill in all
  * the appropriate data and finally submit the new &rte by calling rte_update().
  *
- * rte_update() will automatically find the old route defined by the protocol @p
+ * When rte_update() gets any route, it automatically validates it (checks,
+ * whether the network and next hop address are valid IP addresses and also
+ * whether a normal routing protocol doesn't try to smuggle a host or link
+ * scope route to the table), converts all protocol dependent attributes stored
+ * in the &rte to temporary extended attributes, consults import filters of the
+ * protocol to see if the route should be accepted and/or its attributes modified,
+ * stores the temporary attributes back to the &rte.
+ *
+ * Now, having a "public" version of the route, we
+ * automatically find any old route defined by the protocol @p
  * for network @n, replace it by the new one (or removing it if @new is %NULL),
  * recalculate the optimal route for this destination and finally broadcast
- * the change (if any) to all routing protocols.
+ * the change (if any) to all routing protocols by calling rte_announce().
  *
  * All memory used for attribute lists and other temporary allocations is taken
  * from a special linear pool @rte_update_pool and freed when rte_update()
