@@ -12,6 +12,8 @@
 /* Include OS configuration file as chosen in autoconf.h */
 #include SYSCONF_INCLUDE
 
+#ifndef MACROS_ONLY
+
 /* Types */
 typedef signed INTEGER_8 s8;
 typedef unsigned INTEGER_8 u8;
@@ -21,6 +23,8 @@ typedef INTEGER_32 s32;
 typedef unsigned INTEGER_32 u32;
 typedef u8 byte;
 typedef u16 word;
+
+#endif
 
 /*
  * Required alignment for multi-byte accesses. We currently don't
