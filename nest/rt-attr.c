@@ -148,7 +148,7 @@ rta_dump(rta *a)
   if (a->dest == RTD_ROUTER)
     debug(" ->%I", a->gw);
   if (a->dest == RTD_DEVICE || a->dest == RTD_ROUTER)
-    debug(" [%s]", a->iface->name);
+    debug(" [%s]", a->iface ? a->iface->name : "???" );
 }
 
 void
