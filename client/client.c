@@ -76,6 +76,22 @@ extern int _rl_vis_botlin;
 extern void _rl_move_vert(int);
 extern Function *rl_last_func;
 
+static int
+handle_internal_command(char *cmd)
+{
+  if (!strncmp(cmd, "exit", 4) || !strncmp(cmd, "quit", 4))
+    {
+      cleanup();
+      exit(0);
+    }
+  if (!strncmp(cmd, "help", 4))
+    {
+      puts("Press `?' for context sensitive help.");
+      return 1;
+    }
+  return 0;
+}
+
 static void
 got_line(char *cmd_buffer)
 {
@@ -92,15 +108,13 @@ got_line(char *cmd_buffer)
       if (cmd)
 	{
 	  add_history(cmd);
-	  if (!strcmp(cmd, "exit") || !strcmp(cmd, "quit"))
+	  if (!handle_internal_command(cmd))
 	    {
-	      cleanup();
-	      exit(0);
+	      server_send(cmd);
+	      input_hidden = -1;
+	      io_loop(0);
+	      input_hidden = 0;
 	    }
-	  server_send(cmd);
-	  input_hidden = -1;
-	  io_loop(0);
-	  input_hidden = 0;
 	  free(cmd);
 	}
       else

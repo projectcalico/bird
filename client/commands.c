@@ -294,7 +294,7 @@ cmd_expand(char *cmd)
     }
   if (!n->cmd)
     {
-      puts("No such command.");
+      puts("No such command. Press `?' for help.");
       return NULL;
     }
   b = xmalloc(strlen(n->cmd->command) + strlen(args) + 1);

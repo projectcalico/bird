@@ -8,3 +8,4 @@
 
 CF_CLI(QUIT,,, [[Quit the client]])
 CF_CLI(EXIT,,, [[Exit the client]])
+CF_CLI(HELP,,, [[Description of the help system]])
