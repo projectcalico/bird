@@ -177,6 +177,7 @@ u8
 ospf_iface_clasify(struct iface *ifa, struct proto *p)
 {
   /* FIXME: Latter I'll use config - this is incorrect */
+  DBG("%s: Iface flags=%x.\n", p->name, ifa->flags);
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
     (IF_MULTIACCESS|IF_MULTICAST))
   {
@@ -244,7 +245,7 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->drid=0;
   ifa->bdrip=ipa_from_u32(0x00000000);
   ifa->bdrid=0;
-  ifa->type=ospf_iface_clasify(ifa->iface, ifa->proto);
+  ifa->type=ospf_iface_clasify(ifa->iface, (struct proto *)ifa->proto);
 }
 
 struct ospf_iface*
