@@ -9,6 +9,7 @@
  	FIXME: IpV6 support: use right address for broadcasts
 	FIXME: IpV6 support: receive "route using" blocks
 	FIXME: be able to transmit "route using" blocks [Is this possible?]
+	6 FIXMEs in code
  */
 
 #define LOCAL_DEBUG
@@ -93,7 +94,16 @@ rip_tx( sock *s )
 #ifndef IPV6
       packet->block[i].netmask = ipa_mkmask( e->n.pxlen );
       ipa_hton( packet->block[i].netmask );
-      packet->block[i].nexthop = IPA_NONE;	/* FIXME: does it make sense to set this to not-me in some cases? */
+      packet->block[i].nexthop = IPA_NONE;	
+      {
+	neighbor *n1, *n2;
+	n1 = neigh_find( p, &s->daddr, 0 );
+	n2 = neigh_find( p, &e->nexthop, 0 );
+	if (n1->iface == n2->iface)
+	  packet->block[i].nexthop = e->nexthop;
+	else
+	  packet->block[i].nexthop = IPA_NONE;	
+      }
       ipa_hton( packet->block[i].nexthop );
 #else
       packet->block[i].pxlen = e->n.pxlen;
@@ -101,7 +111,6 @@ rip_tx( sock *s )
       packet->block[i].metric  = htonl( e->metric );
       if (ipa_equal(e->whotoldme, s->daddr)) {
 	DBG( "(split horizont)" );
-	/* FIXME: should we do it in all cases? */
 	packet->block[i].metric = P_CF->infinity;
       }
       ipa_hton( packet->block[i].network );
@@ -249,7 +258,6 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
 static void
 process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 {
-  struct rip_entry *e;
   int metric = ntohl( block->metric );
   ip_addr network = block->network;
 
@@ -270,7 +278,7 @@ static int
 rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr whotoldme, int port )
 {
   int i;
-  int native_class = 0;
+  int native_class = 0, authenticated = 0;
 
   switch( packet->heading.version ) {
   case RIP_V1: DBG( "Rip1: " ); break;
@@ -315,8 +323,10 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	      if (!i) {
 		if (rip_incoming_authentication(p, (void *) block, packet, num))
 		  BAD( "Authentication failed" );
+		authenticated = 1;
 	      } 
-	    /* FIXME: Need to reject packets which have no authentication */
+	    if ((!authenticated) && (P_CF->authtype != AT_NONE))
+	      BAD( "Packet is not authenticated and it should be" );
 	    ipa_ntoh( block->network );
 #ifndef IPV6
 	    ipa_ntoh( block->netmask );
