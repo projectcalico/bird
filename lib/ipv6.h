@@ -1,7 +1,7 @@
 /*
  *	BIRD -- IP Addresses et Cetera for IPv6
  *
- *	(c) 1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1999--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -64,7 +64,12 @@ void ipv6_ntoh(ip_addr *);
 int ipv6_compare(ip_addr, ip_addr);
 int ipv4_pton_u32(char *, u32 *);
 
-/* FIXME: Is this hash function uniformly distributed over standard routing tables? */
+/*
+ *  This hash function looks well, but once IPv6 enters
+ *  mainstream use, we need to check that it has good
+ *  distribution properties on real routing tables.
+ */
+
 static inline unsigned ipv6_hash(ip_addr *a)
 {
   /* Returns a 16-bit hash key */
