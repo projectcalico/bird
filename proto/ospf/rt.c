@@ -14,7 +14,9 @@ init_infib(struct fib_node *fn)
   struct infib *f=(struct infib *)fn;
 
   f->metric=LSINFINITY;
+  f->oldmetric=LSINFINITY;
   f->en=NULL;
+  f->olden=NULL;
 }
 
 void
@@ -26,6 +28,9 @@ init_efib(struct fib_node *fn)
   f->metric2=LSINFINITY;
   f->nh=ipa_from_u32(0);
   f->nhi=NULL;
+  f->oldmetric=LSINFINITY;
+  f->oldmetric2=LSINFINITY;
+  f->oldnh=ipa_from_u32(0);
 }
 
 /**
@@ -211,11 +216,12 @@ again:
         en->nhi=nn->iface;
       }
 
+      if((nf->en!=nf->olden)||(nf->metric!=nf->oldmetric))
       {
         net *ne;
         rta a0;
         rte *e;
-	struct top_hash_entry *en=nf->en;
+        struct top_hash_entry *en=nf->en;
         ln=en->lsa_body;
   
         bzero(&a0, sizeof(a0));
@@ -241,6 +247,9 @@ again:
         DBG("Modifying rt entry %I\n     (GW: %I, Iface: %s)\n",
           nf->fn.prefix,en->nh,en->nhi->name);
         rte_update(p->table, ne, p, e);
+
+        nf->olden=nf->en;
+        nf->oldmetric=nf->metric;
       }
     }
 
@@ -480,34 +489,41 @@ noch:
       goto noch;
     }
     else
-    {
-      net *ne;
-      rta a0;
-      rte *e;
-  
-      bzero(&a0, sizeof(a0));
-  
-      a0.proto=p;
-      a0.source=RTS_OSPF_EXT;
-      a0.scope=SCOPE_UNIVERSE;
-      a0.cast=RTC_UNICAST;
-      a0.dest=RTD_ROUTER;
-      a0.flags=0;
-      a0.aflags=0;
-      a0.iface=nf->nhi;
-      a0.gw=nf->nh;
-      ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
-      e=rte_get_temp(&a0);
-      e->u.ospf.metric1=nf->metric;
-      e->u.ospf.metric2=nf->metric2;
-      e->u.ospf.tag=nf->tag;
-      e->pflags = 0;
-      e->net=ne;
-      e->pref = p->preference;
-      DBG("Modifying rt entry %I\n     (IP: %I, GW: %I)\n",
-        nf->fn.prefix,ip,nf->nh);
-      rte_update(p->table, ne, p, e);
-    }
+      if((nf->metric!=nf->oldmetric)||(nf->metric2!=nf->oldmetric2)||
+         (!ipa_equal(nf->nh,nf->oldnh))||(nf->tag!=nf->oldtag))
+      {
+        net *ne;
+        rta a0;
+        rte *e;
+    
+        bzero(&a0, sizeof(a0));
+    
+        a0.proto=p;
+        a0.source=RTS_OSPF_EXT;
+        a0.scope=SCOPE_UNIVERSE;
+        a0.cast=RTC_UNICAST;
+        a0.dest=RTD_ROUTER;
+        a0.flags=0;
+        a0.aflags=0;
+        a0.iface=nf->nhi;
+        a0.gw=nf->nh;
+        ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
+        e=rte_get_temp(&a0);
+        e->u.ospf.metric1=nf->metric;
+        e->u.ospf.metric2=nf->metric2;
+        e->u.ospf.tag=nf->tag;
+        e->pflags = 0;
+        e->net=ne;
+        e->pref = p->preference;
+        DBG("Modifying rt entry %I\n     (IP: %I, GW: %I)\n",
+          nf->fn.prefix,ip,nf->nh);
+        rte_update(p->table, ne, p, e);
+
+        nf->oldmetric=nf->metric;
+        nf->oldmetric2=nf->metric2;
+        nf->oldnh=nf->nh;
+        nf->oldtag=nf->tag;
+      }
   }
 let:
   FIB_ITERATE_END(nftmp);

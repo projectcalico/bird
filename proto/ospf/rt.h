@@ -13,8 +13,9 @@
 struct infib {
   struct fib_node fn;
   u16 metric;
-  u16 pad;
+  u16 oldmetric;
   struct top_hash_entry *en;
+  struct top_hash_entry *olden;
 };
 
 struct extfib {
@@ -24,6 +25,10 @@ struct extfib {
   ip_addr nh;
   u32 tag;
   struct iface *nhi;
+  u16 oldmetric;
+  u16 oldmetric2;
+  ip_addr oldnh;
+  u32 oldtag;
 };
 
 void ospf_rt_spfa(struct ospf_area *oa);
