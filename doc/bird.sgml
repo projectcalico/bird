@@ -1103,7 +1103,7 @@ packet.
 <p>When the particular destination is not available (the interface is down or
 the next hop of the route is not a neighbor at the moment), Static just
 uninstalls the route from the table it is connected to and adds it again as soon
-as the destinations becomes adjacent again.
+as the destination becomes adjacent again.
 
 <p>The Static protocol has no configuration options. Instead, the
 definition of the protocol contains a list of static routes:
@@ -1124,7 +1124,7 @@ definition of the protocol contains a list of static routes:
 
 <p><code>
 protocol static {
-	table testable;				# Connect to non-default routing table
+	table testable;				# Connect to a non-default routing table
 	route 0.0.0.0/0 via 62.168.0.13;	# Default route
 	route 62.168.0.0/25 reject;		# Sink route
 	route 10.2.0.0/24 via "arc0";		# Secondary network
