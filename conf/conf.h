@@ -21,6 +21,7 @@ struct config {
   list logfiles;			/* Configured log fils (sysdep) */
   struct rtable_config *master_rtc;	/* Configuration of master routing table */
   u32 router_id;			/* Our Router ID */
+  unsigned int proto_default_debug;	/* Default protocol debug mask */
   char *err_msg;			/* Parser error message */
   int err_lino;				/* Line containing error */
   char *file_name;			/* Name of configuration file */

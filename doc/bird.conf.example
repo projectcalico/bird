@@ -16,6 +16,8 @@
 
 #table testable;
 
+debug protocols all;
+
 #protocol rip MyRIP_test {
 #	preference xyzzy;
 #	debug all;

@@ -43,7 +43,7 @@ config_alloc(byte *name)
 int
 config_parse(struct config *c)
 {
-  debug("Parsing configuration file `%s'\n", c->file_name);
+  DBG("Parsing configuration file `%s'\n", c->file_name);
   new_config = c;
   cfg_mem = c->mem;
   if (setjmp(conf_jmpbuf))
