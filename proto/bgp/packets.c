@@ -602,7 +602,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
       if (len < 1 || (*x != 16 && *x != 32) || len < *x + 2)
 	goto bad;
       memcpy(bgp_attach_attr(&a0->eattrs, bgp_linpool, BA_NEXT_HOP, 16), x+1, 16);
-      len -= *x + 1;
+      len -= *x + 2;
       x += *x + 1;
 
       /* Ignore SNPA info */
