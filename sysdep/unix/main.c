@@ -396,8 +396,6 @@ main(int argc, char **argv)
     log_init_debug("");
   log_init(debug_flag);
 
-  log(L_INFO "Launching BIRD " BIRD_VERSION "...");
-
   DBG("Initializing.\n");
   resource_init();
   olock_init();
@@ -416,7 +414,7 @@ main(int argc, char **argv)
       pid_t pid = fork();
       if (pid < 0)
 	die("fork: %m");
-      if (!pid)
+      if (pid)
 	return 0;
       setsid();
     }
