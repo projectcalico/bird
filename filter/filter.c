@@ -6,7 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
  *	FIXME: local namespace for functions
- *	FIXME: switch (or how did we call it in final release?)
  */
 
 #include <stdio.h>

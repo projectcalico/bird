@@ -4,6 +4,15 @@
  *	Copyright 1998,1999 Pavel Machek
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ *
+	FIXME: constant prefixes, make prefix.ip and prefix.length work
+	FIXME: define keyword
+	FIXME: case without { }'s
+	FIXME: allow px+, px- px^pair in prefix sets
+	FIXME: create ip.mask(x) function
+	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
+	FIXME: create community lists
+	FIXME: access to dynamic attributes
  */
 
 CF_HDR
