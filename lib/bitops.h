@@ -15,5 +15,5 @@
  *	u32_masklen	Inverse operation to u32_mkmask, -1 if not a bitmask.
  */
 
-u32 u32_mkmask(unsigned);
-int u32_masklen(u32);
+u32 u32_mkmask(unsigned n);
+int u32_masklen(u32 x);
