@@ -55,7 +55,7 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
   op->length=htons(length);
   ospf_pkt_finalize(n->ifa, op);
   sk_send_to(n->ifa->ip_sk,length, n->ip, OSPF_PROTO);
-  debug("%s: LS request sent to: %I\n", p->name, n->rid);
+  OSPF_TRACE(D_PACKETS, "LS request sent to: %I", n->rid);
 }
 
 void
@@ -120,13 +120,13 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received lsreq from unknown neighbor! (%I)\n", p->name,
+    OSPF_TRACE(D_PACKETS, "Received lsreq from unknown neighbor! (%I)",
       nrid);
     return ;
   }
   if(n->state<NEIGHBOR_EXCHANGE) return;
 
-  debug("%s: Received LS req from neighbor: %I\n",p->name, n->ip);
+  OSPF_TRACE(D_EVENTS, "Received LS req from neighbor: %I", n->ip);
   ospf_neigh_sm(n, INM_HELLOREC);
 
   length=ntohs(ps->ospf_packet.length);

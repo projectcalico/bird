@@ -11,7 +11,8 @@
 void
 flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
 {
-  debug("Going to remove node: Type: %u, Id: %I, Rt: %I, Age: %u\n",
+  struct proto *p=&oa->po->proto;
+  OSPF_TRACE(D_EVENTS, "Going to remove node Type: %u, Id: %I, Rt: %I, Age: %u",
     en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age);
   s_rem_node(SNODE en);
   ospf_hash_delete(oa->gr,en);
@@ -35,8 +36,8 @@ ospf_age(struct ospf_area *oa)
     }
     if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>=LSREFRESHTIME))
     {
-       debug("%s: Refreshing my LSA: Type: %u, Id: %I, Rt: %I\n",
-         p->name,en->lsa.type, en->lsa.id, en->lsa.rt);
+       OSPF_TRACE(D_EVENTS, "Refreshing my LSA: Type: %u, Id: %I, Rt: %I",
+         en->lsa.type, en->lsa.id, en->lsa.rt);
        en->lsa.sn++;
        en->lsa.age=0;
        lsasum_calculate(&en->lsa,en->lsa_body,po);

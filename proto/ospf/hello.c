@@ -266,8 +266,8 @@ wait_timer_hook(timer *timer)
 
   ifa=(struct ospf_iface *)timer->data;
   p=(struct proto *)(ifa->proto);
-  debug("%s: Wait timer fired on interface %s.\n",
-    p->name, ifa->iface->name);
+  OSPF_TRACE(D_EVENTS, "Wait timer fired on interface %s.",
+    ifa->iface->name);
   ospf_int_sm(ifa, ISM_WAITF);
 }
 
