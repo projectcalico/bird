@@ -133,10 +133,7 @@ struct ospf_iface
   sock *dr_sk;			/* For states DR or BACKUP */
   sock *ip_sk;			/* IP socket (for DD ...) */
   list neigh_list;		/* List of neigbours */
-  u16 cost;			/* Cost of iface */
-  u16 inftransdelay;		/* The estimated number of seconds it takes to
-				   transmit a Link State Update Packet over this
-				   interface.  LSAs contained in the update */
+  u32 cost;			/* Cost of iface */
   u32 waitint;			/* number of sec before changing state from wait */
   u32 rxmtint;			/* number of seconds between LSA retransmissions */
   u32 pollint;			/* Poll interval */
@@ -144,6 +141,9 @@ struct ospf_iface
   u32 vid;			/* Id of peer of virtual link */
   ip_addr vip;			/* IP of peer of virtual link */
   struct ospf_area *voa;	/* Area wich the vlink goes through */
+  u16 inftransdelay;		/* The estimated number of seconds it takes to
+				   transmit a Link State Update Packet over this
+				   interface.  LSAs contained in the update */
   u16 autype;
   u16 helloint;			/* number of seconds between hello sending */
   list *passwords;
