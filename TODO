@@ -19,12 +19,6 @@ Globals
 - protocols: implement reconfigure hook
 - protocols: use locking
 - check use of system includes and sprintf()
-- refuse to run twice on single system
-
-
-RPM
-~~~
-- build v4 and v6 in once
 
 Various ideas
 ~~~~~~~~~~~~~

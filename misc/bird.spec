@@ -18,16 +18,22 @@ protocols BGP, RIP and OSPF.
 %setup -n bird-%{version}
 
 %build
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var/run --enable-ipv6
+make
+mv bird bird6
 ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var/run
 make
+
 
 %install
 rm -rf $RPM_BUILD_ROOT/*
 make install prefix=$RPM_BUILD_ROOT/usr sysconfdir=$RPM_BUILD_ROOT/etc localstatedir=$RPM_BUILD_ROOT/var/run
+install bird6 $RPM_BUILD_ROOT/usr/sbin
 
 cd $RPM_BUILD_ROOT
-install -c -d etc/rc.d/init.d
-install -c $RPM_SOURCE_DIR/bird.init etc/rc.d/init.d/bird
+install -d etc/rc.d/init.d
+install $RPM_SOURCE_DIR/bird.init etc/rc.d/init.d/bird
+install $RPM_SOURCE_DIR/birdc6 usr/bin/
 
 %post
 /sbin/ldconfig
@@ -40,6 +46,8 @@ fi
 
 %files
 %attr(755,root,root) /usr/sbin/bird
+%attr(755,root,root) /usr/sbin/bird6
 %attr(755,root,root) /usr/sbin/birdc
+%attr(755,root,root) /usr/sbin/birdc6
 %attr(755,root,root) /etc/rc.d/init.d/bird
 %config /etc/bird.conf
