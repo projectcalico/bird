@@ -301,8 +301,35 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     {
        struct ospf_iface *ift=NULL;
        void *body;
+       struct ospf_iface *nifa;
+       int self=0;
 
        DBG("PG143(5): Received LSA is newer\n");
+
+       if(lsatmp.rt==p->cf->global->router_id) self=1;
+
+       if(lsatmp.type==LSA_T_NET)
+       {
+         WALK_LIST(nifa,po->iface_list)
+	 {
+	   if(ipa_compare(nifa->iface->addr->ip,ipa_from_u32(lsatmp.id))==0)
+	   {
+	     self=1;
+	     break;
+	   }
+	 }
+       }
+
+       if(self)
+       {
+         lsa->age=(htons(LSA_MAXAGE));
+	 lsatmp.age=LSA_MAXAGE;
+	 debug("Premature aging self originated lsa.\n");
+         flood_lsa(NULL,lsa,&lsatmp,po,NULL,oa);
+	 continue;
+       }
+
+
 
       /* pg 144 (5a) */
       if(lsadb && ((now-lsadb->inst_t)<MINLSARRIVAL))
@@ -343,8 +370,6 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
         lsatmp.length-sizeof(struct ospf_lsa_header));
       lsadb=lsa_install_new(&lsatmp,body, oa, p);
       DBG("New LSA installed in DB\n");
-
-      /* FIXME 145 (5f) self originated? */
 
       continue;
     }
