@@ -36,6 +36,10 @@ struct symbol {
 #define SYM_VOID 0
 #define SYM_PROTO 1
 #define SYM_NUMBER 2
+#define SYM_STAT 3 /* statement */
+#define SYM_VARIABLE_INT 4
+#define SYM_FUNCTION 5
+#define SYM_FILTER 6
 
 void cf_lex_init_tables(void);
 int cf_lex(void);

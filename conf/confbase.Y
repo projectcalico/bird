@@ -16,6 +16,7 @@ CF_HDR
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "nest/route.h"
+#include "conf/filter.h"
 
 CF_DECLS
 
@@ -24,6 +25,7 @@ CF_DECLS
   ip_addr a;
   struct symbol *s;
   char *t;
+  struct f_instruction *x; 
 }
 
 %token END
@@ -32,7 +34,8 @@ CF_DECLS
 %token <s> SYM
 %token <t> TEXT
 
-%type <i> expr bool pxlen
+%type <i> cexpr bool pxlen
+%type <x> expr
 
 %left '+' '-'
 %left '*' '/' '%'
@@ -55,22 +58,22 @@ conf_entries:
 
 CF_ADDTO(conf, /* EMPTY */)
 
-/* Expressions */
+/* Constant expressions */
 
-expr:
+cexpr:
    NUM
- | expr '+' expr { $$ = $1 + $3; }
- | expr '-' expr { $$ = $1 - $3; }
- | expr '*' expr { $$ = $1 * $3; }
- | expr '/' expr { if ($3) $$ = $1 / $3; else cf_error("Division by zero"); }
- | expr '%' expr { if ($3) $$ = $1 % $3; else cf_error("Division by zero"); }
- | '(' expr ')' { $$ = $2; }
+ | cexpr '+' cexpr { $$ = $1 + $3; }
+ | cexpr '-' cexpr { $$ = $1 - $3; }
+ | cexpr '*' cexpr { $$ = $1 * $3; }
+ | cexpr '/' cexpr { if ($3) $$ = $1 / $3; else cf_error("Division by zero"); }
+ | cexpr '%' cexpr { if ($3) $$ = $1 % $3; else cf_error("Division by zero"); }
+ | '(' cexpr ')' { $$ = $2; }
  | SYM { if ($1->class != SYM_NUMBER) cf_error("Number expected"); else $$ = $1->aux; }
  ;
 
 CF_ADDTO(conf, definition)
 definition:
-   DEFINE SYM '=' expr {
+   DEFINE SYM '=' cexpr {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined");
      $2->class = SYM_NUMBER;
      $2->aux = $4;
@@ -80,7 +83,7 @@ definition:
 /* Switches */
 
 bool:
-   expr {$$ = !!$1; }
+   cexpr {$$ = !!$1; }
  | ON { $$ = 1; }
  | YES { $$ = 1; }
  | OFF { $$ = 0; }

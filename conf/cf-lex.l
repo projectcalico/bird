@@ -245,6 +245,7 @@ cf_allocate(void)
   cfg_mem = lp_new(cfg_pool, 1024);
 }
 
+#if 1
 char *
 cfg_strdup(char *c)
 {
@@ -253,4 +254,5 @@ cfg_strdup(char *c)
   memcpy(z, c, l);
   return z;
 }
+#endif
 
