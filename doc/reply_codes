@@ -10,6 +10,7 @@ Reply codes of BIRD command-line interface
 
 0000	OK
 0001	Welcome
+0002	Reading configuration
 
 1000	BIRD version
 1001	Interface list
@@ -24,6 +25,7 @@ Reply codes of BIRD command-line interface
 
 8000	Reply too long
 8001	Route not found
+8002	Configuration file error
 
 9000	Command too long
 9001	Parse error

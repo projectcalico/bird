@@ -26,18 +26,20 @@ Core
 - config: executable config files
 - config: when parsing prefix, check zero bits
 - config: reconfiguration
+- config: reconfiguration of filters
 - config: useless rules when protocols disabled
 - config: remove protocol startup priority hacks?
 - config: better datetime format
+- config: treat shutdown as reconfiguration to null config? (what about config of logging etc. ?)
+- config: fix auto_router_id
 
 - krt: rescan interfaces when route addition fails?
 - krt: does PERSIST mode have any sense if kernel syncer is shut down as last?
+- krt: check behaviour wrt. reconfiguration of routing tables
 
 - tagging of external routes?
 
 - io: use poll if available
-
-- port to FreeBSD
 
 Commands
 ~~~~~~~~
@@ -50,6 +52,17 @@ show	<name>			# show everything you know about symbol <name>
 	symbols
 (disable|enable|restart) <protocol>	# or ALL?
 - showing of routing table as seen by given protocol
+- showing of deleted routing tables and filters
+
+Roadmap
+~~~~~~~
+- Dynamic reconfiguration
+- Allocators and data structures
+- Client
+- Remaining bits of IPv6 support (radvd)
+- RIPv6
+- BGP?
+- Logging and debugging messages
 
 Client
 ~~~~~~

@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Configuration File Handling
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -26,17 +26,27 @@ struct config {
   char *file_name;			/* Name of configuration file */
   struct symbol **sym_hash;		/* Lexer: symbol hash table */
   struct symbol **sym_fallback;		/* Lexer: fallback symbol hash table */
+  int obstacle_count;			/* Number of items blocking freeing of this config */
 };
 
-extern struct config *config, *new_config;
 /* Please don't use these variables in protocols. Use proto_config->global instead. */
+extern struct config *config;		/* Currently active configuration */
+extern struct config *new_config;	/* Configuration being parsed */
+extern struct config *old_config;	/* Old configuration when reconfiguration is in progress */
+extern struct config *future_config;	/* New config held here if recon requested during recon */
 
 struct config *config_alloc(byte *name);
 int config_parse(struct config *);
 int cli_parse(struct config *);
 void config_free(struct config *);
-void config_commit(struct config *);
+int config_commit(struct config *);
 void cf_error(char *msg, ...) NORET;
+void config_add_obstacle(struct config *);
+void config_del_obstacle(struct config *);
+
+#define CONF_DONE 0
+#define CONF_PROGRESS 1
+#define CONF_QUEUED 2
 
 /* Pools */
 
@@ -87,6 +97,6 @@ int cf_parse(void);
 /* Sysdep hooks */
 
 void sysdep_preconfig(struct config *);
-void sysdep_commit(struct config *);
+int sysdep_commit(struct config *, struct config *);
 
 #endif

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- UNIX Configuration
  *
- *	(c) 1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1999--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -16,6 +16,7 @@ CF_KEYWORDS(LOG, SYSLOG, ALL, DEBUG, TRACE, INFO, REMOTE, WARNING, ERROR, AUTH, 
 
 %type <i> log_mask log_mask_list log_cat
 %type <g> log_file
+%type <t> cfg_name
 
 CF_GRAMMAR
 
@@ -59,6 +60,16 @@ log_cat:
  | AUTH { $$ = L_AUTH[0]; }
  | FATAL { $$ = L_FATAL[0]; }
  | BUG { $$ = L_BUG[0]; }
+ ;
+
+/* Unix specific commands */
+
+CF_CLI(CONFIGURE, cfg_name, [<file>], [[Reload configuration]])
+{ cmd_reconfig($2); } ;
+
+cfg_name:
+   /* empty */ { $$ = NULL; }
+ | TEXT
  ;
 
 CF_CODE

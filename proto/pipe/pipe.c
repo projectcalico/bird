@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Table-to-Table Routing Protocol a.k.a Pipe
  *
- *	(c) 1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1999--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -106,8 +106,18 @@ pipe_start(struct proto *P)
    */
   a = proto_add_announce_hook(P, p->peer);
   a->proto = &ph->p;
+  rt_lock_table(p->peer);
 
   return PS_UP;
+}
+
+static int
+pipe_shutdown(struct proto *P)
+{
+  struct pipe_proto *p = (struct pipe_proto *) P;
+
+  rt_unlock_table(p->peer);
+  return PS_DOWN;
 }
 
 static struct proto *
@@ -147,5 +157,6 @@ struct protocol proto_pipe = {
   postconfig:	pipe_postconfig,
   init:		pipe_init,
   start:	pipe_start,
+  shutdown:	pipe_shutdown,
   get_status:	pipe_get_status,
 };

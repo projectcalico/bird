@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Unix Entry Point
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -74,30 +74,89 @@ sysdep_preconfig(struct config *c)
   init_list(&c->logfiles);
 }
 
-void
-sysdep_commit(struct config *c)
+int
+sysdep_commit(struct config *new, struct config *old)
 {
-  log_switch(&c->logfiles);
+  log_switch(&new->logfiles);
+  return 0;
+}
+
+static int
+unix_read_config(struct config **cp, char *name)
+{
+  struct config *conf = config_alloc(name);
+
+  *cp = conf;
+  conf_fd = open(name, O_RDONLY);
+  if (conf_fd < 0)
+    return 0;
+  cf_read_hook = cf_read;
+  return config_parse(conf);
 }
 
 static void
 read_config(void)
 {
-  struct config *conf = config_alloc(config_name);
+  struct config *conf;
 
-  conf_fd = open(config_name, O_RDONLY);
-  if (conf_fd < 0)
-    die("Unable to open configuration file %s: %m", config_name);
-  cf_read_hook = cf_read;
-  if (!config_parse(conf))
-    die("%s, line %d: %s", config_name, conf->err_lino, conf->err_msg);
+  if (!unix_read_config(&conf, config_name))
+    {
+      if (conf->err_msg)
+	die("%s, line %d: %s", config_name, conf->err_lino, conf->err_msg);
+      else
+	die("Unable to open configuration file %s: %m", config_name);
+    }
   config_commit(conf);
 }
 
 void
 async_config(void)
 {
-  debug("Asynchronous reconfigurations are not supported in demo version\n");
+  struct config *conf;
+
+  log(L_INFO "Reconfiguration requested by SIGHUP");
+  if (!unix_read_config(&conf, config_name))
+    {
+      if (conf->err_msg)
+	log(L_ERR "%s, line %d: %s", config_name, conf->err_lino, conf->err_msg);
+      else
+	log(L_ERR "Unable to open configuration file %s: %m", config_name);
+      config_free(conf);
+    }
+  else
+    config_commit(conf);
+}
+
+void
+cmd_reconfig(char *name)
+{
+  struct config *conf;
+
+  if (!name)
+    name = config_name;
+  cli_msg(-2, "Reading configuration from %s", name);
+  if (!unix_read_config(&conf, name))
+    {
+      if (conf->err_msg)
+	cli_msg(8002, "%s, line %d: %s", name, conf->err_lino, conf->err_msg);
+      else
+	cli_msg(8002, "%s: %m", name);
+      config_free(conf);
+    }
+  else
+    {
+      switch (config_commit(conf))
+	{
+	case CONF_DONE:
+	  cli_msg(3, "Reconfigured.");
+	  break;
+	case CONF_PROGRESS:
+	  cli_msg(4, "Reconfiguration in progress.");
+	  break;
+	default:
+	  cli_msg(5, "Reconfiguration already in progress, queueing new config");
+	}
+    }
 }
 
 /*
@@ -349,8 +408,6 @@ main(int argc, char **argv)
   signal_init();
 
   cli_init_unix();
-
-  protos_start();
 
   ev_run_list(&global_event_list);
   async_dump();

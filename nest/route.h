@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Routing Table
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -121,6 +121,11 @@ typedef struct rtable {
   char *name;				/* Name of this table */
   list hooks;				/* List of announcement hooks */
   int pipe_busy;			/* Pipe loop detection */
+  int use_count;			/* Number of protocols using this table */
+  struct config *deleted;		/* Table doesn't exist in current configuration,
+					 * delete as soon as use_count becomes 0 and remove
+					 * obstacle from this routing table.
+					 */
 } rtable;
 
 typedef struct network {
@@ -171,7 +176,9 @@ struct config;
 
 void rt_init(void);
 void rt_preconfig(struct config *);
-void rt_commit(struct config *);
+void rt_commit(struct config *new, struct config *old);
+void rt_lock_table(rtable *);
+void rt_unlock_table(rtable *);
 void rt_setup(pool *, rtable *, char *);
 static inline net *net_find(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_find(&tab->fib, &addr, len); }
 static inline net *net_get(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_get(&tab->fib, &addr, len); }

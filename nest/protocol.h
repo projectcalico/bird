@@ -41,7 +41,7 @@ struct protocol {
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
   void (*postconfig)(struct proto_config *);			/* After configuring each instance */
   struct proto * (*init)(struct proto_config *);		/* Create new instance */
-  int (*reconfigure)(struct proto *, struct proto_config *);	/* Try to reconfigure instance */
+  int (*reconfigure)(struct proto *, struct proto_config *);	/* Try to reconfigure instance, returns success */
   void (*dump)(struct proto *);			/* Debugging dump */
   void (*dump_attrs)(struct rte *);		/* Dump protocol-dependent attributes */
   int (*start)(struct proto *);			/* Start the instance */
@@ -54,8 +54,7 @@ struct protocol {
 void protos_build(void);
 void protos_preconfig(struct config *);
 void protos_postconfig(struct config *);
-void protos_commit(struct config *);
-void protos_start(void);
+void protos_commit(struct config *new, struct config *old, int force_restart);
 void protos_dump_all(void);
 void protos_shutdown(void);
 
@@ -92,6 +91,7 @@ struct proto {
   node n;
   struct protocol *proto;		/* Protocol */
   struct proto_config *cf;		/* Configuration data */
+  struct proto_config *cf_new;		/* Configuration we want to switch to after shutdown (NULL=delete) */
   pool *pool;				/* Pool containing local objects */
   struct event *attn;			/* "Pay attention" event */
 
@@ -103,6 +103,7 @@ struct proto {
   unsigned proto_state;			/* Protocol state machine (see below) */
   unsigned core_state;			/* Core state machine (see below) */
   unsigned core_goal;			/* State we want to reach (see below) */
+  unsigned reconfiguring;		/* We're shutting down due to reconfiguration */
   bird_clock_t last_state_change;	/* Time of last state transition */
 
   /*

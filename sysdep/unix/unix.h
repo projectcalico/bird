@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Declarations Common to Unix Port
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -16,6 +16,7 @@ struct pool;
 void async_config(void);
 void async_dump(void);
 void async_shutdown(void);
+void cmd_reconfig(char *name);
 
 /* io.c */
 

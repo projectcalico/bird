@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Protocols
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -38,6 +38,7 @@ static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
 static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
 
 static int proto_flush_all(void *);
+static void proto_rethink_goal(struct proto *p);
 
 static void
 proto_enqueue(list *l, struct proto *p)
@@ -103,6 +104,7 @@ proto_init_instance(struct proto *p)
   p->pool = rp_new(proto_pool, p->proto->name);
   p->attn = ev_new(p->pool);
   p->attn->data = p;
+  rt_lock_table(p->table);
 }
 
 struct announce_hook *
@@ -185,42 +187,118 @@ protos_postconfig(struct config *c)
   debug("\n");
 }
 
-void
-protos_commit(struct config *c)
+static struct proto *
+proto_init(struct proto_config *c)
 {
-  struct proto_config *x;
-  struct protocol *p;
-  struct proto *q;
+  struct protocol *p = c->protocol;
+  struct proto *q = p->init(c);
 
-  debug("Protocol commit:");
-  WALK_LIST(x, c->protos)
+  q->proto_state = PS_DOWN;
+  q->core_state = FS_HUNGRY;
+  proto_enqueue(&initial_proto_list, q);
+  /*
+   *  HACK ALERT!  In case of multiple kernel routing tables,
+   *  the kernel syncer acts as multiple protocols which cooperate
+   *  with each other.  In order to speed up their initialization,
+   *  we need to know when we're initializing the last one, hence
+   *  the startup counter.
+   */
+  if (!q->disabled)
+    p->startup_counter++;
+  return q;
+}
+
+void
+protos_commit(struct config *new, struct config *old, int force_reconfig)
+{
+  struct proto_config *oc, *nc;
+  struct proto *p, *n;
+
+  DBG("protos_commit:\n");
+  if (old)
     {
-      debug(" %s", x->name);
-      p = x->protocol;
-      q = p->init(x);
-      q->proto_state = PS_DOWN;
-      q->core_state = FS_HUNGRY;
-      proto_enqueue(&initial_proto_list, q);
-      /*
-       *  HACK ALERT!  In case of multiple kernel routing tables,
-       *  the kernel syncer acts as multiple protocols which cooperate
-       *  with each other.  In order to speed up their initialization,
-       *  we need to know when we're initializing the last one, hence
-       *  the startup counter.
-       */
-      if (!q->disabled)
-	p->startup_counter++;
+      WALK_LIST(oc, old->protos)
+	{
+	  struct proto *p = oc->proto;
+	  struct symbol *sym = cf_find_symbol(oc->name);
+	  if (sym && sym->class == SYM_PROTO)
+	    {
+	      /* Found match, let's check if we can smoothly switch to new configuration */
+	      nc = sym->def;
+	      if (!force_reconfig
+		  && nc->protocol == oc->protocol
+		  && nc->preference == oc->preference
+		  && nc->disabled == oc->disabled
+		  && nc->table->table == oc->table->table
+		  && nc->in_filter == oc->in_filter
+		  && nc->out_filter == oc->out_filter
+		  && p->proto_state != PS_DOWN)
+		{
+		  /* Generic attributes match, try converting them and then ask the protocol */
+		  p->debug = nc->debug;
+		  if (p->proto->reconfigure(p, nc))
+		    {
+		      DBG("\t%s: same\n", oc->name);
+		      p->cf = nc;
+		      nc->proto = p;
+		      continue;
+		    }
+		}
+	      /* Unsuccessful, force reconfig */
+	      DBG("\t%s: power cycling\n", oc->name);
+	      p->cf_new = nc;
+	    }
+	  else
+	    {
+	      DBG("\t%s: deleting\n", oc->name);
+	      p->cf_new = NULL;
+	    }
+	  p->reconfiguring = 1;
+	  config_add_obstacle(old);
+	  proto_rethink_goal(p);
+	}
     }
-  debug("\n");
+
+  WALK_LIST(nc, new->protos)
+    if (!nc->proto)
+      {
+	DBG("\t%s: adding\n", nc->name);
+	proto_init(nc);
+      }
+  DBG("\tdone\n");
+
+  DBG("Protocol start\n");
+  WALK_LIST_DELSAFE(p, n, initial_proto_list)
+    proto_rethink_goal(p);
 }
 
 static void
 proto_rethink_goal(struct proto *p)
 {
-  struct protocol *q = p->proto;
+  struct protocol *q;
+
+  if (p->reconfiguring && p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
+    {
+      struct proto_config *nc = p->cf_new;
+      DBG("%s has shut down for reconfiguration\n", p->name);
+      config_del_obstacle(p->cf->global);
+      rem_node(&p->n);
+      mb_free(p);
+      if (!nc)
+	return;
+      p = proto_init(nc);		/* FIXME: What about protocol priorities??? */
+    }
+
+  /* Determine what state we want to reach */
+  if (p->disabled || shutting_down || p->reconfiguring)
+    p->core_goal = FS_HUNGRY;
+  else
+    p->core_goal = FS_HAPPY;
 
   if (p->core_state == p->core_goal)
     return;
+
+  q = p->proto;
   if (p->core_goal == FS_HAPPY)		/* Going up */
     {
       if (p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
@@ -242,25 +320,6 @@ proto_rethink_goal(struct proto *p)
     }
 }
 
-static void
-proto_set_goal(struct proto *p, unsigned goal)
-{
-  if (p->disabled || shutting_down)
-    goal = FS_HUNGRY;
-  p->core_goal = goal;
-  proto_rethink_goal(p);
-}
-
-void
-protos_start(void)
-{
-  struct proto *p, *n;
-
-  debug("Protocol start\n");
-  WALK_LIST_DELSAFE(p, n, initial_proto_list)
-    proto_set_goal(p, FS_HAPPY);
-}
-
 void
 protos_shutdown(void)
 {
@@ -271,12 +330,12 @@ protos_shutdown(void)
     if (p->core_state != FS_HUNGRY || p->proto_state != PS_DOWN)
     {
       proto_shutdown_counter++;
-      proto_set_goal(p, FS_HUNGRY);
+      proto_rethink_goal(p);
     }
   WALK_LIST_BACKWARDS_DELSAFE(p, n, proto_list)
     {
       proto_shutdown_counter++;
-      proto_set_goal(p, FS_HUNGRY);
+      proto_rethink_goal(p);
     }
 }
 
@@ -329,6 +388,7 @@ static void
 proto_fell_down(struct proto *p)
 {
   DBG("Protocol %s down\n", p->name);
+  rt_unlock_table(p->table);
   if (!--proto_shutdown_counter)
     protos_shutdown_notify();
   proto_rethink_goal(p);
@@ -363,7 +423,10 @@ proto_notify_state(struct proto *p, unsigned ps)
     {
     case PS_DOWN:
       if (cs == FS_HUNGRY)		/* Shutdown finished */
-	proto_fell_down(p);
+	{
+	  proto_fell_down(p);
+	  return;			/* The protocol might have ceased to exist */
+	}
       else if (cs == FS_FLUSHING)	/* Still flushing... */
 	;
       else				/* Need to start flushing */

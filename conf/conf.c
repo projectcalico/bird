@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Configuration File Handling
  *
- *	(c) 1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -9,18 +9,22 @@
 #include <setjmp.h>
 #include <stdarg.h>
 
+#define LOCAL_DEBUG
+
 #include "nest/bird.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "lib/resource.h"
 #include "lib/string.h"
+#include "lib/event.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
 
 static jmp_buf conf_jmpbuf;
 
-struct config *config, *new_config;
+struct config *config, *new_config, *old_config, *future_config;
+static event *config_event;
 
 struct config *
 config_alloc(byte *name)
@@ -77,12 +81,117 @@ config_free(struct config *c)
 }
 
 void
+config_add_obstacle(struct config *c)
+{
+  DBG("+++ adding obstacle %d\n", c->obstacle_count);
+  c->obstacle_count++;
+}
+
+void
+config_del_obstacle(struct config *c)
+{
+  DBG("+++ deleting obstacle %d\n", c->obstacle_count);
+  c->obstacle_count--;
+  if (!c->obstacle_count)
+    {
+      ASSERT(config_event);
+      ev_schedule(config_event);
+    }
+}
+
+static int
+global_commit(struct config *c, struct config *old)
+{
+  if (!old)
+    return 0;
+  if (c->router_id != old->router_id)
+    return 1;
+  return 0;
+}
+
+static int
+config_do_commit(struct config *c)
+{
+  int force_restart, nobs;
+
+  DBG("do_commit\n");
+  old_config = config;
+  config = c;
+  if (old_config)
+    old_config->obstacle_count++;
+  DBG("sysdep_commit\n");
+  force_restart = sysdep_commit(c, old_config);
+  DBG("global_commit\n");
+  force_restart |= global_commit(c, old_config);
+  DBG("rt_commit\n");
+  rt_commit(c, old_config);
+  DBG("protos_commit\n");
+  protos_commit(c, old_config, force_restart);
+  new_config = NULL;			/* Just to be sure nobody uses that now */
+  if (old_config)
+    nobs = --old_config->obstacle_count;
+  else
+    nobs = 0;
+  DBG("do_commit finished with %d obstacles remaining\n", nobs);
+  return !nobs;
+}
+
+static int
+config_done(void *unused)
+{
+  struct config *c;
+
+  DBG("config_done\n");
+  for(;;)
+    {
+      log(L_INFO "Reconfigured");
+      if (old_config)
+	{
+	  config_free(old_config);
+	  old_config = NULL;
+	}
+      if (!future_config)
+	break;
+      c = future_config;
+      future_config = NULL;
+      log(L_INFO "Switching to queued configuration...");
+      if (!config_do_commit(c))
+	break;
+    }
+  return 0;
+}
+
+int
 config_commit(struct config *c)
 {
-  config = c;
-  sysdep_commit(c);
-  rt_commit(c);
-  protos_commit(c);
+  if (!config)				/* First-time configuration */
+    {
+      config_do_commit(c);
+      return CONF_DONE;
+    }
+  if (old_config)			/* Reconfiguration already in progress */
+    {
+      if (future_config)
+	{
+	  log(L_INFO "Queueing new configuration, ignoring the one already queued");
+	  config_free(future_config);
+	}
+      else
+	log(L_INFO "Queued new configuration");
+      future_config = c;
+      return CONF_QUEUED;
+    }
+  if (config_do_commit(c))
+    {
+      config_done(NULL);
+      return CONF_DONE;
+    }
+  if (!config_event)
+    {
+      config_event = ev_new(&root_pool);
+      config_event->hook = config_done;
+    }
+  return CONF_PROGRESS;
 }
 
 void

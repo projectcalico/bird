@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Routing Table
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -480,17 +480,68 @@ rt_preconfig(struct config *c)
 }
 
 void
-rt_commit(struct config *c)
+rt_lock_table(rtable *r)
 {
-  struct rtable_config *r;
+  r->use_count++;
+}
 
-  WALK_LIST(r, c->tables)
+void
+rt_unlock_table(rtable *r)
+{
+  if (!--r->use_count && r->deleted)
     {
-      rtable *t = mb_alloc(rt_table_pool, sizeof(struct rtable));
-      rt_setup(rt_table_pool, t, r->name);
-      add_tail(&routing_tables, &t->n);
-      r->table = t;
+      struct config *conf = r->deleted;
+      DBG("Deleting routing table %s\n", r->name);
+      rem_node(&r->n);
+      fib_free(&r->fib);
+      mb_free(r);
+      config_del_obstacle(conf);
     }
+}
+
+void
+rt_commit(struct config *new, struct config *old)
+{
+  struct rtable_config *o, *r;
+
+  DBG("rt_commit:\n");
+  if (old)
+    {
+      WALK_LIST(o, old->tables)
+	{
+	  rtable *ot = o->table;
+	  if (!ot->deleted)
+	    {
+	      struct symbol *sym = cf_find_symbol(o->name);
+	      if (sym && sym->class == SYM_TABLE)
+		{
+		  DBG("\t%s: same\n", o->name);
+		  r = sym->def;
+		  r->table = ot;
+		  ot->name = r->name;
+		}
+	      else
+		{
+		  DBG("\t%s: deleted", o->name);
+		  ot->deleted = old;
+		  config_add_obstacle(old);
+		  rt_lock_table(ot);
+		  rt_unlock_table(ot);
+		}
+	    }
+	}
+    }
+
+  WALK_LIST(r, new->tables)
+    if (!r->table)
+      {
+	rtable *t = mb_alloc(rt_table_pool, sizeof(struct rtable));
+	DBG("\t%s: created\n", r->name);
+	rt_setup(rt_table_pool, t, r->name);
+	add_tail(&routing_tables, &t->n);
+	r->table = t;
+      }
+  DBG("\tdone\n");
 }
 
 /*

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- UNIX Kernel Synchronization
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -66,6 +66,12 @@ struct proto_config *cf_kif;
 static struct kif_proto *kif_proto;
 static timer *kif_scan_timer;
 static bird_clock_t kif_last_shot;
+
+static void
+kif_preconfig(struct protocol *P, struct config *c)
+{
+  cf_kif = NULL;
+}
 
 static void
 kif_scan(timer *t)
@@ -137,6 +143,7 @@ kif_shutdown(struct proto *P)
 struct protocol proto_unix_iface = {
   name:		"Device",
   priority:	100,
+  preconfig:	kif_preconfig,
   init:		kif_init,
   start:	kif_start,
   shutdown:	kif_shutdown,
@@ -646,6 +653,7 @@ struct proto_config *cf_krt;
 static void
 krt_preconfig(struct protocol *P, struct config *c)
 {
+  cf_krt = NULL;
   krt_scan_preconfig(c);
 }
 
