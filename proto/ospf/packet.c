@@ -188,7 +188,7 @@ ospf_rx_hook (sock *sk, int size)
       break;
     case LSUPD_P:
       DBG ("%s: Link state update received.\n", p->name);
-      ospf_lsupd_rx ((struct ospf_lsupd_packet *) ps, p, ifa, size);
+      ospf_lsupd_receive((struct ospf_lsupd_packet *) ps, ifa, size);
       break;
     case LSACK_P:
       DBG ("%s: Link state ack received.\n", p->name);

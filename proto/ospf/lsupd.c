@@ -261,21 +261,20 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
 }
 
 void
-ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
+ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
   struct ospf_iface *ifa, u16 size)
 {
-  u32 area,nrid,myrid;
+  u32 area,nrid;
   struct ospf_neighbor *n,*ntmp;
   struct ospf_lsa_header *lsa;
   struct ospf_area *oa;
-  struct proto_ospf *po=(struct proto_ospf *)p;
+  struct proto_ospf *po=ifa->proto;
+  struct proto *p = (struct proto *)po;
   u16 length;
   u8 i;
+  int sendreq = 1;
 
   nrid=ntohl(ps->ospf_packet.routerid);
-
-  myrid=p->cf->global->router_id;
-
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
@@ -424,6 +423,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       if(lsadb && ((now-lsadb->inst_t)<=MINLSARRIVAL))	/* FIXME: test for flooding? */
       {
         DBG("I got it in less that MINLSARRIVAL\n");
+        sendreq = 0;
 	continue;
       }
         
@@ -496,6 +496,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
         /* pg145 (7b) */
         ospf_lsack_enqueue(n, lsa, ACKL_DIRECT);
       }
+      sendreq = 0;
       continue;
     }
 
@@ -520,9 +521,9 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   /* Send direct LSAs */
   ospf_lsack_send(n, ACKL_DIRECT);
 
-  if(n->state==NEIGHBOR_LOADING)
+  if(sendreq && (n->state==NEIGHBOR_LOADING))
   {
-    ospf_lsreq_send(n);	/* Send me another part of database */
+    ospf_lsreq_send(n);	/* Ask for another part of neighbor's database */
   }
 }
 

@@ -162,9 +162,9 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
   {
     ntohlsah(plsa + i, &lsa);
     if ((en = ospf_hash_find_header(n->lsrth, &lsa)) == NULL)
-      continue;
+      continue;		/* pg 155 */
 
-    if (lsa_comp(&lsa, &en->lsa) != CMP_SAME)
+    if (lsa_comp(&lsa, &en->lsa) != CMP_SAME)	/* pg 156 */
     {
       if ((lsa.sn == LSA_MAXSEQNO) && (lsa.age == LSA_MAXAGE))
 	continue;

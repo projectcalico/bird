@@ -11,7 +11,7 @@
 #define _BIRD_OSPF_LSUPD_H_
 
 void ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l);
-void ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
+void ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
   struct ospf_iface *ifa, u16 size);
 int flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   struct ospf_lsa_header *hh, struct proto_ospf *po, struct ospf_iface *iff,
