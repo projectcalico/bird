@@ -193,20 +193,27 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  nh = ea_find(buck->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
 	  ASSERT(nh);
 	  ip = *(ip_addr *) nh->u.ptr->data;
+	  is_ll = 0;
 	  if (ipa_equal(ip, p->local_addr))
-	    is_ll = 1;
+	    {
+	      is_ll = 1;
+	      ip_ll = p->local_link;
+	    }
 	  else
 	    {
 	      n = neigh_find(&p->p, &ip, 0);
 	      if (n && n->iface == p->neigh->iface)
-		is_ll = 1;
-	      else
-		is_ll = 0;
+		{
+		  /* FIXME: We are assuming the global scope addresses use the lower 64 bits
+		   * as an interface identifier which hasn't necessarily to be true.
+		   */
+		  is_ll = 1;
+	          ip_ll = ipa_or(ipa_build(0xfe800000,0,0,0), ipa_and(ip, ipa_build(0,0,~0,~0)));
+		}
 	    }
 	  if (is_ll)
 	    {
 	      *tmp++ = 32;
-	      ip_ll = ipa_or(ipa_build(0xfe80,0,0,0), ipa_and(ip, ipa_build(0,0,~0,~0)));
 	      ipa_hton(ip);
 	      memcpy(tmp, &ip, 16);
 	      ipa_hton(ip_ll);

@@ -74,6 +74,7 @@ struct bgp_proto {
 #ifdef IPV6
   byte *mp_reach_start, *mp_unreach_start; /* Multiprotocol BGP attribute notes */
   unsigned mp_reach_len, mp_unreach_len;
+  ip_addr local_link;			/* Link-level version of local_addr */
 #endif
 };
 

@@ -434,6 +434,19 @@ bgp_start_neighbor(struct bgp_proto *p)
 {
   p->local_addr = p->neigh->iface->addr->ip;
   DBG("BGP: local=%I remote=%I\n", p->local_addr, p->next_hop);
+#ifdef IPV6
+  {
+    struct ifa *a;
+    p->local_link = ipa_or(ipa_build(0xfe80,0,0,0), ipa_and(p->local_addr, ipa_build(0,0,~0,~0)));
+    WALK_LIST(a, p->neigh->iface->addrs)
+      if (a->scope == SCOPE_LINK)
+        {
+	  p->local_link = a->ip;
+	  break;
+	}
+    DBG("BGP: Selected link-level address %I\n", p->local_link);
+  }
+#endif
   bgp_initiate(p);
 }
 
