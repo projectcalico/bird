@@ -44,7 +44,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       }
       if (strncmp( (char *) (&block->packetlen), passwd->password, 16)) {
 	log( L_AUTH "Passwd authentication failed!" );
-	DBG( "Expected %s, got %s\n", passwd->password, &block->packetlen );
+	DBG( "Expected %s, got %.16s\n", passwd->password, &block->packetlen );
 	return 1;
       }
     }
