@@ -71,7 +71,7 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
 }
 
 /**
- * val_compare - compare two values, returns -1, 0, 1 on <, =, > and 999 on error */
+ * val_compare - compare two values, returns -1, 0, 1 on <, =, > and 999 on error
  */
 int
 val_compare(struct f_val v1, struct f_val v2)
