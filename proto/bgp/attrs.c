@@ -118,7 +118,7 @@ static struct attr_desc bgp_attr_table[] = {
     bgp_check_next_hop, NULL },
   { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,					/* BA_MULTI_EXIT_DISC */
     NULL, NULL },
-  { "local_pref", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,				/* BA_LOCAL_PREF */
+  { "local_pref", 4, BAF_TRANSITIVE, EAF_TYPE_INT, 0,				/* BA_LOCAL_PREF */
     NULL, NULL },
   { "atomic_aggr", 0, BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,			/* BA_ATOMIC_AGGR */
     NULL, NULL },
@@ -886,7 +886,7 @@ malformed:
   return NULL;
 
 err:
-  bgp_error(conn, 3, errcode, z-2, l+2);
+  bgp_error(conn, 3, errcode, attr_start, z+l-attr_start);
   return NULL;
 }
 
