@@ -377,24 +377,28 @@ nl_parse_addr(struct nlmsghdr *h)
   else
     {
       ip_addr netmask = ipa_mkmask(ifa.pxlen);
+      ip_addr xbrd;
+      ifa.prefix = ipa_and(ifa.ip, netmask);
+      ifa.brd = ipa_or(ifa.ip, ipa_not(netmask));
 #ifndef IPV6
       if (i->ifa_prefixlen == BITS_PER_IP_ADDRESS - 2)
 	ifa.opposite = ipa_opposite(ifa.ip);
       if ((ifi->flags & IF_BROADCAST) && a[IFA_BROADCAST])
 	{
-	  memcpy(&ifa.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(ifa.brd));
-	  ipa_ntoh(ifa.brd);
+	  memcpy(&xbrd, RTA_DATA(a[IFA_BROADCAST]), sizeof(xbrd));
+	  ipa_ntoh(xbrd);
+	  if (ipa_equal(xbrd, ifa.prefix) || ipa_equal(xbrd, ifa.brd))
+	    ifa.brd = xbrd;
+	  else
+	    log(L_ERR "KIF: Invalid broadcast address %I for %s", xbrd, ifi->name);
 	}
-      else
-	ifa.brd = ipa_or(ifa.ip, ipa_not(netmask));
 #endif
-      ifa.prefix = ipa_and(ifa.ip, netmask);
     }
 
   scope = ipa_classify(ifa.ip);
   if (scope < 0)
     {
-      log(L_ERR "KIF: Invalid interface address %I", ifa.ip);
+      log(L_ERR "KIF: Invalid interface address %I for %s", ifa.ip, ifi->name);
       return;
     }
   ifa.scope = scope & IADDR_SCOPE_MASK;
