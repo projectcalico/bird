@@ -80,7 +80,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 	  struct top_hash_entry *en;
 	  en = (struct top_hash_entry *) sn;
 
-          if ((n->ifa->type != OSPF_IT_VLINK) && (en->lsa.type != LSA_T_EXT))
+          if ((n->ifa->type != OSPF_IT_VLINK) || (en->lsa.type != LSA_T_EXT))
           {
 	    htonlsah(&(en->lsa), lsa);
 	    DBG("Working on: %d\n", i);
