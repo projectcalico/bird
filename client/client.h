@@ -9,3 +9,8 @@
 /* client.c */
 
 void cleanup(void);
+
+/* commands.c */
+
+void cmd_build_tree(void);
+void cmd_help(char *cmd, int len);

@@ -91,10 +91,43 @@ got_line(char *cmd_buffer)
   free(cmd_buffer);
 }
 
+static int
+input_complete(int arg, int key)
+{
+  ding();
+  return 0;
+}
+
+static int
+input_help(int arg, int key)
+{
+  int i = 0;
+
+  if (rl_point != rl_end || arg != 1)
+    return rl_insert(arg, '?');
+  while (i < rl_end)
+    {
+      if (rl_line_buffer[i++] == '"')
+	do
+	  {
+	    if (i >= rl_end)		/* `?' inside quoted string -> insert */
+	      return rl_insert(1, '?');
+	  }
+        while (rl_line_buffer[i++] != '"');
+    }
+  puts("?");
+  cmd_help(rl_line_buffer, rl_end);
+  rl_on_new_line();
+  rl_redisplay();
+  return 0;
+}
+
 static void
 input_init(void)
 {
   rl_readline_name = "birdc";
+  rl_add_defun("bird-complete", input_complete, '\t');
+  rl_add_defun("bird-help", input_help, '?');
   rl_callback_handler_install("bird> ", got_line);
   input_initialized = 1;
   if (fcntl(0, F_SETFL, O_NONBLOCK) < 0)
@@ -282,6 +315,7 @@ main(int argc, char **argv)
 #endif
 
   parse_args(argc, argv);
+  cmd_build_tree();
   server_connect();
   io_loop(0);
 
