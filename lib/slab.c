@@ -18,6 +18,7 @@
 
 static void slab_free(resource *r);
 static void slab_dump(resource *r);
+static resource *slab_lookup(resource *r, unsigned long addr);
 
 #ifdef FAKE_SLAB
 
@@ -111,7 +112,8 @@ static struct resclass sl_class = {
   "Slab",
   sizeof(struct slab),
   slab_free,
-  slab_dump
+  slab_dump,
+  slab_lookup
 };
 
 struct sl_head {
@@ -267,6 +269,21 @@ slab_dump(resource *r)
   WALK_LIST(h, s->full_heads)
     fc++;
   debug("(%de+%dp+%df blocks per %d objs per %d bytes)\n", ec, pc, fc, s->objs_per_slab, s->obj_size);
+}
+
+static resource *
+slab_lookup(resource *r, unsigned long a)
+{
+  slab *s = (slab *) r;
+  struct sl_head *h;
+
+  WALK_LIST(h, s->partial_heads)
+    if ((unsigned long) h < a && (unsigned long) h + SLAB_SIZE < a)
+      return r;
+  WALK_LIST(h, s->full_heads)
+    if ((unsigned long) h < a && (unsigned long) h + SLAB_SIZE < a)
+      return r;
+  return NULL;
 }
 
 #endif

@@ -21,12 +21,14 @@ struct pool {
 
 static void pool_dump(resource *);
 static void pool_free(resource *);
+static resource *pool_lookup(resource *, unsigned long);
 
 static struct resclass pool_class = {
   "Pool",
   sizeof(pool),
   pool_free,
-  pool_dump
+  pool_dump,
+  pool_lookup
 };
 
 pool root_pool;
@@ -68,6 +70,18 @@ pool_dump(resource *P)
   WALK_LIST(r, p->inside)
     rdump(r);
   indent -= 3;
+}
+
+static resource *
+pool_lookup(resource *P, unsigned long a)
+{
+  pool *p = (pool *) P;
+  resource *r, *q;
+
+  WALK_LIST(r, p->inside)
+    if (r->class->lookup && (q = r->class->lookup(r, a)))
+      return q;
+  return NULL;
 }
 
 void
@@ -112,6 +126,18 @@ ralloc(pool *p, struct resclass *c)
 }
 
 void
+rlookup(unsigned long a)
+{
+  resource *r;
+
+  debug("Looking up %08lx\n", a);
+  if (r = pool_lookup(&root_pool.r, a))
+    rdump(r);
+  else
+    debug("Not found.\n");
+}
+
+void
 resource_init(void)
 {
   root_pool.r.class = &pool_class;
@@ -140,11 +166,22 @@ static void mbl_debug(resource *r)
   debug("(size=%d)\n", m->size);
 }
 
+static resource *
+mbl_lookup(resource *r, unsigned long a)
+{
+  struct mblock *m = (struct mblock *) r;
+
+  if ((unsigned long) m->data <= a && (unsigned long) m->data + m->size > a)
+    return r;
+  return NULL;
+}
+
 static struct resclass mb_class = {
   "Memory",
   0,
   mbl_free,
   mbl_debug,
+  mbl_lookup
 };
 
 void *

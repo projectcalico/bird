@@ -14,6 +14,7 @@
 
 struct lp_chunk {
   struct lp_chunk *next;
+  unsigned int size;
   byte data[0];
 };
 
@@ -25,14 +26,16 @@ struct linpool {
   unsigned chunk_size, threshold, total, total_large;
 };
 
-void lp_free(resource *);
-void lp_dump(resource *);
+static void lp_free(resource *);
+static void lp_dump(resource *);
+static resource *lp_lookup(resource *, unsigned long);
 
 static struct resclass lp_class = {
   "LinPool",
   sizeof(struct linpool),
   lp_free,
-  lp_dump
+  lp_dump,
+  lp_lookup
 };
 
 linpool
@@ -70,6 +73,7 @@ lp_alloc(linpool *m, unsigned size)
 	  m->total_large += size;
 	  c->next = m->first_large;
 	  m->first_large = c->next;
+	  c->size = size;
 	}
       else
 	{
@@ -87,6 +91,7 @@ lp_alloc(linpool *m, unsigned size)
 	      *m->plast = c;
 	      m->plast = &c->next;
 	      c->next = NULL;
+	      c->size = m->chunk_size;
 	    }
 	  m->ptr = c->data + size;
 	  m->end = c->data + m->chunk_size;
@@ -134,7 +139,7 @@ lp_flush(linpool *m)
   m->total_large = 0;
 }
 
-void
+static void
 lp_free(resource *r)
 {
   linpool *m = (linpool *) r;
@@ -152,7 +157,7 @@ lp_free(resource *r)
     }
 }
 
-void
+static void
 lp_dump(resource *r)
 {
   linpool *m = (linpool *) r;
@@ -170,4 +175,19 @@ lp_dump(resource *r)
 	cntl,
 	m->total,
 	m->total_large);
+}
+
+static resource *
+lp_lookup(resource *r, unsigned long a)
+{
+  linpool *m = (linpool *) r;
+  struct lp_chunk *c;
+
+  for(c=m->first; c; c=c->next)
+    if ((unsigned long) c->data <= a && (unsigned long) c->data + c->size > a)
+      return r;
+  for(c=m->first_large; c; c=c->next)
+    if ((unsigned long) c->data <= a && (unsigned long) c->data + c->size > a)
+      return r;
+  return NULL;
 }

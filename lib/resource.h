@@ -25,6 +25,7 @@ struct resclass {
   unsigned size;			/* Standard size of single resource */
   void (*free)(resource *);		/* Freeing function */
   void (*dump)(resource *);		/* Dump to debug output */
+  resource *(*lookup)(resource *, unsigned long);	/* Look up address (only for debugging) */
 };
 
 /* Generic resource manipulation */
@@ -35,6 +36,7 @@ void resource_init(void);
 pool *rp_new(pool *, char *);		/* Create new pool */
 void rfree(void *);			/* Free single resource */
 void rdump(void *);			/* Dump to debug output */
+void rlookup(unsigned long);		/* Look up address (only for debugging) */
 
 void *ralloc(pool *, struct resclass *);
 
