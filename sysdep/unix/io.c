@@ -175,7 +175,7 @@ tm_shot(void)
 
   if (first_far_timer <= now)
     {
-      clock_t limit = now + NEAR_TIMER_LIMIT;
+      bird_clock_t limit = now + NEAR_TIMER_LIMIT;
       first_far_timer = TIME_INFINITY;
       n = HEAD(far_timers);
       while (m = n->next)

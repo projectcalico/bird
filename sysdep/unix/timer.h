@@ -22,7 +22,7 @@ typedef struct timer {
   unsigned randomize;			/* Amount of randomization */
   unsigned recurrent;			/* Timer recurrence */
   node n;				/* Internal link */
-  clock_t expires;			/* 0=inactive */
+  bird_clock_t expires;			/* 0=inactive */
 } timer;
 
 timer *tm_new(pool *);
@@ -30,6 +30,6 @@ void tm_start(timer *, unsigned after);
 void tm_stop(timer *);
 void tm_dump_all(void);
 
-extern clock_t now;
+extern bird_clock_t now;
 
 #endif
