@@ -215,7 +215,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   c->done = 0;
   fit_init( &c->iter, &P->rtable );
   add_head( &P->connections, NODE c );
-  TRACE(D_PACKETS, "Sending my routing table to %I:%d on %s\n", daddr, dport, rif->iface->name );
+  TRACE(D_PACKETS, "Sending my routing table to %I:%d on %s", daddr, dport, rif->iface->name );
 
   rip_tx(c->rif->sock);
 }
@@ -355,20 +355,12 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   case RIPCMD_RESPONSE: DBG( "*** Rtable from %I\n", whotoldme ); 
           if (port != P_CF->port) {
 	    log( L_REMOTE "%I send me routing info from port %d", whotoldme, port );
-#if 0
 	    return 0;
-#else
-	    log( L_REMOTE "...ignoring" );
-#endif
 	  }
 
 	  if (!neigh_find( p, &whotoldme, 0 )) {
 	    log( L_REMOTE "%I send me routing info but he is not my neighbor", whotoldme );
-#if 0
 	    return 0;
-#else
-	    log( L_REMOTE "...ignoring" );
-#endif
 	  }
 
           for (i=0; i<num; i++) {
@@ -420,6 +412,11 @@ rip_rx(sock *s, int size)
   num = size / sizeof( struct rip_block );
   if (num>PACKET_MAX) BAD( "Too many blocks" );
 
+  if (ipa_same(i->iface->addr->ip, s->faddr)) {
+    DBG("My own packet\n");
+    return 1;
+  }
+
   rip_process_packet( p, (struct rip_packet *) s->rbuf, num, s->faddr, s->fport );
   return 1;
 }
@@ -449,7 +446,9 @@ rip_timer(timer *t)
   WALK_LIST_DELSAFE( e, et, P->garbage ) {
     rte *rte;
     rte = SKIP_BACK( struct rte, u.rip.garbage, e );
+#ifdef LOCAL_DEBUG
     DBG( "Garbage: " ); rte_dump( rte );
+#endif
 
     if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
       TRACE(D_EVENTS, "RIP: entry is too old: %I", rte->net->n.prefix );
