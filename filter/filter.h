@@ -50,6 +50,11 @@ struct f_val {
   } val;
 };
 
+struct f_path {
+  struct f_path *next;
+  int val;
+};
+
 struct filter {
   char *name;
   struct f_inst *root;
@@ -110,6 +115,7 @@ void val_print(struct f_val v);
 #define T_IP 0x20
 #define T_PREFIX 0x21
 #define T_STRING 0x22
+#define T_PATH 0x23	/* BGP path */
 
 #define T_RETURN 0x40
 #define T_SET 0x80

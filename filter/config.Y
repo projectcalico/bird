@@ -24,7 +24,7 @@ mnozina cisel ASu. Na cestach nadefinuji nasledujici operace:
 
 Filtry by mely podporovat:
 
-        - operator pridani AS k ceste [bgp_path_prepend]
+        - operator pridani AS k ceste [bgppath_prepend]
         - matchovani na pritomnost podposloupnosti v ceste (pricemz vyskytne-li
           se tam mnozina, tak si ji lze predstavit prerovnanou v libovolnem
           poradi)
@@ -65,7 +65,7 @@ CF_DECLS
 
 CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
-	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
+	INT, BOOL, IP, PREFIX, PAIR, SET, STRING, BGP_PATH,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE,
 	FROM, GW, NET, MASK, SOURCE,
@@ -84,6 +84,8 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %type <e> set_item set_items switch_body
 %type <v> set_atom prefix prefix_s ipa
 %type <s> decls declsn one_decl function_params 
+%type <h> bgp_path
+%type <i> bgp_one
 
 CF_GRAMMAR
 
@@ -104,6 +106,7 @@ type:
  | PREFIX { $$ = T_PREFIX; }
  | PAIR { $$ = T_PAIR; }
  | STRING { $$ = T_STRING; }
+ | BGP_PATH { $$ = T_PATH; }
  | type SET { 
 	switch ($1) {
 	  default:
@@ -305,6 +308,15 @@ switch_body: /* EMPTY */ { $$ = NULL; }
 
 /* CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; } */
 
+bgp_one:
+   NUM { $$ = $1; }
+ ;
+
+bgp_path: 
+   bgp_one          { $$ = cfg_alloc(sizeof(struct f_path)); $$->next = NULL; $$->val  = $1; }
+ | bgp_one bgp_path { $$ = cfg_alloc(sizeof(struct f_path)); $$->next = $2;   $$->val  = $1; }
+ ;
+
 constant:
    NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT;  $$->a2.i = $1; }
  | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_BOOL; $$->a2.i = 1;  }
@@ -315,6 +327,7 @@ constant:
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
+ | '/' bgp_path '/' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PATH; $$->a2.p = $2; }
  ;
 
 /*
@@ -371,6 +384,7 @@ term:
        case SYM_VARIABLE | T_PAIR:
        case SYM_VARIABLE | T_PREFIX:
        case SYM_VARIABLE | T_IP:
+       case SYM_VARIABLE | T_PATH:
 	 $$->code = 'C';
 	 $$->a1.p = $1->aux2;
 	 break;
@@ -401,7 +415,6 @@ term:
 /* Paths */
  | term '.' APPEND '(' term ')' { }
 /* | term '.' LEN { }  Hmm, this would colide with ip.len. What to do with that? */
- | term '.' MATCH '(' term ')' { }
 
 /* function_call is inlined here */
  | SYM '(' var_list ')' {

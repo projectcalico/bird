@@ -133,6 +133,7 @@ val_print(struct f_val v)
   case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
+  case T_PATH: debug( "(path " ); { struct f_path *p = v.val.s; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF
   }
@@ -248,6 +249,7 @@ interpret(struct f_inst *what)
     case T_IP: 
     case T_PREFIX: 
     case T_PAIR: 
+    case T_PATH:
       if (sym->class != (SYM_VARIABLE | v2.type))
 	runtime( "Variable of bad type" );
       * (struct f_val *) sym->aux2 = v2; 
