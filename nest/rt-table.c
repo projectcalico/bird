@@ -186,6 +186,11 @@ rt_dump(rtable *t)
 }
 
 void
+rt_dump_all(void)
+{
+}
+
+void
 rt_init(void)
 {
   rta_init();
