@@ -453,6 +453,7 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
   lsa.sn = LSA_INITSEQNO;
   lsa.length = sizeof(struct ospf_lsa_sum) + sizeof(union ospf_lsa_sum_tm) +
     sizeof(struct ospf_lsa_header);
+  lsa.options = oa->opt.byte;
 
   max = max_ext_lsa(fn->pxlen);
   for (i = 0; i < max; i++)
@@ -592,6 +593,7 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
   lsa.type = LSA_T_EXT;
   lsa.rt = rtid;
   lsa.sn = LSA_INITSEQNO;
+  lsa.options = 0;
 
   body = originate_ext_lsa_body(n, e, po, attrs);
   lsa.length = sizeof(struct ospf_lsa_ext) + sizeof(struct ospf_lsa_ext_tos) +
