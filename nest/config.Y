@@ -76,6 +76,7 @@ newtab: TABLE SYM {
 CF_ADDTO(conf, proto)
 
 proto_start: PROTOCOL
+ ;
 
 proto_name:
    /* EMPTY */ {
@@ -225,7 +226,7 @@ password_list:
 CF_CLI_HELP(SHOW, ..., [[Show status information]])
 
 CF_CLI(SHOW STATUS,,, [[Show router status]])
-{ cmd_show_status(); }
+{ cmd_show_status(); } ;
 
 CF_CLI(SHOW PROTOCOLS, optsym, [<name>], [[Show routing protocols]])
 { proto_show($3, 0); } ;
@@ -363,6 +364,7 @@ CF_CLI(RESTART, proto_patt, <protocol> | \"<pattern>\" | all, [[Restart protocol
 CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging]])
 CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging]])
 { proto_debug($2, $3); }
+ ;
 
 proto_patt:
    SYM { $$ = $1->name; }

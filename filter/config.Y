@@ -72,7 +72,7 @@ type:
 	switch ($1) {
 	  default:
 		cf_error( "You can't create sets of this type." );
-	  case T_INT: case T_IP: case T_PREFIX: case T_PAIR:
+	  case T_INT: case T_IP: case T_PREFIX: case T_PAIR: ;
 	}
 	$$ = $1 | T_SET;
 	}

@@ -173,7 +173,7 @@ as_path_match(struct adata *path, struct f_path_mask *mask)
 	}
 	if (!asterisk)
 	  return 0;
-      okay:
+      okay: ;
       }
       break;
 

@@ -471,7 +471,7 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *attrs, int originate)
 	    d->u.ptr = z;
 	    break;
 	  }
-	default:
+	default: ;
 	}
       d++;
       new->count++;
