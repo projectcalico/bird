@@ -154,8 +154,8 @@ struct ospf_hello_packet {
   u8 options;
   u8 priority;
   u32 deadint;
-  u32 dr;
-  u32 bdr;
+  ip_addr dr;
+  ip_addr bdr;
 };
 
 struct immsb {
@@ -305,8 +305,8 @@ struct ospf_neighbor
   ip_addr ip;		/* IP of it's interface */
   u8 priority;		/* Priority */
   u8 options;		/* Options received */
-  u32 dr;		/* Neigbour's idea of DR */
-  u32 bdr;		/* Neigbour's idea of BDR */
+  ip_addr dr;		/* Neigbour's idea of DR */
+  ip_addr bdr;		/* Neigbour's idea of BDR */
   u8 adj;		/* built adjacency? */
   siterator dbsi;	/* Database summary list iterator */
   slist lsrql;		/* Link state request */

@@ -53,7 +53,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   u32 nrid, *pnrid;
   struct ospf_neighbor *neigh,*n;
   u8 i,twoway,oldpriority;
-  u32 olddr,oldbdr;
+  ip_addr olddr,oldbdr;
   char *beg=": Bad OSPF hello packet from ", *rec=" received: ";
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
@@ -153,21 +153,22 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     if(n->priority!=oldpriority) ospf_int_sm(ifa, ISM_NEICH);
 
     /* Router is declaring itself ad DR and there is no BDR */
-    if((n->rid==n->dr) && (n->bdr==0) && (n->state!=NEIGHBOR_FULL))
+    if((ipa_compare(n->ip,n->dr)==0) && (ipa_to_u32(n->bdr)==0)
+      && (n->state!=NEIGHBOR_FULL))
       ospf_int_sm(ifa, ISM_BACKS);
 
     /* Neighbor is declaring itself as BDR */
-    if((n->rid==n->bdr) && (n->state!=NEIGHBOR_FULL))
+    if((ipa_compare(n->ip,n->bdr)==0) && (n->state!=NEIGHBOR_FULL))
       ospf_int_sm(ifa, ISM_BACKS);
 
     /* Neighbor is newly declaring itself as DR or BDR */
-    if(((n->rid==n->dr) && (n->dr!=olddr)) || ((n->rid==n->bdr) &&
-      (n->bdr!=oldbdr)))
+    if(((ipa_compare(n->ip,n->dr)==0) && (ipa_compare(n->dr,olddr)!=0))
+      || ((ipa_compare(n->ip,n->bdr)==0) && (ipa_compare(n->bdr,oldbdr)!=0)))
       ospf_int_sm(ifa, ISM_NEICH);
 
     /* Neighbor is no more declaring itself as DR or BDR */
-    if(((n->rid==olddr) && (n->dr!=olddr)) || ((n->rid==oldbdr) &&
-      (n->bdr!=oldbdr)))
+    if(((ipa_compare(n->ip,olddr)==0) && (ipa_compare(n->dr,olddr)!=0))
+      || ((ipa_compare(n->ip,oldbdr)==0) && (ipa_compare(n->bdr,oldbdr)!=0)))
       ospf_int_sm(ifa, ISM_NEICH);
   }
 
@@ -212,8 +213,8 @@ hello_timer_hook(timer *timer)
   pkt->options=ifa->options;
   pkt->priority=ifa->priority;
   pkt->deadint=htonl(ifa->deadc*ifa->helloint);
-  pkt->dr=htonl(ifa->drid);
-  pkt->bdr=htonl(ifa->bdrid);
+  pkt->dr=htonl(ifa->drip);
+  pkt->bdr=htonl(ifa->bdrip);
 
   /* Fill all neighbors */
   i=0;

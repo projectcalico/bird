@@ -100,9 +100,9 @@ electbdr(list nl)
   {
     if(neigh->state>=NEIGHBOR_2WAY)	/* Higher than 2WAY */
       if(neigh->priority>0)		/* Eligible */
-        if(neigh->rid!=neigh->dr)	/* And not declaring itself DR */
+        if(ipa_compare(neigh->ip,neigh->dr)!=0)	/* And not decl. itself DR */
 	{
-	  if(neigh->rid==neigh->bdr)	/* Declaring BDR */
+	  if(ipa_compare(neigh->ip,neigh->bdr)==0)	/* Declaring BDR */
           {
             if(n1!=NULL)
             {
@@ -145,7 +145,7 @@ electdr(list nl)
   {
     if(neigh->state>=NEIGHBOR_2WAY)	/* Higher than 2WAY */
       if(neigh->priority>0)		/* Eligible */
-        if(neigh->rid==neigh->dr)	/* And declaring itself DR */
+        if(ipa_compare(neigh->ip,neigh->dr)==0)	/* And declaring itself DR */
 	{
           if(n!=NULL)
           {
@@ -331,19 +331,20 @@ void
 bdr_election(struct ospf_iface *ifa)
 {
   struct ospf_neighbor *neigh,*ndr,*nbdr,me,*tmp;
-  u32 myid, ndrid, nbdrid;
+  u32 myid;
+  ip_addr ndrip, nbdrip;
   int doadj;
   struct proto *p=&ifa->proto->proto;
 
-  DBG("%s: (B)DR election.\n",p->name);
+  DBG("(B)DR election.\n");
 
   myid=p->cf->global->router_id;
 
   me.state=NEIGHBOR_2WAY;
   me.rid=myid;
   me.priority=ifa->priority;
-  me.dr=ifa->drid;
-  me.bdr=ifa->bdrid;
+  me.dr=ifa->drip;
+  me.bdr=ifa->bdrip;
   me.ip=ifa->iface->addr->ip;
 
   add_tail(&ifa->neigh_list, NODE &me);
@@ -358,53 +359,49 @@ bdr_election(struct ospf_iface *ifa)
     || ((ifa->bdrid==myid) && (nbdr!=&me)) 
     || ((ifa->bdrid!=myid) && (nbdr==&me)))
   {
-    if(ndr==NULL) ifa->drid=me.dr=0;
-    else ifa->drid=me.dr=ndr->rid;
+    if(ndr==NULL) ifa->drip=me.dr=ipa_from_u32(0);
+    else ifa->drip=me.dr=ndr->ip;
 
-    if(nbdr==NULL) ifa->bdrid=me.bdr=0;
-    else ifa->bdrid=me.bdr=nbdr->rid;
+    if(nbdr==NULL) ifa->bdrip=me.bdr=ipa_from_u32(0);
+    else ifa->bdrip=me.bdr=nbdr->ip;
 
     nbdr=electbdr(ifa->neigh_list);
     ndr=electdr(ifa->neigh_list);
   }
 
-  if(ndr==NULL) ifa->drid=0;
-  if(ndr==NULL) ndrid=0;
-  else ndrid=ndr->rid;
+  if(ndr==NULL) ndrip=ipa_from_u32(0);
+  else ndrip=ndr->ip;
 
-  if(nbdr==NULL) nbdrid=0;
-  else nbdrid=nbdr->rid;
+  if(nbdr==NULL) nbdrip=ipa_from_u32(0);
+  else nbdrip=nbdr->ip;
 
   doadj=0;
-  if((ifa->drid!=ndrid) || (ifa->bdrid!=nbdrid)) doadj=1;
-  ifa->drid=ndrid;
-  if(ndrid==0)
+  if((ipa_compare(ifa->drip,ndrip)!=0) || (ipa_compare(ifa->bdrip,nbdrip)!=0))
+    doadj=1;
+
+  if(ndr==NULL)
   {
     ifa->drid=0;
     ifa->drip=ipa_from_u32(0);
   }
   else
   {
-    if((tmp=find_neigh(ifa,ndrid))==NULL)
-      bug("Error in DR election.");
-    ifa->drid=ndrid;
-    ifa->drip=tmp->ip;
+    ifa->drid=ndr->rid;
+    ifa->drip=ndr->ip;
   }
 
-  if(nbdrid==0)
+  if(nbdr==NULL)
   {
     ifa->bdrid=0;
     ifa->bdrip=ipa_from_u32(0);
   }
   else
   {
-    if((tmp=find_neigh(ifa,nbdrid))==NULL)
-      bug("Error in BDR election.");
-    ifa->bdrid=nbdrid;
-    ifa->bdrip=tmp->ip;
+    ifa->bdrid=nbdr->rid;
+    ifa->bdrip=nbdr->ip;
   }
 
-  DBG("%s: DR=%I, BDR=%I\n",p->name, ifa->drid, ifa->bdrid);
+  DBG("DR=%I, BDR=%I\n", ifa->drid, ifa->bdrid);
 
   if(myid==ifa->drid) iface_chstate(ifa, OSPF_IS_DR);
   else
