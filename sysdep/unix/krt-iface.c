@@ -102,9 +102,14 @@ scan_ifs(struct ifreq *r, int cnt)
 	}
       if (fl & IFF_LOOPBACK)
 	i.flags |= IF_LOOPBACK | IF_IGNORE;
+      if (1
 #ifndef CONFIG_ALL_MULTICAST
-      if (fl & IFF_MULTICAST)
+	  && (fl & IFF_MULTICAST)
 #endif
+#ifndef CONFIG_UNNUM_MULTICAST
+	  && !(i.flags & IF_UNNUMBERED)
+#endif
+	 )
 	i.flags |= IF_MULTICAST;
 
       a.prefix = ipa_and(a.ip, ipa_mkmask(a.pxlen));

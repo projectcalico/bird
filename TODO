@@ -2,8 +2,6 @@ Core
 ~~~~
 - IPv6 support
 
-- io.c: refuse old-style multicasts for unnumbered interfaces?
-
 - counters (according to SNMP MIB?)
 - better memory allocators
 - real attribute cache
@@ -21,11 +19,7 @@ Core
 
 - iface: SIOCGIFINDEX exists on glibc systems, but it doesn't work on 2.0.x kernels!
 
-* glibc problems with struct mreqn
-
 - socket: Use IP_RECVERR for BGP TCP sockets?
-
-- OSPF: refuse running on non-multicast devices
 
 - config: executable config files
 - config: when parsing prefix, check zero bits
@@ -82,6 +76,7 @@ RIP
 
 OSPF
 ~~~~
+	- refuse running on non-multicast devices
 	- importing of device routes for networks where we don't run OSPF
 	- check incoming packets using neighbor cache
 	- RFC2328 appendix E: Use a better algorithm

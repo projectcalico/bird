@@ -2,3 +2,4 @@
 krt-scan.c
 krt-scan.h
 #endif
+sysio.h

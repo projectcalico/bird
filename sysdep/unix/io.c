@@ -17,10 +17,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-#ifndef HAVE_STRUCT_IP_MREQN
-#include <net/if.h>
-#endif
-
 #include "nest/bird.h"
 #include "lib/lists.h"
 #include "lib/resource.h"
@@ -29,10 +25,6 @@
 #include "lib/event.h"
 #include "lib/string.h"
 #include "nest/iface.h"
-
-#ifdef IPV6
-#include <linux/in6.h>			/* FIXMEv6: glibc variant? */
-#endif
 
 #include "lib/unix.h"
 
@@ -383,7 +375,7 @@ sk_new(pool *p)
 }
 
 #define ERR(x) do { err = x; goto bad; } while(0)
-#define WARN(x) log(L_WARN "sk_setup: " x)
+#define WARN(x) log(L_WARN "sk_setup: %s: %m", x)
 
 #ifdef IPV6
 
@@ -443,6 +435,8 @@ get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port)
 }
 
 #endif
+
+#include "lib/sysio.h"
 
 static char *
 sk_setup(sock *s)
@@ -530,11 +524,9 @@ sk_open(sock *s)
 {
   int fd, e;
   sockaddr sa;
-  int zero = 0;
   int one = 1;
   int type = s->type;
   int has_src = ipa_nonzero(s->saddr) || s->sport;
-  int has_dest = ipa_nonzero(s->daddr);
   char *err;
 
   switch (type)
@@ -581,9 +573,10 @@ sk_open(sock *s)
 #ifdef IPV6
 	/* Fortunately, IPv6 socket interface is recent enough and therefore standardized */
 	ASSERT(s->iface && s->iface->addr);
-	if (has_dest)
+	if (ipa_nonzero(s->daddr))
 	  {
 	    int t = s->iface->index;
+	    int zero = 0;
 	    if (setsockopt(fd, SOL_IPV6, IPV6_MULTICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
 	      ERR("IPV6_MULTICAST_HOPS");
 	    if (setsockopt(fd, SOL_IPV6, IPV6_MULTICAST_LOOP, &zero, sizeof(zero)) < 0)
@@ -601,56 +594,9 @@ sk_open(sock *s)
 	  }
 #else
 	/* With IPv4 there are zillions of different socket interface variants. Ugh. */
-#ifdef HAVE_STRUCT_IP_MREQN
-	struct ip_mreqn mreq;
-#define mreq_add mreq
 	ASSERT(s->iface && s->iface->addr);
-	mreq.imr_ifindex = s->iface->index;
-	set_inaddr(&mreq.imr_address, s->iface->addr->ip);
-#else
-	struct in_addr mreq;
-	struct ip_mreq mreq_add;
-	ASSERT(s->iface && s->iface->addr);
-	set_inaddr(&mreq, s->iface->addr->ip);
-#ifdef SO_BINDTODEVICE
-	{
-	  struct ifreq ifr;
-	  strcpy(ifr.ifr_name, s->iface->name);
-	  if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
-	    ERR("SO_BINDTODEVICE");
-#if 0					/* FIXME */
-	  mreq_add.imr_interface.s_addr = INADDR_ANY;
-#else
-	mreq_add.imr_interface = mreq;
-#endif
-	}
-#else
-#error Multicasts not supported on PtP devices		/* FIXME: Solve it somehow? */
-	mreq_add.imr_interface = mreq;
-#endif
-#endif
-	set_inaddr(&mreq_add.imr_multiaddr, s->daddr);
-	if (has_dest)
-	  {
-	    if (
-#ifdef IP_DEFAULT_MULTICAST_TTL
-		s->ttl != IP_DEFAULT_MULTICAST_TTL &&
-#endif
-		setsockopt(fd, SOL_IP, IP_MULTICAST_TTL, &s->ttl, sizeof(s->ttl)) < 0)
-	      ERR("IP_MULTICAST_TTL");
-	    if (
-#ifdef IP_DEFAULT_MULTICAST_LOOP
-		IP_DEFAULT_MULTICAST_LOOP &&
-#endif
-		setsockopt(fd, SOL_IP, IP_MULTICAST_LOOP, &zero, sizeof(zero)) < 0)
-	      ERR("IP_MULTICAST_LOOP");
-	    /* This defines where should we send _outgoing_ multicasts */
-	    if (setsockopt(fd, SOL_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0)
-	      ERR("IP_MULTICAST_IF");
-	}
-      /* And this one sets interface for _receiving_ multicasts from */
-      if (has_src && setsockopt(fd, SOL_IP, IP_ADD_MEMBERSHIP, &mreq_add, sizeof(mreq_add)) < 0)
-	ERR("IP_ADD_MEMBERSHIP");
+	if (err = sysio_mcast_join(s))
+	  goto bad;
 #endif
       break;
       }
