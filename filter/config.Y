@@ -42,7 +42,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %type <f> filter filter_body where_filter
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
-%type <v> set_atom prefix prefix_s ipa
+%type <v> set_atom fprefix fprefix_s ipa
 %type <s> decls declsn one_decl function_params 
 %type <h> bgp_path
 %type <i> bgp_one
@@ -212,15 +212,18 @@ pair:
 /*
  * Complex types, their bison value is struct f_val
  */
-prefix_s:
-   IPA '/' NUM { $$.type = T_PREFIX; $$.val.px.ip = $1; $$.val.px.len = $3; if (ipa_nonzero(ipa_and($$.val.px.ip, ipa_not(ipa_mkmask($$.val.px.len))))) cf_error( "%I/%d is not really prefix\n", $$.val.px.ip, $$.val.px.len ); }
+fprefix_s:
+   IPA '/' NUM {
+     if (!ip_is_prefix($1, $3)) cf_error("Invalid network prefix: %I/%d", $1, $3);
+     $$.type = T_PREFIX; $$.val.px.ip = $1; $$.val.px.len = $3;
+   }
  ;
 
-prefix:
-   prefix_s { $$ = $1; }
- | prefix_s '+' { $$ = $1; $$.val.px.len |= LEN_PLUS; }
- | prefix_s '-' { $$ = $1; $$.val.px.len |= LEN_MINUS; }
- | prefix_s '{' NUM ',' NUM '}' { $$ = $1; $$.val.px.len |= LEN_RANGE | ($3 << 16) | ($5 << 8); }
+fprefix:
+   fprefix_s { $$ = $1; }
+ | fprefix_s '+' { $$ = $1; $$.val.px.len |= LEN_PLUS; }
+ | fprefix_s '-' { $$ = $1; $$.val.px.len |= LEN_MINUS; }
+ | fprefix_s '{' NUM ',' NUM '}' { $$ = $1; $$.val.px.len |= LEN_RANGE | ($3 << 16) | ($5 << 8); }
  ;
 
 ipa:
@@ -231,7 +234,7 @@ set_atom:
    NUM  { $$.type = T_INT; $$.val.i = $1; }
  | pair { $$.type = T_PAIR; $$.val.i = $1; }
  | ipa  { $$ = $1; }
- | prefix { $$ = $1; }
+ | fprefix { $$ = $1; }
  ; 
 
 set_item:
@@ -291,7 +294,7 @@ constant:
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_STRING; $$->a2.p = $1; }
  | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PAIR;  $$->a2.i = $1; }
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
- | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
+ | fprefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
  | '/' bgp_path '/' { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; val->type = T_PATH_MASK; val->val.path_mask = $2; $$->a1.p = val; }

@@ -41,8 +41,13 @@
 char *ip_scope_text(unsigned);
 
 /*
- *	Is it a valid network prefix?
+ *	Network prefixes
  */
+
+struct prefix {
+  ip_addr addr;
+  int len;
+};
 
 #define ip_is_prefix(a,l) (!ipa_nonzero(ipa_and(a, ipa_not(ipa_mkmask(l)))))
 

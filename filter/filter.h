@@ -30,7 +30,7 @@ struct f_inst {		/* Instruction */
 #define arg1 a1.p
 #define arg2 a2.p
 
-struct prefix {
+struct f_prefix {
   ip_addr ip;
   int len;
 #define LEN_MASK 0xff
@@ -45,7 +45,7 @@ struct f_val {
   union {
     int i;
     /*    ip_addr ip; Folded into prefix */	
-    struct prefix px;
+    struct f_prefix px;
     char *s;
     struct f_tree *t;
     struct adata *ad;

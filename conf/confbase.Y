@@ -40,6 +40,7 @@ CF_DECLS
   struct rt_show_data *ra;
   void *g;
   bird_clock_t time;
+  struct prefix px;
 }
 
 %token END CLI_MARKER INVALID_TOKEN
@@ -52,6 +53,7 @@ CF_DECLS
 
 %type <i> expr bool pxlen
 %type <time> datetime
+%type <px> prefix
 
 %nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ
 %left '+' '-'
@@ -108,6 +110,13 @@ bool:
  ;
 
 /* Prefixes and netmasks */
+
+prefix:
+   IPA pxlen {
+     if (!ip_is_prefix($1, $2)) cf_error("Invalid prefix");
+     $$.addr = $1; $$.len = $2;
+   }
+ ;
 
 pxlen:
    '/' NUM {

@@ -34,12 +34,11 @@ static_proto:
  | static_proto stat_route ';'
  ;
 
-stat_route0: ROUTE IPA pxlen {
+stat_route0: ROUTE prefix {
      this_srt = cfg_allocz(sizeof(struct static_route));
      add_tail(&((struct static_config *) this_proto)->other_routes, &this_srt->n);
-     if (!ip_is_prefix($2, $3)) cf_error("Invalid network prefix: %I/%d", $2, $3);
-     this_srt->net = $2;
-     this_srt->masklen = $3;
+     this_srt->net = $2.addr;
+     this_srt->masklen = $2.len;
   }
  ;
 

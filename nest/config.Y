@@ -124,8 +124,8 @@ debug_default:
 
 iface_patt:
    TEXT { this_ipatt->pattern = $1; this_ipatt->prefix = IPA_NONE; this_ipatt->pxlen = 0; }
- | IPA pxlen { this_ipatt->pattern = NULL; this_ipatt->prefix = $1; this_ipatt->pxlen = $2; }
- | TEXT IPA pxlen { this_ipatt->pattern = $1; this_ipatt->prefix = $2; this_ipatt->pxlen = $3; }
+ | prefix { this_ipatt->pattern = NULL; this_ipatt->prefix = $1.addr; this_ipatt->pxlen = $1.len; }
+ | TEXT prefix { this_ipatt->pattern = $1; this_ipatt->prefix = $2.addr; this_ipatt->pxlen = $2.len; }
  ;
 
 /* Direct device route protocol */
@@ -250,12 +250,11 @@ r_args:
      $$->filter = FILTER_ACCEPT;
      $$->table = config->master_rtc->table;
    }
- | r_args IPA pxlen {
+ | r_args prefix {
      $$ = $1;
      if ($$->pxlen != 256) cf_error("Only one prefix expected");
-     if (!ip_is_prefix($2, $3)) cf_error("Invalid prefix");
-     $$->prefix = $2;
-     $$->pxlen = $3;
+     $$->prefix = $2.addr;
+     $$->pxlen = $2.len;
    }
  | r_args TABLE SYM {
      $$ = $1;

@@ -1,6 +1,5 @@
 Core
 ~~~~
-- config: when parsing prefix, check zero bits
 - config: try to unify expressions
 
 - static: check validity of route destination?
