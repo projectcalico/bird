@@ -828,8 +828,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 
   /* If the AS path attribute contains our AS, reject the routes */
   e = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
-  ASSERT(e);
-  if (bgp_path_loopy(bgp, e))
+  if (e && bgp_path_loopy(bgp, e))
     {
       DBG("BGP: Path loop!\n");
       return NULL;
