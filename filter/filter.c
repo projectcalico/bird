@@ -764,7 +764,7 @@ comlist_del(struct linpool *pool, struct adata *list, u32 val)
 }
 
 struct adata *
-comlist_empty(struct linpool *pool)
+adata_empty(struct linpool *pool)
 {
   struct adata *res = lp_alloc(pool, sizeof(struct adata));
   res->length = 0;

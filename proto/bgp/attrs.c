@@ -278,19 +278,11 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   return 0;				/* Leave decision to the filters */
 }
 
-ea_list *
-bgp_path_prepend(struct linpool *pool, eattr *a, ea_list *old, int as)
+struct adata *
+as_path_prepend(struct linpool *pool, struct adata *olda, int as)
 {
-  struct ea_list *e = lp_alloc(pool, sizeof(ea_list) + sizeof(eattr));
-  struct adata *olda = a->u.ptr;
   struct adata *newa;
 
-  e->next = old;
-  e->flags = EALF_SORTED;
-  e->count = 1;
-  e->attrs[0].id = EA_CODE(EAP_BGP, BA_AS_PATH);
-  e->attrs[0].flags = BAF_TRANSITIVE;
-  e->attrs[0].type = EAF_TYPE_AS_PATH;
   if (olda->length && olda->data[0] == 2 && olda->data[1] < 255) /* Starting with sequence => just prepend the AS number */
     {
       newa = lp_alloc(pool, sizeof(struct adata) + olda->length + 2);
@@ -308,7 +300,22 @@ bgp_path_prepend(struct linpool *pool, eattr *a, ea_list *old, int as)
       memcpy(newa->data+4, olda->data, olda->length);
     }
   put_u16(newa->data+2, as);
-  e->attrs[0].u.ptr = newa;
+  return newa;
+}
+
+static ea_list *
+bgp_path_prepend(struct linpool *pool, eattr *a, ea_list *old, int as)
+{
+  struct ea_list *e = lp_alloc(pool, sizeof(ea_list) + sizeof(eattr));
+  struct adata *olda = a->u.ptr;
+
+  e->next = old;
+  e->flags = EALF_SORTED;
+  e->count = 1;
+  e->attrs[0].id = EA_CODE(EAP_BGP, BA_AS_PATH);
+  e->attrs[0].flags = BAF_TRANSITIVE;
+  e->attrs[0].type = EAF_TYPE_AS_PATH;
+  e->attrs[0].u.ptr = path_prepend(pool, olda, as);
   return e;
 }
 
