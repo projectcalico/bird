@@ -27,6 +27,8 @@ static linpool *rte_update_pool;
 static pool *rt_table_pool;
 static list routing_tables;
 
+static void rt_format_via(rte *e, byte *via);
+
 static void
 rte_init(struct fib_node *N)
 {
@@ -93,6 +95,29 @@ rte_better(rte *new, rte *old)
   return 0;
 }
 
+static void
+rte_trace(struct proto *p, rte *e, int dir, char *msg)
+{
+  byte via[STD_ADDRESS_P_LENGTH+32];
+
+  rt_format_via(e, via);
+  log(L_TRACE "%s %c %s %I/%d %s", p->name, dir, msg, e->net->n.prefix, e->net->n.pxlen, via);
+}
+
+static inline void
+rte_trace_in(unsigned int flag, struct proto *p, rte *e, char *msg)
+{
+  if (p->debug & flag)
+    rte_trace(p, e, '<', msg);
+}
+
+static inline void
+rte_trace_out(unsigned int flag, struct proto *p, rte *e, char *msg)
+{
+  if (p->debug & flag)
+    rte_trace(p, e, '>', msg);
+}
+
 static inline void
 do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *tmpa, int class)
 {
@@ -103,13 +128,24 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
   if (new)
     {
       int ok;
-      if ((class & IADDR_SCOPE_MASK) < p->min_scope ||
-	  (ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0) < 0 ||
-	  (!ok && (p->out_filter == FILTER_REJECT ||
-		   p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool) > F_ACCEPT)
-	  )
-	 )
-	new = NULL;
+      if ((class & IADDR_SCOPE_MASK) < p->min_scope)
+	{
+	  rte_trace_out(D_FILTERS, p, new, "out of scope");
+	  new = NULL;
+	}
+      else if ((ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0) < 0)
+	{
+	  rte_trace_out(D_FILTERS, p, new, "rejected by protocol");
+	  new = NULL;
+	}
+      else if (ok)
+	rte_trace_out(D_FILTERS, p, new, "forced accept by protocol");
+      else if (p->out_filter == FILTER_REJECT ||
+	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool) > F_ACCEPT)
+	{
+	  rte_trace_out(D_FILTERS, p, new, "filtered out");
+	  new = NULL;
+	}
     }
   if (old && p->out_filter)
     {
@@ -122,6 +158,15 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
 	  if (f_run(p->out_filter, &old, &tmpb, rte_update_pool) > F_ACCEPT)
 	    old = NULL;
 	}
+    }
+  if (p->debug & D_ROUTES)
+    {
+      if (new && old)
+	rte_trace_out(D_ROUTES, p, new, "replaced");
+      else if (new)
+	rte_trace_out(D_ROUTES, p, new, "added");
+      else
+	rte_trace_out(D_ROUTES, p, old, "removed");
     }
   if (new || old)
     p->rt_notify(p, net, new, old, tmpa);
@@ -177,7 +222,12 @@ rte_validate(rte *e)
   int c;
   net *n = e->net;
 
-  ASSERT(!ipa_nonzero(ipa_and(n->n.prefix, ipa_not(ipa_mkmask(n->n.pxlen)))));
+  if (ipa_nonzero(ipa_and(n->n.prefix, ipa_not(ipa_mkmask(n->n.pxlen)))))
+    {
+      log(L_BUG "Ignoring bogus prefix %I/%d received via %s",
+	  n->n.prefix, n->n.pxlen, e->attrs->proto->name);
+      return 0;
+    }
   if (n->n.pxlen)
     {
       c = ipa_classify(n->n.prefix);
@@ -238,6 +288,7 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
       rte_announce(table, net, new, old_best, tmpa);
       new->next = net->routes;
       net->routes = new;
+      rte_trace_in(D_ROUTES, p, new, "added [best]");
     }
   else
     {
@@ -272,6 +323,16 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
 	{
 	  new->next = old_best->next;
 	  old_best->next = new;
+	  rte_trace_in(D_ROUTES, p, new, "added");
+	}
+      else if (old && (p->debug & D_ROUTES))
+	{
+	  if (old != old_best)
+	    rte_trace_in(D_ROUTES, p, old, "removed");
+	  else if (net->routes)
+	    rte_trace_in(D_ROUTES, p, old, "removed [replaced]");
+	  else
+	    rte_trace_in(D_ROUTES, p, old, "removed [sole]");
 	}
     }
   if (old)
@@ -311,8 +372,16 @@ rte_update(rtable *table, net *net, struct proto *p, rte *new)
   rte_update_lock();
   if (new)
     {
-      if (!rte_validate(new) || p->in_filter == FILTER_REJECT)
-	goto drop;
+      if (!rte_validate(new))
+	{
+	  rte_trace_in(D_FILTERS, p, new, "invalid");
+	  goto drop;
+	}
+      if (p->in_filter == FILTER_REJECT)
+	{
+	  rte_trace_in(D_FILTERS, p, new, "filtered out");
+	  goto drop;
+	}
       if (p->make_tmp_attrs)
 	tmpa = p->make_tmp_attrs(new, rte_update_pool);
       if (p->in_filter)
@@ -320,7 +389,10 @@ rte_update(rtable *table, net *net, struct proto *p, rte *new)
 	  ea_list *old_tmpa = tmpa;
 	  int fr = f_run(p->in_filter, &new, &tmpa, rte_update_pool);
 	  if (fr > F_ACCEPT)
-	    goto drop;
+	    {
+	      rte_trace_in(D_FILTERS, p, new, "filtered out");
+	      goto drop;
+	    }
 	  if (tmpa != old_tmpa && p->store_tmp_attrs)
 	    p->store_tmp_attrs(new, tmpa);
 	}
@@ -340,8 +412,11 @@ drop:
 void
 rte_discard(rtable *t, rte *old)	/* Non-filtered route deletion, used during garbage collection */
 {
+  net *n = old->net;
+  struct proto *p = old->attrs->proto;
+
   rte_update_lock();
-  rte_recalculate(t, old->net, old->attrs->proto, NULL, NULL);
+  rte_recalculate(t, n, p, NULL, NULL);
   rte_update_unlock();
 }
 
@@ -567,10 +642,8 @@ rt_commit(struct config *new, struct config *old)
  */
 
 static void
-rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d)
+rt_format_via(rte *e, byte *via)
 {
-  byte via[STD_ADDRESS_P_LENGTH+32], from[STD_ADDRESS_P_LENGTH];
-  byte tm[TM_RELTIME_BUFFER_SIZE], info[256];
   rta *a = e->attrs;
 
   switch (a->dest)
@@ -582,6 +655,16 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d)
     case RTD_PROHIBIT:	bsprintf(via, "prohibited"); break;
     default:		bsprintf(via, "???");
     }
+}
+
+static void
+rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d)
+{
+  byte via[STD_ADDRESS_P_LENGTH+32], from[STD_ADDRESS_P_LENGTH];
+  byte tm[TM_RELTIME_BUFFER_SIZE], info[256];
+  rta *a = e->attrs;
+
+  rt_format_via(e, via);
   tm_format_reltime(tm, e->lastmod);
   if (ipa_nonzero(a->from) && !ipa_equal(a->from, a->gw))
     bsprintf(from, " from %I", a->from);

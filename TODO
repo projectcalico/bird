@@ -1,16 +1,12 @@
 Core
 ~~~~
 - debug: interfaces
-- debug: route updates
 - debug: static
 - debug: pipe
 - debug: krt
 
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
-
-- rte_update: check whether all bits not covered by masklen are zero
-- rte_update: debug mode
 
 - krt: rescan interfaces when route addition fails?
 
