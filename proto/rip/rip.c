@@ -23,6 +23,20 @@
 	FIXME: (nonurgent) allow bigger frequencies than 1 regular update in 6 seconds (?)
 	FIXME: propagation of metric=infinity into main routing table may or may not be good idea.
 
+	FIXME: mj wants us to be able to format attributes:
+
+        Each protocol can now register its own attribute class (protocol->attr_class,
+        set to EAP_xxx) and also a callback for naming and formatting of attributes.
+        The callback can return one of the following results:
+
+        GA_UNKNOWN      Attribute not recognized.
+        GA_NAME         Attribute name recognized and put to the buffer,
+        generic code should format the value.
+        GA_FULL         Both attribute name and value put to the buffer.
+
+        Please update protocols generating dynamic attributes to provide
+        the attr_class and formatting hook.
+
  */
 
 #define LOCAL_DEBUG
@@ -710,9 +724,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
     if (new->attrs->proto == p)
       e->whotoldme = new->attrs->from;
 
-    if (!e->metric)	/* This is metric for external routes. Notice
-			   that I do honour it even if it comes from other protocol than this
-			   rip. That's okay: this way user can set his own value for external
+    if (!e->metric)	/* That's okay: this way user can set his own value for external
 			   routes in rip. */
       e->metric = 5;
     e->updated = e->changed = now;
