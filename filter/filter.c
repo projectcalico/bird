@@ -283,9 +283,9 @@ interpret(struct f_inst *what)
     case F_ACCEPT:
       /* Should take care about turning ACCEPT into MODIFY */
     case F_ERROR:
-    case F_REJECT:	/* FIXME (noncritical) Should print compele route along with reason to reject route */
+    case F_REJECT:	/* FIXME (noncritical) Should print complete route along with reason to reject route */
       res.type = T_RETURN;
-      res.val.i = what->a1.i;
+      res.val.i = what->a2.i;
       return res;	/* We have to return now, no more processing. */
     case F_NONL:
     case F_NOP:
