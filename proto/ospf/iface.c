@@ -19,13 +19,15 @@ char *ospf_it[]={ "broadcast", "nbma", "point-to-point", "virtual link" };
 void
 iface_chstate(struct ospf_iface *ifa, u8 state)
 {
-  struct proto *p;
+  struct proto_ospf *po=ifa->proto;
+  struct proto *p=&po->proto;
+  u8 oldstate;
 
   if(ifa->state!=state)
   {
-    p=(struct proto *)(ifa->proto);
     debug("%s: Changing state of iface: %s from \"%s\" into \"%s\".\n",
       p->name, ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
+    oldstate=ifa->state;
     ifa->state=state;
     if(ifa->iface->flags & IF_MULTICAST)
     {
@@ -61,6 +63,12 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
 	  rfree(ifa->dr_sk);
 	  ifa->dr_sk=NULL;
 	}
+      }
+      if(oldstate==OSPF_IS_DR)
+      {
+        net_flush_lsa(ifa->nlsa,po,ifa->oa);
+        if(can_flush_lsa(ifa->oa)) flush_lsa(ifa->nlsa,ifa->oa);
+        ifa->nlsa=NULL;
       }
     }
   }
