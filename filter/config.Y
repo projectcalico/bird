@@ -18,28 +18,18 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT, CONST, VAR, PUTS, IF, 
-	ACCEPT, REJECT, ERROR, QUITBIRD)
+CF_KEYWORDS(FUNCTION, PRINTDEBUG, PRINT, CONST, PUTS, 
+	ACCEPT, REJECT, ERROR, QUITBIRD,
+	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
+	IF, THEN,
+	FILTER
+	)
 
-%type <x> term
-%type <x> block
-%type <x> cmds
+%type <x> term block cmds cmd function_body
 %type <f> filter filter_body
+%type <i> type break_command
 
 CF_GRAMMAR
-
-CF_ADDTO(conf, function)
-function:
-   FUNCTION SYM '(' ')' '{' cmds '}' { 
-     extern struct f_inst *autoexec_func;
-     if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
-     $2->class = SYM_FUNCTION;
-     $2->def = $6;
-     if (!strcasecmp($2->name, "autoexec"))
-	autoexec_func = $6;
-     printf("Hmm, we've got one function here\n"); 
-   }
- ;
 
 CF_ADDTO(conf, filter_def)
 filter_def:
@@ -52,11 +42,36 @@ filter_def:
    }
  ;
 
+type:
+   INT { $$ = T_INT; }
+ | BOOL { $$ = T_BOOL; }
+ | IP { $$ = T_IP; }
+ | PREFIX { $$ = T_PREFIX; }
+ | PAIR { $$ = T_PAIR; }
+ | STRING { $$ = T_STRING; }
+ | type SET { 
+	switch ($1) {
+	  default:
+		cf_error( "You can not create sets of this type\n" );
+	  case T_INT: case T_IP: case T_PREFIX: case T_PAIR:
+	}
+	$$ = $1 | T_SET;
+	}
+ ;
+
+decls: /* EMPTY */
+ | type SYM ';' decls {
+     if ($2->class != SYM_VOID) cf_error("Symbol already defined, can not use as variable\n" );
+     $2->class = SYM_VARIABLE | $1;
+     printf( "New variable %s type %x\n", $2->name, $1 );
+   }
+ ;
+
 filter_body:
-   '{' cmds '}' {
+   function_body {
      struct filter *f = cfg_alloc(sizeof(struct filter));
      f->name = NULL;
-     f->root = $2;
+     f->root = $1;
      $$ = f;
    }
  ;
@@ -69,25 +84,42 @@ filter:
  | filter_body
  ;
 
+function_params:
+   '(' decls ')' { printf( "Have function parameters\n" ); }
+ ;
+
+function_body:
+   decls '{' cmds '}' {
+     $$ = $3;
+   }
+ ;
+
+CF_ADDTO(conf, function_def)
+function_def:
+   FUNCTION SYM function_params function_body {
+     extern struct f_inst *startup_func;
+     if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
+     $2->class = SYM_FUNCTION;
+     $2->def = $4;
+     if (!strcasecmp($2->name, "startup"))
+	startup_func = $4;
+     printf("Hmm, we've got one function here - %s\n", $2->name); 
+   }
+ ;
+
 /* Programs */
 
-cmds:
-   term {
+cmds: /* EMPTY */ { $$ = NULL; }
+ | cmd cmds {
      if ($1) {
-       $1->next = NULL;
+       $1->next = $2;
        $$ = $1;
-     } else $$ = NULL;
-   }
- | term ';' cmds {
-     if ($1) {
-       $1->next = $3;
-       $$ = $1;
-     } else $$ = $3;
+     } else $$ = $2;
    }
  ;
 
 block:
-   term ';' {
+   cmd {
      $$=$1;
    }
  | '{' cmds '}' {
@@ -96,31 +128,16 @@ block:
  ;
 
 term:
-   /* EMPTY */ { 
-     $$ = NULL;
-   }
- | term '+' term {
+   term '+' term {
      $$ = f_new_inst();
      $$->code = '+';
      $$->arg1 = $1;
      $$->arg2 = $3;
    }
- | IF '(' term ')' block {
-     $$ = f_new_inst();
-     $$->code = '?';
-     $$->arg1 = $3;
-     $$->arg2 = $5;
-   }
- | INT SYM {
-     if ($2->class != SYM_VOID) cf_error("Symbol already defined, can not use as variable\n" );
-     $2->class = SYM_VARIABLE_INT;
-     printf( "New variable\n" );
-     $$ = NULL;
-   }
  | SYM {
      $$ = f_new_inst();
      switch ($1->class) {
-       case SYM_VARIABLE_INT:
+       case SYM_VARIABLE | T_INT:
 	 $$->code = 'i';
          $$->arg1 = &($1->aux);
 	 break;
@@ -128,73 +145,63 @@ term:
 	 cf_error("Can not use this class of symbol as variable" );
      }
    }
- | VAR '(' SYM ')' {
+ | CONST '(' expr ')' {
      $$ = f_new_inst();
-     switch ($3->class) {
-       case SYM_VARIABLE_INT:
-	 $$->code = 'i';
-         $$->arg1 = &($3->aux);
-	 break;
-       default:
-	 cf_error("Can not use this class of symbol as variable" );
-     }
+     $$->code = 'c';
+     $$->arg1 = $3;
    }
  | NUM {
      $$ = f_new_inst();
      $$->code = 'c';
      $$->arg1 = $1
    }
- | CONST '(' expr ')' {
+ ;
+
+break_command:
+   QUITBIRD { $$ = F_QUITBIRD }
+ | ACCEPT { $$ = F_ACCEPT }
+ | REJECT { $$ = F_REJECT }
+ | ERROR { $$ = F_ERROR }
+ ;
+
+cmd:
+   IF term THEN block {
      $$ = f_new_inst();
-     $$->code = 'c';
-     $$->arg1 = $3;
+     $$->code = '?';
+     $$->arg1 = $2;
+     $$->arg2 = $4;
    }
- | SYM '=' term {
+ | SYM '=' term ';' {
      $$ = f_new_inst();
      printf( "Ook, we'll set value\n" );
-     if ($1->class != SYM_VARIABLE_INT)
-       cf_error( "You may only set variables\n" );
+     if (($1->class & ~T_MASK) != SYM_VARIABLE)
+       cf_error( "You may only set variables, and this is %x.\n", $1->class );
      $$->code = '=';
      $$->arg1 = $1;
      $$->arg2 = $3;
    }
- | PRINT '(' term ')' {
+ | PRINT '(' term ')' ';' {
      $$ = f_new_inst();
      printf( "Ook, we'll print something\n" );
      $$->code = 'p';
      $$->arg1 = $3;
      $$->arg2 = NULL;
    }
- | PUTS '(' TEXT ')' {
+ | PUTS '(' TEXT ')' ';' {
      $$ = f_new_inst();
      $$->code = 'd';
      $$->arg1 = $3;
    }
- | QUITBIRD {
-     $$ = f_new_inst();
-     $$->code = '!';
-     (int) $$->arg1 = F_QUITBIRD;
-   }
- | ACCEPT {
-     $$ = f_new_inst();
-     $$->code = '!';
-     (int) $$->arg1 = F_ACCEPT;
-   }
- | REJECT {
-     $$ = f_new_inst();
-     $$->code = '!';
-     (int) $$->arg1 = F_REJECT;
-   }
- | ERROR {
-     $$ = f_new_inst();
-     $$->code = '!';
-     (int) $$->arg1 = F_ERROR;
-   }
- | PRINTDEBUG {
+ | PRINTDEBUG ';' {
      $$ = f_new_inst();
      $$->code = 'D';
      $$->arg1 = $$->arg2 = NULL;
- }
+   }
+ | break_command ';' {
+     $$ = f_new_inst();
+     $$->code = '!';
+     (int) $$->arg1 = $1;
+   }
  ;
 
 CF_END

@@ -22,7 +22,7 @@
 #include "conf/conf.h"
 #include "filter/filter.h"
 
-struct f_inst *autoexec_func = NULL;
+struct f_inst *startup_func = NULL;
 
 #define runtime(x) do { \
     log( L_ERR, x ); \
@@ -71,7 +71,7 @@ interpret(struct f_inst *what)
     switch (res.type = v2.type) {
     case T_VOID: runtime( "Can not assign void values" );
     case T_INT: 
-      if (sym->class != SYM_VARIABLE_INT)
+      if (sym->class != (SYM_VARIABLE | T_INT))
 	runtime( "Variable of bad type" );
       sym->aux = v2.val.i; 
       break;
@@ -163,6 +163,9 @@ f_run(struct filter *filter, struct rte *rtein, struct rte **rteout)
 void
 filters_postconfig(void)
 {
-  if (autoexec_func)
-    interpret(autoexec_func);
+  printf( "Launching startup function..." );
+  if (startup_func)
+    interpret(startup_func);
+  printf( "done\n" );
+  exit(0);
 } 

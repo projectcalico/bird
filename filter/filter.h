@@ -40,10 +40,24 @@ int f_run(struct filter *filter, struct rte *rtein, struct rte **rteout);
 #define F_ERROR 4
 #define F_QUITBIRD 5
 
+/* Type numbers must be in 0..0xff range */
+#define T_MASK 0xff
+
+/* Internal types */
 #define T_VOID 0
 #define T_RETURN 1
-#define T_INT 10
-#define T_PX 11		/* prefix */
-#define T_INTLIST 12
+
+/* User visible types, which fit in int */
+#define T_INT 0x10
+#define T_BOOL 0x11
+#define T_PAIR 0x12
+#define T_ENUM 0x13
+
+/* Bigger ones */
+#define T_IP 0x20
+#define T_PREFIX 0x21
+#define T_STRING 0x22
+
+#define T_SET 0x80
 
 #endif
