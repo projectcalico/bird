@@ -9,13 +9,20 @@ Core
 - counters (according to SNMP MIB?)
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
-- secondary addresses -> subinterfaces
+- secondary addresses -> subinterfaces or ignore
 
 - static: check validity of route destination?
 
 - device: configuration of interface patterns
 
 - adding of route: check whether all bits not covered by masklen are zero
+
+- incoming packets: interface the packet came from? (esp. for multicasts)
+- broadcast/multicast echoing suppresion
+- we need ifindex at least for PtP links
+
+- kernel: RTM_F_NOTIFY seems to be unimplemented
+- kernel: RTM_DELROUTE not announced for device routes
 
 Cleanup
 ~~~~~~~
@@ -31,7 +38,7 @@ Various ideas
 ~~~~~~~~~~~~~
 - real multipath (doesn't seem to be simple at all :()
 - fake multipath (even less simple)
-- route recalculation timing and flap dampening
+- route recalculation timing and flap dampening [see RFC2439 for algorithms]
 - aggregate engine: standard route aggregation and summarization
 - aggregate engine: injection of manually configured pseudo-static routes
 - generate default route if any working BGP connection exists (aggregate engine again?)
@@ -45,19 +52,18 @@ RIP
 	- Route Tag
 	- limit routing table xfer (frequency, only to neighbors)
 	- multicast on/off (per interface)
-	- remember routes for all neighbors?
 
 OSPF
 ~~~~
-	- point-to-point interface with address: advertise as stub network
-	- static routes: stub networks?
-	- modes: PtP, PtP-unnumbered, Broadcast, NBMA, point-to-multipoint
 	- importing of device routes for networks where we don't run OSPF
-	- tie breaking for equal type 2 ext metrics by using internal (type 1) metric
-	- SPF tree recalc timing (per-area timers?)
-	- aggregation: specify network list for each area
+	- check incoming packets using neighbor cache
 	- stub area: either no external routes or only default route
+	- RFC2328 appendix E: Use a better algorithm
 	- automatic generation of external route tags (RFC1403)
+	- RFC1587 NSSA areas
+	- RFC2370 opaque LSA's
+	- RFC1793 Demand Circuit Support ??
+	- respect interface MTU and try not to create larger packets unless unavoidable
 
 
 BGP
@@ -71,7 +77,6 @@ BGP
 	- attributes must be sorted!
 	- re-export of NEXT_HOP attribute
 	- BGP session over currently down interface
-	- route flap dampening?
 	- LOCAL_PREF attribute
 	- error notification received -> log error
 	- set TTL to 1 (configurable?)
