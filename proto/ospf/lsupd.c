@@ -276,6 +276,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     struct top_hash_entry *lsadb;
     u16 lenn;
     int diff=((u8 *)lsa)-((u8 *)ps);
+    u16 chsum;
 
     if(((diff+sizeof(struct ospf_lsa_header))>=size) ||
       ((ntohs(lsa->length)+diff)>size))
@@ -290,7 +291,8 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       break;
     }
     /* pg 143 (1) */
-    if(lsa->checksum!=lsasum_check(lsa,NULL,po))
+    chsum=lsa->checksum;
+    if(chsum!=lsasum_check(lsa,NULL,po))
     {
       log("Received bad lsa checksum from %I",n->rid);
       continue;
