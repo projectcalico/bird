@@ -63,6 +63,8 @@ ospf_age(struct ospf_area *oa)
          en->lsa.type, en->lsa.id, en->lsa.rt);
        en->lsa.sn++;
        en->lsa.age=0;
+       en->inst_t=now;
+       en->ini_age=0;
        lsasum_calculate(&en->lsa,en->lsa_body,po);
        flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
        continue;
