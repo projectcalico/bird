@@ -17,10 +17,8 @@ CF_HDR
 #include "proto/rip/rip.h"
 #include "nest/iface.h"
 
-void rip_dev_add_iface(char *);
-struct rip_patt *rip_get_iface(void);
-
 #define RIP_CFG ((struct rip_proto_config *) this_proto)
+#define RIP_IPATT ((struct rip_patt *) this_ipatt)
 
 CF_DECLS
 
@@ -58,7 +56,6 @@ rip_auth:
  | NONE { $$=AT_NONE; }
  ;
 
-/* FIXME FIXME this corrupts memory */
 rip_mode: 
     BROADCAST { $$=IM_BROADCAST; }
   | QUIET     { $$=IM_QUIET; }
@@ -67,14 +64,8 @@ rip_mode:
  ;
 
 rip_iface_item:
- | METRIC expr { 
-   struct rip_patt *k = rip_get_iface();
-   k->metric = $2;
- }
- | MODE rip_mode {
-   struct rip_patt *k = rip_get_iface();
-   k->mode |= $2;
- }
+ | METRIC expr { RIP_IPATT->metric = $2; }
+ | MODE rip_mode { RIP_IPATT->mode |= $2; }
  ;
 
 rip_iface_opts: 
@@ -82,32 +73,26 @@ rip_iface_opts:
  | rip_iface_opts rip_iface_item ';'
  ;
 
-rip_iface_empty: /* EMPTY */ | rip_iface_opts '}' ;
+rip_iface_opt_list: /* EMPTY */ | rip_iface_opts '}' ;
+
+rip_iface_init:
+   /* EMPTY */ {
+     struct rip_patt *k = cfg_allocz(sizeof(struct rip_patt));
+     k->metric = 1;
+     add_tail(&RIP_CFG->iface_list, &k->i.n);
+     this_ipatt = &k->i;
+   }
+ ;
+
+rip_iface:
+   rip_iface_init iface_patt rip_iface_opt_list
+ ;
 
 rip_iface_list:
-   INTERFACE TEXT rip_iface_empty { rip_dev_add_iface($2); }
- | dev_iface_list ',' TEXT rip_iface_empty { rip_dev_add_iface($3); }
+   INTERFACE rip_iface
+ | rip_iface_list ',' rip_iface
  ;
 
 CF_CODE
-
-void
-rip_dev_add_iface(char *n)
-{
-  struct rip_patt *k = cfg_allocz(sizeof(struct rip_patt));
-  k->metric = 1;
-  k->i.pattern = cfg_strdup(n);
-  add_tail(&RIP_CFG->iface_list, &k->i.n);
-}
-
-struct rip_patt *
-rip_get_iface(void)
-{
-  struct rip_patt *k = TAIL(RIP_CFG->iface_list);
-  if (!k)
-    cf_error( "This cannot happen" );
-  return k;
-}
-
 
 CF_END

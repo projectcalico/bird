@@ -588,13 +588,19 @@ iface_patt_match(list *l, struct iface *i)
     {
       char *t = p->pattern;
       int ok = 1;
-      if (*t == '-')
+      if (t)
 	{
-	  t++;
-	  ok = 0;
+	  if (*t == '-')
+	    {
+	      t++;
+	      ok = 0;
+	    }
+	  if (!patmatch(t, i->name))
+	    continue;
 	}
-      if (patmatch(t, i->name))
-	return ok ? p : NULL;
+      if (!i->addr || !ipa_in_net(i->addr->ip, p->prefix, p->pxlen))
+	continue;
+      return ok ? p : NULL;
     }
   return NULL;
 }
@@ -608,7 +614,10 @@ iface_patts_equal(list *a, list *b, int (*comp)(struct iface_patt *, struct ifac
   y = HEAD(*b);
   while (x->n.next && y->n.next)
     {
-      if (strcmp(x->pattern, y->pattern) || comp && !comp(x, y))
+      if (strcmp(x->pattern, y->pattern) ||
+	  !ipa_equal(x->prefix, y->prefix) ||
+	  x->pxlen != y->pxlen ||
+	  comp && !comp(x, y))
 	return 0;
       x = (void *) x->n.next;
       y = (void *) y->n.next;

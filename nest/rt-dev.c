@@ -23,7 +23,9 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
 {
   struct rt_dev_config *P = (void *) p->cf;
 
-  if (!iface_patt_match(&P->iface_list, ad->iface))
+  if (!EMPTY_LIST(P->iface_list) &&
+      !iface_patt_match(&P->iface_list, ad->iface))
+    /* Empty list is automagically treated as "*" */
     return;
   if (c & IF_CHANGE_DOWN)
     {

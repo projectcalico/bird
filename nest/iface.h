@@ -122,13 +122,10 @@ void neigh_prune(void);
 struct iface_patt {
   node n;
   byte *pattern;			/* Interface name pattern */
+  ip_addr prefix;			/* Interface prefix */
+  int pxlen;
 
-  /* Protocol-specific data follow, but keep them like this:
-     struct rip_iface_patt {
-        struct iface_patt i;
-	whatever you (need);
-     }
-   */
+  /* Protocol-specific data follow after this structure */
 };
 
 struct iface_patt *iface_patt_match(list *, struct iface *);
