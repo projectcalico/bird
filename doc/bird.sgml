@@ -93,8 +93,8 @@ Czech Republic as a student project. It can be freely distributed under the term
 Public License.
 
 <p>BIRD has been designed to work on all UNIX-like systems. It has been developed and
-tested under Linux 2.0 to 2.4, but porting to other systems (even non-UNIX ones) should
-be relatively easy due to its highly modular architecture.
+tested under Linux 2.0 to 2.4, and then ported to FreeBSD and NetBSD, porting to other
+systems (even non-UNIX ones) should be relatively easy due to its highly modular architecture.
 
 <sect>Installing BIRD
 
