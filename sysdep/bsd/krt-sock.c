@@ -114,7 +114,7 @@ krt_sock_send(int cmd, rte *e, char *name)
   fill_in_sockaddr(&mask, ipa_mkmask(net->n.pxlen), 0);
   fill_in_sockaddr(&gate, a->gw, 0);
 
-  memset (&msg, 0, sizeof (struct rt_msghdr));
+  bzero(&msg,sizeof (struct rt_msghdr));
   msg.rtm.rtm_version = RTM_VERSION;
   msg.rtm.rtm_type = cmd;
   msg.rtm.rtm_seq = msg_seq++;
@@ -289,7 +289,7 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
   if(msg->rtm.rtm_flags & RTF_LLINFO) return;	/* ARPs etc. */
 
 #define GETADDR(p, F) \
-  memset(p, 0, sizeof(*p));\
+  bzero(p, sizeof(*p));\
   if ((addrs & (F)) && ((struct sockaddr *)body)->sa_len) {\
     unsigned int l = ROUNDUP(((struct sockaddr *)body)->sa_len);\
     memcpy(p, body, (l > sizeof(*p) ? sizeof(*p) : l));\
@@ -323,7 +323,7 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
 
   net = net_get(p->p.table, idst, masklen);
 
-  memset(&a, 0, sizeof(a));
+  bzero(&a, sizeof(a));
 
   a.proto = &p->p;
   a.source = RTS_INHERIT;
@@ -505,7 +505,7 @@ krt_read_addr(struct ks_msg *msg)
     return;
   }
 
-  memset(&ifa, 0, sizeof(ifa));
+  bzero(&ifa, sizeof(ifa));
 
   ifa.iface = iface;
 

@@ -57,7 +57,7 @@ sysio_mcast_join(sock * s)
 
         set_inaddr(&m, s->iface->addr->ip );
 
-	memset(&mreq, 0, sizeof(mreq));
+	bzero(&mreq, 0, sizeof(mreq));
 	set_inaddr(&mreq.imr_interface, s->iface->addr->ip);
 	set_inaddr(&mreq.imr_multiaddr, s->daddr);
 
