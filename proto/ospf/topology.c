@@ -502,3 +502,35 @@ ospf_top_dump(struct top_graph *f)
     }
 }
 
+/* This is very uneficient, please don't call it often */
+
+/* I should also test for every LSA if it's in some link state
+ * retransmision list for every neighbor. I will not test it.
+ * It can happen that I'll receive some strange ls ack's.
+ */
+
+int
+can_flush_lsa(struct ospf_area *oa)
+{
+  struct ospf_iface *ifa;
+  struct ospf_neighbor *n;
+  struct proto_ospf *po=oa->po;
+  int flush=1;
+
+  WALK_LIST(ifa, iface_list)
+  {
+    if(ifa->oa==oa)
+    {
+      WALK_LIST(n, ifa->neigh_list)
+      {
+        if(n->state==NEIGHBOR_EXCHANGE||n->state==NEIGHBOR_LOADING)
+	{
+	  flush=0;
+	  break;
+	}
+      }
+    }
+  }
+
+  return flush;
+}

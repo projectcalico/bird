@@ -48,5 +48,6 @@ void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
 void addifa_rtlsa(struct ospf_iface *ifa);
 void originate_rt_lsa(struct ospf_area *oa,struct proto_ospf *po);
 void originate_net_lsa(struct ospf_iface *ifa,struct proto_ospf *po);
+int can_flush_lsa(struct ospf_area *oa);
 
 #endif /* _BIRD_OSPF_TOPOLOGY_H_ */
