@@ -282,7 +282,6 @@ void
 area_disp(timer *timer)
 {
   struct ospf_area *oa=timer->data;
-  struct top_hash_entry *nxt;
   struct proto_ospf *po=oa->po;
   struct ospf_iface *ifa;
 
