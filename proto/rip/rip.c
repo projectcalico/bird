@@ -362,6 +362,9 @@ rip_timer(timer *t)
     WALK_LIST( rif, P->interfaces ) {
       struct iface *iface = rif->iface;
 
+      if (rif->patt->mode == IM_QUIET)
+	continue;
+
       if (!iface) continue;
       if (!(iface->flags & IF_UP)) continue;
       if (iface->flags & (IF_IGNORE | IF_LOOPBACK)) continue;
@@ -507,7 +510,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
     if (!k) return; /* We are not interested in this interface */
     DBG("adding interface %s\n", new->name );
     rif = new_iface(p, new, new->flags);
-    rif->metric = k->u.rip.metric;
+    rif->patt = k;
     add_head( &P->interfaces, NODE rif );
   }
 }

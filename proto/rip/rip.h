@@ -65,7 +65,7 @@ struct rip_interface {
   struct iface *iface;
   sock *sock;
   struct rip_connection *busy;
-  
+  struct rip_patt *patt;  
 
   int metric;		/* User configurable data */
   int mode;
