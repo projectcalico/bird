@@ -198,8 +198,20 @@ rte_update(net *net, struct proto *p, rte *new)
 	}
     }
   if (old)
-    rte_free(old);
+    {
+      if (p->rte_remove)
+	p->rte_remove(net, old);
+      rte_free(old);
+    }
   new->lastmod = now;
+  if (p->rte_insert)
+    p->rte_insert(net, new);
+}
+
+void
+rte_discard(net *net, rte *old)		/* Non-filtered route deletion, used during garbage collection */
+{
+  rte_update(net, old->attrs->proto, NULL);
 }
 
 void

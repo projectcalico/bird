@@ -123,6 +123,7 @@ net *net_get(rtable *tab, unsigned tos, ip_addr addr, unsigned len);
 rte *rte_find(net *net, struct proto *p);
 rte *rte_get_temp(struct rtattr *);
 void rte_update(net *net, struct proto *p, rte *new);
+void rte_discard(net *net, rte *old);
 void rte_dump(net *, rte *);
 void rt_dump(rtable *);
 void rt_dump_all(void);

@@ -58,7 +58,6 @@ struct proto {
   unsigned debug;			/* Debugging flags */
   pool *pool;				/* Local objects */
   unsigned preference;			/* Default route preference */
-  int ready;				/* Already initialized */
 
   void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
   void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
@@ -69,6 +68,8 @@ struct proto {
 
   int (*rta_same)(struct rtattr *, struct rtattr *);
   int (*rte_better)(struct rte *, struct rte *);
+  int (*rte_insert)(struct network *, struct rte *);
+  int (*rte_remove)(struct network *, struct rte *);
 
   /* Reconfigure function? */
   /* Interface patterns */
