@@ -254,6 +254,9 @@ rt_dump(rtable *t)
   while (t)
     {
       debug("Routes for TOS %02x:\n", t->tos);
+#ifdef DEBUGGING
+      fib_check(&t->fib);
+#endif
       FIB_WALK(&t->fib, fn)
 	{
 	  n = (net *) fn;
