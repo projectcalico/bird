@@ -56,4 +56,8 @@ typedef u16 word;
 
 #define HAVE_SYSLOG
 
+/* Paths */
+
+#define PATH_CONFIG "bird.conf"
+
 #endif
