@@ -14,5 +14,6 @@ clean:
 	find . -name "*~" -or -name "*.[oa]" -or -name "\#*\#" -or -name TAGS -or -name core -or -name depend -or -name ".#*" | xargs rm -f
 
 distclean: clean
+	$(MAKE) -C doc clean
 	rm -rf $(objdir)
 	rm -f config.* configure sysdep/autoconf.h sysdep/paths.h Makefile
