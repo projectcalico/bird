@@ -11,6 +11,7 @@
 
 #include "lib/resource.h"
 #include "lib/ip.h"
+#include "nest/attrs.h"
 
 struct f_inst {		/* Instruction */
   struct f_inst *next;	/* Structure is 16 bytes, anyway */
@@ -38,12 +39,6 @@ struct prefix {
 #define LEN_RANGE 0x4000000
   /* If range then prefix must be in range (len >> 16 & 0xff, len >> 8 & 0xff) */
 };
-
-struct f_path_mask {
-  struct f_path_mask *next;
-  int val;
-};
-#define PM_ANY -1
 
 struct f_val {
   int type;

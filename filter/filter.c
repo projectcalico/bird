@@ -20,6 +20,7 @@
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
+#include "nest/attrs.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
 
@@ -138,6 +139,7 @@ val_print(struct f_val v)
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   case T_PATH: as_path_format(v.val.ad, buf2, 1020); PRINTF( "(path %s)", buf2 ); break;
+  case T_CLIST: int_set_format(v.val.ad, buf2, 1020); PRINTF( "(clist %s)", buf2 ); break;
   case T_PATH_MASK: debug( "(pathmask " ); { struct f_path_mask *p = v.val.s; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF
@@ -616,9 +618,6 @@ filter_same(struct filter *new, struct filter *old)
 }
 
 /* This should end up far away from here!
- *
- * FIXME: It should take struct adata *, not u8 * + length; but that makes it a little more difficult to test.
- * Or maybe both versions are usefull?
  */
 struct adata *
 comlist_add(struct linpool *pool, struct adata *list, u32 val)
