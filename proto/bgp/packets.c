@@ -239,6 +239,7 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
   int withdrawn_len, attr_len, nlri_len, pxlen;
   net *n;
   rte e;
+  rta *a = NULL;
 
   DBG("BGP: UPDATE\n");
   if (conn->state != BS_ESTABLISHED)
@@ -254,11 +255,7 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
   withdrawn = pkt + 21;
   withdrawn_len = get_u16(pkt + 19);
   if (withdrawn_len + 23 > len)
-    {
-    malformed:
-      bgp_error(conn, 3, 1, len, 0);
-      return;
-    }
+    goto malformed;
   attrs = withdrawn + withdrawn_len + 2;
   attr_len = get_u16(attrs - 2);
   if (withdrawn_len + attr_len + 23 > len)
@@ -280,15 +277,15 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 
   if (nlri_len)
     {
-      rta *a = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool);
+      a = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool);
       if (!a)
 	return;
       while (nlri_len)
 	{
 	  rte *e;
-	  DECODE_PREFIX(nlri, nlri_len); /* FIXME: Uncache rta ! */
+	  DECODE_PREFIX(nlri, nlri_len);
 	  DBG("Add %I/%d\n", prefix, pxlen);
-	  e = rte_get_temp(a);
+	  e = rte_get_temp(rta_clone(a));
 	  n = net_get(bgp->p.table, prefix, pxlen);
 	  e->net = n;
 	  e->pflags = 0;
@@ -297,6 +294,12 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
       lp_flush(bgp_linpool);
       rta_free(a);
     }
+  return;
+
+malformed:
+  if (a)
+    rta_free(a);
+  bgp_error(conn, 3, 1, len, 0);
 }
 
 static void

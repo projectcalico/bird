@@ -31,6 +31,7 @@ static void bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s);
 static void
 bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *tmpa)
 {
+  DBG("BGP: Got route %I/%d\n", n->n.prefix, n->n.pxlen);
 }
 
 static struct proto *

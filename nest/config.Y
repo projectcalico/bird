@@ -99,6 +99,7 @@ proto_item:
 
 imexport:
    FILTER filter { $$ = $2; }
+ | where_filter
  | ALL { $$ = FILTER_ACCEPT; }
  | NONE { $$ = FILTER_REJECT; }
  ;
