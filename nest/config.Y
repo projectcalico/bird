@@ -253,19 +253,19 @@ r_args:
 
 CF_CLI_HELP(DEBUG, <subsystem>, [[Show debugging information]])
 CF_CLI(DEBUG RESOURCES,,, [[Show all allocated resource]])
-{ rdump(&root_pool); }
+{ rdump(&root_pool); cli_msg(0, ""); }
 CF_CLI(DEBUG SOCKETS,,, [[Show open sockets]])
-{ sk_dump_all(); }
+{ sk_dump_all(); cli_msg(0, ""); }
 CF_CLI(DEBUG INTERFACES,,, [[Show interface information]])
-{ if_dump_all(); }
+{ if_dump_all(); cli_msg(0, ""); }
 CF_CLI(DEBUG NEIGHBORS,,, [[Show neighbor cache]])
-{ neigh_dump_all(); }
+{ neigh_dump_all(); cli_msg(0, ""); }
 CF_CLI(DEBUG ATTRIBUTES,,, [[Show attribute cache]])
-{ rta_dump_all(); }
+{ rta_dump_all(); cli_msg(0, ""); }
 CF_CLI(DEBUG ROUTES,,, [[Show routing table]])
-{ rt_dump_all(); }
+{ rt_dump_all(); cli_msg(0, ""); }
 CF_CLI(DEBUG PROTOCOLS,,, [[Show protocol information]])
-{ protos_dump_all(); }
+{ protos_dump_all(); cli_msg(0, ""); }
 
 CF_CODE
 
