@@ -50,49 +50,41 @@ void
 ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   struct ospf_iface *ifa, int size, ip_addr faddr)
 {
-  char sip[100]; /* FIXME: Should be smaller */
   u32 nrid, *pnrid;
   struct ospf_neighbor *neigh,*n;
   u8 i,twoway;
+  char *beg=": Bad OSPF hello packet from ", *rec=" received: ";
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
   if((unsigned)ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
   {
-    ip_ntop(ps->netmask,sip);
-    log("%s: Bad OSPF packet from %u received: bad netmask %s.",
-      p->name, nrid, sip);
-    log("%s: Discarding",p->name);
+    log("%s%s%I%s%Ibad netmask %I.\n", p->name, beg, nrid, rec,
+      ipa_ntoh(ps->netmask));
     return;
   }
   
   if(ntohs(ps->helloint)!=ifa->helloint)
   {
-    log("%s: Bad OSPF packet from %u received: hello interval mismatch.",
-      p->name, nrid);
-    log("%s: Discarding",p->name);
+    log("%s%s%I%shello interval mismatch.\n", p->name, beg, nrid, rec);
     return;
   }
 
   if(ntohl(ps->deadint)!=ifa->helloint*ifa->deadc)
   {
-    log("%s: Bad OSPF packet from %u received: dead interval mismatch.",
-      p->name, nrid);
-    log("%s: Discarding",p->name);
+    log("%s%s%I%sdead interval mismatch.\n", p->name, beg, nrid, rec);
     return;
   }
 
   if(ps->options!=ifa->options)
   {
-    log("%s: Bad OSPF packet from %u received: options mismatch.",
-      p->name, nrid);	/* FIXME: This not good */
-    log("%s: Discarding",p->name);
+    log("%s%s%I%soptions mismatch.\n", p->name, beg, nrid, rec);
     return;
   }
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    log("%s: New neighbor found: %u.", p->name,nrid);
+    log("%s: New neighbor found: %I.", p->name,nrid);
     n=mb_alloc(p->pool, sizeof(struct ospf_neighbor));
     add_tail(&ifa->neigh_list, NODE n);
     n->rid=nrid;
@@ -135,7 +127,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   {
     if(ntohl(*(pnrid+i))==p->cf->global->router_id)
     {
-      DBG("%s: Twoway received. %u\n", p->name, nrid);
+      DBG("%s: Twoway received from %I\n", p->name, nrid);
       ospf_neigh_sm(n, INM_2WAYREC);
       twoway=1;
       break;
@@ -262,7 +254,7 @@ neighbor_timer_hook(timer *timer)
   n=(struct ospf_neighbor *)timer->data;
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
-  debug("%s: Inactivity timer fired on interface %s for neighbor %u.\n",
+  debug("%s: Inactivity timer fired on interface %s for neighbor %I.\n",
     p->name, ifa->iface->name, n->rid);
   tm_stop(n->inactim);
   rfree(n->inactim);

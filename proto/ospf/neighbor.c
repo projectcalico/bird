@@ -22,7 +22,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     ifa=n->ifa;
     p=(struct proto *)(ifa->proto);
   
-    debug("%s: Neigbor '%u' changes state from \"%u\" to \"%u\".\n",
+    debug("%s: Neigbor %I changes state from \"%u\" to \"%u\".\n",
       p->name, n->rid, ospf_ns[n->state], ospf_ns[state]);
     n->state=state;
   }
@@ -329,7 +329,7 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   ifa->drid=ndrid;
   ifa->bdrid=nbdrid;
 
-  DBG("%s: DR=%u, BDR=%u\n",p->name, ifa->drid, ifa->bdrid);
+  DBG("%s: DR=%I, BDR=%I\n",p->name, ifa->drid, ifa->bdrid);
 
   if(myid==ifa->drid) iface_chstate(ifa, OSPF_IS_DR);
   else
