@@ -400,7 +400,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
       if((nn=neigh_find(p,&lt->fwaddr,0))!=NULL)
       {
-        nnh=IPA_NONE;
+        nnh=lt->fwaddr;
         nnhi=nn->iface;
       }
       else

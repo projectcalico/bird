@@ -355,8 +355,10 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
 {
   struct proto_ospf *po=(struct proto_ospf *)p;
 
+/* Temporarily down write anythink
   OSPF_TRACE(D_EVENTS, "Got route %I/%d %s", p->name, n->n.prefix,
     n->n.pxlen, new ? "up" : "down");
+*/
 
   if(new)		/* Got some new route */
   {

@@ -22,6 +22,8 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   /* pg 148 */
   WALK_LIST(NODE ifa,po->iface_list)
   {
+    if(ifa->stub) continue;
+
     if(hh->type==LSA_T_EXT)
     {
       if(ifa->type==OSPF_IT_VLINK) continue;

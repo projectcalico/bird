@@ -173,7 +173,6 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
              restart_waittim(ifa);
           }
         }
-	addifa_rtlsa(ifa);
       }
       schedule_rt_lsa(ifa->oa);
       break;
@@ -403,6 +402,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
       lock->iface = iface;
       lock->data = ifa;
       lock->hook = ospf_ifa_add;
+      addifa_rtlsa(ifa);
       olock_acquire(lock);
     }
   }
