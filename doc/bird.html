@@ -35,7 +35,7 @@ beggining of file. If you want to view documentation, you can either launch your
 master copy (and hope that browser does not have incompatible extensions from our), or you can
 generate nice printed copy.
 
-<h1>Bird configuration</h1>
+<h1>Configuration</h1>
 
 <p>Bird is configured using text configuration file. At startup, bird reads <TT file>bird.conf</TT>
 (unless -c command line parameter is given). Really simple configuration file might look like this:
@@ -68,7 +68,11 @@ protocol rip {
 two objects in this language: filters and functions. Filters are called by bird core when route is
 being passed between protocol and main routing table, and filters may call functions. Functions may
 call other functions but recursion is not allowed. Filter language contains control structures such
-as if's and switches, but it allows no loops. Filters are interpretted.
+as if's and switches, but it allows no loops. Filters are
+interpretted. Filter using many features can be found in <TT file>filter/test.conf</TT>. 
+
+<p>There's one strange thing with filter language: it does not permit you to create loops. There's
+no equivalent of while() or for() command, and recursive functions are not permitted.
 
 <p pgm>You can find sources of filters language in <TT file>filter/</TT> directory. <TT
 file>filter/config.Y</TT> contains filter gramar, and basically translates source from user into
@@ -145,7 +149,9 @@ booleans (that is to prevent you from shooting in the foot).
 	  but you can not modify them. Constant of type <TT filt>set int</TT> looks like <TT filt>
 	  [ 1, 2, 5..7 ]</TT>. As you can see, both simple values and ranges are permitted in
 	  sets. Sets of prefixes are special: you can specify which prefixes should match them by
-	  using <TT filt>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</TT>.
+	  using <TT filt>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</TT>. 3.0.0.0/8{5,6} matches
+	  prefixes 3.X.X.X, whose prefixlength is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
+	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}.
 
 	<DT>enum
 	  <DD>enumerational types are halfway-internal in the bird. You can not define your own
@@ -153,6 +159,58 @@ booleans (that is to prevent you from shooting in the foot).
 	  type. Enumerational types are incompatible with each other, again, its for your
 	  protection.
 </DL>
+
+<h2>Operations</h2>
+
+<p>Filter language supports common integer operations (+,-,*,/), parenthesis (a*(b+c)), comparation
+(a=b, a!=b, a&lt;b, a&gt;=b). Special operators include ~ for "in" operation. In operation can be
+used on element and set of that elements, or on ip and prefix, or on prefix and prefix. Its result
+is true if element is in given set or if ip adress is inside given prefix.
+
+<h2>Functions</h2>
+
+<p>Bird supports functions, so that you don't have to repeat same blocks of code over and
+over. Functions can have zero or more parameters, and can have local variables. Function basically
+looks like this:
+
+<PRE filt>
+function name ()
+int local_variable;
+{
+	local_variable = 5;
+}
+
+function with_parameters (int parameter)
+{
+	print parameter;
+}
+</PRE>
+
+<p>Unlike C, variables are declared after function line but before first {. You can not declare
+variables in nested blocks. Functions are called like in C: <TT filt>name(); with_parameters(5);</TT>.
+
+<p>Filters are declared in similar way to functions, except they can not have explicit
+parameters. They get route table entry as implicit parameter.
+
+<h2>Control structures</h2>
+
+<p>Filters support two control structures: if/then/else and case. Syntax of if/then/else is <TT
+filt>if <I>expression</I> then <I>command</I>; else <I>command</I>;<TT> and you can use <TT filt>{
+<I>command_1</I>; <I>command_2</I>; <I>...</I> }</TT> instead of one or both commands. <TT
+filt>else</TT> clause may be ommited. Case is used like this:
+
+<PRE filt>
+        case <I>argument</I> {
+        2: print "dva"; print "jeste jednou dva";
+        3 .. 5: print "tri az pet";
+        else: print "neco jineho";
+        }
+</PRE>
+
+where <I>argument</I> is any argument that can be on the left side of ~ operator, and anything that
+could be member of set is allowed before :. Multiple commands are allowed without {} grouping. If
+argument matches neither of : clauses, else: clause is used. (Case is actually implemented as set
+matching, internally.)
 
 <h1>Protocols</h1>
 

@@ -10,6 +10,8 @@
 	FIXME: create community lists
 	FIXME: '! =' should not be permitted. Ze `!=' by nemelo byt totez jako `! =' Nadefinujes si pres %token novy token a do cf-lex.l pridas nove pravidlo, ktere jej rozpoznava. Napriklad !=      return NEQ;
 	FIXME: IP addresses in ipv6
+
+	FIXME: how can functions return value?
  */
 
 CF_HDR
