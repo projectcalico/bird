@@ -50,6 +50,7 @@ extern int (*cf_read_hook)(byte *buf, unsigned int max);
 
 struct symbol {
   struct symbol *next;
+  struct sym_scope *scope;
   int class;
   int aux;
   void *aux2; 
@@ -75,6 +76,8 @@ void cf_lex_init(int is_cli);
 struct symbol *cf_find_symbol(byte *c);
 struct symbol *cf_default_name(char *prefix, int *counter);
 void cf_define_symbol(struct symbol *symbol, int type, void *def);
+void cf_push_context(struct symbol *);
+void cf_pop_context(void);
 
 /* Parser */
 

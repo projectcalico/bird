@@ -35,6 +35,13 @@ static struct keyword {
 static struct keyword *kw_hash[KW_HASH_SIZE];
 static struct symbol **sym_hash;
 
+struct sym_scope {
+  struct sym_scope *next;		/* Next on scope stack */
+  struct symbol *name;			/* Name of this scope */
+  int active;				/* Currently entered */
+};
+static struct sym_scope *conf_this_scope;
+
 int conf_lino;
 
 static int cf_hash(byte *c);
@@ -184,7 +191,7 @@ cf_find_sym(byte *c, unsigned int h0)
     sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
   else
     for(s = sym_hash[h]; s; s=s->next)
-	if (!strcmp(s->name, c))
+	if (!strcmp(s->name, c) && s->scope->active)
 	  return s;
   l = strlen(c);
   if (l > SYM_MAX_LEN)
@@ -192,6 +199,7 @@ cf_find_sym(byte *c, unsigned int h0)
   s = cfg_alloc(sizeof(struct symbol) + l);
   s->next = sym_hash[h];
   sym_hash[h] = s;
+  s->scope = conf_this_scope;
   s->class = SYM_VOID;
   s->def = NULL;
   s->aux = 0;
@@ -240,6 +248,8 @@ cf_lex_init(int is_cli)
     BEGIN(CLI);
   else
     BEGIN(INITIAL);
+  conf_this_scope = cfg_allocz(sizeof(struct sym_scope));
+  conf_this_scope->active = 1;
 }
 
 void
@@ -253,4 +263,23 @@ cf_lex_init_tables(void)
       k->next = kw_hash[h];
       kw_hash[h] = k;
     }
+}
+
+void
+cf_push_scope(struct symbol *sym)
+{
+  struct sym_scope *s = cfg_alloc(sizeof(struct sym_scope));
+
+  s->next = conf_this_scope;
+  conf_this_scope = s;
+  s->active = 1;
+  s->name = sym;
+}
+
+void
+cf_pop_scope(void)
+{
+  conf_this_scope->active = 0;
+  conf_this_scope = conf_this_scope->next;
+  ASSERT(conf_this_scope);
 }
