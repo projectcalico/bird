@@ -31,14 +31,16 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received lsack from unknown neigbor! (%u)\n", p->name,
+    debug("%s: Received lsack from unknown neigbor! (%I)\n", p->name,
       nrid);
     return ;
   }
+
+  if(n->state<NEIGHBOR_EXCHANGE) return;
   
   nolsa=(ntohs(ps->ospf_packet.length)-sizeof(struct ospf_lsack_packet))/
     sizeof(struct ospf_lsa_header);
-  DBG("Received %d lsa\n",nolsa);
+  DBG("Received %d lsa ack(s)\n",nolsa);
   plsa=( struct ospf_lsa_header *)(ps+1);
 
   for(i=0;i<nolsa;i++)
@@ -52,7 +54,7 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
       continue;
     }
 
-    DBG("Deleting LS Id: %u RT: % Type: %u from LS Retl for neighbor %u\n",
+    DBG("Deleting LS Id: %I RT: %I Type: %u from LS Retl for neighbor %I\n",
       lsa.id,lsa.rt,lsa.type,n->rid);
     s_rem_node(SNODE en);
     ospf_hash_delete(n->lsrth,en);
