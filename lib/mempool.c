@@ -1,7 +1,7 @@
 /*
  *	BIRD Resource Manager -- Memory Pools
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -20,8 +20,9 @@ struct lp_chunk {
 struct linpool {
   resource r;
   byte *ptr, *end;
-  struct lp_chunk *first, **plast;
-  unsigned chunk_size, threshold, total;
+  struct lp_chunk *first, *current, **plast;	/* Normal (reusable) chunks */
+  struct lp_chunk *first_large;			/* Large chunks */
+  unsigned chunk_size, threshold, total, total_large;
 };
 
 void lp_free(resource *);
@@ -39,11 +40,12 @@ linpool
 {
   linpool *m = ralloc(p, &lp_class);
   m->ptr = m->end = NULL;
-  m->first = NULL;
+  m->first = m->current = NULL;
   m->plast = &m->first;
+  m->first_large = NULL;
   m->chunk_size = blk;
   m->threshold = 3*blk/4;
-  m->total = 0;
+  m->total = m->total_large = 0;
   return m;
 }
 
@@ -63,19 +65,30 @@ lp_alloc(linpool *m, unsigned size)
       struct lp_chunk *c;
       if (size >= m->threshold)
 	{
+	  /* Too large => allocate large chunk */
 	  c = xmalloc(sizeof(struct lp_chunk) + size);
-	  m->total += size;
+	  m->total_large += size;
+	  c->next = m->first_large;
+	  m->first_large = c->next;
 	}
       else
 	{
-	  c = xmalloc(sizeof(struct lp_chunk) + m->chunk_size);
+	  if (m->current && m->current->next)
+	    /* Still have free chunks from previous incarnation (before lp_flush()) */
+	    c = m->current->next;
+	  else
+	    {
+	      /* Need to allocate a new chunk */
+	      c = xmalloc(sizeof(struct lp_chunk) + m->chunk_size);
+	      m->total += m->chunk_size;
+	      *m->plast = c;
+	      m->plast = &c->next;
+	      c->next = NULL;
+	    }
+	  m->current = c;
 	  m->ptr = c->data + size;
 	  m->end = c->data + m->chunk_size;
-	  m->total += m->chunk_size;
 	}
-      *m->plast = c;
-      m->plast = &c->next;
-      c->next = NULL;
       return c->data;
     }
 }
@@ -101,6 +114,22 @@ lp_allocz(linpool *m, unsigned size)
 
   bzero(z, size);
   return z;
+}
+
+void
+lp_flush(linpool *m)
+{
+  struct lp_chunk *c;
+
+  /* Relink all normal chunks to free list and free all large chunks */
+  m->ptr = m->end = NULL;
+  m->current = m->first;
+  while (c = m->first_large)
+    {
+      m->first_large = c->next;
+      xfree(c);
+    }
+  m->total_large = 0;
 }
 
 void

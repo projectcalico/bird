@@ -1,7 +1,7 @@
 /*
  *	BIRD Resource Manager
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -54,6 +54,7 @@ linpool *lp_new(pool *, unsigned blk);
 void *lp_alloc(linpool *, unsigned size);	/* Aligned */
 void *lp_allocu(linpool *, unsigned size);	/* Unaligned */
 void *lp_allocz(linpool *, unsigned size);	/* With clear */
+void lp_flush(linpool *);			/* Free everything, but leave linpool */
 
 /* Slabs */
 
