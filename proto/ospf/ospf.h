@@ -17,6 +17,10 @@
 #error Multicast address not defined in IPv6
 #endif
 
+struct proto_ospf {
+  struct proto proto;
+  list iface_list;		/* Interfaces we really use */
+};
 
 struct ospf_config {
   struct proto_config c;
@@ -26,6 +30,7 @@ struct ospf_config {
 
 struct ospf_iface {
   node n;
+  struct proto_ospf *proto;
   struct iface *iface;	/* Nest's iface */
   list sk_list;		/* List of active sockets */
   u32 area;		/* OSPF Area */
@@ -63,7 +68,7 @@ struct ospf_iface {
 #define PRIORITY_D 1
 #define HELLOINT_D 10
 #define DEADINT_D 4
-#define WAIT_D 40	/* Value of Wait timer - I didn't found it in RFC */
+#define WAIT_D 20	/* Value of Wait timer - I didn't found it in RFC */
 
 };
 
@@ -77,11 +82,6 @@ struct ospf_patt {
 
   u16 cost;
   byte mode;
-};
-
-struct proto_ospf {
-  struct proto proto;
-  list iface_list;		/* Interfaces we really use */
 };
 
 #endif /* _BIRD_OSPF_H_ */

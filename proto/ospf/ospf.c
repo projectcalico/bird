@@ -25,7 +25,14 @@
 int
 ospf_rx_hook(sock *sk, int size)
 {
-  DBG(" OSPF: RX_Hook called on interface ");
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  ifa=(struct ospf_iface *)(sk->data);
+
+  p=(struct proto *)(ifa->proto);
+  DBG(p->name);
+  DBG(": RX_Hook called on interface ");
   DBG(sk->iface->name);
   DBG(".\n");
   return(1);
@@ -34,7 +41,14 @@ ospf_rx_hook(sock *sk, int size)
 void
 ospf_tx_hook(sock *sk)
 {
-  DBG(" OSPF: TX_Hook called on interface ");
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  ifa=(struct ospf_iface *)(sk->data);
+
+  p=(struct proto *)(ifa->proto);
+  DBG(p->name);
+  DBG(": TX_Hook called on interface ");
   DBG(sk->iface->name);
   DBG(".\n");
 }
@@ -42,7 +56,14 @@ ospf_tx_hook(sock *sk)
 void
 ospf_err_hook(sock *sk, int err)
 {
-  DBG(" OSPF: Err_Hook called on interface ");
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  ifa=(struct ospf_iface *)(sk->data);
+
+  p=(struct proto *)(ifa->proto);
+  DBG(p->name);
+  DBG(": Err_Hook called on interface ");
   DBG(sk->iface->name);
   DBG(".\n");
 }
@@ -69,12 +90,15 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
     mcsk->iface=ifa->iface;
     mcsk->rbsize=ifa->iface->mtu;
     mcsk->tbsize=ifa->iface->mtu;
+    mcsk->data=(void *)ifa;
     if(sk_open(mcsk)!=0)
     {
-      DBG(" OSPF: SK_OPEN: failed\n");
+      DBG(p->name);
+      DBG(": SK_OPEN: failed\n");
       return(NULL);
     }
-    DBG(" OSPF: SK_OPEN: open\n");
+    DBG(p->name);
+    DBG(": SK_OPEN: open\n");
     return(mcsk);
   }
   else return(NULL);
@@ -119,32 +143,39 @@ void
 hello_timer_hook(timer *timer)
 {
   struct ospf_iface *ifa;
+  struct proto *p;
 
   ifa=(struct ospf_iface *)timer->data;
-  debug(" OSPF: Hello timer fired on interface %s.\n",
-    ifa->iface->name);
+  p=(struct proto *)(ifa->proto);
+  debug("%s: Hello timer fired on interface %s.\n",
+    p->name, ifa->iface->name);
 }
 
 void
 add_hello_timer(struct ospf_iface *ifa)
 {
+  struct proto *p;
+  p=(struct proto *)(ifa->proto);
+
   if(ifa->helloint==0) ifa->helloint=HELLOINT_D;
   
   ifa->timer->hook=hello_timer_hook;
   ifa->timer->recurrent=ifa->helloint;
   ifa->timer->expires=0;
   tm_start(ifa->timer,0);
-  DBG(" OSPF: Installing hello timer.\n");
+  DBG("%s: Installing hello timer.\n", p->name);
 }
 
 void
 wait_timer_hook(timer *timer)
 {
   struct ospf_iface *ifa;
+  struct proto *p;
 
   ifa=(struct ospf_iface *)timer->data;
-  debug(" OSPF: Wait timer fired on interface %s.\n",
-    ifa->iface->name);
+  p=(struct proto *)(ifa->proto);
+  debug("%s: Wait timer fired on interface %s.\n",
+    p->name, ifa->iface->name);
   if(ifa->state=OSPF_IS_WAITING)
   {
     /*
@@ -153,14 +184,15 @@ wait_timer_hook(timer *timer)
      */
     if(ifa->priority!=0)
     {
-      debug(" OSPF: Changing state into DR.\n");
+      debug("%s: Changing state into DR.\n", p->name);
+
       ifa->state=OSPF_IS_DR;
       ifa->drip=ifa->iface->addr->ip;
       /* FIXME: Set ifa->drid */
     }
     else
     {
-      debug(" OSPF: Changing state into DROTHER.\n");
+      debug("%s: Changing state into DROTHER.\n",p->name);
       ifa->state=OSPF_IS_DROTHER;
     }
     add_hello_timer(ifa);
@@ -168,8 +200,11 @@ wait_timer_hook(timer *timer)
 }
 
 void
-add_wait_timer(struct ospf_iface *ifa,pool *pool, int wait)
+add_wait_timer(struct ospf_iface *ifa, pool *pool, int wait)
 {
+  struct proto *p;
+
+  p=(struct proto *)(ifa->proto);
   ifa->timer=tm_new(pool);
   ifa->timer->data=ifa;
   ifa->timer->randomize=1;
@@ -179,7 +214,8 @@ add_wait_timer(struct ospf_iface *ifa,pool *pool, int wait)
     ifa->timer->recurrent=0;
     ifa->timer->expires=0;
     tm_start(ifa->timer,(wait!=0 ? wait : WAIT_D));
-    DBG(" OSPF: Installing wait timer.\n");
+    DBG(p->name);
+    DBG(": Installing wait timer.\n");
   }
   else
   {
@@ -239,6 +275,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     debug(" OSPF: using interface %s.\n", iface->name);
     /* FIXME: Latter I'll use config - this is incorrect */
     ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
+    ifa->proto=(struct proto_ospf *)p;
     ifa->iface=iface;
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
@@ -274,7 +311,8 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 static int
 ospf_start(struct proto *p)
 {
-  DBG(" OSPF: Start\n");
+  DBG(p->name);
+  DBG(": Start\n");
 
   p->if_notify=ospf_if_notify;
 
@@ -287,7 +325,8 @@ ospf_dump(struct proto *p)
   char areastr[20];
   struct ospf_config *c = (void *) p->cf;
 
-  DBG(" OSPF: Dump.\n");
+  DBG(p->name);
+  DBG(": Dump.\n");
   debug(" -AreaID: %d\n", c->area );
 }
 
