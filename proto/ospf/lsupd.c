@@ -249,7 +249,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     return;
   }
 
-  debug("%s: Received LS upd from (%I)\n", p->name, n->ip); 
+  debug("%s: Received LS upd from %I\n", p->name, n->ip); 
 
   lsa=(struct ospf_lsa_header *)(ps+1);
   area=htonl(ps->ospf_packet.areaid);
