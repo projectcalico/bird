@@ -14,7 +14,9 @@
 #include "nest/iface.h"
 #include "nest/protocol.h"
 #include "nest/route.h"
+#include "nest/cli.h"
 #include "conf/conf.h"
+#include "lib/string.h"
 
 #include "static.h"
 
@@ -41,6 +43,7 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
   e->net = n;
   e->pflags = 0;
   rte_update(p->table, n, p, e);
+  r->installed = 1;
 }
 
 static void
@@ -52,6 +55,7 @@ static_remove(struct proto *p, struct static_route *r)
   n = net_find(p->table, r->net, r->masklen);
   if (n)
     rte_update(p->table, n, p, NULL);
+  r->installed = 0;
 }
 
 static int
@@ -177,3 +181,33 @@ struct protocol proto_static = {
   dump:		static_dump,
   start:	static_start,
 };
+
+static void
+static_show_rt(struct static_route *r)
+{
+  byte via[STD_ADDRESS_P_LENGTH + 16];
+
+  switch (r->dest)
+    {
+    case RTD_ROUTER:	bsprintf(via, "via %I", r->via); break;
+    case RTD_DEVICE:	bsprintf(via, "to %s", r->if_name); break;
+    case RTD_BLACKHOLE:	bsprintf(via, "blackhole"); break;
+    case RTD_UNREACHABLE:	bsprintf(via, "unreachable"); break;
+    case RTD_PROHIBIT:	bsprintf(via, "prohibited"); break;
+    default:		bsprintf(via, "???");
+    }
+  cli_msg(-1009, "%I/%d %s%s", r->net, r->masklen, via, r->installed ? "" : " (dormant)");
+}
+
+void
+static_show(struct proto *P)
+{
+  struct static_config *c = (void *) P->cf;
+  struct static_route *r;
+
+  WALK_LIST(r, c->other_routes)
+    static_show_rt(r);
+  WALK_LIST(r, c->iface_routes)
+    static_show_rt(r);
+  cli_msg(0, "");
+}

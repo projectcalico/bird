@@ -26,6 +26,9 @@ struct static_route {
   ip_addr via;				/* Destination router */
   struct neighbor *neigh;
   byte *if_name;			/* Name for RTD_DEVICE routes */
+  int installed;			/* Installed in master table */
 };
+
+void static_show(struct proto *);
 
 #endif

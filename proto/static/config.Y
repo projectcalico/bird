@@ -57,6 +57,9 @@ stat_route:
  | stat_route0 PROHIBIT { this_srt->dest = RTD_PROHIBIT; }
  ;
 
+CF_CLI(SHOW STATIC, optsym, [<name>], [[Show details of static protocol]])
+{ static_show(proto_get_named($3, &proto_static)); } ;
+
 CF_CODE
 
 CF_END
