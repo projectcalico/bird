@@ -239,6 +239,16 @@ ea_list_copy(ea_list *o)
   return n;
 }
 
+static inline void
+ea_free(ea_list *o)
+{
+  if (o)
+    {
+      ASSERT(!o->next);
+      mb_free(o);
+    }
+}
+
 void
 ea_format(eattr *e, byte *buf)
 {
@@ -407,8 +417,7 @@ static rta **rta_hash_table;
 static void
 rta_alloc_hash(void)
 {
-  rta_hash_table = mb_alloc(rta_pool, sizeof(rta *) * rta_cache_size);
-  bzero(rta_hash_table, sizeof(rta *) * rta_cache_size);
+  rta_hash_table = mb_allocz(rta_pool, sizeof(rta *) * rta_cache_size);
   if (rta_cache_size < 32768)
     rta_cache_limit = rta_cache_size * 2;
   else
@@ -518,6 +527,12 @@ rta__free(rta *a)
 {
   ASSERT(rta_cache_count && (a->aflags & RTAF_CACHED));
   rta_cache_count--;
+  *a->pprev = a->next;
+  if (a->next)
+    a->next->pprev = a->pprev;
+  a->aflags = 0;		/* Poison the entry */
+  ea_free(a->eattrs);
+  sl_free(rta_slab, a);
 }
 
 void
