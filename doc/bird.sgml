@@ -3,6 +3,10 @@
 <!--
 	BIRD documentation
 
+This documentation can have 4 forms: sgml (this is master copy), html,
+ASCII text and dvi/postscript (generated from sgml using
+sgmltools). You should always edit master copy.
+
 This is slightly modified linuxdoc dtd.  Anything in <descrip> tags is considered definition of
 configuration primitives, <cf> is fragment of configuration within normal text, <m> is
 "meta" information within fragment of configuration - something in config which is not keyword.
@@ -46,22 +50,20 @@ for `BIRD Internet Routing Daemon', you remember, don't you? :-)
 which works as a dynamic router in an Internet type network (that is, in a network running either
 the IPv4 or the IPv6 protocol). Routers are devices which forward packets between interconnected
 networks in order to allow hosts not connected directly to the same local area network to
-communicate with each other. They also communicate with other routers in the Internet to discover
+communicate with each other. They also communicate with the other routers in the Internet to discover
 the topology of the network which allows them to find optimal (in terms of some metric) rules for
-forwarding of packets (which will be called routes in the rest of this document) and to adapt to the
+forwarding of packets (which will be called routes in the rest of this document) and to adapt themselves to the
 changing conditions such as outages of network links, building of new connections and so on. Most of
 these routers are costly dedicated devices running obscure firmware which is hard to configure and
-not open to any changes (but these costly dedicated beasts are needed
-for routing on many fast interfaces -- a PC class machine can not keep up with more than 4
-100Mbps cards). Fortunately, most operating systems of the UNIX family allow an ordinary 
+not open to any changes (on the other hand, their special hardware design allows them to keep up with lots of high-speed network interfaces, better than general-purpose computer does). Fortunately, most operating systems of the UNIX family allow an ordinary 
 computer to act as a router and forward packets belonging to the other hosts, but only according to
 a statically configured table.
 
 <p>A <em/Routing Daemon/ is in UNIX terminology a non-interactive program running on
 background which does the dynamic part of Internet routing, that is it communicates
 with the other routers, calculates routing tables and sends them to the OS kernel
-which does the actual packet forwarding. There are other such routing daemons: routed (rip only), GateD <HTMLURL URL="http://www.gated.org/">
- (non free) and Zebra <HTMLURL URL="http://www.zebra.org">, but their capabilities are limited and
+which does the actual packet forwarding. There already exist other such routing daemons: routed (rip only), GateD<HTMLURL URL="http://www.gated.org/">
+ (non free), Zebra<HTMLURL URL="http://www.zebra.org"> and mrtd<HTMLURL URL="FIXME">, but their capabilities are limited and
 they are relatively hard to configure and maintain.
 
 <p>BIRD is an Internet Routing Daemon designed to avoid all of these shortcomings,
@@ -75,15 +77,15 @@ protocols to be incorporated easily. Among other features, BIRD supports:
 	<item>the Border Gateway Protocol (BGPv4)
 	<item>the Routing Interchange Protocol (RIPv2)
 	<item>the Open Shortest Path First protocol (OSPFv2)
-	<item>a virtual protocol for exchange of routes between internal routing tables
+	<item>a virtual protocol for exchange of routes between different routing tables on a single host
 	<item>a command-line interface allowing on-line control and inspection
 		of status of the daemon
 	<item>soft reconfiguration (no need to use complex online commands
 		to change the configuration, just edit the configuration file
-		and notify BIRD to re-read it and it will smoothly switch
+		and notify BIRD to re-read it and it will smoothly switch itself
 		to the new configuration, not disturbing routing protocols
 		unless they are affected by the configuration changes)
-	<item>powerful language for route filtering
+	<item>a powerful language for route filtering
 </itemize>
 
 <p>BIRD has been developed at the Faculty of Math and Physics, Charles University, Prague,
@@ -91,18 +93,13 @@ Czech Republic as a student project. It can be freely distributed under the term
 Public License.
 
 <p>BIRD has been designed to work on all UNIX-like systems. It has been developed and
-tested under Linux 2.0 to 2.3, but porting to other systems (even non-UNIX ones) should
+tested under Linux 2.0 to 2.4, but porting to other systems (even non-UNIX ones) should
 be relatively easy due to its highly modular architecture.
-
-<sect>About this documentation
-
-<p>This documentation can have 4 forms: sgml (this is master copy), html, ASCII text and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy.
 
 
 <sect>Installing BIRD
 
-<p>On recent UNIX (with GNU-compatible tools -- BIRD relies on GCC extensions)
-system, installing BIRD should be as easy as:
+<p>On a recent UNIX system with GNU development tools (GCC, binutils, m4, make) and Perl, installing BIRD should be as easy as:
 
 <code>
         ./configure
@@ -112,64 +109,66 @@ system, installing BIRD should be as easy as:
 	bird
 </code>
 
-<p>You can use <tt>./configure --help</tt> to get list of configure
-options. Most important (and not easily guessed) option is
-<tt/--enable-ipv6/, which enables IPv6 support. You can use
-<tt/--with-protocols=/ to produce slightly smaller BIRD, and
-<tt/--prefix=/ to install bird somewhere else than
+<p>You can use <tt>./configure --help</tt> to get a list of configure
+options. The most important ones are:
+<tt/--enable-ipv6/ which enables building of an IPv6 version of BIRD,
+<tt/--with-protocols=/ to produce a slightly smaller BIRD executable by configuring out routing protocols you don't use, and
+<tt/--prefix=/ to install BIRD to a place different from.
 <file>/usr/local</file>.
 
-<sect>Running bird
+<sect>Running BIRD
 
 <p>You can pass several command-line options to bird:
 
 <descrip>
 	<tag>-c <m/config name/</tag>
-	use given config file instead of <file>bird.conf</file>.
+	use given configuration file instead of <file>$prefix/etc/bird.conf</file>.
 
 	<tag>-d</tag>
-	enable debugging.
+	enable debug messages and run bird in foreground.
 
-	<tag>-D <m/filename for debug log/</tag>
-	log debugging information to given file.
+	<tag>-D <m/filename of debug log/</tag>
+	log debugging information to given file instead of stderr
 
 	<tag>-s <m/name of communication socket/</tag>
-	use given filename for socket for communications with bird client, default is <file/bird.ctl/.
+	use given filename for a  socket for communications with the client, default is <file>$prefix/var/run/bird.ctl</file>.
 </descrip>
+
+<p>BIRD writes messages about its work to log files or syslog (according to config).
 
 <chapt>About routing tables
 
-<p>Bird has one or more routing tables, which may or may not be
+<p>BIRD has one or more routing tables, which may or may not be
 synchronized with kernel and which may or may not be synchronized with
 each other (see the Pipe protocol). Each routing table contains list of
 known routes. Each route consists of:
 
 <itemize>
-	<item>network this route is for
+	<item>network prefix this route is for (consists of networkk address and number of bits forming the network part of the address)
 	<item>preference of this route (taken from preference of
 	protocol and possibly altered by filters)
-	<item>ip address of router who told us about this route
-	<item>ip address of router we should use for packets routing
+	<item>IP address of router who told us about this route
+	<item>IP address of router we should forward the packets to
 	using this route
 	<item>other attributes common to all routes
-	<item>dynamic attributes defined by protocols, which may or
-	may not be present (typically protocol metric)
+	<item>dynamic attributes defined by protocols which may or
+	may not be present (typically protocol metrics)
 </itemize>
 
 Routing table maintains more than
-one entry for network, but at most one entry for one network and one
+one entry for a network, but at most one entry for one network and one
 protocol. The entry with biggest preference is used for routing. If
-there are more entries with same preference and they are from same
+there are more entries with the same preference and they are from the same
 protocol, protocol decides (typically according to metrics). If not,
 internal ordering is used to decide. You can
 get list of route attributes in "Route attributes" section in
 filters. 
 
-<p>Protocols are connected to routing tables using filters. Routes
-that come from network go to the protocol, it then passes them to
+<p>Protocols are connected to routing tables through filters. Routes
+that come from other routers go to the protocol, it then passes them to
 filters, if import filter accepts route, it gets to main routing
 table. It is then broadcasted to all other protocols (filtered through
-their export filters), which typically send it to the network.
+their export filters), which typically send it to other routers.
 
 Filters can alter routes passed between routing tables and
 protocols.
@@ -178,22 +177,22 @@ protocols.
 
 <sect>Introduction
 
-<p>BIRD is configured using text configuration file. At startup, BIRD reads <file/bird.conf/ (unless
-<tt/-c/ command line option is given). Configuration may be changed on user request: if you modify
-config file and then signal BIRD with SIGHUP, it will adjust to new
-config. Then there's BIRD client,
-which allows you to talk with BIRD in extensive way. (Of course you can tell BIRD to reconfigure from BIRDC, you can also tell it to shut down, dump various info etc.). BIRD
-writes messages about its work to log files or syslog (according to config).
+<!-- fixme: add default values to all places? Where do I learn them? --> 
 
-<p>In config, everything on a line after <cf/#/ or inside <cf>/*
-*/</cf> is a comment, whitespace is ignored, C-style comments <cf>/* comment */</cf> are also
-recognized. If there's variable number of options, they are grouped using
-<cf/{ }/ brackets. Each option is terminated by <cf/;/. Configuration
+<p>BIRD is configured using a text configuration file. Upon startup, BIRD reads <file>$prefix/bird.conf</file> (unless the
+<tt/-c/ command line option is given). Configuration may be changed on user's request: if you modify
+config file and then signal BIRD with SIGHUP, it will adjust to the new
+config. Then there's the client,
+which allows you to talk with BIRD in an extensive way. (Of course you can tell BIRD to reconfigure from BIRDC, you can also tell it to shut down, dump various info etc.).
+
+<p>In the config, everything on a line after <cf/#/ or inside <cf>/*
+*/</cf> is a comment, whitespace characters are treated as a single space. If there's a variable number of options, they are grouped using
+the <cf/{ }/ brackets. Each option is terminated by a <cf/;/. Configuration
 is case sensitive.
 
-<p>Really simple configuration file might look like this: It enables
-synchronization of routing tables with kernel, scans for 
-new network interfaces every 10 seconds and runs RIP on all interfaces found.
+<p>Here is an example of a simple config file. It enables
+synchronization of routing tables with OS kernel, scans for 
+new network interfaces every 10 seconds and runs RIP on all network interfaces found.
 
 
 <code>
@@ -218,58 +217,57 @@ protocol rip {
 
 <p><descrip>
 	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of classes/ }</tag> 
-	set logging of classes (either all or <cf/{
+	Set logging of messages having the given (either <cf/all/ or <cf/{
 	error, trace }/ etc.) into selected destination. Classes are:
-	<cf/info/, <cf/warning/, <cf/error/, <cf/fatal/ for messages about local problems
+	<cf/info/, <cf/warning/, <cf/error/ and <cf/fatal/ for messages about local problems
 	<cf/debug/ for debugging messages, 
-	<cf/trace/ when you want to know what happens on network, 
-	<cf/remote/ for messages about misbehavior of remote side, 
-	<cf/auth/ about authentication failures,  
-	<cf/bug/ for internal bugs
-	of BIRD. You may specify more than one <cf/log/ line to log to multiple
+	<cf/trace/ when you want to know what happens in the network, 
+	<cf/remote/ for messages about misbehavior of remote machines, 
+	<cf/auth/ about authentication failures,
+	<cf/bug/ for internal BIRD bugs. You may specify more than one <cf/log/ line to estabilish logging to multiple
 	destinations.
+
+	<!--fixme: mj says explain-->
 				  
 	<tag>debug protocols all|off|{ states, routes, filters, interfaces, events, packets }</tag>
-	sets global default of protocol debugging options.
+	Set global default of protocol debugging options.
 
-	<tag>filter <m/name local variables/{ <m/commands/ }</tag> define filter. You can learn more about filters
-	in next chapter.
+	<tag>filter <m/name local variables/{ <m/commands/ }</tag> Define a filter. You can learn more about filters
+	in the following chapter.
 
-	<tag>function <m/name (parameters) local variables/ { <m/commands/ }</tag> define function. You can learn more
-	about functions 
-	in next chapter.
+	<tag>function <m/name (parameters) local variables/ { <m/commands/ }</tag> Define a function. You can learn more
+	about functions in the following chapter.
  
-	<tag>protocol rip|ospf|bgp|... <m/[name]/ { <m>protocol options</m> }</tag> define protocol
-	instance, called name (or called something like rip5 if you omit name). You can learn more
+	<tag>protocol rip|ospf|bgp|... <m/[name]/ { <m>protocol options</m> }</tag> Define a protocol
+	instance called <cf><m/name/</cf> (or with a name like "rip5" generated automatically, if you don't specify <cf><m/name/</cf>). You can learn more
 	about configuring protocols in their own chapters. You can run more than one instance of
-	most protocols (like rip or bgp).
+	most protocols (like RIP or BGP).
 
-	<tag>define <m/constant/ = (<m/expression/)|<m/number/|<m/ip address/</tag> define constant. You can use it later in every place
-	you could use simple integer/ip address.
+	<tag>define <m/constant/ = (<m/expression/)|<m/number/|<m/IP address/</tag> Define a constant. You can use it later in every place
+	you could use a simple integer or IP address.
 
-	<tag>router id <m/IPv4 address/</tag> set router id. Router id needs to be world-wide
-	unique. It is usually one of router's IPv4 addresses.
+	<tag>router id <m/IPv4 address/</tag> Set BIRD's router ID. It's a world-wide unique identification of your router, usually one of router's IPv4 addresses.
 
-	<tag>table <m/name/</tag> create new routing table. Default
+	<tag>table <m/name/</tag> Create a new routing table. The default
 	routing table is created implicitly, other routing tables have
 	to be added by this command.
 
-	<tag>eval <m/expr/</tag> evaluates given filter expression. It
-	is used by us for testing.
+	<tag>eval <m/expr/</tag> Evaluates given filter expression. It
+	is used by us for testing filters.
 </descrip>
 
 <sect>Protocol options
 
-<p>Several options are per-protocol, but all protocols support them. They are described here.
+<p>Each routing protocol has its own set of options (see the corresponding sections). These options are common to all protocols:
 
 <descrip>
-	<tag>preference <m/expr/</tag> sets preference of routes generated by this protocol.
+	<tag>preference <m/expr/</tag> Sets the preference of routes generated by this protocol.
 
-	<tag>disabled</tag> disables given protocol. You can disable/enable protocol from command
-	line interface without needing to touch config. Disabled protocol is not activated.
+	<tag>disabled</tag> Disables the protocol. You can change the disable/enable status from the command
+	line interface without needing to touch the configuration. Disabled protocol is not activated.
 
-	<tag>debug <m/setting/</tag> this is similar to global debug setting, except that it only
-	affects one protocol. Only messages in selected debugging categories will be written to
+	<tag>debug <m/setting/</tag> Similar to global <cf/debug/ setting, except that it only
+	affects one protocol. Only messages in selected debugging categories will be written to the
 	logs.
 
 	<tag>import <m/filter/</tag> filter can be either either <cf> { <m>filter commands</m>
@@ -355,7 +353,7 @@ pairs <cf><M>type name</M>;</cf>, where each pair defines one local variable. Bo
 several statements into one by <cf>{ <M>statements</M> }</cf> construction, that is useful if
 you want to make bigger block of code conditional.
 
-<p>Bird supports functions, so that you don't have to repeat same blocks of code over and
+<p>BIRD supports functions, so that you don't have to repeat same blocks of code over and
 over. Functions can have zero or more parameters, and can have local variables. They
 look like this:
 
@@ -1160,5 +1158,5 @@ LocalWords:  len ipaddress pxlen netmask enum bgppath bgpmask clist gw md eth
 LocalWords:  RTS printn quitbird iBGP AS'es eBGP RFC multiprotocol IGP Machek
 LocalWords:  EGP misconfigurations keepalive pref aggr aggregator BIRD's
 LocalWords:  OS'es AS's multicast nolisten misconfigured UID blackhole
-LocalWords:  uninstalls ethernets
+LocalWords:  uninstalls ethernets IP
  -->
