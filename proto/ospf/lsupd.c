@@ -175,7 +175,9 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
 
   WALK_LIST(llsh, *l)
   {
-    en=ospf_hash_find(n->ifa->oa->gr,llsh->lsh.id,llsh->lsh.rt,llsh->lsh.type);
+    if((en=ospf_hash_find(n->ifa->oa->gr,llsh->lsh.id,llsh->lsh.rt,
+      llsh->lsh.type))==NULL) continue;		/* Probably flushed LSA */
+
     DBG("Sending ID=%I, Type=%u, RT=%I\n", llsh->lsh.id, llsh->lsh.type,
       llsh->lsh.rt);
     if((len+en->lsa.length)>n->ifa->iface->mtu)
