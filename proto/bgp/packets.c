@@ -82,7 +82,6 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   int r_size = 0;
   int a_size = 0;
 
-  BGP_TRACE(D_PACKETS, "Sending UPDATE");
   w = buf+2;
   if ((buck = p->withdraw_bucket) && !EMPTY_LIST(buck->prefixes))
     {
@@ -118,7 +117,13 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
       put_u16(w, 0);
       w += 2;
     }
-  return (wd_size || r_size) ? w : NULL;
+  if (wd_size || r_size)
+    {
+      BGP_TRACE(D_PACKETS, "Sending UPDATE");
+      return w;
+    }
+  else
+    return NULL;
 }
 
 #else		/* IPv6 version */
@@ -136,7 +141,6 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   eattr *nh;
   neighbor *n;
 
-  BGP_TRACE(D_PACKETS, "Sending UPDATE");
   put_u16(buf, 0);
   w = buf+4;
 
@@ -213,7 +217,13 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   size = w - (buf+4);
   put_u16(buf+2, size);
   lp_flush(bgp_linpool);
-  return size ? w : NULL;
+  if (size)
+    {
+      BGP_TRACE(D_PACKETS, "Sending UPDATE");
+      return w;
+    }
+  else
+    return NULL;
 }
 
 #endif
