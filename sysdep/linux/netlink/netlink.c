@@ -301,13 +301,14 @@ nl_parse_link(struct nlmsghdr *h, int scan)
       fl = i->ifi_flags;
       if (fl & IFF_UP)
 	f.flags |= IF_LINK_UP;
-      /* FIXME: Unnumberedness of tunnels */
-      if (fl & IFF_POINTOPOINT)
-	f.flags |= IF_UNNUMBERED | IF_MULTICAST;
-      if (fl & IFF_LOOPBACK)
-	f.flags |= IF_LOOPBACK | IF_IGNORE;
-      if (fl & IFF_BROADCAST)
-	f.flags |= IF_BROADCAST | IF_MULTICAST;
+      if (fl & IFF_LOOPBACK)		/* Loopback */
+	f.flags |= IF_MULTIACCESS | IF_LOOPBACK | IF_IGNORE;
+      else if (fl & IFF_POINTOPOINT)	/* PtP */
+	f.flags |= IF_MULTICAST;
+      else if (fl & IFF_BROADCAST)	/* Broadcast */
+	f.flags |= IF_MULTIACCESS | IF_BROADCAST | IF_MULTICAST;
+      else
+	f.flags |= IF_MULTIACCESS;	/* NBMA */
       if_update(&f);
     }
 }
@@ -350,15 +351,6 @@ nl_parse_addr(struct nlmsghdr *h)
       return;
     }
 
-#ifndef IPV6
-  if (i->ifa_prefixlen > 32 || i->ifa_prefixlen == 31 ||
-      (ifi->flags & IF_UNNUMBERED) && i->ifa_prefixlen != 32)
-    {
-      log(L_ERR "KIF: Invalid prefix length for interface %s: %d", ifi->name, i->ifa_prefixlen);
-      new = 0;
-    }
-#endif
-
   bzero(&ifa, sizeof(ifa));
   ifa.iface = ifi;
   if (i->ifa_flags & IFA_F_SECONDARY)
@@ -367,26 +359,37 @@ nl_parse_addr(struct nlmsghdr *h)
   memcpy(&ifa.ip, RTA_DATA(a[IFA_LOCAL] ? : a[IFA_ADDRESS]), sizeof(ifa.ip));
   ipa_ntoh(ifa.ip);
   ifa.pxlen = i->ifa_prefixlen;
-  if (ifi->flags & IF_UNNUMBERED)
+  if (i->ifa_prefixlen > BITS_PER_IP_ADDRESS ||
+      i->ifa_prefixlen == BITS_PER_IP_ADDRESS - 1)
     {
+      log(L_ERR "KIF: Invalid prefix length for interface %s: %d", ifi->name, i->ifa_prefixlen);
+      new = 0;
+    }
+  if (i->ifa_prefixlen == BITS_PER_IP_ADDRESS)
+    {
+      ifa.flags |= IA_UNNUMBERED;
       memcpy(&ifa.opposite, RTA_DATA(a[IFA_ADDRESS]), sizeof(ifa.opposite));
       ipa_ntoh(ifa.opposite);
-      ifa.brd = ifa.opposite;
+      ifa.prefix = ifa.brd = ifa.opposite;
     }
-#ifndef IPV6
-  else if ((ifi->flags & IF_BROADCAST) && a[IFA_BROADCAST])
+  else
     {
-      memcpy(&ifa.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(ifa.brd));
-      ipa_ntoh(ifa.brd);
-    }
+      if (i->ifa_prefixlen == BITS_PER_IP_ADDRESS - 2)
+	ifa.opposite = ipa_opposite(ifa.ip);
+#ifndef IPV6
+      if ((ifi->flags & IF_BROADCAST) && a[IFA_BROADCAST])
+	{
+	  memcpy(&ifa.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(ifa.brd));
+	  ipa_ntoh(ifa.brd);
+	}
 #endif
-  /* else a NBMA link */
-  ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(ifa.pxlen));
+      ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(ifa.pxlen));
+    }
 
-  DBG("KIF: IF%d(%s): %s IPA %I, net %I/%d, brd %I, opp %I\n",
+  DBG("KIF: IF%d(%s): %s IPA %I, flg %x, net %I/%d, brd %I, opp %I\n",
       ifi->index, ifi->name,
       new ? "added" : "removed",
-      ifa.ip, ifa.prefix, ifa.pxlen, ifa.brd, ifa.opposite);
+      ifa.ip, ifa.flags, ifa.prefix, ifa.pxlen, ifa.brd, ifa.opposite);
   if (new)
     ifa_update(&ifa);
   else

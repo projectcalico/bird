@@ -56,10 +56,7 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
       A.iface = ad->iface;
       A.eattrs = NULL;
       a = rta_lookup(&A);
-      if (ad->flags & IF_UNNUMBERED)
-	n = net_get(p->table, ad->opposite, ad->pxlen);
-      else
-	n = net_get(p->table, ad->prefix, ad->pxlen);
+      n = net_get(p->table, ad->prefix, ad->pxlen);
       e = rte_get_temp(a);
       e->net = n;
       e->pflags = 0;

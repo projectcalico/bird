@@ -40,16 +40,16 @@ struct iface {
 
 #define IF_UP 1				/* IF_LINK_UP and IP address known */
 #define IF_MULTIACCESS 2
-#define IF_UNNUMBERED 4
-#define IF_BROADCAST 8
-#define IF_MULTICAST 0x10
-#define IF_ADMIN_DOWN 0x40
-#define IF_LOOPBACK 0x80
-#define IF_IGNORE 0x100			/* Not to be used by routing protocols (loopbacks etc.) */
-#define IF_LINK_UP 0x200
+#define IF_BROADCAST 4
+#define IF_MULTICAST 8
+#define IF_ADMIN_DOWN 0x10
+#define IF_LOOPBACK 0x20
+#define IF_IGNORE 0x40			/* Not to be used by routing protocols (loopbacks etc.) */
+#define IF_LINK_UP 0x80
 
 #define IA_PRIMARY 0x10000		/* This address is primary */
 #define IA_SECONDARY 0x20000		/* This address has been reported as secondary by the kernel */
+#define IA_UNNUMBERED 0x40000		/* This address belongs to an unnumbered device */
 #define IA_FLAGS 0xff0000
 
 #define IF_JUST_CREATED 0x10000000	/* Send creation event as soon as possible */

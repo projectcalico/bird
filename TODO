@@ -3,7 +3,6 @@ Core
 - IPv6: hashing functions etc.
 
 - krt-iface: check whether the interface alias hack works
-- krt-iface and netlink: unnumberedness of tunnels
 
 - better memory allocators
 - real attribute cache

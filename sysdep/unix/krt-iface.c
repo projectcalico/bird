@@ -94,12 +94,15 @@ scan_ifs(struct ifreq *r, int cnt)
 
       if (fl & IFF_POINTOPOINT)
 	{
-	  i.flags |= IF_UNNUMBERED;
-	  a.pxlen = BITS_PER_IP_ADDRESS;
+	  a.flags |= IA_UNNUMBERED;
 	  if (ioctl(if_scan_sock, SIOCGIFDSTADDR, r) < 0)
 	    { err = "SIOCGIFDSTADDR"; goto faulty; }
 	  get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.opposite, NULL);
+	  a.prefix = a.opposite;
+	  a.pxlen = BITS_PER_IP_ADDRESS;
 	}
+      else
+	a.prefix = ipa_and(a.ip, ipa_mkmask(a.pxlen));
       if (fl & IFF_LOOPBACK)
 	i.flags |= IF_LOOPBACK | IF_IGNORE;
       if (1
@@ -107,12 +110,11 @@ scan_ifs(struct ifreq *r, int cnt)
 	  && (fl & IFF_MULTICAST)
 #endif
 #ifndef CONFIG_UNNUM_MULTICAST
-	  && !(i.flags & IF_UNNUMBERED)
+	  && !(a.flags & IA_UNNUMBERED)
 #endif
 	 )
 	i.flags |= IF_MULTICAST;
 
-      a.prefix = ipa_and(a.ip, ipa_mkmask(a.pxlen));
       if (a.pxlen < 32)
 	{
 	  a.brd = ipa_or(a.prefix, ipa_not(ipa_mkmask(a.pxlen)));

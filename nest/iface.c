@@ -36,16 +36,25 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
 
   if (!(i->flags & IF_UP))
     return 0;
-  if ((i->flags & IF_UNNUMBERED) && ipa_equal(*a, i->addr->opposite))
-    return 1;
   WALK_LIST(b, i->addrs)
-    if (ipa_in_net(*a, b->prefix, b->pxlen))
-      {
-	if (ipa_equal(*a, b->prefix) ||	/* Network address */
-	    ipa_equal(*a, b->brd) ||	/* Broadcast */
-	    ipa_equal(*a, b->ip))	/* Our own address */
-	  return -1;
-	return 1;
+    {
+      if (ipa_equal(*a, b->ip))
+	return -1;
+      if (b->flags & IA_UNNUMBERED)
+	{
+	  if (ipa_equal(*a, b->opposite))
+	    return 1;
+	}
+      else
+	{
+	  if (ipa_in_net(*a, b->prefix, b->pxlen))
+	    {
+	      if (ipa_equal(*a, b->prefix) ||	/* Network address */
+		  ipa_equal(*a, b->brd))	/* Broadcast */
+		return -1;
+	      return 1;
+	    }
+	}
       }
   return 0;
 }
@@ -184,9 +193,10 @@ list iface_list;
 void
 ifa_dump(struct ifa *a)
 {
-  debug("\t%I, net %I/%-2d bc %I -> %I%s%s\n", a->ip, a->prefix, a->pxlen, a->brd, a->opposite,
+  debug("\t%I, net %I/%-2d bc %I -> %I%s%s%s\n", a->ip, a->prefix, a->pxlen, a->brd, a->opposite,
 	(a->flags & IF_UP) ? "" : " DOWN",
-	(a->flags & IA_PRIMARY) ? "" : " SEC");
+	(a->flags & IA_PRIMARY) ? "" : " SEC",
+	(a->flags & IA_UNNUMBERED) ? " UNNUM" : "");
 }
 
 void
@@ -205,8 +215,6 @@ if_dump(struct iface *i)
     debug(" LINK-UP");
   if (i->flags & IF_MULTIACCESS)
     debug(" MA");
-  if (i->flags & IF_UNNUMBERED)
-    debug(" UNNUM");
   if (i->flags & IF_BROADCAST)
     debug(" BC");
   if (i->flags & IF_MULTICAST)
@@ -492,7 +500,8 @@ ifa_update(struct ifa *a)
 	    b->pxlen == a->pxlen &&
 	    ipa_equal(b->brd, a->brd) &&
 	    ipa_equal(b->opposite, a->opposite) &&
-	    b->scope == a->scope)
+	    b->scope == a->scope &&
+	    !((b->flags ^ a->flags) & IA_UNNUMBERED))
 	  {
 	    b->flags |= IF_UPDATED;
 	    return b;
@@ -500,6 +509,12 @@ ifa_update(struct ifa *a)
 	ifa_delete(b);
 	break;
       }
+
+  if (!(i->flags & IF_MULTIACCESS) && a->pxlen < BITS_PER_IP_ADDRESS - 2)
+    log(L_WARN "Strange prefix length %d for point-to-point interface %s", a->pxlen, i->name);
+  if ((i->flags & IF_BROADCAST) && !ipa_nonzero(a->brd))
+    log(L_ERR "Missing broadcast address for interface %s", i->name);
+
   b = mb_alloc(if_pool, sizeof(struct ifa));
   memcpy(b, a, sizeof(struct ifa));
   add_tail(&i->addrs, &b->n);
@@ -545,8 +560,9 @@ auto_router_id(void)
   j = NULL;
   WALK_LIST(i, iface_list)
     if ((i->flags & IF_LINK_UP) &&
-	!(i->flags & (IF_UNNUMBERED | IF_IGNORE | IF_ADMIN_DOWN)) &&
+	!(i->flags & (IF_IGNORE | IF_ADMIN_DOWN)) &&
 	i->addr &&
+	!(i->addr->flags & IA_UNNUMBERED) &&
 	(!j || ipa_to_u32(i->addr->ip) < ipa_to_u32(j->addr->ip)))
       j = i;
   if (!j)
@@ -633,11 +649,12 @@ if_show_addr(struct ifa *a)
     bsprintf(opp, ", opposite %I", a->opposite);
   else
     opp[0] = 0;
-  cli_msg(-1003, "\t%I/%d (%s%s%s, scope %s)",
+  cli_msg(-1003, "\t%I/%d (%s%s%s, scope %s%s)",
 	  a->ip, a->pxlen,
 	  (a->flags & IA_PRIMARY) ? "Primary" : (a->flags & IA_SECONDARY) ? "Secondary" : "???",
 	  broad, opp,
-	  ip_scope_text(a->scope));
+	  ip_scope_text(a->scope),
+	  (a->flags & IA_UNNUMBERED) ? ", unnumbered" : "");
 }
 
 void
@@ -650,9 +667,7 @@ if_show(void)
   WALK_LIST(i, iface_list)
     {
       cli_msg(-1001, "%s %s (index=%d)", i->name, (i->flags & IF_UP) ? "up" : "DOWN", i->index);
-      if (i->flags & IF_UNNUMBERED)
-	type = "UnNum-PtP";
-      else if (!(i->flags & IF_MULTIACCESS))
+      if (!(i->flags & IF_MULTIACCESS))
 	type = "PtP";
       else
 	type = "MultiAccess";
