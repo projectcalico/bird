@@ -1,7 +1,7 @@
 /*
  *      BIRD -- OSPF
  *
- *      (c) 1999 Ondrej Filip <feela@network.cz>
+ *      (c) 1999 - 2000 Ondrej Filip <feela@network.cz>
  *
  *      Can be freely distributed and used under the terms of the GNU GPL.
  *

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -65,6 +65,15 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
     (pkt+1),ntohs(pkt->length)-sizeof(struct ospf_packet),NULL);
 }
 
+/**
+ * ospf_rx_hook
+ * @sk: socket we recived the packet. Its ignored.
+ * @size: size of the packet
+ *
+ * This in entry point for messages from neighbors. Many checks (like
+ * autnetication, checksums, size) are done before packet is passed to
+ * non generic functions.
+ */
 int
 ospf_rx_hook(sock *sk, int size)
 {
@@ -120,7 +129,6 @@ ospf_rx_hook(sock *sk, int size)
     return(1);
   }
 
-
   if(ps->areaid!=ifa->an)
   {
     log("%s: Bad OSPF packet received: other area %ld", p->name, ps->areaid);
@@ -130,7 +138,7 @@ ospf_rx_hook(sock *sk, int size)
 
   if(ntohl(ps->routerid)==p->cf->global->router_id)
   {
-    log("%s: Bad OSPF packet received: received my own IP!.", p->name);
+    log("%s: Bad OSPF packet received: received my own router ID!", p->name);
     log("%s: Discarding",p->name);
     return(1);
   }
@@ -142,12 +150,13 @@ ospf_rx_hook(sock *sk, int size)
     return(1);
   }
   
-  /* Dump packet */
+  /* Dump packet 
   pu8=(u8 *)(sk->rbuf+5*4);
   for(i=0;i<ntohs(ps->length);i+=4)
     DBG("%s: received %u,%u,%u,%u\n",p->name, pu8[i+0], pu8[i+1], pu8[i+2],
 		    pu8[i+3]);
   DBG("%s: received size: %u\n",p->name,size);
+  */
 
   switch(ps->type)
   {
@@ -173,10 +182,9 @@ ospf_rx_hook(sock *sk, int size)
       break;
     default:
       log("%s: Bad packet received: wrong type %u", p->name, ps->type);
-      log("%s: Discarding",p->name);
+      log("%s: Discarding\n",p->name);
       return(1);
   };
-  DBG("\n");
 #else
 #error RX_Hook does not work for IPv6 now.
 #endif
