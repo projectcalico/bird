@@ -1,0 +1,17 @@
+Reply codes of BIRD command-line interface
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+0xxx	Action suceessfully completed
+1xxx	Table heading
+2xxx	Table entry
+8xxx	Run-time error
+9xxx	Parse-time error
+<space>	Continuation
++	Spontaneous printout
+
+0000	OK
+0001	Welcome
+
+8000	Reply too long
+
+9000	Command too long
+9001	Parse error
