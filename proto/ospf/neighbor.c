@@ -27,7 +27,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     ifa=n->ifa;
     if(n->state==NEIGHBOR_FULL)
     {
-      ifa->fadj++;
+      ifa->fadj--;
       n->state=state;
       originate_rt_lsa(ifa->oa,ifa->oa->po);
       originate_net_lsa(ifa,ifa->oa->po);
@@ -39,7 +39,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     n->state=state;
     if(state==NEIGHBOR_FULL)
     {
-      ifa->fadj--;
+      ifa->fadj++;
       originate_rt_lsa(n->ifa->oa,n->ifa->oa->po);
       originate_net_lsa(ifa,ifa->oa->po);
     }

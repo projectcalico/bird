@@ -267,12 +267,12 @@ lsasum_calculate(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
   length=h->length;
 
   htonlsah(h,h);
-  htonlsab(body,body,h->type,length);
+  htonlsab(body,body,h->type,length-sizeof(struct ospf_lsa_header));
 
   (void)lsasum_check(h,body,po);
   
   ntohlsah(h,h);
-  ntohlsab(body,body,h->type,length);
+  ntohlsab(body,body,h->type,length-sizeof(struct ospf_lsa_header));
 }
 
 /*

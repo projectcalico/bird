@@ -116,7 +116,8 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	lh->age=htons(age);
 	help=(u8 *)(lh+1);
 	en=ospf_hash_find_header(oa->gr,hh);
-	htonlsab(en->lsa_body,help,hh->type,hh->length);
+	htonlsab(en->lsa_body,help,hh->type,hh->length
+          -sizeof(struct ospf_lsa_header));
 	len=hh->length;
       }
       op->length=htons(len);
@@ -186,7 +187,8 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
     }
     htonlsah(&(en->lsa), pktpos);
     pktpos=pktpos+sizeof(struct ospf_lsa_header);
-    htonlsab(en->lsa_body, pktpos, en->lsa.type, en->lsa.length);
+    htonlsab(en->lsa_body, pktpos, en->lsa.type, en->lsa.length
+      -sizeof(struct ospf_lsa_header));
     pktpos=pktpos+en->lsa.length-sizeof(struct ospf_lsa_header);
     len=len+en->lsa.length;
     lsano++;

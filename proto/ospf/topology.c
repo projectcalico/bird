@@ -118,7 +118,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
 	          (neigh->state==NEIGHBOR_FULL)) k=1;
 		if(neigh->state==NEIGHBOR_FULL) j=1;
 	      }
-              if(((ifa->state=OSPF_IS_DR) && (j==1)) || (k==1))
+              if(((ifa->state==OSPF_IS_DR) && (j==1)) || (k==1))
 	      {
 	        ln->type=LSART_NET;
 		ln->id=ipa_to_u32(ifa->drip);
@@ -205,6 +205,8 @@ addifa_rtlsa(struct ospf_iface *ifa)
     oa->age_timer->hook=age_timer_hook;
     oa->age_timer->recurrent=AGINGDELTA;
     tm_start(oa->age_timer,AGINGDELTA);
+    fib_init(&oa->infib,po->proto.pool,sizeof(struct infib),16,init_infib);
+    	/* FIXME 16?? (Oh, sweet 16.... :-) */
     po->areano++;
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
   }
@@ -252,8 +254,13 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
   u16 i=1;
   struct ospf_neighbor *n;
   u32 *body;
+  struct ospf_lsa_net *net;
 
-  body=mb_alloc(po->proto.pool,sizeof(u32)*ifa->fadj);
+  net=mb_alloc(po->proto.pool,sizeof(u32)*(ifa->fadj+1)+
+    sizeof(struct ospf_lsa_net));
+  net->netmask=ipa_mkmask(ifa->iface->addr->pxlen);
+
+  body=(u32 *)(net+1);
   i=1;
   *body=po->proto.cf->global->router_id;
   WALK_LIST(n,ifa->neigh_list)
@@ -264,8 +271,9 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
       i++;
     }
   }
-  *length=i*sizeof(u32)+sizeof(struct ospf_lsa_header);
-  return body;
+  *length=i*sizeof(u32)+sizeof(struct ospf_lsa_header)+
+    sizeof(struct ospf_lsa_net);
+  return net;
 }
 
 void
@@ -277,6 +285,7 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   void *body;
 
   DBG("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name, ifa->iface->name);
+  DBG("%s: State is:\"%u\" Fadj=%u.\n", po->proto.name, ifa->state,ifa->fadj);
 
   if(ifa->state!=OSPF_IS_DR) return;
 

@@ -26,7 +26,7 @@
 #include "nest/iface.h"
 #include "nest/route.h"
 #include "conf/conf.h"
-#include <string.h>
+#include "lib/string.h"
 
 #define OSPF_PROTO 89
 #ifndef IPV6
@@ -334,6 +334,7 @@ struct ospf_area {
   u8 stub;
   u8 trcap;			/* Transit capability? */
   struct proto_ospf *po;
+  struct fib infib;		/* FIB for intra-area routes */
 };
 
 struct proto_ospf {
