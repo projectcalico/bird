@@ -7,6 +7,7 @@
  */
 
 #include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
@@ -45,7 +46,7 @@ static void
 krt_ioctl(int ioc, rte *e, char *name)
 {
   net *net = e->net;
-  struct rtentry re;
+  struct ortentry re;
   rta *a = e->attrs;
 
   bzero(&re, sizeof(re));
