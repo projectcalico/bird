@@ -7,7 +7,6 @@
  *
  * 	Notice that pair is stored as integer: first << 16 | second
  *
- *	FIXME: Check if prefixes are really prefixes.
  */
 
 #include <stdio.h>

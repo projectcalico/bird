@@ -8,9 +8,7 @@
 	FIXME (nonurgent): define keyword
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
-	FIXME: write access to dynamic attributes.
 	FIXME: '! =' should not be permitted. Ze `!=' by nemelo byt totez jako `! =' Nadefinujes si pres %token novy token a do cf-lex.l pridas nove pravidlo, ktere jej rozpoznava. Napriklad !=      return NEQ;
-	FIXME: write access to static attribute: Z rte ma byt read/write: pref, attrs (neprimo).
 
  */
 
