@@ -135,6 +135,7 @@ givemore:
 
   if (!(NODE c->sendptr)->next) {
     debug( "Looks like I'm done\n" );
+    /* FIXME: we have to kill that socket & connection NOW! */
     return;
   }
 
@@ -182,13 +183,15 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct iface *iface )
   struct rip_connection *c = mb_alloc( p->pool, sizeof( struct rip_connection ));
   static int num = 0;
 
+  /* FIXME: maybe we should not send when we are already sending? */
+  
   c->addr = daddr;
   c->proto = p;
   c->num = num++;
 
   c->send = sk_new( p->pool );
   c->send->type = SK_UDP;
-  c->send->sport = RIP_PORT;
+  c->send->sport = RIP_PORT+1;	/* BIG FIXME: have to talk from RIP_PORT */
   c->send->dport = dport;
   c->send->daddr = daddr;
   c->send->rx_hook = NULL;
@@ -302,14 +305,18 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   case RIPCMD_REQUEST: debug( "Asked to send my routing table\n" ); 
     	  rip_sendto( p, whotoldme, port, NULL ); /* no broadcast */
           break;
-  case RIPCMD_RESPONSE: debug( "Part of routing table came\n" ); 
+  case RIPCMD_RESPONSE: debug( "*** Part of routing table came from %I\n", whotoldme ); 
           if (port != RIP_PORT) {
-	    log( L_AUTH "%I send me routing info from port %d\n", whotoldme, port );
+	    log( L_ERR "%I send me routing info from port %d\n", whotoldme, port );
+#if 0
 	    return 0;
+#else
+	    log( L_ERR "...ignoring\n" );
+#endif
 	  }
 
 	  if (!neigh_find( p, &whotoldme, 0 )) {
-	    log( L_AUTH "%I send me routing info but he is not my neighbour\n", whotoldme );
+	    log( L_ERR "%I send me routing info but he is not my neighbour\n", whotoldme );
 	    return 0;
 	  }
 
