@@ -10,3 +10,31 @@
 #include "nest/password.h"
 
 struct password_item *last_password_item = NULL;
+
+static int
+password_goodness(struct password_item *i)
+{
+  if (i->from > now)
+    return 0;
+  if (i->to < now)
+    return 0;
+  if (i->passive < now)
+    return 1;
+  return 2;
+}
+
+struct password_item *
+get_best_password(struct password_item *head, int flags)
+{
+  int good = -1;
+  struct password_item *best = NULL;
+
+  while (head) {
+    int cur = password_goodness(head);
+    if (cur > good) {
+      good = cur;
+      best = head;
+    }
+  }
+  return best;
+}

@@ -19,7 +19,7 @@ CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE)
-CF_KEYWORDS(PASSWORD, FROM, TO, ID)
+CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID)
 
 %type <i> idval
 %type <f> imexport
@@ -148,6 +148,7 @@ password_items:
    /* empty */ { } 
  | FROM datetime password_items { last_password_item->from = $2; }
  | TO datetime password_items { last_password_item->to = $2; }
+ | PASSIVE datetime password_items { last_password_item->passive = $2; }
  | ID NUM password_items { last_password_item->id = $2; }
  ;
 

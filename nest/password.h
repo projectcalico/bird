@@ -8,12 +8,17 @@
 
 #ifndef PASSWORD_H
 #define PASSWORD_H
+#include "lib/timer.h"
+
 struct password_item {
   struct password_item *next;
   char *password;
   int id;
-  unsigned int from, to;	/* We really don't care about time before 1970 */
+  bird_clock_t from, passive, to;
 };
 
 extern struct password_item *last_password_item;
+
+struct password_item *get_best_password(struct password_item *head, int flags);
+
 #endif
