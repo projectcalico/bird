@@ -41,10 +41,7 @@
 #include "conf/conf.h"
 #include "filter/filter.h"
 #include "lib/string.h"
-
-#ifdef HAVE_ALLOCA_H
-#include <alloca.h>
-#endif
+#include "alloca.h"
 
 static slab *rte_slab;
 static linpool *rte_update_pool;

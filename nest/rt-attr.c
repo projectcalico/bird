@@ -44,10 +44,7 @@
  * Routing tables always contain only cached &rta's.
  */
 
-#ifdef HAVE_ALLOCA_H
-#include <alloca.h>
-#endif
-
+#include "alloca.h"
 #include "nest/bird.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
