@@ -195,8 +195,8 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
     if((en=ospf_hash_find(n->ifa->oa->gr,llsh->lsh.id,llsh->lsh.rt,
       llsh->lsh.type))==NULL) continue;		/* Probably flushed LSA */
 
-    DBG("Sending ID=%I, Type=%u, RT=%I\n", llsh->lsh.id, llsh->lsh.type,
-      llsh->lsh.rt);
+    DBG("Sending ID=%I, Type=%u, RT=%I Sn: 0x%x Age: %u\n",
+      llsh->lsh.id, llsh->lsh.type, llsh->lsh.rt, en->lsa.sn, en->lsa.age);
     if(((u32)(len+en->lsa.length))>n->ifa->iface->mtu)
     {
       pk->lsano=htonl(lsano);
@@ -362,7 +362,11 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
        {
          struct top_hash_entry *en;
 
-         if((lsatmp.age==LSA_MAXAGE)&&(lsatmp.sn==LSA_MAXSEQNO)) continue;
+         if((lsatmp.age==LSA_MAXAGE)&&(lsatmp.sn==LSA_MAXSEQNO))
+         {
+           ospf_lsack_direct_tx(n,lsa);
+           continue;
+         }
 
 	 lsatmp.age=LSA_MAXAGE;
 	 lsatmp.sn=LSA_MAXSEQNO;
