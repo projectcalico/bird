@@ -4,6 +4,7 @@
  *	(c) 1991, 1992 Lars Wirzenius & Linus Torvalds
  *
  *	Hacked up for BIRD by Martin Mares <mj@ucw.cz>
+ *	Buffer size limitation implemented by Martin Mares.
  */
 
 #include "nest/bird.h"
@@ -38,13 +39,15 @@ __res = ((unsigned long) n) % (unsigned) base; \
 n = ((unsigned long) n) / (unsigned) base; \
 __res; })
 
-static char * number(char * str, long num, int base, int size, int precision
-	,int type)
+static char * number(char * str, long num, int base, int size, int precision,
+	int type, int remains)
 {
 	char c,sign,tmp[66];
 	const char *digits="0123456789abcdefghijklmnopqrstuvwxyz";
 	int i;
 
+	if (size >= 0 && (remains -= size) < 0)
+		return NULL;
 	if (type & LARGE)
 		digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	if (type & LEFT)
@@ -80,6 +83,8 @@ static char * number(char * str, long num, int base, int size, int precision
 	if (i > precision)
 		precision = i;
 	size -= precision;
+	if (size < 0 && -size > remains)
+		return NULL;
 	if (!(type&(ZEROPAD+LEFT)))
 		while(size-->0)
 			*str++ = ' ';
@@ -105,12 +110,12 @@ static char * number(char * str, long num, int base, int size, int precision
 	return str;
 }
 
-int bvsprintf(char *buf, const char *fmt, va_list args)
+int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 {
 	int len;
 	unsigned long num;
 	int i, base;
-	char * str;
+	char *str, *start;
 	const char *s;
 
 	int flags;		/* flags to number() */
@@ -120,8 +125,10 @@ int bvsprintf(char *buf, const char *fmt, va_list args)
 				   number of chars for from string */
 	int qualifier;		/* 'h', 'l', or 'L' for integer fields */
 
-	for (str=buf ; *fmt ; ++fmt) {
+	for (start=str=buf ; *fmt ; ++fmt, size-=(str-start), start=str) {
 		if (*fmt != '%') {
+			if (!size)
+				return -1;
 			*str++ = *fmt;
 			continue;
 		}
@@ -177,6 +184,8 @@ int bvsprintf(char *buf, const char *fmt, va_list args)
 		/* default base */
 		base = 10;
 
+		if (field_width > size)
+			return -1;
 		switch (*fmt) {
 		case 'c':
 			if (!(flags & LEFT))
@@ -199,6 +208,8 @@ int bvsprintf(char *buf, const char *fmt, va_list args)
 			len = strlen(s);
 			if (precision >= 0 && len > precision)
 				len = precision;
+			if (len > size)
+				return -1;
 
 			if (!(flags & LEFT))
 				while (len < field_width--)
@@ -216,7 +227,9 @@ int bvsprintf(char *buf, const char *fmt, va_list args)
 			}
 			str = number(str,
 				(unsigned long) va_arg(args, void *), 16,
-				field_width, precision, flags);
+				field_width, precision, flags, size);
+			if (!str)
+				return -1;
 			continue;
 
 
@@ -232,6 +245,8 @@ int bvsprintf(char *buf, const char *fmt, va_list args)
 
 		/* IP address */
 		case 'I':
+			if (size < STD_ADDRESS_P_LENGTH)
+				return -1;
 			if (flags & SPECIAL)
 				str = ip_ntox(va_arg(args, ip_addr), str);
 			else {
@@ -261,6 +276,8 @@ int bvsprintf(char *buf, const char *fmt, va_list args)
 			break;
 
 		default:
+			if (size < 2)
+				return -1;
 			if (*fmt != '%')
 				*str++ = '%';
 			if (*fmt)
@@ -280,19 +297,39 @@ int bvsprintf(char *buf, const char *fmt, va_list args)
 			num = va_arg(args, int);
 		else
 			num = va_arg(args, unsigned int);
-		str = number(str, num, base, field_width, precision, flags);
+		str = number(str, num, base, field_width, precision, flags, size);
+		if (!str)
+			return -1;
 	}
+	if (!size)
+		return -1;
 	*str = '\0';
 	return str-buf;
 }
 
+int bvsprintf(char *buf, const char *fmt, va_list args)
+{
+  return bvsnprintf(buf, 1000000000, fmt, args);
+}
+
 int bsprintf(char * buf, const char *fmt, ...)
 {
-	va_list args;
-	int i;
+  va_list args;
+  int i;
 
-	va_start(args, fmt);
-	i=bvsprintf(buf,fmt,args);
-	va_end(args);
-	return i;
+  va_start(args, fmt);
+  i=bvsnprintf(buf, 1000000000, fmt, args);
+  va_end(args);
+  return i;
+}
+
+int bsnprintf(char * buf, int size, const char *fmt, ...)
+{
+  va_list args;
+  int i;
+
+  va_start(args, fmt);
+  i=bvsnprintf(buf, size, fmt, args);
+  va_end(args);
+  return i;
 }
