@@ -42,7 +42,7 @@ static int nl_sync_fd = -1;		/* Unix socket for synchronous netlink actions */
 static u32 nl_sync_seq;			/* Sequence number of last request sent */
 
 static byte *nl_rx_buffer;		/* Receive buffer */
-#define NL_RX_SIZE 2048
+#define NL_RX_SIZE 8192
 
 static struct nlmsghdr *nl_last_hdr;	/* Recently received packet */
 static unsigned int nl_last_size;
