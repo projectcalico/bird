@@ -1036,6 +1036,13 @@ it doesn't affect routing inside the OSPF domain at all.
 
 <code>
 protocol ospf MyOSPF {
+	export filter {
+		if source = RTS_BGP then {
+			ospf_metric1 = 100;
+			accept;
+		}
+	reject;
+	};                                                                      
 	area 0.0.0.0 {
 		tick 8;
 		interface "eth*" {
