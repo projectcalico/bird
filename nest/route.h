@@ -324,6 +324,7 @@ typedef struct ea_list {
 #define EALF_CACHED 4			/* Attributes belonging to cached rta */
 
 eattr *ea_find(ea_list *, unsigned ea);
+int ea_get_int(ea_list *, unsigned ea, int def);
 void ea_dump(ea_list *);
 void ea_sort(ea_list *);		/* Sort entries in all sub-lists */
 unsigned ea_scan(ea_list *);		/* How many bytes do we need for merged ea_list */

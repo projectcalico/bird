@@ -70,6 +70,15 @@ ea_find(ea_list *e, unsigned id)
   return a;
 }
 
+int
+ea_get_int(ea_list *e, unsigned id, int def)
+{
+  eattr *a = ea_find(e, id);
+  if (!a)
+    return def;
+  return a->u.data;
+}
+
 static inline void
 ea_do_sort(ea_list *e)
 {
