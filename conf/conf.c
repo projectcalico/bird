@@ -40,7 +40,7 @@ config_parse(struct config *c)
 {
   struct proto_config *p;
 
-  debug("Parsing configuration file <%s>\n", c->file_name);
+  debug("Parsing configuration file `%s'\n", c->file_name);
   new_config = c;
   cfg_pool = c->pool;
   cfg_mem = c->mem;
