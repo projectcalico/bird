@@ -287,9 +287,6 @@ area_disp(timer *timer)
   struct proto_ospf *po=oa->po;
   struct ospf_iface *ifa;
 
-  /* First of all try to age LSA DB */
-  ospf_age(oa);
-
   /* Now try to originage rt_lsa */
   if(oa->origrt) originate_rt_lsa(oa);
 
@@ -299,6 +296,10 @@ area_disp(timer *timer)
     if(ifa->orignet&&(ifa->an==oa->areaid)) originate_net_lsa(ifa);
   }
 
+  /* Age LSA DB */
+  ospf_age(oa);
+
+  /* Calculate routing table */
   if(oa->calcrt) ospf_rt_spfa(oa);
   oa->calcrt=0;
 }
