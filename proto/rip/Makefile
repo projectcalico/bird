@@ -1,4 +1,4 @@
-source=rip.c
+source=rip.c auth.c
 root-rel=../../
 dir-name=proto/rip
 

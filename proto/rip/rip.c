@@ -1,7 +1,7 @@
 /*
  *	Rest in pieces - RIP protocol
  *
- *	Copyright (c) 1998 Pavel Machek <pavel@ucw.cz>
+ *	Copyright (c) 1998, 1999 Pavel Machek <pavel@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -75,7 +75,7 @@ rip_tx( sock *s )
     packet->heading.version = RIP_V2;
     packet->heading.unused  = 0;
 
-    i = 0;
+    i = !!P_CF->authtype;
     FIB_ITERATE_START(&P->rtable, &c->iter, z) {
       struct rip_entry *e = (struct rip_entry *) z;
       DBG( "." );
@@ -102,6 +102,9 @@ rip_tx( sock *s )
     c->done = 1;
 
   break_loop:
+
+    if (P_CF->authtype)
+      rip_outgoing_authentication(p, &packet->block[0], packet, i);
 
     DBG( ", sending %d blocks, ", i );
 
@@ -169,13 +172,6 @@ find_interface(struct proto *p, struct iface *what)
 /*
  * Input processing
  */
-
-static int
-process_authentication( struct proto *p, struct rip_block *block )
-{
-  /* FIXME: Should do md5 authentication */
-  return 0;
-}
 
 /* Let main routing table know about our new entry */
 static void
@@ -289,7 +285,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    struct rip_block *block = &packet->block[i];
 	    if (block->family == 0xffff)
 	      if (!i) {
-		if (process_authentication(p, block))
+		if (rip_incoming_authentication(p, block, packet, num))
 		  BAD( "Authentication failed" );
 	      } else BAD( "Authentication is not the first!" );
 	    ipa_ntoh( block->network );
@@ -372,7 +368,7 @@ rip_timer(timer *t)
       struct iface *iface = rif->iface;
 
       if (!iface) continue;
-      if (rif->patt->mode == IM_QUIET) continue;
+      if (rif->patt->mode & IM_QUIET) continue;
       if (!(iface->flags & IF_UP)) continue;
       if (iface->flags & (IF_IGNORE | IF_LOOPBACK)) continue;
 
@@ -400,7 +396,7 @@ rip_start(struct proto *p)
   P->timer->recurrent = P_CF->period; 
   P->timer->hook = rip_timer;
   tm_start( P->timer, 5 );
-  rif = new_iface(p, NULL, 0);	/* Initialize dummy interface */
+  rif = new_iface(p, NULL, 0, NULL);	/* Initialize dummy interface */
   add_head( &P->interfaces, NODE rif );
   CHK_MAGIC;
 
@@ -460,19 +456,20 @@ kill_iface(struct proto *p, struct rip_interface *i)
  * new maybe null if we are creating initial send socket 
  */
 struct rip_interface *
-new_iface(struct proto *p, struct iface *new, unsigned long flags)
+new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt )
 {
   struct rip_interface *rif;
-  int want_multicast;
+  int want_multicast = 0;
 
   rif = mb_alloc(p->pool, sizeof( struct rip_interface ));
   rif->iface = new;
   rif->proto = p;
   rif->busy = NULL;
+  rif->patt = (struct rip_patt *) patt;
 
-  want_multicast = 0 && (flags & IF_MULTICAST);
-  /* FIXME: should have config option to disable this one */
-  /* FIXME: lookup multicasts over unnumbered links */
+  if (rif->patt)
+    want_multicast = (!(rif->patt->mode & IM_BROADCAST)) && (flags & IF_MULTICAST);
+  /* lookup multicasts over unnumbered links - no: rip is not defined over unnumbered links */
 
   rif->sock = sk_new( p->pool );
   rif->sock->type = want_multicast?SK_UDP_MC:SK_UDP;
@@ -489,19 +486,18 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
   rif->sock->ttl = 1; /* FIXME: care must be taken not to send requested responses from this socket */
 
   if (want_multicast)
-    rif->sock->daddr = ipa_from_u32(0x7f000001); /* FIXME: must lookup address in rfc's */
+    rif->sock->daddr = ipa_from_u32(0xe0000009);
   if (flags & IF_BROADCAST)
     rif->sock->daddr = new->addr->brd;
-  if (flags & IF_UNNUMBERED)
+  if (flags & IF_UNNUMBERED)	/* Hmm, rip is not defined over unnumbered links */
     rif->sock->daddr = new->addr->opposite;
 
-  if (!ipa_nonzero(rif->sock->daddr))
-    log( L_WARN "RIP: interface %s is too strange for me", rif->iface ? rif->iface->name : "(dummy)" );
-  /* FIXME: Should ignore the interface instead of blindly trying to bind on it */
-
-  if (sk_open(rif->sock)<0)
-    die( "RIP/%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
-  /* FIXME: Should not be fatal, since the interface might have gone */
+  if (!ipa_nonzero(rif->sock->daddr)) {
+    log( L_WARN "RIP/%s: interface %s is too strange for me", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
+  } else
+    if (!(rif->patt->mode & IM_NOLISTEN))
+      if (sk_open(rif->sock)<0)
+	log( L_WARN "RIP/%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
   
   return rif;
 }
@@ -526,8 +522,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
 
     if (!k) return; /* We are not interested in this interface */
     DBG("adding interface %s\n", iface->name );
-    rif = new_iface(p, iface, iface->flags);
-    rif->patt = (void *) k;
+    rif = new_iface(p, iface, iface->flags, k);
     add_head( &P->interfaces, NODE rif );
   }
 }
@@ -608,6 +603,8 @@ rip_init_config(struct rip_proto_config *c)
   c->port	= 520;
   c->period	= 30;
   c->garbage_time = 120+180;
+  c->password	= "PASSWORD";
+  c->authtype	= AT_NONE;
 }
 
 static void

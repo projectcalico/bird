@@ -69,10 +69,11 @@ struct rip_interface {
 
   int metric;		/* User configurable data */
   int mode;
-#define IM_DEFAULT 0
-#define IM_QUIET 1
-#define IM_MULTICAST 2
-#define IM_BROADCAST 3
+#define IM_MULTICAST 1
+#define IM_BROADCAST 2
+#define IM_QUIET 4
+#define IM_NOLISTEN 8
+#define IM_VERSION1 16
 };
 
 struct rip_patt {
@@ -90,6 +91,12 @@ struct rip_proto_config {
   int port;
   int period;
   int garbage_time;
+
+  char *password;
+  int authtype;
+#define AT_NONE 0
+#define AT_PLAINTEXT 2
+#define AT_MD5 1234	/* FIXME: get a real number for this one */
 };
 
 struct rip_proto {
@@ -108,4 +115,9 @@ struct rip_proto {
 
 void rip_init_instance(struct proto *p);
 void rip_init_config(struct rip_proto_config *c);
-struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags);
+struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt);
+
+/* Authentication functions */
+
+int rip_incoming_authentication( struct proto *p, struct rip_block *block, struct rip_packet *packet, int num );
+void rip_outgoing_authentication( struct proto *p, struct rip_block *block, struct rip_packet *packet, int num );

@@ -7,11 +7,7 @@
 /*
 To add:
 
-passive option (== do not send routing updates to this interface)
 version1 switch
-multicast off option for interface
-
-interface mode broadcast/multicast/quiet
 
 */
 
@@ -28,9 +24,11 @@ struct rip_patt *rip_get_iface(void);
 
 CF_DECLS
 
-CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, MODE, MULTICAST, BROADCAST, QUIET, DEFAULT)
+CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, PASSWORD,
+	    MODE, BROADCAST, QUIET, NOLISTEN, VERSION1, 
+	    AUTHENTICATION, NONE, PLAINTEXT, MD5)
 
-%type <i> rip_mode
+%type <i> rip_mode rip_auth
 
 CF_GRAMMAR
 
@@ -49,15 +47,22 @@ RIP_CFG:
  | RIP_CFG PORT expr ';'	{ RIP_CFG->port = $3; }
  | RIP_CFG PERIOD expr ';'	{ RIP_CFG->period = $3; }
  | RIP_CFG GARBAGETIME expr ';' { RIP_CFG->garbage_time = $3; }
+ | RIP_CFG PASSWORD TEXT ';'	{ RIP_CFG->password = $3; }
+ | RIP_CFG AUTHENTICATION rip_auth ';' {RIP_CFG->authtype = $3; }
  | RIP_CFG rip_iface_list ';'
  ;
 
+rip_auth:
+   PLAINTEXT { $$=AT_PLAINTEXT; }
+ | MD5 { $$=AT_MD5; }
+ | NONE { $$=AT_NONE; }
+ ;
 
 rip_mode: 
-    MULTICAST { $$=IM_MULTICAST; }
-  | BROADCAST { $$=IM_BROADCAST; }
-  | QUIET     { $$=IM_QUIET; }
-  | DEFAULT   { $$=IM_DEFAULT; }
+    BROADCAST { $$|=IM_BROADCAST; }
+  | QUIET     { $$|=IM_QUIET; }
+  | NOLISTEN  { $$|=IM_NOLISTEN; }
+  | VERSION1  { $$|=IM_VERSION1 | IM_BROADCAST; }
  ;
 
 rip_iface_item:
