@@ -28,6 +28,16 @@ init_efib(struct fib_node *fn)
   f->nhi=NULL;
 }
 
+/**
+ * ospf_rt_spfa - calculate internal routes
+ * @oa: OSPF area
+ *
+ * Calculation of internal paths in area is described in 16.1 of RFC 2328.
+ * It's based on Dijkstra shortest path tree algorithmus.
+ * RFC recommends to add ASBR routers into routing table. I don't do this
+ * and latter parts of routing table calculation looks directly into LSA
+ * Database. This function is invoked from area_disp().
+ */
 void
 ospf_rt_spfa(struct ospf_area *oa)
 {
@@ -38,7 +48,6 @@ ospf_rt_spfa(struct ospf_area *oa)
   struct fib *in=&oa->infib;
   struct infib *nf;
   struct fib_iterator fit;
-  bird_clock_t delta;
   int age=0,flush=0;
   struct proto *p=&oa->po->proto;
   struct proto_ospf *po=oa->po;
@@ -220,7 +229,7 @@ again:
   
         a0.proto=p;
         a0.source=RTS_OSPF;
-        a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
+        a0.scope=SCOPE_UNIVERSE;
         a0.cast=RTC_UNICAST;
         if(ipa_to_u32(en->nh)==0) a0.dest=RTD_DEVICE;
         else a0.dest=RTD_ROUTER;
@@ -232,7 +241,7 @@ again:
         e=rte_get_temp(&a0);
         e->u.ospf.metric1=nf->metric;
         e->u.ospf.metric2=LSINFINITY;
-        e->u.ospf.tag=0;			/* FIXME Some config? */
+        e->u.ospf.tag=0;
         e->pflags = 0;
         e->net=ne;
 	e->pref = p->preference;
@@ -248,6 +257,14 @@ skip:
   ospf_ext_spfa(po);
 }
 
+/**
+ * ospf_ext_spfa - calculate external paths
+ * @po: protocol
+ *
+ * After routing table for any area is calculated, calculation of external
+ * path is invoked. This process is described in 16.6 of RFC 2328.
+ * Inter- and Intra-area paths are always prefered over externals.
+ */
 void
 ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 {
@@ -454,7 +471,7 @@ noch:
   
       a0.proto=p;
       a0.source=RTS_OSPF_EXT;
-      a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
+      a0.scope=SCOPE_UNIVERSE;
       a0.cast=RTC_UNICAST;
       a0.dest=RTD_ROUTER;
       a0.flags=0;
