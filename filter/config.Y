@@ -22,6 +22,7 @@ CF_DECLS
 CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT, CONST, VAR, PUTS, DIE, IF)
 
 %type <x> term
+%type <x> block
 %type <x> cmds
 
 CF_GRAMMAR
@@ -65,6 +66,15 @@ cmds:
    }
  ;
 
+block:
+   term ';' {
+     $$=$1;
+   }
+ | '{' cmds '}' {
+     $$=$2;
+   }
+ ;
+
 term:
    /* EMPTY */ { 
      $$ = NULL;
@@ -75,13 +85,7 @@ term:
      $$->arg1 = $1;
      $$->arg2 = $3;
    }
- | IF '(' term ')' '{' cmds '}' {
-     $$ = f_new_inst();
-     $$->code = '?';
-     $$->arg1 = $3;
-     $$->arg2 = $6;
-   }
- | IF '(' term ')' term {
+ | IF '(' term ')' block {
      $$ = f_new_inst();
      $$->code = '?';
      $$->arg1 = $3;
@@ -93,6 +97,17 @@ term:
      printf( "New variable\n" );
      $$ = NULL;
    }
+ | SYM {
+     $$ = f_new_inst();
+     switch ($1->class) {
+       case SYM_VARIABLE_INT:
+	 $$->code = 'i';
+         $$->arg1 = &($1->aux);
+	 break;
+       default:
+	 cf_error("Can not use this class of symbol as variable" );
+     }
+   }
  | VAR '(' SYM ')' {
      $$ = f_new_inst();
      switch ($3->class) {
@@ -103,6 +118,11 @@ term:
        default:
 	 cf_error("Can not use this class of symbol as variable" );
      }
+   }
+ | NUM {
+     $$ = f_new_inst();
+     $$->code = 'c';
+     $$->arg1 = $1
    }
  | CONST '(' expr ')' {
      $$ = f_new_inst();
