@@ -165,6 +165,38 @@ rt_feed_baby(struct proto *p)
     }
 }
 
+static inline int
+rte_validate(rte *e)
+{
+  int c;
+  net *n = e->net;
+
+  ASSERT(!ipa_nonzero(ipa_and(n->n.prefix, ipa_not(ipa_mkmask(n->n.pxlen)))));
+  if (n->n.pxlen)
+    {
+      c = ipa_classify(n->n.prefix);
+      if (c < 0 || !(c & IADDR_HOST))
+	{
+	  if (!ipa_nonzero(n->n.prefix) && n->n.pxlen <= 1)
+	    return 1;		/* Default route and half-default route is OK */
+	  log(L_WARN "Ignoring bogus route %I/%d received from %I via %s",
+	      n->n.prefix, n->n.pxlen, e->attrs->from, e->attrs->proto->name);
+	  return 0;
+	}
+      if ((c & IADDR_SCOPE_MASK) == SCOPE_HOST)
+	{
+	  int s = e->attrs->source;
+	  if (s != RTS_STATIC && s != RTS_DEVICE && s != RTS_STATIC_DEVICE)
+	    {
+	      log(L_WARN "Ignoring host scope route %I/%d received from %I via %s",
+		  n->n.prefix, n->n.pxlen, e->attrs->from, e->attrs->proto->name);
+	      return 0;
+	    }
+	}
+    }
+  return 1;
+}
+
 void
 rte_free(rte *e)
 {
@@ -187,14 +219,16 @@ rte_update(net *net, struct proto *p, rte *new)
   rte *old = NULL;
   rte **k, *r, *s;
 
-  if (new && p->in_filter && f_run(p->in_filter, new, NULL) != F_ACCEPT)
+  if (new)
     {
-      rte_free(new);
-      return;
+      if (!rte_validate(new) || p->in_filter && f_run(p->in_filter, new, NULL) != F_ACCEPT)
+	{
+	  rte_free(new);
+	  return;
+	}
+      if (!(new->attrs->aflags & RTAF_CACHED)) /* Need to copy attributes */
+	new->attrs = rta_lookup(new->attrs);
     }
-
-  if (new && !(new->attrs->aflags & RTAF_CACHED)) /* Need to copy attributes */
-    new->attrs = rta_lookup(new->attrs);
 
   k = &net->routes;			/* Find and remove original route from the same protocol */
   while (old = *k)
