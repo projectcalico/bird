@@ -797,6 +797,7 @@ rip_preconfig(struct protocol *x, struct config *c)
 struct protocol proto_rip = {
   name: "RIP",
   template: "rip%d",
+  attr_class: EAP_RIP,
   preconfig: rip_preconfig,
   get_route_info: rip_get_route_info,
 
