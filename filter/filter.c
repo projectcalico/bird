@@ -124,6 +124,7 @@ void
 val_print(struct f_val v)
 {
   char buf[2048];
+  char buf2[1024];
 #define PRINTF(a...) bsnprintf( buf, 2040, a )
   buf[0] = 0;
   switch (v.type) {
@@ -136,8 +137,8 @@ val_print(struct f_val v)
   case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
-  case T_PATH: PRINTF( "%s", path_format(v.val.ad->data, v.val.ad->length)); break;
-  case T_PATH_MASK: debug( "(path " ); { struct f_path_mask *p = v.val.s; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
+  case T_PATH: as_path_format(v.val.ad, buf2, 1020); PRINTF( "(path %s)", buf2 ); break;
+  case T_PATH_MASK: debug( "(pathmask " ); { struct f_path_mask *p = v.val.s; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF
   }
@@ -625,53 +626,6 @@ path_getlen(u8 *p, int len)
   }
   return res;
 }
-
-
-#define PRINTF(a...) { int l; bsnprintf( s, bigbuf+4090-s, a ); s += strlen(s); }
-#define COMMA if (first) first = 0; else PRINTF( ", " );
-char *
-path_format(u8 *p, int len)
-{
-  char bigbuf[4096];	/* Keep it smaller than buf */
-  char *s = bigbuf;
-  int first = 1;
-  int i;
-  u8 *q = p+len;
-  while (p<q) {
-    switch (*p++) {
-    case 1:	/* This is a set */
-      len = *p++;
-      COMMA;
-      PRINTF( "{" );
-      {
-	int first = 1;
-	for (i=0; i<len; i++) {
-	  COMMA;
-	  PRINTF( "%d", get_u16(p));
-	  p+=2;
-	}
-      }
-      PRINTF( "}" );
-      break;
-
-    case 2:	/* This is a sequence */
-      len = *p++;
-      for (i=0; i<len; i++) {
-	int l;
-	COMMA;
-	PRINTF( "%d", get_u16(p));
-	p+=2;
-      }
-      break;
-
-    default:
-      bug("This should not be in path");
-    }
-  }
-  return strdup(bigbuf); /* FIXME: who frees this? */
-}
-#undef PRINTF
-#undef COMMA
 
 #define MASK_PLUS do { mask = mask->next; if (!mask) return next == q; \
 		       asterix = (mask->val == PM_ANY); \
