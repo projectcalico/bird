@@ -164,6 +164,7 @@ ospf_init(struct proto_config *c)
   p->rte_same = ospf_rte_same;
 
   po->rfc1583=oc->rfc1583;
+  po->ebit=0;
   return p;
 }
 

@@ -96,7 +96,7 @@ ospf_rt_spfa(struct ospf_area *oa)
     {
       case LSA_T_RT:
         rt=(struct ospf_lsa_rt *)act->lsa_body;
-	if((rt->VEB)&(1>>LSA_RT_V)) oa->trcap=1;
+	if(rt->veb.bit.v) oa->trcap=1;
 	rr=(struct ospf_lsa_rt_link *)(rt+1);
 	DBG("  Number of links: %u\n",rt->links);
 	for(i=0;i<rt->links;i++)
@@ -269,6 +269,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
   struct proto *p=&po->proto;
   struct ospf_lsa_ext *le;
   struct ospf_lsa_ext_tos *lt;
+  struct ospf_lsa_rt *rt;
   int mlen;
   ip_addr ip,nnh;
   struct iface *nnhi=NULL;
@@ -347,7 +348,8 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
         }
       }
     }
-    if((absr==NULL)||(absr->dist==LSINFINITY))
+    rt=(struct ospf_lsa_rt *)absr->lsa_body;
+    if((absr==NULL)||(absr->dist==LSINFINITY)||(rt->veb.bit.e==0))
     {
       DBG("ASBR is null or its dist=INF\n");
       continue;

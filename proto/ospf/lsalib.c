@@ -123,7 +123,7 @@ htonlsab(void *h, void *n, u8 type, u16 len)
       hrt=h;
       links=hrt->links;
 
-      nrt->VEB=hrt->VEB;
+      nrt->veb.byte=hrt->veb.byte;
       nrt->padding=0;
       nrt->links=htons(hrt->links);
       nrtl=(struct ospf_lsa_rt_link *)(nrt+1);
@@ -220,7 +220,7 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
       nrt=n;
       hrt=h;
 
-      hrt->VEB=nrt->VEB;
+      hrt->veb.byte=nrt->veb.byte;
       hrt->padding=0;
       links=hrt->links=ntohs(nrt->links);
       nrtl=(struct ospf_lsa_rt_link *)(nrt+1);

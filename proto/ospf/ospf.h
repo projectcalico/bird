@@ -209,8 +209,20 @@ struct ospf_lsa_header {
   u16 length;  
 };
 
+struct vebb {
+  u8 b:1;
+  u8 e:1;
+  u8 v:1;
+  u8 padding:5;
+};
+
+union veb {
+  u8 byte;
+  struct vebb bit;
+};
+
 struct ospf_lsa_rt {
-  u8 VEB;
+  union veb veb;
 #define LSA_RT_V 5
 #define LSA_RT_E 6
 #define LSA_RT_B 7
@@ -375,7 +387,8 @@ struct proto_ospf {
   list area_list;
   int areano;			/* Number of area I belong to */
   struct fib efib;		/* FIB for external routes */
-  int rfc1583;
+  int rfc1583;			/* RFC1583 compatibility */
+  int ebit;			/* Did I originate any ext lsa? */
 };
 
 struct ospf_iface_patt {

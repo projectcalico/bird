@@ -24,7 +24,7 @@ void *
 originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
 {
   struct ospf_iface *ifa;
-  int j=0,k=0,v=0,e=0,b=0;
+  int j=0,k=0,v=0;
   u16 i=0;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *ln;
@@ -45,8 +45,9 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
   }
   rt=mb_allocz(p->proto.pool, sizeof(struct ospf_lsa_rt)+
     i*sizeof(struct ospf_lsa_rt_link));
-  if((p->areano>1) && (!oa->stub)) e=1;
-  rt->VEB=(v>>LSA_RT_V)+(e>>LSA_RT_E)+(b>>LSA_RT_B);
+  if((p->areano>1) && (!oa->stub)) rt->veb.bit.b=1;
+  if((p->ebit)&&(!oa->stub)) rt->veb.bit.e=1;
+  rt->veb.bit.v=v;
   ln=(struct ospf_lsa_rt_link *)(rt+1);
 
   WALK_LIST (ifa, p->iface_list)
@@ -352,6 +353,9 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
  * external LSA. LSA header of such LSA does not contain information about
  * prefix lenght, so if I have to originate multiple LSAs for route with
  * different prefixes I try to increment prefix id to find a "free" one.
+ *
+ * The function also set flag ebit. If it's first time, the new router lsa
+ * origination is necessary.
  */
 void
 originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
@@ -406,6 +410,15 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
     body=originate_ext_lsa_body(n, e, po, attrs);
   }
   mb_free(body);
+
+  if(po->ebit==0)
+  {
+    po->ebit=1;
+    WALK_LIST(oa, po->area_list)
+    {
+      schedule_rt_lsa(oa);
+    }
+  }
 }
 
 
