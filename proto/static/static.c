@@ -27,6 +27,9 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
   rta a, *aa;
   rte *e;
 
+  if (r->installed)
+    return;
+
   DBG("Installing static route %I/%d, rtd=%d\n", r->net, r->masklen, r->dest);
   bzero(&a, sizeof(a));
   a.proto = p;
@@ -51,11 +54,41 @@ static_remove(struct proto *p, struct static_route *r)
 {
   net *n;
 
+  if (!r->installed)
+    return;
+
   DBG("Removing static route %I/%d\n", r->net, r->masklen);
   n = net_find(p->table, r->net, r->masklen);
   if (n)
     rte_update(p->table, n, p, NULL);
   r->installed = 0;
+}
+
+static void
+static_add(struct proto *p, struct static_route *r)
+{
+  switch (r->dest)
+    {
+    case RTD_ROUTER:
+      {
+	struct neighbor *n = neigh_find(p, &r->via, NEF_STICKY);
+	if (n)
+	  {
+	    r->chain = n->data;
+	    n->data = r;
+	    r->neigh = n;
+	    if (n->iface)
+	      static_install(p, r, n->iface);
+	  }
+	else
+	  log(L_ERR "Static route destination %I is invalid. Ignoring.\n", r->via);
+	break;
+      }
+    case RTD_DEVICE:
+      break;
+    default:
+      static_install(p, r, NULL);
+    }
 }
 
 static int
@@ -66,28 +99,7 @@ static_start(struct proto *p)
 
   DBG("Static: take off!\n");
   WALK_LIST(r, c->other_routes)
-    switch (r->dest)
-      {
-      case RTD_ROUTER:
-	{
-	  struct neighbor *n = neigh_find(p, &r->via, NEF_STICKY);
-	  if (n)
-	    {
-	      r->chain = n->data;
-	      n->data = r;
-	      r->neigh = n;
-	      if (n->iface)
-		static_install(p, r, n->iface);
-	    }
-	  else
-	    log(L_ERR "Static route destination %I is invalid. Ignoring.\n", r->via);
-	  break;
-	}
-      case RTD_DEVICE:
-	break;
-      default:
-	static_install(p, r, NULL);
-      }
+    static_add(p, r);
   return PS_UP;
 }
 
@@ -176,9 +188,62 @@ static_init(struct proto_config *c)
 }
 
 static int
+static_same_route(struct static_route *x, struct static_route *y)
+{
+  return ipa_equal(x->net, y->net)
+    && x->masklen == y->masklen
+    && x->dest == y->dest
+    && (x->dest != RTD_ROUTER || ipa_equal(x->via, y->via))
+    && (x->dest != RTD_DEVICE || !strcmp(x->if_name, y->if_name))
+    ;
+}
+
+static void
+static_match(struct proto *p, struct static_route *r, struct static_config *n)
+{
+  struct static_route *t;
+
+  if (r->neigh)
+    r->neigh->data = NULL;
+  WALK_LIST(t, n->iface_routes)
+    if (static_same_route(r, t))
+      {
+	t->installed = 1;
+	return;
+      }
+  WALK_LIST(t, n->other_routes)
+    if (static_same_route(r, t))
+      {
+	t->installed = 1;
+	return;
+      }
+  static_remove(p, r);
+}
+
+static int
 static_reconfigure(struct proto *p, struct proto_config *new)
 {
-  return 0;
+  struct static_config *o = (void *) p->cf;
+  struct static_config *n = (void *) new;
+  struct static_route *r;
+
+  /* Delete all obsolete routes and reset neighbor entries */
+  WALK_LIST(r, o->iface_routes)
+    static_match(p, r, n);
+  WALK_LIST(r, o->other_routes)
+    static_match(p, r, n);
+
+  /* Now add all new routes, those not changed will be ignored by static_install() */
+  WALK_LIST(r, n->iface_routes)
+    {
+      struct iface *ifa;
+      if (ifa = if_find_by_name(r->if_name))
+	static_install(p, r, ifa);
+    }
+  WALK_LIST(r, n->other_routes)
+    static_add(p, r);
+
+  return 1;
 }
 
 struct protocol proto_static = {
