@@ -554,8 +554,11 @@ add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
   DBG("     Adding candidate: rt: %I, id: %I, type: %u\n",en->lsa.rt,en->lsa.id,en->lsa.type);
 
   en->nhi=NULL;
+  en->nh=IPA_NONE;
   
   calc_next_hop(en, par, oa);
+
+  if(!en->nhi) return;		/* We cannot find next hop, ignore it */
 
   if(en->color==CANDIDATE)	/* We found a shorter path */
   {
@@ -624,7 +627,9 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
               en->nhi=ifa->iface;
               return;
             }
-          bug("I didn't find interface for my self originated LSA!\n");
+          log(L_ERR "I didn't find interface for my self originated LSA!\n");
+		/* This could sometimes happen */
+          return;
         }
         else
         {
@@ -655,7 +660,9 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
     }
     else	/* Parent is some RT neighbor */
     {
-      bug("Router parent does not have next hop.");	/* Hope this will never happen */
+      log(L_ERR "Router's parent has no next hop. (EN=%I, PAR=%I)", en->lsa.id, par->lsa.id);
+		/* I hoped this would never happen */
+      return;
     }
   }
   en->nh=par->nh;
