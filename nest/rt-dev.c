@@ -8,6 +8,8 @@
 
 #define LOCAL_DEBUG
 
+#include <string.h>
+
 #include "nest/bird.h"
 #include "nest/iface.h"
 #include "nest/protocol.h"
@@ -19,7 +21,40 @@ static struct proto *dev_proto;
 static void
 dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 {
-  debug("IF notify %x\n", c);
+  if (c & IF_CHANGE_DOWN)
+    {
+      net *n;
+
+      debug("dev_if_notify: %s going down\n", old->name);
+      n = net_find(&master_table, 0, old->prefix, old->pxlen);
+      if (!n)
+	{
+	  debug("dev_if_notify: device shutdown: prefix not found\n");
+	  return;
+	}
+      rte_update(n, dev_proto, NULL);
+    }
+  else if (c & IF_CHANGE_UP)
+    {
+      rta *a, A;
+      net *n;
+      rte *e;
+
+      debug("dev_if_notify: %s going up\n", new->name);
+      bzero(&A, sizeof(A));
+      A.proto = dev_proto;
+      A.source = RTS_DEVICE;
+      A.scope = (new->flags & IF_LOOPBACK) ? SCOPE_HOST : SCOPE_UNIVERSE;
+      A.cast = RTC_UNICAST;
+      A.dest = RTD_DEVICE;
+      A.iface = new;
+      A.attrs = NULL;
+      a = rta_lookup(&A);
+      n = net_get(&master_table, 0, new->prefix, new->pxlen);
+      e = rte_get_temp(a);
+      e->pflags = 0;
+      rte_update(n, dev_proto, e);
+    }
 }
 
 static void
