@@ -52,6 +52,13 @@ extern struct proto_config *cf_krt;
 #define KRT_CF ((struct krt_config *)p->p.cf)
 
 void krt_got_route(struct krt_proto *p, struct rte *e);
+void krt_got_route_async(struct krt_proto *p, struct rte *e, int new);
+
+/* Values for rte->u.krt_sync.src */
+#define KRT_SRC_UNKNOWN	-1	/* Nobody knows */
+#define KRT_SRC_BIRD	 0	/* Our route (not passed in async mode) */
+#define KRT_SRC_REDIRECT 1	/* Redirect route, delete it */
+#define KRT_SRC_ALIEN	 2	/* Route installed by someone else */
 
 /* krt-scan.c */
 

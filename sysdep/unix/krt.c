@@ -78,6 +78,7 @@ krt_got_route(struct krt_proto *p, rte *e)
 {
   rte *old;
   net *net = e->net;
+  int src = e->u.krt_sync.src;
   int verdict;
 
   if (net->n.flags)
@@ -97,7 +98,7 @@ krt_got_route(struct krt_proto *p, rte *e)
       else
 	verdict = KRF_UPDATE;
     }
-  else if (KRT_CF->learn && !net->routes)
+  else if (KRT_CF->learn && !net->routes && (src == KRT_SRC_ALIEN || src < 0))
     verdict = KRF_LEARN;
   else
     verdict = KRF_DELETE;
@@ -186,6 +187,41 @@ krt_prune(struct krt_proto *p)
       f->flags = 0;
     }
   FIB_WALK_END;
+}
+
+void
+krt_got_route_async(struct krt_proto *p, rte *e, int new)
+{
+  net *net = e->net;
+  rte *old = net->routes;
+  int src = e->u.krt_sync.src;
+
+  switch (src)
+    {
+    case KRT_SRC_BIRD:
+      ASSERT(0);
+    case KRT_SRC_REDIRECT:
+      DBG("It's a redirect, kill him! Kill! Kill!\n");
+      krt_set_notify(&p->p, net, NULL, e);
+      break;
+    default:	/* Alien or unspecified */
+      if (KRT_CF->learn && new)
+	{
+	  /*
+	   * FIXME: This is limited to one inherited route per destination as we
+	   * use single protocol for all inherited routes. Probably leave it
+	   * as-is (and document it :)), because the correct solution is to
+	   * multiple kernel tables anyway.
+	   */
+	  DBG("Learning\n");
+	  rte_update(net, &p->p, e);
+	}
+      else
+	{
+	  DBG("Discarding\n");
+	  rte_update(net, &p->p, NULL);
+	}
+    }
 }
 
 /*

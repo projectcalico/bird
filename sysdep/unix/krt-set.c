@@ -43,7 +43,7 @@ krt_capable_op(rte *e)
   rta *a = e->attrs;
 
 #ifdef CONFIG_AUTO_ROUTES
-  if (a->dest == RTD_ROUTER && a->source == RTS_DEVICE)
+  if (a->source == RTS_DEVICE)
     return 0;
 #endif
   return krt_capable(e);
@@ -115,6 +115,7 @@ krt_add_route(rte *new)
 void
 krt_set_notify(struct proto *x, net *net, rte *new, rte *old)
 {
+  /* FIXME: Fold remove/add route here */
   if (old)
     krt_remove_route(old);
   if (new)

@@ -57,7 +57,7 @@ static int nl_sync_fd = -1;		/* Unix socket for synchronous netlink actions */
 static u32 nl_sync_seq;			/* Sequence number of last request sent */
 
 static byte *nl_rx_buffer;		/* Receive buffer */
-static int nl_rx_size = 8192;
+#define NL_RX_SIZE 2048
 
 static struct nlmsghdr *nl_last_hdr;	/* Recently received packet */
 static unsigned int nl_last_size;
@@ -71,7 +71,7 @@ nl_open(void)
       if (nl_sync_fd < 0)
 	die("Unable to open rtnetlink socket: %m");
       nl_sync_seq = now;
-      nl_rx_buffer = xmalloc(nl_rx_size);
+      nl_rx_buffer = xmalloc(NL_RX_SIZE);
     }
 }
 
@@ -110,7 +110,7 @@ nl_get_reply(void)
     {
       if (!nl_last_hdr)
 	{
-	  struct iovec iov = { nl_rx_buffer, nl_rx_size };
+	  struct iovec iov = { nl_rx_buffer, NL_RX_SIZE };
 	  struct sockaddr_nl sa;
 	  struct msghdr m = { (struct sockaddr *) &sa, sizeof(sa), &iov, 1, NULL, 0, 0 };
 	  int x = recvmsg(nl_sync_fd, &m, 0);
@@ -456,6 +456,8 @@ nl_send_route(rte *e, int new)
   } r;
   struct nlmsghdr *reply;
 
+  DBG("nl_send_route(%I/%d,new=%d)\n", net->n.prefix, net->n.pxlen, new);
+
   bzero(&r.h, sizeof(r.h));
   bzero(&r.r, sizeof(r.r));
   r.h.nlmsg_type = new ? RTM_NEWROUTE : RTM_DELROUTE;
@@ -499,6 +501,10 @@ nl_send_route(rte *e, int new)
 void
 krt_set_notify(struct proto *p, net *n, rte *new, rte *old)
 {
+  if (old && old->attrs->source == RTS_DEVICE)	/* Device routes are left to the kernel */
+    old = NULL;
+  if (new && new->attrs->source == RTS_DEVICE)
+    new = NULL;
   if (old && new && old->attrs->tos == new->attrs->tos)
     {
       /* FIXME: Priorities should be identical as well, but we don't use them yet. */
@@ -507,7 +513,11 @@ krt_set_notify(struct proto *p, net *n, rte *new, rte *old)
   else
     {
       if (old)
-	nl_send_route(old, 0);
+	{
+	  if (!old->attrs->iface || (old->attrs->iface->flags & IF_UP))
+	    nl_send_route(old, 0);
+	  /* else the kernel has already flushed it */
+	}
       if (new)
 	nl_send_route(new, 1);
     }
@@ -542,6 +552,7 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
   rte *e;
   net *net;
   u32 oif;
+  int src;
 
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(RTM_RTA(i), a, sizeof(a)))
     return;
@@ -559,7 +570,8 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
     return;
   if (i->rtm_tos != 0)			/* FIXME: What about TOS? */
     return;
-  if (!new)
+
+  if (scan && !new)
     {
       DBG("KRT: Ignoring route deletion\n");
       return;
@@ -578,6 +590,26 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
     oif = ~0;
 
   DBG("Got %I/%d, type=%d, oif=%d\n", dst, i->rtm_dst_len, i->rtm_type, oif);
+
+  switch (i->rtm_protocol)
+    {
+    case RTPROT_REDIRECT:
+      src = KRT_SRC_REDIRECT;
+      break;
+    case RTPROT_KERNEL:
+      DBG("Route originated in kernel, ignoring\n");
+      return;
+    case RTPROT_BIRD:
+      if (!scan)
+	{
+	  DBG("Echo of our own route, ignoring\n");
+	  return;
+	}
+      src = KRT_SRC_BIRD;
+      break;
+    default:
+      src = KRT_SRC_ALIEN;
+    }
 
   net = net_get(&master_table, 0, dst, i->rtm_dst_len);
   ra.proto = &p->p;
@@ -633,7 +665,11 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
     }
   e = rte_get_temp(&ra);
   e->net = net;
-  krt_got_route(p, e);
+  e->u.krt_sync.src = src;
+  if (scan)
+    krt_got_route(p, e);
+  else
+    krt_got_route_async(p, e, new);
 }
 
 void
@@ -654,12 +690,72 @@ krt_scan_fire(struct krt_proto *p)
  */
 
 static sock *nl_async_sk;		/* BIRD socket for asynchronous notifications */
+static byte *nl_async_rx_buffer;	/* Receive buffer */
+
+static void
+nl_async_msg(struct krt_proto *p, struct nlmsghdr *h)
+{
+  switch (h->nlmsg_type)
+    {
+    case RTM_NEWROUTE:
+    case RTM_DELROUTE:
+      DBG("KRT: Received async route notification (%d)\n", h->nlmsg_type);
+      nl_parse_route(p, h, 0);
+      break;
+    case RTM_NEWLINK:
+    case RTM_DELLINK:
+      DBG("KRT: Received async link notification (%d)\n", h->nlmsg_type);
+      nl_parse_link(h, 0);
+      break;
+    case RTM_NEWADDR:
+    case RTM_DELADDR:
+      DBG("KRT: Received async address notification (%d)\n", h->nlmsg_type);
+      nl_parse_addr(h);
+      break;
+    default:
+      DBG("KRT: Received unknown async notification (%d)\n", h->nlmsg_type);
+    }
+}
 
 static int
 nl_async_hook(sock *sk, int size)
 {
-  DBG("nl_async_hook\n");
-  return 0;
+  struct krt_proto *p = sk->data;
+  struct iovec iov = { nl_async_rx_buffer, NL_RX_SIZE };
+  struct sockaddr_nl sa;
+  struct msghdr m = { (struct sockaddr *) &sa, sizeof(sa), &iov, 1, NULL, 0, 0 };
+  struct nlmsghdr *h;
+  int x;
+  unsigned int len;
+
+  nl_last_hdr = NULL;		/* Discard packets accidentally remaining in the rxbuf */
+  x = recvmsg(sk->fd, &m, 0);
+  if (x < 0)
+    {
+      if (errno != EWOULDBLOCK)
+	log(L_ERR "Netlink recvmsg: %m");
+      return 0;
+    }
+  if (sa.nl_pid)		/* It isn't from the kernel */
+    {
+      DBG("Non-kernel packet\n");
+      return 1;
+    }
+  h = (void *) nl_async_rx_buffer;
+  len = x;
+  if (m.msg_flags & MSG_TRUNC)
+    {
+      log(L_WARN "Netlink got truncated asynchronous message");
+      return 1;
+    }
+  while (NLMSG_OK(h, len))
+    {
+      nl_async_msg(p, h);
+      h = NLMSG_NEXT(h, len);
+    }
+  if (len)
+    log(L_WARN "nl_async_hook: Found packet remnant of size %d", len);
+  return 1;
 }
 
 static void
@@ -667,21 +763,36 @@ nl_open_async(struct krt_proto *p)
 {
   sock *sk;
   struct sockaddr_nl sa;
+  int fd;
 
   DBG("KRT: Opening async netlink socket\n");
 
-  sk = nl_async_sk = sk_new(p->p.pool);
-  sk->type = SK_MAGIC;
-  sk->rx_hook = nl_async_hook;
-  sk->fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-  if (sk->fd < 0 || sk_open(sk))
-    die("Unable to open secondary rtnetlink socket: %m");
+  fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+  if (fd < 0)
+    {
+      log(L_ERR "Unable to open secondary rtnetlink socket: %m");
+      return;
+    }
 
   bzero(&sa, sizeof(sa));
   sa.nl_family = AF_NETLINK;
   sa.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV4_ROUTE;
-  if (bind(sk->fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
-    die("Unable to bind secondary rtnetlink socket: %m");
+  if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
+    {
+      log(L_ERR "Unable to bind secondary rtnetlink socket: %m");
+      return;
+    }
+
+  sk = nl_async_sk = sk_new(p->p.pool);
+  sk->type = SK_MAGIC;
+  sk->data = p;
+  sk->rx_hook = nl_async_hook;
+  sk->fd = fd;
+  if (sk_open(sk))
+    bug("Netlink: sk_open failed");
+
+  if (!nl_async_rx_buffer)
+    nl_async_rx_buffer = xmalloc(NL_RX_SIZE);
 }
 
 /*
@@ -692,6 +803,7 @@ void
 krt_scan_preconfig(struct krt_config *x)
 {
   x->scan.async = 1;
+  /* FIXME: Use larger defaults for scanning times? */
 }
 
 void
