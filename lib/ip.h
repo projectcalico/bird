@@ -38,6 +38,8 @@
 #define SCOPE_ORGANIZATION 3
 #define SCOPE_UNIVERSE 4
 
+char *ip_scope_text(unsigned);
+
 /*
  *	Is it a valid network prefix?
  */
