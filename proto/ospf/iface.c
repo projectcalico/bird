@@ -433,9 +433,12 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
       struct ospf_packet *op;
       struct ospf_neighbor *n;
       OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", iface->name);
-      sk_reallocate(ifa->hello_sk);
-      sk_reallocate(ifa->dr_sk);
-      sk_reallocate(ifa->ip_sk);
+      if (ifa->hello_sk)
+	sk_reallocate(ifa->hello_sk);
+      if (ifa->dr_sk)
+	sk_reallocate(ifa->dr_sk);
+      if (ifa->ip_sk)
+	sk_reallocate(ifa->ip_sk);
 
       WALK_LIST(n,ifa->neigh_list)
       {
