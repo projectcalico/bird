@@ -209,7 +209,6 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 {
   u32 nrid, myrid;
   struct ospf_neighbor *n;
-  u8 i;
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
@@ -356,7 +355,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
     case NEIGHBOR_LOADING:
     case NEIGHBOR_FULL:
 	if((ps->imms.byte==n->imms.byte) && (ps->options==n->options) &&
-	  (ps->ddseq==n->dds)) /* Only duplicate are accepted */
+	  (ntohl(ps->ddseq)==n->ddr)) /* Only duplicate are accepted */
         {
           OSPF_TRACE(D_PACKETS, "Received duplicate dbdes from %I.",n->ip);
           return;
