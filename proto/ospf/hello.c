@@ -65,7 +65,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if((unsigned)ipa_mklen(mask)!=ifa->iface->addr->pxlen)
   {
-    log("%s%s%I%s%Ibad netmask %I.", p->name, beg, nrid, rec,
+    log("%s%s%I%sbad netmask %I.", p->name, beg, nrid, rec,
       mask);
     return;
   }
