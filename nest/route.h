@@ -17,21 +17,31 @@ struct proto;
 
 /*
  *	Generic data structure for storing network prefixes. Also used
- *	for the master routing table. Currently implemented as a hash 
+ *	for the master routing table. Currently implemented as a hash
  *	table.
  *
  *	Available operations:
  *		- insertion of new entry
  *		- deletion of entry
  *		- searching for entry by network prefix
+ *		- asynchronous retrieval of fib contents
  */
 
 struct fib_node {
-  ip_addr prefix;			/* In host order */
+  struct fib_node *next;		/* Next in hash chain */
+  struct fib_iterator *readers;		/* List of readers of this node */
   byte pxlen;
   byte flags;				/* User-defined */
   byte x0, x1;				/* User-defined */
-  struct fib_node *next;		/* Next in hash chain */
+  ip_addr prefix;			/* In host order */
+};
+
+struct fib_iterator {			/* See lib/slists.h for an explanation */
+  struct fib_iterator *prev, *next;	/* Must be synced with struct fib_node! */
+  struct fib_node *node;		/* Or NULL if freshly merged */
+  byte efef;				/* 0xff to distinguish between iterator and node */
+  byte pad[3];
+  unsigned int hash;
 };
 
 struct fib {
@@ -39,17 +49,23 @@ struct fib {
   slab *fib_slab;			/* Slab holding all fib nodes */
   struct fib_node **hash_table;		/* Node hash table */
   unsigned int hash_size;		/* Number of hash table entries (a power of two) */
-  unsigned int hash_mask;		/* hash_size - 1 */
+  unsigned int hash_order;		/* Binary logarithm of hash_size */
+  unsigned int hash_shift;		/* 16 - hash_log */
   unsigned int entries;			/* Number of entries */
   unsigned int entries_min, entries_max;/* Entry count limits (else start rehashing) */
   void (*init)(struct fib_node *);	/* Constructor */
 };
 
-void fib_init(struct fib *, pool *, unsigned node_size, unsigned hash_size, void (*init)(struct fib_node *));
+void fib_init(struct fib *, pool *, unsigned node_size, unsigned hash_order, void (*init)(struct fib_node *));
 void *fib_find(struct fib *, ip_addr *, int);	/* Find or return NULL if doesn't exist */
 void *fib_get(struct fib *, ip_addr *, int); 	/* Find or create new if nonexistent */
 void fib_delete(struct fib *, void *);	/* Remove fib entry */
 void fib_free(struct fib *);		/* Destroy the fib */
+void fib_check(struct fib *);		/* Consistency check for debugging */
+
+void fit_init(struct fib_iterator *, struct fib *); /* Internal functions, don't call */
+struct fib_node *fit_get(struct fib *, struct fib_iterator *);
+void fit_put(struct fib_iterator *, struct fib_node *);
 
 #define FIB_WALK(fib, z) do {					\
 	struct fib_node *z, **ff = (fib)->hash_table;		\
@@ -58,6 +74,24 @@ void fib_free(struct fib *);		/* Destroy the fib */
 	  for(z = *ff++; z; z=z->next)
 
 #define FIB_WALK_END } while (0)
+
+#define FIB_ITERATE_INIT(it, fib) fit_init(it, fib)
+
+#define FIB_ITERATE_START(fib, it, z) do {			\
+	struct fib_node *z = fit_get(fib, it);			\
+	unsigned int count = (fib)->hash_size;			\
+	unsigned int hpos = (it)->hash;				\
+	for(;;) {						\
+	again:	if (!z) {					\
+			if (++hpos >= count)			\
+				break;				\
+			z = (fib)->hash_table[hpos];		\
+			goto again;				\
+		}
+
+#define FIB_ITERATE_END z = z->next; } } while(0)
+
+#define FIB_ITERATE_PUT(it, z) fit_put(it, z)
 
 /*
  *	Master Routing Tables. Generally speaking, each of them is a list
@@ -76,7 +110,7 @@ typedef struct rtable {
 } rtable;
 
 typedef struct network {
-  struct fib_node n;			/* FIB flags,x0 reserved for kernel syncer */
+  struct fib_node n;			/* FIB flags reserved for kernel syncer */
   struct rte *routes;			/* Available routes for this network */
 } net;
 
