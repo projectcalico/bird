@@ -1320,7 +1320,7 @@ protocol static {
 <p>BIRD is relatively young system, and probably contains some
 bugs. You can report bugs at bird-users mailing list (<HTMLURL URL="mailto:bird-users@bird.network.cz" TEXT="bird-users@bird.network.cz">), but before you do,
 please make sure you have read available documentation, make sure are running latest version (available at <HTMLURL
-URL="ftp://bird.network.cz/pub/bird" TEXT="bird.network.cz:/pub/bird>). (Of course, patch
+URL="ftp://bird.network.cz/pub/bird" TEXT="bird.network.cz:/pub/bird">). (Of course, patch
 which fixes the bug along with bug report is always welcome). If you
 want to use BIRD, join mailing list by sending
 <tt/subscribe bird-users/ to <HTMLURL URL="mailto:majordomo@bird.network.cz" TEXT="majordomo@bird.network.cz">. Main home page of bird is <HTMLURL URL="http://bird.network.cz/" TEXT="http://bird.network.cz/">. When
