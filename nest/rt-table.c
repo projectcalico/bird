@@ -85,6 +85,8 @@ rte_get_temp(rta *a)
 static int				/* Actually better or at least as good as */
 rte_better(rte *new, rte *old)
 {
+  int (*better)(rte *, rte *);
+
   if (!old)
     return 1;
   if (new->pref > old->pref)
@@ -96,7 +98,9 @@ rte_better(rte *new, rte *old)
       /* FIXME!!! */
       die("Different protocols, but identical preferences => oops");
     }
-  return new->attrs->proto->rte_better(new, old);
+  if (better = new->attrs->proto->rte_better)
+    return better(new, old);
+  return 0;
 }
 
 void
@@ -106,7 +110,8 @@ rte_announce(rte *new, rte *old)
 
   WALK_LIST(p, proto_list)
     if (!new || new->attrs->proto != p)
-      p->rt_notify(p, new, old);
+      if (p->rt_notify)
+	p->rt_notify(p, new, old);
 }
 
 static inline void

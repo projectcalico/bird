@@ -62,7 +62,7 @@ rta_same(rta *x, rta *y)
 	  ipa_equal(x->from, y->from) &&
 	  x->iface == y->iface &&
 	  ea_same(x->attrs, y->attrs) &&
-	  x->proto->rta_same(x, y));
+	  (!x->proto->rta_same || x->proto->rta_same(x, y)));
 }
 
 static inline ea_list *

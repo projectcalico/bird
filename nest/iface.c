@@ -130,7 +130,8 @@ neigh_if_up(struct iface *i)
 	n->sibling = i->neigh;
 	i->neigh = n;
 	DBG("Waking up sticky neighbor %08x\n", _I(n->addr));
-	n->proto->neigh_notify(n);
+	if (n->proto->neigh_notify)
+	  n->proto->neigh_notify(n);
       }
 }
 
@@ -144,7 +145,8 @@ neigh_if_down(struct iface *i)
       m = n->sibling;
       DBG("Flushing neighbor %08x on %s\n", _I(n->addr), n->iface->name);
       n->iface = NULL;
-      n->proto->neigh_notify(n);
+      if (n->proto->neigh_notify)
+	n->proto->neigh_notify(n);
       if (!(n->flags & NEF_STICKY))
 	{
 	  rem_node(&n->n);
@@ -241,6 +243,8 @@ if_changed(struct iface *i, struct iface *j)
 static void
 if_notify_change(unsigned c, struct iface *old, struct iface *new)
 {
+  struct proto *p;
+
   debug("Interface change notification (%x) for %s\n", c, new->name);
   if (old)
     if_dump(old);
@@ -250,7 +254,9 @@ if_notify_change(unsigned c, struct iface *old, struct iface *new)
   if (c & IF_CHANGE_UP)
     neigh_if_up(new);
 
-  /* FIXME: Notify protocols here */
+  WALK_LIST(p, proto_list)
+    if (p->if_notify)
+      p->if_notify(p, c, old, new);
 
   if (c & IF_CHANGE_DOWN)
     neigh_if_down(old);
