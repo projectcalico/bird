@@ -194,7 +194,6 @@ ospf_dump(struct proto *p)
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
   struct proto_ospf *po = (struct proto_ospf *) p;
-  struct ospf_area *oa;
 
   OSPF_TRACE(D_EVENTS, "Area number: %d", po->areano);
 
@@ -574,16 +573,9 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   struct ospf_iface *ifa;
   struct nbma_node *nb1, *nb2, *nbnx;
   struct ospf_area *oa = NULL;
-  struct area_net *anet, *antmp;
   int found, olddead, newdead;
-  struct net_fib *nf;
   struct area_net_config *anc;
   struct area_net *an;
-
-  //return !memcmp(((byte *) old) + sizeof(struct proto_config),
-  //   ((byte *) new) + sizeof(struct proto_config),
-  //   sizeof(struct ospf_config) - sizeof(struct proto_config));
-
 
   po->rfc1583 = new->rfc1583;
   schedule_rtcalc(po);

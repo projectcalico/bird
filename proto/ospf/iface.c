@@ -484,7 +484,6 @@ ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
   struct ospf_area_config *ac;
   struct ospf_iface_patt *ip = NULL;
   struct ospf_iface *ifa;
-  struct ospf_area *oa;
 
   DBG("%s: If notify called\n", p->name);
   if (iface->flags & IF_IGNORE)

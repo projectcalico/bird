@@ -472,7 +472,7 @@ ospf_rt_sum(struct ospf_area *oa)
   ip_addr *mask, ip, abrip;	/* abrIP is actually ID */
   struct area_net *anet;
   orta nf;
-  ort *re, *abr;
+  ort *abr;
   int mlen = -1, type = -1;
   union ospf_lsa_sum_tm *tm;
 
@@ -554,7 +554,6 @@ ospf_rt_spf(struct proto_ospf *po)
 {
   struct proto *p = &po->proto;
   struct ospf_area *oa;
-  int i;
   ort *ri;
   struct area_net *anet;
 
@@ -642,7 +641,6 @@ ospf_ext_spf(struct proto_ospf *po)
   struct ospf_iface *nhi = NULL;
   int met1, met2;
   neighbor *nn;
-  struct ospf_lsa_rt *rt;
   struct ospf_area *atmp;
 
 

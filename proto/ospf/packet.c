@@ -38,8 +38,6 @@ ospf_pkt_maxsize(struct ospf_iface *ifa)
 void
 ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 {
-  struct proto_ospf *po = ifa->oa->po;
-  struct proto *p = &po->proto;
   struct password_item *passwd = password_find (ifa->passwords);
   void *tail;
   struct MD5Context ctxt;
@@ -94,7 +92,6 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 static int
 ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_packet *pkt, int size)
 {
-  int i;
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
   struct password_item *pass = NULL, *ptmp;

@@ -24,7 +24,6 @@ static void *
 originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 {
   struct proto_ospf *po = oa->po;
-  struct proto *p = &po->proto;
   struct ospf_iface *ifa;
   int j = 0, k = 0;
   u16 i = 0;
@@ -403,7 +402,6 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
   struct ospf_lsa_header lsa;
   int max, i;
   struct ospf_lsa_sum *sum = NULL;
-  union ospf_lsa_sum_tm *tm;
 
   lsa.rt = rtid;
   lsa.type = LSA_T_SUM_NET;
@@ -511,9 +509,7 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
 void
 check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
 {
-  struct proto *p = &po->proto;
   struct ospf_area *oa;
-  struct area_net *anet;
   int flush, mlen;
   ip_addr ip;
 
