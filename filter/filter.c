@@ -143,14 +143,21 @@ val_in_range(struct f_val v1, struct f_val v2)
 
   if (res != CMP_ERROR)
     return res;
-
-  if (((v1.type == T_INT) || ((v1.type == T_IP) || (v1.type == T_PREFIX)) && (v2.type == T_SET))) {
-    struct f_tree *n;
-    n = find_tree(v2.val.t, v1);
-    if (!n)
-      return 0;
-    return !! (val_simple_in_range(v1, n->from));	/* We turn CMP_ERROR into compared ok, and that's fine */
-  }
+  
+  if (v2.type == T_SET)
+    switch (v1.type) {
+    case T_ENUM:
+    case T_INT:
+    case T_IP:
+    case T_PREFIX:
+      {
+	struct f_tree *n;
+	n = find_tree(v2.val.t, v1);
+	if (!n)
+	  return 0;
+	return !! (val_simple_in_range(v1, n->from));	/* We turn CMP_ERROR into compared ok, and that's fine */
+      }
+    }
   return CMP_ERROR;
 }
 

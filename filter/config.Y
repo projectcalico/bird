@@ -226,6 +226,7 @@ set_atom:
  | pair { $$.type = T_PAIR; $$.val.i = $1; }
  | fipa { $$ = $1; }
  | fprefix { $$ = $1; }
+ | ENUM {  $$.type = $1 >> 16; $$.val.i = $1 & 0xffff; }
  ; 
 
 set_item:
