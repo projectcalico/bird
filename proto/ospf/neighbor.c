@@ -434,6 +434,17 @@ neighbor_timer_hook(timer *timer)
   p=(struct proto *)(ifa->proto);
   debug("%s: Inactivity timer fired on interface %s for neighbor %I.\n",
     p->name, ifa->iface->name, n->rid);
+  ospf_neigh_remove(n);
+}
+
+void
+ospf_neigh_remove(struct ospf_neighbor *n)
+{
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  ifa=n->ifa;
+  p=(struct proto *)(ifa->proto);
   neigh_chstate(n, NEIGHBOR_DOWN);
   tm_stop(n->inactim);
   rfree(n->inactim);
@@ -467,5 +478,4 @@ neighbor_timer_hook(timer *timer)
   rem_node(NODE n);
   mb_free(n);
   debug("%s: Deleting neigbor.\n", p->name);
-}                                                                               
-
+}

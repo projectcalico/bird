@@ -21,5 +21,6 @@ struct ospf_neighbor *find_neigh(struct ospf_iface *ifa, u32 rid);
 struct ospf_neighbor *find_neigh_noifa(struct proto_ospf *po, u32 rid);
 struct ospf_area *ospf_find_area(struct proto_ospf *po, u32 aid);
 void neighbor_timer_hook(timer *timer);
+void ospf_neigh_remove(struct ospf_neighbor *n);
 
 #endif /* _BIRD_OSPF_NEIGHBOR_H_ */

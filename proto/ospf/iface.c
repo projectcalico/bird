@@ -67,7 +67,37 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
 void
 downint(struct ospf_iface *ifa)
 {
-  /* FIXME: Delete all neighbors! */
+  struct ospf_neighbor *n;
+  struct proto *p=&ifa->proto->proto;
+  struct proto_ospf *po=ifa->proto;
+
+  WALK_LIST(n,ifa->neigh_list)
+  {
+    debug("%s: Removing neighbor %I", p->name, n->ip);
+    ospf_neigh_remove(n);
+  }
+  rem_node(NODE ifa);
+  if(ifa->hello_sk!=NULL)
+  {
+    sk_close(ifa->hello_sk);
+    rfree(ifa->hello_sk);
+  }
+  if(ifa->dr_sk!=NULL)
+  {
+    sk_close(ifa->dr_sk);
+    rfree(ifa->dr_sk);
+  }
+  if(ifa->ip_sk!=NULL)
+  {
+    sk_close(ifa->ip_sk);
+    rfree(ifa->ip_sk);
+  }
+  if(ifa->wait_timer!=NULL)
+  {
+    tm_stop(ifa->wait_timer);
+    rfree(ifa->wait_timer);
+  }
+  mb_free(ifa);
 }
 
 void
@@ -150,34 +180,27 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
 
   p=(struct proto *)(ifa->proto);
 
-
-  /* FIXME: No NBMA and PTP networks */
-
-  if(ifa->iface->flags & IF_MULTICAST)
+  mcsk=sk_new(p->pool);
+  mcsk->type=SK_IP_MC;
+  mcsk->dport=OSPF_PROTO;
+  mcsk->saddr=AllSPFRouters;
+  mcsk->daddr=AllSPFRouters;
+  mcsk->tos=IP_PREC_INTERNET_CONTROL;
+  mcsk->ttl=1;
+  mcsk->rx_hook=ospf_rx_hook;
+  mcsk->tx_hook=ospf_tx_hook;
+  mcsk->err_hook=ospf_err_hook;
+  mcsk->iface=ifa->iface;
+  mcsk->rbsize=ifa->iface->mtu;
+  mcsk->tbsize=ifa->iface->mtu;
+  mcsk->data=(void *)ifa;
+  if(sk_open(mcsk)!=0)
   {
-    mcsk=sk_new(p->pool);
-    mcsk->type=SK_IP_MC;
-    mcsk->dport=OSPF_PROTO;
-    mcsk->saddr=AllSPFRouters;
-    mcsk->daddr=AllSPFRouters;
-    mcsk->tos=IP_PREC_INTERNET_CONTROL;
-    mcsk->ttl=1;
-    mcsk->rx_hook=ospf_rx_hook;
-    mcsk->tx_hook=ospf_tx_hook;
-    mcsk->err_hook=ospf_err_hook;
-    mcsk->iface=ifa->iface;
-    mcsk->rbsize=ifa->iface->mtu;
-    mcsk->tbsize=ifa->iface->mtu;
-    mcsk->data=(void *)ifa;
-    if(sk_open(mcsk)!=0)
-    {
-      DBG("%s: SK_OPEN: mc open failed.\n",p->name);
-      return(NULL);
-    }
-    DBG("%s: SK_OPEN: mc opened.\n",p->name);
-    return(mcsk);
+    DBG("%s: SK_OPEN: mc open failed.\n",p->name);
+    return(NULL);
   }
-  else return(NULL);
+  DBG("%s: SK_OPEN: mc opened.\n",p->name);
+  return(mcsk);
 }
 
 sock *
@@ -323,7 +346,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   {
     debug("%s: using interface %s.\n", p->name, iface->name);
     /* FIXME: Latter I'll use config - this is incorrect */
-    ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
+    ifa=mb_allocz(p->pool, sizeof(struct ospf_iface));
     ifa->proto=(struct proto_ospf *)p;
     ifa->iface=iface;
     ospf_iface_default(ifa);
