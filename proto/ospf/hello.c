@@ -59,7 +59,8 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 {
   u32 nrid, *pnrid;
   struct ospf_neighbor *neigh,*n;
-  u8 i,twoway,oldpriority;
+  u8 twoway,oldpriority;
+  u32 i;
   ip_addr olddr,oldbdr;
   ip_addr mask;
   char *beg=": Bad OSPF hello packet from ", *rec=" received: ";
