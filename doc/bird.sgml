@@ -47,7 +47,7 @@ or what gated <HTMLURL URL="http://www.gated.org/"> or GNU zebra <HTMLURL
 URL="http://www.zebra.org/"> does. However, you can not run Cisco's firmware on "normal" computer
 and gated is really hard to configure and comes under wrong license. BIRD is being developed on
 Charles University, Prague, and can be freely distributed under terms of GNU General Public
-License. BIRD is designed to run on Unix and unix-like systems, it is primarily developed on Linux.
+License. BIRD is designed to be portable; it is primarily developed on Linux.
 
 <sect1>About this documentation
 
@@ -514,8 +514,8 @@ through multicast mode is possible. <cf>quiet</cf> option means that rip will no
 periodic messages onto this interface and <cf>nolisten</cf> means that rip will talk to this
 interface but not listen on it.
 
-<p>Following options generally override specified behavior from rfc. If you use any of these
-options, BIRD will no longer be rfc-compatible, which means it will not be able to talk to anything
+<p>Following options generally override specified behavior from RFC. If you use any of these
+options, BIRD will no longer be RFC-compatible, which means it will not be able to talk to anything
 other than equally misconfigured BIRD. I warned you.
 
 <descrip>
@@ -635,5 +635,5 @@ programmers documentation, web pages mailing lists and similar stuff.
 
 
 <!--
-# LocalWords: IPv doctype verb GPL Cisco sgml html Cisco's unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md eval ipaddress pxlen netmask bgppath bgpmask clist gw RTS EXT quitbird nolisten UID timeouttime garbagetime rfc doc 
+# LocalWords: IPv doctype verb GPL Cisco sgml html Cisco's unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md eval ipaddress pxlen netmask bgppath bgpmask clist gw RTS EXT quitbird nolisten UID timeouttime garbagetime RFC doc 
 -->

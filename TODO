@@ -74,12 +74,6 @@ o  "2000" zcela vypadava mimo hlavicku.
 
 Uvod:
 
-o  "What is bird": tam by melo byt receno, _co_ je BIRD, nikoliv cemu se podoba.
-   To obnasi jednak par vet o tom, o co se vlastne snazi, potom nejaky feature
-   list (s odkazy do jednotlivych casti dokumentace?) a tez neco na tema "v cem
-   jsme lepsi nez konkurence" (a neargumentovat pouze licenci :) ).
-   Rovnez tak neni vubec urcen jen pro unixove systemy -- je velice portabilni
-   a shodou okolnosti Unix (presneji Linux) je jediny zatim napsany port.
 o  Chybi sekce popisujici instalaci, spousteni a command-line options.
 o  "About routing tables" by melo byt podstatne podrobnejsi (vysvetlit, co vlastne
    routovaci tabulky jsou, co obsahuji, ze vubec existuji nejake atributy, k cemu
@@ -90,17 +84,12 @@ o  Zminit logy a kategorie hlasek.
 
 Filtry:
 
-o  Na zacatku zejmena vysvetlit, jak jsou filtry do systemu zapojeny, k cemu slouzi,
-   ze dostanou routu a ocekava se od nich verdikt. Teprve pak vysvetlovat, ze to
-   jsou programy, ze mohou volat funkce atd. Tez zminit, ze protokol ma pravo
-   nektere routy akceptovat/odmitnout bez toho, aniz by se zeptal filtru.
 o  Napsat neco o tom, jak filtry debugovat -- ze existuje trasovani filtru
    a CLI command pro vypsani routovaci tabulky tak, jak projde filtrem ci tak,
    jak ji vidi dany protokol.
 o  `filters internally work ...' patri do progdoc.
 o  Vysvetlit nesting a zastinovani.
 o  Nadefinovat, co se stane, kdyz funkce nevrati hodnotu, i kdyz ma.
-o  Popsat runtime errory a ze se chovaji jako rejecty.
 o  Typy: tez rici, ze integery se lisi nejen od booleanu, ale take od enumu.
 o  Boolean: TRUE nebo true? U kazdeho typu zminit, jak vypadaji literaly
    tohoto typu a psat je vzdycky tt fontem.
@@ -120,7 +109,6 @@ o  defined(): To, ze undefined attribute cannot be accessed, by melo byt
    rozhodne receno nekde jinde (v uvodu sekce) -- vzdyt u defined samotneho
    to mozne je.
 o  attributes: nemyslim, ze jsou vsechny -- co treba scope a preference?
-o  Chybi operace na clistech a cestach.
 o  print: a coz takhle printn apod.?
 o  Mezi prikazy nikde neni zminen napriklad accept a reject.
 o  Co se stane, kdyz filtr skonci, aniz by vydal verdikt?
@@ -133,8 +121,6 @@ o  RIP: Vysvetlit, na ktere site se RIP hodi a na ktere ne, rici, ze je
    zatim neexistuji slusne implementace OSPFv3.
 o  RIP: Per-interface optiony uvadet tez jako definition list.
 o  RIP: U RIP-specific atributu zminit, jakeho jsou typu a jak vznikaji.
-o  Example u RIPu je out of date: `honour' -> `honor' apod. Tez ukazat
-   per-interface optiony.
 o  passwords: syntaxe data uz, tusim, davno vypada jinak.
 
 Struktura dokumentace:
@@ -147,8 +133,6 @@ o  Na konci (nebo ve zvlast sekci pro kazdy protokol?) by mel byt seznam referen
 K jazyku:
 
 o  K "BIRD Internet Routing Daemon" by mel patrit urcity clen.
-o  Nerika se `comparation', nybrz `comparison'.
-o  RFC (a ostatni zkratky) psat vzdy velkymi pismeny.
 o  Pokud je v zavorce cela veta, patri pred ')' tecka, pokud neni, tak
    nepatri.
 o  Davej si pozor na rody -- router je vzdycky `it', nikdy `he'.
