@@ -55,11 +55,9 @@ cli_printf(cli *c, int code, char *msg, ...)
   if (cd < 0)
     {
       cd = -cd;
-#if 0					/* FIXME: Enable */
       if (cd == c->last_reply)
 	size = bsprintf(buf, " ");
       else
-#endif
 	size = bsprintf(buf, "%04d-", cd);
     }
   else
