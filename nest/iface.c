@@ -95,6 +95,7 @@ neigh_find(struct proto *p, ip_addr *a, unsigned flags)
     n->sibling = NULL;
   n->proto = p;
   n->data = NULL;
+  n->aux = 0;
   n->flags = flags;
   return n;
 }
@@ -107,7 +108,7 @@ neigh_dump(neighbor *n)
     debug("%s ", n->iface->name);
   else
     debug("[] ");
-  debug("%s %p", n->proto->name, n->data);
+  debug("%s %p %08x", n->proto->name, n->data, n->aux);
   if (n->flags & NEF_STICKY)
     debug(" STICKY");
   debug("\n");

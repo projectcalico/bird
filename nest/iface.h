@@ -100,6 +100,7 @@ typedef struct neighbor {
   struct neighbor *sibling;		/* Next in per-device chain */
   struct proto *proto;			/* Protocol this belongs to */
   void *data;				/* Protocol-specific data */
+  unsigned aux;				/* Protocol-specific data */
   unsigned flags;
 } neighbor;
 
