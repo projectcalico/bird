@@ -153,7 +153,7 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps, struct proto *p,
   if ((nolsa < 1) || ((lenn - sizeof(struct ospf_lsack_packet)) !=
 		      (nolsa * sizeof(struct ospf_lsa_header))))
   {
-    log("%s: Received corrupted LS ack from %I", p->name, n->ip);
+    log(L_ERR "Received corrupted LS ack from %I", n->ip);
     return;
   }
 
