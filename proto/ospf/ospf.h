@@ -11,6 +11,8 @@
 
 #define LOCAL_DEBUG
 
+#define SIPH 64		/* FIXME Size Of IP header */
+
 #include <string.h>
 
 #include "nest/bird.h"
@@ -232,6 +234,18 @@ struct ospf_lsa_ext_tos {
   u32 tag;
 };
 
+struct ospf_lsreq_packet {
+  struct ospf_packet ospf_packet;
+};
+
+struct ospf_lsreq_header {
+  u16 padd1;
+  u8 padd2;
+  u8 type;
+  u32 id;
+  u32 rt;		/* Advertising router */
+};
+
 struct ospf_neighbor
 {
   node n;
@@ -258,12 +272,13 @@ struct ospf_neighbor
   u32 bdr;		/* Neigbour's idea of BDR */
   u8 adj;		/* built adjacency? */
   siterator dbsi;	/* Database summary list iterator */
-  slist lsrql;		/* Link state request */ /* FIXME add top_gr hashing? */
+  slist lsrql;		/* Link state request */ /* FIXME add hashing? */
   siterator lsrqi;
   slist lsrtl;		/* Link state retransmission list */
   siterator lsrti;
   void *ldbdes;		/* Last database description packet */
-  timer *rxmt_timer;		/* RXMT timer */
+  timer *rxmt_timer;	/* RXMT timer */
+  timer *lsrr_timer;	/* Link state requiest retransmition timer */
 };
 
 /* Definitions for interface state machine */
@@ -318,5 +333,6 @@ static void ospf_postconfig(struct proto_config *c);
 #include "proto/ospf/neighbor.h"
 #include "proto/ospf/topology.h"
 #include "proto/ospf/dbdes.h"
+#include "proto/ospf/lsreq.h"
 
 #endif /* _BIRD_OSPF_H_ */

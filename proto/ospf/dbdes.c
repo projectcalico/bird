@@ -184,7 +184,7 @@ rxmt_timer_hook(timer *timer)
   n=(struct ospf_neighbor *)timer->data;
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
-  debug("%s: RXMT timer fired on interface %s for nigh: %d.\n",
+  debug("%s: RXMT timer fired on interface %s for neigh: %u.\n",
     p->name, ifa->iface->name, n->rid);
   if(n->state<NEIGHBOR_LOADING) ospf_dbdes_tx(n);
   else
@@ -221,18 +221,28 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct proto *p,
   struct ospf_lsa_header *plsa,lsa;
   struct top_hash_entry *he,*sn;
   struct top_graph *gr;
+  struct ospf_packet *op;
+  int i,j;
 
   gr=n->ifa->oa->gr;
+  op=(struct ospf_packet *)ps;
 
   plsa=(void *)(ps+1);
-  ntohlsah(plsa, &lsa);
+
+  j=(ntohs(op->length)-sizeof(struct ospf_dbdes_packet))/
+    sizeof( struct ospf_lsa_header);
+
+  for(i=0;i<j;i++)
+  {
+  ntohlsah(plsa+i, &lsa);
   /* FIXME Test Checksum */
   if(((he=ospf_hash_find(gr,lsa.id,lsa.rt,lsa.type))==NULL)||
     (lsa_comp(&lsa, &(he->lsa))==1))
   {
      sn=sl_alloc(gr->hash_slab);
-     ntohlsah(plsa, &(sn->lsa));
+     ntohlsah(plsa+i, &(sn->lsa));
      s_add_tail(&(n->lsrql), SNODE sn);
+  }
   }
 }
 

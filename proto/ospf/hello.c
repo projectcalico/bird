@@ -112,6 +112,12 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->rxmt_timer->hook=rxmt_timer_hook;
     n->rxmt_timer->recurrent=ifa->rxmtint;
     DBG("%s: Installing rxmt timer.\n", p->name);
+    n->lsrr_timer=tm_new(p->pool);
+    n->lsrr_timer->data=n;
+    n->lsrr_timer->randomize=0;
+    n->lsrr_timer->hook=lsrr_timer_hook;
+    n->lsrr_timer->recurrent=ifa->rxmtint;
+    DBG("%s: Installing lsrr timer.\n", p->name);
   }
   ospf_neigh_sm(n, INM_HELLOREC);
 

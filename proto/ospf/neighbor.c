@@ -210,8 +210,11 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
         s_init_list(&(n->lsrql));
         s_init_list(&(n->lsrtl));
 	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
+	s_init(&(n->lsrqi), &(n->lsrql));
+	tm_start(n->lsrr_timer,n->ifa->rxmtint);
 	/*ospf_dbdes_tx(n);*/
       }
+      else die("NEGDONE and I'm not in EXSTART?\n");
       break;
     case INM_EXDONE:
         neigh_chstate(n,NEIGHBOR_LOADING);

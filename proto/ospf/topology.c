@@ -197,6 +197,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
 
   }
   make_rt_lsa(oa, po);
+  /* FIXME length? */
   /*FIXME seq no++ */
   /*FIXME lsa_flood(oa->rt) */
 }
