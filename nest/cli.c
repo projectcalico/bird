@@ -110,7 +110,6 @@ cli_printf(cli *c, int code, char *msg, ...)
   int cd = code;
   int size, cnt;
 
-  va_start(args, msg);
   if (cd < 0)
     {
       cd = -cd;
@@ -122,7 +121,9 @@ cli_printf(cli *c, int code, char *msg, ...)
   else
     size = bsprintf(buf, "%04d ", cd);
   c->last_reply = cd;
+  va_start(args, msg);
   cnt = bvsnprintf(buf+size, sizeof(buf)-size-1, msg, args);
+  va_end(args);
   if (cnt < 0)
     {
       cli_printf(c, code < 0 ? -8000 : 8000, "<line overflow>");
