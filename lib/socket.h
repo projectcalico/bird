@@ -64,6 +64,9 @@ sk_send_buffer_empty(sock *sk)
 #define SK_IP		5          /* ?  -  -  *  -  ?   ?	*/
 #define SK_IP_MC	6          /* ?  -  *  *  *  *   -	*/
 #define SK_MAGIC	7	   /* Internal use by sysdep code */
+#define SK_UNIX_PASSIVE	8
+#define SK_UNIX		9
+#define SK_DELETED	10	   /* Set to this if you want to delete socket from err_hook */
 
 /*
  *  Multicast sockets are slightly different from the other ones:

@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/fcntl.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -285,7 +286,7 @@ static void
 sk_dump(resource *r)
 {
   sock *s = (sock *) r;
-  static char *sk_type_names[] = { "TCP<", "TCP>", "TCP", "UDP", "UDP/MC", "IP", "IP/MC", "MAGIC" };
+  static char *sk_type_names[] = { "TCP<", "TCP>", "TCP", "UDP", "UDP/MC", "IP", "IP/MC", "MAGIC", "UNIX<", "UNIX", "DEL!" };
 
   debug("(%s, ud=%p, sa=%08x, sp=%d, da=%08x, dp=%d, tos=%d, ttl=%d, if=%s)\n",
 	sk_type_names[s->type],
@@ -398,6 +399,8 @@ sk_setup(sock *s)
 
   if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
     ERR("fcntl(O_NONBLOCK)");
+  if (s->type == SK_UNIX)
+    return NULL;
 #ifdef IPV6
   if (s->ttl >= 0 && s->type != SK_UDP_MC && s->type != SK_IP_MC &&
       setsockopt(fd, SOL_IPV6, IPV6_UNICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
@@ -431,12 +434,41 @@ sk_alloc_bufs(sock *s)
   s->tpos = s->ttx = s->tbuf;
 }
 
-void
+static void
 sk_tcp_connected(sock *s)
 {
   s->rx_hook(s, 0);
   s->type = SK_TCP;
   sk_alloc_bufs(s);
+}
+
+static int
+sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
+{
+  int fd = accept(s->fd, sa, &al);
+  if (fd >= 0)
+    {
+      sock *t = sk_new(s->pool);
+      char *err;
+      t->type = type;
+      t->fd = fd;
+      add_tail(&sock_list, &t->n);
+      s->rx_hook(t, 0);
+      if (err = sk_setup(t))
+	{
+	  log(L_ERR "Incoming connection: %s: %m", err);
+	  s->err_hook(s, errno);
+	  return 0;
+	}
+      sk_alloc_bufs(t);
+      return 1;
+    }
+  else if (errno != EINTR && errno != EAGAIN)
+    {
+      log(L_ERR "accept: %m");
+      s->err_hook(s, errno);
+    }
+  return 0;
 }
 
 int
@@ -627,6 +659,37 @@ bad:
   return -1;
 }
 
+int
+sk_open_unix(sock *s, char *name)
+{
+  int fd;
+  struct sockaddr_un sa;
+  char *err;
+
+  fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (fd < 0)
+    die("sk_open_unix: socket: %m");
+  s->fd = fd;
+  if (err = sk_setup(s))
+    goto bad;
+  unlink(name);
+  sa.sun_family = AF_UNIX;
+  strcpy(sa.sun_path, name);
+  if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
+    ERR("bind");
+  if (listen(fd, 8))
+    ERR("listen");
+  sk_alloc_bufs(s);
+  add_tail(&sock_list, &s->n);
+  return 0;
+
+bad:
+  log(L_ERR "sk_open_unix: %s: %m", err);
+  close(fd);
+  s->fd = -1;
+  return -1;
+}
+
 static int
 sk_maybe_write(sock *s)
 {
@@ -636,6 +699,7 @@ sk_maybe_write(sock *s)
     {
     case SK_TCP:
     case SK_MAGIC:
+    case SK_UNIX:
       while (s->ttx != s->tpos)
 	{
 	  e = write(s->fd, s->ttx, s->tpos - s->ttx);
@@ -723,33 +787,15 @@ sk_read(sock *s)
     case SK_TCP_PASSIVE:
       {
 	sockaddr sa;
-	int al = sizeof(sa);
-	int fd = accept(s->fd, (struct sockaddr *) &sa, &al);
-	if (fd >= 0)
-	  {
-	    sock *t = sk_new(s->pool);
-	    char *err;
-	    t->type = SK_TCP;
-	    t->fd = fd;
-	    add_tail(&sock_list, &t->n);
-	    s->rx_hook(t, 0);
-	    if (err = sk_setup(t))
-	      {
-		log(L_ERR "Incoming connection: %s: %m", err);
-		s->err_hook(s, errno);
-		return 0;
-	      }
-	    sk_alloc_bufs(t);
-	    return 1;
-	  }
-	else if (errno != EINTR && errno != EAGAIN)
-	  {
-	    log(L_ERR "accept: %m");
-	    s->err_hook(s, errno);
-	  }
-	return 0;
+	return sk_passive_connected(s, (struct sockaddr *) &sa, sizeof(sa), SK_TCP);
+      }
+    case SK_UNIX_PASSIVE:
+      {
+	struct sockaddr_un sa;
+	return sk_passive_connected(s, (struct sockaddr *) &sa, sizeof(sa), SK_UNIX);
       }
     case SK_TCP:
+    case SK_UNIX:
       {
 	int c = read(s->fd, s->rpos, s->rbuf + s->rbsize - s->rpos);
 
@@ -850,7 +896,7 @@ io_loop(void)
   time_t tout;
   int hi;
   sock *s;
-  node *n;
+  node *n, *p;
 
   /* FIXME: Use poll() if available */
 
@@ -925,7 +971,7 @@ io_loop(void)
 	}
       if (hi)
 	{
-	  WALK_LIST(n, sock_list)
+	  WALK_LIST_DELSAFE(n, p, sock_list)
 	    {
 	      s = SKIP_BACK(sock, n, n);
 	      if (FD_ISSET(s->fd, &rd))
@@ -934,11 +980,13 @@ io_loop(void)
 		  while (sk_read(s))
 		    ;
 		}
-	      if (FD_ISSET(s->fd, &wr))
+	      if (s->type != SK_DELETED && FD_ISSET(s->fd, &wr))
 		{
 		  FD_CLR(s->fd, &wr);
 		  sk_write(s);
 		}
+	      if (s->type == SK_DELETED)
+		rfree(s);
 	    }
 	}
     }
