@@ -1,14 +1,16 @@
 /*
  *	BIRD Internet Routing Daemon -- Linux Multicasting and Network Includes
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 #ifdef IPV6
 
-#include <linux/in6.h>			/* FIXMEv6: glibc variant? */
+#ifdef CONFIG_IPV6_GLIBC_20
+#include <linux/in6.h>
+#endif
 
 static inline void
 set_inaddr(struct in6_addr *ia, ip_addr a)

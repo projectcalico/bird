@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Unix I/O
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -585,7 +585,11 @@ sk_open(sock *s)
 	  {
 	    struct ipv6_mreq mreq;
 	    set_inaddr(&mreq.ipv6mr_multiaddr, s->daddr);
+#ifdef CONFIG_IPV6_GLIBC_20
 	    mreq.ipv6mr_ifindex = s->iface->index;
+#else
+	    mreq.ipv6mr_interface = s->iface->index;
+#endif
 	    if (setsockopt(fd, SOL_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
 	      ERR("IPV6_ADD_MEMBERSHIP");
 	  }
