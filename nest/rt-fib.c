@@ -51,6 +51,11 @@ fib_hash(struct fib *f, ip_addr *a)
   return ipa_hash(*a) >> f->hash_shift;
 }
 
+static void *
+fib_dummy_init(struct fib_node *)
+{
+}
+
 void
 fib_init(struct fib *f, pool *p, unsigned node_size, unsigned hash_order, void (*init)(struct fib_node *))
 {
@@ -63,7 +68,7 @@ fib_init(struct fib *f, pool *p, unsigned node_size, unsigned hash_order, void (
   bzero(f->hash_table, f->hash_size * sizeof(struct fib_node *));
   f->entries = 0;
   f->entries_min = 0;
-  f->init = init;
+  f->init = init ? : fib_dummy_init;
 }
 
 static void
