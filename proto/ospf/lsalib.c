@@ -404,7 +404,7 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
 /**
  * lsa_install_new - install new LSA into database
  * @lsa: LSA header
- * @body pointer to LSA body
+ * @body: pointer to LSA body
  * @oa: current ospf_area
  *
  * This function ensures installing new LSA into LSA database. Old instance is

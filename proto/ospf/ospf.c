@@ -253,7 +253,7 @@ schedule_rtcalc(struct ospf_area *oa)
 /**
  * area_disp - invokes link-state database aging, originating of
  * router LSA and routing table calculation
- * @timer - it's called every @ospf_area->tick seconds
+ * @timer: it's called every @ospf_area->tick seconds
  *
  * It ivokes aging and when @ospf_area->origrt is set to 1, start
  * function for origination of router LSA. It also start routing
@@ -279,6 +279,7 @@ area_disp(timer *timer)
 /**
  * ospf_import_control - accept or reject new route from nest's routing table
  * @p: current instance of protocol
+ * @new: the new route
  * @attrs: list of arttributes
  * @pool: pool for alloction of attributes
  *
