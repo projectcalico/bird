@@ -542,6 +542,22 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	  schedule_rt_lsa(ifa->oa);
 	}
 
+	/* strict nbma */
+	if((ip1->strictnbma==0)&&(ip2->strictnbma!=0))
+	{
+	  ifa->strictnbma=ip2->strictnbma;
+	  OSPF_TRACE(D_EVENTS,
+	    "Interface %s is now strict NBMA",
+	    ifa->iface->name);
+	}
+	if((ip1->strictnbma!=0)&&(ip2->strictnbma==0))
+	{
+	  ifa->strictnbma=ip2->strictnbma;
+	  OSPF_TRACE(D_EVENTS,
+	    "Interface %s is no longer strict NBMA",
+	    ifa->iface->name);
+	}
+
 	/* AUTHETICATION */
 	if(ip1->autype!=ip2->autype)
 	{
@@ -605,6 +621,10 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	    if(ipa_compare(nb1->ip,nb2->ip)==0)
 	    {
 	      found=1;
+	      if(nb1->eligible!=nb2->eligible)
+	        OSPF_TRACE(D_EVENTS,
+	          "Changing neighbor eligibility %I on interface %s",
+	          nb1->ip,ifa->iface->name);
 	      break;
 	    }
 
@@ -631,6 +651,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	  {
 	    nb1=mb_alloc(p->pool,sizeof(struct nbma_node));
 	    nb1->ip=nb2->ip;
+	    nb1->eligible=nb2->eligible;
 	    add_tail(&ifa->nbma_list, NODE nb1);
 	    OSPF_TRACE(D_EVENTS,
 	      "Adding NBMA neighbor %I on interface %s",
