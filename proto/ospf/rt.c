@@ -34,6 +34,9 @@ ospf_rt_spfa(struct ospf_area *oa)
   struct fib_iterator fit;
   struct ospf_lsa_net *ln;
 
+  debug("%s: Starting routing table calculation for area %I\n",p->name,
+    oa->areaid);
+
   flush=can_flush_lsa(oa);
 
   if((delta=now-oa->lage)>=AGINGDELTA)
