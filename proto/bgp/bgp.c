@@ -15,12 +15,15 @@
 #include "nest/locks.h"
 #include "conf/conf.h"
 #include "lib/socket.h"
+#include "lib/resource.h"
 
 #include "bgp.h"
 
+struct linpool *bgp_linpool;		/* Global temporary pool */
 static sock *bgp_listen_sk;		/* Global listening socket */
 static int bgp_counter;			/* Number of protocol instances using the listening socket */
 static list bgp_list;			/* List of active BGP instances */
+static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established" };
 
 static void bgp_connect(struct bgp_proto *p);
 static void bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s);
@@ -56,6 +59,8 @@ bgp_close(struct bgp_proto *p)
     {
       rfree(bgp_listen_sk);
       bgp_listen_sk = NULL;
+      rfree(bgp_linpool);
+      bgp_linpool = NULL;
     }
   /* FIXME: Automatic restart after errors? */
 }
@@ -275,6 +280,8 @@ bgp_start_locked(struct object_lock *lock)
       else
 	bgp_listen_sk = s;
     }
+  if (!bgp_linpool)
+    bgp_linpool = lp_new(&root_pool, 4080);
   add_tail(&bgp_list, &p->bgp_node);
   bgp_connect(p);			/* FIXME: Use neighbor cache for fast up/down transitions? */
 }
@@ -385,16 +392,25 @@ bgp_check(struct bgp_config *c)
     cf_error("Neighbor must be configured");
 }
 
+void
+bgp_get_status(struct proto *P, byte *buf)
+{
+  struct bgp_proto *p = (struct bgp_proto *) P;
+
+  strcpy(buf, bgp_state_names[MAX(p->incoming_conn.state, p->outgoing_conn.state)]);
+}
+
 struct protocol proto_bgp = {
   name:			"BGP",
   template:		"bgp%d",
   init:			bgp_init,
   start:		bgp_start,
   shutdown:		bgp_shutdown,
+  get_status:		bgp_get_status,
 #if 0
   dump:			bgp_dump,
-  get_status:		bgp_get_status,
   get_route_info:	bgp_get_route_info,
   show_route_data:	bgp_show_route_data
+  /* FIXME: Reconfiguration */
 #endif
 };

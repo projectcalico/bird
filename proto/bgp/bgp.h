@@ -54,6 +54,8 @@ struct bgp_proto {
 #define BGP_RX_BUFFER_SIZE	4096
 #define BGP_TX_BUFFER_SIZE	BGP_MAX_PACKET_LENGTH
 
+extern struct linpool *bgp_linpool;
+
 void bgp_start_timer(struct timer *t, int value);
 void bgp_check(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, unsigned data, unsigned len);

@@ -215,14 +215,77 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   conn->state = BS_OPENCONFIRM;
 }
 
+#define DECODE_PREFIX(pp, ll) do {		\
+  int b = *pp++;				\
+  int q;					\
+  ip_addr temp;					\
+  ll--;						\
+  if (b > BITS_PER_IP_ADDRESS) { bgp_error(conn, 3, 10, b, 0); return; } \
+  q = (b+7) / 8;				\
+  if (ll < q) goto too_small;			\
+  memcpy(&temp, pp, q);				\
+  pp += q;					\
+  ll -= q;					\
+  n.n.prefix = ipa_and(ipa_ntoh(temp), ipa_mkmask(b));	\
+  n.n.pxlen = b;				\
+} while (0)
+
 static void
 bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 {
+  byte *withdrawn, *attrs, *nlri;
+  int withdrawn_len, attr_len, nlri_len;
+  net n;
+  rte e;
+
+  DBG("BGP: UPDATE\n");
   if (conn->state != BS_ESTABLISHED)
     { bgp_error(conn, 5, 0, conn->state, 0); return; }
   bgp_start_timer(conn->hold_timer, conn->hold_time);
 
-  DBG("BGP: UPDATE (ignored)\n");
+  /* Find parts of the packet and check sizes */
+  if (len < 23)
+    {
+    too_small:
+      bgp_error(conn, 1, 2, len, 2);
+      return;
+    }
+  withdrawn = pkt + 21;
+  withdrawn_len = get_u16(pkt + 19);
+  if (withdrawn_len + 23 > len)
+    goto too_small;
+  attrs = withdrawn + withdrawn_len + 2;
+  attr_len = get_u16(attrs - 2);
+  if (withdrawn_len + attr_len + 23 > len)
+    goto too_small;
+  nlri = attrs + attr_len;
+  nlri_len = len - withdrawn_len - attr_len - 23;
+  if (!attr_len && nlri_len)
+    goto too_small;
+  DBG("Sizes: withdrawn=%d, attrs=%d, NLRI=%d\n", withdrawn_len, attr_len, nlri_len);
+
+  /* Withdraw routes */
+  while (withdrawn_len)
+    {
+      DECODE_PREFIX(withdrawn, withdrawn_len);
+      DBG("Withdraw %I/%d\n", n.n.prefix, n.n.pxlen);
+    }
+
+  if (nlri_len)
+    {
+#if 0
+      rta *a = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool);
+      if (a)
+#endif
+	{
+	  while (nlri_len)
+	    {
+	      DECODE_PREFIX(nlri, nlri_len);
+	      DBG("Add %I/%d\n", n.n.prefix, n.n.pxlen);
+	    }
+	}
+      lp_flush(bgp_linpool);
+    }
 }
 
 static void
