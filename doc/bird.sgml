@@ -1118,9 +1118,11 @@ External routes use <cf/metric type 1/ or <cf/metric type 2/.
 A <cf/metric of type 1/ is comparable with internal <cf/metric/, a
 <cf/metric of type 2/ is always longer
 than any <cf/metric of type 1/ or any <cf/internal metric/.
+If you specify both metrics only metric1 is used.
 Each external route can also carry a <cf/tag/ which is a 32-bit
 integer which is used when exporting routes to other protocols;
 otherwise, it doesn't affect routing inside the OSPF domain at all.
+Default is <cf/metric of type 2 = 10000/ and <cf/tag = 0/.
 
 <sect1>Example
 
