@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Forwarding Information Base -- Data Structures
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -87,7 +87,7 @@ fib_rehash(struct fib *f, int step)
   newn = f->hash_size;
   ni = 0;
 
-  while (old--)
+  while (oldn--)
     {
       x = *h++;
       while (e = x)
