@@ -71,10 +71,12 @@ static void
 proto_start(struct proto *p)
 {
   rem_node(&p->n);
+  p->state = PRS_STARTING;
   if (p->start)
     p->start(p);
   if_feed_baby(p);
   rt_feed_baby(p);
+  p->state = PRS_UP;
   add_tail(&proto_list, &p->n);
 }
 

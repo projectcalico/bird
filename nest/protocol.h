@@ -59,6 +59,7 @@ struct proto {
   unsigned debug;			/* Debugging flags */
   pool *pool;				/* Local objects */
   unsigned preference;			/* Default route preference */
+  unsigned state;			/* PRS_... */
 
   void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
   void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
@@ -79,6 +80,10 @@ struct proto {
 
   /* Hic sunt protocol-specific data */
 };
+
+#define PRS_DOWN 0			/* Inactive */
+#define PRS_STARTING 1
+#define PRS_UP 2
 
 void *proto_new(struct protocol *, unsigned size);
 
