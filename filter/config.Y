@@ -269,8 +269,7 @@ any_dynamic:
  | RIP_TAG    { $$ = f_new_inst(); $$->aux = T_INT; $$->a2.i = EA_RIP_TAG; }
  ;
 
-rtadot: /* EMPTY */
- | RTA '.' { }
+rtadot: /* EMPTY, we are not permitted RTA. prefix */
  ;
 
 term:
