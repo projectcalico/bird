@@ -34,6 +34,7 @@ struct protocol {
   unsigned debug;			/* Default debugging flags */
   int priority;				/* Protocol priority (usually 0) */
   int name_counter;			/* Counter for automatic name generation */
+  int startup_counter;			/* Number of instances waiting for initialization */
 
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
   void (*postconfig)(struct proto_config *);			/* After configuring each instance */

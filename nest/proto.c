@@ -86,7 +86,7 @@ proto_new(struct proto_config *c, unsigned size)
   p->preference = c->preference;
   p->disabled = c->disabled;
   p->proto = pr;
-  p->table = (c->table ? : c->global->master_rtc)->table;
+  p->table = c->table->table;
   p->in_filter = c->in_filter;
   p->out_filter = c->out_filter;
   return p;
@@ -139,6 +139,7 @@ proto_config_new(struct protocol *pr, unsigned size)
   c->debug = pr->debug;
   c->name = pr->name;
   c->out_filter = FILTER_REJECT;
+  c->table = c->global->master_rtc;
   return c;
 }
 
@@ -195,6 +196,15 @@ protos_commit(struct config *c)
       q->proto_state = PS_DOWN;
       q->core_state = FS_HUNGRY;
       proto_enqueue(&initial_proto_list, q);
+      /*
+       *  HACK ALERT!  In case of multiple kernel routing tables,
+       *  the kernel syncer acts as multiple protocols which cooperate
+       *  with each other.  In order to speed up their initialization,
+       *  we need to know when we're initializing the last one, hence
+       *  the startup counter.
+       */
+      if (!q->disabled)
+	p->startup_counter++;
     }
   debug("\n");
 }
@@ -211,6 +221,8 @@ proto_rethink_goal(struct proto *p)
       if (p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
 	{
 	  DBG("Kicking %s up\n", p->name);
+	  ASSERT(q->startup_counter > 0);
+	  q->startup_counter--;
 	  proto_init_instance(p);
 	  proto_notify_state(p, (q->start ? q->start(p) : PS_UP));
 	}
@@ -250,13 +262,13 @@ protos_shutdown(void)
   struct proto *p, *n;
 
   debug("Protocol shutdown\n");
-  WALK_LIST_DELSAFE(p, n, inactive_proto_list)
+  WALK_LIST_BACKWARDS_DELSAFE(p, n, inactive_proto_list)
     if (p->core_state != FS_HUNGRY || p->proto_state != PS_DOWN)
     {
       proto_shutdown_counter++;
       proto_set_goal(p, FS_HUNGRY);
     }
-  WALK_LIST_DELSAFE(p, n, proto_list)
+  WALK_LIST_BACKWARDS_DELSAFE(p, n, proto_list)
     {
       proto_shutdown_counter++;
       proto_set_goal(p, FS_HUNGRY);
@@ -375,6 +387,7 @@ proto_notify_state(struct proto *p, unsigned ps)
 	{
 	schedule_flush:
 	  DBG("%s: Scheduling flush\n", p->name);
+	  proto_flush_hooks(p);
 	  cs = FS_FLUSHING;
 	  ev_schedule(proto_flush_event);
 	}
@@ -398,7 +411,6 @@ proto_flush_all(void *unused)
   while ((p = HEAD(flush_proto_list))->n.next)
     {
       DBG("Flushing protocol %s\n", p->name);
-      proto_flush_hooks(p);
       rfree(p->pool);
       p->pool = NULL;
       p->core_state = FS_HUNGRY;
