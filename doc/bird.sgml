@@ -350,7 +350,7 @@ BIRD and <file/birdc/ is stable (see the programmer's documentation).
 	<tag>show symbols</tag>
 	Show the list of symbols defined in the configuration (names of protocols, routing tables etc.).
 
-	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(import|proto) <m/p/] [<m/options/]</tag>
+	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(import|preimport) <m/p/] [<m/options/]</tag>
 	Show contents of a routing table (by default of the main one),
 	that is routes, their metrics and (in case the <cf/all/ switch is given)
 	all their attributes.
@@ -365,9 +365,9 @@ BIRD and <file/birdc/ is stable (see the programmer's documentation).
 	<p>You can also ask for printing only routes processed and accepted by
 	a given filter (<cf>filter <m/name/</cf> or <cf>filter { <m/filter/ }
 	</cf> or matching a given condition (<cf>where <m/condition/</cf>).
-	The <cf/import/ and <cf/proto/ switches ask for printing of entries as
-	they would be seen by the specified protocol. With <cf/import/, the
-	export filter of the protocol is skipped.
+	The <cf/import/ and <cf/preimport/ switches ask for printing of entries
+        that are imported to the specified protocol. With <cf/preimport/, the
+	import filter of the protocol is skipped.
 
 	<p>The <cf/stats/ switch requests showing of route statistics (the
 	number of networks, number of routes before and after filtering). If
