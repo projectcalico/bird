@@ -54,7 +54,7 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
       A.cast = RTC_UNICAST;
       A.dest = RTD_DEVICE;
       A.iface = ad->iface;
-      A.attrs = NULL;
+      A.eattrs = NULL;
       a = rta_lookup(&A);
       if (ad->flags & IF_UNNUMBERED)
 	n = net_get(p->table, ad->opposite, ad->pxlen);

@@ -275,7 +275,7 @@ rta_same(rta *x, rta *y)
 	  ipa_equal(x->gw, y->gw) &&
 	  ipa_equal(x->from, y->from) &&
 	  x->iface == y->iface &&
-	  ea_same(x->attrs, y->attrs));
+	  ea_same(x->eattrs, y->eattrs));
 }
 
 static rta *
@@ -285,7 +285,7 @@ rta_copy(rta *o)
 
   memcpy(r, o, sizeof(rta));
   r->uc = 1;
-  r->attrs = ea_list_copy(o->attrs);
+  r->eattrs = ea_list_copy(o->eattrs);
   return r;
 }
 
@@ -295,15 +295,15 @@ rta_lookup(rta *o)
   rta *r;
 
   ASSERT(!(o->aflags & RTAF_CACHED));
-  if (o->attrs)
+  if (o->eattrs)
     {
-      if (o->attrs->next)	/* Multiple ea_list's, need to merge them */
+      if (o->eattrs->next)	/* Multiple ea_list's, need to merge them */
 	{
-	  ea_list *ml = alloca(ea_scan(o->attrs));
-	  ea_merge(o->attrs, ml);
-	  o->attrs = ml;
+	  ea_list *ml = alloca(ea_scan(o->eattrs));
+	  ea_merge(o->eattrs, ml);
+	  o->eattrs = ml;
 	}
-      ea_sort(o->attrs);
+      ea_sort(o->eattrs);
     }
 
   for(r=first_rta; r; r=r->next)
@@ -347,10 +347,10 @@ rta_dump(rta *a)
     debug(" ->%I", a->gw);
   if (a->dest == RTD_DEVICE || a->dest == RTD_ROUTER)
     debug(" [%s]", a->iface ? a->iface->name : "???" );
-  if (a->attrs)
+  if (a->eattrs)
     {
       debug(" EA: ");
-      ea_dump(a->attrs);
+      ea_dump(a->eattrs);
     }
 }
 

@@ -208,7 +208,7 @@ typedef struct rta {
   ip_addr gw;				/* Next hop */
   ip_addr from;				/* Advertising router */
   struct iface *iface;			/* Outgoing interface */
-  struct ea_list *attrs;		/* Extended Attribute chain */
+  struct ea_list *eattrs;		/* Extended Attribute chain */
 } rta;
 
 #define RTS_DUMMY 0			/* Dummy route to be removed soon */
@@ -305,7 +305,7 @@ void rta__free(rta *r);
 static inline void rta_free(rta *r) { if (r && !--r->uc) rta__free(r); }
 void rta_dump(rta *);
 void rta_dump_all(void);
-static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->attrs, ea); }
+static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->eattrs, ea); }
 
 /*
  *	Default protocol preferences

@@ -95,7 +95,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
   a.flags = a.aflags = 0;
   a.from = IPA_NONE;
   a.iface = NULL;
-  a.attrs = NULL;
+  a.eattrs = NULL;
 
   if (flags & RTF_GATEWAY)
     {

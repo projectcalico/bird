@@ -642,7 +642,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   ra.from = IPA_NONE;
   ra.gw = IPA_NONE;
   ra.iface = NULL;
-  ra.attrs = NULL;
+  ra.eattrs = NULL;
 
   switch (i->rtm_type)
     {
