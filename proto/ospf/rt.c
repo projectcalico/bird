@@ -404,14 +404,15 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
       nf->metric=met;
       nf->metric2=met2;
       nf->tag=tag;
-      if(nnhi!=NULL)
+
+      if(ipa_compare(nnh,ipa_from_u32(0))!=0)
       {
         nf->nh=nnh;
         nf->nhi=nnhi;
       }
       else
       {
-        if(absr->nhi==NULL)
+        if(ipa_compare(absr->nh,ipa_from_u32(0))==0)
         {
           struct ospf_neighbor *neigh;
 
@@ -559,59 +560,62 @@ calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
   struct proto *p=&oa->po->proto;
   struct proto_ospf *po=oa->po;
   struct ospf_iface *ifa;
+  u32 myrid=p->cf->global->router_id;
+
   DBG("     Next hop called\n");
   if(ipa_to_u32(par->nh)==0)
   {
     neighbor *nn;
-    DBG("     Next hop calculating for id: %I rt: %I type: %u\n",en->lsa.id,en->lsa.rt,en->lsa.type);
-    if(par->lsa.type!=LSA_T_RT) 
+    DBG("     Next hop calculating for id: %I rt: %I type: %u\n",
+      en->lsa.id,en->lsa.rt,en->lsa.type);
+
+    if(par==oa->rt)
     {
+      if(en->lsa.type==LSA_T_NET)
+      {
+        if(en->lsa.rt==myrid)
+        {
+          WALK_LIST(ifa,po->iface_list)
+            if(ipa_compare(ifa->iface->addr->ip,ipa_from_u32(en->lsa.id))==0)
+            {
+              en->nhi=ifa->iface;
+              return;
+            }
+          bug("I didn't find interface for my self originated LSA!\n");
+        }
+        else
+        {
+          ip_addr ip=ipa_from_u32(en->lsa.id);
+          nn=neigh_find(p,&ip,0);
+          if(nn) en->nhi=nn->iface;
+          return;
+        }
+      }
+      else
+      {
+        if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL) return;
+        en->nhi=neigh->ifa->iface;
+        return;
+      }
+    }
+
+    if(par->lsa.type==LSA_T_NET)
+    {
+      if(en->lsa.type==LSA_T_NET) bug("Parent for net is net?");
+      en->nhi=par->nhi;
       if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL) return;
-      nn=neigh_find(p,&neigh->ip,0);
-      DBG("     Next hop calculated: %I.\n", nn->addr);
-      en->nh=nn->addr;
-      en->nhi=nn->iface;
+      en->nh=neigh->ip;
       return;
     }
     else
     {
-      if(par==oa->rt)
-      {
-        if(en->lsa.type==LSA_T_NET)
-        {
-          struct ospf_lsa_net *ne;
-          ne=en->lsa_body;
-  
-          DBG("I'm parent (Net=%I)\n",(en->lsa.id & ipa_to_u32(ne->netmask)));
-  
-          WALK_LIST(ifa, oa->po->iface_list)
-          {
-            if(ipa_to_u32(ipa_and(ifa->iface->addr->ip,
-              ipa_mkmask(ifa->iface->addr->pxlen))) ==
-              (en->lsa.id & ipa_to_u32(ne->netmask)))
-            {
-              en->nhi=ifa->iface;
-              en->nh=ipa_from_u32(0);
-              DBG("Ifa: %s\n",en->nhi->name);
-              return;
-            }
-          }
-        }
-        else
-        {
-          if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
-          nn=neigh_find(p,&neigh->ip,0);
-          en->nh=ipa_from_u32(0);
-          en->nhi=nn->iface;
-        }
-        return;
-      }
-           
       if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
       nn=neigh_find(p,&neigh->ip,0);
-      DBG("     Next hop calculated: %I\n", nn->addr);
-      en->nh=nn->addr;
-      en->nhi=nn->iface;
+      if(nn)
+      {
+        en->nhi=nn->iface;
+        en->nh=neigh->ip;
+      }
       return;
     }
   }
