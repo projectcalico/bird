@@ -30,15 +30,15 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
   struct ifa *b;
 
   if (!(i->flags & IF_UP))
-    return 0;
+    return -1;
   WALK_LIST(b, i->addrs)
     {
       if (ipa_equal(*a, b->ip))
-	return -1;
+	return SCOPE_HOST;
       if (b->flags & IA_UNNUMBERED)
 	{
 	  if (ipa_equal(*a, b->opposite))
-	    return 1;
+	    return b->scope;
 	}
       else
 	{
@@ -47,18 +47,18 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
 	      if (ipa_equal(*a, b->prefix) ||	/* Network address */
 		  ipa_equal(*a, b->brd))	/* Broadcast */
 		return -1;
-	      return 1;
+	      return b->scope;
 	    }
 	}
       }
-  return 0;
+  return -1;
 }
 
 neighbor *
 neigh_find(struct proto *p, ip_addr *a, unsigned flags)
 {
   neighbor *n;
-  int class;
+  int class, scope = SCOPE_HOST;
   unsigned int h = neigh_hash(p, a);
   struct iface *i, *j;
 
@@ -75,14 +75,10 @@ neigh_find(struct proto *p, ip_addr *a, unsigned flags)
 
   j = NULL;
   WALK_LIST(i, iface_list)
-    switch (if_connected(a, i))
+    if ((scope = if_connected(a, i)) >= 0)
       {
-      case -1:
-	return NULL;
-      case 1:
-	if (!j)
-	  j = i;
-	/* Fall-thru */
+	j = i;
+	break;
       }
   if (!j && !(flags & NEF_STICKY))
     return NULL;
@@ -101,6 +97,7 @@ neigh_find(struct proto *p, ip_addr *a, unsigned flags)
   n->data = NULL;
   n->aux = 0;
   n->flags = flags;
+  n->scope = scope;
   return n;
 }
 
@@ -112,7 +109,7 @@ neigh_dump(neighbor *n)
     debug("%s ", n->iface->name);
   else
     debug("[] ");
-  debug("%s %p %08x", n->proto->name, n->data, n->aux);
+  debug("%s %p %08x scope %s", n->proto->name, n->data, n->aux, ip_scope_text(n->scope));
   if (n->flags & NEF_STICKY)
     debug(" STICKY");
   debug("\n");
@@ -137,11 +134,13 @@ void
 neigh_if_up(struct iface *i)
 {
   neighbor *n, *next;
+  int scope;
 
   WALK_LIST_DELSAFE(n, next, sticky_neigh_list)
-    if (if_connected(&n->addr, i) > 0)
+    if ((scope = if_connected(&n->addr, i)) >= 0)
       {
 	n->iface = i;
+	n->scope = scope;
 	add_tail(&i->neighbors, &n->if_n);
 	rem_node(&n->n);
 	add_tail(&neigh_hash_table[neigh_hash(n->proto, &n->addr)], &n->n);

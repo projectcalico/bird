@@ -102,6 +102,7 @@ typedef struct neighbor {
   void *data;				/* Protocol-specific data */
   unsigned aux;				/* Protocol-specific data */
   unsigned flags;
+  unsigned scope;			/* Address scope, SCOPE_HOST when it's our own address */
 } neighbor;
 
 #define NEF_STICKY 1
