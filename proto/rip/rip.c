@@ -46,6 +46,8 @@
 #define P_CF ((struct rip_proto_config *)p->cf)
 #define E ((struct rip_entry *) e)
 
+#define TRACE(msg, args...) do { if (p->debug & 1) { log(L_TRACE "%s: " msg, p->name , ## args); } } while(0)
+
 static struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt);
 
 static void
@@ -214,7 +216,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   c->done = 0;
   fit_init( &c->iter, &P->rtable );
   add_head( &P->connections, NODE c );
-  log( L_TRACE "Sending my routing table to %I:%d on %s\n", daddr, dport, rif->iface->name );
+  TRACE( "Sending my routing table to %I:%d on %s\n", daddr, dport, rif->iface->name );
 
   rip_tx(c->rif->sock);
 }
@@ -302,7 +304,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   ip_addr network = block->network;
 
   CHK_MAGIC;
-  log( L_TRACE "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
+  TRACE( "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
   if ((!metric) || (metric > P_CF->infinity)) {
     log( L_WARN "Got metric %d from %I", metric, whotoldme );
     return;
@@ -435,12 +437,12 @@ rip_timer(timer *t)
     DBG( "Garbage: " ); rte_dump( rte );
 
     if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
-      log( L_TRACE "RIP: entry is too old: " ); rte_dump( rte );
+      TRACE( "RIP: entry is too old: " ); rte_dump( rte );
       e->metric = P_CF->infinity;
     }
 
     if (now - rte->u.rip.lastmodX > P_CF->garbage_time) {
-      log( L_TRACE "RIP: entry is much too old: " ); rte_dump( rte );
+      TRACE( "RIP: entry is much too old: " ); rte_dump( rte );
       rte_discard(p->table, rte);
     }
   }
@@ -602,7 +604,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
       }
 
-  log( L_TRACE "RIP/%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast", rif->sock->daddr );
+  TRACE( "RIP/%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast", rif->sock->daddr );
   
   return rif;
 }
