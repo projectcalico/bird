@@ -128,7 +128,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       }
 
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      debug("%s: DB_DES sent to %I.\n", p->name, n->rid);
+      DBG("%s: DB_DES sent to %I.\n", p->name, n->rid);
       if(n->myimms.bit.ms) tm_start(n->rxmt_timer,ifa->rxmtint);
       else
       {
@@ -271,7 +271,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
           }
 	  else
           {
-            debug("%s: Nothing happend to %I (imms=%u)", p->name, nrid,
+            debug("%s: Nothing happend to %I (imms=%u)\n", p->name, nrid,
               ps->imms.byte);
             break;
           }
