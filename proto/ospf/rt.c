@@ -933,7 +933,7 @@ again1:
       a0.aflags = 0;
       a0.iface = nf->n.ifa;
       a0.gw = nf->n.nh;
-      if(!neigh_find(p, &nf->n.nh, 0))
+      if ((!ipa_equal(nf->n.nh, IPA_NONE)) && (!neigh_find(p, &nf->n.nh, 0)))
       {
         int found = 0;
         struct ospf_iface *ifa;
