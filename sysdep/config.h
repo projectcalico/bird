@@ -29,17 +29,6 @@ typedef u16 word;
 
 #endif
 
-/*
- * Required alignment for multi-byte accesses. We currently don't
- * test these values in configure script, because several CPU's
- * have unaligned accesses emulated by OS and they are slower
- * than a call to memcpy() which is, in fact, often compiled
- * as load/store by GCC on machines which don't require alignment.
- */
-
-#define CPU_NEEDS_ALIGN_WORD 2
-#define CPU_NEEDS_ALIGN_LONG 4
-
 /* Path to configuration file */
 #define PATH_CONFIG PATH_CONFIG_DIR "/bird.conf"
 #define PATH_CONTROL_SOCKET PATH_CONTROL_SOCKET_DIR "/bird.ctl"
