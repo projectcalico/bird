@@ -349,6 +349,7 @@ ospf_hash_get(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
   e->lsa.rt = rtr;
   e->lsa.type = type;
   e->lsa_body = NULL;
+  e->nhi=NULL;
   e->next=*ee;		/* MJ you forgot this :-) */
   *ee=e;
   if (f->hash_entries++ > f->hash_entries_max)

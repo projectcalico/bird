@@ -368,6 +368,18 @@ find_neigh(struct ospf_iface *ifa, u32 rid)
   return NULL;
 }
 
+struct ospf_neighbor *
+find_neigh_noifa(struct proto_ospf *po, u32 rid)
+{
+  struct ospf_neighbor *n;
+  struct ospf_iface *ifa;
+
+  WALK_LIST (ifa, po->iface_list)
+    if((n=find_neigh(ifa, rid))!=NULL)
+      return n;
+  return NULL;
+}
+
 struct ospf_area *
 ospf_find_area(struct proto_ospf *po, u32 aid)
 {

@@ -50,6 +50,7 @@ ospf_dump(struct proto *p)
     debug("%s: LSA graph dump for area \"%I\" finished\n\n", p->name,
       oa->areaid);
   }
+  neigh_dump_all();
 
 }
 

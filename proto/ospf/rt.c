@@ -40,7 +40,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
   {
     struct top_hash_entry *act,*tmp;
     node *n;
-    struct ospf_lsa_net *net;
+    struct ospf_lsa_net *netw;
 
     n=HEAD(oa->cand);
     act=SKIP_BACK(struct top_hash_entry, cn, n);
@@ -72,21 +72,53 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 	      log("Unknown link type in router lsa.\n");
 	      break;
 	  }
-	  add_cand(&oa->cand,tmp,act,act->dist+rtl->metric);
+	  add_cand(&oa->cand,tmp,act,act->dist+rtl->metric,p);
 	}
         break;
       case LSA_T_NET:
-	net=(struct ospf_lsa_net *)act->lsa_body;
-	rts=(u32 *)(net+1);
+	netw=(struct ospf_lsa_net *)act->lsa_body;
+	rts=(u32 *)(netw+1);
 	for(i=0;i<(act->lsa.length-sizeof(struct ospf_lsa_header)-
 	  sizeof(struct ospf_lsa_net))/sizeof(u32);i++)
 	{
 	  tmp=ospf_hash_find(oa->gr, *rts, *rts, LSA_T_RT);
-          add_cand(&oa->cand,tmp,act,act->dist);
+          add_cand(&oa->cand,tmp,act,act->dist,p);
 	}
         break;
     }
     /* FIXME Now modify rt for this entry */
+    if((act->lsa.type==LSA_T_NET)&&(act->nhi!=NULL))
+    {
+      net *ne;
+      rte *e;
+      ip_addr ip;
+      struct ospf_lsa_net *ln=en->lsa_body;
+
+      a0.proto=p;
+      a0.source=RTS_OSPF;
+      a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
+      a0.cast=RTC_UNICAST;
+      a0.dest=RTD_ROUTER;	/* FIXME */
+      a0.flags=0;
+      a0.iface=act->nhi;
+      a0.gw=act->nh;
+      ip=ipa_from_u32(act->lsa.id);
+
+
+      ne=net_get(p->table, ip, ipa_mklen(ln->netmask));
+      e=rte_get_temp(&a0);
+      e->u.ospf.metric1=en->dist;
+      e->u.ospf.metric2=0;
+      e->u.ospf.tag=0;			/* FIXME Some config? */
+
+      rte_update(p->table, ne, p, e);
+
+      //a0.from=act->lsa.rt;
+    }
+
+
+
+
   }
 
   /* Now calculate routes to stub networks */
@@ -121,7 +153,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 
 void
 add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par, 
-  u16 dist)
+  u16 dist, struct proto *p)
 {
   node *prev,*n;
   int flag=0;
@@ -137,8 +169,10 @@ add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
    * FIXME The line above is not a bug, but we don't support
    * multiple next hops. I'll start as soon as nest will
    */
+
+  en->nhi=NULL;
   
-  en->nh=calc_next_hop(par);
+  calc_next_hop(par,en,p);
 
   if(en->color==CANDIDATE)	/* We found shorter path */
   {
@@ -166,12 +200,21 @@ add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
   
 }
 
-struct top_hash_entry *
-calc_next_hop(struct top_hash_entry *par)
+void
+calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
+  struct proto *p)
 {
-  if(par->nh==NULL)
+  struct ospf_neighbor *neigh;
+  struct proto_ospf *po=(struct proto_ospf *)p;
+  if(par->nhi==NULL)
   {
-    if(par->lsa.type!=LSA_T_RT) return NULL;
+    neighbor *nn;
+    if(par->lsa.type!=LSA_T_RT) return;
+    if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL) bug("XXX\n");
+    nn=neigh_find(p,&neigh->ip,0);
+    en->nh=nn->addr;
+    en->nhi=nn->iface;
   }
-  return par;
+  en->nh=par->nh;
+  en->nhi=par->nhi;
 }

@@ -16,7 +16,8 @@ struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
   struct ospf_lsa_header lsa;
   void *lsa_body;
   bird_clock_t inst_t;			/* Time of installation into DB */
-  struct top_hash_entry *nh;		/* Next hop */
+  ip_addr nh;				/* Next hop */
+  struct iface *nhi;
   u16 dist;				/* Distance from the root */
   u8 color;
 #define OUTSPF 0

@@ -32,6 +32,7 @@
 #define OSPF_VERSION 2
 #define AllSPFRouters ipa_from_u32(0xe0000005)	/* 224.0.0.5 */
 #define AllDRouters ipa_from_u32(0xe0000006)	/* 224.0.0.6 */
+#define DEFAULTDES ipa_from_u32(0)
 #else
 #error Multicast address not defined in IPv6
 #endif
@@ -40,8 +41,7 @@
 #define LSREFRESHTIME 1800	/* 30 minutes */
 #define MINLSINTERVAL 5
 #define MINLSARRIVAL 1
-#define LSINFINITY 0xffffff
-/*#define DEFAULTDES 0.0.0.0 FIXME: How to define it? */
+#define LSINFINITY 0xffff	/* RFC says 0xffffff ??? */
 
 struct ospf_config {
   struct proto_config c;
@@ -203,11 +203,11 @@ struct ospf_lsa_rt_link_tos {	/* Actually we ignore TOS. This is useless */
 };
 
 struct ospf_lsa_net {
-  u32 netmask;
+  ip_addr netmask;
 };
 
 struct ospf_lsa_summ {
-  u32 netmask;
+  ip_addr netmask;
 };
 
 struct ospf_lsa_summ_net {
@@ -217,7 +217,7 @@ struct ospf_lsa_summ_net {
 };
 
 struct ospf_lsa_ext {
-  u32 netmask;
+  ip_addr netmask;
 };
 
 struct ospf_lsa_ext_tos {
