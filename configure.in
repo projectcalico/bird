@@ -68,6 +68,7 @@ AC_SUBST(sysdep_dirs)
 
 AC_MSG_CHECKING([protocols])
 protocols=`echo "$with_protocols" | sed 's/,/ /g'`
+if test "$protocols" = no ; then protocols= ; fi
 for a in $protocols ; do
 	if ! test -f $srcdir/proto/$a/Makefile ; then
 		AC_MSG_RESULT(failed)
@@ -119,7 +120,10 @@ AC_OUTPUT($makefiles)
 cat >&AC_FD_MSG <<EOF
 
 BIRD was configured with the following options:
+	Source directory:	$srcdir
+	Object directory:	$objdir
 	System configuration:	$sysdesc
 	Debugging:		$enable_debug
 	Routing protocols:	$protocols
 EOF
+rm -f $objdir/.*-stamp
