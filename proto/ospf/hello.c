@@ -7,6 +7,8 @@
  */
 
 #include "ospf.h"
+#include <sys/socket.h>
+#include "lib/sysio.h"
 
 void
 install_inactim(struct ospf_neighbor *n)
@@ -59,8 +61,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 {
   u32 nrid, *pnrid;
   struct ospf_neighbor *neigh,*n;
-  u8 twoway,oldpriority;
-  u32 i;
+  u8 i,twoway,oldpriority;
   ip_addr olddr,oldbdr;
   ip_addr mask;
   char *beg=": Bad OSPF hello packet from ", *rec=" received: ";

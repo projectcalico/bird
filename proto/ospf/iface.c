@@ -47,8 +47,9 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
           DBG("%s: Adding new multicast socket for (B)DR\n", p->name);
           ifa->dr_sk=sk_new(p->pool);
           ifa->dr_sk->type=SK_IP_MC;
+	  ifa->dr_sk->sport=0;
 	  ifa->dr_sk->dport=OSPF_PROTO;
-          ifa->dr_sk->saddr=AllDRouters;
+          ifa->dr_sk->saddr=ipa_from_u32(0);
           ifa->dr_sk->daddr=AllDRouters;
           ifa->dr_sk->tos=IP_PREC_INTERNET_CONTROL;
           ifa->dr_sk->ttl=1;
@@ -222,8 +223,9 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
 
   mcsk=sk_new(p->pool);
   mcsk->type=SK_IP_MC;
+  mcsk->sport=0;
   mcsk->dport=OSPF_PROTO;
-  mcsk->saddr=AllSPFRouters;
+  mcsk->saddr=ipa_from_u32(0);
   mcsk->daddr=AllSPFRouters;
   mcsk->tos=IP_PREC_INTERNET_CONTROL;
   mcsk->ttl=1;

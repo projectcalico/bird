@@ -67,6 +67,11 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       schedule_rt_lsa(ifa->oa);
       schedule_net_lsa(ifa);
     }
+    if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)
+    {
+      /* Stop RXMT timer */
+      tm_stop(n->rxmt_timer);
+    }
     if(state==NEIGHBOR_EXSTART)
     {
       if(n->adj==0)	/* First time adjacency */
@@ -294,6 +299,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
         }
       break;
     case INM_SEQMIS:
+      OSPF_TRACE(D_EVENTS, "Seq mis!");
     case INM_BADLSREQ:
       OSPF_TRACE(D_EVENTS, "Bad LS req!");
       if(n->state>=NEIGHBOR_EXCHANGE)
