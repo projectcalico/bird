@@ -36,7 +36,7 @@ ospf_tx_authenticate (struct ospf_iface *ifa, struct ospf_packet *pkt)
   return;
 }
 
-int
+static int
 ospf_rx_authenticate (struct ospf_iface *ifa, struct ospf_packet *pkt)
 {
   int i;

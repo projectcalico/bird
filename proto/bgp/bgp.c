@@ -76,7 +76,7 @@ static void bgp_connect(struct bgp_proto *p);
 static void bgp_initiate(struct bgp_proto *p);
 static void bgp_setup_listen_sk(void);
 
-void
+static void
 bgp_close(struct bgp_proto *p UNUSED)
 {
   ASSERT(bgp_counter);

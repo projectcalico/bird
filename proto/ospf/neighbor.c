@@ -210,7 +210,7 @@ electdr(list nl)
   return(n);
 }
 
-int
+static int
 can_do_adj(struct ospf_neighbor *n)
 {
   struct ospf_iface *ifa;
@@ -569,7 +569,6 @@ void
 rxmt_timer_hook(timer *timer)
 {
   struct ospf_neighbor *n = (struct ospf_neighbor *)timer->data;
-  struct ospf_iface *ifa = n->ifa;
   struct top_hash_entry *en;
 
   DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",

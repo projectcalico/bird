@@ -16,19 +16,19 @@ char *ospf_ism[]={ "interface up", "wait timer fired", "backup seen",
 
 char *ospf_it[]={ "broadcast", "nbma", "point-to-point", "virtual link" };
 
-void
+static void
 poll_timer_hook(timer *timer)
 {
   ospf_hello_send(timer, 1, NULL);
 }
 
-void
+static void
 hello_timer_hook(timer *timer)
 {
   ospf_hello_send(timer, 0, NULL);
 }
 
-void
+static void
 wait_timer_hook(timer *timer)
 {
   struct ospf_iface *ifa;

@@ -50,7 +50,7 @@
 
 #define CMP_ERROR 999
 
-struct adata *
+static struct adata *
 adata_empty(struct linpool *pool)
 {
   struct adata *res = lp_alloc(pool, sizeof(struct adata));
@@ -122,7 +122,7 @@ val_compare(struct f_val v1, struct f_val v2)
 /*
  * val_simple_in_range - check if @v1 ~ @v2 for everything except sets
  */ 
-int
+static int
 val_simple_in_range(struct f_val v1, struct f_val v2)
 {
   if ((v1.type == T_PATH) && (v2.type == T_PATH_MASK))
@@ -161,7 +161,7 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
  * Checks if @v1 is element (|~| operator) of @v2. Sets are internally represented as balanced trees, see
  * |tree.c| module (this is not limited to sets, but for non-set cases, val_simple_in_range() is called early).
  */
-int
+static int
 val_in_range(struct f_val v1, struct f_val v2)
 {
   int res;
@@ -240,7 +240,7 @@ static rta *f_rta_copy;
 /*
  * rta_cow - prepare rta for modification by filter
  */
-void
+static void
 rta_cow(void)
 {
   if (!f_rta_copy) {

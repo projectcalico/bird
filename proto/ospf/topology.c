@@ -20,7 +20,7 @@
 #define HASH_LO_STEP 2
 #define HASH_LO_MIN 8
 
-void *
+static void *
 originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
 {
   struct ospf_iface *ifa;
@@ -216,7 +216,7 @@ originate_rt_lsa(struct ospf_area *oa)
   oa->origrt=0;
 }
 
-void *
+static void *
 originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
   struct proto_ospf *po)
 {

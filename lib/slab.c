@@ -188,7 +188,7 @@ sl_new(pool *p, unsigned size)
   return s;
 }
 
-struct sl_head *
+static struct sl_head *
 sl_new_head(slab *s)
 {
   struct sl_head *h = xmalloc(SLAB_SIZE);

@@ -541,7 +541,7 @@ krt_set_notify(struct krt_proto *p, net *n UNUSED, rte *new, rte *old)
     }
 }
 
-struct iface *
+static struct iface *
 krt_temp_iface(struct krt_proto *p, unsigned index)
 {
   struct iface *i, *j;
