@@ -8,24 +8,25 @@
 
 #include "ospf.h"
 
-char *s_queue[]={ "direct", "delayed" };
+char *s_queue[] = { "direct", "delayed" };
 
 /*
  * =====================================
  * Note, that h is in network endianity!
  * =====================================
  */
+
 void
-ospf_lsack_enqueue(struct ospf_neighbor *n,struct ospf_lsa_header *h,
-  struct proto *p, int queue)
+ospf_lsack_enqueue(struct ospf_neighbor *n, struct ospf_lsa_header *h,
+		   struct proto *p, int queue)
 {
   struct lsah_n *no;
 
-  no=mb_alloc(n->pool,sizeof(struct lsah_n));
-  memcpy(&no->lsa,h,sizeof(struct ospf_lsa_header));
+  no = mb_alloc(n->pool, sizeof(struct lsah_n));
+  memcpy(&no->lsa, h, sizeof(struct ospf_lsa_header));
   add_tail(&n->ackl[queue], NODE no);
-  DBG("Adding (%s) ack for %I, ID: %I, RT: %I, Type: %u\n", s_queue[queue], n->rid,
-    ntohl(h->id), ntohl(h->rt),h->type);
+  DBG("Adding (%s) ack for %I, ID: %I, RT: %I, Type: %u\n", s_queue[queue],
+      n->rid, ntohl(h->id), ntohl(h->rt), h->type);
 }
 
 void
@@ -34,85 +35,76 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   struct ospf_packet *op;
   struct ospf_lsack_packet *pk;
   sock *sk;
-  u16 len,i=0;
+  u16 len, i = 0;
   struct ospf_lsa_header *h;
   struct lsah_n *no;
-  struct ospf_iface *ifa=n->ifa;
-  struct proto *p=&n->ifa->proto->proto;
+  struct ospf_iface *ifa = n->ifa;
+  struct proto *p = &n->ifa->proto->proto;
 
-  if(EMPTY_LIST(n->ackl[queue])) return;
+  if (EMPTY_LIST(n->ackl[queue]))
+    return;
 
   OSPF_TRACE(D_PACKETS, "LS ack sent to %I (%s)", n->ip, s_queue[queue]);
 
-  if(ifa->type==OSPF_IT_BCAST)
-  {
-    sk=ifa->hello_sk;
-  }
+  if (ifa->type == OSPF_IT_BCAST)
+    sk = ifa->hello_sk;
   else
-  {
-    sk=ifa->ip_sk;
-  }
+    sk = ifa->ip_sk;
 
-  pk=(struct ospf_lsack_packet *)sk->tbuf;
-  op=(struct ospf_packet *)sk->tbuf;
+  pk = (struct ospf_lsack_packet *) sk->tbuf;
+  op = (struct ospf_packet *) sk->tbuf;
 
   fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
-  h=(struct ospf_lsa_header *)(pk+1);
+  h = (struct ospf_lsa_header *) (pk + 1);
 
-  while(!EMPTY_LIST(n->ackl[queue]))
+  while (!EMPTY_LIST(n->ackl[queue]))
   {
-    no=(struct lsah_n *)HEAD(n->ackl[queue]);
-    memcpy(h+i,&no->lsa, sizeof(struct ospf_lsa_header));
+    no = (struct lsah_n *) HEAD(n->ackl[queue]);
+    memcpy(h + i, &no->lsa, sizeof(struct ospf_lsa_header));
     i++;
-    DBG("Iter %u ID: %I, RT: %I, Type: %u\n",i, ntohl((h+i)->id),
-      ntohl((h+i)->rt),(h+i)->type);
+    DBG("Iter %u ID: %I, RT: %I, Type: %u\n", i, ntohl((h + i)->id),
+	ntohl((h + i)->rt), (h + i)->type);
     rem_node(NODE no);
     mb_free(no);
-    if((i*sizeof(struct ospf_lsa_header)+sizeof(struct ospf_lsack_packet)+SIPH)>
-      n->ifa->iface->mtu)
+    if ((i * sizeof(struct ospf_lsa_header) +
+	 sizeof(struct ospf_lsack_packet) + SIPH) > n->ifa->iface->mtu)
     {
-      if(!EMPTY_LIST(n->ackl[queue]))
+      if (!EMPTY_LIST(n->ackl[queue]))
       {
-        len=sizeof(struct ospf_lsack_packet)+i*sizeof(struct ospf_lsa_header);
-	op->length=htons(len);
+	len =
+	  sizeof(struct ospf_lsack_packet) +
+	  i * sizeof(struct ospf_lsa_header);
+	op->length = htons(len);
 	ospf_pkt_finalize(n->ifa, op);
-	DBG("Sending and continuing! Len=%u\n",len);
-        if(ifa->type==OSPF_IT_BCAST)
+	DBG("Sending and continuing! Len=%u\n", len);
+	if (ifa->type == OSPF_IT_BCAST)
 	{
-          if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
-	  {
-	    sk_send_to(sk ,len, AllSPFRouters, OSPF_PROTO);
-	  }
+	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
+	    sk_send_to(sk, len, AllSPFRouters, OSPF_PROTO);
 	  else
-	  {
-	    sk_send_to(sk ,len, AllDRouters, OSPF_PROTO);
-	  }
+	    sk_send_to(sk, len, AllDRouters, OSPF_PROTO);
 	}
 	else
 	{
-          if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
-	  {
-            sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
-	  }
+	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
+	    sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
 	  else
-	  {
-            sk_send_to_bdr(sk, len, ifa);
-	  }
+	    sk_send_to_bdr(sk, len, ifa);
 	}
 
 	fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
-	i=0;
+	i = 0;
       }
     }
   }
 
-  len=sizeof(struct ospf_lsack_packet)+i*sizeof(struct ospf_lsa_header);
-  op->length=htons(len);
+  len = sizeof(struct ospf_lsack_packet) + i * sizeof(struct ospf_lsa_header);
+  op->length = htons(len);
   ospf_pkt_finalize(n->ifa, op);
-  DBG("Sending! Len=%u\n",len);
-  if(ifa->type==OSPF_IT_BCAST)
+  DBG("Sending! Len=%u\n", len);
+  if (ifa->type == OSPF_IT_BCAST)
   {
-    if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
+    if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
     {
       sk_send_to(sk, len, AllSPFRouters, OSPF_PROTO);
     }
@@ -129,68 +121,71 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 
 void
 ospf_lsack_receive(struct ospf_lsack_packet *ps, struct proto *p,
-  struct ospf_iface *ifa, u16 size)
+		   struct ospf_iface *ifa, u16 size)
 {
   u32 nrid, myrid;
   struct ospf_neighbor *n;
-  struct ospf_lsa_header lsa,*plsa;
+  struct ospf_lsa_header lsa, *plsa;
   int length;
-  u16 nolsa,i;
+  u16 nolsa, i;
   struct top_hash_entry *en;
-  u16 lenn=ntohs(ps->ospf_packet.length);
+  u16 lenn = ntohs(ps->ospf_packet.length);
 
-  nrid=ntohl(ps->ospf_packet.routerid);
+  nrid = ntohl(ps->ospf_packet.routerid);
 
-  myrid=p->cf->global->router_id;
+  myrid = p->cf->global->router_id;
 
-  if((n=find_neigh(ifa, nrid))==NULL)
+  if ((n = find_neigh(ifa, nrid)) == NULL)
   {
-    OSPF_TRACE(D_PACKETS, "Received LS ack from unknown neigbor! (%I)",
-      nrid);
-    return ;
+    OSPF_TRACE(D_PACKETS, "Received LS ack from unknown neigbor! (%I)", nrid);
+    return;
   }
 
   OSPF_TRACE(D_PACKETS, "Received LS ack from %I", n->ip);
   ospf_neigh_sm(n, INM_HELLOREC);
 
-  if(n->state<NEIGHBOR_EXCHANGE) return;
+  if (n->state < NEIGHBOR_EXCHANGE)
+    return;
 
-  nolsa=(lenn-sizeof(struct ospf_lsack_packet))/
+  nolsa = (lenn - sizeof(struct ospf_lsack_packet)) /
     sizeof(struct ospf_lsa_header);
 
-  if((nolsa<1)||((lenn-sizeof(struct ospf_lsack_packet))!=
-    (nolsa*sizeof(struct ospf_lsa_header))))
+  if ((nolsa < 1) || ((lenn - sizeof(struct ospf_lsack_packet)) !=
+		      (nolsa * sizeof(struct ospf_lsa_header))))
   {
     log("%s: Received corrupted LS ack from %I", p->name, n->ip);
     return;
   }
 
-  plsa=(struct ospf_lsa_header *)(ps+1);
+  plsa = (struct ospf_lsa_header *) (ps + 1);
 
-  for(i=0;i<nolsa;i++)
+  for (i = 0; i < nolsa; i++)
   {
-    ntohlsah(plsa+i,&lsa);
-    if((en=ospf_hash_find_header(n->lsrth,&lsa))==NULL) continue;
+    ntohlsah(plsa + i, &lsa);
+    if ((en = ospf_hash_find_header(n->lsrth, &lsa)) == NULL)
+      continue;
 
-    if(lsa_comp(&lsa,&en->lsa)!=CMP_SAME)
+    if (lsa_comp(&lsa, &en->lsa) != CMP_SAME)
     {
-      if((lsa.sn==LSA_MAXSEQNO)&&(lsa.age==LSA_MAXAGE)) continue;
+      if ((lsa.sn == LSA_MAXSEQNO) && (lsa.age == LSA_MAXAGE))
+	continue;
 
-      OSPF_TRACE(D_PACKETS, "Strange LS acknoledgement from %I",n->ip);
+      OSPF_TRACE(D_PACKETS, "Strange LS acknoledgement from %I", n->ip);
       OSPF_TRACE(D_PACKETS, "Id: %I, Rt: %I, Type: %u",
-        lsa.id,lsa.rt,lsa.type);
+		 lsa.id, lsa.rt, lsa.type);
       OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seqno: 0x%08x, Sum: %u",
-        en->lsa.age, en->lsa.sn, en->lsa.checksum);
+		 en->lsa.age, en->lsa.sn, en->lsa.checksum);
       OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seqno: 0x%08x, Sum: %u",
-        lsa.age,lsa.sn,lsa.checksum);
+		 lsa.age, lsa.sn, lsa.checksum);
       continue;
     }
 
     DBG("Deleting LS Id: %I RT: %I Type: %u from LS Retl for neighbor %I\n",
-      lsa.id,lsa.rt,lsa.type,n->rid);
+	lsa.id, lsa.rt, lsa.type, n->rid);
     s_rem_node(SNODE en);
-    if(en->lsa_body!=NULL) mb_free(en->lsa_body);
-    en->lsa_body=NULL;
-    ospf_hash_delete(n->lsrth,en);
-  }  
+    if (en->lsa_body != NULL)
+      mb_free(en->lsa_body);
+    en->lsa_body = NULL;
+    ospf_hash_delete(n->lsrth, en);
+  }
 }
