@@ -335,7 +335,7 @@ constant:
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
- | '/' bgp_path '/' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PATH_MASK; $$->a2.p = $2; }
+ | '/' bgp_path '/' { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; val->type = T_PATH_MASK; val->val.path_mask = $2; $$->a1.p = val; }
  ;
 
 /*

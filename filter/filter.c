@@ -39,8 +39,10 @@ val_compare(struct f_val v1, struct f_val v2)
   if (v2.type == T_VOID)
     return 1;
 
-  if (v1.type != v2.type)
+  if (v1.type != v2.type) {
+    debug( "Types do not match in val_compare\n" );
     return CMP_ERROR;
+  }
   switch (v1.type) {
   case T_ENUM:
   case T_INT: 
@@ -52,11 +54,12 @@ val_compare(struct f_val v1, struct f_val v2)
   case T_PREFIX:
     return ipa_compare(v1.val.px.ip, v2.val.px.ip);
   default:
+    debug( "Compare of unkown entities: %x\n", v1.type );
     return CMP_ERROR;
   }
 }
 
-int 
+int
 val_simple_in_range(struct f_val v1, struct f_val v2)
 {
   if ((v1.type == T_PATH) && (v2.type == T_PATH_MASK))
@@ -574,7 +577,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
 
   case 'c': A2_SAME; break;
   case 'C': 
-    if (val_compare(* (struct f_val *) f1->a1.p, * (struct f_val *) f2->a2.p))
+    if (val_compare(* (struct f_val *) f1->a1.p, * (struct f_val *) f2->a1.p))
       return 0;
     break;
   case 'p': case 'L': ONEARG; break;
@@ -629,8 +632,10 @@ filters_postconfig(void)
 {
   struct f_val res;
 
+#if 1
   if (!i_same(test1_func, test2_func))
     bug("i_same does not work");
+#endif
   if (startup_func) {
     debug( "Launching startup function...\n" );
     f_pool = lp_new(&root_pool, 1024);
