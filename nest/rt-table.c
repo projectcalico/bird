@@ -184,6 +184,8 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
 	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
 	{
 	  rte_trace_out(D_FILTERS, p, new, "filtered out");
+	  if (new != new0)
+	    rte_free(new);
 	  new = NULL;
 	}
     }
