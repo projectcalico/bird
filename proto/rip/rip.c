@@ -69,7 +69,7 @@ kill_entry_ourrt( struct proto *p, struct rip_entry *e )
   rem_node( NODE e );
   WALK_LIST( c, P->connections ) {
     if (c->sendptr == e) {
-      debug( "Deleting from under someone's sendptr...\n" );
+      DBG( "Deleting from under someone's sendptr...\n" );
       c->sendptr = (void *) (NODE c->sendptr)->next;
     }
   }
@@ -107,7 +107,7 @@ rip_tx_err( sock *s, int err )
 {
   struct rip_connection *c = s->data;
   struct proto *p = c->proto;
-  log( L_ERR "Unexpected error at rip transmit\n" );
+  log( L_ERR "Unexpected error at rip transmit: %m\n" );
 }
 
 static void
@@ -121,14 +121,14 @@ rip_tx( sock *s )
 
 givemore:
 
-  debug( "Preparing packet to send: " );
+  DBG( "Preparing packet to send: " );
 
   if (!(NODE c->sendptr)->next) {
-    debug( "Looks like I'm" );
+    DBG( "Looks like I'm" );
     c->rif->busy = NULL;
     rem_node(NODE c);
     mb_free(c);
-    debug( " done\n" );
+    DBG( " done\n" );
     return;
   }
 
@@ -139,7 +139,7 @@ givemore:
   for (i = 0; i < 25; i++) {
     if (!(NODE c->sendptr)->next)
       break;
-    debug( "." );
+    DBG( "." );
     packet->block[i].family  = htons( 2 ); /* AF_INET */
     packet->block[i].tag     = htons( 0 ); /* FIXME: What should I set it to? */
     packet->block[i].network = c->sendptr->network;
@@ -147,7 +147,7 @@ givemore:
     packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? */
     packet->block[i].metric  = htonl( 1+ (c->sendptr->metric?:1) );
     if (ipa_equal(c->sendptr->whotoldme, s->daddr)) {
-      debug( "(split horizont)" );
+      DBG( "(split horizont)" );
       /* FIXME: should we do it in all cases? */
       packet->block[i].metric = P->infinity;
     }
@@ -158,7 +158,7 @@ givemore:
     c->sendptr = (void *) (NODE c->sendptr)->next;
   }
 
-  debug( ", sending %d blocks, ", i );
+  DBG( ", sending %d blocks, ", i );
 
   if (ipa_nonzero(c->daddr))
     i = sk_send_to( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ), c->daddr, c->dport );
@@ -166,11 +166,11 @@ givemore:
     i = sk_send( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ) );
   if (i<0) rip_tx_err( s, i );
   if (i>0) {
-    debug( "it wants more\n" );
+    DBG( "it wants more\n" );
     goto givemore;
   }
   
-  debug( "blocked\n" );
+  DBG( "blocked\n" );
 }
 
 static void
@@ -213,7 +213,7 @@ struct rip_interface*
 find_interface(struct proto *p, struct iface *what)
 {
   struct rip_interface *i;
-  /* FIXME: We really want to use some kind of hash-table */ 
+
   WALK_LIST (i, P->interfaces)
     if (i->iface == what)
       return i;
@@ -259,7 +259,9 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   }
 
   A.iface = neighbor->iface;
-  i = find_interface(p, A.iface);
+  if (!(i = neighbor->data)) {
+    i = neighbor->data = find_interface(p, A.iface);
+  }
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
   n = net_get( &master_table, 0, b->network, ipa_mklen( b->netmask )); /* FIXME: should verify that it really is netmask */
@@ -270,7 +272,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   r->net = n;
   r->pflags = 0; /* Here go my flags */
   rte_update( n, p, r );
-  debug( "done\n" );
+  DBG( "done\n" );
 }
 
 static void
@@ -288,10 +290,6 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 
   /* FIXME: Check if destination looks valid - ie not net 0 or 127 */
 
-  /* FIXME: Should add configurable ammount */
-  if (metric < P->infinity)
-    metric++;
-
   debug( "block: %I tells me: %I/%I available, metric %d... ", whotoldme, network, block->netmask, metric );
 
   advertise_entry( p, block, whotoldme );
@@ -306,17 +304,17 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   int native_class = 0;
 
   switch( packet->heading.version ) {
-  case RIP_V1: debug( "Rip1: " ); break;
-  case RIP_V2: debug( "Rip2: " ); break;
+  case RIP_V1: DBG( "Rip1: " ); break;
+  case RIP_V2: DBG( "Rip2: " ); break;
   default: BAD( "Unknown version" );
   }
 
   switch( packet->heading.command ) {
-  case RIPCMD_REQUEST: debug( "Asked to send my routing table\n" ); 
+  case RIPCMD_REQUEST: DBG( "Asked to send my routing table\n" ); 
     /* FIXME: should have configurable: ignore always, honour to neighbours, honour always. FIXME: use one global socket for these. FIXME: synchronization - if two ask me at same time */
     	  rip_sendto( p, whotoldme, port, NULL ); /* no broadcast */
           break;
-  case RIPCMD_RESPONSE: debug( "*** Rtable from %I\n", whotoldme ); 
+  case RIPCMD_RESPONSE: DBG( "*** Rtable from %I\n", whotoldme ); 
           if (port != P->port) {
 	    log( L_ERR "%I send me routing info from port %d\n", whotoldme, port );
 #if 0
@@ -368,7 +366,7 @@ rip_rx(sock *s, int size)
   int num;
 
   CHK_MAGIC;
-  debug( "RIP: message came: %d bytes\n", size );
+  DBG( "RIP: message came: %d bytes\n", size );
   size -= sizeof( struct rip_packet_heading );
   if (size < 0) BAD( "Too small packet" );
   if (size % sizeof( struct rip_block )) BAD( "Odd sized packet" );
@@ -399,12 +397,12 @@ rip_timer(timer *t)
   struct rip_entry *e, *et;
 
   CHK_MAGIC;
-  debug( "RIP: tick tock\n" );
+  DBG( "RIP: tick tock\n" );
   
   WALK_LIST_DELSAFE( e, et, P->garbage ) {
     rte *rte;
     rte = SKIP_BACK( struct rte, u.rip.garbage, e );
-    debug( "Garbage: " ); rte_dump( rte );
+    DBG( "Garbage: " ); rte_dump( rte );
 
     if (now - rte->lastmod > P->garbage_time) {
       debug( "RIP: entry is too old: " ); rte_dump( rte );
@@ -412,7 +410,7 @@ rip_timer(timer *t)
     }
   }
 
-  debug( "RIP: Broadcasting routing tables\n" );
+  DBG( "RIP: Broadcasting routing tables\n" );
   {
     struct rip_interface *i;
 
@@ -426,13 +424,13 @@ rip_timer(timer *t)
     }
   }
 
-  debug( "RIP: tick tock done\n" );
+  DBG( "RIP: tick tock done\n" );
 }
 
 static void
 rip_start(struct proto *p)
 {
-  debug( "RIP: starting instance...\n" );
+  DBG( "RIP: starting instance...\n" );
 
   P->magic = RIP_MAGIC;
   init_list( &P->rtable );
@@ -447,13 +445,13 @@ rip_start(struct proto *p)
   tm_start( P->timer, 5 );
   CHK_MAGIC;
 
-  debug( "RIP: ...done\n");
+  DBG( "RIP: ...done\n");
 }
 
 static void
 rip_init(struct protocol *p)
 {
-  debug( "RIP: initializing RIP...\n" );
+  DBG( "RIP: initializing RIP...\n" );
 }
 
 static void
@@ -487,7 +485,7 @@ rip_want_this_if(struct rip_interface *iface)
 static void
 kill_iface(struct proto *p, struct rip_interface *i)
 {
-  debug( "RIP: Interface %s disappeared\n", i->iface->name);
+  DBG( "RIP: Interface %s disappeared\n", i->iface->name);
   rfree(i->sock);
   mb_free(i);
 }
@@ -541,7 +539,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
 static void
 rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 {
-  debug( "RIP: if notify\n" );
+  DBG( "RIP: if notify\n" );
   if (old) {
     struct rip_interface *i;
     i = find_interface(p, old);
@@ -653,7 +651,7 @@ rip_init_instance(struct proto *p)
 static void
 rip_preconfig(struct protocol *x)
 {
-  debug( "RIP: preconfig\n" );
+  DBG( "RIP: preconfig\n" );
 }
 
 static void
