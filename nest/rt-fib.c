@@ -163,20 +163,20 @@ fib_merge_readers(struct fib_iterator *i, struct fib_node *to)
 	  /* Fast path */
 	  to->readers = i;
 	  i->prev = (struct fib_iterator *) to;
-	fixup:
-	  while (i && i->node)
-	    {
-	      i->node = NULL;
-	      i = i->next;
-	    }
-	  return;
 	}
-      /* Really merging */
-      while (j->next)
-	j = j->next;
-      j->next = i;
-      i->prev = j;
-      goto fixup;
+      else
+	{
+	  /* Really merging */
+	  while (j->next)
+	    j = j->next;
+	  j->next = i;
+	  i->prev = j;
+	}
+      while (i && i->node)
+	{
+	  i->node = NULL;
+	  i = i->next;
+	}
     }
   else					/* No more nodes */
     while (i)
@@ -260,7 +260,7 @@ fit_get(struct fib *f, struct fib_iterator *i)
   if (!i->prev)
     {
       /* We are at the end */
-      i->hash = f->hash_size;
+      i->hash = ~0 - 1;
       return NULL;
     }
   if (!(n = i->node))

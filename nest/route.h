@@ -86,12 +86,13 @@ void fit_put(struct fib_iterator *, struct fib_node *);
 	unsigned int count = (fib)->hash_size;			\
 	unsigned int hpos = (it)->hash;				\
 	for(;;) {						\
-	fis_again:	if (!z) {				\
-			if (++hpos >= count)			\
-				break;				\
-			z = (fib)->hash_table[hpos];		\
-			goto fis_again;				\
-		}
+	  if (!z)						\
+            {							\
+	       if (++hpos >= count)				\
+		 break;						\
+	       z = (fib)->hash_table[hpos];			\
+	       continue;					\
+	    }
 
 #define FIB_ITERATE_END(z) z = z->next; } } while(0)
 
