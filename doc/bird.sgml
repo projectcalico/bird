@@ -50,7 +50,7 @@ configuration primitives, &lt;cf&gt; is fragment of configuration within normal 
 <sect1>About routing tables
 
 <p>Bird has one or more routing tables. Each routing table contains
-list of known routes. Each route has certain atributes, most important
+list of known routes. Each route has certain attributes, most important
 is prefix of network this route is for. Routing table maintains more
 than one entry for network, but at most one entry for one network and
 one protocol. The entry with biggest preference is used for
@@ -96,7 +96,7 @@ protocol rip {
 	classes/ }</tag> set logging of classes (either all or <cf/{
 	error, trace }/ etc.) into selected destination. Classes are:
 	<cf/debug/ for debugging message, <cf/trace/, <cf/info/,
-	<cf/remote/ for messages about misbehaviour of remote side, <cf/warning/,
+	<cf/remote/ for messages about misbehavior of remote side, <cf/warning/,
 	<cf/error/, <cf/auth/, <cf/fatal/, <cf/bug/ for internal bugs
 	of bird. You may specify more than one <cf/log/ line to log to multiple
 	destinations.
@@ -275,9 +275,9 @@ booleans (that is to prevent you from shooting in the foot).
 	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}.
 
 	<tag/enum/
-	  enumerational types are halfway-internal in the bird. You can not define your own
-	  variable of enumerational type, but some predefined variables are of enumerational
-	  type. Enumerational types are incompatible with each other, again, for your
+	  enumeration types are halfway-internal in the bird. You can not define your own
+	  variable of enumeration type, but some predefined variables are of enumeration
+	  type. Enumeration types are incompatible with each other, again, for your
 	  protection.
 
 	<tag/bgppath/
@@ -301,7 +301,7 @@ booleans (that is to prevent you from shooting in the foot).
 
 <p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parenthesis <cf/(a*(b+c))/, comparation
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
-used on element and set of that elements, or on ip and prefix, or on prefix and prefix or on bgpath and bgpmask. Its result
+used on element and set of that elements, or on ip and prefix, or on prefix and prefix or on bgppath and bgpmask. Its result
 is true if element is in given set or if ip address is inside given prefix. Operator <cf/=/ is used to assign value
 to variable.
 
@@ -346,7 +346,7 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 	who told me about this route.
 	
 	<tag/<m/ip/ gw/
-	what is nexthop packets routed using this route should be forwarded to.
+	what is next hop packets routed using this route should be forwarded to.
 
 	<tag/<m/enum/ source/
 	what protocol told me about this route. This can have values such as <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/.
@@ -360,10 +360,10 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 
 <descrip>
 	<tag>print <m/expr/ [ <m/, expr .../ ]</tag>
-	prints given expressions, usefull mainly while debugging filters.
+	prints given expressions, useful mainly while debugging filters.
 
 	<tag>quitbird</tag>
-	terminates bird. Usefull while debugging filter interpretter.
+	terminates bird. Useful while debugging filter interpreter.
 </descrip>
 
 <sect>Protocols
@@ -412,7 +412,7 @@ other than equally misconfigured bird. I warned you.
 <descrip>
 	<tag>port <M>number</M></tag>
 	  selects IP port to operate on, default 520. (This is useful when testing bird, if you
-	  set this to address &gt;1024, you will not need to run bird with uid==0).
+	  set this to address &gt;1024, you will not need to run bird with UID==0).
 
 	<tag>infinity <M>number</M></tag>
 	  select value of infinity, default 16. Bigger values will make protocol convergence
@@ -459,5 +459,5 @@ programmers documentation, web pages mailing lists and similar stuff.
 
 
 <!--
-# LocalWords: IPv doctype verb GPL Cisco sgml html Cisco's unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md rfc doc
+# LocalWords: IPv doctype verb GPL Cisco sgml html Cisco's unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md eval ipaddress pxlen netmask bgppath bgpmask clist gw RTS EXT quitbird nolisten UID timeouttime garbagetime rfc doc 
 -->
