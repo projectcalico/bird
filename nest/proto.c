@@ -6,15 +6,84 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#define LOCAL_DEBUG
+
+#include <string.h>
+
 #include "nest/bird.h"
 #include "nest/protocol.h"
 #include "lib/resource.h"
 #include "lib/lists.h"
+#include "nest/confile.h"
 
+list protocol_list;
 list proto_list;
+
+void *
+proto_new(struct protocol *pr, unsigned size)
+{
+  struct proto *p = mp_alloc(cfg_mem, size);
+
+  debug("proto_new(%s)\n", pr->name);
+  bzero(p, sizeof(*p));
+  p->proto = pr;
+  p->name = pr->name;
+  p->debug = pr->debug;
+  p->pool = rp_new(&root_pool, pr->name);
+  add_tail(&proto_list, &p->n);
+  return p;
+}
+
+void
+protos_preconfig(void)
+{
+  struct protocol *p;
+
+  init_list(&proto_list);
+  debug("Protocol preconfig\n");
+  WALK_LIST(p, protocol_list)
+    {
+      debug("...%s\n", p->name);
+      p->preconfig(p);
+    }
+}
+
+void
+protos_postconfig(void)
+{
+  struct protocol *p;
+
+  debug("Protocol postconfig\n");
+  WALK_LIST(p, protocol_list)
+    {
+      debug("...%s\n", p->name);
+      p->postconfig(p);
+    }
+}
+
+
+void
+protos_start(void)
+{
+  struct proto *p;
+
+  debug("Protocol start\n");
+  WALK_LIST(p, proto_list)
+    {
+      debug("...%s\n", p->name);
+      if (p->start)
+	p->start(p);
+    }
+}
 
 void
 protos_init(void)
 {
-  init_list(&proto_list);
+  struct protocol *p;
+
+  debug("Initializing protocols\n");
+  init_list(&protocol_list);
+  add_tail(&protocol_list, &proto_device.n);
+  WALK_LIST(p, protocol_list)
+    p->init(p);
 }
