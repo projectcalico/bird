@@ -483,6 +483,21 @@ interpret(struct f_inst *what)
     res.val.ad = as_path_prepend(f_pool, v1.val.ad, v2.val.i);
     break;
 
+  case P('C','a'):	/* Community list add or delete */
+    TWOARGS;
+    if (v1.type != T_CLIST)
+      runtime("Can't add/delete to non-clist");
+    if (v2.type != T_PAIR)
+      runtime("Can't add/delete non-pair");
+
+    res.type = T_CLIST;
+    switch (what->aux) {
+    case 'a': res.val.ad = int_set_add(f_pool, v1.val.ad, v2.val.i); break;
+    case 'd': res.val.ad = int_set_del(f_pool, v1.val.ad, v2.val.i); break;
+    default: bug("unknown Ca operation");
+    }
+    break;
+
   default:
     bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
   }
@@ -566,6 +581,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case P('S','W'): ONEARG; if (!same_tree(f1->a2.p, f2->a2.p)) return 0; break;
   case P('i','M'): TWOARGS; break;
   case P('A','p'): TWOARGS; break;
+  case P('C','a'): TWOARGS; break;
   default:
     bug( "Unknown instruction %d in same (%c)", f1->code, f1->code & 0xff);
   }
