@@ -324,7 +324,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     }
     if(absr==NULL) continue;
 
-    if(1 || ipa_compare(lt->fwaddr,ipa_from_u32(0))==0)	/* FIXME add fwaddr */
+    if(ipa_compare(lt->fwaddr,ipa_from_u32(0))==0)
     {
       if(lt->etos>0)
       {
