@@ -64,7 +64,7 @@ log_cat:
 
 /* Unix specific commands */
 
-CF_CLI(CONFIGURE, cfg_name, ["<file>"], [[Reload configuration]])
+CF_CLI(CONFIGURE, cfg_name, [\"<file>\"], [[Reload configuration]])
 { cmd_reconfig($2); } ;
 
 CF_CLI(DOWN,,, [[Shut the daemon down]])
