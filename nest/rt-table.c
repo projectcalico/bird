@@ -324,11 +324,10 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
 		}
 	      r->next = net->routes;
 	      net->routes = r;
-	      if (!r &&
-		  table->gc_counter++ >= table->config->gc_max_ops &&
-		  table->gc_time + table->config->gc_min_time <= now)
-		ev_schedule(table->gc_event);
 	    }
+	  else if (table->gc_counter++ >= table->config->gc_max_ops &&
+		   table->gc_time + table->config->gc_min_time <= now)
+	    ev_schedule(table->gc_event);
 	}
       if (new)				/* Link in the new non-optimal route */
 	{
@@ -501,6 +500,7 @@ rt_setup(pool *p, rtable *t, char *name, struct rtable_config *cf)
       t->gc_event = ev_new(p);
       t->gc_event->hook = rt_gc;
       t->gc_event->data = t;
+      t->gc_time = now;
     }
 }
 
@@ -549,7 +549,7 @@ again:
 	}
     }
   FIB_ITERATE_END(f);
-  DBG("Pruned %d of %d routes and %d of %d networks\n", rcnt, rdel, ncnt, ndel);
+  DBG("Pruned %d of %d routes and %d of %d networks\n", rdel, rcnt, ndel, ncnt);
 #ifdef DEBUGGING
   fib_check(&tab->fib);
 #endif
@@ -574,7 +574,7 @@ rt_new_table(struct symbol *s)
   cf_define_symbol(s, SYM_TABLE, c);
   c->name = s->name;
   add_tail(&new_config->tables, &c->n);
-  c->gc_max_ops = 100;
+  c->gc_max_ops = 1000;
   c->gc_min_time = 5;
   return c;
 }
