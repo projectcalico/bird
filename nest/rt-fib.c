@@ -28,7 +28,7 @@ fib_ht_alloc(struct fib *f)
   f->entries_min = f->hash_size HASH_LO_MARK;
   if (f->entries_min < HASH_LO_MIN)
     f->entries_min = 0;
-  DBG("Allocating FIB: %d entries, %d low, %d high", f->hash_size, f->entries_min, f->entries_max);
+  DBG("Allocating FIB: %d entries, %d low, %d high\n", f->hash_size, f->entries_min, f->entries_max);
   f->hash_table = mb_alloc(f->fib_pool, f->hash_size * sizeof(struct fib_node *));
   bzero(f->hash_table, f->hash_size * sizeof(struct fib_node *));
 }
@@ -67,7 +67,7 @@ fib_rehash(struct fib *f, unsigned new)
 
   old = f->hash_size;
   m = h = f->hash_table;
-  DBG("Re-hashing FIB from %d to %d", old, new);
+  DBG("Re-hashing FIB from %d to %d\n", old, new);
   f->hash_size = new;
   fib_ht_alloc(f);
   n = f->hash_table;
