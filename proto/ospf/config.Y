@@ -53,11 +53,8 @@ ospf_area_start: AREA idval '{' {
  }
 ;
 
-ospf_area:
- | ospf_area_start ospf_area_list
-;
-
-ospf_area_list: /*EMPTY*/ | ospf_area_opts '}'
+ospf_area: /* EMPTY */
+ | ospf_area_start ospf_area_opts '}'
 ;
 
 ospf_area_opts:
