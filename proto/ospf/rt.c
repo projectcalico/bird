@@ -453,6 +453,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
           if((neigh=find_neigh_noifa(po,absr->lsa.rt))==NULL)
 	  {
              DBG("Cannot find neighbor\n");
+             nf->metric=LSINFINITY;     /* delete this route */
 	     continue;
 	  }
           nn=neigh_find(p,&neigh->ip,0);
