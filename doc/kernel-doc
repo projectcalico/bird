@@ -545,7 +545,7 @@ sub output_bird {
     }
     print "</descrip>\n";
     foreach $section (@{$args{'sectionlist'}}) {
-	print "<sect3>$section\n";
+	print "<funcsect>$section\n";
 	print "<p>\n";
 	output_highlight($args{'sections'}{$section});
     }
