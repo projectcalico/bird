@@ -11,7 +11,7 @@
 		next hops are only advisory, and they are pretty ugly in IpV6.
 		I suggest just forgetting about them.
 
-	FIXME (nonurgent): fold rip_connection into rip_interface?
+	FIXME: (nonurgent): fold rip_connection into rip_interface?
 
 	FIXME: (nonurgent) allow bigger frequencies than 1 regular update in 6 seconds (?)
 	FIXME: propagation of metric=infinity into main routing table may or may not be good idea.
@@ -62,13 +62,10 @@
 
 #define P ((struct rip_proto *) p)
 #define P_CF ((struct rip_proto_config *)p->cf)
-#define E ((struct rip_entry *) e)
 
 #define TRACE(level, msg, args...) do { if (p->debug & level) { log(L_TRACE "%s: " msg, p->name , ## args); } } while(0)
 
 static struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt);
-
-#define P_NAME p->name
 
 /*
  * Output processing
@@ -81,7 +78,7 @@ rip_tx_err( sock *s, int err )
 {
   struct rip_connection *c = ((struct rip_interface *)(s->data))->busy;
   struct proto *p = c->proto;
-  log( L_ERR "%s: Unexpected error at rip transmit: %M", P_NAME, err );
+  log( L_ERR "%s: Unexpected error at rip transmit: %M", p->name, err );
 }
 
 /*
@@ -217,7 +214,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   static int num = 0;
 
   if (rif->busy) {
-    log (L_WARN "%s: Interface %s is much too slow, dropping request", P_NAME, iface->name);
+    log (L_WARN "%s: Interface %s is much too slow, dropping request", p->name, iface->name);
     return;
   }
   c = mb_alloc( p->pool, sizeof( struct rip_connection ));
@@ -371,14 +368,14 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
     if (metric == 0xff)
       { DBG( "IpV6 nexthop ignored" ); return; }
 #endif
-    log( L_WARN "%s: Got metric %d from %I", P_NAME, metric, whotoldme );
+    log( L_WARN "%s: Got metric %d from %I", p->name, metric, whotoldme );
     return;
   }
 
   advertise_entry( p, block, whotoldme );
 }
 
-#define BAD( x ) { log( L_REMOTE "%s: " x, P_NAME ); return 1; }
+#define BAD( x ) { log( L_REMOTE "%s: " x, p->name ); return 1; }
 
 /*
  * rip_process_packet - this is main routine for incoming packets.
@@ -407,12 +404,12 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
           break;
   case RIPCMD_RESPONSE: DBG( "*** Rtable from %I\n", whotoldme ); 
           if (port != P_CF->port) {
-	    log( L_REMOTE "%s: %I send me routing info from port %d", P_NAME, whotoldme, port );
+	    log( L_REMOTE "%s: %I send me routing info from port %d", p->name, whotoldme, port );
 	    return 1;
 	  }
 
 	  if (!(neighbor = neigh_find( p, &whotoldme, 0 )) || neighbor->scope == SCOPE_HOST) {
-	    log( L_REMOTE "%s: %I send me routing info but he is not my neighbor", P_NAME, whotoldme );
+	    log( L_REMOTE "%s: %I send me routing info but he is not my neighbor", p->name, whotoldme );
 	    return 0;
 	  }
 
@@ -622,7 +619,7 @@ rip_dump(struct proto *p)
   i = 0;
   FIB_WALK( &P->rtable, e ) {
     debug( "RIP: entry #%d: ", i++ );
-    rip_dump_entry( E );
+    rip_dump_entry( (struct rip_entry *)e );
   } FIB_WALK_END;
   i = 0;
   WALK_LIST( rif, P->interfaces ) {
@@ -700,7 +697,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 
   if (new) {
     if (new->addr->flags & IA_UNNUMBERED)
-      log( L_WARN "%s: rip is not defined over unnumbered links", P_NAME );
+      log( L_WARN "%s: rip is not defined over unnumbered links", p->name );
     if (rif->multicast) {
 #ifndef IPV6
       rif->sock->daddr = ipa_from_u32(0xe0000009);
@@ -717,9 +714,9 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 
   if (!ipa_nonzero(rif->sock->daddr)) {
     if (rif->iface)
-      log( L_WARN "%s: interface %s is too strange for me", P_NAME, rif->iface->name );
+      log( L_WARN "%s: interface %s is too strange for me", p->name, rif->iface->name );
   } else if (sk_open(rif->sock)<0) {
-    log( L_ERR "%s: could not create socket for %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
+    log( L_ERR "%s: could not create socket for %s", p->name, rif->iface ? rif->iface->name : "(dummy)" );
     if (rif->iface) {
       rfree(rif->sock);
       mb_free(rif);
@@ -850,7 +847,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
   if (old) {
     struct rip_entry *e = fib_find( &P->rtable, &net->n.prefix, net->n.pxlen );
     if (!e)
-      log( L_BUG "%s: Deleting nonexistent entry?!", P_NAME );
+      log( L_BUG "%s: Deleting nonexistent entry?!", p->name );
     fib_delete( &P->rtable, e );
   }
 
@@ -859,7 +856,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
 #if 0
     /* This can happen since feeding of protocols is asynchronous */
     if (fib_find( &P->rtable, &net->n.prefix, net->n.pxlen ))
-      log( L_BUG "%s: Inserting entry which is already there?", P_NAME );
+      log( L_BUG "%s: Inserting entry which is already there?", p->name );
 #endif
     e = fib_get( &P->rtable, &net->n.prefix, net->n.pxlen );
 
