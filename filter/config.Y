@@ -65,7 +65,7 @@ CF_DECLS
 
 CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
-	INT, BOOL, IP, PREFIX, PAIR, SET, STRING, BGP_PATH,
+	INT, BOOL, IP, PREFIX, PAIR, SET, STRING, BGPMASK, BGPPATH, CLIST,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE,
 	FROM, GW, NET, MASK, SOURCE,
@@ -106,7 +106,9 @@ type:
  | PREFIX { $$ = T_PREFIX; }
  | PAIR { $$ = T_PAIR; }
  | STRING { $$ = T_STRING; }
- | BGP_PATH { $$ = T_PATH_MASK; }
+ | BGPMASK { $$ = T_PATH_MASK; }
+ | BGPPATH { $$ = T_PATH; }
+ | CLIST { $$ = T_CLIST; }
  | type SET { 
 	switch ($1) {
 	  default:
@@ -406,16 +408,16 @@ term:
  | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = P('i','M'); $$->a1.p = $1; $$->a2.p = $5; }
 
 /* Communities */
-
- | term '.' ADD '(' term ')' { }
- | term '.' DELETE '(' term ')' { }
- | term '.' CONTAINS '(' term ')' { }
- | term '.' RESET { }
+/* This causes one shift/reduce conflict
+ | rtadot dynamic_attr '.' ADD '(' term ')' { }
+ | rtadot dynamic_attr '.' DELETE '(' term ')' { }
+ | rtadot dynamic_attr '.' CONTAINS '(' term ')' { }
+ | rtadot dynamic_attr '.' RESET { }
+*/
 
 /* Paths */
- | rtadot PATH '~' term { }
- | rtadot PATH '.' APPEND '(' term ')' { }
- | rtadot PATH '.' LEN { $$->code = P('P','l'); }
+ | rtadot dynamic_attr '.' APPEND '(' term ')' { }
+ | rtadot dynamic_attr '.' LEN { $$->code = P('P','l'); }
 
 /* function_call is inlined here */
  | SYM '(' var_list ')' {

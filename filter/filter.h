@@ -39,6 +39,11 @@ struct prefix {
   /* If range then prefix must be in range (len >> 16 & 0xff, len >> 8 & 0xff) */
 };
 
+struct f_path_mask {
+  struct f_path_mask *next;
+  int val;
+};
+
 struct f_val {
   int type;
   union {
@@ -47,12 +52,9 @@ struct f_val {
     struct prefix px;
     char *s;
     struct f_tree *t;
+    struct adata *ad;
+    struct f_path_mask *path_mask;
   } val;
-};
-
-struct f_path_mask {
-  struct f_path_mask *next;
-  int val;
 };
 
 struct filter {
@@ -116,6 +118,8 @@ void val_print(struct f_val v);
 #define T_PREFIX 0x21
 #define T_STRING 0x22
 #define T_PATH_MASK 0x23	/* mask for BGP path */
+#define T_PATH 0x24		/* BGP path */
+#define T_CLIST 0x25		/* Community list */
 
 #define T_RETURN 0x40
 #define T_SET 0x80
