@@ -117,6 +117,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 
   case NEIGHBOR_LOADING:
   case NEIGHBOR_FULL:
+    pkt = n->ldbdes;
     length = ntohs(((struct ospf_packet *) n->ldbdes)->length);
 
     if (!length)
@@ -130,8 +131,14 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     /* Copy last sent packet again */
 
     sk_send_to(ifa->ip_sk, length, n->ip, OSPF_PROTO);
+
+    if(n->myimms.bit.ms) tm_start(n->rxmt_timer, n->ifa->rxmtint);		/* Restart timer */
+
     OSPF_TRACE(D_PACKETS, "DB_DES (M) sent to %I via %s.", n->ip,
 	       ifa->iface->name);
+
+    DBG("DB_DES PS=%u, M=%u.", ntohl(pkt->ddseq), pkt->imms.bit.m);
+
     if (!n->myimms.bit.ms)
     {
       if ((n->myimms.bit.m == 0) && (n->imms.bit.m == 0) &&
@@ -190,6 +197,9 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
 
   OSPF_TRACE(D_PACKETS, "Received dbdes from %I via %s.", n->ip,
 	     ifa->iface->name);
+
+  DBG("DB_DES PS=%u, M=%u SIZE=%u.", ntohl(ps->ddseq), ps->imms.bit.m, size);
+
   ospf_neigh_sm(n, INM_HELLOREC);
 
   switch (n->state)
@@ -218,27 +228,25 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
       ospf_dbdes_send(n);
       break;
     }
+
+    if (((ps->imms.bit.i == 0) && (ps->imms.bit.ms == 0)) &&
+        (n->rid < myrid) && (n->dds == ntohl(ps->ddseq)))
+    {
+      /* I'm master! */
+      n->options = ps->options;
+      n->ddr = ntohl(ps->ddseq) - 1;	/* It will be set corectly a few lines down */
+      n->imms.byte = ps->imms.byte;
+      OSPF_TRACE(D_PACKETS, "I'm master to %I.", n->ip);
+      ospf_neigh_sm(n, INM_NEGDONE);
+    }
     else
     {
-      if (((ps->imms.bit.i == 0) && (ps->imms.bit.ms == 0)) &&
-	  (n->rid < myrid) && (n->dds == ntohl(ps->ddseq)))
-      {
-	/* I'm master! */
-	n->options = ps->options;
-	n->ddr = ntohl(ps->ddseq) - 1;
-	n->imms.byte = ps->imms.byte;
-	OSPF_TRACE(D_PACKETS, "I'm master to %I.", n->ip);
-	ospf_neigh_sm(n, INM_NEGDONE);
-      }
-      else
-      {
-	DBG("%s: Nothing happend to %I (imms=%u)\n", p->name, n->ip,
-	    ps->imms.byte);
-	break;
-      }
-    }
-    if (ps->imms.bit.i)
+      DBG("%s: Nothing happend to %I (imms=%u)\n", p->name, n->ip,
+          ps->imms.byte);
       break;
+    }
+    if(ps->imms.bit.i) log("FUCK");
+
   case NEIGHBOR_EXCHANGE:
     if ((ps->imms.byte == n->imms.byte) && (ps->options == n->options) &&
 	(ntohl(ps->ddseq) == n->ddr))
@@ -331,6 +339,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
     {
       OSPF_TRACE(D_PACKETS, "dbdes - sequence mismatch neighbor %I (full)",
 		 n->ip);
+      DBG("PS=%u, DDR=%u, DDS=%u", ntohl(ps->ddseq), n->ddr, n->dds);
       ospf_neigh_sm(n, INM_SEQMIS);
     }
     break;

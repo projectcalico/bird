@@ -605,14 +605,24 @@ rxmt_timer_hook(timer * timer)
 
   DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",
       p->name, ifa->iface->name, n->ip);
-  if (n->state < NEIGHBOR_LOADING)
+
+  if(n->state < NEIGHBOR_EXSTART) return;
+
+  if (n->state == NEIGHBOR_EXSTART)
+  {
+    ospf_dbdes_send(n);
+    return;
+  }
+
+  if ((n->state == NEIGHBOR_EXCHANGE) && n->myimms.bit.ms)	/* I'm master */
     ospf_dbdes_send(n);
 
-  if (n->state < NEIGHBOR_FULL)
-    ospf_lsreq_send(n);
+
+  if (n->state < NEIGHBOR_FULL)	
+    ospf_lsreq_send(n);	/* EXCHANGE or LOADING */
   else
   {
-    if (!EMPTY_SLIST(n->lsrtl))
+    if (!EMPTY_SLIST(n->lsrtl))	/* FULL */
     {
       list uplist;
       slab *upslab;
