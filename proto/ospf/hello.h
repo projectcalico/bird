@@ -18,6 +18,5 @@ void ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   struct ospf_iface *ifa, int size, ip_addr faddr);
 void hello_timer_hook(timer *timer);
 void wait_timer_hook(timer *timer);
-void neighbor_timer_hook(timer *timer);
 
 #endif /* _BIRD_OSPF_HELLO_H_ */

@@ -427,4 +427,51 @@ ospf_find_area(struct proto_ospf *po, u32 aid)
   return NULL;
 }
 
+/* Neighbor is inactive for a long time. Remove it. */
+void
+neighbor_timer_hook(timer *timer)
+{
+  struct ospf_neighbor *n;
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  n=(struct ospf_neighbor *)timer->data;
+  ifa=n->ifa;
+  p=(struct proto *)(ifa->proto);
+  debug("%s: Inactivity timer fired on interface %s for neighbor %I.\n",
+    p->name, ifa->iface->name, n->rid);
+  neigh_chstate(n, NEIGHBOR_DOWN);
+  tm_stop(n->inactim);
+  rfree(n->inactim);
+  if(n->rxmt_timer!=NULL)
+  {
+    tm_stop(n->rxmt_timer);
+    rfree(n->rxmt_timer);
+  }
+  if(n->lsrr_timer!=NULL)
+  {
+    tm_stop(n->lsrr_timer);
+    rfree(n->lsrr_timer);
+  }
+  if(n->ackd_timer!=NULL)
+  {
+    tm_stop(n->ackd_timer);
+    rfree(n->ackd_timer);
+  }
+  if(n->ldbdes!=NULL)
+  {
+    mb_free(n->ldbdes);
+  }
+  if(n->lsrqh!=NULL)
+  {
+    ospf_top_free(n->lsrqh);
+  }
+  if(n->lsrth!=NULL)
+  {
+    ospf_top_free(n->lsrth);
+  }
+  rem_node(NODE n);
+  mb_free(n);
+  debug("%s: Deleting neigbor.\n", p->name);
+}                                                                               
 

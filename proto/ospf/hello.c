@@ -238,23 +238,3 @@ wait_timer_hook(timer *timer)
   ospf_int_sm(ifa, ISM_WAITF);
 }
 
-/* Neighbor is inactive for a long time. Remove it. */
-void
-neighbor_timer_hook(timer *timer)
-{
-  struct ospf_neighbor *n;
-  struct ospf_iface *ifa;
-  struct proto *p;
-
-  n=(struct ospf_neighbor *)timer->data;
-  ifa=n->ifa;
-  p=(struct proto *)(ifa->proto);
-  debug("%s: Inactivity timer fired on interface %s for neighbor %I.\n",
-    p->name, ifa->iface->name, n->rid);
-  tm_stop(n->inactim);
-  rfree(n->inactim);
-  rem_node(NODE n);
-  mb_free(n);
-  debug("%s: Deleting neigbor.\n", p->name);
-  /* FIXME: Go on */
-}
