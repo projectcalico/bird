@@ -15,6 +15,7 @@ ospf_start(struct proto *p)
   DBG("%s: Start\n",p->name);
 
   p->if_notify=ospf_if_notify;
+  p->rte_better=ospf_rte_better;
   fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
 
   return PS_UP;
@@ -67,6 +68,34 @@ ospf_init(struct proto_config *c)
   init_list(&(po->area_list));
 
   return p;
+}
+
+/* If new is better return 1 */
+static int
+ospf_rte_better(struct rte *new, struct rte *old)
+{
+  struct proto *p = new->attrs->proto;
+
+  if(new->u.ospf.metric1=LSINFINITY) return 0;
+
+  if(((new->attrs->source==RTS_OSPF) || (new->attrs->source==RTS_OSPF_IA))
+    && (old->attrs->source==RTS_OSPF_EXT)) return 1;
+
+  if(((old->attrs->source==RTS_OSPF) || (old->attrs->source==RTS_OSPF_IA))
+    && (new->attrs->source==RTS_OSPF_EXT)) return 0;
+
+  if(new->u.ospf.metric2!=0)
+  {
+    if(old->u.ospf.metric2==0) return 0;
+    if(new->u.ospf.metric2<old->u.ospf.metric2) return 1;
+    return 0;
+  }
+  else
+  {
+    if(old->u.ospf.metric2!=0) return 1;
+    if(new->u.ospf.metric1<old->u.ospf.metric1) return 1;
+    return 0;
+  }
 }
 
 static void
