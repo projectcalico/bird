@@ -337,11 +337,11 @@ lsasum_check(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
   u8 *sp, *ep, *p, *q, *b;
   int c0 = 0, c1 = 0;
   int x, y;
-  u16 length,chsum;
+  u16 length;
 
-  b=body;
+  b = body;
   sp = (char *) &h->options;
-  length=ntohs(h->length)-2;
+  length = ntohs(h->length)-2;
   h->checksum = 0;
 
   for (ep = sp + length; sp < ep; sp = q)
@@ -376,9 +376,9 @@ lsasum_check(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
   y = 510 - c0 - x;
   if (y > 255) y -= 255;
 
-  chsum= x + (y << 8);
-  h->checksum = chsum;
-  return chsum;
+  ((u8*)&h->checksum)[0] = x;
+  ((u8*)&h->checksum)[1] = y;
+  return h->checksum;
 }
 
 int

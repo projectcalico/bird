@@ -178,10 +178,17 @@ struct ospf_hello_packet {
 };
 
 struct immsb {
+#ifdef _BIG_ENDIAN
+  u8 padding:5;
+  u8 i:1;
+  u8 m:1;
+  u8 ms:1;
+#else
   u8 ms:1;
   u8 m:1;
   u8 i:1;
   u8 padding:5;
+#endif
 };
 
 union imms {
