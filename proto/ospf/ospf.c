@@ -243,6 +243,15 @@ schedule_rtcalc(struct ospf_area *oa)
   oa->calcrt=1;
 }
 
+/**
+ * area_disp - invokes link-state database aging, originating of
+ * router LSA and routing table calculation
+ * @timer - it's called every @ospf_area->tick seconds
+ *
+ * It ivokes aging and when @ospf_area->origrt is set to 1, start
+ * function for origination of router LSA. It also start routing
+ * table calculation when @ospf_area->calcrt is set.
+ */
 void
 area_disp(timer *timer)
 {
@@ -259,6 +268,16 @@ area_disp(timer *timer)
   if(oa->calcrt) ospf_rt_spfa(oa);
   oa->calcrt=0;
 }
+
+/**
+ * ospf_import_control - accept or reject new route from nest's routing table
+ * @p: current instance of protocol
+ * @attrs: list of arttributes
+ * @pool: pool for alloction of attributes
+ *
+ * Its quite simple. It does not accept our own routes and decision of
+ * import leaves to the filters.
+ */
 
 int
 ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool *pool)
@@ -284,6 +303,16 @@ ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
   rt->u.ospf.metric2 = ea_get_int(attrs, EA_OSPF_METRIC2, 10000);
   rt->u.ospf.tag     = ea_get_int(attrs, EA_OSPF_TAG,     0);
 }
+
+/**
+ * ospf_shutdown - Finnish of OSPF instance
+ * @p: current instance of protocol
+ *
+ * RFC does not define any action that should be taken befor router
+ * shutdown. To make my neighbors react as fast as possible, I send
+ * them hello packet with empty neighbor list. They should start
+ * theirs neighbor state machine with event %NEIGHBOR_1WAY.
+ */
 
 static int
 ospf_shutdown(struct proto *p)
@@ -402,12 +431,23 @@ ospf_get_attr(eattr *a, byte *buf)
     default: return GA_UNKNOWN;
     }
 }
+
 static int
 ospf_patt_compare(struct ospf_iface_patt *a, struct ospf_iface_patt *b)
 {
   return ((a->type==b->type)&&(a->priority==b->priority));
 }
 
+/**
+ * ospf_reconfigure - reconfiguration hook
+ * @p: current instance of protocol (with old configuration)
+ * @c: new configuration requested by user
+ *
+ * This hook tries to be a little bit inteligent. Instance of OSPF
+ * will survive change of many constants like hello interval,
+ * password change, addition of deletion of some neighbor on
+ * nonbroadcast network, cost of interface, etc.
+ */
 static int
 ospf_reconfigure(struct proto *p, struct proto_config *c)
 {
@@ -421,7 +461,11 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   struct ospf_area *oa;
   int found;
 
-  po->rfc1583=new->rfc1583;	/* FIXME but if differs schedule RT calc */
+  po->rfc1583=new->rfc1583;
+  WALK_LIST(oa, po->area_list)	/* Routing table must be recalculated */
+  {
+    schedule_rtcalc(oa);
+  }
 
   ac1=HEAD(old->area_list);
   ac2=HEAD(new->area_list);
