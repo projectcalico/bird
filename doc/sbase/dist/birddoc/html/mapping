@@ -182,6 +182,12 @@
 <funcdef>		"<B>"
 </funcdef>		"</B>"
 
+<function>		"<HR><H3>Function</H3>\n"
+</function>		"\n"
+
+<funcsect>		"<H3>"
+</funcsect>		"</H3>\n"
+
 % url support by HG
 
 <url>		+	"<@@url>[URL]\n"

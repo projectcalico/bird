@@ -137,7 +137,7 @@ script created using GNU Autoconf.
 
 <p>The documentation is generated using <file/SGMLtools/ with our own DTD
 and mapping rules. The printed form of the documentation is first converted
-from SGML to <LaTeX> and then processed by <LaTeX> and <file/dvips/ to
+from SGML to &latex; and then processed by &tex; and <file/dvips/ to
 produce a PostScript file.
 
 <p>The comments from C sources which form a part of the programmer's

@@ -190,6 +190,9 @@
 <tag>		+	"\\item\[{\\ttfamily "
 </tag>			"}\] \\mbox{}\n\n"
 
+<tagp>		+	"\\item\[ "
+</tagp>			"\] \\mbox{}\n\n"
+
 <cite>			"\\cite{[ID]"
 </cite>			"}"
 
@@ -249,6 +252,32 @@
 
 <cf>			"{\\ttfamily "
 </cf>			"}"
+
+<const>			"{\\tt "
+</const>		"}"
+
+<func>			"{\\it "
+</func>			"\\/}"
+
+<struct>		"{\\tt "
+</struct>		"}"
+
+<param>			"{\\it "
+</param>		"}"
+
+<type>			"{\\rm "
+</type>			"}"
+
+<funcdef>		"{\\it "
+</funcdef>		"\\/}"
+
+<function>		"\\bigbreak\\hrule\\nobreak\\bigskip\\nobreak\\leftline{\\bf Function}\\nobreak\\smallskip\\nobreak{\\parskip=0pt "
+</function>		"}\n\n"
+
+<funcsect>		"\n\\medbreak\\leftline{\\bf "
+</funcsect>		"}\\nobreak "
+
+<hrule>			"\\hrule"
 
 % Added by mdw
 <cparam>		"\\cparam{"
