@@ -73,6 +73,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	DEFINED,
 	ADD, DELETE, CONTAINS, RESET,
 	APPEND, MATCH,
+	EMPTY,
 	FILTER, WHERE)
 
 %nonassoc THEN
@@ -418,6 +419,9 @@ term:
 /* Paths */
  | term '.' APPEND '(' term ')' { }
  | term '.' RESET { }
+
+ | EMPTY { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_PATH; }
+
 /* | term '.' LEN { $$->code = P('P','l'); } */
 
 /* function_call is inlined here */

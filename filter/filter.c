@@ -453,6 +453,22 @@ interpret(struct f_inst *what)
       res.val.px.ip = ipa_and(mask, v1.val.px.ip);
     }
     break;
+
+  case 'E':	/* Create empty attribute */
+    res.type = what->aux;
+    res.val.ad = adata_empty(f_pool);
+    break;
+  case P('A','p'):	/* Path prepend */
+    TWOARGS;
+    if (v1.type != T_PATH)
+      runtime("Can't prepend to non-path");
+    if (v2.type != T_INT)
+      runtime("Can't prepend non-integer");
+
+    res.type = T_PATH;
+    res.val.ad = as_path_prepend(f_pool, v1.val.ad, v2.val.i);
+    break;
+
   default:
     bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
   }
@@ -519,7 +535,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
     break;
   case 'p': ONEARG; break;
   case '?': TWOARGS; break;
-  case '0': break;
+  case '0': case 'E': break;
   case P('p',','): ONEARG; A2_SAME; break;
   case 'a': A2_SAME; break;
   case P('e','a'): A2_SAME; break;
@@ -535,6 +551,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
 	     break;
   case P('S','W'): ONEARG; if (!same_tree(f1->a2.p, f2->a2.p)) return 0; break;
   case P('i','M'): TWOARGS; break;
+  case P('A','p'): TWOARGS; break;
   default:
     bug( "Unknown instruction %d in same (%c)", f1->code, f1->code & 0xff);
   }
