@@ -86,6 +86,7 @@ main(void)
   signal_init();
 
   scan_if_init();
+  auto_router_id();
 
   protos_start();
 
