@@ -19,6 +19,12 @@ Globals
 - protocols: implement reconfigure hook
 - protocols: use locking
 - check use of system includes and sprintf()
+- refuse to run twice on single system
+
+
+RPM
+~~~
+- build v4 and v6 in once
 
 Various ideas
 ~~~~~~~~~~~~~
@@ -52,3 +58,6 @@ OSPF
 	- RFC1587 NSSA areas
 	- RFC2370 opaque LSA's
 	- respect interface MTU and try not to create larger packets unless unavoidable
+        - AS external LSAs are in topology database of every OSPF Area
+        - Limit export rate of external LSAs (like Gated does)
+        - Maximal distance is just 0xffff, but 2328 requires 0xffffff
