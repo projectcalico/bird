@@ -26,7 +26,7 @@
 static char *opt_list = "s:v";
 static int verbose;
 
-static char *server_path = PATH_CONTROL_SOCKET_DIR "/bird.ctl";
+static char *server_path = PATH_CONTROL_SOCKET;
 static int server_fd;
 static int server_reply;
 static byte server_read_buf[4096];
