@@ -83,6 +83,7 @@ read_config(void)
   cf_read_hook = cf_read;
   cf_lex_init(1);
   cf_parse();
+  filters_postconfig();
   protos_postconfig();
 }
 /*
@@ -108,7 +109,6 @@ main(void)
 
   debug("Reading configuration file.\n");
   read_config();
-  filters_init();
 
   signal_init();
 

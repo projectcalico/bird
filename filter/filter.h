@@ -18,4 +18,6 @@ struct f_instruction {
   void *arg1, *arg2;
 };
 
+void filters_postconfig(void);
+
 #endif

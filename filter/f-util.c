@@ -56,7 +56,7 @@ interpret(struct f_instruction *what)
 }
 
 void
-filters_init(void)
+filters_postconfig(void)
 {
   if (!last_func)
     printf( "No function defined\n" );
