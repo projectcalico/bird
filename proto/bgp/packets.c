@@ -439,7 +439,9 @@ bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, b
   byte *t, argbuf[36];
   unsigned i;
 
-  /* FIXME: Printing of cease messages */
+  if (code == 6 && !subcode)		/* Don't report Cease messages */
+    return;
+
   bsprintf(namebuf, "%d.%d", code, subcode);
   name = namebuf;
   for (i=0; i < ARRAY_SIZE(bgp_msg_table); i++)
