@@ -23,6 +23,7 @@ struct config {
   struct rtable_config *master_rtc;	/* Configuration of master routing table */
   u32 router_id;			/* Our Router ID */
   unsigned int proto_default_debug;	/* Default protocol debug mask */
+  int cli_debug;			/* Tracing of CLI connections and commands */
   char *err_msg;			/* Parser error message */
   int err_lino;				/* Line containing error */
   char *file_name;			/* Name of configuration file */

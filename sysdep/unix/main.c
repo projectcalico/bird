@@ -233,10 +233,13 @@ cli_tx(sock *s)
 static void
 cli_err(sock *s, int err)
 {
-  if (err)
-    log(L_INFO "CLI connection dropped: %s", strerror(err));
-  else
-    log(L_INFO "CLI connection closed");
+  if (config->cli_debug)
+    {
+      if (err)
+	log(L_INFO "CLI connection dropped: %s", strerror(err));
+      else
+	log(L_INFO "CLI connection closed");
+    }
   cli_free(s->data);
   sk_close(s);
 }
@@ -246,7 +249,8 @@ cli_connect(sock *s, int size)
 {
   cli *c;
 
-  log(L_INFO "CLI connect");
+  if (config->cli_debug)
+    log(L_INFO "CLI connect");
   s->rx_hook = cli_rx;
   s->tx_hook = cli_tx;
   s->err_hook = cli_err;
