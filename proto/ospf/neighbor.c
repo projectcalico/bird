@@ -11,6 +11,11 @@
 char *ospf_ns[]={"down", "attempt", "init", "2way", "exstart", "exchange",
   "loading", "full"};
 
+const char *ospf_inm[]={ "hello received", "neighbor start", "2-way received",
+  "negotiation done", "exstart done", "bad ls request", "load done",
+  "adjacency ok?", "sequence mismatch", "1-way received", "kill neighbor",
+  "inactivity timer", "line down" };
+
 void
 neigh_chstate(struct ospf_neighbor *n, u8 state)
 {
@@ -176,6 +181,9 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
   struct proto *p;
 
   p=(struct proto *)(n->ifa->proto);
+
+  DBG("%s: Neighbor state machine for neighbor %I, event \"%s\".\n",
+    p->name, n->rid, ospf_inm[event]);
 
   switch(event)
   {

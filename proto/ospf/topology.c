@@ -34,7 +34,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
   struct top_hash_entry *old;
   struct proto_ospf *po=(struct proto_ospf *)p;
 
-  DBG("%s: Originating RT_lsa body for area \"%d\".\n", po->proto.name, oa->areaid);
+  DBG("%s: Originating RT_lsa body for area \"%I\".\n", po->proto.name, oa->areaid);
 
   WALK_LIST (ifa, p->iface_list) i++;
   {

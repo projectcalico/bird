@@ -45,9 +45,9 @@ ospf_dump(struct proto *p)
 
   WALK_LIST(NODE oa,po->area_list)
   {
-    debug("\n%s: LSA graph dump for area \"%d\" start:\n", p->name,oa->areaid);
+    debug("\n%s: LSA graph dump for area \"%I\" start:\n", p->name,oa->areaid);
     ospf_top_dump(oa->gr);
-    debug("%s: LSA graph dump for area \"%d\" finished\n\n", p->name,
+    debug("%s: LSA graph dump for area \"%I\" finished\n\n", p->name,
       oa->areaid);
   }
 

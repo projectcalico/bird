@@ -11,6 +11,9 @@
 char *ospf_is[]={ "down", "loop", "waiting", "point-to-point", "drother",
   "backup", "dr" };
 
+char *ospf_ism[]={ "interface up", "wait timer fired", "backup seen",
+  "neighbor change", "loop indicated", "unloop indicated", "interface down"};   
+
 void
 iface_chstate(struct ospf_iface *ifa, u8 state)
 {
@@ -69,8 +72,8 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
 
   p=(struct proto *)(ifa->proto);
 
-  DBG("%s: SM on iface %s. Event is %d.\n",
-    p->name, ifa->iface->name, event);
+  DBG("%s: SM on iface %s. Event is \"%s\".\n",
+    p->name, ifa->iface->name, ospf_ism[event]);
 
   switch(event)
   {
