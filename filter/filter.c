@@ -26,7 +26,7 @@
  * operation (okay too).
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "lib/lists.h"

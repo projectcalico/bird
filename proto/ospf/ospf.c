@@ -70,12 +70,6 @@ ospf_init(struct proto_config *c)
 }
 
 static void
-ospf_preconfig(struct protocol *p, struct config *c)
-{
-  DBG( " OSPF: preconfig\n" );
-}
-
-static void
 ospf_postconfig(struct proto_config *c)
 {
   DBG( " OSPF: postconfig\n" );
@@ -87,7 +81,5 @@ struct protocol proto_ospf = {
   init:		ospf_init,
   dump:		ospf_dump,
   start:	ospf_start,
-  preconfig:	ospf_preconfig,
   postconfig:	ospf_postconfig,
 };
-

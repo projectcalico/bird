@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -410,8 +410,9 @@ main(int argc, char **argv)
 
   cli_init_unix();
 
-  ev_run_list(&global_event_list);
-  async_dump();
+#ifdef LOCAL_DEBUG
+  async_dump_flag = 1;
+#endif
 
   DBG("Entering I/O loop.\n");
 

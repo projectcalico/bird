@@ -839,12 +839,6 @@ rip_init_config(struct rip_proto_config *c)
   c->authtype	= AT_NONE;
 }
 
-static void
-rip_preconfig(struct protocol *x, struct config *c)
-{
-  DBG( "RIP: preconfig\n" );
-}
-
 static int
 rip_get_attr(eattr *a, byte *buf)
 {
@@ -862,7 +856,6 @@ struct protocol proto_rip = {
   name: "RIP",
   template: "rip%d",
   attr_class: EAP_RIP,
-  preconfig: rip_preconfig,
   get_route_info: rip_get_route_info,
   get_attr: rip_get_attr,
 

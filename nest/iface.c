@@ -152,7 +152,9 @@ if_notify_change(unsigned c, struct iface *i)
     }
 
   DBG("Interface change notification (%x) for %s\n", c, i->name);
+#ifdef LOCAL_DEBUG
   if_dump(i);
+#endif
 
   if (c & IF_CHANGE_UP)
     neigh_if_up(i);
