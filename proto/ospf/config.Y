@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF Configuration
  *
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -98,6 +98,7 @@ ospf_vlink_item:
  | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
+ | AUTHENTICATION CRYPTOGRAPHIC { OSPF_PATT->autype = OSPF_AUTH_CRYPT ; }
  | password_list {OSPF_PATT->passwords = $1; }
  ;
 

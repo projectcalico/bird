@@ -48,15 +48,20 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
   char password[OSPF_AUTH_CRYPT_SIZE];
 
   pkt->autype = htons(ifa->autype);
-  bzero(&pkt->u, sizeof(union ospf_auth));
 
   switch(ifa->autype)
   {
     case OSPF_AUTH_SIMPLE:
-      password_cpy(pkt->u.password, passwd->password, 8);
+      bzero(&pkt->u, sizeof(union ospf_auth));
+      if (!passwd)
+      {
+        log( L_ERR "No suitable password found for authentication" );
+        return;
+      }
+      password_cpy(pkt->u.password, passwd->password, sizeof(union ospf_auth));
     case OSPF_AUTH_NONE:
-      pkt->checksum = ipsum_calculate(pkt, sizeof(struct ospf_packet) - 8,
-				  (pkt + 1),
+      pkt->checksum = ipsum_calculate(pkt, sizeof(struct ospf_packet) -
+                                  sizeof(union ospf_auth), (pkt + 1),
 				  ntohs(pkt->length) -
 				  sizeof(struct ospf_packet), NULL);
       break;
@@ -127,15 +132,17 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
         OSPF_TRACE(D_PACKETS, "OSPF_auth: no password found");
 	return 0;
       }
+      password_cpy(password, pass->password, sizeof(union ospf_auth));
 
-      if (memcmp(pkt->u.password,pass, 8))
+      if (memcmp(pkt->u.password, password, sizeof(union ospf_auth)))
       {
-        OSPF_TRACE(D_PACKETS, "OSPF_auth: different passwords");
+        char ppass[sizeof(union ospf_auth) + 1];
+        bzero(ppass, (sizeof(union ospf_auth) + 1));
+        memcpy(ppass, pkt->u.password, sizeof(union ospf_auth));
+        OSPF_TRACE(D_PACKETS, "OSPF_auth: different passwords (%s)", ppass);
 	return 0;
       }
-
-      else
-        return 1;
+      return 1;
       break;
     case OSPF_AUTH_CRYPT:
       if (pkt->u.md5.len != OSPF_AUTH_CRYPT_SIZE)
