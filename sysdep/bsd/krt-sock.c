@@ -335,7 +335,6 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
 
   a.dest = RTD_NONE;
 
-
   if (flags & RTF_GATEWAY)
   {
     neighbor *ng = neigh_find(&p->p, &igate, 0);
@@ -375,8 +374,6 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
   }
 
   src = KRT_SRC_UNKNOWN;	/* FIXME */
-
-
 
   e = rte_get_temp(&a);
   e->net = net;
@@ -443,10 +440,7 @@ krt_read_ifinfo(struct ks_msg *msg)
   f.flags = 0;
 
   if (fl & IFF_UP)
-  {
-    //f.flags |= IF_UP;	/* FIXME */
     f.flags |= IF_LINK_UP;
-  }
   if (fl & IFF_LOOPBACK)            /* Loopback */
     f.flags |= IF_MULTIACCESS | IF_LOOPBACK | IF_IGNORE;
   else if (fl & IFF_POINTOPOINT)    /* PtP */
@@ -538,26 +532,21 @@ krt_read_msg(struct proto *p, struct ks_msg *msg, int scan)
       if(!scan) return;
     case RTM_ADD:
     case RTM_DELETE:
-      //log("KRT_ADD/DELETE");
       krt_read_rt(msg, (struct krt_proto *)p, scan);
       break;
     case RTM_IFINFO:
-      //log("KRT_IFINFO");
       krt_read_ifinfo(msg);
       break;
     case RTM_NEWADDR:
     case RTM_DELADDR:
-      //log("KRT_NEWADDR/DELADDR");
       krt_read_addr(msg);
       break;
 #ifdef RTM_IFANNOUNCE
-    case RTM_IFANNOUNCE:
-      log("KRT_IFANNOUNCE");
-      //ifan_read (&buf.ian.ifan);
+    case RTM_IFANNOUNCE:	/* FIXME: We should handle it */
       break;
 #endif /* RTM_IFANNOUNCE */
     default:
-        log("Unprocessed RTM_type: %d", msg->rtm.rtm_type);
+        log(L_ERR "Unprocessed RTM_type: %d", msg->rtm.rtm_type);
       break;
   }
 }
