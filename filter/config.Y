@@ -9,6 +9,8 @@
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
 	FIXME: write access to dynamic attributes.
+	FIXME: '! =' should not be permitted. Ze `!=' by nemelo byt totez jako `! =' Nadefinujes si pres %token novy token a do cf-lex.l pridas nove pravidlo, ktere jej rozpoznava. Napriklad !=      return NEQ;
+
  */
 
 CF_HDR
@@ -29,7 +31,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE,
-	RTA, FROM, GW, NET, MASK, RIP_METRIC, RIP_TAG,
+	RTA, FROM, GW, NET, MASK, RIP_METRIC, RIP_TAG, SOURCE,
 	LEN,
 	DEFINED,
 	IMPOSSIBLE,
@@ -261,13 +263,6 @@ term:
  | SYM {
      $$ = f_new_inst();
      switch ($1->class) {
-	case 0:		/* This should better be an enum */
-	  $$->code = 'c';
-	  $$->a1.i = $1->aux;
-	  if (($$->a1.i < T_ENUM_LO) || ($$->a1.i > T_ENUM_HI))
-	    cf_error("You used symbol and it was not enum.\n");
-	  $$->a2.i = (int) $1->aux2;
-	  break;
        case SYM_VARIABLE | T_INT:
        case SYM_VARIABLE | T_PAIR:
        case SYM_VARIABLE | T_PREFIX:
@@ -280,10 +275,11 @@ term:
      }
    }
 
- | RTA '.' FROM { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
+ | RTA '.' FROM    { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
 
- | RTA '.' GW { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
- | RTA '.' NET { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_PREFIX; $$->a2.i = 0x12345678; }
+ | RTA '.' GW      { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
+ | RTA '.' NET     { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_PREFIX; $$->a2.i = 0x12345678; }
+ | RTA '.' SOURCE  { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, gw); }
 
  | RTA '.' any_dynamic { $$ = $3; $$->code = 'ea'; }
 

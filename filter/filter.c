@@ -152,6 +152,7 @@ val_print(struct f_val v)
   case T_PREFIX: PRINTF( "%I/%d", v.val.px.ip, v.val.px.len ); break;
   case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
+  case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   default: PRINTF( "[unknown type %x]", v.type );
   }
   printf( buf );
