@@ -9,6 +9,16 @@
 #ifndef _BIRD_OSPF_H_
 #define _BIRD_OSPF_H_
 
+#define LOCAL_DEBUG
+
+#define IAMMASTER(x) ((x) & DBDES_MS)
+#define INISET(x) ((x) & DBDES_I)
+
+#include <string.h>
+
+#include "nest/bird.h"
+
+#include "lib/checksum.h"
 #include "lib/ip.h"
 #include "lib/lists.h"
 #include "lib/socket.h"
@@ -16,6 +26,8 @@
 #include "lib/resource.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
+#include "nest/route.h"
+#include "conf/conf.h"
 
 #define OSPF_PROTO 89
 #ifndef IPV6
@@ -25,11 +37,6 @@
 #else
 #error Multicast address not defined in IPv6
 #endif
-
-struct proto_ospf {
-  struct proto proto;
-  list iface_list;		/* Interfaces we really use */
-};
 
 struct ospf_config {
   struct proto_config c;
@@ -87,13 +94,6 @@ struct ospf_iface {
 #define WAIT_DMH 3	/* Value of Wait timer - not found it in RFC 
 			 * - using 3*HELLO
 			 */
-};
-
-struct ospf_patt {
-  struct iface_patt i;
-
-  u16 cost;
-  u8 mode;
 };
 
 struct ospf_packet {
@@ -197,32 +197,23 @@ struct ospf_neighbor
 #define INM_INACTTIM 11	/* Inactivity timer */
 #define INM_LLDOWN 12	/* Line down */
 
-/* topology.c: Representation of network topology (LS graph) */
-
-struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
-  struct top_hash_entry *next;		/* Next in hash chain */
-  struct top_vertex *vertex;
-  u32 lsa_id, rtr_id;
-  u16 lsa_type;
-  u16 pad;
+struct proto_ospf {
+  struct proto proto;
+  list iface_list;		/* Interfaces we really use */
+  struct top_graph *gr;		/* LSA graph */
 };
 
-struct top_graph {
-  pool *pool;				/* Pool we allocate from */
-  slab *hash_slab;			/* Slab for hash entries */
-  struct top_hash_entry **hash_table;	/* Hashing (modelled a`la fib) */
-  unsigned int hash_size;
-  unsigned int hash_order;
-  unsigned int hash_mask;
-  unsigned int hash_entries;
-  unsigned int hash_entries_min, hash_entries_max;
-};
+static int ospf_start(struct proto *p);
+static void ospf_dump(struct proto *p);
+static struct proto *ospf_init(struct proto_config *c);
+static void ospf_preconfig(struct protocol *p, struct config *c);
+static void ospf_postconfig(struct proto_config *c);
 
-struct top_graph *ospf_top_new(struct proto_ospf *);
-void ospf_top_free(struct top_graph *);
-void ospf_top_dump(struct top_graph *);
-struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr, u32 type);
-struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr, u32 type);
-void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
+#include "proto/ospf/hello.h"
+#include "proto/ospf/packet.h"
+#include "proto/ospf/iface.h"
+#include "proto/ospf/neighbor.h"
+#include "proto/ospf/topology.h"
+#include "proto/ospf/dbdes.h"
 
 #endif /* _BIRD_OSPF_H_ */
