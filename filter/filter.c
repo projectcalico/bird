@@ -7,6 +7,25 @@
  *
  */
 
+/**
+ * DOC: Filters
+ *
+ * Filter consists of tree of &f_inst structures, one structure per
+ * "instruction". Each &f_inst contains code, aux value which is
+ * usually type of data this instruction operates on, and two generic
+ * arguments (a1, a2). Some instructinos contain pointer(s) to other
+ * instructions in their (a1, a2) fields.
+ *
+ * Filters use structure &f_val for its variables. Each &f_val
+ * contains type and value. Types are constants prefixed with %T_. Few
+ * of types are special; %T_RETURN can be or-ed with type to indicate
+ * that return from function/from whole filter should be
+ * forced. Important thing about &f_val s is that they may be copied
+ * with simple =. That's fine for all currently defined types: strings
+ * are read-only (and therefore okay), paths are copied for each
+ * operation (okay too).
+ */
+
 #define LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -624,21 +643,6 @@ i_same(struct f_inst *f1, struct f_inst *f2)
  * @filter: pointer to filter to run
  * @rte: pointer to pointer to rte being filtered. When route is modified, this is changed with rte_cow.
  * @tmp_pool: all filter allocations go from this pool
- *
- * Filter consists of tree of &f_inst structures, one structure per
- * "instruction". Each &f_inst contains code, aux value which is
- * usually type of data this instruction operates on, and two generic
- * arguments (a1, a2). Some instructinos contain pointer(s) to other
- * instructions in their (a1, a2) fields.
- *
- * Filters use structure &f_val for its variables. Each &f_val
- * contains type and value. Types are constants prefixed with %T_. Few
- * of types are special; %T_RETURN can be or-ed with type to indicate
- * that return from function/from whole filter should be
- * forced. Important thing about &f_val s is that they may be copied
- * with simple =. That's fine for all currently defined types: strings
- * are read-only (and therefore okay), paths are copied for each
- * operation (okay too).
  */
 int
 f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool, int flags)

@@ -275,7 +275,7 @@ sub output_html {
     }
     print "</dl>\n";
     foreach $section (@{$args{'sectionlist'}}) {
-	print "<h3>$section</h3>\n";
+	print "<h1>$section</h1>\n";
 	print "<ul>\n";
 	output_highlight($args{'sections'}{$section});
 	print "</ul>\n";
@@ -291,7 +291,7 @@ sub output_intro_html {
     my $count;
 
     foreach $section (@{$args{'sectionlist'}}) {
-	print "<h3>$section</h3>\n";
+	print "<h1>$section</h1>\n";
 	print "<ul>\n";
 	output_highlight($args{'sections'}{$section});
 	print "</ul>\n";

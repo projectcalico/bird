@@ -18,6 +18,30 @@
 
  */
 
+/**
+ * DOC: Routing information protocol
+ *
+ * Rip is pretty simple protocol so half of this code is interface
+ * with core. We maintain our own linklist of &rip_entry - it serves
+ * as our small routing table. Within rip_tx(), this list is
+ * walked, and packet is generated using rip_tx_prepare(). This gets
+ * tricky because we may need to send more than one packet to one
+ * destination. Struct &rip_connection is used to hold info such as how
+ * many of &rip_entry ies we already send, and is also used to protect
+ * from two concurrent sends to one destination. Each &rip_interface has
+ * at most one &rip_connection.
+ *
+ * We are not going to honour requests for sending part of
+ * routing table. That would need to turn split horizon off,
+ * etc.  
+ *
+ * Triggered updates. RFC says: when triggered update was sent, don't send
+ * new one for something between 1 and 5 seconds (and send one
+ * after that). We do something else: once in 5 second
+ * we look for any changed routes and broadcast them.
+ */
+
+
 #define LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -450,25 +474,6 @@ rip_timer(timer *t)
 
 /**
  * rip_start - initialize instance of rip
- *
- * Rip is pretty simple protocol so half of this code is interface
- * with core. We maintain our own linklist of &rip_entry - it serves
- * as our small routing table. Within rip_tx(), this list is
- * walked, and packet is generated using rip_tx_prepare(). This gets
- * tricky because we may need to send more than one packet to one
- * destination. Struct &rip_connection is used to hold info such as how
- * many of &rip_entry ies we already send, and is also used to protect
- * from two concurrent sends to one destination. Each &rip_interface has
- * at most one &rip_connection.
- *
- * We are not going to honour requests for sending part of
- * routing table. That would need to turn split horizon off,
- * etc.  
- *
- * Triggered updates. RFC says: when triggered update was sent, don't send
- * new one for something between 1 and 5 seconds (and send one
- * after that). We do something else: once in 5 second
- * we look for any changed routes and broadcast them.
  */
 static int
 rip_start(struct proto *p)
