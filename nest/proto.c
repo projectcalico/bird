@@ -118,7 +118,12 @@ protos_build(void)
 {
   init_list(&protocol_list);
   add_tail(&protocol_list, &proto_device.n);
+#ifdef CONFIG_RIP
   add_tail(&protocol_list, &proto_rip.n);
+#endif
+#ifdef CONFIG_STATIC
+  add_tail(&protocol_list, &proto_static.n);
+#endif
 }
 
 void
