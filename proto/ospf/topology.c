@@ -21,149 +21,138 @@
 #define HASH_LO_MIN 8
 
 static void *
-originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
+originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 {
+  struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
-  int j=0,k=0,v=0;
-  u16 i=0;
+  int j = 0, k = 0, v = 0;
+  u16 i = 0;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *ln;
   struct ospf_neighbor *neigh;
 
   DBG("%s: Originating RT_lsa body for area \"%I\".\n", po->proto.name,
-    oa->areaid);
+      oa->areaid);
 
-  WALK_LIST (ifa, p->iface_list)
+  WALK_LIST(ifa, po->iface_list)
   {
-    if((ifa->an==oa->areaid) && (ifa->state!=OSPF_IS_DOWN))
+    if ((ifa->an == oa->areaid) && (ifa->state != OSPF_IS_DOWN))
     {
       i++;
-      if(ifa->type==OSPF_IT_VLINK) v=1;
+      if (ifa->type == OSPF_IT_VLINK)
+	v = 1;
     }
   }
-  rt=mb_allocz(p->proto.pool, sizeof(struct ospf_lsa_rt)+
-    i*sizeof(struct ospf_lsa_rt_link));
-  if(p->areano>1) rt->veb.bit.b=1;
-  if((p->ebit)&&(!oa->stub)) rt->veb.bit.e=1;
-  rt->veb.bit.v=v;
-  ln=(struct ospf_lsa_rt_link *)(rt+1);
+  rt = mb_allocz(po->proto.pool, sizeof(struct ospf_lsa_rt) +
+		 i * sizeof(struct ospf_lsa_rt_link));
+  if (po->areano > 1)
+    rt->veb.bit.b = 1;
+  if ((po->ebit) && (!oa->stub))
+    rt->veb.bit.e = 1;
+  rt->veb.bit.v = v;
+  ln = (struct ospf_lsa_rt_link *) (rt + 1);
 
-  WALK_LIST (ifa, p->iface_list)
+  WALK_LIST(ifa, po->iface_list)
   {
-    if((ifa->an!=oa->areaid) || (ifa->state==OSPF_IS_DOWN)) continue;
+    if ((ifa->an != oa->areaid) || (ifa->state == OSPF_IS_DOWN))
+      continue;
 
-    if(ifa->state==OSPF_IS_LOOP)
+    if (ifa->state == OSPF_IS_LOOP)
     {
-      ln->type=3;
-      ln->id=ipa_to_u32(ifa->iface->addr->ip);
-      ln->data=0xffffffff;
-      ln->metric=0;
-      ln->notos=0;
+      ln->type = 3;
+      ln->id = ipa_to_u32(ifa->iface->addr->ip);
+      ln->data = 0xffffffff;
+      ln->metric = 0;
+      ln->notos = 0;
     }
     else
     {
-      switch(ifa->type)
+      switch (ifa->type)
       {
-        case OSPF_IT_PTP:		/* rfc2328 - pg126 */
-          neigh=(struct ospf_neighbor *)HEAD(ifa->neigh_list);
-          if((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state==NEIGHBOR_FULL))
-          {
-             ln->type=LSART_PTP;
-             ln->id=neigh->rid;
-             ln->metric=ifa->cost;
-             ln->notos=0;
-             if(ifa->iface->flags && IA_UNNUMBERED)
-             {
-               ln->data=ifa->iface->index;
-             }
-             else
-             {
-               ln->id=ipa_to_u32(ifa->iface->addr->ip);
-             }
-          }
-          else
-          {
-            if(ifa->state==OSPF_IS_PTP)
-            {
-              ln->type=LSART_STUB;
-              ln->id=ln->id=ipa_to_u32(ifa->iface->addr->opposite);
-              ln->metric=ifa->cost;
-              ln->notos=0;
-              ln->data=0xffffffff;
-            }
-            else
-            {
-              i--; /* No link added */
-            }
-          }
-          break;
-        case OSPF_IT_BCAST:
-        case OSPF_IT_NBMA:
-          if(ifa->state==OSPF_IS_WAITING)
-          {
-            ln->type=LSART_STUB;
-            ln->id=ipa_to_u32(ifa->iface->addr->prefix);
-            ln->data=ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
-            ln->metric=ifa->cost;
-            ln->notos=0;
-          }
-          else
-          {
-            j=0,k=0;
-            WALK_LIST(neigh, ifa->neigh_list)
-            {
-              if((neigh->rid==ifa->drid) &&
-                (neigh->state==NEIGHBOR_FULL)) k=1;
-              if(neigh->state==NEIGHBOR_FULL) j=1;
-            }
-            if(((ifa->state==OSPF_IS_DR) && (j==1)) || (k==1))
-            {
-              ln->type=LSART_NET;
-              ln->id=ipa_to_u32(ifa->drip);
-              ln->data=ipa_to_u32(ifa->iface->addr->ip);
-              ln->metric=ifa->cost;
-              ln->notos=0;
-            }
-            else
-            {
-              ln->type=LSART_STUB;
-              ln->id=ipa_to_u32(ifa->iface->addr->prefix);
-              ln->data=ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
-              ln->metric=ifa->cost;
-              ln->notos=0;
-            }
-          }
-          break;
-        case OSPF_IT_VLINK:	/* FIXME Add virtual links! */
-          i--;
-          break;
+      case OSPF_IT_PTP:	/* rfc2328 - pg126 */
+	neigh = (struct ospf_neighbor *) HEAD(ifa->neigh_list);
+	if ((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state == NEIGHBOR_FULL))
+	{
+	  ln->type = LSART_PTP;
+	  ln->id = neigh->rid;
+	  ln->metric = ifa->cost;
+	  ln->notos = 0;
+	  if (ifa->iface->flags && IA_UNNUMBERED)
+	  {
+	    ln->data = ifa->iface->index;
+	  }
+	  else
+	  {
+	    ln->id = ipa_to_u32(ifa->iface->addr->ip);
+	  }
+	}
+	else
+	{
+	  if (ifa->state == OSPF_IS_PTP)
+	  {
+	    ln->type = LSART_STUB;
+	    ln->id = ln->id = ipa_to_u32(ifa->iface->addr->opposite);
+	    ln->metric = ifa->cost;
+	    ln->notos = 0;
+	    ln->data = 0xffffffff;
+	  }
+	  else
+	  {
+	    i--;		/* No link added */
+	  }
+	}
+	break;
+      case OSPF_IT_BCAST:
+      case OSPF_IT_NBMA:
+	if (ifa->state == OSPF_IS_WAITING)
+	{
+	  ln->type = LSART_STUB;
+	  ln->id = ipa_to_u32(ifa->iface->addr->prefix);
+	  ln->data = ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
+	  ln->metric = ifa->cost;
+	  ln->notos = 0;
+	}
+	else
+	{
+	  j = 0, k = 0;
+	  WALK_LIST(neigh, ifa->neigh_list)
+	  {
+	    if ((neigh->rid == ifa->drid) && (neigh->state == NEIGHBOR_FULL))
+	      k = 1;
+	    if (neigh->state == NEIGHBOR_FULL)
+	      j = 1;
+	  }
+	  if (((ifa->state == OSPF_IS_DR) && (j == 1)) || (k == 1))
+	  {
+	    ln->type = LSART_NET;
+	    ln->id = ipa_to_u32(ifa->drip);
+	    ln->data = ipa_to_u32(ifa->iface->addr->ip);
+	    ln->metric = ifa->cost;
+	    ln->notos = 0;
+	  }
+	  else
+	  {
+	    ln->type = LSART_STUB;
+	    ln->id = ipa_to_u32(ifa->iface->addr->prefix);
+	    ln->data = ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
+	    ln->metric = ifa->cost;
+	    ln->notos = 0;
+	  }
+	}
+	break;
+      case OSPF_IT_VLINK:	/* FIXME Add virtual links! */
+	i--;
+	break;
       }
     }
-    if(ifa->type==OSPF_IT_VLINK) v=1;
-    ln=(ln+1);
+    if (ifa->type == OSPF_IT_VLINK)
+      v = 1;
+    ln = (ln + 1);
   }
-  rt->links=i;
-  *length=i*sizeof(struct ospf_lsa_rt_link)+sizeof(struct ospf_lsa_rt)+
+  rt->links = i;
+  *length = i * sizeof(struct ospf_lsa_rt_link) + sizeof(struct ospf_lsa_rt) +
     sizeof(struct ospf_lsa_header);
   return rt;
-}
-
-void
-addifa_rtlsa(struct ospf_iface *ifa)
-{
-  struct ospf_area *oa;
-  struct proto_ospf *po=ifa->proto;
-
-  WALK_LIST(NODE oa,po->area_list)
-  {
-    if(oa->areaid==ifa->an) break;
-  }
-
-  if(EMPTY_LIST(po->area_list) || (oa->areaid!=ifa->an))	/* New area */
-  {
-    bug("Cannot add any area to accepted Interface");
-  }
-  else ifa->oa=oa;
 }
 
 /**
@@ -179,68 +168,69 @@ void
 originate_rt_lsa(struct ospf_area *oa)
 {
   struct ospf_lsa_header lsa;
-  struct proto_ospf *po=oa->po;
-  struct proto *p=&po->proto;
-  u32 rtid=po->proto.cf->global->router_id;
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
+  u32 rtid = po->proto.cf->global->router_id;
   struct top_hash_entry *en;
   void *body;
 
-  if((oa->rt)&&((oa->rt->inst_t+MINLSINTERVAL))>now) return;
-	/*
-         * Tick is probably set to very low value. We cannot
-	 * originate new LSA before MINLSINTERVAL. We will
-	 * try to do it next tick.
-         */
+  if ((oa->rt) && ((oa->rt->inst_t + MINLSINTERVAL)) > now)
+    return;
+  /*
+   * Tick is probably set to very low value. We cannot
+   * originate new LSA before MINLSINTERVAL. We will
+   * try to do it next tick.
+   */
 
-  OSPF_TRACE(D_EVENTS, "Originating RT_lsa for area \"%I\".",oa->areaid);
+  OSPF_TRACE(D_EVENTS, "Originating RT_lsa for area \"%I\".", oa->areaid);
 
-  lsa.age=0;
-  lsa.id=rtid;
-  lsa.type=LSA_T_RT;
-  lsa.rt=rtid;
-  lsa.options=0;
-  if(oa->rt==NULL)
+  lsa.age = 0;
+  lsa.id = rtid;
+  lsa.type = LSA_T_RT;
+  lsa.rt = rtid;
+  lsa.options = 0;
+  if (oa->rt == NULL)
   {
-    lsa.sn=LSA_INITSEQNO;
+    lsa.sn = LSA_INITSEQNO;
   }
   else
   {
-    lsa.sn=oa->rt->lsa.sn+1;
+    lsa.sn = oa->rt->lsa.sn + 1;
   }
-  body=originate_rt_lsa_body(oa, &lsa.length, po);
-  lsasum_calculate(&lsa,body,po);
-  en=lsa_install_new(&lsa, body, oa);
-  oa->rt=en;
-  ospf_lsupd_flood(NULL,NULL,&oa->rt->lsa,NULL,oa,1);
+  body = originate_rt_lsa_body(oa, &lsa.length);
+  lsasum_calculate(&lsa, body, po);
+  en = lsa_install_new(&lsa, body, oa);
+  oa->rt = en;
+  ospf_lsupd_flood(NULL, NULL, &oa->rt->lsa, NULL, oa, 1);
   schedule_rtcalc(oa);
-  oa->origrt=0;
+  oa->origrt = 0;
 }
 
 static void *
-originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
-  struct proto_ospf *po)
+originate_net_lsa_body(struct ospf_iface *ifa, u16 * length,
+		       struct proto_ospf *po)
 {
-  u16 i=1;
+  u16 i = 1;
   struct ospf_neighbor *n;
   u32 *body;
   struct ospf_lsa_net *net;
 
-  net=mb_alloc(po->proto.pool,sizeof(u32)*(ifa->fadj+1)+
-    sizeof(struct ospf_lsa_net));
-  net->netmask=ipa_mkmask(ifa->iface->addr->pxlen);
+  net = mb_alloc(po->proto.pool, sizeof(u32) * (ifa->fadj + 1) +
+		 sizeof(struct ospf_lsa_net));
+  net->netmask = ipa_mkmask(ifa->iface->addr->pxlen);
 
-  body=(u32 *)(net+1);
-  i=1;
-  *body=po->proto.cf->global->router_id;
-  WALK_LIST(n,ifa->neigh_list)
+  body = (u32 *) (net + 1);
+  i = 1;
+  *body = po->proto.cf->global->router_id;
+  WALK_LIST(n, ifa->neigh_list)
   {
-    if(n->state==NEIGHBOR_FULL)
+    if (n->state == NEIGHBOR_FULL)
     {
-      *(body+i)=n->rid;
+      *(body + i) = n->rid;
       i++;
     }
   }
-  *length=i*sizeof(u32)+sizeof(struct ospf_lsa_header)+
+  *length = i * sizeof(u32) + sizeof(struct ospf_lsa_header) +
     sizeof(struct ospf_lsa_net);
   return net;
 }
@@ -257,96 +247,103 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
 void
 originate_net_lsa(struct ospf_iface *ifa)
 {
-  struct proto_ospf *po=ifa->proto;
+  struct proto_ospf *po = ifa->proto;
   struct ospf_lsa_header lsa;
-  u32 rtid=po->proto.cf->global->router_id;
-  struct proto *p=&po->proto;
+  u32 rtid = po->proto.cf->global->router_id;
+  struct proto *p = &po->proto;
   void *body;
 
-  if(ifa->nlsa&&((ifa->nlsa->inst_t+MINLSINTERVAL)>now)) return;
+  if (ifa->nlsa && ((ifa->nlsa->inst_t + MINLSINTERVAL) > now))
+    return;
   /*
    * It's too early to originate new network LSA. We will
    * try to do it next tick
    */
 
-  if((ifa->state!=OSPF_IS_DR)||(ifa->fadj==0))
+  if ((ifa->state != OSPF_IS_DR) || (ifa->fadj == 0))
   {
-    if(ifa->nlsa==NULL) return;
+    if (ifa->nlsa == NULL)
+      return;
 
     OSPF_TRACE(D_EVENTS, "Deleting Net lsa for iface \"%s\".",
-      ifa->iface->name);
-    ifa->nlsa->lsa.sn+=1;
-    ifa->nlsa->lsa.age=LSA_MAXAGE;
-    ospf_lsupd_flood(NULL,NULL,&ifa->nlsa->lsa,NULL,ifa->oa,0);
+	       ifa->iface->name);
+    ifa->nlsa->lsa.sn += 1;
+    ifa->nlsa->lsa.age = LSA_MAXAGE;
+    ospf_lsupd_flood(NULL, NULL, &ifa->nlsa->lsa, NULL, ifa->oa, 0);
     s_rem_node(SNODE ifa->nlsa);
-    if(ifa->nlsa->lsa_body!=NULL) mb_free(ifa->nlsa->lsa_body);
-    ifa->nlsa->lsa_body=NULL;
+    if (ifa->nlsa->lsa_body != NULL)
+      mb_free(ifa->nlsa->lsa_body);
+    ifa->nlsa->lsa_body = NULL;
     ospf_hash_delete(ifa->oa->gr, ifa->nlsa);
     schedule_rtcalc(ifa->oa);
-    ifa->nlsa=NULL;
-    return ;
+    ifa->nlsa = NULL;
+    return;
   }
 
   OSPF_TRACE(D_EVENTS, "Originating Net lsa for iface \"%s\".",
-    ifa->iface->name);
+	     ifa->iface->name);
 
-  lsa.age=0;
-  lsa.id=ipa_to_u32(ifa->iface->addr->ip);
-  lsa.type=LSA_T_NET;
-  lsa.rt=rtid;
-  lsa.options=0;
-  if(ifa->nlsa==NULL)
+  lsa.age = 0;
+  lsa.id = ipa_to_u32(ifa->iface->addr->ip);
+  lsa.type = LSA_T_NET;
+  lsa.rt = rtid;
+  lsa.options = 0;
+  if (ifa->nlsa == NULL)
   {
-    lsa.sn=LSA_INITSEQNO;
+    lsa.sn = LSA_INITSEQNO;
   }
   else
   {
-    lsa.sn=ifa->nlsa->lsa.sn+1;
+    lsa.sn = ifa->nlsa->lsa.sn + 1;
   }
 
-  body=originate_net_lsa_body(ifa, &lsa.length, po);
-  lsasum_calculate(&lsa,body,po);
-  ifa->nlsa=lsa_install_new(&lsa, body, ifa->oa);
-  ospf_lsupd_flood(NULL,NULL,&ifa->nlsa->lsa,NULL,ifa->oa,1);
-  ifa->orignet=0;
+  body = originate_net_lsa_body(ifa, &lsa.length, po);
+  lsasum_calculate(&lsa, body, po);
+  ifa->nlsa = lsa_install_new(&lsa, body, ifa->oa);
+  ospf_lsupd_flood(NULL, NULL, &ifa->nlsa->lsa, NULL, ifa->oa, 1);
+  ifa->orignet = 0;
 }
 
 static void *
-originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
+originate_ext_lsa_body(net * n, rte * e, struct proto_ospf *po,
+		       struct ea_list *attrs)
 {
-  struct proto *p=&po->proto;
+  struct proto *p = &po->proto;
   struct ospf_lsa_ext *ext;
   struct ospf_lsa_ext_tos *et;
   u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, LSINFINITY);
   u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 10000);
   u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
-  int inas=0;
+  int inas = 0;
 
-  ext=mb_alloc(p->pool,sizeof(struct ospf_lsa_ext)+
-    sizeof(struct ospf_lsa_ext_tos));
-  ext->netmask=ipa_mkmask(n->n.pxlen);
+  ext = mb_alloc(p->pool, sizeof(struct ospf_lsa_ext) +
+		 sizeof(struct ospf_lsa_ext_tos));
+  ext->netmask = ipa_mkmask(n->n.pxlen);
 
-  et=(struct ospf_lsa_ext_tos *)(ext+1);
+  et = (struct ospf_lsa_ext_tos *) (ext + 1);
 
-  if(m1!=LSINFINITY)
+  if (m1 != LSINFINITY)
   {
-    et->etos=0;
-    et->metric=m1;
+    et->etos = 0;
+    et->metric = m1;
   }
   else
   {
-    et->etos=0x80;
-    et->metric=m2;
+    et->etos = 0x80;
+    et->metric = m2;
   }
-  et->padding=0;
-  et->tag=tag;
-  if(ipa_compare(e->attrs->gw,ipa_from_u32(0))!=0)
+  et->padding = 0;
+  et->tag = tag;
+  if (ipa_compare(e->attrs->gw, ipa_from_u32(0)) != 0)
   {
-    if(find_iface((struct proto_ospf *)p, e->attrs->iface)!=NULL) inas=1;
+    if (ospf_iface_find((struct proto_ospf *) p, e->attrs->iface) != NULL)
+      inas = 1;
   }
-    
-  if(!inas) et->fwaddr= ipa_from_u32(0);
-  else et->fwaddr=e->attrs->gw;
+
+  if (!inas)
+    et->fwaddr = ipa_from_u32(0);
+  else
+    et->fwaddr = e->attrs->gw;
   return ext;
 }
 
@@ -367,8 +364,8 @@ int
 max_ext_lsa(unsigned pxlen)
 {
   int i;
-  for(i=1;pxlen<BITS_PER_IP_ADDRESS;pxlen++,i<<=1)
-    if(i>=MAXNETS)
+  for (i = 1; pxlen < BITS_PER_IP_ADDRESS; pxlen++, i <<= 1)
+    if (i >= MAXNETS)
       return MAXNETS;
   return i;
 }
@@ -389,64 +386,68 @@ max_ext_lsa(unsigned pxlen)
  * origination is necessary.
  */
 void
-originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
+originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
+		  struct ea_list *attrs)
 {
   struct ospf_lsa_header lsa;
-  u32 rtid=po->proto.cf->global->router_id;
-  struct top_hash_entry *en=NULL;
-  void *body=NULL;
-  struct proto *p=&po->proto;
+  u32 rtid = po->proto.cf->global->router_id;
+  struct top_hash_entry *en = NULL;
+  void *body = NULL;
+  struct proto *p = &po->proto;
   struct ospf_area *oa;
-  struct ospf_lsa_ext *ext1,*ext2;
+  struct ospf_lsa_ext *ext1, *ext2;
   int i;
   int max;
 
   OSPF_TRACE(D_EVENTS, "Originating Ext lsa for %I/%d.", n->n.prefix,
-    n->n.pxlen);
+	     n->n.pxlen);
 
-  lsa.age=0;
-  lsa.id=ipa_to_u32(n->n.prefix);
-  lsa.type=LSA_T_EXT;
-  lsa.rt=rtid;
-  lsa.sn=LSA_INITSEQNO;
-  body=originate_ext_lsa_body(n, e, po, attrs);
-  lsa.length=sizeof(struct ospf_lsa_ext)+sizeof(struct ospf_lsa_ext_tos)+
+  lsa.age = 0;
+  lsa.id = ipa_to_u32(n->n.prefix);
+  lsa.type = LSA_T_EXT;
+  lsa.rt = rtid;
+  lsa.sn = LSA_INITSEQNO;
+  body = originate_ext_lsa_body(n, e, po, attrs);
+  lsa.length = sizeof(struct ospf_lsa_ext) + sizeof(struct ospf_lsa_ext_tos) +
     sizeof(struct ospf_lsa_header);
-  ext1=body;
-  max=max_ext_lsa(n->n.pxlen);
+  ext1 = body;
+  max = max_ext_lsa(n->n.pxlen);
 
-  oa=HEAD(po->area_list);
+  oa = HEAD(po->area_list);
 
-  for(i=0;i<max;i++)
+  for (i = 0; i < max; i++)
   {
-    if((en=ospf_hash_find_header(oa->gr, &lsa))!=NULL)
+    if ((en = ospf_hash_find_header(oa->gr, &lsa)) != NULL)
     {
-      ext2=en->lsa_body;
-      if(ipa_compare(ext1->netmask,ext2->netmask)!=0) lsa.id++;
-      else break;
+      ext2 = en->lsa_body;
+      if (ipa_compare(ext1->netmask, ext2->netmask) != 0)
+	lsa.id++;
+      else
+	break;
     }
-    else break;
+    else
+      break;
   }
 
-  if(i==max)
+  if (i == max)
   {
-    log("%s: got more routes for one /%d network then %d, ignoring",p->name,
-      n->n.pxlen,max);
+    log("%s: got more routes for one /%d network then %d, ignoring", p->name,
+	n->n.pxlen, max);
     mb_free(body);
     return;
   }
-  lsasum_calculate(&lsa,body,po);
+  lsasum_calculate(&lsa, body, po);
   WALK_LIST(oa, po->area_list)
   {
-    en=lsa_install_new(&lsa, body, oa);
-    ospf_lsupd_flood(NULL,NULL,&en->lsa,NULL,oa,1);
-    body=originate_ext_lsa_body(n, e, po, attrs);
+    en = lsa_install_new(&lsa, body, oa);
+    ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
+    body = originate_ext_lsa_body(n, e, po, attrs);
   }
   mb_free(body);
 
-  if(po->ebit==0)
+  if (po->ebit == 0)
   {
-    po->ebit=1;
+    po->ebit = 1;
     WALK_LIST(oa, po->area_list)
     {
       schedule_rt_lsa(oa);
@@ -470,7 +471,8 @@ ospf_top_ht_alloc(struct top_graph *f)
     f->hash_entries_min = f->hash_size HASH_LO_MARK;
   DBG("Allocating OSPF hash of order %d: %d hash_entries, %d low, %d high\n",
       f->hash_order, f->hash_size, f->hash_entries_min, f->hash_entries_max);
-  f->hash_table = mb_alloc(f->pool, f->hash_size * sizeof(struct top_hash_entry *));
+  f->hash_table =
+    mb_alloc(f->pool, f->hash_size * sizeof(struct top_hash_entry *));
   bzero(f->hash_table, f->hash_size * sizeof(struct top_hash_entry *));
 }
 
@@ -492,10 +494,14 @@ ospf_top_hash_u32(u32 a)
 static inline unsigned
 ospf_top_hash(struct top_graph *f, u32 lsaid, u32 rtrid, u32 type)
 {
-#if 1	/* Dirty patch to make rt table calculation work. */
-return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32((type==LSA_T_NET) ? lsaid : rtrid) + type) & f->hash_mask;
+#if 1				/* Dirty patch to make rt table calculation work. */
+  return (ospf_top_hash_u32(lsaid) +
+	  ospf_top_hash_u32((type ==
+			     LSA_T_NET) ? lsaid : rtrid) +
+	  type) & f->hash_mask;
 #else
-  return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32(rtrid) + type) & f->hash_mask;
+  return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32(rtrid) +
+	  type) & f->hash_mask;
 #endif
 }
 
@@ -507,7 +513,7 @@ return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32((type==LSA_T_NET) ? lsaid :
  * its used in @ospf_area structure.
  */
 struct top_graph *
-ospf_top_new(pool *pool, struct proto_ospf *p)
+ospf_top_new(pool * pool, struct proto_ospf *p)
 {
   struct top_graph *f;
 
@@ -537,36 +543,37 @@ ospf_top_rehash(struct top_graph *f, int step)
 
   oldn = f->hash_size;
   oldt = f->hash_table;
-  DBG("Re-hashing topology hash from order %d to %d\n", f->hash_order, f->hash_order+step);
+  DBG("Re-hashing topology hash from order %d to %d\n", f->hash_order,
+      f->hash_order + step);
   f->hash_order += step;
   ospf_top_ht_alloc(f);
   newt = f->hash_table;
 
-  for(oldh=0; oldh < oldn; oldh++)
+  for (oldh = 0; oldh < oldn; oldh++)
+  {
+    e = oldt[oldh];
+    while (e)
     {
-      e = oldt[oldh];
-      while (e)
-	{
-	  x = e->next;
-	  n = newt + ospf_top_hash(f, e->lsa.id, e->lsa.rt, e->lsa.type);
-	  e->next = *n;
-	  *n = e;
-	  e = x;
-	}
+      x = e->next;
+      n = newt + ospf_top_hash(f, e->lsa.id, e->lsa.rt, e->lsa.type);
+      e->next = *n;
+      *n = e;
+      e = x;
     }
+  }
   ospf_top_ht_free(oldt);
 }
 
 struct top_hash_entry *
 ospf_hash_find_header(struct top_graph *f, struct ospf_lsa_header *h)
 {
-  return ospf_hash_find(f,h->id,h->rt,h->type);
+  return ospf_hash_find(f, h->id, h->rt, h->type);
 }
 
 struct top_hash_entry *
 ospf_hash_get_header(struct top_graph *f, struct ospf_lsa_header *h)
 {
-  return ospf_hash_get(f,h->id,h->rt,h->type);
+  return ospf_hash_get(f, h->id, h->rt, h->type);
 }
 
 struct top_hash_entry *
@@ -574,16 +581,16 @@ ospf_hash_find(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
 {
   struct top_hash_entry *e = f->hash_table[ospf_top_hash(f, lsa, rtr, type)];
 
-#if 1	/* Dirty patch to make rt table calculation work. */
-  if(type==LSA_T_NET)
+#if 1				/* Dirty patch to make rt table calculation work. */
+  if (type == LSA_T_NET)
   {
-    while (e && (e->lsa.id != lsa || e->lsa.type != LSA_T_NET ))
-       e = e->next;
+    while (e && (e->lsa.id != lsa || e->lsa.type != LSA_T_NET))
+      e = e->next;
   }
   else
   {
-     while (e && (e->lsa.id != lsa || e->lsa.type != type || e->lsa.rt != rtr))
-       e = e->next;
+    while (e && (e->lsa.id != lsa || e->lsa.type != type || e->lsa.rt != rtr))
+      e = e->next;
   }
 #else
   while (e && (e->lsa.id != lsa || e->lsa.rt != rtr || e->lsa.type != type))
@@ -595,7 +602,8 @@ ospf_hash_find(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
 struct top_hash_entry *
 ospf_hash_get(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
 {
-  struct top_hash_entry **ee = f->hash_table + ospf_top_hash(f, lsa, rtr, type);
+  struct top_hash_entry **ee =
+    f->hash_table + ospf_top_hash(f, lsa, rtr, type);
   struct top_hash_entry *e = *ee;
 
   while (e && (e->lsa.id != lsa || e->lsa.rt != rtr || e->lsa.type != type))
@@ -607,9 +615,9 @@ ospf_hash_get(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
   e->lsa.rt = rtr;
   e->lsa.type = type;
   e->lsa_body = NULL;
-  e->nhi=NULL;
-  e->next=*ee;		/* MJ you forgot this :-) */
-  *ee=e;
+  e->nhi = NULL;
+  e->next = *ee;		/* MJ you forgot this :-) */
+  *ee = e;
   if (f->hash_entries++ > f->hash_entries_max)
     ospf_top_rehash(f, HASH_HI_STEP);
   return e;
@@ -622,17 +630,17 @@ ospf_hash_delete(struct top_graph *f, struct top_hash_entry *e)
   struct top_hash_entry **ee = f->hash_table + h;
 
   while (*ee)
+  {
+    if (*ee == e)
     {
-      if (*ee == e)
-	{
-	  *ee = e->next;
-	  sl_free(f->hash_slab, e);
-	  if (f->hash_entries-- < f->hash_entries_min)
-	    ospf_top_rehash(f, -HASH_LO_STEP);
-	  return;
-	}
-      ee = &((*ee)->next);
+      *ee = e->next;
+      sl_free(f->hash_slab, e);
+      if (f->hash_entries-- < f->hash_entries_min)
+	ospf_top_rehash(f, -HASH_LO_STEP);
+      return;
     }
+    ee = &((*ee)->next);
+  }
   bug("ospf_hash_delete() called for invalid node");
 }
 
@@ -642,17 +650,16 @@ ospf_top_dump(struct top_graph *f, struct proto *p)
   unsigned int i;
   OSPF_TRACE(D_EVENTS, "Hash entries: %d", f->hash_entries);
 
-  for(i=0; i<f->hash_size; i++)
+  for (i = 0; i < f->hash_size; i++)
+  {
+    struct top_hash_entry *e = f->hash_table[i];
+    while (e)
     {
-      struct top_hash_entry *e = f->hash_table[i];
-      while (e)
-	{
-	  OSPF_TRACE(D_EVENTS, "\t%1x %-1I %-1I %4u 0x%08x",
-	    e->lsa.type, e->lsa.id,
-            e->lsa.rt, e->lsa.age, e->lsa.sn);
-	  e = e->next;
-	}
+      OSPF_TRACE(D_EVENTS, "\t%1x %-1I %-1I %4u 0x%08x",
+		 e->lsa.type, e->lsa.id, e->lsa.rt, e->lsa.age, e->lsa.sn);
+      e = e->next;
     }
+  }
 }
 
 /* This is very inefficient, please don't call it often */
@@ -670,15 +677,16 @@ can_flush_lsa(struct ospf_area *oa)
 
   WALK_LIST(ifa, iface_list)
   {
-    if(ifa->oa==oa)
+    if (ifa->oa == oa)
     {
       WALK_LIST(n, ifa->neigh_list)
       {
-        if((n->state==NEIGHBOR_EXCHANGE)||(n->state==NEIGHBOR_LOADING))
+	if ((n->state == NEIGHBOR_EXCHANGE) || (n->state == NEIGHBOR_LOADING))
 	{
 	  return 0;
 	}
       }
+      break;
     }
   }
 

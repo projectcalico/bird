@@ -444,6 +444,7 @@ void ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old,ea_list *attrs);
 void area_disp(timer *timer);
 void schedule_rt_lsa(struct ospf_area *oa);
 void schedule_rtcalc(struct ospf_area *oa);
+void schedule_net_lsa(struct ospf_iface *ifa);
 void ospf_sh_neigh(struct proto *p, char *iff);
 void ospf_sh(struct proto *p);
 void ospf_sh_iface(struct proto *p, char *iff);

@@ -109,7 +109,7 @@ ospf_start(struct proto *p)
     oa->disp_timer->randomize=0;
     oa->disp_timer->hook=area_disp;
     oa->disp_timer->recurrent=oa->tick;
-    tm_start(oa->disp_timer,oa->tick);
+    tm_start(oa->disp_timer, 1);
     oa->calcrt=0;
     oa->origrt=0;
     init_list(&oa->net_list);
@@ -168,7 +168,7 @@ ospf_init(struct proto_config *c)
   p->make_tmp_attrs = ospf_make_tmp_attrs;
   p->store_tmp_attrs = ospf_store_tmp_attrs;
   p->rt_notify = ospf_rt_notify;
-  p->if_notify = ospf_if_notify;
+  p->if_notify = ospf_iface_notify;
   p->rte_better = ospf_rte_better;
   p->rte_same = ospf_rte_same;
 
@@ -242,6 +242,12 @@ ospf_build_attrs(ea_list *next, struct linpool *pool, u32 m1, u32 m2, u32 tag)
   l->attrs[2].type = EAF_TYPE_INT | EAF_TEMP;
   l->attrs[2].u.data = tag;
   return l;
+}
+
+void
+schedule_net_lsa(struct ospf_iface *ifa)
+{
+    ifa->orignet = 1;
 }
 
 void

@@ -8,42 +8,41 @@
 
 #include "ospf.h"
 
-char *ospf_is[]={ "down", "loop", "waiting", "point-to-point", "drother",
-  "backup", "dr" };
+char *ospf_is[] = { "down", "loop", "waiting", "point-to-point", "drother",
+  "backup", "dr"
+};
 
-char *ospf_ism[]={ "interface up", "wait timer fired", "backup seen",
-  "neighbor change", "loop indicated", "unloop indicated", "interface down"};   
+char *ospf_ism[] = { "interface up", "wait timer fired", "backup seen",
+  "neighbor change", "loop indicated", "unloop indicated", "interface down"
+};
 
-char *ospf_it[]={ "broadcast", "nbma", "point-to-point", "virtual link" };
+char *ospf_it[] = { "broadcast", "nbma", "point-to-point", "virtual link" };
 
 static void
-poll_timer_hook(timer *timer)
+poll_timer_hook(timer * timer)
 {
   ospf_hello_send(timer, 1, NULL);
 }
 
 static void
-hello_timer_hook(timer *timer)
+hello_timer_hook(timer * timer)
 {
   ospf_hello_send(timer, 0, NULL);
 }
 
 static void
-wait_timer_hook(timer *timer)
+wait_timer_hook(timer * timer)
 {
-  struct ospf_iface *ifa;
-  struct proto *p;
+  struct ospf_iface *ifa = (struct ospf_iface *) timer->data;
+  struct proto *p = (struct proto *) (ifa->proto);
 
-  ifa=(struct ospf_iface *)timer->data;
-  p=(struct proto *)(ifa->proto);
-  OSPF_TRACE(D_EVENTS, "Wait timer fired on interface %s.",
-    ifa->iface->name);
-  ospf_int_sm(ifa, ISM_WAITF);
+  OSPF_TRACE(D_EVENTS, "Wait timer fired on interface %s.", ifa->iface->name);
+  ospf_iface_sm(ifa, ISM_WAITF);
 }
 
 
 /**
- * iface_chstate - handle changes of interface state
+ * ospf_iface_chstate - handle changes of interface state
  * @ifa: OSPF interface
  * @state: new state
  *
@@ -52,72 +51,74 @@ wait_timer_hook(timer *timer)
  * %ALLDROUTERS have to be opened, etc.
  */
 void
-iface_chstate(struct ospf_iface *ifa, u8 state)
+ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 {
-  struct proto_ospf *po=ifa->proto;
-  struct proto *p=&po->proto;
+  struct proto_ospf *po = ifa->proto;
+  struct proto *p = &po->proto;
   u8 oldstate;
 
-  if(ifa->state!=state)
+  if (ifa->state != state)
   {
-    OSPF_TRACE(D_EVENTS, "Changing state of iface: %s from \"%s\" into \"%s\".",
-      ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
-    oldstate=ifa->state;
-    ifa->state=state;
-    if(ifa->iface->flags & IF_MULTICAST)
+    OSPF_TRACE(D_EVENTS,
+	       "Changing state of iface: %s from \"%s\" into \"%s\".",
+	       ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
+    oldstate = ifa->state;
+    ifa->state = state;
+    if (ifa->iface->flags & IF_MULTICAST)
     {
-      if((state==OSPF_IS_BACKUP)||(state==OSPF_IS_DR))
+      if ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR))
       {
-        if((ifa->dr_sk==NULL)&&(ifa->type!=OSPF_IT_NBMA))
-        {
-          DBG("%s: Adding new multicast socket for (B)DR\n", p->name);
-          ifa->dr_sk=sk_new(p->pool);
-          ifa->dr_sk->type=SK_IP_MC;
-	  ifa->dr_sk->sport=0;
-	  ifa->dr_sk->dport=OSPF_PROTO;
-          ifa->dr_sk->saddr=AllDRouters;
-          ifa->dr_sk->daddr=AllDRouters;
-          ifa->dr_sk->tos=IP_PREC_INTERNET_CONTROL;
-          ifa->dr_sk->ttl=1;
-          ifa->dr_sk->rx_hook=ospf_rx_hook;
-          ifa->dr_sk->tx_hook=ospf_tx_hook;
-          ifa->dr_sk->err_hook=ospf_err_hook;
-          ifa->dr_sk->iface=ifa->iface;
-          ifa->dr_sk->rbsize=ifa->iface->mtu;
-          ifa->dr_sk->tbsize=ifa->iface->mtu;
-          ifa->dr_sk->data=(void *)ifa;
-          if(sk_open(ifa->dr_sk)!=0)
+	if ((ifa->dr_sk == NULL) && (ifa->type != OSPF_IT_NBMA))
+	{
+	  DBG("%s: Adding new multicast socket for (B)DR\n", p->name);
+	  ifa->dr_sk = sk_new(p->pool);
+	  ifa->dr_sk->type = SK_IP_MC;
+	  ifa->dr_sk->sport = 0;
+	  ifa->dr_sk->dport = OSPF_PROTO;
+	  ifa->dr_sk->saddr = AllDRouters;
+	  ifa->dr_sk->daddr = AllDRouters;
+	  ifa->dr_sk->tos = IP_PREC_INTERNET_CONTROL;
+	  ifa->dr_sk->ttl = 1;
+	  ifa->dr_sk->rx_hook = ospf_rx_hook;
+	  ifa->dr_sk->tx_hook = ospf_tx_hook;
+	  ifa->dr_sk->err_hook = ospf_err_hook;
+	  ifa->dr_sk->iface = ifa->iface;
+	  ifa->dr_sk->rbsize = ifa->iface->mtu;
+	  ifa->dr_sk->tbsize = ifa->iface->mtu;
+	  ifa->dr_sk->data = (void *) ifa;
+	  if (sk_open(ifa->dr_sk) != 0)
 	  {
 	    DBG("%s: SK_OPEN: new? mc open failed.\n", p->name);
 	  }
-        }
+	}
       }
       else
       {
 	rfree(ifa->dr_sk);
-	ifa->dr_sk=NULL;
+	ifa->dr_sk = NULL;
       }
-      if((oldstate==OSPF_IS_DR)&&(ifa->nlsa!=NULL))
+      if ((oldstate == OSPF_IS_DR) && (ifa->nlsa != NULL))
       {
-	ifa->nlsa->lsa.age=LSA_MAXAGE;
-        if(state>=OSPF_IS_WAITING)
+	ifa->nlsa->lsa.age = LSA_MAXAGE;
+	if (state >= OSPF_IS_WAITING)
 	{
-	  ospf_lsupd_flush_nlsa(ifa->nlsa,ifa->oa);
+	  ospf_lsupd_flush_nlsa(ifa->nlsa, ifa->oa);
 	}
-        if(can_flush_lsa(ifa->oa)) flush_lsa(ifa->nlsa,ifa->oa);
-        ifa->nlsa=NULL;
+	if (can_flush_lsa(ifa->oa))
+	  flush_lsa(ifa->nlsa, ifa->oa);
+	ifa->nlsa = NULL;
       }
     }
   }
 }
 
-void
-downint(struct ospf_iface *ifa)
+static void
+ospf_iface_down(struct ospf_iface *ifa)
 {
-  struct ospf_neighbor *n,*nx;
-  struct proto *p=&ifa->proto->proto;
+  struct ospf_neighbor *n, *nx;
+  struct proto *p = &ifa->proto->proto;
 
-  WALK_LIST_DELSAFE(n,nx,ifa->neigh_list)
+  WALK_LIST_DELSAFE(n, nx, ifa->neigh_list)
   {
     OSPF_TRACE(D_EVENTS, "Removing neighbor %I", n->ip);
     ospf_neigh_remove(n);
@@ -137,7 +138,7 @@ downint(struct ospf_iface *ifa)
 }
 
 /**
- * ospf_int_sm - OSPF interface state machine
+ * ospf_iface_sm - OSPF interface state machine
  * @ifa: OSPF interface
  * @event: event comming to state machine
  *
@@ -145,317 +146,357 @@ downint(struct ospf_iface *ifa)
  * interface.
  */
 void
-ospf_int_sm(struct ospf_iface *ifa, int event)
+ospf_iface_sm(struct ospf_iface *ifa, int event)
 {
-  struct proto *p=(struct proto *)(ifa->proto);
-  struct ospf_area *oa=ifa->oa;
+  struct ospf_area *oa = ifa->oa;
 
-  OSPF_TRACE(D_EVENTS, "SM on iface %s. Event is \"%s\".",
-    ifa->iface->name, ospf_ism[event]);
+  DBG("SM on iface %s. Event is \"%s\".",
+	     ifa->iface->name, ospf_ism[event]);
 
-  switch(event)
+  switch (event)
   {
-    case ISM_UP:
-      if(ifa->state==OSPF_IS_DOWN)
-      {
-        /* Now, nothing should be adjacent */
-        tm_start(ifa->hello_timer,ifa->helloint);
+  case ISM_UP:
+    if (ifa->state == OSPF_IS_DOWN)
+    {
+      /* Now, nothing should be adjacent */
+      tm_start(ifa->hello_timer, ifa->helloint);
 
-        if(ifa->poll_timer)
-          tm_start(ifa->poll_timer,ifa->pollint);
+      if (ifa->poll_timer)
+	tm_start(ifa->poll_timer, ifa->pollint);
 
-        if((ifa->type==OSPF_IT_PTP) || (ifa->type==OSPF_IT_VLINK))
-        {
-          iface_chstate(ifa, OSPF_IS_PTP);
-        }
-        else
-        {
-          if(ifa->priority==0)
-          {
-            iface_chstate(ifa, OSPF_IS_DROTHER);
-          } 
-          else
-          {
-            iface_chstate(ifa, OSPF_IS_WAITING);
-            tm_start(ifa->wait_timer,ifa->waitint);
-          }
-        }
-      }
-      schedule_rt_lsa(ifa->oa);
-      break;
-    case ISM_BACKS:
-    case ISM_WAITF:
-      if(ifa->state==OSPF_IS_WAITING)
+      if ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_VLINK))
+	ospf_iface_chstate(ifa, OSPF_IS_PTP);
+      else
       {
-        bdr_election(ifa);
+	if (ifa->priority == 0)
+	  ospf_iface_chstate(ifa, OSPF_IS_DROTHER);
+	else
+	{
+	  ospf_iface_chstate(ifa, OSPF_IS_WAITING);
+	  tm_start(ifa->wait_timer, ifa->waitint);
+	}
       }
-      break;
-    case ISM_NEICH:
-      if((ifa->state==OSPF_IS_DROTHER) || (ifa->state==OSPF_IS_DR) ||
-        (ifa->state==OSPF_IS_BACKUP))
-      {
-        bdr_election(ifa);
-        schedule_rt_lsa(ifa->oa);
-      }
-      break;
-    case ISM_DOWN:
-      iface_chstate(ifa, OSPF_IS_DOWN);
-      downint(ifa);
-      schedule_rt_lsa(oa);
-      break;
-    case ISM_LOOP:	/* Useless? */
-      iface_chstate(ifa, OSPF_IS_LOOP);
-      downint(ifa);
+    }
+    schedule_rt_lsa(ifa->oa);
+    break;
+  case ISM_BACKS:
+  case ISM_WAITF:
+    if (ifa->state == OSPF_IS_WAITING)
+    {
+      bdr_election(ifa);
+    }
+    break;
+  case ISM_NEICH:
+    if ((ifa->state == OSPF_IS_DROTHER) || (ifa->state == OSPF_IS_DR) ||
+	(ifa->state == OSPF_IS_BACKUP))
+    {
+      bdr_election(ifa);
       schedule_rt_lsa(ifa->oa);
-      break;
-    case ISM_UNLOOP:
-      iface_chstate(ifa, OSPF_IS_DOWN);
-      schedule_rt_lsa(ifa->oa);
-      break;
-    default:
-      bug("%s: ISM - Unknown event?",p->name);
-      break;
+    }
+    break;
+  case ISM_DOWN:
+    ospf_iface_chstate(ifa, OSPF_IS_DOWN);
+    ospf_iface_down(ifa);
+    schedule_rt_lsa(oa);
+    break;
+  case ISM_LOOP:		/* Useless? */
+    ospf_iface_chstate(ifa, OSPF_IS_LOOP);
+    ospf_iface_down(ifa);
+    schedule_rt_lsa(ifa->oa);
+    break;
+  case ISM_UNLOOP:
+    ospf_iface_chstate(ifa, OSPF_IS_DOWN);
+    schedule_rt_lsa(ifa->oa);
+    break;
+  default:
+    bug("OSPF_I_SM - Unknown event?");
+    break;
   }
-	
+
 }
 
-sock *
+static sock *
 ospf_open_mc_socket(struct ospf_iface *ifa)
 {
   sock *mcsk;
   struct proto *p;
 
-  p=(struct proto *)(ifa->proto);
+  p = (struct proto *) (ifa->proto);
 
-  mcsk=sk_new(p->pool);
-  mcsk->type=SK_IP_MC;
-  mcsk->sport=0;
-  mcsk->dport=OSPF_PROTO;
-  mcsk->saddr=AllSPFRouters;
-  mcsk->daddr=AllSPFRouters;
-  mcsk->tos=IP_PREC_INTERNET_CONTROL;
-  mcsk->ttl=1;
-  mcsk->rx_hook=ospf_rx_hook;
-  mcsk->tx_hook=ospf_tx_hook;
-  mcsk->err_hook=ospf_err_hook;
-  mcsk->iface=ifa->iface;
-  mcsk->rbsize=ifa->iface->mtu;
-  mcsk->tbsize=ifa->iface->mtu;
-  mcsk->data=(void *)ifa;
-  if(sk_open(mcsk)!=0)
+  mcsk = sk_new(p->pool);
+  mcsk->type = SK_IP_MC;
+  mcsk->sport = 0;
+  mcsk->dport = OSPF_PROTO;
+  mcsk->saddr = AllSPFRouters;
+  mcsk->daddr = AllSPFRouters;
+  mcsk->tos = IP_PREC_INTERNET_CONTROL;
+  mcsk->ttl = 1;
+  mcsk->rx_hook = ospf_rx_hook;
+  mcsk->tx_hook = ospf_tx_hook;
+  mcsk->err_hook = ospf_err_hook;
+  mcsk->iface = ifa->iface;
+  mcsk->rbsize = ifa->iface->mtu;
+  mcsk->tbsize = ifa->iface->mtu;
+  mcsk->data = (void *) ifa;
+  if (sk_open(mcsk) != 0)
   {
-    DBG("%s: SK_OPEN: mc open failed.\n",p->name);
-    return(NULL);
+    DBG("%s: SK_OPEN: mc open failed.\n", p->name);
+    return (NULL);
   }
-  DBG("%s: SK_OPEN: mc opened.\n",p->name);
-  return(mcsk);
+  DBG("%s: SK_OPEN: mc opened.\n", p->name);
+  return (mcsk);
 }
 
-sock *
-ospf_open_ip_socket(struct ospf_iface *ifa)
+static sock *
+ospf_open_ip_socket(struct ospf_iface * ifa)
 {
   sock *ipsk;
   struct proto *p;
 
-  p=(struct proto *)(ifa->proto);
+  p = (struct proto *) (ifa->proto);
 
-  ipsk=sk_new(p->pool);
-  ipsk->type=SK_IP;
-  ipsk->dport=OSPF_PROTO;
-  ipsk->saddr=ifa->iface->addr->ip;
-  ipsk->tos=IP_PREC_INTERNET_CONTROL;
-  ipsk->ttl=1;
-  ipsk->rx_hook=ospf_rx_hook;
-  ipsk->tx_hook=ospf_tx_hook;
-  ipsk->err_hook=ospf_err_hook;
-  ipsk->iface=ifa->iface;
-  ipsk->rbsize=ifa->iface->mtu;
-  ipsk->tbsize=ifa->iface->mtu;
-  ipsk->data=(void *)ifa;
-  if(sk_open(ipsk)!=0)
+  ipsk = sk_new(p->pool);
+  ipsk->type = SK_IP;
+  ipsk->dport = OSPF_PROTO;
+  ipsk->saddr = ifa->iface->addr->ip;
+  ipsk->tos = IP_PREC_INTERNET_CONTROL;
+  ipsk->ttl = 1;
+  ipsk->rx_hook = ospf_rx_hook;
+  ipsk->tx_hook = ospf_tx_hook;
+  ipsk->err_hook = ospf_err_hook;
+  ipsk->iface = ifa->iface;
+  ipsk->rbsize = ifa->iface->mtu;
+  ipsk->tbsize = ifa->iface->mtu;
+  ipsk->data = (void *) ifa;
+  if (sk_open(ipsk) != 0)
   {
-    DBG("%s: SK_OPEN: ip open failed.\n",p->name);
-    return(NULL);
+    DBG("%s: SK_OPEN: ip open failed.\n", p->name);
+    return (NULL);
   }
-  DBG("%s: SK_OPEN: ip opened.\n",p->name);
-  return(ipsk);
+  DBG("%s: SK_OPEN: ip opened.\n", p->name);
+  return (ipsk);
 }
 
 u8
-ospf_iface_clasify(struct iface *ifa, struct proto *p)
+ospf_iface_clasify(struct iface *ifa)
 {
-  DBG("%s: Iface flags=%x.\n", p->name, ifa->flags);
-  if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
-    (IF_MULTIACCESS|IF_MULTICAST))
-  {
-     DBG("%s: Clasifying BCAST.\n", p->name);
-     return OSPF_IT_BCAST;
-  }
-  if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
-    IF_MULTIACCESS)
-  {
-    DBG("%s: Clasifying NBMA.\n", p->name);
+  if ((ifa->flags & (IF_MULTIACCESS | IF_MULTICAST)) ==
+      (IF_MULTIACCESS | IF_MULTICAST))
+    return OSPF_IT_BCAST;
+
+  if ((ifa->flags & (IF_MULTIACCESS | IF_MULTICAST)) == IF_MULTIACCESS)
     return OSPF_IT_NBMA;
-  }
-  DBG("%s: Clasifying P-T-P.\n", p->name);
+
   return OSPF_IT_PTP;
 }
 
-struct ospf_iface*
-find_iface(struct proto_ospf *p, struct iface *what)
+struct ospf_iface *
+ospf_iface_find(struct proto_ospf *p, struct iface *what)
 {
   struct ospf_iface *i;
 
-  WALK_LIST (i, p->iface_list)
-    if ((i)->iface == what)
-      return i;
+  WALK_LIST(i, p->iface_list) if ((i)->iface == what)
+    return i;
   return NULL;
 }
 
-void
-ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
+static void
+ospf_iface_add(struct object_lock *lock)
 {
-  struct proto_ospf *po=(struct proto_ospf *)p;
-  struct ospf_config *c=(struct ospf_config *)(p->cf);
+  struct ospf_iface *ifa = lock->data;
+  struct proto_ospf *po = ifa->proto;
+  struct iface *iface = lock->iface;
+  struct proto *p = &po->proto;
+
+  ifa->ioprob = OSPF_I_OK;
+
+  if (ifa->type != OSPF_IT_NBMA)
+  {
+    if ((ifa->hello_sk = ospf_open_mc_socket(ifa)) == NULL)
+    {
+      log("%s: Huh? could not open mc socket on interface %s?", p->name,
+	  iface->name);
+      log("%s: Declaring as stub.", p->name);
+      ifa->stub = 1;
+      ifa->ioprob += OSPF_I_MC;
+    }
+    ifa->dr_sk = NULL;
+  }
+
+  if ((ifa->ip_sk = ospf_open_ip_socket(ifa)) == NULL)
+  {
+    log("%s: Huh? could not open ip socket on interface %s?", p->name,
+	iface->name);
+    log("%s: Declaring as stub.", p->name);
+    ifa->stub = 1;
+    ifa->ioprob += OSPF_I_IP;
+  }
+  ifa->lock = lock;
+
+  ifa->state = OSPF_IS_DOWN;
+  ospf_iface_sm(ifa, ISM_UP);
+}
+
+void
+ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
+{
+  struct proto_ospf *po = (struct proto_ospf *) p;
+  struct ospf_config *c = (struct ospf_config *) (p->cf);
   struct ospf_area_config *ac;
-  struct ospf_iface_patt *ip=NULL;
+  struct ospf_iface_patt *ip = NULL;
   struct ospf_iface *ifa;
   struct object_lock *lock;
-  struct nbma_node *nbma,*nb;
+  struct nbma_node *nbma, *nb;
+  struct ospf_area *oa;
 
   DBG("%s: If notify called\n", p->name);
   if (iface->flags & IF_IGNORE)
     return;
 
-  if(flags & IF_CHANGE_UP)
+  if (flags & IF_CHANGE_UP)
   {
     WALK_LIST(ac, c->area_list)
     {
-      if(ip=(struct ospf_iface_patt *)
-        iface_patt_match(&ac->patt_list, iface)) break;
+      if (ip = (struct ospf_iface_patt *)
+	  iface_patt_match(&ac->patt_list, iface))
+	break;
     }
 
-    if(ip)
+    if (ip)
     {
       OSPF_TRACE(D_EVENTS, "Using interface %s.", iface->name);
 
-      ifa=mb_allocz(p->pool, sizeof(struct ospf_iface));
-      ifa->proto=po;
-      ifa->iface=iface;
-   
-      ifa->an=ac->areaid;
-      ifa->cost=ip->cost;
-      ifa->rxmtint=ip->rxmtint;
-      ifa->inftransdelay=ip->inftransdelay;
-      ifa->priority=ip->priority;
-      ifa->helloint=ip->helloint;
-      ifa->pollint=ip->pollint;
-      ifa->strictnbma=ip->strictnbma;
-      ifa->waitint=ip->waitint;
-      ifa->deadc=ip->deadc;
-      ifa->stub=ip->stub;
-      ifa->autype=ip->autype;
-      memcpy(ifa->aukey,ip->password,8);
-      ifa->options=2;	/* FIXME what options? */
-   
-      if(ip->type==OSPF_IT_UNDEF)
-        ifa->type=ospf_iface_clasify(ifa->iface, (struct proto *)ifa->proto);
-      else ifa->type=ip->type;
+      ifa = mb_allocz(p->pool, sizeof(struct ospf_iface));
+      ifa->proto = po;
+      ifa->iface = iface;
+
+      ifa->an = ac->areaid;
+      ifa->cost = ip->cost;
+      ifa->rxmtint = ip->rxmtint;
+      ifa->inftransdelay = ip->inftransdelay;
+      ifa->priority = ip->priority;
+      ifa->helloint = ip->helloint;
+      ifa->pollint = ip->pollint;
+      ifa->strictnbma = ip->strictnbma;
+      ifa->waitint = ip->waitint;
+      ifa->deadc = ip->deadc;
+      ifa->stub = ip->stub;
+      ifa->autype = ip->autype;
+      memcpy(ifa->aukey, ip->password, 8);
+      ifa->options = 2;		/* FIXME what options? */
+
+      if (ip->type == OSPF_IT_UNDEF)
+	ifa->type =
+	  ospf_iface_clasify(ifa->iface);
+      else
+	ifa->type = ip->type;
 
       init_list(&ifa->neigh_list);
       init_list(&ifa->nbma_list);
-      WALK_LIST(nb,ip->nbma_list)
+      WALK_LIST(nb, ip->nbma_list)
       {
-        nbma=mb_alloc(p->pool,sizeof(struct nbma_node));
-        nbma->ip=nb->ip;
-        nbma->eligible=nb->eligible;
-        add_tail(&ifa->nbma_list, NODE nbma);
+	nbma = mb_alloc(p->pool, sizeof(struct nbma_node));
+	nbma->ip = nb->ip;
+	nbma->eligible = nb->eligible;
+	add_tail(&ifa->nbma_list, NODE nbma);
       }
-      
-      /* Add hello timer */
-      ifa->hello_timer=tm_new(p->pool);
-      ifa->hello_timer->data=ifa;
-      ifa->hello_timer->randomize=0;
-      ifa->hello_timer->hook=hello_timer_hook;
-      ifa->hello_timer->recurrent=ifa->helloint;
-      DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
-   
-      if(ifa->type==OSPF_IT_NBMA)
-      {
-        ifa->poll_timer=tm_new(p->pool);
-        ifa->poll_timer->data=ifa;
-        ifa->poll_timer->randomize=0;
-        ifa->poll_timer->hook=poll_timer_hook;
-        ifa->poll_timer->recurrent=ifa->pollint;
-        DBG("%s: Installing poll timer. (%u)\n", p->name, ifa->pollint);
-      }
-      else ifa->poll_timer=NULL;
-   
-      ifa->wait_timer=tm_new(p->pool);
-      ifa->wait_timer->data=ifa;
-      ifa->wait_timer->randomize=0;
-      ifa->wait_timer->hook=wait_timer_hook;
-      ifa->wait_timer->recurrent=0;
-      DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
-      add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
-      ifa->state=OSPF_IS_DOWN;
 
-      lock = olock_new( p->pool );
+      /* Add hello timer */
+      ifa->hello_timer = tm_new(p->pool);
+      ifa->hello_timer->data = ifa;
+      ifa->hello_timer->randomize = 0;
+      ifa->hello_timer->hook = hello_timer_hook;
+      ifa->hello_timer->recurrent = ifa->helloint;
+      DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
+
+      if (ifa->type == OSPF_IT_NBMA)
+      {
+	ifa->poll_timer = tm_new(p->pool);
+	ifa->poll_timer->data = ifa;
+	ifa->poll_timer->randomize = 0;
+	ifa->poll_timer->hook = poll_timer_hook;
+	ifa->poll_timer->recurrent = ifa->pollint;
+	DBG("%s: Installing poll timer. (%u)\n", p->name, ifa->pollint);
+      }
+      else
+	ifa->poll_timer = NULL;
+
+      ifa->wait_timer = tm_new(p->pool);
+      ifa->wait_timer->data = ifa;
+      ifa->wait_timer->randomize = 0;
+      ifa->wait_timer->hook = wait_timer_hook;
+      ifa->wait_timer->recurrent = 0;
+      DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
+      add_tail(&((struct proto_ospf *) p)->iface_list, NODE ifa);
+      ifa->state = OSPF_IS_DOWN;
+
+      lock = olock_new(p->pool);
       lock->addr = AllSPFRouters;
       lock->type = OBJLOCK_IP;
       lock->port = OSPF_PROTO;
       lock->iface = iface;
       lock->data = ifa;
-      lock->hook = ospf_ifa_add;
-      addifa_rtlsa(ifa);
+      lock->hook = ospf_iface_add;
+
+      WALK_LIST(NODE oa, po->area_list)
+      {
+	if (oa->areaid == ifa->an)
+	  break;
+      }
+
+      if (EMPTY_LIST(po->area_list) || (oa->areaid != ifa->an))	/* New area */
+	bug("Cannot add any area to accepted Interface");
+      else
+	ifa->oa = oa;
+
       olock_acquire(lock);
     }
   }
 
-  if(flags & IF_CHANGE_DOWN)
+  if (flags & IF_CHANGE_DOWN)
   {
-    if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
+    if ((ifa = ospf_iface_find((struct proto_ospf *) p, iface)) != NULL)
     {
       OSPF_TRACE(D_EVENTS, "Killing interface %s.", iface->name);
-      ospf_int_sm(ifa, ISM_DOWN);
+      ospf_iface_sm(ifa, ISM_DOWN);
     }
   }
 
-  if(flags & IF_CHANGE_MTU)
+  if (flags & IF_CHANGE_MTU)
   {
-    if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
+    if ((ifa = ospf_iface_find((struct proto_ospf *) p, iface)) != NULL)
     {
       struct ospf_packet *op;
       struct ospf_neighbor *n;
       OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", iface->name);
       if (ifa->hello_sk)
       {
-        ifa->hello_sk->rbsize = ifa->iface->mtu;
-        ifa->hello_sk->tbsize = ifa->iface->mtu;
+	ifa->hello_sk->rbsize = ifa->iface->mtu;
+	ifa->hello_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->hello_sk);
       }
       if (ifa->dr_sk)
       {
-        ifa->dr_sk->rbsize = ifa->iface->mtu;
-        ifa->dr_sk->tbsize = ifa->iface->mtu;
+	ifa->dr_sk->rbsize = ifa->iface->mtu;
+	ifa->dr_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->dr_sk);
       }
       if (ifa->ip_sk)
       {
-        ifa->ip_sk->rbsize = ifa->iface->mtu;
-        ifa->ip_sk->tbsize = ifa->iface->mtu;
+	ifa->ip_sk->rbsize = ifa->iface->mtu;
+	ifa->ip_sk->tbsize = ifa->iface->mtu;
 	sk_reallocate(ifa->ip_sk);
       }
 
-      WALK_LIST(n,ifa->neigh_list)
+      WALK_LIST(n, ifa->neigh_list)
       {
-        op = (struct ospf_packet *)n->ldbdes;
-        n->ldbdes = mb_allocz(n->pool, iface->mtu);
+	op = (struct ospf_packet *) n->ldbdes;
+	n->ldbdes = mb_allocz(n->pool, iface->mtu);
 
-        if(ntohs(op->length) <= iface->mtu)	/* If the packet in old buffer is bigger, let it filled by zeros */
-          memcpy(n->ldbdes, op, iface->mtu);	/* If the packet is old is same or smaller, copy it */
+	if (ntohs(op->length) <= iface->mtu)	/* If the packet in old buffer is bigger, let it filled by zeros */
+	  memcpy(n->ldbdes, op, iface->mtu);	/* If the packet is old is same or smaller, copy it */
 
-        rfree(op);
+	rfree(op);
       }
     }
   }
@@ -464,74 +505,32 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 void
 ospf_iface_info(struct ospf_iface *ifa)
 {
-  char *strict="(strict)";
+  char *strict = "(strict)";
 
-  if((ifa->type!=OSPF_IT_NBMA)||(ifa->strictnbma==0)) strict="";
-  cli_msg(-1015,"Interface \"%s\":", ifa->iface->name);
-  cli_msg(-1015,"\tArea: %I (%u)", ifa->oa->areaid, ifa->oa->areaid);
-  cli_msg(-1015,"\tType: %s %s", ospf_it[ifa->type], strict);
-  cli_msg(-1015,"\tState: %s %s", ospf_is[ifa->state],
-    ifa->stub ? "(stub)" : "");
-  cli_msg(-1015,"\tPriority: %u", ifa->priority);
-  cli_msg(-1015,"\tCost: %u", ifa->cost);
-  cli_msg(-1015,"\tHello timer: %u", ifa->helloint);
-  if(ifa->type==OSPF_IT_NBMA)
+  if ((ifa->type != OSPF_IT_NBMA) || (ifa->strictnbma == 0))
+    strict = "";
+  cli_msg(-1015, "Interface \"%s\":", ifa->iface->name);
+  cli_msg(-1015, "\tArea: %I (%u)", ifa->oa->areaid, ifa->oa->areaid);
+  cli_msg(-1015, "\tType: %s %s", ospf_it[ifa->type], strict);
+  cli_msg(-1015, "\tState: %s %s", ospf_is[ifa->state],
+	  ifa->stub ? "(stub)" : "");
+  cli_msg(-1015, "\tPriority: %u", ifa->priority);
+  cli_msg(-1015, "\tCost: %u", ifa->cost);
+  cli_msg(-1015, "\tHello timer: %u", ifa->helloint);
+  if (ifa->type == OSPF_IT_NBMA)
   {
-    cli_msg(-1015,"\tPoll timer: %u", ifa->pollint);
+    cli_msg(-1015, "\tPoll timer: %u", ifa->pollint);
   }
-  cli_msg(-1015,"\tWait timer: %u", ifa->waitint);
-  cli_msg(-1015,"\tDead timer: %u", ifa->deadc*ifa->helloint);
-  cli_msg(-1015,"\tRetransmit timer: %u", ifa->rxmtint);
-  if((ifa->type==OSPF_IT_BCAST)||(ifa->type==OSPF_IT_NBMA))
+  cli_msg(-1015, "\tWait timer: %u", ifa->waitint);
+  cli_msg(-1015, "\tDead timer: %u", ifa->deadc * ifa->helloint);
+  cli_msg(-1015, "\tRetransmit timer: %u", ifa->rxmtint);
+  if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
   {
-    cli_msg(-1015,"\tDesigned router (ID): %I", ifa->drid);
-    cli_msg(-1015,"\tDesigned router (IP): %I", ifa->drip);
-    cli_msg(-1015,"\tBackup designed router (ID): %I", ifa->bdrid);
-    cli_msg(-1015,"\tBackup designed router (IP): %I", ifa->bdrip);
+    cli_msg(-1015, "\tDesigned router (ID): %I", ifa->drid);
+    cli_msg(-1015, "\tDesigned router (IP): %I", ifa->drip);
+    cli_msg(-1015, "\tBackup designed router (ID): %I", ifa->bdrid);
+    cli_msg(-1015, "\tBackup designed router (IP): %I", ifa->bdrip);
   }
-}
-
-void
-ospf_ifa_add(struct object_lock *lock)
-{
-  struct ospf_iface *ifa=lock->data;
-  struct proto_ospf *po=ifa->proto;
-  struct iface *iface=lock->iface;
-  struct proto *p=&po->proto;
-
-  ifa->ioprob=OSPF_I_OK;
-
-  if(ifa->type!=OSPF_IT_NBMA)
-  {
-    if((ifa->hello_sk=ospf_open_mc_socket(ifa))==NULL)
-    {
-      log("%s: Huh? could not open mc socket on interface %s?", p->name,
-        iface->name);
-      log("%s: Declaring as stub.", p->name);
-      ifa->stub=1;
-      ifa->ioprob += OSPF_I_MC;
-    }
-    ifa->dr_sk=NULL;
-  }
-
-  if((ifa->ip_sk=ospf_open_ip_socket(ifa))==NULL)
-  {
-    log("%s: Huh? could not open ip socket on interface %s?", p->name,
-      iface->name);
-    log("%s: Declaring as stub.", p->name);
-    ifa->stub=1;
-    ifa->ioprob += OSPF_I_IP;
-  }
-  ifa->lock = lock;
-
-  ifa->state=OSPF_IS_DOWN;
-  ospf_int_sm(ifa, ISM_UP);
-}
-
-void
-schedule_net_lsa(struct ospf_iface *ifa)
-{
-  ifa->orignet=1;
 }
 
 void
@@ -540,4 +539,3 @@ ospf_iface_shutdown(struct ospf_iface *ifa)
   init_list(&ifa->neigh_list);
   hello_timer_hook(ifa->hello_timer);
 }
-

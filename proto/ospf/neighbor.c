@@ -103,9 +103,9 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       n->ip, ospf_ns[oldstate], ospf_ns[state]);
 
     if((state==NEIGHBOR_2WAY) && (oldstate<NEIGHBOR_2WAY))
-      ospf_int_sm(ifa, ISM_NEICH);
+      ospf_iface_sm(ifa, ISM_NEICH);
     if((state<NEIGHBOR_2WAY) && (oldstate>=NEIGHBOR_2WAY))
-      ospf_int_sm(ifa, ISM_NEICH);
+      ospf_iface_sm(ifa, ISM_NEICH);
 
     if(oldstate==NEIGHBOR_FULL)	/* Decrease number of adjacencies */
     {
@@ -448,11 +448,11 @@ bdr_election(struct ospf_iface *ifa)
 
   DBG("DR=%I, BDR=%I\n", ifa->drid, ifa->bdrid);
 
-  if(myid==ifa->drid) iface_chstate(ifa, OSPF_IS_DR);
+  if(myid==ifa->drid) ospf_iface_chstate(ifa, OSPF_IS_DR);
   else
   {
-    if(myid==ifa->bdrid) iface_chstate(ifa, OSPF_IS_BACKUP);
-    else iface_chstate(ifa, OSPF_IS_DROTHER);
+    if(myid==ifa->bdrid) ospf_iface_chstate(ifa, OSPF_IS_BACKUP);
+    else ospf_iface_chstate(ifa, OSPF_IS_DROTHER);
   }
 
   rem_node(NODE &me);
