@@ -293,7 +293,7 @@ void
 get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port)
 {
   if (sa->sin_family != AF_INET)
-    die("get_sockaddr called for wrong address family");
+    bug("get_sockaddr called for wrong address family");
   if (port)
     *port = ntohs(sa->sin_port);
   memcpy(a, &sa->sin_addr.s_addr, sizeof(*a));
@@ -379,7 +379,7 @@ sk_open(sock *s)
       fd = socket(PF_INET, SOCK_RAW, s->dport);
       break;
     default:
-      die("sk_open() called for invalid sock type %d", s->type);
+      bug("sk_open() called for invalid sock type %d", s->type);
     }
   if (fd < 0)
     die("sk_open: socket: %m");
@@ -530,7 +530,7 @@ sk_maybe_write(sock *s)
 	return 1;
       }
     default:
-      die("sk_maybe_write: unknown socket type %d", s->type);
+      bug("sk_maybe_write: unknown socket type %d", s->type);
     }
 }
 

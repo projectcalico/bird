@@ -82,7 +82,7 @@ static_start(struct proto *P)
 	  break;
 	}
       case RTD_DEVICE:
-	die("Static device routes are not supported");
+	bug("Static device routes are not supported");
 	/* FIXME: Static device routes */
       default:
 	static_install(p, r, NULL);

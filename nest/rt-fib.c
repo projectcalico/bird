@@ -132,7 +132,7 @@ fib_get(struct fib *f, ip_addr *a, int len)
     return e;
 #ifdef DEBUGGING
   if (len < 0 || len > BITS_PER_IP_ADDRESS || !ip_is_prefix(*a,len))
-    die("fib_get() called for invalid address");
+    bug("fib_get() called for invalid address");
 #endif
   e = sl_alloc(f->fib_slab);
   e->prefix = *a;
@@ -215,7 +215,7 @@ fib_delete(struct fib *f, void *E)
 	}
       ee = &((*ee)->next);
     }
-  die("fib_delete() called for invalid node");
+  bug("fib_delete() called for invalid node");
 }
 
 void
@@ -305,29 +305,29 @@ fib_check(struct fib *f)
 	  struct fib_iterator *j, *j0;
 	  unsigned int h0 = ipa_hash(n->prefix);
 	  if (h0 < lo)
-	    die("fib_check: discord in hash chains");
+	    bug("fib_check: discord in hash chains");
 	  lo = h0;
 	  if ((h0 >> f->hash_shift) != i)
-	    die("fib_check: mishashed %x->%x (order %d)", h0, i, f->hash_order);
+	    bug("fib_check: mishashed %x->%x (order %d)", h0, i, f->hash_order);
 	  j0 = (struct fib_iterator *) n;
 	  nulls = 0;
 	  for(j=n->readers; j; j=j->next)
 	    {
 	      if (j->prev != j0)
-		die("fib_check: iterator->prev mismatch");
+		bug("fib_check: iterator->prev mismatch");
 	      j0 = j;
 	      if (!j->node)
 		nulls++;
 	      else if (nulls)
-		die("fib_check: iterator nullified");
+		bug("fib_check: iterator nullified");
 	      else if (j->node != n)
-		die("fib_check: iterator->node mismatch");
+		bug("fib_check: iterator->node mismatch");
 	    }
 	  ec++;
 	}
     }
   if (ec != f->entries)
-    die("fib_check: invalid entry count (%d != %d)", ec, f->entries);
+    bug("fib_check: invalid entry count (%d != %d)", ec, f->entries);
 }
 
 #endif

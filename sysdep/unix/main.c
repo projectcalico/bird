@@ -121,5 +121,5 @@ main(void)
   debug("Entering I/O loop.\n");
 
   io_loop();
-  die("I/O loop died");
+  bug("I/O loop died");
 }

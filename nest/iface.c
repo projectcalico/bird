@@ -341,7 +341,7 @@ auto_router_id(void)			/* FIXME: What if we run IPv6??? */
 	(!j || ipa_to_u32(i->ip) < ipa_to_u32(j->ip)))
       j = i;
   if (!j)				/* FIXME: allow configuration or running without RID */
-    die("Cannot determine router ID, please configure manually");
+    bug("Cannot determine router ID, please configure manually");
   router_id = ipa_to_u32(j->ip);
   debug("Router ID set to %08x (%s)\n", router_id, j->name);
 }

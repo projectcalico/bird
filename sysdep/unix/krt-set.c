@@ -77,7 +77,7 @@ krt_ioctl(int ioc, rte *e, char *name)
       break;
 #endif
     default:
-      die("krt set: unknown flags, but not filtered");
+      bug("krt set: unknown flags, but not filtered");
     }
 
   if (ioctl(if_scan_sock, ioc, &re) < 0)
@@ -127,6 +127,6 @@ void
 krt_set_preconfig(struct krt_proto *x)
 {
   if (if_scan_sock < 0)
-    die("krt set: missing socket");
+    bug("krt set: missing socket");
   x->p.rt_notify = krt_set_notify;
 }

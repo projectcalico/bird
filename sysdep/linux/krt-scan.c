@@ -291,7 +291,7 @@ krt_prune(struct krt_proto *p)
 	  rte_update(n, &p->p, new);
 	  break;
 	default:
-	  die("krt_prune: invalid route status");
+	  bug("krt_prune: invalid route status");
 	}
 
       if (old)
