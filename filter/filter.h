@@ -109,6 +109,9 @@ void val_print(struct f_val v);
 
 #define T_ENUM_RTS 0x30
 #define T_ENUM_BGP_ORIGIN 0x31
+#define T_ENUM_SCOPE 0x32
+#define T_ENUM_RTC 0x33
+#define T_ENUM_RTD 0x34
 /* new enums go here */
 #define T_ENUM_EMPTY 0x3f	/* Special hack for atomic_aggr */
 

@@ -20,7 +20,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING, BGPMASK, BGPPATH, CLIST,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE,
-	FROM, GW, NET, MASK, SOURCE,
+	FROM, GW, NET, MASK, SOURCE, SCOPE, CAST, DEST,
 	LEN,
 	DEFINED,
 	ADD, DELETE, CONTAINS, RESET,
@@ -301,9 +301,6 @@ CF_ADDTO(dynamic_attr, INVALID_TOKEN { $$ = NULL; })
 rtadot: /* EMPTY, we are not permitted RTA. prefix */
  ;
 
-
-
-
 function_call:
    SYM '(' var_list ')' {
      struct symbol *sym;
@@ -329,18 +326,15 @@ function_call:
 
 static_attr:
 /* FIXME (maybe?) rta.from read/write */
-   FROM    { $$ = f_new_inst(); $$->aux = T_IP;       $$->a2.i = OFFSETOF(struct rta, from); }
+   FROM    { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, from); }
 
-/* FIXME Gw read/write */
- | GW      { $$ = f_new_inst(); $$->aux = T_IP;       $$->a2.i = OFFSETOF(struct rta, gw); }
- | NET     { $$ = f_new_inst(); $$->aux = T_PREFIX;   $$->a2.i = 0x12345678; /* This is actually ok - T_PREFIX is special-cased. */ }
- | SOURCE  { $$ = f_new_inst(); $$->aux = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, source); }
+ | GW      { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, gw); }    /* FIXME: want it read/write */
+ | NET     { $$ = f_new_inst(); $$->aux = T_PREFIX;     $$->a2.i = 0x12345678; /* This is actually ok - T_PREFIX is special-cased. */ }
+ | SOURCE  { $$ = f_new_inst(); $$->aux = T_ENUM_RTS;   $$->a2.i = OFFSETOF(struct rta, source); }
+ | SCOPE   { $$ = f_new_inst(); $$->aux = T_ENUM_SCOPE; $$->a2.i = OFFSETOF(struct rta, scope); } /* FIXME: want it read/write */
+ | CAST    { $$ = f_new_inst(); $$->aux = T_ENUM_RTC;   $$->a2.i = OFFSETOF(struct rta, cast); }
+ | DEST    { $$ = f_new_inst(); $$->aux = T_ENUM_RTD;   $$->a2.i = OFFSETOF(struct rta, dest); }
  ;
-
-/* FIXME rta.Scope - read/write */
-/* FIXME rta.Cast - read */
-/* FIXME rta.Dest - read */
-
 
 term:
    '(' term ')'      { $$ = $2; }

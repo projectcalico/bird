@@ -200,6 +200,18 @@ static struct ea_list **f_tmp_attrs;
 static int f_flags;
 static rta *f_rta_copy;
 
+void
+rta_cow(void)
+{
+  if (!f_rta_copy) {
+    f_rta_copy = lp_alloc(f_pool, sizeof(rta));
+    memcpy(f_rta_copy, (*f_rte)->attrs, sizeof(rta));
+    f_rta_copy->aflags = 0;
+    *f_rte = rte_cow(*f_rte);
+    (*f_rte)->attrs = f_rta_copy;
+  }
+}
+
 #define runtime(x) do { \
     log( L_ERR "filters, line %d: %s", what->lineno, x); \
     res.type = T_RETURN; \
@@ -477,13 +489,7 @@ interpret(struct f_inst *what)
       }
 
       if (!(what->aux & EAF_TEMP) && (!(f_flags & FF_FORCE_TMPATTR))) {
-	if (!f_rta_copy) {
-	  f_rta_copy = lp_alloc(f_pool, sizeof(rta));
-	  memcpy(f_rta_copy, (*f_rte)->attrs, sizeof(rta));
-	  f_rta_copy->aflags = 0;
-	  *f_rte = rte_cow(*f_rte);
-	  (*f_rte)->attrs = f_rta_copy;
-	}
+	rta_cow();
 	l->next = f_rta_copy->eattrs;
 	f_rta_copy->eattrs = l;
       } else {
