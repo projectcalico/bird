@@ -276,11 +276,11 @@ term:
      }
    }
 
- | RTA '.' FROM    { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
+ | RTA '.' FROM    { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
 
- | RTA '.' GW      { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
- | RTA '.' NET     { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_PREFIX; $$->a2.i = 0x12345678; }
- | RTA '.' SOURCE  { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, gw); }
+ | RTA '.' GW      { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
+ | RTA '.' NET     { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_PREFIX; $$->a2.i = 0x12345678; }
+ | RTA '.' SOURCE  { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, gw); }
 
  | RTA '.' any_dynamic { $$ = $3; $$->code = 'ea'; }
 

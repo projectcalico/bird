@@ -313,7 +313,7 @@ interpret(struct f_inst *what)
 	  break;
 	}
       default:
-	bug( "Invalid type for rta access" );
+	bug( "Invalid type for rta access (%x)\n" );
       }
     }
     break;
