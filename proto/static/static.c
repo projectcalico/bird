@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Static Route Generator
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -18,10 +18,8 @@
 
 #include "static.h"
 
-#define GET_DATA struct static_proto *p = (struct static_proto *) P
-
 static void
-static_install(struct static_proto *p, struct static_route *r, struct iface *ifa)
+static_install(struct proto *p, struct static_route *r, struct iface *ifa)
 {
   net *n;
   rta a, *aa;
@@ -29,7 +27,7 @@ static_install(struct static_proto *p, struct static_route *r, struct iface *ifa
 
   DBG("Installing static route %I/%d, rtd=%d\n", r->net, r->masklen, r->dest);
   bzero(&a, sizeof(a));
-  a.proto = &p->p;
+  a.proto = p;
   a.source = (r->dest == RTD_DEVICE) ? RTS_STATIC_DEVICE : RTS_STATIC;
   a.scope = SCOPE_UNIVERSE;
   a.cast = RTC_UNICAST;
@@ -43,33 +41,33 @@ static_install(struct static_proto *p, struct static_route *r, struct iface *ifa
   e = rte_get_temp(aa);
   e->net = n;
   e->pflags = 0;
-  rte_update(n, &p->p, e);
+  rte_update(n, p, e);
 }
 
 static void
-static_remove(struct static_proto *p, struct static_route *r)
+static_remove(struct proto *p, struct static_route *r)
 {
   net *n;
 
   DBG("Removing static route %I/%d\n", r->net, r->masklen);
   n = net_find(&master_table, 0, r->net, r->masklen);
   if (n)
-    rte_update(n, &p->p, NULL);
+    rte_update(n, p, NULL);
 }
 
-static void
-static_start(struct proto *P)
+static int
+static_start(struct proto *p)
 {
-  GET_DATA;
+  struct static_config *c = (void *) p->cf;
   struct static_route *r;
 
   DBG("Static: take off!\n");
-  WALK_LIST(r, p->other_routes)
+  WALK_LIST(r, c->other_routes)
     switch (r->dest)
       {
       case RTD_ROUTER:
 	{
-	  struct neighbor *n = neigh_find(P, &r->via, NEF_STICKY);
+	  struct neighbor *n = neigh_find(p, &r->via, NEF_STICKY);
 	  if (n)
 	    {
 	      r->chain = n->data;
@@ -87,12 +85,13 @@ static_start(struct proto *P)
       default:
 	static_install(p, r, NULL);
       }
+  return PS_UP;
 }
 
 static void
 static_neigh_notify(struct neighbor *n)
 {
-  struct static_proto *p = (struct static_proto *) n->proto;
+  struct proto *p = n->proto;
   struct static_route *r;
 
   DBG("Static: neighbor notify for %I: iface %p\n", n->addr, n->iface);
@@ -122,52 +121,40 @@ static_dump_rt(struct static_route *r)
 }
 
 static void
-static_dump(struct proto *P)
+static_dump(struct proto *p)
 {
-  GET_DATA;
+  struct static_config *c = (void *) p->cf;
   struct static_route *r;
 
   debug("Independent static routes:\n");
-  WALK_LIST(r, p->other_routes)
+  WALK_LIST(r, c->other_routes)
     static_dump_rt(r);
   debug("Device static routes:\n");
-  WALK_LIST(r, p->iface_routes)
+  WALK_LIST(r, c->iface_routes)
     static_dump_rt(r);
 }
 
 void
-static_init_instance(struct static_proto *P)
+static_init_config(struct static_config *c)
 {
-  struct proto *p = &P->p;
+  c->c.preference = DEF_PREF_STATIC;
+  init_list(&c->iface_routes);
+  init_list(&c->other_routes);
+}
 
-  p->preference = DEF_PREF_STATIC;
-  p->start = static_start;
+static struct proto *
+static_init(struct proto_config *c)
+{
+  struct proto *p = proto_new(c, sizeof(struct proto));
+
   p->neigh_notify = static_neigh_notify;
-  p->dump = static_dump;
-  init_list(&P->iface_routes);
-  init_list(&P->other_routes);
-}
-
-static void
-static_init(struct protocol *p)
-{
-}
-
-static void
-static_preconfig(struct protocol *x)
-{
-}
-
-static void
-static_postconfig(struct protocol *p)
-{
+  return p;
 }
 
 struct protocol proto_static = {
-  { NULL, NULL },
-  "Static",
-  0,
-  static_init,
-  static_preconfig,
-  static_postconfig
+  name:		"Static",
+  init:		static_init,
+  dump:		static_dump,
+  start:	static_start,
+  /* FIXME: We'll need a shutdown function here */
 };

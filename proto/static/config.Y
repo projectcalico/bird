@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Static Protocol Configuration
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -21,8 +21,8 @@ CF_GRAMMAR
 CF_ADDTO(proto, static_proto '}')
 
 static_proto_start: proto_start STATIC {
-     this_proto = proto_new(&proto_static, sizeof(struct static_proto));
-     static_init_instance((struct static_proto *) this_proto);
+     this_proto = proto_config_new(&proto_static, sizeof(struct static_config));
+     static_init_config((struct static_config *) this_proto);
   }
  ;
 
@@ -34,7 +34,7 @@ static_proto:
 
 stat_route0: ROUTE IPA pxlen {
      this_srt = cfg_allocz(sizeof(struct static_route));
-     add_tail(&((struct static_proto *) this_proto)->other_routes, &this_srt->n);
+     add_tail(&((struct static_config *) this_proto)->other_routes, &this_srt->n);
      if (!ip_is_prefix($2, $3)) cf_error("Invalid network prefix: %I/%d", $2, $3);
      this_srt->net = $2;
      this_srt->masklen = $3;
@@ -50,7 +50,7 @@ stat_route:
       this_srt->dest = RTD_DEVICE;
       this_srt->if_name = $3;
       rem_node(&this_srt->n);
-      add_tail(&((struct static_proto *) this_proto)->iface_routes, &this_srt->n);
+      add_tail(&((struct static_config *) this_proto)->iface_routes, &this_srt->n);
    }
  | stat_route0 DROP { this_srt->dest = RTD_BLACKHOLE; }
  | stat_route0 REJECT { this_srt->dest = RTD_UNREACHABLE; }

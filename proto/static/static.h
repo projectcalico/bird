@@ -9,13 +9,13 @@
 #ifndef _BIRD_STATIC_H_
 #define _BIRD_STATIC_H_
 
-struct static_proto {
-  struct proto p;
+struct static_config {
+  struct proto_config c;
   list iface_routes;			/* Routes to search on interface events */
   list other_routes;			/* Routes hooked to neighbor cache and reject routes */
 };
 
-void static_init_instance(struct static_proto *);
+void static_init_config(struct static_config *);
 
 struct static_route {
   node n;
