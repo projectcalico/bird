@@ -436,12 +436,12 @@ term:
  ;
 
 break_command:
-   QUITBIRD { $$ = F_QUITBIRD }
- | ACCEPT { $$ = F_ACCEPT }
- | REJECT { $$ = F_REJECT }
- | ERROR { $$ = F_ERROR }
- | PRINT { $$ = F_NOP }
- | PRINTN { $$ = F_NONL }
+   QUITBIRD { $$ = F_QUITBIRD; }
+ | ACCEPT { $$ = F_ACCEPT; }
+ | REJECT { $$ = F_REJECT; }
+ | ERROR { $$ = F_ERROR; }
+ | PRINT { $$ = F_NOP; }
+ | PRINTN { $$ = F_NONL; }
  ;
 
 print_one:
