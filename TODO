@@ -8,7 +8,6 @@ Core
 
 * Fix router ID calculation
 * debug dump: dump router ID as well
-* proto_report_state() !
 
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
 

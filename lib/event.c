@@ -34,7 +34,7 @@ ev_dump(resource *r)
 
 static struct resclass ev_class = {
   "Event",
-  0,
+  sizeof(event),
   (void (*)(resource *)) ev_postpone,
   ev_dump
 };

@@ -14,26 +14,45 @@
 #include "nest/protocol.h"
 #include "lib/resource.h"
 #include "lib/lists.h"
+#include "lib/event.h"
 #include "conf/conf.h"
 #include "nest/route.h"
 #include "nest/iface.h"
 
+static pool *proto_pool;
+
 list protocol_list;
 list proto_list;
-list inactive_proto_list;
+
+static list inactive_proto_list;
+static list initial_proto_list;
+
+static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
+static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
+
+static void
+proto_relink(struct proto *p)
+{
+  rem_node(&p->n);
+  add_tail(p->core_state == FS_HAPPY ? &proto_list : &inactive_proto_list, &p->n);
+}
 
 void *
 proto_new(struct proto_config *c, unsigned size)
 {
   struct protocol *pr = c->proto;
-  struct proto *p = cfg_allocz(size);	/* FIXME: Allocate from global pool */
+  pool *r = rp_new(proto_pool, c->name);
+  struct proto *p = mb_alloc(r, size);
 
   p->cf = c;
   p->debug = c->debug;
+  p->name = c->name;
   p->preference = c->preference;
   p->disabled = c->disabled;
   p->proto = pr;
-  p->pool = rp_new(&root_pool, c->name);
+  p->pool = r;
+  p->attn = ev_new(r);
+  p->attn->data = p;
   return p;
 }
 
@@ -57,6 +76,7 @@ protos_preconfig(struct config *c)
 
   init_list(&proto_list);
   init_list(&inactive_proto_list);
+  init_list(&initial_proto_list);
   debug("Protocol preconfig:");
   WALK_LIST(p, protocol_list)
     {
@@ -97,27 +117,45 @@ protos_commit(struct config *c)
       debug(" %s", x->name);
       p = x->proto;
       q = p->init(x);
-      add_tail(&inactive_proto_list, &q->n);
+      q->proto_state = PS_DOWN;
+      q->core_state = FS_HUNGRY;
+      add_tail(&initial_proto_list, &q->n);
     }
   debug("\n");
 }
 
 static void
-proto_start(struct proto *p)
+proto_rethink_goal(struct proto *p)
 {
-  rem_node(&p->n);
-  if (p->disabled)
+  struct protocol *q = p->proto;
+
+  if (p->core_state == p->core_goal)
     return;
-  p->proto_state = PS_DOWN;
-  p->core_state = FS_HUNGRY;
-  if (p->proto->start && p->proto->start(p) != PS_UP)
-    bug("Delayed protocol start not supported yet");
-  p->proto_state = PS_UP;
-  p->core_state = FS_FEEDING;
-  if_feed_baby(p);
-  rt_feed_baby(p);
-  p->core_state = FS_HAPPY;
-  add_tail(&proto_list, &p->n);
+  if (p->core_goal == FS_HAPPY)		/* Going up */
+    {
+      if (p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
+	{
+	  DBG("Kicking %s up\n", p->name);
+	  proto_notify_state(p, (q->start ? q->start(p) : PS_UP));
+	}
+    }
+  else 					/* Going down */
+    {
+      if (p->proto_state == PS_START || p->proto_state == PS_UP)
+	{
+	  DBG("Kicking %s down\n", p->name);
+	  proto_notify_state(p, (q->shutdown ? q->shutdown(p) : PS_DOWN));
+	}
+    }
+}
+
+static void
+proto_set_goal(struct proto *p, unsigned goal)
+{
+  if (p->disabled)
+    goal = FS_HUNGRY;
+  p->core_goal = goal;
+  proto_rethink_goal(p);
 }
 
 void
@@ -126,32 +164,29 @@ protos_start(void)
   struct proto *p, *n;
 
   debug("Protocol start\n");
-  WALK_LIST_DELSAFE(p, n, inactive_proto_list)
-    {
-      debug("Starting %s\n", p->cf->name);
-      proto_start(p);
-    }
+  WALK_LIST_DELSAFE(p, n, initial_proto_list)
+    proto_set_goal(p, FS_HAPPY);
 }
 
 void
 protos_dump_all(void)
 {
   struct proto *p;
-  static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
-  static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
 
   debug("Protocols:\n");
 
   WALK_LIST(p, proto_list)
     {
-      debug("  protocol %s: state %s/%s\n", p->cf->name, p_states[p->proto_state], c_states[p->core_state]);
+      debug("  protocol %s: state %s/%s\n", p->name, p_states[p->proto_state], c_states[p->core_state]);
       if (p->disabled)
 	debug("\tDISABLED\n");
       else if (p->proto->dump)
 	p->proto->dump(p);
     }
   WALK_LIST(p, inactive_proto_list)
-    debug("  inactive %s\n", p->cf->name);
+    debug("  inactive %s: state %s/%s\n", p->name, p_states[p->proto_state], c_states[p->core_state]);
+  WALK_LIST(p, initial_proto_list)
+    debug("  initial %s\n", p->name);
 }
 
 void
@@ -165,4 +200,84 @@ protos_build(void)
 #ifdef CONFIG_STATIC
   add_tail(&protocol_list, &proto_static.n);
 #endif
+  proto_pool = rp_new(&root_pool, "Protocols");
+}
+
+static void
+proto_fell_down(struct proto *p)
+{
+  DBG("Protocol %s down\n", p->name);
+  proto_rethink_goal(p);
+}
+
+static void
+proto_feed(void *P)
+{
+  struct proto *p = P;
+
+  DBG("Feeding protocol %s\n", p->name);
+  if_feed_baby(p);
+  rt_feed_baby(p);
+  p->core_state = FS_HAPPY;
+  proto_relink(p);
+  DBG("Protocol %s up and running\n", p->name);
+}
+
+static void
+proto_flush(void *P)
+{
+  struct proto *p = P;
+
+  DBG("Flushing protocol %s\n", p->name);
+  bug("Protocol flushing not supported yet!"); /* FIXME */
+}
+
+void
+proto_notify_state(struct proto *p, unsigned ps)
+{
+  unsigned ops = p->proto_state;
+  unsigned cs = p->core_state;
+
+  DBG("%s reporting state transition %s/%s -> */%s\n", p->name, c_states[cs], p_states[ops], p_states[ps]);
+  if (ops == ps)
+    return;
+
+  switch (ps)
+    {
+    case PS_DOWN:
+      if (cs == FS_HUNGRY)		/* Shutdown finished */
+	proto_fell_down(p);
+      else if (cs == FS_FLUSHING)	/* Still flushing... */
+	;
+      else				/* Need to start flushing */
+	goto schedule_flush;
+      break;
+    case PS_START:
+      ASSERT(ops == PS_DOWN);
+      ASSERT(cs == FS_HUNGRY);
+      break;
+    case PS_UP:
+      ASSERT(ops == PS_DOWN || ops == PS_START);
+      ASSERT(cs == FS_HUNGRY);
+      DBG("%s: Scheduling meal\n", p->name);
+      cs = FS_FEEDING;
+      p->attn->hook = proto_feed;
+      ev_schedule(p->attn);
+      break;
+    case PS_STOP:
+      if (cs == FS_FEEDING || cs == FS_HAPPY)
+	{
+	schedule_flush:
+	  DBG("%s: Scheduling flush\n", p->name);
+	  cs = FS_FLUSHING;
+	  p->attn->hook = proto_flush;
+	  ev_schedule(p->attn);
+	}
+    default:
+    error:
+      bug("Invalid state transition for %s from %s/%s to */%s", p->name, c_states[cs], p_states[ops], p_states[ps]);
+    }
+  p->proto_state = ps;
+  p->core_state = cs;
+  proto_relink(p);
 }
