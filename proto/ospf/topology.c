@@ -1,8 +1,8 @@
 /*
  *	BIRD -- OSPF Topological Database
  *
- *	(c) 1999        Martin Mares <mj@ucw.cz>
- *	(c) 1999 - 2004 Ondrej Filip <feela@network.cz>
+ *	(c) 1999       Martin Mares <mj@ucw.cz>
+ *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -25,7 +25,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 {
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
-  int j = 0, k = 0, v = 0;
+  int j = 0, k = 0;
   u16 i = 0;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *ln;
@@ -39,8 +39,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
     if ((ifa->an == oa->areaid) && (ifa->state != OSPF_IS_DOWN))
     {
       i++;
-      if (ifa->type == OSPF_IT_VLINK)
-	v = 1;
     }
   }
   rt = mb_allocz(po->proto.pool, sizeof(struct ospf_lsa_rt) +
@@ -49,7 +47,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
     rt->veb.bit.b = 1;
   if ((po->ebit) && (!oa->stub))
     rt->veb.bit.e = 1;
-  rt->veb.bit.v = v;
   ln = (struct ospf_lsa_rt_link *) (rt + 1);
 
   WALK_LIST(ifa, po->iface_list)
@@ -83,7 +80,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	  }
 	  else
 	  {
-	    ln->id = ipa_to_u32(ifa->iface->addr->ip);
+	    ln->data = ipa_to_u32(ifa->iface->addr->ip);
 	  }
 	}
 	else
@@ -97,9 +94,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	    ln->data = 0xffffffff;
 	  }
 	  else
-	  {
 	    i--;		/* No link added */
-	  }
 	}
 	break;
       case OSPF_IT_BCAST:
@@ -140,14 +135,21 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	  }
 	}
 	break;
-      case OSPF_IT_VLINK:	/* FIXME Add virtual links! */
-	i--;
-	break;
+      case OSPF_IT_VLINK:
+	neigh = (struct ospf_neighbor *) HEAD(ifa->neigh_list);
+	if ((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state == NEIGHBOR_FULL) && (ifa->cost <= 0xffff))
+	{
+	  ln->type = LSART_VLNK;
+	  ln->id = neigh->rid;
+	  ln->metric = ifa->cost;
+	  ln->notos = 0;
+          rt->veb.bit.v = 1;
+        }
+	else
+	  i--;		/* No link added */
+        break;
       }
     }
-    if (ifa->type == OSPF_IT_VLINK)
-      v = 1;
-    ln = (ln + 1);
   }
   rt->links = i;
   *length = i * sizeof(struct ospf_lsa_rt_link) + sizeof(struct ospf_lsa_rt) +
@@ -305,6 +307,7 @@ originate_net_lsa(struct ospf_iface *ifa)
   ifa->orignet = 0;
 }
 
+
 static void *
 originate_ext_lsa_body(net * n, rte * e, struct proto_ospf *po,
 		       struct ea_list *attrs)
@@ -325,15 +328,16 @@ originate_ext_lsa_body(net * n, rte * e, struct proto_ospf *po,
 
   if (m1 != LSINFINITY)
   {
-    et->etos = 0;
-    et->metric = m1;
+    et->etm.metric = m1;
+    et->etm.etos.tos = 0;
+    et->etm.etos.ebit = 0;
   }
   else
   {
-    et->etos = 0x80;
-    et->metric = m2;
+    et->etm.metric = m2;
+    et->etm.etos.tos = 0;
+    et->etm.etos.ebit = 1;
   }
-  et->padding = 0;
   et->tag = tag;
   if (ipa_compare(e->attrs->gw, ipa_from_u32(0)) != 0)
   {
@@ -371,6 +375,175 @@ max_ext_lsa(unsigned pxlen)
   return i;
 }
 
+void
+flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
+{
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
+  struct top_hash_entry *en;
+  u32 rtid = po->proto.cf->global->router_id;
+  struct ospf_lsa_header lsa;
+  int max, i;
+  struct ospf_lsa_sum *sum = NULL;
+  union ospf_lsa_sum_tm *tm;
+
+  lsa.rt = rtid;
+  lsa.type = LSA_T_SUM_NET;
+  if (type == ORT_ROUTER)
+    lsa.type = LSA_T_SUM_RT;
+
+  max = max_ext_lsa(fn->pxlen);
+
+  for (i = 0; i < max; i++)
+  {
+    lsa.id = ipa_to_u32(fn->prefix) + i;
+    if ((en = ospf_hash_find_header(oa->gr, &lsa)) != NULL)
+    {
+      sum = en->lsa_body;
+      if (fn->pxlen == ipa_mklen(sum->netmask))
+      {
+        en->lsa.age = LSA_MAXAGE;
+        en->lsa.sn = LSA_MAXSEQNO;
+        OSPF_TRACE(D_EVENTS, "Flushing summary lsa.");
+        ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
+        if (can_flush_lsa(oa)) flush_lsa(en, oa);
+        break;
+      }
+    }
+  }
+}
+
+  
+
+
+void
+originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric)
+{
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
+  struct top_hash_entry *en;
+  u32 rtid = po->proto.cf->global->router_id;
+  struct ospf_lsa_header lsa;
+  void *body = NULL;
+  int i, max, mlen = fn->pxlen, found = 0, free = -1;
+  struct ospf_lsa_sum *sum = NULL;
+  union ospf_lsa_sum_tm *tm;
+  lsa.type = LSA_T_SUM_NET;
+
+  if (type == ORT_ROUTER)
+  {
+    lsa.type = LSA_T_SUM_RT;
+    mlen = 0;
+  }
+
+  lsa.age = 0;
+  lsa.rt = rtid;
+  lsa.sn = LSA_INITSEQNO;
+  lsa.length = sizeof(struct ospf_lsa_sum) + sizeof(union ospf_lsa_sum_tm) +
+    sizeof(struct ospf_lsa_header);
+
+  max = max_ext_lsa(fn->pxlen);
+  for (i = 0; i < max; i++)
+  {
+    lsa.id = ipa_to_u32(fn->prefix) + i;
+    if ((en = ospf_hash_find_header(oa->gr, &lsa)) == NULL)
+    {
+      if (free < 0) free = i;
+    }
+    else
+    {
+      sum = en->lsa_body;
+      if (mlen == ipa_mklen(sum->netmask))
+      {
+        tm = (union ospf_lsa_sum_tm *) (sum + 1);
+        if (tm->metric == (unsigned)metric) return;	/* No reason for origination */
+        lsa.sn = en->lsa.sn + 1;
+        free = en->lsa.id;
+        break;
+      }
+    }
+  }
+
+  if(free < 0)
+  {
+    log("%s: got more routes for one /%d network then %d, ignoring", p->name,
+        fn->pxlen, max);
+    return;
+  }
+  lsa.id = free;
+  
+  sum = en->lsa_body;
+  tm = (union ospf_lsa_sum_tm *) (sum + 1);
+
+  OSPF_TRACE(D_EVENTS, "Originating summary (type %d) lsa for %I/%d.", lsa.type, fn->prefix,
+             fn->pxlen);
+
+  sum = mb_alloc(p->pool, sizeof(struct ospf_lsa_sum) + sizeof(union ospf_lsa_sum_tm));
+  sum->netmask = ipa_mkmask(mlen);
+  tm = (union ospf_lsa_sum_tm *) (sum + 1);
+  tm->metric = metric;
+  tm->tos.tos = 0;
+
+  lsasum_calculate(&lsa, body);
+  en = lsa_install_new(&lsa, body, oa);
+  ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
+}
+
+void
+check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
+{
+  struct proto *p = &po->proto;
+  struct ospf_area *oa;
+  struct area_net *anet;
+  int flush, mlen;
+  ip_addr ip;
+
+  if (po->areano < 2) return;
+
+  if ((nf->n.type > RTS_OSPF_IA) && (nf->o.type > RTS_OSPF_IA)) return;
+
+  WALK_LIST(oa, po->area_list)
+  {
+    flush = 0;
+    if ((nf->n.metric1 >= LSINFINITY) || (nf->n.type > RTS_OSPF_IA))
+      flush = 1;
+    if ((dest == ORT_ROUTER) && (!(nf->n.capa & ORTA_ABR)))
+      flush = 1;
+    if (nf->n.oa->areaid == oa->areaid)
+      flush = 1;
+    /* FIXME: Test next hop - is it in actual area? */
+    if ((dest == ORT_ROUTER) && oa->stub)
+      flush = 1;
+    /* FIXME stub for networks? */
+
+    mlen = nf->fn.pxlen;
+    ip = ipa_and(nf->fn.prefix, ipa_mkmask(mlen));
+    if((!oa->trcap) && fib_route(&oa->net_fib, ip, mlen))	/* The route fits into some area */
+      flush = 1;
+
+    if(flush)		/* FIXME Go on... */
+    {
+      flush_sum_lsa(oa, &nf->fn, dest);
+      continue;
+    }
+    originate_sum_lsa(oa, &nf->fn, dest, nf->n.metric1);
+  }
+}
+
+void
+check_sum_areas(struct proto_ospf *po)
+{
+  struct proto *p = &po->proto;
+  struct ospf_area *oa;
+  struct area_net *anet;
+
+  WALK_LIST(oa, po->area_list)
+  {
+    ;	/* FIXME */
+  }
+}
+
+
 /**
  * originate_ext_lsa - new route received from nest and filters
  * @n: network prefix and mask
@@ -397,8 +570,7 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
   struct proto *p = &po->proto;
   struct ospf_area *oa;
   struct ospf_lsa_ext *ext1, *ext2;
-  int i;
-  int max;
+  int i, max;
 
   OSPF_TRACE(D_EVENTS, "Originating Ext lsa for %I/%d.", n->n.prefix,
 	     n->n.pxlen);
@@ -408,6 +580,7 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
   lsa.type = LSA_T_EXT;
   lsa.rt = rtid;
   lsa.sn = LSA_INITSEQNO;
+
   body = originate_ext_lsa_body(n, e, po, attrs);
   lsa.length = sizeof(struct ospf_lsa_ext) + sizeof(struct ospf_lsa_ext_tos) +
     sizeof(struct ospf_lsa_header);
@@ -440,9 +613,12 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
   lsasum_calculate(&lsa, body);
   WALK_LIST(oa, po->area_list)
   {
-    en = lsa_install_new(&lsa, body, oa);
-    ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
-    body = originate_ext_lsa_body(n, e, po, attrs);
+    if (!oa->stub)
+    {
+      en = lsa_install_new(&lsa, body, oa);
+      ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
+      body = originate_ext_lsa_body(n, e, po, attrs);
+    }
   }
   mb_free(body);
 
@@ -617,6 +793,7 @@ ospf_hash_get(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
   e->dist = LSINFINITY;
   e->nhi = NULL;
   e->nh = ipa_from_u32(0);
+  e->lb = ipa_from_u32(0);
   e->lsa.id = lsa;
   e->lsa.rt = rtr;
   e->lsa.type = type;

@@ -226,19 +226,26 @@ ospf_err_hook(sock * sk, int err UNUSED)
 }
 
 void
-sk_send_to_agt(sock * sk, u16 len, struct ospf_iface *ifa, u8 state)
+ospf_send_to_agt(sock * sk, u16 len, struct ospf_iface *ifa, u8 state)
 {
   struct ospf_neighbor *n;
 
   WALK_LIST(NODE n, ifa->neigh_list) if (n->state >= state)
-    sk_send_to(sk, len, n->ip, OSPF_PROTO);
+    ospf_send_to(sk, len, n->ip);
 }
 
 void
-sk_send_to_bdr(sock * sk, u16 len, struct ospf_iface *ifa)
+ospf_send_to_bdr(sock * sk, u16 len, struct ospf_iface *ifa)
 {
   if (ipa_compare(ifa->drip, ipa_from_u32(0)) != 0)
-    sk_send_to(sk, len, ifa->drip, OSPF_PROTO);
+    ospf_send_to(sk, len, ifa->drip);
   if (ipa_compare(ifa->bdrip, ipa_from_u32(0)) != 0)
-    sk_send_to(sk, len, ifa->bdrip, OSPF_PROTO);
+    ospf_send_to(sk, len, ifa->bdrip);
 }
+
+void
+ospf_send_to(sock *sk, u16 len, ip_addr ip)
+{
+  sk_send_to(sk, len, ip, OSPF_PROTO);
+}
+

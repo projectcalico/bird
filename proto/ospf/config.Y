@@ -17,7 +17,7 @@ static struct ospf_area_config *this_area;
 static struct iface_patt *this_ipatt;
 #define OSPF_PATT ((struct ospf_iface_patt *) this_ipatt)
 static struct nbma_node *this_nbma;
-static struct area_net *this_pref;
+static struct area_net_config *this_pref;
 
 CF_DECLS
 
@@ -25,7 +25,7 @@ CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
 CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
 CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
 CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, PASSWORD, STRICT)
-CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN)
+CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, LINK)
 
 %type <t> opttext
 
@@ -78,7 +78,45 @@ ospf_area_item:
  | TICK expr { this_area->tick = $2 ; if($2<=0) cf_error("Tick must be greater than zero"); }
  | NETWORKS '{' pref_list '}'
  | INTERFACE ospf_iface_list
+ | ospf_vlink '}'
  ;
+
+ospf_vlink: ospf_vlink_start ospf_vlink_opts
+ ;
+
+ospf_vlink_opts:
+   /* empty */
+ | ospf_vlink_opts ospf_vlink_item ';'
+ ;
+
+ospf_vlink_item:
+   HELLO expr { OSPF_PATT->helloint = $2 ; if (($2<=0) || ($2>65535)) cf_error("Hello interval must be in range 1-65535"); }
+ | POLL expr { OSPF_PATT->pollint = $2 ; if ($2<=0) cf_error("Poll int must be greater than zero"); }
+ | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=0) cf_error("Retransmit int must be greater than zero"); }
+ | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
+ | WAIT expr { OSPF_PATT->waitint = $2 ; }
+ | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
+ | AUTHENTICATION NONE { OSPF_PATT->autype = AU_NONE ; }
+ | AUTHENTICATION SIMPLE { OSPF_PATT->autype = AU_SIMPLE ; }
+ | PASSWORD TEXT { memcpy(OSPF_PATT->password, $2, 8); }
+ ;
+
+ospf_vlink_start: VIRTUAL LINK '{'
+ {
+  if (this_area->areaid == 0) cf_error("Virtual link cannot be in backbone");
+  this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
+  add_tail(&this_area->patt_list, NODE this_ipatt);
+  OSPF_PATT->cost = COST_D;
+  OSPF_PATT->helloint = HELLOINT_D;
+  OSPF_PATT->pollint = POLLINT_D;
+  OSPF_PATT->rxmtint = RXMTINT_D;
+  OSPF_PATT->inftransdelay = INFTRANSDELAY_D;
+  OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
+  OSPF_PATT->deadc = DEADC_D;
+  OSPF_PATT->type = OSPF_IT_VLINK;
+  OSPF_PATT->autype = AU_NONE;
+ }
+;
 
 ospf_iface_item:
    COST expr { OSPF_PATT->cost = $2 ; if (($2<=0) || ($2>65535)) cf_error("Cost must be in range 1-65535"); }
@@ -95,8 +133,8 @@ ospf_iface_item:
  | STRICT NONBROADCAST bool { OSPF_PATT->strictnbma = $3 ; }
  | STUB bool { OSPF_PATT->stub = $2 ; }
  | NEIGHBORS '{' ipa_list '}'
- | AUTHENTICATION NONE { OSPF_PATT->autype=AU_NONE ; }
- | AUTHENTICATION SIMPLE { OSPF_PATT->autype=AU_SIMPLE ; }
+ | AUTHENTICATION NONE { OSPF_PATT->autype = AU_NONE ; }
+ | AUTHENTICATION SIMPLE { OSPF_PATT->autype = AU_SIMPLE ; }
  | PASSWORD TEXT { memcpy(OSPF_PATT->password, $2, 8); }
  ;
 
@@ -111,7 +149,7 @@ pref_item:
 
 pref_el: prefix ';'
  {
-   this_pref = cfg_allocz(sizeof(struct area_net));
+   this_pref = cfg_allocz(sizeof(struct area_net_config));
    add_tail(&this_area->net_list, NODE this_pref);
    this_pref->px.addr = $1.addr;
    this_pref->px.len = $1.len;
@@ -120,7 +158,7 @@ pref_el: prefix ';'
 
 pref_hid: prefix HIDDEN ';'
  {
-   this_pref = cfg_allocz(sizeof(struct area_net));
+   this_pref = cfg_allocz(sizeof(struct area_net_config));
    add_tail(&this_area->net_list, NODE this_pref);
    this_pref->px.addr = $1.addr;
    this_pref->px.len = $1.len;
@@ -172,7 +210,7 @@ ospf_iface_start:
   OSPF_PATT->strictnbma = 0;
   OSPF_PATT->stub = 0;
   init_list(&OSPF_PATT->nbma_list);
-  OSPF_PATT->autype=AU_NONE;
+  OSPF_PATT->autype = AU_NONE;
  }
 ;
 

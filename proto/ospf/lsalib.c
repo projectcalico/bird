@@ -13,8 +13,8 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
 {
   struct proto *p = &oa->po->proto;
   OSPF_TRACE(D_EVENTS,
-	     "Going to remove node Type: %u, Id: %I, Rt: %I, Age: %u",
-	     en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age);
+	     "Going to remove node Type: %u, Id: %I, Rt: %I, Age: %u, SN: 0x%x",
+	     en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age, en->lsa.sn);
   s_rem_node(SNODE en);
   if (en->lsa_body != NULL)
     mb_free(en->lsa_body);
@@ -56,6 +56,7 @@ ospf_age(struct ospf_area *oa)
       en->dist = LSINFINITY;
       en->nhi = NULL;
       en->nh = ipa_from_u32(0);
+      en->lb = ipa_from_u32(0);
       DBG("Infinitying Type: %u, Id: %I, Rt: %I\n", en->lsa.type, en->lsa.id,
 	  en->lsa.rt);
     }
@@ -164,8 +165,8 @@ htonlsab(void *h, void *n, u8 type, u16 len)
   case LSA_T_SUM_NET:
   case LSA_T_SUM_RT:
     {
-      struct ospf_lsa_summ *hs, *ns;
-      struct ospf_lsa_summ_net *hn, *nn;
+      struct ospf_lsa_sum *hs, *ns;
+      union ospf_lsa_sum_tm *hn, *nn;
 
       hs = h;
       ns = n;
@@ -173,15 +174,16 @@ htonlsab(void *h, void *n, u8 type, u16 len)
       ns->netmask = hs->netmask;
       ipa_hton(ns->netmask);
 
-      hn = (struct ospf_lsa_summ_net *) (hs + 1);
-      nn = (struct ospf_lsa_summ_net *) (ns + 1);
+      hn = (union ospf_lsa_sum_tm *) (hs + 1);
+      nn = (union ospf_lsa_sum_tm *) (ns + 1);
 
-      for (i = 0; i < ((len - sizeof(struct ospf_lsa_summ)) /
-		       sizeof(struct ospf_lsa_summ_net)); i++)
+      for (i = 0; i < ((len - sizeof(struct ospf_lsa_sum)) /
+		       sizeof(union ospf_lsa_sum_tm)); i++)
       {
-	(nn + i)->tos = (hn + i)->tos;
-	(nn + i)->metric = htons((hn + i)->metric);
-	(nn + i)->padding = 0;
+	(nn + i)->metric = htonl((hn + i)->metric);
+	//(nn + i)->tos = (hn + i)->tos;
+	//(nn + i)->metric = htons((hn + i)->metric);
+	//(nn + i)->padding = 0;
       }
       break;
     }
@@ -202,9 +204,10 @@ htonlsab(void *h, void *n, u8 type, u16 len)
       for (i = 0; i < ((len - sizeof(struct ospf_lsa_ext)) /
 		       sizeof(struct ospf_lsa_ext_tos)); i++)
       {
-	(nt + i)->etos = (ht + i)->etos;
-	(nt + i)->padding = 0;
-	(nt + i)->metric = htons((ht + i)->metric);
+	(nt + i)->etm.metric = htonl((ht + i)->etm.metric);
+	//(nt + i)->tos = (ht + i)->tos;
+	//(nt + i)->padding = 0;
+	//(nt + i)->metric = htons((ht + i)->metric);
 	(nt + i)->fwaddr = (ht + i)->fwaddr;
 	ipa_hton((nt + i)->fwaddr);
 	(nt + i)->tag = htonl((ht + i)->tag);
@@ -262,8 +265,8 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
   case LSA_T_SUM_NET:
   case LSA_T_SUM_RT:
     {
-      struct ospf_lsa_summ *hs, *ns;
-      struct ospf_lsa_summ_net *hn, *nn;
+      struct ospf_lsa_sum *hs, *ns;
+      union ospf_lsa_sum_tm *hn, *nn;
 
       hs = h;
       ns = n;
@@ -271,15 +274,16 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
       hs->netmask = ns->netmask;
       ipa_ntoh(hs->netmask);
 
-      hn = (struct ospf_lsa_summ_net *) (hs + 1);
-      nn = (struct ospf_lsa_summ_net *) (ns + 1);
+      hn = (union ospf_lsa_sum_tm *) (hs + 1);
+      nn = (union ospf_lsa_sum_tm *) (ns + 1);
 
-      for (i = 0; i < ((len - sizeof(struct ospf_lsa_summ)) /
-		       sizeof(struct ospf_lsa_summ_net)); i++)
+      for (i = 0; i < ((len - sizeof(struct ospf_lsa_sum)) /
+		       sizeof(union ospf_lsa_sum_tm)); i++)
       {
-	(hn + i)->tos = (nn + i)->tos;
-	(hn + i)->metric = ntohs((nn + i)->metric);
-	(hn + i)->padding = 0;
+	(hn + i)->metric = ntohl((nn + i)->metric);
+	//(hn + i)->tos = (nn + i)->tos;
+	//(hn + i)->metric = ntohs((nn + i)->metric);
+	//(hn + i)->padding = 0;
       }
       break;
     }
@@ -300,9 +304,10 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
       for (i = 0; i < ((len - sizeof(struct ospf_lsa_ext)) /
 		       sizeof(struct ospf_lsa_ext_tos)); i++)
       {
-	(ht + i)->etos = (nt + i)->etos;
-	(ht + i)->padding = 0;
-	(ht + i)->metric = ntohs((nt + i)->metric);
+	(ht + i)->etm.metric = ntohl((nt + i)->etm.metric);
+	//(ht + i)->etos = (nt + i)->etos;
+	//(ht + i)->padding = 0;
+	//(ht + i)->metric = ntohs((nt + i)->metric);
 	(ht + i)->fwaddr = (nt + i)->fwaddr;
 	ipa_ntoh((ht + i)->fwaddr);
 	(ht + i)->tag = ntohl((nt + i)->tag);

@@ -60,7 +60,7 @@ ospf_lsreq_send(struct ospf_neighbor *n)
 					i) * sizeof(struct ospf_lsreq_header);
   op->length = htons(length);
   ospf_pkt_finalize(n->ifa, op);
-  sk_send_to(n->ifa->ip_sk, length, n->ip, OSPF_PROTO);
+  ospf_send_to(n->ifa->ip_sk, length, n->ip);
   OSPF_TRACE(D_PACKETS, "LS request sent to: %I", n->rid);
 }
 

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -50,7 +50,7 @@
 #define LSREFRESHTIME 1800	/* 30 minutes */
 #define MINLSINTERVAL 5
 #define MINLSARRIVAL 1
-#define LSINFINITY 0xffff	/* RFC says 0xffffff ??? */
+#define LSINFINITY 0xffffff
 
 #define DEFAULT_OSPFTICK 5
 #define DEFAULT_AREATICK 4
@@ -72,13 +72,18 @@ struct nbma_node
   int eligible;
 };
 
-struct area_net
+struct area_net_config
 {
   node n;
   struct prefix px;
   int hidden;
+};
+
+struct area_net
+{
+  struct fib_node fn;
+  int hidden;
   int active;
-  int oldactive;
 };
 
 struct ospf_area_config
@@ -113,6 +118,9 @@ struct ospf_iface
   u32 rxmtint;			/* number of seconds between LSA retransmissions */
   u32 pollint;			/* Poll interval */
   u32 deadc;			/* after "deadint" missing hellos is router dead */
+  u32 vid;			/* Id of peer of virtual link */
+  ip_addr vip;			/* IP of peer of virtual link */
+  struct ospf_area *voa;	/* Area wich the vlink goes through */
   u16 autype;
   u8 aukey[8];
   u8 options;
@@ -299,28 +307,61 @@ struct ospf_lsa_net
   ip_addr netmask;
 };
 
-struct ospf_lsa_summ
+struct ospf_lsa_sum
 {
   ip_addr netmask;
 };
 
-struct ospf_lsa_summ_net
-{
-  u8 tos;
-  u8 padding;
-  u16 metric;
-};
 
 struct ospf_lsa_ext
 {
   ip_addr netmask;
 };
 
+struct ospf_lsa_ext_etos 
+{
+#ifdef _BIG_ENDIAN
+  u8 ebit:1;
+  u8 tos:7;
+  u8 padding1;
+  u16 padding2;
+#else
+  u16 padding2;
+  u8 padding1;
+  u8 tos:7;
+  u8 ebit:1;
+#endif
+};
+
+#define METRIC_MASK 0x00FFFFFF
+struct ospf_lsa_sum_tos 
+{
+#ifdef _BIG_ENDIAN
+  u8 tos;
+  u8 padding1;
+  u16 padding2;
+#else
+  u16 padding2;
+  u8 padding1;
+  u8 tos;
+#endif
+};
+
+union ospf_lsa_sum_tm
+{
+  struct ospf_lsa_sum_tos tos;
+  u32 metric;
+};
+
+union ospf_lsa_ext_etm
+{
+  struct ospf_lsa_ext_etos etos;
+  u32 metric;
+};
+
 struct ospf_lsa_ext_tos
 {
-  u8 etos;
-  u8 padding;
-  u16 metric;
+  union ospf_lsa_ext_etm etm;
   ip_addr fwaddr;
   u32 tag;
 };
@@ -432,11 +473,12 @@ struct ospf_area
   slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
   list cand;			/* List of candidates for RT calc. */
-  list net_list;		/* Networks to advertise or not */
+  struct fib net_fib;		/* Networks to advertise or not */
   int stub;
   int trcap;			/* Transit capability? */
   struct proto_ospf *po;
   unsigned tick;
+  struct fib rtr;		/* Routing tables for routers */
 };
 
 struct proto_ospf
@@ -448,9 +490,10 @@ struct proto_ospf
   list iface_list;		/* Interfaces we really use */
   list area_list;
   int areano;			/* Number of area I belong to */
-  struct fib rtf[2];		/* Routing tables */
+  struct fib rtf;		/* Routing table */
   int rfc1583;			/* RFC1583 compatibility */
   int ebit;			/* Did I originate any ext lsa? */
+  struct ospf_area *backbone;	/* If exists */
 };
 
 struct ospf_iface_patt
@@ -468,6 +511,7 @@ struct ospf_iface_patt
   u32 autype;
   u32 strictnbma;
   u32 stub;
+  u32 vid;
 /* must be in network byte order */
 #define AU_NONE htons(0)
 #define AU_SIMPLE htons(1)
@@ -493,6 +537,7 @@ void ospf_sh_iface(struct proto *p, char *iff);
 #define EA_OSPF_METRIC2	EA_CODE(EAP_OSPF, 1)
 #define EA_OSPF_TAG	EA_CODE(EAP_OSPF, 2)
 
+#include "proto/ospf/rt.h"
 #include "proto/ospf/hello.h"
 #include "proto/ospf/packet.h"
 #include "proto/ospf/iface.h"
@@ -503,6 +548,5 @@ void ospf_sh_iface(struct proto *p, char *iff);
 #include "proto/ospf/lsupd.h"
 #include "proto/ospf/lsack.h"
 #include "proto/ospf/lsalib.h"
-#include "proto/ospf/rt.h"
 
 #endif /* _BIRD_OSPF_H_ */

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -75,6 +75,31 @@ static int ospf_rte_same(struct rte *new, struct rte *old);
 static void area_disp(timer *timer);
 static void ospf_disp(timer *timer);
 
+static void
+ospf_area_initfib(struct fib_node *fn)
+{
+  struct area_net *an = (struct area_net *) fn;
+  an->hidden = 0;
+  an->active = -1;	/* Force to regenerate summary lsa */
+	/* ac->oldactive will be rewritten by ospf_rt_spf() */
+}
+
+static void
+add_area_nets(struct ospf_area *oa, struct ospf_area_config *ac)
+{
+    struct proto_ospf *po = oa->po;
+    struct proto *p = &po->proto;
+    struct area_net_config *anet;
+    struct area_net *antmp;
+
+    fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 16, ospf_area_initfib);
+
+    WALK_LIST(anet, ac->net_list)
+    {
+      antmp = (struct area_net *) fib_get(&oa->net_fib, &anet->px.addr, anet->px.len);
+      antmp->hidden = anet->hidden;
+    }
+}
 
 static int
 ospf_start(struct proto *p)
@@ -83,13 +108,12 @@ ospf_start(struct proto *p)
   struct ospf_config *c = (struct ospf_config *) (p->cf);
   struct ospf_area_config *ac;
   struct ospf_area *oa;
-  struct area_net *anet, *antmp;
 
   po->rfc1583 = c->rfc1583;
   po->ebit = 0;
 
   po->tick = c->tick;
-  po->disp_timer = tm_new(po->proto.pool);
+  po->disp_timer = tm_new(p->pool);
   po->disp_timer->data = po;
   po->disp_timer->randomize = 0;
   po->disp_timer->hook = ospf_disp;
@@ -97,8 +121,7 @@ ospf_start(struct proto *p)
   tm_start(po->disp_timer, 1);
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
-  fib_init(&po->rtf[0], p->pool, sizeof(ort), 16, ospf_rt_initort);
-  fib_init(&po->rtf[1], p->pool, sizeof(ort), 16, ospf_rt_initort);
+  fib_init(&po->rtf, p->pool, sizeof(ort), 16, ospf_rt_initort);
   po->areano = 0;
   if (EMPTY_LIST(c->area_list))
   {
@@ -108,7 +131,7 @@ ospf_start(struct proto *p)
 
   WALK_LIST(ac, c->area_list)
   {
-    oa = mb_allocz(po->proto.pool, sizeof(struct ospf_area));
+    oa = mb_allocz(p->pool, sizeof(struct ospf_area));
     add_tail(&po->area_list, NODE oa);
     po->areano++;
     oa->stub = ac->stub;
@@ -118,20 +141,27 @@ ospf_start(struct proto *p)
     s_init_list(&(oa->lsal));
     oa->rt = NULL;
     oa->po = po;
-    oa->disp_timer = tm_new(po->proto.pool);
+    oa->disp_timer = tm_new(p->pool);
     oa->disp_timer->data = oa;
     oa->disp_timer->randomize = 0;
     oa->disp_timer->hook = area_disp;
     oa->disp_timer->recurrent = oa->tick;
     tm_start(oa->disp_timer, 2);
-    init_list(&oa->net_list);
-    WALK_LIST(anet, ac->net_list)
+    add_area_nets(oa, ac);
+    fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
+    if (oa->areaid == 0) po->backbone = oa;
+  }
+
+  /* Add all virtual links as interfaces */
+  if(po->backbone)
+  {
+    struct ospf_iface_patt *ipatt;
+    WALK_LIST(ac, c->area_list)
     {
-      antmp = mb_allocz(po->proto.pool, sizeof(struct area_net));
-      antmp->px.addr = anet->px.addr;
-      antmp->px.len = anet->px.len;
-      antmp->hidden = anet->hidden;
-      add_tail(&oa->net_list, NODE antmp);
+      WALK_LIST(ipatt, ac->patt_list)
+      {
+        if (ipatt->type == OSPF_IT_VLINK) ospf_iface_new(po, NULL, ac, ipatt);
+      }
     }
   }
   return PS_UP;
@@ -189,42 +219,21 @@ ospf_init(struct proto_config *c)
 static int
 ospf_rte_better(struct rte *new, struct rte *old)
 {
-  /* FIXME this is wrong */
   if (new->u.ospf.metric1 == LSINFINITY)
     return 0;
 
-  /* External paths are always longer that internal */
-  if (((new->attrs->source == RTS_OSPF)
-       || (new->attrs->source == RTS_OSPF_IA))
-      && (old->attrs->source == RTS_OSPF_EXT))
-    return 1;
-  if (((old->attrs->source == RTS_OSPF)
-       || (old->attrs->source == RTS_OSPF_IA))
-      && (new->attrs->source == RTS_OSPF_EXT))
-    return 0;
+  if(new->attrs->source < old->attrs->source) return 1;
+  if(new->attrs->source > old->attrs->source) return 0;
 
-  if (new->u.ospf.metric2 < old->u.ospf.metric2)
+  if(new->attrs->source == RTS_OSPF_EXT2)
   {
-    if (old->u.ospf.metric2 == LSINFINITY)
-      return 0;			/* Old is E1, new is E2 */
-    return 1;			/* Both are E2 */
+    if(new->u.ospf.metric2 < old->u.ospf.metric2) return 1;
+    if(new->u.ospf.metric2 > old->u.ospf.metric2) return 0;
   }
-
-  if (new->u.ospf.metric2 > old->u.ospf.metric2)
-  {
-    if (new->u.ospf.metric2 == LSINFINITY)
-      return 1;			/* New is E1, old is E2 */
-    return 0;			/* Both are E2 */
-  }
-
-  /* 
-   * E2 metrics are the same. It means that:
-   * 1) Paths are E2 with same metric
-   * 2) Paths are E1.
-   */
 
   if (new->u.ospf.metric1 < old->u.ospf.metric1)
     return 1;
+
   return 0;			/* Old is shorter or same */
 }
 
@@ -466,29 +475,30 @@ ospf_get_status(struct proto *p, byte * buf)
 static void
 ospf_get_route_info(rte * rte, byte * buf, ea_list * attrs UNUSED)
 {
-  char met = ' ';
-  char type = ' ';
+  char *type = "<bug>";
 
-  if (rte->attrs->source == RTS_OSPF_EXT)
+  switch(rte->attrs->source)
   {
-    met = '1';
-    type = 'E';
-
+    case RTS_OSPF:
+      type = "I";
+      break;
+    case RTS_OSPF_IA:
+      type = "IA";
+      break;
+    case RTS_OSPF_EXT1:
+      type = "E1";
+      break;
+    case RTS_OSPF_EXT2:
+      type = "E2";
+      break;
   }
-  if (rte->u.ospf.metric2 != LSINFINITY)
-    met = '2';
-  if (rte->attrs->source == RTS_OSPF_IA)
-    type = 'A';
-  if (rte->attrs->source == RTS_OSPF)
-    type = 'I';
-  buf += bsprintf(buf, " %c", type);
-  if (met != ' ')
-    buf += bsprintf(buf, "%c", met);
+
+  buf += bsprintf(buf, " %s", type);
   buf += bsprintf(buf, " (%d/%d", rte->pref, rte->u.ospf.metric1);
-  if (rte->u.ospf.metric2 != LSINFINITY)
+  if (rte->attrs->source == RTS_OSPF_EXT2)
     buf += bsprintf(buf, "/%d", rte->u.ospf.metric2);
   buf += bsprintf(buf, ")");
-  if (rte->attrs->source == RTS_OSPF_EXT && rte->u.ospf.tag)
+  if ((rte->attrs->source == RTS_OSPF_EXT2 || rte->attrs->source == RTS_OSPF_EXT1) && rte->u.ospf.tag)
   {
     buf += bsprintf(buf, " [%x]", rte->u.ospf.tag);
   }
@@ -578,19 +588,8 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
     }
 
     /* Change net_list */
-    WALK_LIST_DELSAFE(anet, antmp, oa->net_list)
-    {
-      rem_node(NODE anet);
-      mb_free(anet);
-    }
-    WALK_LIST(anet, ac2->net_list)
-    {
-      antmp = mb_alloc(p->pool, sizeof(struct area_net));
-      antmp->px.addr = anet->px.addr;
-      antmp->px.len = anet->px.len;
-      antmp->hidden = anet->hidden;
-      add_tail(&oa->net_list, NODE antmp);
-    }
+    fib_free(&oa->net_fib);
+    add_area_nets(oa, ac2);
 
     if (!iface_patts_equal(&ac1->patt_list, &ac2->patt_list,
 			   (void *) ospf_patt_compare))
@@ -833,9 +832,8 @@ ospf_sh(struct proto *p)
   struct proto_ospf *po = (struct proto_ospf *) p;
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
-  int ifano;
-  int nno;
-  int adjno;
+  int ifano, nno, adjno, firstfib;
+  struct area_net *anet;
 
   if (p->proto_state != PS_UP)
   {
@@ -871,16 +869,20 @@ ospf_sh(struct proto *p)
     cli_msg(-1014, "\t\tNumber of LSAs in DB:\t%u", oa->gr->hash_entries);
     cli_msg(-1014, "\t\tNumber of neighbors:\t%u", nno);
     cli_msg(-1014, "\t\tNumber of adjacent neighbors:\t%u", adjno);
-    if (!EMPTY_LIST(oa->net_list))
+
+    firstfib = 1;
+    FIB_WALK(&oa->net_fib, nftmp)
     {
-      struct area_net *anet;
-      cli_msg(-1014, "\t\tArea networks:");
-      WALK_LIST(anet, oa->net_list)
+      anet = (struct area_net *) nftmp;
+      if(firstfib)
       {
-	cli_msg(-1014, "\t\t\t%1I/%u\t%s", anet->px.addr, anet->px.len,
-		anet->hidden ? "Hidden" : "Advertise");
+        cli_msg(-1014, "\t\tArea networks:");
+        firstfib = 0;
       }
+      cli_msg(-1014, "\t\t\t%1I/%u\t%s\t%s", anet->fn.prefix, anet->fn.pxlen,
+		anet->hidden ? "Hidden" : "Advertise", anet->active ? "Active" : "");
     }
+    FIB_WALK_END;
   }
   cli_msg(0, "");
 }

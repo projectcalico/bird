@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2004 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -21,15 +21,15 @@ struct top_hash_entry
   void *lsa_body;
   bird_clock_t inst_t;		/* Time of installation into DB */
   ip_addr nh;			/* Next hop */
+  ip_addr lb;			/* Link back */
   struct iface *nhi;
-  u16 dist;			/* Distance from the root */
+  u32 dist;			/* Distance from the root */
   u16 ini_age;
   u8 color;
 #define OUTSPF 0
 #define CANDIDATE 1
 #define INSPF 2
   u8 padding;
-  u16 padding2;
 };
 
 struct top_graph
@@ -62,5 +62,11 @@ int can_flush_lsa(struct ospf_area *oa);
 int max_ext_lsa(unsigned pxlen);
 void originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 		       struct ea_list *attrs);
+void check_sum_lsa(struct proto_ospf *po, ort *nf, int);
+void originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric);
+void flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type);
+
+
+
 
 #endif /* _BIRD_OSPF_TOPOLOGY_H_ */

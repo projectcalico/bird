@@ -10,10 +10,16 @@
 #ifndef _BIRD_OSPF_RT_H_
 #define _BIRD_OSPF_RT_H_
 
+#define ORT_UNDEF -1
+#define ORT_ROUTER 1
+#define ORT_NET 0
+
 typedef struct orta
 {
   int type;
   int capa;
+#define ORTA_ASBR 1
+#define ORTA_ABR 2
   struct ospf_area *oa;
   int metric1;
   int metric2;
@@ -27,12 +33,9 @@ orta;
 typedef struct ort
 {
   struct fib_node fn;
-  int dest;
-#define ORT_UNDEF -1
-#define ORT_ROUTER 1
-#define ORT_NET 0
   orta n;
   orta o;
+  struct ort *efn;		/* For RFC1583 */
 }
 ort;
 

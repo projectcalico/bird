@@ -117,24 +117,34 @@ ospf_iface_down(struct ospf_iface *ifa)
 {
   struct ospf_neighbor *n, *nx;
   struct proto *p = &ifa->proto->proto;
+  struct proto_ospf *po = ifa->proto;
+  struct ospf_iface *iff;
 
   WALK_LIST_DELSAFE(n, nx, ifa->neigh_list)
   {
     OSPF_TRACE(D_EVENTS, "Removing neighbor %I", n->ip);
     ospf_neigh_remove(n);
   }
-  rem_node(NODE ifa);
-
   rfree(ifa->hello_sk);
   rfree(ifa->dr_sk);
   rfree(ifa->ip_sk);
 
-  rfree(ifa->wait_timer);
-  rfree(ifa->hello_timer);
-  rfree(ifa->poll_timer);
-
-  rfree(ifa->lock);
-  mb_free(ifa);
+  if(ifa->type == OSPF_IT_VLINK)
+  {
+    ifa->ip_sk = NULL;
+    ifa->iface = NULL;
+    return;
+  }
+  else
+  {
+    rfree(ifa->wait_timer);
+    rfree(ifa->hello_timer);
+    rfree(ifa->poll_timer);
+    rfree(ifa->lock);
+    rem_node(NODE ifa);
+    mb_free(ifa);
+  }
+  /* FIXME: Should I down related VLINK also? */
 }
 
 /**
@@ -142,7 +152,7 @@ ospf_iface_down(struct ospf_iface *ifa)
  * @ifa: OSPF interface
  * @event: event comming to state machine
  *
- * This fully respect 9.3 of RFC 2328 except we don't use %LOOP state of
+ * This fully respects 9.3 of RFC 2328 except we don't use %LOOP state of
  * interface.
  */
 void
@@ -260,6 +270,7 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
   ipsk->saddr = ifa->iface->addr->ip;
   ipsk->tos = IP_PREC_INTERNET_CONTROL;
   ipsk->ttl = 1;
+  if (ifa->type == OSPF_IT_VLINK) ipsk->ttl = 255;
   ipsk->rx_hook = ospf_rx_hook;
   ipsk->tx_hook = ospf_tx_hook;
   ipsk->err_hook = ospf_err_hook;
@@ -307,6 +318,8 @@ ospf_iface_add(struct object_lock *lock)
   struct iface *iface = lock->iface;
   struct proto *p = &po->proto;
 
+  ifa->lock = lock;
+
   ifa->ioprob = OSPF_I_OK;
 
   if (ifa->type != OSPF_IT_NBMA)
@@ -330,10 +343,111 @@ ospf_iface_add(struct object_lock *lock)
     ifa->stub = 1;
     ifa->ioprob += OSPF_I_IP;
   }
-  ifa->lock = lock;
 
   ifa->state = OSPF_IS_DOWN;
   ospf_iface_sm(ifa, ISM_UP);
+}
+
+void
+ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ospf_area_config *ac, struct ospf_iface_patt *ip)
+{
+  struct proto *p = &po->proto;
+  struct ospf_iface *ifa;
+  struct nbma_node *nbma, *nb;
+  struct object_lock *lock;
+  struct ospf_area *oa;
+
+  ifa = mb_allocz(p->pool, sizeof(struct ospf_iface));
+  ifa->proto = po;
+  ifa->iface = iface;
+
+  ifa->an = ac->areaid;
+  ifa->cost = ip->cost;
+  ifa->rxmtint = ip->rxmtint;
+  ifa->inftransdelay = ip->inftransdelay;
+  ifa->priority = ip->priority;
+  ifa->helloint = ip->helloint;
+  ifa->pollint = ip->pollint;
+  ifa->strictnbma = ip->strictnbma;
+  ifa->waitint = ip->waitint;
+  ifa->deadc = ip->deadc;
+  ifa->stub = ip->stub;
+  ifa->autype = ip->autype;
+  memcpy(ifa->aukey, ip->password, 8);
+  ifa->options = 2;		/* FIXME what options? */
+
+  if (ip->type == OSPF_IT_UNDEF)
+    ifa->type = ospf_iface_clasify(ifa->iface);
+  else
+    ifa->type = ip->type;
+
+  init_list(&ifa->neigh_list);
+  init_list(&ifa->nbma_list);
+  WALK_LIST(nb, ip->nbma_list)
+  {
+    nbma = mb_alloc(p->pool, sizeof(struct nbma_node));
+    nbma->ip = nb->ip;
+    nbma->eligible = nb->eligible;
+    add_tail(&ifa->nbma_list, NODE nbma);
+  }
+
+  /* Add hello timer */
+  ifa->hello_timer = tm_new(p->pool);
+  ifa->hello_timer->data = ifa;
+  ifa->hello_timer->randomize = 0;
+  ifa->hello_timer->hook = hello_timer_hook;
+  ifa->hello_timer->recurrent = ifa->helloint;
+  DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
+
+  if (ifa->type == OSPF_IT_NBMA)
+  {
+    ifa->poll_timer = tm_new(p->pool);
+    ifa->poll_timer->data = ifa;
+    ifa->poll_timer->randomize = 0;
+    ifa->poll_timer->hook = poll_timer_hook;
+    ifa->poll_timer->recurrent = ifa->pollint;
+    DBG("%s: Installing poll timer. (%u)\n", p->name, ifa->pollint);
+  }
+  else
+    ifa->poll_timer = NULL;
+
+  ifa->wait_timer = tm_new(p->pool);
+  ifa->wait_timer->data = ifa;
+  ifa->wait_timer->randomize = 0;
+  ifa->wait_timer->hook = wait_timer_hook;
+  ifa->wait_timer->recurrent = 0;
+  DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
+  add_tail(&((struct proto_ospf *) p)->iface_list, NODE ifa);
+  ifa->state = OSPF_IS_DOWN;
+
+  WALK_LIST(oa, po->area_list)
+  {
+    if (oa->areaid == ifa->an)
+      break;
+  }
+
+  if (EMPTY_LIST(po->area_list) || (oa->areaid != ifa->an))	/* New area */
+    bug("Cannot add any area to accepted Interface");
+  else
+    ifa->oa = oa;
+
+  if (ifa->type == OSPF_IT_VLINK)
+  {
+    ifa->oa = po->backbone;
+    ifa->voa = oa;
+    ifa->vid = ip->vid;
+    return;	/* Don't lock, don't add sockets */
+  }
+
+  lock = olock_new(p->pool);
+  lock->addr = AllSPFRouters;
+  lock->type = OBJLOCK_IP;
+  lock->port = OSPF_PROTO;
+  lock->iface = iface;
+  lock->data = ifa;
+  lock->hook = ospf_iface_add;
+
+  olock_acquire(lock);
 }
 
 void
@@ -344,8 +458,6 @@ ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
   struct ospf_area_config *ac;
   struct ospf_iface_patt *ip = NULL;
   struct ospf_iface *ifa;
-  struct object_lock *lock;
-  struct nbma_node *nbma, *nb;
   struct ospf_area *oa;
 
   DBG("%s: If notify called\n", p->name);
@@ -364,90 +476,7 @@ ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
     if (ip)
     {
       OSPF_TRACE(D_EVENTS, "Using interface %s.", iface->name);
-
-      ifa = mb_allocz(p->pool, sizeof(struct ospf_iface));
-      ifa->proto = po;
-      ifa->iface = iface;
-
-      ifa->an = ac->areaid;
-      ifa->cost = ip->cost;
-      ifa->rxmtint = ip->rxmtint;
-      ifa->inftransdelay = ip->inftransdelay;
-      ifa->priority = ip->priority;
-      ifa->helloint = ip->helloint;
-      ifa->pollint = ip->pollint;
-      ifa->strictnbma = ip->strictnbma;
-      ifa->waitint = ip->waitint;
-      ifa->deadc = ip->deadc;
-      ifa->stub = ip->stub;
-      ifa->autype = ip->autype;
-      memcpy(ifa->aukey, ip->password, 8);
-      ifa->options = 2;		/* FIXME what options? */
-
-      if (ip->type == OSPF_IT_UNDEF)
-	ifa->type = ospf_iface_clasify(ifa->iface);
-      else
-	ifa->type = ip->type;
-
-      init_list(&ifa->neigh_list);
-      init_list(&ifa->nbma_list);
-      WALK_LIST(nb, ip->nbma_list)
-      {
-	nbma = mb_alloc(p->pool, sizeof(struct nbma_node));
-	nbma->ip = nb->ip;
-	nbma->eligible = nb->eligible;
-	add_tail(&ifa->nbma_list, NODE nbma);
-      }
-
-      /* Add hello timer */
-      ifa->hello_timer = tm_new(p->pool);
-      ifa->hello_timer->data = ifa;
-      ifa->hello_timer->randomize = 0;
-      ifa->hello_timer->hook = hello_timer_hook;
-      ifa->hello_timer->recurrent = ifa->helloint;
-      DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
-
-      if (ifa->type == OSPF_IT_NBMA)
-      {
-	ifa->poll_timer = tm_new(p->pool);
-	ifa->poll_timer->data = ifa;
-	ifa->poll_timer->randomize = 0;
-	ifa->poll_timer->hook = poll_timer_hook;
-	ifa->poll_timer->recurrent = ifa->pollint;
-	DBG("%s: Installing poll timer. (%u)\n", p->name, ifa->pollint);
-      }
-      else
-	ifa->poll_timer = NULL;
-
-      ifa->wait_timer = tm_new(p->pool);
-      ifa->wait_timer->data = ifa;
-      ifa->wait_timer->randomize = 0;
-      ifa->wait_timer->hook = wait_timer_hook;
-      ifa->wait_timer->recurrent = 0;
-      DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
-      add_tail(&((struct proto_ospf *) p)->iface_list, NODE ifa);
-      ifa->state = OSPF_IS_DOWN;
-
-      lock = olock_new(p->pool);
-      lock->addr = AllSPFRouters;
-      lock->type = OBJLOCK_IP;
-      lock->port = OSPF_PROTO;
-      lock->iface = iface;
-      lock->data = ifa;
-      lock->hook = ospf_iface_add;
-
-      WALK_LIST(NODE oa, po->area_list)
-      {
-	if (oa->areaid == ifa->an)
-	  break;
-      }
-
-      if (EMPTY_LIST(po->area_list) || (oa->areaid != ifa->an))	/* New area */
-	bug("Cannot add any area to accepted Interface");
-      else
-	ifa->oa = oa;
-
-      olock_acquire(lock);
+      ospf_iface_new(po, iface, ac, ip);
     }
   }
 

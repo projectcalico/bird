@@ -1034,6 +1034,16 @@ protocol ospf &lt;name&gt; {
 				&lt;ip&gt; eligible;
 			};
 		};
+		virtual link &lt;id&gt;
+		{
+			hello &lt;num&gt;;
+			poll &lt;num&gt;;
+			retransmit &lt;num&gt;;
+			wait &lt;num&gt;;
+			dead count &lt;num&gt;;
+			authentication [none|simple];
+			password "&lt;text&gt;";
+		};
 	};
 }
 </code>
@@ -1067,6 +1077,10 @@ protocol ospf &lt;name&gt; {
 
 	<tag>interface <M>pattern</M></tag>
 	 Defines that the specified interfaces belong to the area being defined.
+
+	<tag>virtual link <M>id</M></tag>
+	 Virtual link to router with the router id. This item cannot be in the
+         backbone area (ID 0).
 
 	<tag>cost <M>num</M></tag>
 	 Specifies output cost (metric) of an interface. Default value is 10.
@@ -1163,7 +1177,7 @@ protocol ospf MyOSPF {
 			ospf_metric1 = 100;
 			accept;
 		}
-	reject;
+		reject;
 	};                                                                      
 	area 0.0.0.0 {
 		tick 8;
@@ -1185,6 +1199,10 @@ protocol ospf MyOSPF {
 	};
 	area 120 {
 		stub yes;
+		networks {
+			172.16.1.0/24;
+			172.16.2.0/24 hidden;
+		}
 		interface "-arc0" , "arc*" {
 			type nonbroadcast;
 			authentication none;

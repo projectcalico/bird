@@ -39,14 +39,14 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     pkt = (struct ospf_dbdes_packet *) (ifa->ip_sk->tbuf);
     op = (struct ospf_packet *) pkt;
     fill_ospf_pkt_hdr(ifa, pkt, DBDES_P);
-    pkt->iface_mtu = htons(ifa->iface->mtu);	/* FIXME NOT for VLINK! */
+    pkt->iface_mtu = htons(ifa->iface->mtu);
     pkt->options = ifa->options;
     pkt->imms = n->myimms;
     pkt->ddseq = htonl(n->dds);
     length = sizeof(struct ospf_dbdes_packet);
     op->length = htons(length);
     ospf_pkt_finalize(ifa, op);
-    sk_send_to(ifa->ip_sk, length, n->ip, OSPF_PROTO);
+    ospf_send_to(ifa->ip_sk, length, n->ip);
     OSPF_TRACE(D_PACKETS, "DB_DES (I) sent to %I via %s.", n->ip,
 	       ifa->iface->name);
     break;
@@ -79,20 +79,26 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 	for (; i > 0; i--)
 	{
 	  struct top_hash_entry *en;
-
 	  en = (struct top_hash_entry *) sn;
-	  htonlsah(&(en->lsa), lsa);
-	  DBG("Working on: %d\n", i);
-	  DBG("\tX%01x %-1I %-1I %p\n", en->lsa.type, en->lsa.id,
-	      en->lsa.rt, en->lsa_body);
+
+          if ((n->ifa->type != OSPF_IT_VLINK) && (en->lsa.type != LSA_T_EXT))
+          {
+	    htonlsah(&(en->lsa), lsa);
+	    DBG("Working on: %d\n", i);
+	    DBG("\tX%01x %-1I %-1I %p\n", en->lsa.type, en->lsa.id,
+	        en->lsa.rt, en->lsa_body);
+
+	    lsa++;
+          }
+          else i++;	/* No lsa added */
 
 	  if (sn == STAIL(n->ifa->oa->lsal))
-	  {
-	    i--;
-	    break;		/* Should set some flag? */
-	  }
+          {
+            i--;
+	    break;
+          }
+
 	  sn = sn->next;
-	  lsa++;
 	}
 
 	if (sn == STAIL(n->ifa->oa->lsal))
@@ -130,7 +136,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     memcpy(ifa->ip_sk->tbuf, n->ldbdes, length);
     /* Copy last sent packet again */
 
-    sk_send_to(ifa->ip_sk, length, n->ip, OSPF_PROTO);
+    ospf_send_to(ifa->ip_sk, length, n->ip);
 
     if(n->myimms.bit.ms) tm_start(n->rxmt_timer, n->ifa->rxmtint);		/* Restart timer */
 
@@ -245,8 +251,6 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
           ps->imms.byte);
       break;
     }
-    if(ps->imms.bit.i) log("FUCK");
-
   case NEIGHBOR_EXCHANGE:
     if ((ps->imms.byte == n->imms.byte) && (ps->options == n->options) &&
 	(ntohl(ps->ddseq) == n->ddr))

@@ -78,16 +78,16 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 	if (ifa->type == OSPF_IT_BCAST)
 	{
 	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
-	    sk_send_to(sk, len, AllSPFRouters, OSPF_PROTO);
+	    ospf_send_to(sk, len, AllSPFRouters);
 	  else
-	    sk_send_to(sk, len, AllDRouters, OSPF_PROTO);
+	    ospf_send_to(sk, len, AllDRouters);
 	}
 	else
 	{
 	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
-	    sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+	    ospf_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
 	  else
-	    sk_send_to_bdr(sk, len, ifa);
+	    ospf_send_to_bdr(sk, len, ifa);
 	}
 
 	fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
@@ -104,16 +104,16 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   {
     if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
     {
-      sk_send_to(sk, len, AllSPFRouters, OSPF_PROTO);
+      ospf_send_to(sk, len, AllSPFRouters);
     }
     else
     {
-      sk_send_to(sk, len, AllDRouters, OSPF_PROTO);
+      ospf_send_to(sk, len, AllDRouters);
     }
   }
   else
   {
-    sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+    ospf_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
   }
 }
 

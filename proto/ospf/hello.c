@@ -166,15 +166,19 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   struct ospf_hello_packet *pkt;
   struct ospf_packet *op;
   struct proto *p;
-  struct ospf_neighbor *neigh;
+  struct ospf_neighbor *neigh, *n1;
   u16 length;
   u32 *pp;
-  int i;
+  int i, send;
+  struct nbma_node *nb;
 
   if (timer == NULL)
     ifa = dirn->ifa;
   else
     ifa = (struct ospf_iface *) timer->data;
+
+  if (ifa->state == OSPF_IS_DOWN)
+    return;
 
   if (ifa->stub)
     return;			/* Don't send any packet on stub iface */
@@ -184,13 +188,13 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
       p->name, ifa->iface->name);
   /* Now we should send a hello packet */
   /* First a common packet header */
-  if (ifa->type != OSPF_IT_NBMA)
+  if ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_VLINK))
   {
-    pkt = (struct ospf_hello_packet *) (ifa->hello_sk->tbuf);
+    pkt = (struct ospf_hello_packet *) (ifa->ip_sk->tbuf);
   }
   else
   {
-    pkt = (struct ospf_hello_packet *) (ifa->ip_sk->tbuf);
+    pkt = (struct ospf_hello_packet *) (ifa->hello_sk->tbuf);
   }
 
   /* Now fill ospf_hello header */
@@ -224,56 +228,55 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   ospf_pkt_finalize(ifa, op);
 
   /* And finally send it :-) */
-  if (ifa->type != OSPF_IT_NBMA)
+  switch(ifa->type)
   {
-    sk_send(ifa->hello_sk, length);
-  }
-  else				/* NBMA */
-  {
-    struct ospf_neighbor *n1;
-    struct nbma_node *nb;
-    int send;
-
-    if (timer == NULL)		/* Response to received hello */
-    {
-      sk_send_to(ifa->ip_sk, length, dirn->ip, OSPF_PROTO);
-    }
-    else
-    {
-      int toall = 0;
-      int meeli = 0;
-      if (ifa->state > OSPF_IS_DROTHER)
-	toall = 1;
-      if (ifa->priority > 0)
-	meeli = 1;
-
-      WALK_LIST(nb, ifa->nbma_list)
+    case OSPF_IT_NBMA:
+      if (timer == NULL)		/* Response to received hello */
       {
-	send = 1;
-	WALK_LIST(n1, ifa->neigh_list)
-	{
-	  if (ipa_compare(nb->ip, n1->ip) == 0)
-	  {
-	    send = 0;
-	    break;
-	  }
-	}
-	if ((poll == 1) && (send))
-	{
-	  if (toall || (meeli && nb->eligible))
-	    sk_send_to(ifa->ip_sk, length, nb->ip, OSPF_PROTO);
-	}
+        ospf_send_to(ifa->ip_sk, length, dirn->ip);
       }
-      if (poll == 0)
+      else
       {
-	WALK_LIST(n1, ifa->neigh_list)
-	{
-	  if (toall || (n1->rid == ifa->drid) || (n1->rid == ifa->bdrid) ||
-	      (meeli && (n1->priority > 0)))
-	    sk_send_to(ifa->ip_sk, length, n1->ip, OSPF_PROTO);
-	}
+        int toall = 0;
+        int meeli = 0;
+        if (ifa->state > OSPF_IS_DROTHER)
+          toall = 1;
+        if (ifa->priority > 0)
+          meeli = 1;
+ 
+        WALK_LIST(nb, ifa->nbma_list)
+        {
+          send = 1;
+          WALK_LIST(n1, ifa->neigh_list)
+          {
+            if (ipa_compare(nb->ip, n1->ip) == 0)
+            {
+              send = 0;
+              break;
+            }
+          }
+          if ((poll == 1) && (send))
+          {
+            if (toall || (meeli && nb->eligible))
+              ospf_send_to(ifa->ip_sk, length, nb->ip);
+          }
+        }
+        if (poll == 0)
+        {
+          WALK_LIST(n1, ifa->neigh_list)
+          {
+            if (toall || (n1->rid == ifa->drid) || (n1->rid == ifa->bdrid) ||
+                (meeli && (n1->priority > 0)))
+              ospf_send_to(ifa->ip_sk, length, n1->ip);
+          }
+        }
       }
-    }
+      break;
+    case OSPF_IT_VLINK:
+      ospf_send_to(ifa->ip_sk, length, ifa->vip);
+      break;
+    default:
+      sk_send(ifa->hello_sk, length);
   }
   OSPF_TRACE(D_PACKETS, "Hello sent via %s", ifa->iface->name);
 }
