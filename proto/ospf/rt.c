@@ -97,7 +97,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  DBG("     Working on link: %I (type: %u)  ",rtl->id,rtl->type);
 	  switch(rtl->type)
 	  {
-            case LSART_STUB:	/* FIXME add stub network into fib */
+            case LSART_STUB:
 	     DBG("\n");
 	     ip=ipa_from_u32(rtl->id);
 	     nf=fib_get(in,&ip, ipa_mklen(ipa_from_u32(rtl->data)));
@@ -116,7 +116,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	      if(tmp==NULL) DBG("Fuck!\n");
 	      else DBG("Found. :-)\n");
 	      break;
-	    case LSART_PTP: /* FIXME */
+	    case LSART_PTP:
 	      tmp=ospf_hash_find(oa->gr,rtl->id,rtl->id,LSA_T_RT);
 	      DBG("PTP searched.\n");
 	      break;
