@@ -1,0 +1,10 @@
+Available configuration variables:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CONFIG_TOS		Routing by TOS supported
+CONFIG_AUTO_ROUTES	Device routes are added automagically by the kernel
+CONFIG_ALL_MULTICAST	All devices support multicasting (i.e., ignore IFF_MULTICAST)
+
+CONFIG_UNIX_IFACE	Use Unix interface scanner
+CONFIG_UNIX_SET		Use Unix route setting
+CONFIG_LINUX_SCAN	Use Linux /proc/net/route scanner

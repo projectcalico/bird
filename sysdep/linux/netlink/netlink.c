@@ -25,18 +25,6 @@
 #include "lib/krt.h"
 #include "lib/socket.h"
 
-/*
- *	We need to work around namespace conflicts between us and the kernel,
- *	but I prefer this way to being forced to rename our configuration symbols.
- *	This will disappear as soon as netlink headers become part of the libc.
- */
-
-#undef CONFIG_NETLINK
-#include <linux/config.h>
-#ifndef CONFIG_NETLINK
-#error "Kernel not configured to support netlink"
-#endif
-
 #include <asm/types.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
