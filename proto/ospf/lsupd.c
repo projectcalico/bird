@@ -11,7 +11,7 @@
 int
 flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   struct ospf_lsa_header *hh, struct proto_ospf *po, struct ospf_iface *iff,
-  struct ospf_area *oa)
+  struct ospf_area *oa, int rtl)
 {
   struct ospf_iface *ifa;
   struct ospf_neighbor *nn;
@@ -70,19 +70,30 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	}
       }
       if(nn==n) continue;
-      if((en=ospf_hash_find_header(nn->lsrth, hh))==NULL)
+      if(rtl!=0)
       {
-        en=ospf_hash_get_header(nn->lsrth, hh);
+        if((en=ospf_hash_find_header(nn->lsrth, hh))==NULL)
+        {
+          en=ospf_hash_get_header(nn->lsrth, hh);
+        }
+        else
+        {
+          s_rem_node(SNODE en);
+        }
+        s_add_tail(&nn->lsrtl, SNODE en);
+        memcpy(&en->lsa,hh,sizeof(struct ospf_lsa_header));
+        ret=1;
+        DBG("Adding LSA lsrt RT: %I, Id: %I, Type: %u for n: %I\n",
+          en->lsa.rt,en->lsa.id, en->lsa.type, nn->ip);
       }
       else
       {
-        s_rem_node(SNODE en);
+        if((en=ospf_hash_find_header(nn->lsrth, hh))!=NULL)
+        {
+          s_rem_node(SNODE en);
+          ospf_hash_delete(nn->lsrth, en);
+        }
       }
-      s_add_tail(&nn->lsrtl, SNODE en);
-      memcpy(&en->lsa,hh,sizeof(struct ospf_lsa_header));
-      ret=1;
-      DBG("Adding LSA lsrt RT: %I, Id: %I, Type: %u for n: %I\n",
-        en->lsa.rt,en->lsa.id, en->lsa.type, nn->ip);
     }
     if(ret==0) continue;
     if(ifa==iff)
@@ -347,8 +358,10 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
        {
          lsa->age=(htons(LSA_MAXAGE));
 	 lsatmp.age=LSA_MAXAGE;
-	 debug("Premature aging self originated lsa.\n");
-         flood_lsa(NULL,lsa,&lsatmp,po,NULL,oa);
+	 debug("%s: Premature aging self originated lsa.\n",p->name);
+         debug("%s: Type: %d, Id: %I, Rt: %I\n", lsatmp.type, lsatmp.id,
+           lsatmp.rt);
+         flood_lsa(NULL,lsa,&lsatmp,po,NULL,oa,0);
 	 continue;
        }
 
@@ -362,7 +375,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       }
         
 
-      if(flood_lsa(n,lsa,&lsatmp,po,ifa,ifa->oa)==0)
+      if(flood_lsa(n,lsa,&lsatmp,po,ifa,ifa->oa,1)==0)
       {
         DBG("Wasn't flooded back\n");
         if(ifa->state==OSPF_IS_BACKUP)
@@ -446,7 +459,9 @@ net_flush_lsa(struct top_hash_entry *en, struct proto_ospf *po,
   struct ospf_lsa_header *lsa=&en->lsa;
 
   lsa->age=LSA_MAXAGE;
-  debug("Premature aging self originated lsa.\n");
-  flood_lsa(NULL,NULL,lsa,po,NULL,oa);
+  debug("%s: Premature aging self originated lsa!\n",po->proto.name);
+  debug("%s: Type: %d, Id: %I, Rt: %I\n", lsa->type, lsa->id,
+    lsa->rt);
+  flood_lsa(NULL,NULL,lsa,po,NULL,oa,0);
 }
 

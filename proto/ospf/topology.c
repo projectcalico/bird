@@ -214,7 +214,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
 
   originate_rt_lsa(oa,po);
   DBG("RT LSA: rt: %I, id: %I, type: %u\n",oa->rt->lsa.rt,oa->rt->lsa.id,oa->rt->lsa.type);
-  flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa);
+  flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa,1);
 }
 
 void
@@ -231,6 +231,7 @@ originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
   lsa.id=rtid;
   lsa.type=LSA_T_RT;
   lsa.rt=rtid;
+  lsa.options=0;
   if(oa->rt==NULL)
   {
     lsa.sn=LSA_INITSEQNO;
@@ -243,7 +244,7 @@ originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
   lsasum_calculate(&lsa,body,po);
   en=lsa_install_new(&lsa, body, oa, &po->proto);
   oa->rt=en;
-  flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa);
+  flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa,1);
 }
 
 void *
@@ -283,40 +284,39 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   struct top_hash_entry *en;
   void *body;
 
-
-  if(ifa->state!=OSPF_IS_DR) return;
-
   debug("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name,
     ifa->iface->name);
 
-  if(ifa->fadj==0)
+  if((ifa->state!=OSPF_IS_DR)||(ifa->fadj==0))
   {
     if(ifa->nlsa==NULL) return;
 
-    lsa.sn+=1;
-    lsa.age=LSA_MAXAGE;
-    flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa);
-    /* FIXME delete LSA */
+    ifa->nlsa->lsa.sn+=1;
+    ifa->nlsa->lsa.age=LSA_MAXAGE;
+    flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,0);
+    ospf_hash_delete(ifa->oa->gr, ifa->nlsa);
     ifa->nlsa=NULL;
     return ;
   }
 
   lsa.age=0;
-  lsa.id=rtid;
+  lsa.id=ipa_to_u32(ifa->iface->addr->ip);
   lsa.type=LSA_T_NET;
   lsa.rt=rtid;
+  lsa.options=0;
   if(ifa->nlsa==NULL)
   {
     lsa.sn=LSA_INITSEQNO;
   }
   else
   {
-    lsa.sn+=1;
+    lsa.sn=ifa->nlsa->lsa.sn+1;
   }
+
   body=originate_net_lsa_body(ifa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
   ifa->nlsa=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
-  flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa);
+  flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,1);
 }
 
 void *
@@ -375,7 +375,7 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po)
     en=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
   }
   if(en==NULL) die("Some bug in Ext lsa generating\n");
-  flood_lsa(NULL,NULL,&en->lsa,po,NULL,ifa->oa);
+  flood_lsa(NULL,NULL,&en->lsa,po,NULL,ifa->oa,1);
 }
 
 
