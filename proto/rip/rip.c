@@ -103,12 +103,20 @@ rip_tx( sock *s )
       ipa_hton( packet->block[i].netmask );
       packet->block[i].nexthop = IPA_NONE;	
       {
+	/*
+	 *  FIXME:  This DOESN'T work. The s->daddr will be typically
+	 *  a broadcast or multicast address which will be of course
+	 *  rejected by the neighbor cache. I've #ifdef'd out the whole
+	 *  test to avoid dereferencing NULL pointer.  --mj
+	 */
+#if 0
 	neighbor *n1, *n2;
 	n1 = neigh_find( p, &s->daddr, 0 );	/* FIXME, mj: this is neccessary for responses, still it is too complicated for common case */
 	n2 = neigh_find( p, &e->nexthop, 0 );
 	if (n1->iface == n2->iface)
 	  packet->block[i].nexthop = e->nexthop;
 	else
+#endif
 	  packet->block[i].nexthop = IPA_NONE;	
       }
       ipa_hton( packet->block[i].nexthop );
