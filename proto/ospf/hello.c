@@ -93,8 +93,8 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     add_tail(&ifa->neigh_list, NODE n);
     n->rid=nrid;
     n->ip=faddr;
-    n->dr=ntohl(ps->dr);
-    n->bdr=ntohl(ps->bdr);
+    n->dr=ipa_ntoh(ps->dr);
+    n->bdr=ipa_ntoh(ps->bdr);
     n->priority=ps->priority;
     n->options=ps->options;
     n->ifa=ifa;
@@ -141,9 +141,9 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   if(!twoway) ospf_neigh_sm(n, INM_1WAYREC);
 
   olddr = n->dr;
-  n->dr = ntohl(ps->dr);
+  n->dr = ipa_ntoh(ps->dr);
   oldbdr = n->bdr;
-  n->bdr = ntohl(ps->bdr);
+  n->bdr = ipa_ntoh(ps->bdr);
   oldpriority = n->priority;
   n->priority = ps->priority;
 
@@ -213,8 +213,8 @@ hello_timer_hook(timer *timer)
   pkt->options=ifa->options;
   pkt->priority=ifa->priority;
   pkt->deadint=htonl(ifa->deadc*ifa->helloint);
-  pkt->dr=htonl(ifa->drip);
-  pkt->bdr=htonl(ifa->bdrip);
+  pkt->dr=ipa_hton(ifa->drip);
+  pkt->bdr=ipa_hton(ifa->bdrip);
 
   /* Fill all neighbors */
   i=0;
