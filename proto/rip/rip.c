@@ -86,7 +86,7 @@ kill_entry_mainrt( struct proto *p, struct rip_entry *e )
   net *n;
 
   n = net_find(&master_table, 0, e->network, e->pxlen );
-  if (!n) log( L_ERR "Could not find entry to delete in main routing table.\n" );
+  if (!n) log( L_ERR "Could not find entry to delete in main routing table." );
      else rte_update( n, p, NULL );
 }
 
@@ -107,7 +107,7 @@ rip_tx_err( sock *s, int err )
 {
   struct rip_connection *c = s->data;
   struct proto *p = c->proto;
-  log( L_ERR "Unexpected error at rip transmit: %m\n" );
+  log( L_ERR "Unexpected error at rip transmit: %m" );
 }
 
 static void
@@ -181,7 +181,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   static int num = 0;
 
   if (rif->busy) {
-    log (L_WARN "Interface %s is much too slow, dropping request\n", iface->name);
+    log (L_WARN "Interface %s is much too slow, dropping request", iface->name);
     return;
   }
   rif->busy = c;
@@ -194,10 +194,10 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   c->dport = dport;
   c->daddr = daddr;
   if (c->rif->sock->data != rif)
-    bug("not enough send magic\n");
+    bug("not enough send magic");
 #if 0
   if (sk_open(c->send)<0) {
-    log( L_ERR "Could not open socket for data send to %I:%d on %s\n", daddr, dport, rif->iface->name );
+    log( L_ERR "Could not open socket for data send to %I:%d on %s", daddr, dport, rif->iface->name );
     return;
   }
 #endif
@@ -254,7 +254,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   
   neighbor = neigh_find( p, &A.gw, 0 );
   if (!neighbor) {
-    log( L_ERR "%I asked me to route %I/%I using not-neighbor %I.\n", A.from, b->network, b->netmask, A.gw );
+    log( L_ERR "%I asked me to route %I/%I using not-neighbor %I.", A.from, b->network, b->netmask, A.gw );
     return;
   }
 
@@ -284,7 +284,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 
   CHK_MAGIC;
   if ((!metric) || (metric > P->infinity)) {
-    log( L_WARN "Got metric %d from %I\n", metric, whotoldme );
+    log( L_WARN "Got metric %d from %I", metric, whotoldme );
     return;
   }
 
@@ -295,7 +295,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   advertise_entry( p, block, whotoldme );
 }
 
-#define BAD( x ) { log( L_WARN "RIP/%s: " x "\n", p->name ); return 1; }
+#define BAD( x ) { log( L_WARN "RIP/%s: " x, p->name ); return 1; }
 
 static int
 rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr whotoldme, int port )
@@ -316,16 +316,16 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
           break;
   case RIPCMD_RESPONSE: DBG( "*** Rtable from %I\n", whotoldme ); 
           if (port != P->port) {
-	    log( L_ERR "%I send me routing info from port %d\n", whotoldme, port );
+	    log( L_ERR "%I send me routing info from port %d", whotoldme, port );
 #if 0
 	    return 0;
 #else
-	    log( L_ERR "...ignoring\n" );
+	    log( L_ERR "...ignoring" );
 #endif
 	  }
 
 	  if (!neigh_find( p, &whotoldme, 0 )) {
-	    log( L_ERR "%I send me routing info but he is not my neighbour\n", whotoldme );
+	    log( L_ERR "%I send me routing info but he is not my neighbour", whotoldme );
 	    return 0;
 	  }
 
@@ -336,7 +336,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    if (block->family == 0xffff)
 	      if (!i) {
 		if (process_authentication(p, block))
-		  BAD( "Authentication failed\n" );
+		  BAD( "Authentication failed" );
 	      } else BAD( "Authentication is not the first!" );
 	    ipa_ntoh( block->network );
 	    ipa_ntoh( block->netmask );
@@ -349,8 +349,8 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	  }
           break;
   case RIPCMD_TRACEON:
-  case RIPCMD_TRACEOFF: BAD( "I was asked for traceon/traceoff\n" );
-  case 5: BAD( "Some Sun extension around here\n" );
+  case RIPCMD_TRACEOFF: BAD( "I was asked for traceon/traceoff" );
+  case 5: BAD( "Some Sun extension around here" );
   default: BAD( "Unknown command" );
   }
 
@@ -531,7 +531,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
     log( L_WARN "RIP: interface %s is too strange for me", rif->iface->name );
 
   if (sk_open(rif->sock)<0)
-    die( "RIP/%s: could not listen on %s\n", p->name, rif->iface->name );
+    die( "RIP/%s: could not listen on %s", p->name, rif->iface->name );
   /* FIXME: Should not be fatal, since the interface might have gone */
   
   return rif;
@@ -570,7 +570,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
     struct rip_entry *e = find_entry( p, net->n.prefix, net->n.pxlen );
 
     if (!e)
-      log( L_ERR "Deleting nonexistent entry?!\n" );
+      log( L_ERR "Deleting nonexistent entry?!" );
 
     kill_entry_ourrt( p, e );
   }
