@@ -368,10 +368,8 @@ rip_timer(timer *t)
     WALK_LIST( rif, P->interfaces ) {
       struct iface *iface = rif->iface;
 
-      if (rif->patt->mode == IM_QUIET)
-	continue;
-
       if (!iface) continue;
+      if (rif->patt->mode == IM_QUIET) continue;
       if (!(iface->flags & IF_UP)) continue;
       if (iface->flags & (IF_IGNORE | IF_LOOPBACK)) continue;
 
