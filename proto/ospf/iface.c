@@ -54,7 +54,11 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
       }
       else
       {
-        if(ifa->dr_sk!=NULL) rfree(ifa->dr_sk);
+        if(ifa->dr_sk!=NULL)
+	{
+	  rfree(ifa->dr_sk);
+	  ifa->dr_sk=NULL;
+	}
       }
     }
   }
@@ -89,6 +93,11 @@ downint(struct ospf_iface *ifa)
   {
     tm_stop(ifa->wait_timer);
     rfree(ifa->wait_timer);
+  }
+  if(ifa->hello_timer!=NULL)
+  {
+    tm_stop(ifa->hello_timer);
+    rfree(ifa->hello_timer);
   }
   mb_free(ifa);
 }
