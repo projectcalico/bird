@@ -55,16 +55,6 @@ random_u32(void)
 
 #define NEAR_TIMER_LIMIT 4
 
-#ifdef TIME_T_IS_64BIT
-#define TIME_INFINITY 0x7fffffffffffffff
-#else
-#ifdef TIME_T_IS_SIGNED
-#define TIME_INFINITY 0x7fffffff
-#else
-#define TIME_INFINITY 0xffffffff
-#endif
-#endif
-
 static list near_timers, far_timers;
 static bird_clock_t first_far_timer = TIME_INFINITY;
 

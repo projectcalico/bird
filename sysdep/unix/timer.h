@@ -36,4 +36,14 @@ bird_clock_t tm_parse_date(char *);	/* Convert date to bird_clock_t */
 void tm_format_date(char *, bird_clock_t);	/* Convert bird_clock_t to date */
 #define TM_DATE_BUFFER_SIZE 12		/* Buffer size required by tm_format_date */
 
+#ifdef TIME_T_IS_64BIT
+#define TIME_INFINITY 0x7fffffffffffffff
+#else
+#ifdef TIME_T_IS_SIGNED
+#define TIME_INFINITY 0x7fffffff
+#else
+#define TIME_INFINITY 0xffffffff
+#endif
+#endif
+
 #endif
