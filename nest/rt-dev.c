@@ -77,8 +77,18 @@ dev_init(struct proto_config *c)
   return p;
 }
 
+static int
+dev_reconfigure(struct proto *p, struct proto_config *new)
+{
+  struct rt_dev_config *o = (struct rt_dev_config *) p->cf;
+  struct rt_dev_config *n = (struct rt_dev_config *) new;
+  
+  return iface_patts_equal(&o->iface_list, &n->iface_list, NULL);
+}
+
 struct protocol proto_device = {
   name:		"Direct",
   priority:	90,
   init:		dev_init,
+  reconfigure:	dev_reconfigure
 };
