@@ -11,6 +11,7 @@
 #include "nest/bird.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
+#include "nest/iface.h"
 #include "lib/resource.h"
 
 /*
@@ -121,18 +122,48 @@ rta_lookup(rta *o)
 }
 
 void
-_rta_free(rta *r)
+_rta_free(rta *a)
 {
 }
 
 void
-rta_dump(rta *r)
+rta_dump(rta *a)
 {
+  static char *rts[] = { "?", "RTS_STATIC", "RTS_INHERIT", "RTS_DEVICE",
+			 "RTS_STAT_DEV", "RTS_REDIR", "RTS_RIP", "RTS_RIP_EXT",
+			 "RTS_OSPF", "RTS_OSPF_EXT", "RTS_OSPF_IA",
+			 "RTS_OSPF_BOUNDARY", "RTS_BGP" };
+  static char *sco[] = { "HOST", "LINK", "SITE", "UNIV" };
+  static char *rtc[] = { "", " BC", " MC", " AC" };
+  static char *rtd[] = { "", " DEV", " HOLE", " UNREACH", " PROHIBIT" };
+
+  debug("p=%s uc=%d %s %s%s%s TOS=%d",
+	a->proto->name, a->uc, rts[a->source], sco[a->scope], rtc[a->cast],
+	rtd[a->dest], a->tos);
+  if (a->flags & RTF_EXTERIOR)
+    debug(" EXT");
+  if (a->flags & RTF_TAGGED)
+    debug(" TAG");
+  debug(" <-%08x", _I(a->from));
+  if (a->dest == RTD_ROUTER)
+    debug(" ->%08x", _I(a->gw));
+  if (a->dest == RTD_DEVICE || a->dest == RTD_ROUTER)
+    debug(" [%s]", a->iface->name);
 }
 
 void
 rta_dump_all(void)
 {
+  rta *a;
+
+  debug("Route attribute cache:\n");
+  for(a=first_rta; a; a=a->next)
+    {
+      debug("%p ", a);
+      rta_dump(a);
+      debug("\n");
+    }
+  debug("\n");
 }
 
 void
