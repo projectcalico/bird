@@ -95,7 +95,14 @@ rte_better(rte *new, rte *old)
   if (new->pref < old->pref)
     return 0;
   if (new->attrs->proto->proto != old->attrs->proto->proto)
-    bug("Different protocols, but identical preferences => oops");	/* FIXME */
+    {
+      /*
+       *  If the user has configured protocol preferences, so that two different protocols
+       *  have the same preference, try to break the tie by comparing addresses. Not too
+       *  useful, but keeps the ordering of routes unambiguous.
+       */
+      return new->attrs->proto->proto > old->attrs->proto->proto;
+    }
   if (better = new->attrs->proto->rte_better)
     return better(new, old);
   return 0;
