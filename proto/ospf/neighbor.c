@@ -27,7 +27,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     ifa=n->ifa;
     p=(struct proto *)(ifa->proto);
   
-    debug("%s: Neigbor %I changes state from \"%u\" to \"%u\".\n",
+    debug("%s: Neigbor %I changes state from \"%s\" to \"%s\".\n",
       p->name, n->rid, ospf_ns[n->state], ospf_ns[state]);
     n->state=state;
   }
