@@ -33,8 +33,10 @@ int infinity = 16;
 static void
 rip_reply(struct proto *p)
 {
+#if 0
   P->listen->tbuf = "ACK!";
   sk_send_to( P->listen, 5, P->listen->faddr, P->listen->fport );
+#endif
 }
 
 /*
@@ -148,16 +150,16 @@ givemore:
     return;
   }
 
-  packet->heading.command = 99; /* FIXME */
+  packet->heading.command = RIPCMD_RESPONSE;
   packet->heading.version = RIP_V2;
-  packet->heading.unused = 0;
+  packet->heading.unused  = 0;
 
   for (i = 0; i < 25; i++) {
     if (!(NODE c->sendptr)->next)
       break;
     debug( "." );
-    packet->block[i].family  = htons( 0 ); /* Is it right? */
-    packet->block[i].tag	    = htons( 0 ); /* What should I set it to? */
+    packet->block[i].family  = htons( 2 ); /* AF_INET */
+    packet->block[i].tag     = htons( 0 ); /* What should I set it to? */
     packet->block[i].network = c->sendptr->network;
     packet->block[i].netmask = ipa_mkmask( c->sendptr->pxlen );
     packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? */
@@ -169,9 +171,9 @@ givemore:
     c->sendptr = (void *) (NODE c->sendptr)->next;
   }
 
-  debug( ", sending %d blocks, ", i+1 );
+  debug( ", sending %d blocks, ", i );
 
-  i = sk_send( s, sizeof( struct rip_packet_heading ) + (i+1)*sizeof( struct rip_block ) );
+  i = sk_send( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ) );
   if (i<0) rip_tx_err( s, i );
   if (i>0) {
     debug( "it wants more\n" );
@@ -202,7 +204,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport )
   c->send->data = c;
   c->send->tbuf = mb_alloc( p->pool, sizeof( struct rip_packet ));
   if (sk_open(c->send)<0) {
-    log( L_ERR "Could not send data to %I:%d\n", daddr, dport );
+    log( L_ERR "Could not open socket for data send to %I:%d\n", daddr, dport );
     return;
   }
 
@@ -375,8 +377,10 @@ rip_timer(timer *t)
     }
   }
 
+#if 0
   debug( "RIP: Broadcasting routing tables\n" );
   rip_sendto( p, _MI( 0x0a000001 ), RIP_PORT );
+#endif
 
   debug( "RIP: tick tock done\n" );
 }
