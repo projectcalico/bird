@@ -114,7 +114,7 @@ vlog(int class, char *msg, va_list args)
  * formatted as a full line, no need to include |\n| inside.
  */
 void
-log(char *msg, ...)
+log_msg(char *msg, ...)
 {
   int class = 1;
   va_list args;

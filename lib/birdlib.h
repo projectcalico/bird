@@ -33,7 +33,8 @@
 
 /* Logging and dying */
 
-void log(char *msg, ...);
+#define log log_msg
+void log_msg(char *msg, ...);
 void die(char *msg, ...) NORET;
 void bug(char *msg, ...) NORET;
 
