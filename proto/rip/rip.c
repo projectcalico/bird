@@ -758,8 +758,6 @@ rip_make_tmp_attrs(struct rte *rt, struct linpool *pool)
 static void 
 rip_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
 {
-  struct proto *p = rt->attrs->proto;
-
   rt->u.rip.tag = ea_get_int(attrs, EA_RIP_TAG, 0);
   rt->u.rip.metric = ea_get_int(attrs, EA_RIP_METRIC, 1);
 }
@@ -881,9 +879,6 @@ rip_init_config(struct rip_proto_config *c)
 static int
 rip_get_attr(eattr *a, byte *buf)
 {
-  unsigned int i = EA_ID(a->id);
-  struct attr_desc *d;
-
   switch (a->id) {
   case EA_RIP_METRIC: buf += bsprintf( buf, "metric: %d", a->u.data ); return GA_FULL;
   case EA_RIP_TAG:    buf += bsprintf( buf, "tag: %d", a->u.data );    return GA_FULL;
