@@ -111,7 +111,7 @@ bool:
 
 pxlen:
    '/' NUM {
-     if ($2 < 0 || $2 > 32) cf_error("Invalid prefix length %d", $2);
+     if ($2 < 0 || $2 > BITS_PER_IP_ADDRESS) cf_error("Invalid prefix length %d", $2);
      $$ = $2;
    }
  | ':' IPA {
