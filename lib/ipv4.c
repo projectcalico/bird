@@ -6,7 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <string.h>
 #include <stdlib.h>
 
 #include "nest/bird.h"

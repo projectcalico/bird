@@ -6,7 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <string.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -22,6 +21,7 @@
 #include "lib/timer.h"
 #include "lib/unix.h"
 #include "lib/krt.h"
+#include "lib/string.h"
 
 static int krt_scan_fd = -1;
 

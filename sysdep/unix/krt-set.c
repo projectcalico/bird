@@ -6,7 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -21,6 +20,7 @@
 #include "nest/protocol.h"
 #include "lib/unix.h"
 #include "lib/krt.h"
+#include "lib/string.h"
 
 int
 krt_capable(rte *e)

@@ -71,15 +71,6 @@ atributy, je budou moci pridat do tmp_attrs, aniz by sahly na rta.
 
 CF_HDR
 
-#include "nest/bird.h"
-#include "lib/resource.h"
-#include "lib/socket.h"
-#include "lib/timer.h"
-#include "nest/protocol.h"
-#include "nest/iface.h"
-#include "nest/route.h"
-#include <string.h>
-
 #define P(a,b) ((a<<8) | b)
 
 CF_DECLS

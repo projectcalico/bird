@@ -9,7 +9,6 @@
 
 #define LOCAL_DEBUG
 
-#include <string.h>
 #include <stdlib.h>
 
 #include "nest/bird.h"
@@ -21,6 +20,7 @@
 #include "lib/lists.h"
 #include "lib/timer.h"
 #include "lib/md5.h"
+#include "lib/string.h"
 
 #include "rip.h"
 

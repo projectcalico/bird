@@ -6,8 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <string.h>
-
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -20,6 +18,7 @@
 #include "lib/string.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
+#include "lib/string.h"
 
 static slab *rte_slab;
 static linpool *rte_update_pool;

@@ -9,9 +9,8 @@
 
 #define LOCAL_DEBUG
 
-#include <string.h>
-
 #include "nest/bird.h"
+#include "lib/string.h"
 
 #include "ospf.h"
 

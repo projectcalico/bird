@@ -8,10 +8,9 @@
 
 #undef LOCAL_DEBUG
 
-#include <string.h>
-
 #include "nest/bird.h"
 #include "nest/route.h"
+#include "lib/string.h"
 
 #define HASH_DEF_ORDER 10
 #define HASH_HI_MARK *4

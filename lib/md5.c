@@ -19,8 +19,8 @@
  * Adapted for BIRD by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
  */
 
-#include <string.h>		/* for memcpy() */
 #include "nest/bird.h"
+#include "lib/string.h"
 #include "md5.h"
 
 #ifdef CPU_LITTLE_ENDIAN

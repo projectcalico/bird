@@ -17,7 +17,7 @@
  *  if possible.
  */
 
-#include <string.h>
+#include "lib/string.h"
 
 static inline u16
 get_u16(void *p)

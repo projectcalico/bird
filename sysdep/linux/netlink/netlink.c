@@ -6,7 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <net/if.h>
@@ -24,6 +23,7 @@
 #include "lib/unix.h"
 #include "lib/krt.h"
 #include "lib/socket.h"
+#include "lib/string.h"
 #include "conf/conf.h"
 
 #include <asm/types.h>

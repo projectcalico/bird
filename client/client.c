@@ -7,7 +7,6 @@
  */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,6 +20,7 @@
 
 #include "nest/bird.h"
 #include "lib/resource.h"
+#include "lib/string.h"
 #include "client/client.h"
 
 static char *opt_list = "s:v";

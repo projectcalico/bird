@@ -10,6 +10,7 @@
 #define _BIRD_STRING_H_
 
 #include <stdarg.h>
+#include <string.h>
 
 int bsprintf(char *str, const char *fmt, ...);
 int bvsprintf(char *str, const char *fmt, va_list args);

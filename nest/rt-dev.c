@@ -8,8 +8,6 @@
 
 #undef LOCAL_DEBUG
 
-#include <string.h>
-
 #include "nest/bird.h"
 #include "nest/iface.h"
 #include "nest/protocol.h"
@@ -17,6 +15,7 @@
 #include "nest/rt-dev.h"
 #include "conf/conf.h"
 #include "lib/resource.h"
+#include "lib/string.h"
 
 static void
 dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)

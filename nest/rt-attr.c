@@ -6,7 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <string.h>
 #include <alloca.h>
 
 #include "nest/bird.h"
@@ -15,6 +14,7 @@
 #include "nest/iface.h"
 #include "nest/cli.h"
 #include "lib/resource.h"
+#include "lib/string.h"
 
 static slab *rta_slab;
 static pool *rta_pool;

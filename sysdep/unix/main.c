@@ -9,7 +9,6 @@
 #define LOCAL_DEBUG
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -20,6 +19,7 @@
 #include "lib/resource.h"
 #include "lib/socket.h"
 #include "lib/event.h"
+#include "lib/string.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"

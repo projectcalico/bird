@@ -27,7 +27,6 @@
 
 #define LOCAL_DEBUG
 
-#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -39,6 +38,7 @@
 #include "lib/resource.h"
 #include "lib/lists.h"
 #include "lib/timer.h"
+#include "lib/string.h"
 
 #include "rip.h"
 

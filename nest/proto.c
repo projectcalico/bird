@@ -8,8 +8,6 @@
 
 #undef LOCAL_DEBUG
 
-#include <string.h>
-
 #include "nest/bird.h"
 #include "nest/protocol.h"
 #include "lib/resource.h"

@@ -10,7 +10,7 @@
 #define _BIRD_IPV6_H_
 
 #include <netinet/in.h>
-#include <string.h>
+#include "lib/string.h"
 
 typedef struct ipv6_addr {
   u32 addr[4];

@@ -6,7 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -22,6 +21,7 @@
 #include "nest/protocol.h"
 #include "lib/timer.h"
 #include "lib/krt.h"
+#include "lib/string.h"
 
 #include "unix.h"
 

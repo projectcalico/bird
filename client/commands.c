@@ -7,11 +7,11 @@
  */
 
 #include <stdio.h>
-#include <string.h>
 #include <ctype.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
+#include "lib/string.h"
 #include "client/client.h"
 
 struct cmd_info {

@@ -9,10 +9,10 @@
  */
 
 #include <stdlib.h>
-#include <string.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
+#include "lib/string.h"
 
 #undef FAKE_SLAB	/* Turn on if you want to debug memory allocations */
 

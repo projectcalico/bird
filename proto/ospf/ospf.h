@@ -13,8 +13,6 @@
 
 #define SIPH 64		/* FIXME Size Of IP header */
 
-#include <string.h>
-
 #include "nest/bird.h"
 
 #include "lib/checksum.h"

@@ -7,10 +7,10 @@
  */
 
 #include <stdlib.h>
-#include <string.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
+#include "lib/string.h"
 
 struct lp_chunk {
   struct lp_chunk *next;

@@ -4,17 +4,16 @@
  *	(c) 1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
- *
  */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
 #include "nest/bird.h"
 #include "lib/ip.h"
 #include "lib/bitops.h"
 #include "lib/endian.h"
+#include "lib/string.h"
 
 /*
  *  See RFC 2373 for explanation of IPv6 addressing issues.
