@@ -26,6 +26,7 @@ Core
 - iface: when seen an invalid broadcast, fix it up or at least report
 - iface: we always need ifindex at least for PtP links (OSPF)
 - iface: interface filters should support filtering by IP address as well
+- iface: SIOCGIFINDEX exists on glibc systems, but it doesn't work on 2.0.x kernels!
 
 - socket: Use IP_RECVERR for BGP TCP sockets?
 

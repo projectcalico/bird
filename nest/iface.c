@@ -361,8 +361,9 @@ if_update(struct iface *new)
 	    DBG("Interface %s changed too much -- forcing down/up transition\n", i->name);
 	    if_change_flags(i, i->flags | IF_TMP_DOWN);
 	    rem_node(&i->n);
-	    WALK_LIST_DELSAFE(a, b, i->addrs)
-	      ifa_delete(a);
+	    new->addr = i->addr;
+	    memcpy(&new->addrs, &i->addrs, sizeof(i->addrs));
+	    memcpy(i, new, sizeof(*i));
 	    goto newif;
 	  }
 	else if (c)
@@ -374,9 +375,9 @@ if_update(struct iface *new)
 	return i;
       }
   i = mb_alloc(if_pool, sizeof(struct iface));
-newif:
   memcpy(i, new, sizeof(*i));
   init_list(&i->addrs);
+newif:
   i->flags |= IF_UPDATED | IF_TMP_DOWN;		/* Tmp down as we don't have addresses yet */
   add_tail(&iface_list, &i->n);
   return i;
@@ -543,6 +544,7 @@ ifa_delete(struct ifa *a)
 	    ifa_recalc_primary(i);
 	  }
 	mb_free(b);
+	return;
       }
 }
 

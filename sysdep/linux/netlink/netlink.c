@@ -316,7 +316,7 @@ nl_parse_addr(struct nlmsghdr *h)
   struct ifaddrmsg *i;
   struct rtattr *a[IFA_ANYCAST+1];
   int new = h->nlmsg_type == RTM_NEWADDR;
-  struct iface f;
+  struct ifa ifa;
   struct iface *ifi;
 
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(IFA_RTA(i), a, sizeof(a)))
@@ -330,11 +330,6 @@ nl_parse_addr(struct nlmsghdr *h)
       log(L_ERR "nl_parse_addr: Malformed message received");
       return;
     }
-  if (i->ifa_flags & IFA_F_SECONDARY)
-    {
-      DBG("KIF: Received address message for secondary address which is not supported.\n"); /* FIXME */
-      return;
-    }
 
   ifi = if_find_by_index(i->ifa_index);
   if (!ifi)
@@ -342,41 +337,42 @@ nl_parse_addr(struct nlmsghdr *h)
       log(L_ERR "KIF: Received address message for unknown interface %d\n", i->ifa_index);
       return;
     }
-  memcpy(&f, ifi, sizeof(f));
 
   if (i->ifa_prefixlen > 32 || i->ifa_prefixlen == 31 ||
-      (f.flags & IF_UNNUMBERED) && i->ifa_prefixlen != 32)
+      (ifi->flags & IF_UNNUMBERED) && i->ifa_prefixlen != 32)
     {
-      log(L_ERR "KIF: Invalid prefix length for interface %s: %d\n", f.name, i->ifa_prefixlen);
+      log(L_ERR "KIF: Invalid prefix length for interface %s: %d\n", ifi->name, i->ifa_prefixlen);
       new = 0;
     }
 
-  f.ip = f.brd = f.opposite = IPA_NONE;
-  if (!new)
+  bzero(&ifa, sizeof(ifa));
+  ifa.iface = ifi;
+  if (i->ifa_flags & IFA_F_SECONDARY)
+    ifa.flags |= IA_SECONDARY;
+  memcpy(&ifa.ip, RTA_DATA(a[IFA_LOCAL]), sizeof(ifa.ip));
+  ifa.ip = ipa_ntoh(ifa.ip);
+  ifa.pxlen = i->ifa_prefixlen;
+  if (ifi->flags & IF_UNNUMBERED)
     {
-      DBG("KIF: IF%d IP address deleted\n");
-      f.pxlen = 0;
+      memcpy(&ifa.opposite, RTA_DATA(a[IFA_ADDRESS]), sizeof(ifa.opposite));
+      ifa.opposite = ifa.brd = ipa_ntoh(ifa.opposite);
     }
+  else if ((ifi->flags & IF_BROADCAST) && a[IFA_BROADCAST])
+    {
+      memcpy(&ifa.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(ifa.brd));
+      ifa.brd = ipa_ntoh(ifa.brd);
+    }
+  /* else a NBMA link */
+  ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(ifa.pxlen));
+
+  DBG("KIF: IF%d(%s): %s IPA %I, net %I/%d, brd %I, opp %I\n",
+      ifi->index, ifi->name,
+      new ? "added" : "removed",
+      ifa.ip, ifa.prefix, ifa.pxlen, ifa.brd, ifa.opposite);
+  if (new)
+    ifa_update(&ifa);
   else
-    {
-      memcpy(&f.ip, RTA_DATA(a[IFA_LOCAL]), sizeof(f.ip));
-      f.ip = ipa_ntoh(f.ip);
-      f.pxlen = i->ifa_prefixlen;
-      if (f.flags & IF_UNNUMBERED)
-	{
-	  memcpy(&f.opposite, RTA_DATA(a[IFA_ADDRESS]), sizeof(f.opposite));
-	  f.opposite = f.brd = ipa_ntoh(f.opposite);
-	}
-      else if ((f.flags & IF_BROADCAST) && a[IFA_BROADCAST])
-	{
-	  memcpy(&f.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(f.brd));
-	  f.brd = ipa_ntoh(f.brd);
-	}
-      /* else a NBMA link */
-      f.prefix = ipa_and(f.ip, ipa_mkmask(f.pxlen));
-      DBG("KIF: IF%d IP address set to %I, net %I/%d, brd %I, opp %I\n", f.index, f.ip, f.prefix, f.pxlen, f.brd, f.opposite);
-    }
-  if_update(&f);
+    ifa_delete(&ifa);
 }
 
 void
