@@ -21,7 +21,7 @@ CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
 CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
-CF_KEYWORDS(HELLO)
+CF_KEYWORDS(HELLO, TRANSIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
 
 %type <t> opttext
 
@@ -73,24 +73,37 @@ ospf_iface_item:
  | COST NUM { OSPF_PATT->cost = $2 ; }
  | HELLO NUM { OSPF_PATT->helloint = $2 ; }
  | RETRANSMIT NUM { OSPF_PATT->rxmtint = $2 ; }
+ | TRANSIT DELAY NUM { OSPF_PATT->inftransdelay = $3 ; }
+ | PRIORITY NUM { OSPF_PATT->priority = $2 ; }
+ | WAIT NUM { OSPF_PATT->waitint = $2 ; }
+ | DEAD COUNT NUM { OSPF_PATT->deadc = $3 ; }
+ | TYPE BROADCAST { OSPF_PATT->type = OSPF_IT_BCAST ; }
+ | TYPE NONBROADCAST { OSPF_PATT->type = OSPF_IT_NBMA ; }
+ | TYPE POINTOPOINT { OSPF_PATT->type = OSPF_IT_PTP ; }
+ | 
 ;
  
+ospf_iface_start:
+ {
+  this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
+  add_tail(&this_area->patt_list, NODE this_ipatt);
+  OSPF_PATT->cost = COST_D;
+  OSPF_PATT->helloint = HELLOINT_D;
+  OSPF_PATT->rxmtint = RXMTINT_D;
+  OSPF_PATT->inftransdelay = INFTRANSDELAY_D;
+  OSPF_PATT->priority = PRIORITY_D;
+  OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
+  OSPF_PATT->deadc = DEADC_D;
+  OSPF_PATT->type = OSPF_IT_UNDEF;
+ }
+;
+
 ospf_iface_opts:
    '{'
  | ospf_iface_opts ospf_iface_item ';'
  ;
 
 ospf_iface_opt_list: /* EMPTY */ | ospf_iface_opts '}'
-;
-
-ospf_iface_start:
- {
-  this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
-  add_tail(&this_area->patt_list, NODE this_ipatt);
-  OSPF_PATT->cost=10;
-  OSPF_PATT->helloint=10;
-  OSPF_PATT->rxmtint=5;
- }
 ;
 
 ospf_iface:

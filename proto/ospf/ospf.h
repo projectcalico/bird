@@ -90,6 +90,7 @@ struct ospf_iface {
 #define OSPF_IT_NBMA 1
 #define OSPF_IT_PTP 2
 #define OSPF_IT_VLINK 3
+#define OSPF_IT_UNDEF 4
   u8 state;		/* Interface state machine */
 #define OSPF_IS_DOWN 0		/* Not working */
 #define OSPF_IS_LOOP 1		/* Should never happen */
@@ -107,8 +108,8 @@ struct ospf_iface {
 #define PRIORITY_D 1
 #define HELLOINT_D 10
 #define DEADC_D 4
-#define WAIT_DMH 3	/* Value of Wait timer - not found it in RFC 
-			 * - using 3*HELLO
+#define WAIT_DMH 4	/* Value of Wait timer - not found it in RFC 
+			 * - using 4*HELLO
 			 */
   struct top_hash_entry *nlsa;	/* Originated net lsa */
   int fadj;		/* Number of full adjacent neigh */
@@ -362,6 +363,11 @@ struct ospf_iface_patt {
   int cost;
   int helloint;
   int rxmtint;
+  int inftransdelay; 
+  int priority; 
+  int waitint;
+  int deadc;
+  int type;
 };
 
 static int ospf_start(struct proto *p);
