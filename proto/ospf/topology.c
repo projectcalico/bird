@@ -94,7 +94,10 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	    ln->data = 0xffffffff;
 	  }
 	  else
+          {
+            ln--;
 	    i--;		/* No link added */
+          }
 	}
 	break;
       case OSPF_IT_BCAST:
@@ -146,10 +149,19 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
           rt->veb.bit.v = 1;
         }
 	else
+        {
+          ln--;
 	  i--;		/* No link added */
+        }
+        break;
+      default:
+        ln--;
+	i--;		/* No link added */
+        log("Unknown interface type");
         break;
       }
     }
+    ln++;
   }
   rt->links = i;
   *length = i * sizeof(struct ospf_lsa_rt_link) + sizeof(struct ospf_lsa_rt) +
