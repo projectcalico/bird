@@ -412,7 +412,7 @@ rip_rx(sock *s, int size)
   num = size / sizeof( struct rip_block );
   if (num>PACKET_MAX) BAD( "Too many blocks" );
 
-  if (ipa_same(i->iface->addr->ip, s->faddr)) {
+  if (ipa_equal(i->iface->addr->ip, s->faddr)) {
     DBG("My own packet\n");
     return 1;
   }
