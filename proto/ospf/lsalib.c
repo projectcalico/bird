@@ -399,7 +399,7 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
   if((l1->age==LSA_MAXAGE)&&(l2->age!=LSA_MAXAGE)) return CMP_NEWER;
   if((l2->age==LSA_MAXAGE)&&(l1->age!=LSA_MAXAGE)) return CMP_OLDER;
 
-  if(abs(l1->age-l2->age)>LSA_MAXAGEDIFF)
+  if(ABS(l1->age-l2->age)>LSA_MAXAGEDIFF)
     return l1->age<l2->age ? CMP_NEWER : CMP_OLDER;
 
   return CMP_SAME;
