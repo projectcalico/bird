@@ -31,7 +31,7 @@
  * from two concurrent sends to one destination. Each &rip_interface has
  * at most one &rip_connection.
  *
- * We are not going to honour requests for sending part of
+ * We are not going to honor requests for sending part of
  * routing table. That would need to turn split horizon off,
  * etc.  
  *
@@ -332,12 +332,12 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 
   switch( packet->heading.command ) {
   case RIPCMD_REQUEST: DBG( "Asked to send my routing table\n" ); 
-	  if (P_CF->honour == HO_NEVER) {
+	  if (P_CF->honor == HO_NEVER) {
 	    log( L_REMOTE "They asked me to send routing table, but I was told not to do it" );
 	    return 0;
 	  }
-	  if ((P_CF->honour == HO_NEIGHBOUR) && (!neigh_find( p, &whotoldme, 0 ))) {
-	    log( L_REMOTE "They asked me to send routing table, but he is not my neighbour" );
+	  if ((P_CF->honor == HO_NEIGHBOR) && (!neigh_find( p, &whotoldme, 0 ))) {
+	    log( L_REMOTE "They asked me to send routing table, but he is not my neighbor" );
 	    return 0;
 	  }
     	  rip_sendto( p, whotoldme, port, HEAD(P->interfaces) ); /* no broadcast */
@@ -353,7 +353,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	  }
 
 	  if (!neigh_find( p, &whotoldme, 0 )) {
-	    log( L_REMOTE "%I send me routing info but he is not my neighbour", whotoldme );
+	    log( L_REMOTE "%I send me routing info but he is not my neighbor", whotoldme );
 #if 0
 	    return 0;
 #else

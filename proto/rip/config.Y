@@ -27,34 +27,34 @@ CF_DECLS
 CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, PASSWORDS,
 	    MODE, BROADCAST, QUIET, NOLISTEN, VERSION1, 
 	    AUTHENTICATION, NONE, PLAINTEXT, MD5,
-	    HONOUR, NEVER, NEIGHBOUR, ALWAYS,
+	    HONOR, NEVER, NEIGHBOR, ALWAYS,
 	    RIP_METRIC, RIP_TAG)
 
 %type <i> rip_mode rip_auth
 
 CF_GRAMMAR
 
-CF_ADDTO(proto, RIP_CFG '}')
+CF_ADDTO(proto, rip_cfg '}')
 
-RIP_CFG_start: proto_start RIP {
+rip_cfg_start: proto_start RIP {
      RIP_CFG = proto_config_new(&proto_rip, sizeof(struct rip_proto_config));
      rip_init_config(RIP_CFG);
    }
  ;
 
-RIP_CFG:
-   RIP_CFG_start proto_name '{'
- | RIP_CFG proto_item ';'
- | RIP_CFG INFINITY expr ';'	{ RIP_CFG->infinity = $3; }
- | RIP_CFG PORT expr ';'	{ RIP_CFG->port = $3; }
- | RIP_CFG PERIOD expr ';'	{ RIP_CFG->period = $3; }
- | RIP_CFG GARBAGETIME expr ';' { RIP_CFG->garbage_time = $3; }
- | RIP_CFG AUTHENTICATION rip_auth ';' {RIP_CFG->authtype = $3; }
- | RIP_CFG PASSWORDS '{' password_list '}' {RIP_CFG->passwords = $4; }
- | RIP_CFG HONOUR ALWAYS ';'    { RIP_CFG->honour = HO_ALWAYS; }
- | RIP_CFG HONOUR NEIGHBOUR ';'    { RIP_CFG->honour = HO_NEIGHBOUR; }
- | RIP_CFG HONOUR NEVER ';'    { RIP_CFG->honour = HO_NEVER; }
- | RIP_CFG rip_iface_list ';'
+rip_cfg:
+   rip_cfg_start proto_name '{'
+ | rip_cfg proto_item ';'
+ | rip_cfg INFINITY expr ';'	{ RIP_CFG->infinity = $3; }
+ | rip_cfg PORT expr ';'	{ RIP_CFG->port = $3; }
+ | rip_cfg PERIOD expr ';'	{ RIP_CFG->period = $3; }
+ | rip_cfg GARBAGETIME expr ';' { RIP_CFG->garbage_time = $3; }
+ | rip_cfg AUTHENTICATION rip_auth ';' {RIP_CFG->authtype = $3; }
+ | rip_cfg PASSWORDS '{' password_list '}' {RIP_CFG->passwords = $4; }
+ | rip_cfg HONOR ALWAYS ';'    { RIP_CFG->honor = HO_ALWAYS; }
+ | rip_cfg HONOR NEIGHBOR ';'    { RIP_CFG->honor = HO_NEIGHBOR; }
+ | rip_cfg HONOR NEVER ';'    { RIP_CFG->honor = HO_NEVER; }
+ | rip_cfg rip_iface_list ';'
  ;
 
 rip_auth:

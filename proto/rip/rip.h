@@ -133,9 +133,9 @@ struct rip_proto_config {
 #define AT_NONE 0
 #define AT_PLAINTEXT 2
 #define AT_MD5 3
-  int honour;
+  int honor;
 #define HO_NEVER 0
-#define HO_NEIGHBOUR 1
+#define HO_NEIGHBOR 1
 #define HO_ALWAYS 2
 };
 
