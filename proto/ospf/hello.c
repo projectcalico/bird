@@ -113,7 +113,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
       }
       if((found==0)&&(ifa->strictnbma))
       {
-        OSPF_TRACE(D_EVENTS, "Ignoring new neighbor: %I on %s.", faddr,
+        log("%s: Ignoring new neighbor: %I on %s.", p->name, faddr,
           ifa->iface->name);
 	return;
       }
@@ -122,7 +122,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
         eligible=nn->eligible;
         if(((ps->priority==0)&&eligible)||((ps->priority>0)&&(eligible==0)))
         {
-          OSPF_TRACE(D_EVENTS, "Eligibility mismatch for neighbor: %I on %s",
+          log("%s: Eligibility mismatch for neighbor: %I on %s", p->name,
             faddr, ifa->iface->name);
 	  return;
         }
