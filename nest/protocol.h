@@ -22,8 +22,8 @@ struct rtattr;
  */
 
 struct protocol {
+  node n;
   char *name;
-  unsigned type;			/* ??? List values ??? */
   unsigned debug;			/* Default debugging flags */
 
   void (*init)(struct protocol *);	/* Boot time */
@@ -34,12 +34,15 @@ struct protocol {
 void protos_init(void);
 void protos_preconfig(void);
 void protos_postconfig(void);
+void protos_start(void);
+
+extern list protocol_list;
 
 /*
  *	Known protocols
  */
 
-extern struct protocol proto_static;
+extern struct protocol proto_device;
 
 /*
  *	Routing Protocol Instance
@@ -53,7 +56,7 @@ struct proto {
   pool *pool;				/* Local objects */
   unsigned preference;			/* Default route preference */
 
-  void (*if_notify)(struct proto *, struct iface *new, struct iface *old);
+  void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
   void (*rt_notify)(struct proto *, struct rte *new, struct rte *old);
   void (*neigh_notify)(struct neighbor *neigh);
   void (*dump)(struct proto *);			/* Debugging dump */
