@@ -23,6 +23,8 @@
 #include "unix.h"
 #include "krt.h"
 
+struct proto *cf_krt_proto;
+
 void
 krt_start(struct proto *P)
 {
@@ -42,6 +44,7 @@ krt_preconfig(struct protocol *x)
 {
   struct krt_proto *p = (struct krt_proto *) proto_new(&proto_unix_kernel, sizeof(struct krt_proto));
 
+  cf_krt_proto = &p->p;
   p->p.preference = DEF_PREF_UKR;
   p->p.start = krt_start;
   p->p.shutdown = krt_shutdown;

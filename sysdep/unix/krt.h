@@ -22,6 +22,8 @@ struct krt_proto {
   struct krt_scan_params scanopt;
 };
 
+extern struct proto *cf_krt_proto;
+
 /* krt-scan.c */
 
 void krt_scan_preconfig(struct krt_proto *);

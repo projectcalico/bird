@@ -131,11 +131,11 @@ krt_parse_entry(byte *e, struct krt_proto *p)
 	return;
 #endif
       DBG("krt_parse_entry: kernel reporting unknown route %I/%d\n", dest, masklen);
-#if 1
-      /* FIXME: should be configurable */
-      if (flags & RTF_GATEWAY)
-	krt_magic_route(p, net, gw);
-#endif
+      if (p->scanopt.learn)
+	{
+	  if (flags & RTF_GATEWAY)
+	    krt_magic_route(p, net, gw);
+	}
       net->n.flags |= KRF_UPDATE;
     }
 }
@@ -235,7 +235,8 @@ krt_scan_preconfig(struct krt_proto *x)
 {
   SCANOPT;
 
-  p->recurrence = 10;			/* FIXME: use reasonable default value */
+  p->recurrence = 60;
+  p->learn = 0;
 }
 
 void

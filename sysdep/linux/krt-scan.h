@@ -11,6 +11,7 @@
 
 struct krt_scan_params {
   int recurrence;			/* How often should we scan krt, 0=only on startup */
+  int learn;				/* Should we learn routes from the kernel? */
   struct timer *timer;
 };
 

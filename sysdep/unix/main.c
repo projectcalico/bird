@@ -82,7 +82,6 @@ read_config(void)
   cf_read_hook = cf_read;
   cf_lex_init(1);
   cf_parse();
-  add_tail(&protocol_list, &proto_unix_kernel.n); /* FIXME: Must be _always_ the last one */
   protos_postconfig();
 }
 
@@ -104,6 +103,7 @@ main(void)
   if_init();
 
   protos_build();
+  add_tail(&protocol_list, &proto_unix_kernel.n);
   protos_init();
 
   debug("Reading configuration file.\n");

@@ -1,0 +1,34 @@
+/*
+ *	BIRD -- UNIX Kernel Syncer Configuration
+ *
+ *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *
+ *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+CF_HDR
+
+#include "lib/krt.h"
+
+CF_DECLS
+
+CF_KEYWORDS(KERNEL)
+
+CF_GRAMMAR
+
+/* Kernel protocol */
+
+CF_ADDTO(proto, kern_proto '}')
+
+kern_proto_start: proto_start KERNEL {
+     if (!(this_proto = cf_krt_proto)) cf_error("Kernel protocol already defined");
+     cf_krt_proto = NULL;
+   }
+ ;
+
+CF_ADDTO(kern_proto, kern_proto_start '{')
+CF_ADDTO(kern_proto, kern_proto proto_item ';')
+
+CF_CODE
+
+CF_END
