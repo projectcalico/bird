@@ -453,6 +453,35 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 
 <sect1>BGP
 
+<p>The Border Gateway Protocol is the routing protocol used for backbone
+level routing in today's Internet. Contrary to other protocols, its convergence
+doesn't rely on all routers following the same rules for route selection,
+making it possible to implement any routing policy at any router in the
+network, the only restriction being that if a router advertises a route,
+it must accept and forward packets according to it.
+
+<p>BGP works in terms of autonomous systems (often abbreviated as AS). Each
+AS is a part of the network with common management and common routing policy.
+Routers within each AS usually communicate using either a interior routing
+protocol (such as OSPF or RIP) or an interior variant of BGP (called iBGP).
+Boundary routers at the border of the AS communicate with their peers
+in the neighboring AS'es via exterior BGP (eBGP).
+
+<p>Each BGP router sends to its neighbors updates of the parts of its
+routing table it wishes to export along with complete path information
+(a list of AS'es the packet will travel through if it uses that particular
+route) in order to avoid routing loops.
+
+<p>In BIRD, each instance of BGP corresponds to one neighboring router.
+This allows to set routing policy and all other parameters differently
+for each neighbor.
+
+<sect2>Configuration
+
+<sect2>Attributes
+
+<sect2>Example
+
 <sect1>Device
 
 <p>The Device protocol is not a real routing protocol as it doesn't generate
