@@ -117,11 +117,11 @@ ri_install(struct proto_ospf *po, ip_addr prefix, int pxlen, int dest,
     {
       memcpy(&old->n, new, sizeof(orta));
       old->efn = ipath;
-    }
-    if ((new->type == RTS_OSPF) && (anet = (struct area_net *)fib_route(&oa->net_fib, prefix, pxlen)))
-    {
-       anet->active = 1;
-       if (new->metric1 > anet->metric) anet->metric = new->metric1;
+      if ((new->type == RTS_OSPF) && (anet = (struct area_net *)fib_route(&oa->net_fib, prefix, pxlen)))
+      {
+        anet->active = 1;
+        if (new->metric1 > anet->metric) anet->metric = new->metric1;
+      }
     }
   }
   else
@@ -890,8 +890,8 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
 	if ((neigh = find_neigh_noifa(po, en->lsa.rt)) == NULL)
 	  return;
 	en->nhi = neigh->ifa;
-	if (neigh->ifa->type == OSPF_IT_VLINK) 
-	en->nh = neigh->ip;	/* Yes, neighbor is it's
+	if (ipa_equal(en->nh, IPA_NONE))
+	  en->nh = neigh->ip;	/* Yes, neighbor is it's
 				 * own next hop */
 	return;
       }
@@ -913,7 +913,7 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
     {				/* Parent is some RT neighbor */
       log(L_ERR "Router's parent has no next hop. (EN=%I, PAR=%I)",
 	  en->lsa.id, par->lsa.id);
-      /* I hoped this would never happen */
+      /* I hope this would never happen */
       return;
     }
   }
@@ -961,20 +961,18 @@ again1:
       if (nf->n.ifa) a0.iface = nf->n.ifa->iface;
       a0.gw = nf->n.nh;
 
-      if (ipa_equal(nf->n.nh, IPA_NONE)) a0.dest = RTD_DEVICE;
-      
       if ((!ipa_equal(nf->n.nh, IPA_NONE)) && (!neigh_find(p, &nf->n.nh, 0)))
       {
         int found = 0;
         struct ospf_iface *ifa;
         struct top_hash_entry *en;
-        DBG("Trying to find correct next hop");
+        OSPF_TRACE(D_EVENTS, "Trying to find correct next hop");
         WALK_LIST(ifa, po->iface_list)
         {
           if ((ifa->type == OSPF_IT_VLINK) && ipa_equal(ifa->vip, nf->n.nh))
           {
-            if ((en = ospf_hash_find(po->gr, ifa->voa->areaid, ifa->vid, ifa->vid, LSA_T_RT)) &&
-              (!ipa_equal(en->nh, IPA_NONE)))
+            if ((en = ospf_hash_find(po->gr, ifa->voa->areaid, ifa->vid, ifa->vid, LSA_T_RT))
+	      && (!ipa_equal(en->nh, IPA_NONE)))
             {
               a0.gw = en->nh;
               found = 1;
@@ -984,6 +982,8 @@ again1:
         }
         if (!found) nf->n.metric1 = LSINFINITY; /* Delete it */
       }
+
+      if (ipa_equal(nf->n.nh, IPA_NONE)) a0.dest = RTD_DEVICE;
 
       if (!a0.iface)	/* Still no match? Can this really happen? */
         nf->n.metric1 = LSINFINITY;
