@@ -27,6 +27,7 @@ static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "Ope
 
 static void bgp_connect(struct bgp_proto *p);
 static void bgp_initiate(struct bgp_proto *p);
+static void bgp_setup_listen_sk(void);
 
 void
 bgp_close(struct bgp_proto *p)
@@ -309,12 +310,8 @@ bgp_incoming_connection(sock *sk, int dummy)
 }
 
 static void
-bgp_start_neighbor(struct bgp_proto *p)
+bgp_setup_listen_sk(void)
 {
-  p->local_addr = p->neigh->iface->addr->ip;
-  DBG("BGP: local=%I remote=%I\n", p->local_addr, p->next_hop);
-  if (!bgp_counter++)
-    init_list(&bgp_list);
   if (!bgp_listen_sk)
     {
       sock *s = sk_new(&root_pool);
@@ -334,6 +331,16 @@ bgp_start_neighbor(struct bgp_proto *p)
       else
 	bgp_listen_sk = s;
     }
+}
+
+static void
+bgp_start_neighbor(struct bgp_proto *p)
+{
+  p->local_addr = p->neigh->iface->addr->ip;
+  DBG("BGP: local=%I remote=%I\n", p->local_addr, p->next_hop);
+  if (!bgp_counter++)
+    init_list(&bgp_list);
+  bgp_setup_listen_sk();
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);
   add_tail(&bgp_list, &p->bgp_node);

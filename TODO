@@ -15,8 +15,6 @@ Core
 
 - filters: deletion of mandatory attributes?
 
-- bgp: wait on restart
-
 Documentation
 ~~~~~~~~~~~~~
 - write doctool
