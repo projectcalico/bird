@@ -281,7 +281,7 @@ set_inaddr(struct in_addr *ia, ip_addr a)
   memcpy(&ia->s_addr, &a, sizeof(a));
 }
 
-static void
+void
 fill_in_sockaddr(struct sockaddr_in *sa, ip_addr a, unsigned port)
 {
   sa->sin_family = AF_INET;
