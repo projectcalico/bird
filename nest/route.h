@@ -9,6 +9,7 @@
 #ifndef _BIRD_ROUTE_H_
 #define _BIRD_ROUTE_H_
 
+#include "lib/lists.h"
 #include "lib/resource.h"
 #include "lib/timer.h"
 
@@ -104,9 +105,17 @@ void fit_put(struct fib_iterator *, struct fib_node *);
  *	It's guaranteed that there is at most one RTE for every (prefix,proto) pair.
  */
 
+struct rtable_config {
+  node n;
+  char *name;
+  struct rtable *table;
+};
+
 typedef struct rtable {
+  node n;				/* Node in list of all tables */
   struct fib fib;
   char *name;				/* Name of this table */
+  list hooks;				/* List of announcement hooks */
 } rtable;
 
 typedef struct network {
@@ -152,16 +161,18 @@ typedef struct rte {
 
 #define REF_COW 1			/* Copy this rte on write */
 
-extern rtable master_table;
+struct config;
 
 void rt_init(void);
+void rt_preconfig(struct config *);
+void rt_commit(struct config *);
 void rt_setup(pool *, rtable *, char *);
 static inline net *net_find(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_find(&tab->fib, &addr, len); }
 static inline net *net_get(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_get(&tab->fib, &addr, len); }
 rte *rte_find(net *net, struct proto *p);
 rte *rte_get_temp(struct rta *);
-void rte_update(net *net, struct proto *p, rte *new);
-void rte_discard(rte *old);
+void rte_update(rtable *tab, net *net, struct proto *p, rte *new);
+void rte_discard(rtable *tab, rte *old);
 void rte_dump(rte *);
 void rte_free(rte *);
 rte *rte_do_cow(rte *);
@@ -170,6 +181,7 @@ void rt_dump(rtable *);
 void rt_dump_all(void);
 void rt_feed_baby(struct proto *p);
 void rt_prune(rtable *tab);
+void rt_prune_all(void);
 
 /*
  *	Route Attributes

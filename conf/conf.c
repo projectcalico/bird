@@ -10,6 +10,7 @@
 #include <stdarg.h>
 
 #include "nest/bird.h"
+#include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "lib/resource.h"
@@ -49,6 +50,7 @@ config_parse(struct config *c)
   cf_lex_init(1);
   cf_lex_init_tables();
   protos_preconfig(c);
+  rt_preconfig(c);
   cf_parse();
   filters_postconfig();			/* FIXME: Do we really need this? */
   protos_postconfig(c);
@@ -65,6 +67,7 @@ void
 config_commit(struct config *c)
 {
   config = c;
+  rt_commit(c);
   protos_commit(c);
 }
 

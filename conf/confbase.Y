@@ -25,6 +25,7 @@ CF_DECLS
   ip_addr a;
   struct symbol *s;
   char *t;
+  struct rtable_config *r;
   struct f_inst *x;
   struct filter *f;
   struct f_tree *e;
@@ -78,8 +79,7 @@ expr:
 CF_ADDTO(conf, definition)
 definition:
    DEFINE SYM '=' expr ';' {
-     if ($2->class != SYM_VOID) cf_error("Symbol already defined");
-     $2->class = SYM_NUMBER;
+     cf_define_symbol($2, SYM_NUMBER, NULL);
      $2->aux = $4;
    }
  ;

@@ -17,16 +17,18 @@ void rt_dev_add_iface(char *);
 CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
-CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE)
+CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE)
 
 %type <i> idval
 %type <f> imexport
+%type <r> rtable
 
 CF_GRAMMAR
 
 /* Setting of router ID */
 
 CF_ADDTO(conf, rtrid)
+
 rtrid: ROUTER ID idval ';' {
    new_config->router_id = $3;
    }
@@ -35,6 +37,19 @@ rtrid: ROUTER ID idval ';' {
 idval:
    NUM
  | IPA { $$ = ipa_to_u32($1); }
+ ;
+
+/* Creation of routing tables */
+
+CF_ADDTO(conf, newtab)
+
+newtab: TABLE SYM {
+     struct rtable_config *c = cfg_allocz(sizeof(struct rtable_config));
+     struct symbol *s = $2;
+     cf_define_symbol(s, SYM_TABLE, c);
+     c->name = s->name;
+     add_tail(&new_config->tables, &c->n);
+   }
  ;
 
 /* Definition of protocols */
@@ -51,9 +66,7 @@ proto_name:
      this_proto->name = s->name;
      }
  | SYM {
-     if ($1->class) cf_error("Symbol already defined");
-     $1->class = SYM_PROTO;
-     $1->def = this_proto;
+     cf_define_symbol($1, SYM_PROTO, this_proto);
      this_proto->name = $1->name;
    }
  ;
@@ -70,12 +83,20 @@ proto_item:
  | DEBUG OFF { this_proto->debug = 0; }
  | IMPORT imexport { this_proto->in_filter = $2; }
  | EXPORT imexport { this_proto->out_filter = $2; }
+ | TABLE rtable { this_proto->table = $2; }
  ;
 
 imexport:
    FILTER filter { $$ = $2; }
  | ALL { $$ = FILTER_ACCEPT; }
  | NONE { $$ = FILTER_REJECT; }
+ ;
+
+rtable:
+   SYM {
+     if ($1->class != SYM_TABLE) cf_error("Table name expected");
+     $$ = $1->def;
+   }
  ;
 
 /* Direct device route protocol */

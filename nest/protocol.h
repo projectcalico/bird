@@ -73,6 +73,7 @@ struct proto_config {
   struct protocol *proto;		/* Protocol */
   char *name;
   unsigned debug, preference, disabled;	/* Generic parameters */
+  struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
 
   /* Protocol-specific data follow... */
@@ -128,9 +129,10 @@ struct proto {
   void (*rte_insert)(struct network *, struct rte *);
   void (*rte_remove)(struct network *, struct rte *);
 
-  struct rtable *table;			/* Routing table we're connected to */
+  struct rtable *table;			/* Our primary routing table */
   struct filter *in_filter;		/* Input filter */
   struct filter *out_filter;		/* Output filter */
+  struct announce_hook *ahooks;		/* Announcement hooks for this protocol */
 
   /* Hic sunt protocol-specific data */
 };
@@ -221,6 +223,19 @@ void proto_notify_state(struct proto *p, unsigned state);
  */
 
 extern struct proto_config *cf_dev_proto;
+
+/*
+ *	Route Announcement Hook
+ */
+
+struct announce_hook {
+  node n;
+  struct rtable *table;
+  struct proto *proto;
+  struct announce_hook *next;		/* Next hook for the same protocol */
+};
+
+struct announce_hook *proto_add_announce_hook(struct proto *, struct rtable *);
 
 /*
  *	Callback to sysdep code when shutdown is finished

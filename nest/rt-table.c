@@ -15,9 +15,9 @@
 #include "nest/protocol.h"
 #include "lib/resource.h"
 #include "lib/event.h"
+#include "conf/conf.h"
 #include "filter/filter.h"
 
-rtable master_table;
 static slab *rte_slab;
 static linpool *rte_update_pool;
 
@@ -25,6 +25,7 @@ static linpool *rte_update_pool;
 #define RT_GC_MIN_COUNT 100
 
 static pool *rt_table_pool;
+static list routing_tables;
 static event *rt_gc_event;
 static bird_clock_t rt_last_gc;
 static int rt_gc_counter;
@@ -44,6 +45,7 @@ rt_setup(pool *p, rtable *t, char *name)
   bzero(t, sizeof(*t));
   fib_init(&t->fib, p, sizeof(rte), 0, rte_init);
   t->name = name;
+  init_list(&t->hooks);
 }
 
 rte *
@@ -97,8 +99,9 @@ rte_better(rte *new, rte *old)
 }
 
 static inline void
-do_rte_announce(struct proto *p, net *net, rte *new, rte *old, ea_list *tmpa)
+do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *tmpa)
 {
+  struct proto *p = a->proto;
   rte *new0 = new;
   rte *old0 = old;
   if (new)
@@ -132,39 +135,42 @@ do_rte_announce(struct proto *p, net *net, rte *new, rte *old, ea_list *tmpa)
 }
 
 static void
-rte_announce(net *net, rte *new, rte *old, ea_list *tmpa)
+rte_announce(rtable *tab, net *net, rte *new, rte *old, ea_list *tmpa)
 {
-  struct proto *p;
+  struct announce_hook *a;
 
-  WALK_LIST(p, proto_list)
+  WALK_LIST(a, tab->hooks)
     {
-      ASSERT(p->core_state == FS_HAPPY);
-      if (p->rt_notify)
-	do_rte_announce(p, net, new, old, tmpa);
+      ASSERT(a->proto->core_state == FS_HAPPY);
+      do_rte_announce(a, net, new, old, tmpa);
     }
 }
 
 void
 rt_feed_baby(struct proto *p)
 {
-  rtable *t = &master_table;
+  struct announce_hook *h;
 
-  if (!p->rt_notify)
+  if (!p->ahooks)
     return;
   debug("Announcing routes to new protocol %s\n", p->name);
-  FIB_WALK(&t->fib, fn)
+  for(h=p->ahooks; h; h=h->next)
     {
-      net *n = (net *) fn;
-      rte *e;
-      for(e=n->routes; e; e=e->next)
+      rtable *t = h->table;
+      FIB_WALK(&t->fib, fn)
 	{
-	  struct proto *q = e->attrs->proto;
-	  ea_list *tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
-	  do_rte_announce(p, n, e, NULL, tmpa);
-	  lp_flush(rte_update_pool);
+	  net *n = (net *) fn;
+	  rte *e;
+	  for(e=n->routes; e; e=e->next)
+	    {
+	      struct proto *q = e->attrs->proto;
+	      ea_list *tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
+	      do_rte_announce(h, n, e, NULL, tmpa);
+	      lp_flush(rte_update_pool);
+	    }
 	}
+      FIB_WALK_END;
     }
-  FIB_WALK_END;
 }
 
 static inline int
@@ -215,7 +221,7 @@ rte_free_quick(rte *e)
 }
 
 static void
-rte_recalculate(net *net, struct proto *p, rte *new, ea_list *tmpa)
+rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmpa)
 {
   rte *old_best = net->routes;
   rte *old = NULL;
@@ -234,7 +240,7 @@ rte_recalculate(net *net, struct proto *p, rte *new, ea_list *tmpa)
 
   if (new && rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
     {
-      rte_announce(net, new, old_best, tmpa);
+      rte_announce(table, net, new, old_best, tmpa);
       new->next = net->routes;
       net->routes = new;
     }
@@ -246,7 +252,7 @@ rte_recalculate(net *net, struct proto *p, rte *new, ea_list *tmpa)
 	  for(s=net->routes; s; s=s->next)
 	    if (rte_better(s, r))
 	      r = s;
-	  rte_announce(net, r, old_best, tmpa);
+	  rte_announce(table, net, r, old_best, tmpa);
 	  if (r)			/* Re-link the new optimal route */
 	    {
 	      k = &net->routes;
@@ -301,7 +307,7 @@ rte_update_unlock(void)
 }
 
 void
-rte_update(net *net, struct proto *p, rte *new)
+rte_update(rtable *table, net *net, struct proto *p, rte *new)
 {
   ea_list *tmpa = NULL;
 
@@ -324,7 +330,7 @@ rte_update(net *net, struct proto *p, rte *new)
 	new->attrs = rta_lookup(new->attrs);
       new->flags |= REF_COW;
     }
-  rte_recalculate(net, p, new, tmpa);
+  rte_recalculate(table, net, p, new, tmpa);
   rte_update_unlock();
   return;
 
@@ -334,10 +340,10 @@ drop:
 }
 
 void
-rte_discard(rte *old)			/* Non-filtered route deletion, used during garbage collection */
+rte_discard(rtable *t, rte *old)	/* Non-filtered route deletion, used during garbage collection */
 {
   rte_update_lock();
-  rte_recalculate(old->net, old->attrs->proto, NULL, NULL);
+  rte_recalculate(t, old->net, old->attrs->proto, NULL, NULL);
   rte_update_unlock();
 }
 
@@ -361,6 +367,7 @@ rt_dump(rtable *t)
 {
   rte *e;
   net *n;
+  struct announce_hook *a;
 
   debug("Dump of routing table <%s>\n", t->name);
 #ifdef DEBUGGING
@@ -373,20 +380,27 @@ rt_dump(rtable *t)
 	rte_dump(e);
     }
   FIB_WALK_END;
+  WALK_LIST(a, t->hooks)
+    debug("\tAnnounces routes to protocol %s\n", a->proto->name);
   debug("\n");
 }
 
 void
 rt_dump_all(void)
 {
-  rt_dump(&master_table);
+  rtable *t;
+
+  WALK_LIST(t, routing_tables)
+    rt_dump(t);
 }
 
 static void
 rt_gc(void *unused)
 {
+  rtable *t;
+
   DBG("Entered routing table garbage collector after %d seconds and %d deletes\n", (int)(now - rt_last_gc), rt_gc_counter);
-  rt_prune(&master_table);
+  rt_prune_all();
   rt_last_gc = now;
   rt_gc_counter = 0;
 }
@@ -397,11 +411,11 @@ rt_init(void)
   rta_init();
   rt_table_pool = rp_new(&root_pool, "Routing tables");
   rte_update_pool = lp_new(rt_table_pool, 4080);
-  rt_setup(rt_table_pool, &master_table, "master");
   rte_slab = sl_new(rt_table_pool, sizeof(rte));
   rt_last_gc = now;
   rt_gc_event = ev_new(rt_table_pool);
   rt_gc_event->hook = rt_gc;
+  init_list(&routing_tables);
 }
 
 void
@@ -422,7 +436,7 @@ again:
       for (e=n->routes; e; e=e->next, rcnt++)
 	if (e->attrs->proto->core_state != FS_HAPPY)
 	  {
-	    rte_discard(e);
+	    rte_discard(tab, e);
 	    rdel++;
 	    goto rescan;
 	  }
@@ -436,4 +450,40 @@ again:
     }
   FIB_ITERATE_END(f);
   DBG("Pruned %d of %d routes and %d of %d networks\n", rcnt, rdel, ncnt, ndel);
+}
+
+void
+rt_prune_all(void)
+{
+  rtable *t;
+
+  WALK_LIST(t, routing_tables)
+    rt_prune(t);
+}
+
+void
+rt_preconfig(struct config *c)
+{
+  struct symbol *s = cf_find_symbol("master");
+  struct rtable_config *r = cfg_allocz(sizeof(struct rtable_config));
+
+  cf_define_symbol(s, SYM_TABLE, r);
+  r->name = s->name;
+  init_list(&c->tables);
+  add_tail(&c->tables, &r->n);
+  c->master_rtc = r;
+}
+
+void
+rt_commit(struct config *c)
+{
+  struct rtable_config *r;
+
+  WALK_LIST(r, c->tables)
+    {
+      rtable *t = mb_alloc(rt_table_pool, sizeof(struct rtable));
+      rt_setup(rt_table_pool, t, r->name);
+      add_tail(&routing_tables, &t->n);
+      r->table = t;
+    }
 }

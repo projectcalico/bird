@@ -86,7 +86,7 @@ proto_new(struct proto_config *c, unsigned size)
   p->preference = c->preference;
   p->disabled = c->disabled;
   p->proto = pr;
-  p->table = &master_table;
+  p->table = (c->table ? : c->global->master_rtc)->table;
   p->in_filter = c->in_filter;
   p->out_filter = c->out_filter;
   return p;
@@ -99,6 +99,33 @@ proto_init_instance(struct proto *p)
   p->pool = rp_new(proto_pool, p->proto->name);
   p->attn = ev_new(p->pool);
   p->attn->data = p;
+}
+
+struct announce_hook *
+proto_add_announce_hook(struct proto *p, struct rtable *t)
+{
+  struct announce_hook *h;
+
+  if (!p->rt_notify)
+    return NULL;
+  DBG("Connecting protocol %s to table %s\n", p->name, t->name);
+  h = mb_alloc(p->pool, sizeof(struct announce_hook));
+  h->table = t;
+  h->proto = p;
+  h->next = p->ahooks;
+  p->ahooks = h;
+  add_tail(&t->hooks, &h->n);
+  return h;
+}
+
+static void
+proto_flush_hooks(struct proto *p)
+{
+  struct announce_hook *h;
+
+  for(h=p->ahooks; h; h=h->next)
+    rem_node(&h->n);
+  p->ahooks = NULL;
 }
 
 void *
@@ -296,6 +323,7 @@ proto_feed(void *P)
   struct proto *p = P;
 
   DBG("Feeding protocol %s\n", p->name);
+  proto_add_announce_hook(p, p->table);
   if_feed_baby(p);
   rt_feed_baby(p);
   p->core_state = FS_HAPPY;
@@ -365,11 +393,12 @@ proto_flush_all(void *unused)
 {
   struct proto *p;
 
-  rt_prune(&master_table);
+  rt_prune_all();
   neigh_prune();
   while ((p = HEAD(flush_proto_list))->n.next)
     {
       DBG("Flushing protocol %s\n", p->name);
+      proto_flush_hooks(p);
       rfree(p->pool);
       p->pool = NULL;
       p->core_state = FS_HUNGRY;

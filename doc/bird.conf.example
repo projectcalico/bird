@@ -11,6 +11,8 @@
 #filter sink { reject; }
 #filter okay { accept; }
 
+#table testable;
+
 #protocol rip MyRIP_test {
 #	preference xyzzy;
 #	debug all;
@@ -38,6 +40,7 @@ protocol device {
 
 protocol static {
 #	disabled;
+#	table testable;
 #	route 0.0.0.0/0 via 62.168.0.13;
 #	route 62.168.0.0/25 reject;
 #	route 10.0.0.0/8 reject;
