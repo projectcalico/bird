@@ -10,6 +10,8 @@
 #include "conf/conf.h"
 #include "filter/filter.h"
 
+#define P(a,b) ((a<<8) | b)
+
 struct f_inst *
 f_new_inst(void)
 {
@@ -27,6 +29,27 @@ f_new_dynamic_attr(int type, int f_type, int code)
   f->aux = type;
   f->a2.i = code;
   return f;
+}
+
+/*
+ * Generate set_dynamic( operation( get_dynamic(), argument ) )
+ */
+struct f_inst *
+f_generate_complex(int operation, int operation_aux, struct f_inst *dyn, struct f_inst *argument)
+{
+  struct f_inst *set_dyn = f_new_inst(),
+                *oper = f_new_inst(),
+                *get_dyn = dyn;
+
+  *set_dyn = *get_dyn;
+  get_dyn->code = P('e','a');
+  oper->code = operation;
+  oper->aux = operation_aux;
+  oper->a1.p = get_dyn;
+  oper->a2.p = argument;
+  set_dyn->code = P('e','S');
+  set_dyn->a1.p = oper;
+  return set_dyn;
 }
 
 char *
