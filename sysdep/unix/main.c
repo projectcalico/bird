@@ -266,6 +266,7 @@ cli_connect(sock *s, int size)
   s->pool = c->pool;		/* We need to have all the socket buffers allocated in the cli pool */
   c->rx_pos = c->rx_buf;
   c->rx_aux = NULL;
+  rmove(s, c->pool);
   return 1;
 }
 
