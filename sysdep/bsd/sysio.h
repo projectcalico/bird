@@ -34,15 +34,11 @@ sysio_mcast_setup(sock * s)
 
 	if (ipa_nonzero(s->daddr)) {
 
-		if (setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_LOOP, &zero, sizeof(zero)) < 0) {
-			log("IP_MULTICAST_LOOP");
+		if (setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_LOOP, &zero, sizeof(zero)) < 0)
 			return "IP_MULTICAST_LOOP";
-		}
 
-		if (setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_TTL, &one, sizeof(one)) < 0) {
-			log("IP_MULTICAST_TTL");
+		if (setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_TTL, &one, sizeof(one)) < 0)
 			return "IP_MULTICAST_TTL";
-		}
 	}
 	return NULL;
 }
@@ -62,17 +58,14 @@ sysio_mcast_join(sock * s)
 	set_inaddr(&mreq.imr_multiaddr, s->daddr);
 
 	/* And this one sets interface for _receiving_ multicasts from */
-	if (ipa_nonzero(s->daddr) && setsockopt(s->fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-		log("IP_ADD_MEMBERSHIP");
+	if (ipa_nonzero(s->daddr) &&
+            setsockopt(s->fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
 		return "IP_ADD_MEMBERSHIP";
-	}
 
 
 	/* This defines where should we send _outgoing_ multicasts */
-	if (ipa_nonzero(s->daddr) && setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_IF, &m, sizeof(m)) < 0) {
-		log("IP_MULTICAST_IF");
+	if (ipa_nonzero(s->daddr) && setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_IF, &m, sizeof(m)) < 0)
 		return "IP_MULTICAST_IF";
-	}
 
 	if (err = sysio_mcast_setup(s))
 		return err;
