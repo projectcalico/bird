@@ -187,8 +187,8 @@
 <item>		+	"\\item "
 </item>
 
-<tag>		+	"\\item\["
-</tag>			"\] \\mbox{}\n\n"
+<tag>		+	"\\item\[{\\ttfamily "
+</tag>			"}\] \\mbox{}\n\n"
 
 <cite>			"\\cite{[ID]"
 </cite>			"}"
