@@ -40,7 +40,7 @@ ospf_proto:
    ospf_proto_start proto_name '{'
  | ospf_proto proto_item ';'
  | ospf_proto RFC1583COMPAT bool ';' { OSPF_CFG->rfc1583 = $3; }
- | ospf_proto ospf_area '}'
+ | ospf_proto ospf_area
 ;
 
 ospf_area_start: AREA idval '{' {
@@ -54,8 +54,14 @@ ospf_area_start: AREA idval '{' {
 ;
 
 ospf_area: ospf_area_start
- | ospf_area_start ospf_area_item
+ | ospf_area_start ospf_area_list
 ;
+
+ospf_area_list: /*EMPTY*/ | ospf_area_opts '}'
+;
+
+ospf_area_opts:
+ | ospf_area_opts ospf_area_item
 
 ospf_area_item:
  | STUB bool ';' { this_area->stub = $2 ; }
