@@ -89,37 +89,36 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
 	if(n->myimms.bit.m)
 	{
+	  sn=s_get(&(n->dbsi));
 
-	sn=s_get(&(n->dbsi));
-
-	DBG("Number of LSA: %d\n", j);
-	for(;i>0;i--)
-	{
-	  struct top_hash_entry *en;
+	  DBG("Number of LSA: %d\n", j);
+	  for(;i>0;i--)
+	  {
+	    struct top_hash_entry *en;
 	  
-	  en=(struct top_hash_entry *)sn;
-	  htonlsah(&(en->lsa), lsa);
-	  DBG("Working on: %d\n", i);
-          debug("\t%04x %08x %08x %p\n", en->lsa.type, en->lsa.id,
-            en->lsa.rt, en->lsa_body);
+	    en=(struct top_hash_entry *)sn;
+	    htonlsah(&(en->lsa), lsa);
+	    DBG("Working on: %d\n", i);
+            debug("\t%04x %08x %08x %p\n", en->lsa.type, en->lsa.id,
+              en->lsa.rt, en->lsa_body);
+
+	    if(sn->next==NULL)
+	    {
+	      break;	/* Should set some flag? */
+  	    }
+	    sn=sn->next;
+	    lsa++;
+	  }
+	  i--;
 
 	  if(sn->next==NULL)
 	  {
-	    break;	/* Should set some flag? */
+	    DBG("Number of LSA NOT sent: %d\n", i);
+	    DBG("M bit unset.\n");
+	    n->myimms.bit.m=0;	/* Unset more bit */
 	  }
-	  sn=sn->next;
-	  lsa++;
-	}
-	i--;
 
-	if(sn->next==NULL)
-	{
-	  DBG("Number of LSA NOT sent: %d\n", i);
-	  DBG("M bit unset.\n");
-	  n->myimms.bit.m=0;	/* Unset more bit */
-	}
-
-	s_put(&(n->dbsi),sn);
+	  s_put(&(n->dbsi),sn);
 	}
 
         pkt->imms.byte=n->myimms.byte;
@@ -185,10 +184,14 @@ rxmt_timer_hook(timer *timer)
   n=(struct ospf_neighbor *)timer->data;
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
-  debug("%s: RXMT timer fired on interface %s.\n",
-    p->name, ifa->iface->name);
+  debug("%s: RXMT timer fired on interface %s for nigh: %d.\n",
+    p->name, ifa->iface->name, n->rid);
   if(n->state<NEIGHBOR_LOADING) ospf_dbdes_tx(n);
-   	/* else FIXME I should dealloc ldbdes */
+  else
+  {
+    tm_stop(n->rxmt_timer);
+   	/* FIXME I should dealloc ldbdes */
+  }
 }
 
 int
@@ -336,6 +339,8 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  break;
         }
 
+	n->imms.byte=ps->imms.byte;
+
 	if(ps->options!=n->options)	/* Options differs */
         {
           DBG("SEQMIS-OPT\n");
@@ -366,13 +371,14 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         }
 	else
         {
-          if(ps->ddseq!=(n->dds+1))	/* SLAVE */
+          if(ntohl(ps->ddseq)!=(n->dds+1))	/* SLAVE */
 	  {
             DBG("SEQMIS-SLAVE\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
-	  n->ddr=ps->ddseq;
+	  n->ddr=ntohl(ps->ddseq);
+	  n->dds=ntohl(ps->ddseq);
 	  ospf_dbdes_reqladd(ps,p,n);
 	  ospf_dbdes_tx(n);
         }
