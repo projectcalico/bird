@@ -82,12 +82,7 @@ CF_ADDTO(conf, ';')
 
 expr:
    NUM
- | expr '+' expr { $$ = $1 + $3; }
- | expr '-' expr { $$ = $1 - $3; }
- | expr '*' expr { $$ = $1 * $3; }
- | expr '/' expr { if ($3) $$ = $1 / $3; else cf_error("Division by zero"); }
- | expr '%' expr { if ($3) $$ = $1 % $3; else cf_error("Division by zero"); }
- | '(' expr ')' { $$ = $2; }
+ | '(' term ')' { $$ = f_eval_int($2); }
  | SYM { if ($1->class != SYM_NUMBER) cf_error("Number expected"); else $$ = $1->aux; }
  ;
 
