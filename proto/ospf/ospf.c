@@ -19,6 +19,7 @@
 #include "lib/socket.h"
 #include "lib/lists.h"
 #include "lib/timer.h"
+#include "lib/checksum.h"
 
 #include "ospf.h"
 
@@ -36,6 +37,12 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
       DBG(": Neighbour? on iface ");
       DBG(ifa->iface->name);
       DBG("\n");
+      break;
+    case OSPF_IS_PTP:
+    case OSPF_IS_DROTHER:
+    case OSPF_IS_BACKUP:
+    case OSPF_IS_DR:
+      DBG("OSPF, RX, Unimplemented state.\n");
       break;
     default:
       die("%s: Iface %s in unknown state?",p->name, ifa->iface->name);
@@ -81,6 +88,14 @@ ospf_rx_hook(sock *sk, int size)
   if(ps->version!=OSPF_VERSION)
   {
     log("%s: Bad packet received: version %d", p->name, ps->version);
+    log("%s: Discarding",p->name);
+    return(1);
+  }
+
+  if(!ipsum_verify(ps, 16,(void *)ps+sizeof(struct ospf_packet),
+    ntohs(ps->length)-sizeof(struct ospf_packet), NULL))
+  {
+    log("%s: Bad packet received: bad checksum", p->name);
     log("%s: Discarding",p->name);
     return(1);
   }
