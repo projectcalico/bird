@@ -246,6 +246,16 @@ struct ospf_lsreq_header {
   u32 rt;		/* Advertising router */
 };
 
+struct ospf_lsupd_packet {
+  struct ospf_packet ospf_packet;
+  u32 lsano;		/* Number of LSA's */
+};
+
+struct ospf_lsack_packet {
+  struct ospf_packet ospf_packet;
+};
+
+
 struct ospf_neighbor
 {
   node n;

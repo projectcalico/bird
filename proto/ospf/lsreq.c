@@ -86,7 +86,7 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received dbdes from unknown neigbor! (%u)\n", p->name,
+    debug("%s: Received lsreq from unknown neigbor! (%u)\n", p->name,
       nrid);
     return ;
   }
@@ -99,8 +99,12 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
   {
     DBG("Processing LSA: ID=%u, Type=%u, Router=%u\n", lsh->id, lsh->type,
       lsh->rt);
+    if(ospf_hash_find(n->ifa->oa->gr, lsh->id, lsh->rt, lsh->type)==NULL)
+    {
+      ospf_neigh_sm(n,INM_BADLSREQ);
+      return;
+    }
     /* FIXME Go on */
   }
-
 }
 
