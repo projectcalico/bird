@@ -188,6 +188,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
   ifa->oa=oa;
 
   oa->rt=originate_rt_lsa(oa,po);
+  DBG("RT LSA: rt: %I, id: %I, type: %u\n",oa->rt->lsa.rt,oa->rt->lsa.id,oa->rt->lsa.type);
   flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa);
 }
 
@@ -199,7 +200,7 @@ originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
   struct top_hash_entry *en;
   void *body;
 
-  DBG("%s: Originating RT_lsa for area \"%d\".\n", po->proto.name, oa->areaid);
+  DBG("%s: Originating RT_lsa for area \"%I\".\n", po->proto.name, oa->areaid);
 
   lsa.age=0;
   lsa.id=rtid;
@@ -215,7 +216,7 @@ originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
   }
   body=originate_rt_lsa_body(oa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
-  en=lsa_install_new(&lsa, body, oa);
+  en=lsa_install_new(&lsa, body, oa, &po->proto);
   return en;
 }
 
@@ -258,7 +259,11 @@ ospf_top_hash_u32(u32 a)
 static inline unsigned
 ospf_top_hash(struct top_graph *f, u32 lsaid, u32 rtrid, u32 type)
 {
+#if 1	/* Dirty patch to make rt table calculation work. */
+  return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32((type==2) ? lsaid : rtrid) + type) & f->hash_mask;
+#else
   return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32(rtrid) + type) & f->hash_mask;
+#endif
 }
 
 struct top_graph *
@@ -329,8 +334,21 @@ ospf_hash_find(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
 {
   struct top_hash_entry *e = f->hash_table[ospf_top_hash(f, lsa, rtr, type)];
 
+#if 1
+  if(type==2 && lsa==rtr)
+  {
+    while (e && (e->lsa.id != lsa || e->lsa.type != 2 ))
+      e = e->next;
+  }
+  else
+  {
+    while (e && (e->lsa.id != lsa || e->lsa.type != type || e->lsa.rt != rtr))
+      e = e->next;
+  }
+#else
   while (e && (e->lsa.id != lsa || e->lsa.rt != rtr || e->lsa.type != type))
     e = e->next;
+#endif
   return e;
 }
 
@@ -389,7 +407,7 @@ ospf_top_dump(struct top_graph *f)
       struct top_hash_entry *e = f->hash_table[i];
       while (e)
 	{
-	  debug("\t%04x %08x %08x %p\n", e->lsa.type, e->lsa.id,
+	  debug("\t%04x %08I %08I %p\n", e->lsa.type, e->lsa.id,
             e->lsa.rt, e->lsa_body);
 	  e = e->next;
 	}

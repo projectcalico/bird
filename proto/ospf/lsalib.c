@@ -319,26 +319,26 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
 
 /* LSA can be temporarrily, but body must be mb_alloced. */
 struct top_hash_entry *
-lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
+lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
+  struct proto *p)
 {
-  int change=0,i;
+  int change=0;
+  unsigned i;
   struct top_hash_entry *en;
 
   if((en=ospf_hash_find_header(oa->gr,lsa))==NULL)
   {
     en=ospf_hash_get_header(oa->gr,lsa);
     change=1;
-    s_add_tail(&oa->lsal, SNODE en);
   }
   else
   {
-    if(en->lsa.options!=lsa->options) change=1;
-    if((en->lsa.age==LSA_MAXAGE)||(lsa->age==LSA_MAXAGE)) change=1;
-    if(en->lsa.length!=lsa->length) change=1;
+    if((en->lsa.length!=lsa->length)||(en->lsa.options!=lsa->options)||
+      ((en->lsa.age==LSA_MAXAGE)||(lsa->age==LSA_MAXAGE))) change=1;
     else
     {
       u8 *k=en->lsa_body,*l=body;
-      for(i=0;i<lsa->length;i++)
+      for(i=0;i<(lsa->length-sizeof(struct ospf_lsa_header));i++)
       {
         if(*(k+i)!=*(l+i))
 	{
@@ -346,15 +346,26 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
 	  break;
 	}
       }
-      s_rem_node(SNODE en);
-      s_add_tail(&oa->lsal, SNODE en);
+      /* FIXME delete routes to stub networks! */
+    }
+    if(change) s_rem_node(SNODE en);
+  }
+
+  if(change)
+  {
+    s_add_tail(&oa->lsal, SNODE en);
+    en->inst_t=now;
+    if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+    en->lsa_body=body;
+    en->lsa.length=lsa->length;
+    memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
+    /* FIXME decide if route calcualtion must be done and how */
+    if(oa->rt!=NULL)
+    {
+      DBG("Starting routing table calculation.\n");
+      ospf_rt_spfa(oa, p);
     }
   }
-  en->inst_t=now;
-  if(en->lsa_body!=NULL)mb_free(en->lsa_body);
-  en->lsa_body=body;
-  memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
   
-  /* FIXME decide if route calcualtion must be done and how */
   return en;
 }

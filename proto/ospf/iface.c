@@ -73,9 +73,8 @@ downint(struct ospf_iface *ifa)
 void
 ospf_int_sm(struct ospf_iface *ifa, int event)
 {
-  struct proto *p;
-
-  p=(struct proto *)(ifa->proto);
+  struct proto *p=(struct proto *)(ifa->proto);
+  struct proto_ospf *po=ifa->proto;
 
   DBG("%s: SM on iface %s. Event is \"%s\".\n",
     p->name, ifa->iface->name, ospf_ism[event]);
@@ -105,12 +104,14 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
         }
 	addifa_rtlsa(ifa);
       }
+      originate_rt_lsa(ifa->oa,po);
       break;
     case ISM_BACKS:
     case ISM_WAITF:
       if(ifa->state==OSPF_IS_WAITING)
       {
         bdr_election(ifa ,p);
+        originate_rt_lsa(ifa->oa,po);
       }
       break;
     case ISM_NEICH:
@@ -119,16 +120,21 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
       {
         bdr_election(ifa ,p);
       }
+      originate_rt_lsa(ifa->oa,po);
+      break;
     case ISM_DOWN:
       iface_chstate(ifa, OSPF_IS_DOWN);
       downint(ifa);
+      originate_rt_lsa(ifa->oa,po);
       break;
     case ISM_LOOP:	/* Useless? */
       iface_chstate(ifa, OSPF_IS_LOOP);
       downint(ifa);
+      originate_rt_lsa(ifa->oa,po);
       break;
     case ISM_UNLOOP:
       iface_chstate(ifa, OSPF_IS_DOWN);
+      originate_rt_lsa(ifa->oa,po);
       break;
     default:
       die("%s: ISM - Unknown event?",p->name);

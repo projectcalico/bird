@@ -26,6 +26,7 @@
 #include "nest/iface.h"
 #include "nest/route.h"
 #include "conf/conf.h"
+#include <string.h>
 
 #define OSPF_PROTO 89
 #ifndef IPV6

@@ -319,7 +319,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       body=mb_alloc(p->pool,lsatmp.length-sizeof(struct ospf_lsa_header));
       ntohlsab(lsa+1,body,lsatmp.type,
         lsatmp.length-sizeof(struct ospf_lsa_header));
-      lsadb=lsa_install_new(&lsatmp,body, oa);
+      lsadb=lsa_install_new(&lsatmp,body, oa, p);
       DBG("New LSA installed in DB\n");
 
       /* FIXME 145 (5f) self originated? */

@@ -178,9 +178,8 @@ void
 ospf_neigh_sm(struct ospf_neighbor *n, int event)
 	/* Interface state machine */
 {
-  struct proto *p;
-
-  p=(struct proto *)(n->ifa->proto);
+  struct proto *p=(struct proto *)(n->ifa->proto);
+  struct proto_ospf *po=n->ifa->proto;
 
   DBG("%s: Neighbor state machine for neighbor %I, event \"%s\".\n",
     p->name, n->rid, ospf_inm[event]);
@@ -203,7 +202,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       }
       break;
     case INM_2WAYREC:
-      if(n->state==NEIGHBOR_INIT)
+      if(n->state<NEIGHBOR_2WAY)
       {
         /* Can In build adjacency? */
         neigh_chstate(n,NEIGHBOR_2WAY);
@@ -212,6 +211,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
           neigh_chstate(n,NEIGHBOR_EXSTART);
           tryadj(n,p);
         }
+	ospf_int_sm(n->ifa, ISM_NEICH);
       }
       break;
     case INM_NEGDONE:
@@ -236,6 +236,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       break;
     case INM_LOADDONE:
         neigh_chstate(n,NEIGHBOR_FULL);
+	originate_rt_lsa(n->ifa->oa,po);
       break;
     case INM_ADJOK:
         switch(n->state)
@@ -271,11 +272,13 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
     case INM_LLDOWN:
     case INM_INACTTIM:
       neigh_chstate(n,NEIGHBOR_DOWN);
+      ospf_int_sm(n->ifa, ISM_NEICH);
       break;
     case INM_1WAYREC:
       if(n->state>=NEIGHBOR_2WAY)
       {
         neigh_chstate(n,NEIGHBOR_DOWN);
+	ospf_int_sm(n->ifa, ISM_NEICH);
       }
       break;
     default:
@@ -287,7 +290,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 void
 bdr_election(struct ospf_iface *ifa, struct proto *p)
 {
-  struct ospf_neighbor *neigh,*ndr,*nbdr,me;
+  struct ospf_neighbor *neigh,*ndr,*nbdr,me,*tmp;
   u32 myid, ndrid, nbdrid;
   int doadj;
 
@@ -335,7 +338,11 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   doadj=0;
   if((ifa->drid!=ndrid) || (ifa->bdrid!=nbdrid)) doadj=1;
   ifa->drid=ndrid;
+  if((tmp=find_neigh(ifa,ndrid))==NULL) die("Error i BDR election.\n");
+  ifa->drip=tmp->ip;
   ifa->bdrid=nbdrid;
+  if((tmp=find_neigh(ifa,nbdrid))==NULL) die("Error i BDR election.\n");
+  ifa->bdrip=tmp->ip;
 
   DBG("%s: DR=%I, BDR=%I\n",p->name, ifa->drid, ifa->bdrid);
 
