@@ -23,6 +23,19 @@
 
 #include "ospf.h"
 
+/* Try to build neighbor adjacency (if does not exists) */
+void
+tryadj(struct ospf_neighbor *n, struct proto *p)
+{
+  if(n->state==NEIGHBOR_INIT)
+  {
+    DBG("%s: Going to build adjacency.\n", p->name);
+    n->state=NEIGHBOR_EXSTART;
+    /* FIXME Go on */
+  }
+}
+
+/* Neighbor is inactive for a long time. Remove it. */
 void
 neighbor_timer_hook(timer *timer)
 {
@@ -42,14 +55,22 @@ neighbor_timer_hook(timer *timer)
   debug("%s: Deleting neigbor.\n", p->name);
 }
 
+/*
+void
+backupseen()
+{
+  ;	/* Backup Seen Event *
+}
+*/
+
 void
 ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
-  struct ospf_iface *ifa)
+  struct ospf_iface *ifa, int size)
 {
   char sip[100]; /* FIXME: Should be smaller */
-  u32 nrid;
+  u32 nrid, *pnrid;
   struct ospf_neighbor *neigh,*n;
-  int i;
+  int i,twoway;
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
@@ -109,13 +130,77 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->inactim->recurrent=0;
     DBG("%s: Installing inactivity timer.\n", p->name);
     n->state=NEIGHBOR_INIT;
+    n->rid=nrid;
+    n->dr=ntohl(ps->dr);
+    n->bdr=ntohl(ps->bdr);
+    n->priority=ps->priority;
+    n->options=ps->options;
   }
-  n->rid=nrid;
-  n->dr=ntohl(ps->dr);
-  n->bdr=ntohl(ps->bdr);
-  n->priority=ps->priority;
-  n->options=ps->options;
   tm_start(n->inactim,ifa->deadc*ifa->helloint);
+
+  twoway=0;
+  pnrid=(u32 *)((struct ospf_hello_packet *)(ps+1));
+
+  for(i=0;i<size-(sizeof(struct ospf_hello_packet));i++)
+  {
+    if(ntohl(*(pnrid+i))==p->cf->global->router_id)
+    {
+      twoway=1;
+      DBG("%s: Twoway received. %d\n", p->name, nrid);
+      break;
+    }
+  }
+
+  if(twoway)
+  {
+    if(n->state<NEIGHBOR_2WAY) n->state=NEIGHBOR_2WAY;
+  }
+  else
+  {
+    if(n->state>=NEIGHBOR_2WAY)
+    {
+      /* FIXME Delete all learnt */
+      n->state=NEIGHBOR_INIT;
+    }
+  }
+
+  /* Check priority change */
+  if(n->priority!=(n->priority=ps->priority))
+  {
+    /* FIXME NeighborChange */;
+  }
+
+  /* Check neighbor's designed router idea */
+  if((n->rid!=ntohl(ps->dr)) && (ntohl(ps->bdr)==0) &&
+    (ifa->state==OSPF_IS_WAITING))
+  {
+    /* FIXME BackupSeen */;
+  }
+  if((n->rid==ntohl(ps->dr)) && (n->dr!=ntohl(ps->dr)))
+  {
+    /* FIXME NeighborChange */;
+  }
+  if((n->rid==n->dr) && (n->dr!=ntohl(ps->dr)))
+  {
+    /* FIXME NeighborChange */;
+  }
+  n->dr=ntohl(ps->dr);	/* And update it */
+
+  /* Check neighbor's backup designed router idea */
+  if((n->rid==ntohl(ps->bdr)) && (ifa->state==OSPF_IS_WAITING))
+  {
+    /* FIXME BackupSeen */;
+  }
+  if((n->rid==ntohl(ps->bdr)) && (n->bdr!=ntohl(ps->bdr)))
+  {
+    /* FIXME NeighborChange */;
+  }
+  if((n->rid==n->bdr) && (n->bdr!=ntohl(ps->bdr)))
+  {
+    /* FIXME NeighborChange */;
+  }
+  n->bdr=ntohl(ps->bdr);	/* And update it */
+
 
   switch(ifa->state)
   {
@@ -124,15 +209,39 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
       break;
     case OSPF_IS_WAITING:
       DBG(p->name);
-      DBG(": Neighbour? on iface ");
+      DBG(": Neighbor? on iface ");
       DBG(ifa->iface->name);
       DBG("\n");
       break;
-    case OSPF_IS_PTP:
     case OSPF_IS_DROTHER:
+      if(twoway)
+      {
+        if((n->rid==n->dr) || (n->rid==n->bdr)) tryadj(n,p);
+	else n->state=NEIGHBOR_2WAY;
+      }
+      else
+      {
+	if(n->state==NEIGHBOR_2WAY) n->state=NEIGHBOR_INIT;
+	if(n->state>NEIGHBOR_2WAY) 
+        {
+          /* FIXME Kill adjacency */;
+          n->state=NEIGHBOR_INIT;
+        }
+      }
+      break;
+    case OSPF_IS_PTP:
     case OSPF_IS_BACKUP:
     case OSPF_IS_DR:
-      DBG("OSPF, RX, Unimplemented state.\n");
+      if(twoway) tryadj(n,p);
+      else
+      {
+	if(n->state==NEIGHBOR_2WAY) n->state=NEIGHBOR_INIT;
+	if(n->state>NEIGHBOR_2WAY) 
+        {
+          /* FIXME Kill adjacency */;
+          n->state=NEIGHBOR_INIT;
+        }
+      }
       break;
     default:
       die("%s: Iface %s in unknown state?",p->name, ifa->iface->name);
@@ -217,7 +326,7 @@ ospf_rx_hook(sock *sk, int size)
     case HELLO:
       DBG(p->name);
       DBG(": Hello received.\n");
-      ospf_hello_rx((struct ospf_hello_packet *)ps, p, ifa);
+      ospf_hello_rx((struct ospf_hello_packet *)ps, p, ifa, size);
       break;
     case DBDES:
       break;
