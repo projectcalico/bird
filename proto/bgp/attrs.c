@@ -25,7 +25,7 @@
 static byte bgp_mandatory_attrs[] = { BA_ORIGIN, BA_AS_PATH, BA_NEXT_HOP };
 
 struct attr_desc {
-  char *name;				/* FIXME: Use the same names as in filters */
+  char *name;
   int expected_length;
   int expected_flags;
   int type;
@@ -88,7 +88,7 @@ static struct attr_desc bgp_attr_table[] = {
     bgp_check_path, NULL },
   { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS, 1,	/* BA_NEXT_HOP */
     bgp_check_next_hop, NULL },
-  { "MED", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,			/* BA_MULTI_EXIT_DISC */
+  { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,			/* BA_MULTI_EXIT_DISC */
     NULL, NULL },
   { "local_pref", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,		/* BA_LOCAL_PREF */
     NULL, NULL },
