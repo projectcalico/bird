@@ -152,11 +152,21 @@ pipe_get_status(struct proto *P, byte *buf)
   bsprintf(buf, "-> %s", p->peer->name);
 }
 
+static int
+pipe_reconfigure(struct proto *p, struct proto_config *new)
+{
+  struct pipe_config *o = (struct pipe_config *) p->cf;
+  struct pipe_config *n = (struct pipe_config *) new;
+
+  return o->peer == n->peer;
+}
+
 struct protocol proto_pipe = {
   name:		"Pipe",
   postconfig:	pipe_postconfig,
   init:		pipe_init,
   start:	pipe_start,
   shutdown:	pipe_shutdown,
+  reconfigure:	pipe_reconfigure,
   get_status:	pipe_get_status,
 };
