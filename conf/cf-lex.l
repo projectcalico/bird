@@ -184,11 +184,8 @@ cf_find_sym(byte *c, unsigned int h0)
     sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
   else
     for(s = sym_hash[h]; s; s=s->next)
-      {
 	if (!strcmp(s->name, c))
 	  return s;
-	s = s->next;
-      }
   l = strlen(c);
   if (l > SYM_MAX_LEN)
     cf_error("Symbol too long");
