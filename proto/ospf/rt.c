@@ -654,25 +654,7 @@ calc_next_hop(struct top_hash_entry *en, struct top_hash_entry *par,
     }
     else	/* Parent is some RT neighbor */
     {
-      /* FIXME: I should probably hold ospf_iface in top_hash_entry */
-      /* FIXME: Isn't this useless */
-      neigh=NULL;
-      WALK_LIST(ifa,po->iface_list)
-      {
-        if(ifa->iface==par->nhi)
-        {
-          if((neigh=find_neigh(ifa,par->lsa.rt))==NULL) return;
-          break;
-        }
-      }
-      if(neigh==NULL) bug("I cannot find my neighbor.");
-      nn=neigh_find(p,&neigh->ip,0);
-      if(nn)
-      {
-        en->nhi=nn->iface;
-        en->nh=neigh->ip;
-      }
-      return;
+      bug("Router parent does not have next hop.");	/* Hope this will never happen */
     }
   }
   en->nh=par->nh;
