@@ -132,7 +132,7 @@ krt_learn_announce_update(struct krt_proto *p, rte *e)
   ee->net = nn;
   ee->pflags = 0;
   ee->u.krt = e->u.krt;
-  rte_update(nn, &p->p, ee);
+  rte_update(p->p.table, nn, &p->p, ee);
 }
 
 static void
@@ -140,7 +140,7 @@ krt_learn_announce_delete(struct krt_proto *p, net *n)
 {
   n = net_find(p->p.table, n->n.prefix, n->n.pxlen);
   if (n)
-    rte_update(n, &p->p, NULL);
+    rte_update(p->p.table, n, &p->p, NULL);
 }
 
 static void
@@ -356,7 +356,7 @@ krt_dump_attrs(rte *e)
 static void
 krt_flush_routes(struct krt_proto *p)
 {
-  struct rtable *t = &master_table;
+  struct rtable *t = p->p.table;
 
   DBG("Flushing kernel routes...\n");
   FIB_WALK(&t->fib, f)
@@ -466,7 +466,7 @@ static void
 krt_prune(struct krt_proto *p)
 {
   struct proto *pp = &p->p;
-  struct rtable *t = &master_table;
+  struct rtable *t = p->p.table;
   struct fib_node *f;
 
   DBG("Pruning routes...\n");
@@ -547,7 +547,7 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
       /* Fall-thru */
     default:
       DBG("Discarding\n");
-      rte_update(net, &p->p, NULL);
+      rte_update(p->p.table, net, &p->p, NULL);
     }
   rte_free(e);
 }

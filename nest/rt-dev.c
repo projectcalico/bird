@@ -36,7 +36,7 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
 	  debug("dev_if_notify: device shutdown: prefix not found\n");
 	  return;
 	}
-      rte_update(n, p, NULL);
+      rte_update(p->table, n, p, NULL);
     }
   else if (c & IF_CHANGE_UP)
     {
@@ -61,7 +61,7 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
       e = rte_get_temp(a);
       e->net = n;
       e->pflags = 0;
-      rte_update(n, p, e);
+      rte_update(p->table, n, p, e);
     }
 }
 

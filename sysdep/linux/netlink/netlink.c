@@ -594,7 +594,7 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
       src = KRT_SRC_ALIEN;
     }
 
-  net = net_get(&master_table, dst, i->rtm_dst_len);
+  net = net_get(p->p.table, dst, i->rtm_dst_len);
   ra.proto = &p->p;
   ra.source = RTS_INHERIT;
   ra.scope = SCOPE_UNIVERSE;

@@ -223,7 +223,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   r->u.rip.tag = ntohl(b->tag);
   r->net = n;
   r->pflags = 0; /* Here go my flags */
-  rte_update( n, p, r );
+  rte_update( p->table, n, p, r );
   DBG( "done\n" );
 }
 
@@ -356,7 +356,7 @@ rip_timer(timer *t)
 
     if (now - rte->lastmod > P_CF->garbage_time) {
       debug( "RIP: entry is too old: " ); rte_dump( rte );
-      rte_discard(rte);
+      rte_discard(p->table, rte);
     }
   }
 

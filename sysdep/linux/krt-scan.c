@@ -86,7 +86,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
       return;
     }
 
-  net = net_get(&master_table, dest, masklen);
+  net = net_get(p->p.table, dest, masklen);
 
   a.proto = &p->p;
   a.source = RTS_INHERIT;
