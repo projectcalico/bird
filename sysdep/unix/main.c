@@ -16,6 +16,7 @@
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
+#include "nest/confile.h"
 
 #include "unix.h"
 
@@ -51,31 +52,15 @@ signal_init(void)
 }
 
 /*
- *	Hic Est main()
+ *	Config Pool
  */
 
-void erro(sock *s, int e)
-{
-  debug("errrr e=%d\n", e);
-  rfree(s);
-}
+pool *cfg_pool;
+mempool *cfg_mem;
 
-void bla(sock *s)
-{
-  puts("W");
-  strcpy(s->tbuf, "RAM!\r\n");
-  sk_send(s, 6);
-}
-
-int xxx(sock *s, int h)
-{
-  puts("R");
-  do {
-    strcpy(s->tbuf, "Hello, world!\r\n");
-  }
-  while (sk_send(s, 15) > 0);
-  return 1;
-}
+/*
+ *	Hic Est main()
+ */
 
 int
 main(void)
@@ -84,14 +69,21 @@ main(void)
 
   log_init_debug(NULL);
   resource_init();
+  cfg_pool = rp_new(&root_pool, "Config");
+  cfg_mem = mp_new(cfg_pool, 1024);
+
   io_init();
   rt_init();
   if_init();
   protos_init();
+  protos_preconfig();
+  protos_postconfig();
 
   scan_if_init();
 
   signal_init();
+
+  protos_start();
 
   handle_sigusr(0);
 
