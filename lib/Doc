@@ -6,5 +6,5 @@ D resource.sgml
 S resource.c
 S mempool.c
 S slab.c
-S socket.h
 S event.c
+S ../sysdep/unix/io.c

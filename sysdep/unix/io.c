@@ -73,8 +73,23 @@ tracked_fopen(pool *p, char *name, char *mode)
   return f;
 }
 
-/*
- *	Timers
+/**
+ * DOC: Timers
+ *
+ * Timers are resources which represent a wish of a module to call
+ * a function at the specified time. The platform dependent code
+ * doesn't guarantee the exact timing, only that a timer function
+ * won't be called before the requested time.
+ *
+ * In BIRD, real time is represented by values of the &bird_clock_t type
+ * which are integral numbers corresponding to a number of seconds since
+ * a fixed (but platform dependent) epoch. The current time can be read
+ * from a variable @now with reasonable accuracy.
+ *
+ * Each timer is described by a &timer structure containing a pointer
+ * to the handler function (@hook), data private to this function (@data),
+ * time the function should be called at (@expires, 0 for inactive timers),
+ * for the other fields see |timer.h|.
  */
 
 #define NEAR_TIMER_LIMIT 4
@@ -115,6 +130,14 @@ static struct resclass tm_class = {
   tm_dump
 };
 
+/**
+ * tm_new - create a timer
+ * @p: pool
+ *
+ * This function creates a new timer resource and returns
+ * a pointer to it. To use the timer, you need to fill in
+ * the structure fields and call tm_start() to start timing.
+ */
 timer *
 tm_new(pool *p)
 {
@@ -136,6 +159,23 @@ tm_insert_near(timer *t)
   insert_node(&t->n, n->prev);
 }
 
+/**
+ * tm_start - start a timer
+ * @t: timer
+ * @after: number of seconds the timer should be run after
+ *
+ * This function schedules the hook function of the timer to
+ * be called after @after seconds. If the timer has been already
+ * started, it's @expire time is replaced by the new value.
+ *
+ * You can have set the @randomize field of @t, the timeout
+ * will be increased by a random number of seconds chosen
+ * uniformly from range 0 .. @randomize.
+ *
+ * You can call tm_start() from the handler function of the timer
+ * to request another run of the timer. Also, you can set the @recurrent
+ * field to have the timer re-added automatically with the same timeout.
+ */
 void
 tm_start(timer *t, unsigned after)
 {
@@ -159,6 +199,13 @@ tm_start(timer *t, unsigned after)
     }
 }
 
+/**
+ * tm_stop - stop a timer
+ * @t: timer
+ *
+ * This function stops a timer. If the timer is already stopped,
+ * nothing happens.
+ */
 void
 tm_stop(timer *t)
 {
@@ -250,6 +297,13 @@ tm_shot(void)
     }
 }
 
+/**
+ * tm_parse_date - parse a date
+ * @x: date string
+ *
+ * tm_parse_date() takes a textual representation of a date (dd-mm-yyyy)
+ * and converts it to the corresponding value of type &bird_clock_t.
+ */
 bird_clock_t
 tm_parse_date(char *x)
 {
@@ -268,6 +322,14 @@ tm_parse_date(char *x)
   return t;
 }
 
+/**
+ * tm_format_date - convert date to textual representation
+ * @x: destination buffer of size %TM_DATE_BUFFER_SIZE
+ * @t: time
+ *
+ * This function formats the given time value @t to a textual
+ * date representation (dd-mm-yyyy).
+ */
 void
 tm_format_date(char *x, bird_clock_t t)
 {
@@ -277,6 +339,14 @@ tm_format_date(char *x, bird_clock_t t)
   bsprintf(x, "%02d-%02d-%04d", tm->tm_mday, tm->tm_mon+1, tm->tm_year+1900);
 }
 
+/**
+ * tm_format_datetime - convert date and time to textual representation
+ * @x: destination buffer of size %TM_DATETIME_BUFFER_SIZE
+ * @t: time
+ *
+ * This function formats the given time value @t to a textual
+ * date/time representation (dd-mm-yyyy hh:mm:ss).
+ */
 void
 tm_format_datetime(char *x, bird_clock_t t)
 {
@@ -287,6 +357,14 @@ tm_format_datetime(char *x, bird_clock_t t)
     strcpy(x, "<too-long>");
 }
 
+/**
+ * tm_format_reltime - convert date and time to relative textual representation
+ * @x: destination buffer of size %TM_RELTIME_BUFFER_SIZE
+ * @t: time
+ *
+ * This function formats the given time value @t to a short
+ * textual representation relative to the current time.
+ */
 void
 tm_format_reltime(char *x, bird_clock_t t)
 {
@@ -303,8 +381,17 @@ tm_format_reltime(char *x, bird_clock_t t)
     bsprintf(x, "%d", tm->tm_year+1900);
 }
 
-/*
- *	Sockets
+/**
+ * DOC: Sockets
+ *
+ * Socket resources represent network connections. Their data structure (&socket)
+ * contains a lot of fields defining the exact type of the socket, the local and
+ * remote addresses and ports, pointers to socket buffers and finally pointers to
+ * hook functions to be called when new data have arrived to the receive buffer
+ * (@rx_hook), when the contents of the transmit buffer have been transmitted
+ * (@tx_hook) and when an error or connection close occurs (@err_hook).
+ *
+ * You should not use rfree() from inside a socket hook, please use sk_close() instead.
  */
 
 #ifndef SOL_IP
@@ -350,6 +437,14 @@ static struct resclass sk_class = {
   sk_dump
 };
 
+/**
+ * sk_new - create a socket
+ * @p: pool
+ *
+ * This function creates a new socket resource. If you want to use it,
+ * you need to fill in all the required fields of the structure and
+ * call sk_open() to do the actual opening of the socket.
+ */
 sock *
 sk_new(pool *p)
 {
@@ -502,6 +597,16 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
   return 0;
 }
 
+/**
+ * sk_open - open a socket
+ * @s: socket
+ *
+ * This function takes a socket resource created by sk_new() and
+ * initialized by the user and binds a corresponding network connection
+ * to it.
+ *
+ * Result: 0 for success, -1 for an error.
+ */
 int
 sk_open(sock *s)
 {
@@ -683,6 +788,14 @@ bad:
   return -1;
 }
 
+/**
+ * sk_close - close a socket
+ * @s: a socket
+ *
+ * If sk_close() has been called from outside of any socket hook,
+ * it translates to a rfree(), else it just marks the socket for
+ * deletion as soon as the socket hook returns.
+ */
 void
 sk_close(sock *s)
 {
@@ -746,6 +859,18 @@ sk_maybe_write(sock *s)
     }
 }
 
+/**
+ * sk_send - send data to a socket
+ * @s: socket
+ * @len: number of bytes to send
+ *
+ * This function sends @len bytes of data prepared in the
+ * transmit buffer of the socket @s to the network connection.
+ * If the packet can be sent immediately, it does so and returns
+ * 1, else it queues the packet for later processing, returns 0
+ * and calls the @tx_hook of the socket when the tranmission
+ * takes place.
+ */
 int
 sk_send(sock *s, unsigned len)
 {
@@ -756,6 +881,16 @@ sk_send(sock *s, unsigned len)
   return sk_maybe_write(s);
 }
 
+/**
+ * sk_send_to - send data to a specific destination
+ * @s: socket
+ * @len: number of bytes to send
+ * @addr: IP address to send the packet to
+ * @port: port to send the packet to
+ *
+ * This is a sk_send() replacement for connectionless packet sockets
+ * which allows destination of the packet to be chosen dynamically.
+ */
 int
 sk_send_to(sock *s, unsigned len, ip_addr addr, unsigned port)
 {

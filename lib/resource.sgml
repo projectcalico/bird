@@ -36,15 +36,7 @@ type.
 <item><it/Memory blocks/
 <item><it/Linear memory pools/ (<struct/linpool/)
 <item><it/Slabs/ (<struct/slab/)
-<item><it/Sockets/ (<struct/socket/) 
 <item><it/Events/ (<struct/event/) 
-<!--
- are there to keep track of deferred execution.
-	Since BIRD is single-threaded, it requires long lasting tasks to be split to smaller
-	parts, so that no module can monopolize the CPU. To split such a task, just create
-	an <struct/event/ resource, point it to the function you want to have called and call <func/ev_schedule()/
-	to ask the core to run the event when nothing more important will require attention.
-	The actual implementation is system dependent.
--->
 <item><it/Timers/ (<struct/timer/) 
+<item><it/Sockets/ (<struct/socket/) 
 </itemize>
