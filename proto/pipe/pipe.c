@@ -19,7 +19,7 @@
 #include "pipe.h"
 
 static void
-pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old)
+pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old, ea_list *attrs)
 {
   net *nn;
   rte *e;
@@ -38,6 +38,7 @@ pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old)
       a.proto = &p->p;
       a.source = RTS_PIPE;
       a.aflags = 0;
+      a.eattrs = attrs;
       e = rte_get_temp(&a);
       e->net = nn;
     }
@@ -49,21 +50,21 @@ pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old)
 }
 
 static void
-pipe_rt_notify_pri(struct proto *P, net *net, rte *new, rte *old, ea_list *tmpa)
+pipe_rt_notify_pri(struct proto *P, net *net, rte *new, rte *old, ea_list *attrs)
 {
   struct pipe_proto *p = (struct pipe_proto *) P;
 
   DBG("PIPE %c> %I/%d\n", (new ? '+' : '-'), net->n.prefix, net->n.pxlen);
-  pipe_send(p, p->peer, net, new, old);
+  pipe_send(p, p->peer, net, new, old, attrs);
 }
 
 static void
-pipe_rt_notify_sec(struct proto *P, net *net, rte *new, rte *old, ea_list *tmpa)
+pipe_rt_notify_sec(struct proto *P, net *net, rte *new, rte *old, ea_list *attrs)
 {
   struct pipe_proto *p = ((struct pipe_proto *) P)->phantom;
 
   DBG("PIPE %c< %I/%d\n", (new ? '+' : '-'), net->n.prefix, net->n.pxlen);
-  pipe_send(p, p->p.table, net, new, old);
+  pipe_send(p, p->p.table, net, new, old, attrs);
 }
 
 static int

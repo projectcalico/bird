@@ -402,7 +402,7 @@ bgp_export_check(struct bgp_proto *p, ea_list *new)
 }
 
 static struct bgp_bucket *
-bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
+bgp_get_bucket(struct bgp_proto *p, ea_list *attrs, int originate)
 {
   ea_list *t, *new;
   unsigned i, cnt, hash, code;
@@ -410,21 +410,9 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
   u32 seen = 0;
   struct bgp_bucket *b;
 
-  /* Merge the attribute lists */
-  if (tmp)
-    {
-      for(t=tmp; t->next; t=t->next)
-	;
-      t->next = old;
-      new = alloca(ea_scan(tmp));
-      ea_merge(tmp, new);
-      t->next = NULL;
-    }
-  else
-    {
-      new = alloca(ea_scan(old));
-      ea_merge(old, new);
-    }
+  /* Merge the attribute list */
+  new = alloca(ea_scan(attrs));
+  ea_merge(attrs, new);
   ea_sort(new);
 
   /* Normalize attributes */
@@ -516,7 +504,7 @@ bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck)
 }
 
 void
-bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *tmpa)
+bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *attrs)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
   struct bgp_bucket *buck;
@@ -526,7 +514,7 @@ bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *tmpa)
 
   if (new)
     {
-      buck = bgp_get_bucket(p, new->attrs->eattrs, tmpa, new->attrs->source != RTS_BGP);
+      buck = bgp_get_bucket(p, attrs, new->attrs->source != RTS_BGP);
       if (!buck)			/* Inconsistent attribute list */
 	return;
     }

@@ -18,7 +18,6 @@ Core
 - client: data losses on large dumps?
 
 - table: ocassional core dumps in rt_prune()
-- table: filtering of old routes during updates?
 - table: do feeding by parts
 
 - bgp: timing of updates?
