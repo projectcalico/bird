@@ -21,6 +21,7 @@
 #include "lib/checksum.h"
 #include "lib/ip.h"
 #include "lib/lists.h"
+#include "lib/slists.h"
 #include "lib/socket.h"
 #include "lib/timer.h"
 #include "lib/resource.h"
@@ -60,10 +61,11 @@ struct ospf_iface {
   node n;
   struct proto_ospf *proto;
   struct iface *iface;	/* Nest's iface */
+  struct ospf_area *oa;
+  u32 an;		/* Area number */
   sock *hello_sk;	/* Hello socket */
   sock *ip_sk;		/* IP socket (for DD ...) */
   list neigh_list;	/* List of neigbours */
-  u32 area;		/* OSPF Area */
   u16 cost;		/* Cost of iface */
   u16 rxmtint;		/* number of seconds between LSA retransmissions */
   u16 iftransdelay;	/* The estimated number of seconds it takes to
@@ -183,6 +185,12 @@ struct ospf_neighbor
   u32 dr;		/* Neigbour's idea of DR */
   u32 bdr;		/* Neigbour's idea of BDR */
   u8 adj;		/* built adjacency? */
+  siterator dbsi;	/* Database summary list iterator */
+  slist lsrql;		/* Link state request */ /* FIXME add top_gr hashing? */
+  siterator lsrqi;
+  slist lsrtl;		/* Link state retransmission list */
+  siterator lsrti;
+  void *ldbdes;		/* Last database description packet */
 };
 
 /* Definitions for interface state machine */
@@ -213,6 +221,7 @@ struct ospf_area {
   struct ospf_area *next;
   u32 areaid;
   struct top_graph *gr;		/* LSA graph */
+  slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
   slab *rtlinks;
 };

@@ -23,7 +23,7 @@ fill_ospf_pkt_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
   pkt->type=h_type;
 
   pkt->routerid=htonl(p->cf->global->router_id);
-  pkt->areaid=htonl(ifa->area);
+  pkt->areaid=htonl(ifa->an);
   pkt->autype=htons(ifa->autype);
   pkt->checksum=0;
 }
@@ -101,7 +101,7 @@ ospf_rx_hook(sock *sk, int size)
 
   /* FIXME: Do authetification */
 
-  if(ps->areaid!=ifa->area)
+  if(ps->areaid!=ifa->an)
   {
     log("%s: Bad OSPF packet received: other area %ld", p->name, ps->areaid);
     log("%s: Discarding",p->name);

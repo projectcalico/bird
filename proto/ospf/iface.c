@@ -233,7 +233,8 @@ ospf_iface_default(struct ospf_iface *ifa)
 {
   u8 i;
 
-  ifa->area=0; /* FIXME: Read from config */
+  ifa->oa=NULL;
+  ifa->an=0;		/* FIXME This should respect config */
   ifa->cost=COST_D;
   ifa->rxmtint=RXMTINT_D;
   ifa->iftransdelay=IFTRANSDELAY_D;

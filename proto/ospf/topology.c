@@ -38,9 +38,11 @@ addifa_rtlsa(struct ospf_iface *ifa)
 
   while(oa!=NULL)
   {
-    if(oa->areaid==ifa->area) break;
+    if(oa->areaid==ifa->an) break;
     oa=oa->next;
   }
+
+  ifa->oa=oa;
  
   if(oa==NULL)	/* New area */
   {
@@ -48,12 +50,13 @@ addifa_rtlsa(struct ospf_iface *ifa)
     po->firstarea=mb_alloc(po->proto.pool, sizeof(struct ospf_area));
     po->firstarea->next=oa;
     oa=po->firstarea;
-    oa->areaid=ifa->area;
+    oa->areaid=ifa->an;
     oa->gr=ospf_top_new(po);
+    s_init_list(&(oa->lsal));
     oa->rtlinks=sl_new(po->proto.pool,
       sizeof(struct top_graph_rtlsa_link));
     oa->rt=ospf_hash_get(oa->gr, rtid, rtid, LSA_T_RT);
-    DBG("XXXXXX %x XXXXXXX\n", oa->rt);
+    s_add_head(&(oa->lsal), (snode *)oa->rt);
     rt=mb_alloc(po->proto.pool, sizeof(struct top_graph_rtlsa));
     oa->rt->vertex=(void *)rt;
     oa->rt->lsage=0;
@@ -61,7 +64,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
     rt->Vbit=0;
     rt->Ebit= (po->areano++ ? 0 : 1);	/* If it's 1st area set 0 */
     rt->Bbit=0;				/* FIXME Could read config */
-    DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->area);
+    DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
 
     if(po->areano==2)	/* We are attached to more than 2 areas! */
     {

@@ -204,7 +204,10 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       if(n->state==NEIGHBOR_EXSTART)
       {
         neigh_chstate(n,NEIGHBOR_EXCHANGE);
-        /* FIXME Go on... */
+        s_init_list(&(n->lsrql));
+        s_init_list(&(n->lsrtl));
+	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
+	ospf_dbdes_tx(n);
       }
       break;
     case INM_EXDONE:

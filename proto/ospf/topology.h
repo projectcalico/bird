@@ -10,6 +10,7 @@
 #define _BIRD_OSPF_TOPOLOGY_H_
 
 struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
+   snode n;
   struct top_hash_entry *next;		/* Next in hash chain */
   struct top_vertex *vertex;
   u32 lsa_id, rtr_id;
@@ -25,6 +26,7 @@ struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
 #define LSA_CHECKAGE 300		/* 5 minutes */
 #define LSA_MAXAGEDIFF 900		/* 15 minutes */
   u32 lsseqno;
+  u16 length, checksum;
 #define LSA_INITSEQNO 0x80000001
 #define LSA_MAXSEQNO 0x7fffffff
 };

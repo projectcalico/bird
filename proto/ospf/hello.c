@@ -103,6 +103,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->options=ps->options;
     n->ifa=ifa;
     n->adj=0;
+    n->ldbdes=mb_alloc(p->pool, ifa->iface->mtu);
     neigh_chstate(n,NEIGHBOR_DOWN);
     install_inactim(n);
   }

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 Ondrej Filip <feela@network.cz>
+ *	(c) 1999-2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -16,19 +16,20 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
   struct ospf_iface *ifa;
   u16 length;
   struct proto *p;
+  u16 i,j;
+  u8 *aa,*bb;
 
   ifa=n->ifa;
 
   p=(struct proto *)(ifa->proto);
+  pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
+  op=(struct ospf_packet *)pkt;
 
   switch(n->state)
   {
     case NEIGHBOR_EXSTART:		/* Send empty packets */
-      pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
-      op=(struct ospf_packet *)pkt;
-
       fill_ospf_pkt_hdr(ifa, pkt, DBDES);
-      pkt->iface_mtu= ((struct iface *)ifa)->mtu;
+      pkt->iface_mtu=ifa->iface->mtu;
       pkt->options= ifa->options;
       pkt->imms=n->myimms;
       pkt->ddseq=n->dds;
@@ -37,8 +38,67 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       ospf_pkt_finalize(ifa, op);
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
       debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
+      break;
 
-    /*case NEIGHBOR_EXCHANGE:		*/
+    case NEIGHBOR_EXCHANGE:
+      if(! ((IAMMASTER(n->myimms) && (n->dds==n->ddr+1)) || ((!IAMMASTER(n->myimms)) && (n->dds==n->ddr))))
+      {
+        snode *sn;			/* Send next */
+        struct ospf_lsaheader *lsa;
+	
+        fill_ospf_pkt_hdr(ifa, pkt, DBDES);
+        pkt->iface_mtu= ifa->iface->mtu;
+        pkt->options= ifa->options;
+	pkt->ddseq=n->dds;
+
+	sn=s_get(&(n->dbsi));
+	j=i=(pkt->iface_mtu-sizeof(struct ospf_dbdes_packet))/sizeof(struct ospf_lsaheader);	/* Number of lsaheaders */
+	lsa=(n->ldbdes+sizeof(struct ospf_dbdes_packet));
+
+	for(;i>0;i--)
+	{
+	  struct top_hash_entry *en;
+	  
+	  en=(struct top_hash_entry *)sn;
+	  lsa->lsage=htons(en->lsage);
+	  lsa->options=htons(en->options);
+	  lsa->lstype=htons(en->lsa_type);
+	  lsa->lsid=htons(en->lsa_id);
+	  lsa->advr=htons(en->rtr_id);
+	  lsa->lssn=htons(en->lsseqno);
+	  lsa->length=htons(en->length);
+	  lsa->checksum=htons(en->checksum);
+	  if(sn->next==NULL)
+	  {
+	    break;	/* Should set some flag? */
+	  }
+	  sn=sn->next;
+	}
+	s_put(&(n->dbsi),sn);
+
+	if(sn->next==NULL)
+	{
+	  n->myimms=(n->myimms-DBDES_M);	/* Unset more bit */
+	}
+
+        pkt->imms=n->myimms;
+
+	length=j*sizeof(struct ospf_lsaheader)+sizeof(struct ospf_dbdes_packet);
+	op->length=htons(length);
+        ospf_pkt_finalize(ifa, op);
+        sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
+      }
+
+      aa=ifa->ip_sk->tbuf;
+      bb=n->ldbdes;
+      length=ntohs(op->length);
+
+      for(i=0; i<ifa->iface->mtu; i++)
+      {
+        *(aa+i)=*(bb+i);	/* Copy last sent packet again */
+      }
+      sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
+
     default:				/* Ignore it */
       break;
   }
