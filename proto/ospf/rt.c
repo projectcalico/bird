@@ -218,7 +218,7 @@ again:
         ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
         e=rte_get_temp(&a0);
         e->u.ospf.metric1=nf->metric;
-        e->u.ospf.metric2=0;
+        e->u.ospf.metric2=LSINFINITY;
         e->u.ospf.tag=0;			/* FIXME Some config? */
         e->pflags = 0;
         e->net=ne;
