@@ -111,9 +111,8 @@ rte_announce(net *net, rte *new, rte *old)
   struct proto *p;
 
   WALK_LIST(p, proto_list)
-    if (!new || new->attrs->proto != p)
-      if (p->rt_notify)
-	p->rt_notify(p, net, new, old);
+    if (p->rt_notify)
+      p->rt_notify(p, net, new, old);
 }
 
 void
