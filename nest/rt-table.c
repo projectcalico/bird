@@ -80,7 +80,7 @@ rte_find(net *net, struct proto *p)
 /**
  * rte_get_temp - get a temporary &rte
  * @a: attributes to assign to the new route (a &rta; in case it's
- * uncached, rte_update() will create a cached copy automatically)
+ * un-cached, rte_update() will create a cached copy automatically)
  *
  * Create a temporary &rte and bind it with the attributes @a.
  * Also set route preference to the default preference set for
@@ -447,7 +447,7 @@ rte_update_unlock(void)
  *
  * This function is called by the routing protocols whenever they discover
  * a new route or wish to update/remove an existing route. The right announcement
- * sequence is to build route attributes first (either uncached with @aflags set
+ * sequence is to build route attributes first (either un-cached with @aflags set
  * to zero or a cached one using rta_lookup(); in this case please note that
  * you need to increase the use count of the attributes yourself by calling
  * rta_clone()), call rte_get_temp() to obtain a temporary &rte, fill in all
@@ -1125,7 +1125,7 @@ static inline net *net_get(rtable *tab, ip_addr addr, unsigned len)
  * shared with anyone else (and especially that it isn't stored in any routing
  * table).
  *
- * Result: a pointer to the new writeable &rte.
+ * Result: a pointer to the new writable &rte.
  */
 static inline rte * rte_cow(rte *r)
 { DUMMY; }

@@ -21,8 +21,8 @@
  * DOC: Routing information protocol
  *
  * Rip is pretty simple protocol so half of this code is interface
- * with core. We maintain our own linklist of &rip_entry - it serves
- * as our small routing table. Rip never adds into this linklist at
+ * with core. We maintain our own linked list of &rip_entry -- it serves
+ * as our small routing table. Rip never adds into this linked list at
  * packet reception; instead, it lets core know about data from packet,
  * and waits for core to call our rip_rte_notify.
  *
@@ -30,7 +30,7 @@
  * walked, and packet is generated using rip_tx_prepare(). This gets
  * tricky because we may need to send more than one packet to one
  * destination. Struct &rip_connection is used to hold info such as how
- * many of &rip_entry ies we already send, and is also used to protect
+ * many of &rip_entry's we already send, and is also used to protect
  * from two concurrent sends to one destination. Each &rip_interface has
  * at most one &rip_connection.
  *
@@ -483,8 +483,8 @@ rip_dump_entry( struct rip_entry *e )
  *
  * Broadcast routing tables periodically (using rip_tx) and kill
  * routes that are too old. Rip keeps its own entries in main routing
- * table linked by link list (functions rip_rte_insert and
- * rip_rte_delete are responsible for that), walks this list in timer
+ * table linked by link list (functions rip_rte_insert() and
+ * rip_rte_delete() are responsible for that), walks this list in timer
  * and in case entry is too old, it is discarded.
  */
 
@@ -900,7 +900,7 @@ rip_rte_better(struct rte *new, struct rte *old)
 
 /*
  * rip_rte_insert - we maintain linked list of "our" entries in main
- * routing table, so that we can timeout them correctly. rip_timer
+ * routing table, so that we can timeout them correctly. rip_timer()
  * walks the list.
  */
 static void

@@ -107,7 +107,7 @@ vlog(int class, char *msg, va_list args)
  * prepended (%L_DEBUG to %L_BUG, see |lib/birdlib.h|)
  *
  * This function formats a message according to the format string @msg
- * and writes it to the corresponding logfile (as specified in the
+ * and writes it to the corresponding log file (as specified in the
  * configuration). Please note that the message is automatically
  * formatted as a full line, no need to include |\n| inside.
  */

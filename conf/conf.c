@@ -12,7 +12,7 @@
  * Configuration of BIRD is complex, but straightforward. There exist three
  * modules taking care of the configuration: config manager (which takes care
  * of storage of config information and controls switching between configs),
- * lexical analyser and parser.
+ * lexical analyzer and parser.
  *
  * The configuration manager stores each config as a &config structure
  * accompanied by a linear pool from which all information associated
@@ -32,7 +32,7 @@
  * config by calling config_commit().
  *
  * CLI commands are parsed in a very similar way -- there is also a stripped-down
- * &config structure associated with them and they are lexed and parsed by the
+ * &config structure associated with them and they are lex-ed and parsed by the
  * same functions, only a special fake token is prepended before the command
  * text to make the parser recognize only the rules corresponding to CLI commands.
  */
@@ -91,10 +91,10 @@ config_alloc(byte *name)
  * config_parse() reads input by calling a hook function pointed to
  * by @cf_read_hook and parses it according to the configuration
  * grammar. It also calls all the preconfig and postconfig hooks
- * before resp. after parsing.
+ * before, resp. after parsing.
  *
  * Result: 1 if the config has been parsed successfully, 0 if any
- * error has occured (such as anybody calling cf_error()) and
+ * error has occurred (such as anybody calling cf_error()) and
  * the @err_msg field has been set to the error message.
  */
 int

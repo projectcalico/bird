@@ -93,7 +93,7 @@ proto_relink(struct proto *p)
  * with data specific to the protocol)
  *
  * When a new configuration has been read in, the core code starts
- * initializing all the protocol instandces configured by calling their
+ * initializing all the protocol instances configured by calling their
  * init() hooks with the corresponding instance configuration. The initialization
  * code of the protocol is expected to create a new instance according to the
  * configuration by calling this function and then modifying the default settings
@@ -456,7 +456,7 @@ protos_dump_all(void)
  *
  * After the platform specific initialization code uses protos_build()
  * to add all the standard protocols, it should call proto_build() for
- * all platform specific protocols to infrom the core that they exist.
+ * all platform specific protocols to inform the core that they exist.
  */
 void
 proto_build(struct protocol *p)

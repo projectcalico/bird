@@ -21,7 +21,7 @@
  * failure it calls die() to quit the program instead of returning
  * a %NULL pointer.
  *
- * Whereever possible, please use the memory resources instead.
+ * Wherever possible, please use the memory resources instead.
  */
 void *
 xmalloc(unsigned size)

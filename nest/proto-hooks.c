@@ -212,7 +212,7 @@ void neigh_notify(neighbor *neigh)
  * to convert the protocol attributes embedded directly in the &rte
  * to temporary extended attributes in order to distribute them
  * to other protocols or to filters. make_tmp_attrs() creates
- * an &ea_list in the linpool @pool, fills it with values of the
+ * an &ea_list in the linear pool @pool, fills it with values of the
  * temporary attributes and returns a pointer to it.
  */
 ea_list *make_tmp_attrs(rte *e, struct linpool *pool)

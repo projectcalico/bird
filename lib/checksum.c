@@ -118,7 +118,7 @@ ipsum_verify(void *frag, unsigned len, ...)
  * @frag: first packet fragment
  * @len: length in bytes
  *
- * This function caculates a one's complement checksum of a given fragmented
+ * This function calculates a one's complement checksum of a given fragmented
  * packet.
  *
  * It uses all the clever tricks described in RFC 1071 to speed

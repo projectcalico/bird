@@ -888,7 +888,7 @@ sk_send(sock *s, unsigned len)
  * @addr: IP address to send the packet to
  * @port: port to send the packet to
  *
- * This is a sk_send() replacement for connectionless packet sockets
+ * This is a sk_send() replacement for connection-less packet sockets
  * which allows destination of the packet to be chosen dynamically.
  */
 int

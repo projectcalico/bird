@@ -9,7 +9,7 @@
 /**
  * DOC: Direct
  *
- * The Direct protocol works by convering all ifa_notify() events it receives
+ * The Direct protocol works by converting all ifa_notify() events it receives
  * to rte_update() calls for the corresponding network.
  */
 

@@ -21,7 +21,7 @@
  * dynamic attributes represented by a linked list of &ea_list
  * structures, each of them consisting of an array of &eattr's containing
  * the individual attributes. An attribute can be specified more than once
- * in the &ea_list chain and in such case the first occurence overrides
+ * in the &ea_list chain and in such case the first occurrence overrides
  * the others. This semantics is used especially when someone (for example
  * a filter) wishes to alter values of several dynamic attributes, but
  * it wants to preserve the original attribute lists maintained by
@@ -33,7 +33,7 @@
  * embedded 32-bit value or a pointer to a &adata structure holding attribute
  * contents.
  *
- * There exist two variants of &rta's -- cached and uncached ones. Uncached
+ * There exist two variants of &rta's -- cached and un-cached ones. Un-cached
  * &rta's can have arbitrarily complex structure of &ea_list's and they
  * can be modified by any module in the route processing chain. Cached
  * &rta's have their attribute lists normalized (that means at most one
@@ -103,7 +103,7 @@ ea__find(ea_list *e, unsigned id)
  * @id: attribute ID to search for
  *
  * Given an extended attribute list, ea_find() searches for a first
- * occurence of an attribute with specified ID, returning either a pointer
+ * occurrence of an attribute with specified ID, returning either a pointer
  * to its &eattr structure or %NULL if no such attribute exists.
  */
 eattr *
@@ -214,7 +214,7 @@ ea_do_prune(ea_list *e)
  * within each of its entries.
  *
  * If an attribute occurs multiple times in a single &ea_list,
- * ea_sort() leaves only the first (the only significant) occurence.
+ * ea_sort() leaves only the first (the only significant) occurrence.
  */
 void
 ea_sort(ea_list *e)
@@ -637,9 +637,9 @@ rta_rehash(void)
 
 /**
  * rta_lookup - look up a &rta in attribute cache
- * @o: a uncached &rta
+ * @o: a un-cached &rta
  *
- * rta_lookup() gets an uncached &rta structure and returns its cached
+ * rta_lookup() gets an un-cached &rta structure and returns its cached
  * counterpart. It starts with examining the attribute cache to see whether
  * there exists a matching entry. If such an entry exists, it's returned and
  * its use count is incremented, else a new entry is created with use count

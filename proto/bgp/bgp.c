@@ -566,12 +566,12 @@ bgp_init(struct proto_config *C)
  * bgp_error - report a protocol error
  * @c: connection
  * @code: error code (according to the RFC)
- * @subcode: error subcode
+ * @subcode: error sub-code
  * @data: data to be passed in the Notification message
  * @len: length of the data
  *
  * bgp_error() sends a notification packet to tell the other side that a protocol
- * error has occured (including the data considered erroneous if possible) and
+ * error has occurred (including the data considered erroneous if possible) and
  * closes the connection.
  */
 void

@@ -16,14 +16,14 @@
  * The whole kernel synchronization is a bit messy and touches some internals
  * of the routing table engine, because routing table maintenance is a typical
  * example of the proverbial compatibility between different Unices and we want
- * to keep the overhead of our krt business as low as possible and avoid maintaining
+ * to keep the overhead of our KRT business as low as possible and avoid maintaining
  * a local routing table copy.
  *
  * The kernel syncer can work in three different modes (according to system config header):
  * Either with a single routing table and single KRT protocol [traditional Unix]
- * or with many routing tables and separate krt protocols for all of them
+ * or with many routing tables and separate KRT protocols for all of them
  * or with many routing tables, but every scan including all tables, so we start
- * separate krt protocols which cooperate with each other  [Linux 2.2].
+ * separate KRT protocols which cooperate with each other  [Linux 2.2].
  * In this case, we keep only a single scan timer.
  *
  * We use FIB node flags to keep track of route synchronization status. We also

@@ -20,7 +20,7 @@
  * Filter consists of tree of &f_inst structures, one structure per
  * "instruction". Each &f_inst contains code, aux value which is
  * usually type of data this instruction operates on, and two generic
- * arguments (a1, a2). Some instructinos contain pointer(s) to other
+ * arguments (a1, a2). Some instructions contain pointer(s) to other
  * instructions in their (a1, a2) fields.
  *
  * Filters use structure &f_val for its variables. Each &f_val
@@ -256,7 +256,7 @@ rta_cow(void)
 
 /**
  * interpret
- * @what: filter to interrpret
+ * @what: filter to interpret
  *
  * Interpret given tree of filter instructions. This is core function
  * of filter system and does all the hard work.
@@ -767,7 +767,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
  * f_run - external entry point to filters
  * @filter: pointer to filter to run
  * @tmp_attrs: where to store newly generated temporary attributes
- * @rte: pointer to pointer to rte being filtered. When route is modified, this is changed with rte_cow.
+ * @rte: pointer to pointer to &rte being filtered. When route is modified, this is changed with rte_cow().
  * @tmp_pool: all filter allocations go from this pool
  * @flags: flags
  */

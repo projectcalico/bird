@@ -19,7 +19,7 @@
  */
 
 /**
- * ip_scope_text - get texual representation of address scope
+ * ip_scope_text - get textual representation of address scope
  * @scope: scope (%SCOPE_xxx)
  *
  * Returns a pointer to a textual name of the scope given.
@@ -145,7 +145,7 @@ void ipa_ntoh(ip_addr x) { DUMMY }
  *
  * ipa_classify() returns an address class of @x, that is a bitwise or
  * of address type (%IADDR_INVALID, %IADDR_HOST, %IADDR_BROADCAST, %IADDR_MULTICAST)
- * with adress scope (%SCOPE_HOST to %SCOPE_UNIVERSE) or -1 (%IADDR_INVALID)
+ * with address scope (%SCOPE_HOST to %SCOPE_UNIVERSE) or -1 (%IADDR_INVALID)
  * for an invalid address.
  */
 int ipa_classify(ip_addr x) { DUMMY }
@@ -254,7 +254,7 @@ char *ip_ntox(ip_addr a, char *buf) { DUMMY }
  *
  * This function parses a textual IP address representation and
  * stores the decoded address to a variable pointed to by @o.
- * Returns 0 if a parse error has occured, else 0.
+ * Returns 0 if a parse error has occurred, else 0.
  */
 int ip_pton(char *a, ip_addr *o) { DUMMY }
 
