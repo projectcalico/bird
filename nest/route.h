@@ -126,6 +126,7 @@ void rte_update(net *net, struct proto *p, rte *new);
 void rte_dump(net *, rte *);
 void rt_dump(rtable *);
 void rt_dump_all(void);
+void rt_feed_baby(struct proto *p);
 
 /*
  *	Route Attributes

@@ -58,6 +58,7 @@ struct proto {
   unsigned debug;			/* Debugging flags */
   pool *pool;				/* Local objects */
   unsigned preference;			/* Default route preference */
+  int ready;				/* Already initialized */
 
   void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
   void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
@@ -79,6 +80,6 @@ struct proto {
 
 void *proto_new(struct protocol *, unsigned size);
 
-extern list proto_list;
+extern list proto_list, inactive_proto_list;
 
 #endif

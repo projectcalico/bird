@@ -15,9 +15,12 @@
 #include "lib/resource.h"
 #include "lib/lists.h"
 #include "nest/confile.h"
+#include "nest/route.h"
+#include "nest/iface.h"
 
 list protocol_list;
 list proto_list;
+list inactive_proto_list;
 
 void *
 proto_new(struct protocol *pr, unsigned size)
@@ -30,7 +33,7 @@ proto_new(struct protocol *pr, unsigned size)
   p->name = pr->name;
   p->debug = pr->debug;
   p->pool = rp_new(&root_pool, pr->name);
-  add_tail(&proto_list, &p->n);
+  add_tail(&inactive_proto_list, &p->n);
   return p;
 }
 
@@ -40,6 +43,7 @@ protos_preconfig(void)
   struct protocol *p;
 
   init_list(&proto_list);
+  init_list(&inactive_proto_list);
   debug("Protocol preconfig\n");
   WALK_LIST(p, protocol_list)
     {
@@ -61,18 +65,27 @@ protos_postconfig(void)
     }
 }
 
+static void
+proto_start(struct proto *p)
+{
+  rem_node(&p->n);
+  if (p->start)
+    p->start(p);
+  if_feed_baby(p);
+  rt_feed_baby(p);
+  add_tail(&proto_list, &p->n);
+}
 
 void
 protos_start(void)
 {
-  struct proto *p;
+  struct proto *p, *n;
 
   debug("Protocol start\n");
-  WALK_LIST(p, proto_list)
+  WALK_LIST_DELSAFE(p, n, inactive_proto_list)
     {
       debug("...%s\n", p->name);
-      if (p->start)
-	p->start(p);
+      proto_start(p);
     }
 }
 
@@ -89,6 +102,8 @@ protos_dump_all(void)
       if (p->dump)
 	p->dump(p);
     }
+  WALK_LIST(p, inactive_proto_list)
+    debug("  inactive %s\n", p->name);
 }
 
 void

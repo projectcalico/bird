@@ -116,6 +116,28 @@ rte_announce(net *net, rte *new, rte *old)
 	p->rt_notify(p, net, new, old);
 }
 
+void
+rt_feed_baby(struct proto *p)
+{
+  rtable *t = &master_table;
+
+  if (!p->rt_notify)
+    return;
+  debug("Announcing routes to new protocol %s\n", p->name);
+  while (t)
+    {
+      FIB_WALK(&t->fib, fn)
+	{
+	  net *n = (net *) fn;
+	  rte *e;
+	  for(e=n->routes; e; e=e->next)
+	    p->rt_notify(p, n, e, NULL);
+	}
+      FIB_WALK_END;
+      t = t->sibling;
+    }
+}
+
 static inline void
 rte_free(rte *e)
 {

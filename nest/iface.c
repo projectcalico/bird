@@ -313,6 +313,18 @@ if_end_update(void)
 }
 
 void
+if_feed_baby(struct proto *p)
+{
+  struct iface *i;
+
+  if (!p->if_notify)
+    return;
+  debug("Announcing interfaces to new protocol %s\n", p->name);
+  WALK_LIST(i, iface_list)
+    p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), NULL, i);
+}
+
+void
 if_init(void)
 {
   if_pool = rp_new(&root_pool, "Interfaces");

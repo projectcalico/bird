@@ -13,6 +13,8 @@
 
 extern list iface_list;
 
+struct proto;
+
 struct iface {
   node n;
   char name[16];
@@ -51,6 +53,7 @@ void if_dump(struct iface *);
 void if_dump_all(void);
 void if_update(struct iface *);
 void if_end_update(void);
+void if_feed_baby(struct proto *);
 
 /*
  *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen

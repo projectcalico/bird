@@ -82,9 +82,9 @@ main(void)
 
   signal_init();
 
-  protos_start();
-
   scan_if_init();
+
+  protos_start();
 
   handle_sigusr(0);
 
