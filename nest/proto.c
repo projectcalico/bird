@@ -77,7 +77,7 @@ void *
 proto_new(struct proto_config *c, unsigned size)
 {
   struct protocol *pr = c->proto;
-  struct proto *p = mb_alloc(proto_pool, size);
+  struct proto *p = mb_allocz(proto_pool, size);
 
   p->cf = c;
   p->debug = c->debug;
