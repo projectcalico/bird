@@ -913,24 +913,24 @@ that each routes detects the change.
 <p>
 
 <code>
-protocol ospf <name> {
+protocol ospf &lt;name&gt; {
 	rfc1583compat bool;
-	area <id> {
-		stub <bool>;
-		tick <num>;
-		interface <interface>
+	area &lt;id&gt; {
+		stub &lt;bool&gt;;
+		tick &lt;num&gt;;
+		interface &lt;interface&gt;
 		{
-			cost <num>;
-			hello <num>;
-			retransmit <num>;
-			priority <num>;
-			wait <num>;
-			dead count <num>;
+			cost &lt;num&gt;;
+			hello &lt;num&gt;;
+			retransmit &lt;num&gt;;
+			priority &lt;num&gt;;
+			wait &lt;num&gt;;
+			dead count &lt;num&gt;;
 			type [broadcast|nonbroadcast|pointopoint];
 			authetication [none|simple];
-			password "<text>";
+			password "&lt;text&gt;";
 			neighbors {
-				<ip>;
+				&lt;ip&gt;;
 			};
 		};
 	};
