@@ -35,6 +35,7 @@ get_best_password(struct password_item *head, int flags)
       good = cur;
       best = head;
     }
+    head=head->next;
   }
   return best;
 }

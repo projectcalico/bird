@@ -159,7 +159,7 @@ password_begin:
      last_password_item = cfg_alloc(sizeof (struct password_item));
      last_password_item->password = $2;
      last_password_item->from = 0;
-     last_password_item->to = ~0;
+     last_password_item->to = 2000000000;
      last_password_item->id = 0;
      last_password_item->next = NULL;
      $$=last_password_item;
@@ -177,8 +177,8 @@ password_items:
 password_list: 
    /* empty */ { $$ = NULL; } 
  | password_begin password_items ';' password_list {
-     last_password_item->next = $4;
-     $$ = last_password_item;
+     $1->next = $4;
+     $$ = $1;
    }
  ;
 

@@ -60,6 +60,7 @@ rip_tx( sock *s )
   struct rip_packet *packet = (void *) s->tbuf;
   int i;
 
+  DBG( "Sending to %I\n", s->daddr );
   do {
 
     if (c->done) {
@@ -285,7 +286,11 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 
 	  if (!neigh_find( p, &whotoldme, 0 )) {
 	    log( L_ERR "%I send me routing info but he is not my neighbour", whotoldme );
+#if 0
 	    return 0;
+#else
+	    log( L_ERR "...ignoring" );
+#endif
 	  }
 
           for (i=0; i<num; i++) {
@@ -294,7 +299,8 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	      if (!i) {
 		if (rip_incoming_authentication(p, (void *) block, packet, num))
 		  BAD( "Authentication failed" );
-	      } else BAD( "Authentication is not the first!" );
+	      } 
+	    /* FIXME: Need to reject packets which have no authentication */
 	    ipa_ntoh( block->network );
 	    ipa_ntoh( block->netmask );
 	    ipa_ntoh( block->nexthop );
@@ -500,8 +506,10 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 
   if (flags & IF_BROADCAST)
     rif->sock->daddr = new->addr->brd;
-  if (flags & IF_UNNUMBERED)	/* Hmm, rip is not defined over unnumbered links */
+  if (flags & IF_UNNUMBERED) {
     rif->sock->daddr = new->addr->opposite;
+    log( L_WARN "RIP/%s: rip is not defined over unnumbered links\n", P_NAME );
+  }
   if (want_multicast) {
     rif->sock->daddr = ipa_from_u32(0xe0000009);
     rif->sock->saddr = ipa_from_u32(0xe0000009);
@@ -516,7 +524,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
       }
 
-  log( L_DEBUG "RIP/%s: listening on %s, port %d, mode %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast" );
+  log( L_DEBUG "RIP/%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast", rif->sock->daddr );
   
   return rif;
 }

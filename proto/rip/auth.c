@@ -61,8 +61,10 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       head = P_CF->passwords;
       while (head) {
 	/* FIXME: should check serial numbers, somehow */
+	DBG( "time, " );
 	if ((head->from > now) || (head->to < now))
-	  continue;
+	  goto skip;
+	DBG( "check, " );
 	if (head->id == block->keyid) {
 	  struct MD5Context ctxt;
 	  char md5sum_packet[16];
@@ -77,7 +79,9 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 
 	  if (memcmp(md5sum_packet, md5sum_computed, 16))
 	    return 1;
+	  return 0;
 	}
+      skip:
 	head = head->next;
       }
       return 1;
