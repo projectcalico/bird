@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <net/if.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 
@@ -102,6 +103,11 @@ nl_get_reply(void)
 	  int x = recvmsg(nl_sync_fd, &m, 0);
 	  if (x < 0)
 	    die("nl_get_reply: %m");
+	  if (sa.nl_pid)		/* It isn't from the kernel */
+	    {
+	      DBG("Non-kernel packet\n");
+	      continue;
+	    }
 	  nl_last_size = x;
 	  nl_last_hdr = (void *) nl_rx_buffer;
 	  if (m.msg_flags & MSG_TRUNC)
@@ -193,14 +199,63 @@ nl_parse_attrs(struct rtattr *a, struct rtattr **k, int ksize)
  */
 
 static void
-nl_parse_link(struct nlmsghdr *h)
+nl_parse_link(struct nlmsghdr *h, int scan)
 {
   struct ifinfomsg *i;
   struct rtattr *a[IFLA_STATS+1];
+  int new = h->nlmsg_type == RTM_NEWLINK;
+  struct iface f;
+  struct iface *ifi;
+  char *name;
+  u32 mtu;
+  unsigned int fl;
 
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(IFLA_RTA(i), a, sizeof(a)))
     return;
-  DBG("NEWLINK %d\n", i->ifi_index);
+  if (!a[IFLA_IFNAME] || RTA_PAYLOAD(a[IFLA_IFNAME]) < 2 ||
+      !a[IFLA_MTU] || RTA_PAYLOAD(a[IFLA_MTU]) != 4)
+    {
+      log(L_ERR "nl_parse_link: Malformed message received");
+      return;
+    }
+  name = RTA_DATA(a[IFLA_IFNAME]);
+  memcpy(&mtu, RTA_DATA(a[IFLA_MTU]), sizeof(u32));
+
+  ifi = if_find_by_index(i->ifi_index);
+  if (!new)
+    {
+      DBG("KRT: IF%d(%s) goes down\n", i->ifi_index, name);
+      if (ifi && !scan)
+	{
+	  memcpy(&f, ifi, sizeof(struct iface));
+	  f.flags |= IF_ADMIN_DOWN;
+	  if_update(&f);
+	}
+    }
+  else
+    {
+      DBG("KRT: IF%d(%s) goes up (mtu=%d,flg=%x)\n", i->ifi_index, name, mtu, i->ifi_flags);
+      if (ifi)
+	memcpy(&f, ifi, sizeof(f));
+      else
+	{
+	  bzero(&f, sizeof(f));
+	  f.index = i->ifi_index;
+	}
+      strncpy(f.name, RTA_DATA(a[IFLA_IFNAME]), sizeof(f.name)-1);
+      f.mtu = mtu;
+      f.flags = 0;
+      fl = i->ifi_flags;
+      if (fl & IFF_UP)
+	f.flags |= IF_LINK_UP;
+      if (fl & IFF_POINTOPOINT)
+	f.flags |= IF_UNNUMBERED | IF_MULTICAST;
+      if (fl & IFF_LOOPBACK)
+	f.flags |= IF_LOOPBACK | IF_IGNORE;
+      if (fl & IFF_BROADCAST)
+	f.flags |= IF_BROADCAST | IF_MULTICAST;
+      if_update(&f);
+    }
 }
 
 static void
@@ -208,10 +263,68 @@ nl_parse_addr(struct nlmsghdr *h)
 {
   struct ifaddrmsg *i;
   struct rtattr *a[IFA_ANYCAST+1];
+  int new = h->nlmsg_type == RTM_NEWADDR;
+  struct iface f;
+  struct iface *ifi;
 
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(IFA_RTA(i), a, sizeof(a)))
     return;
-  DBG("NEWADDR %d\n", i->ifa_index);
+  if (i->ifa_family != AF_INET)
+    return;
+  if (!a[IFA_ADDRESS] || RTA_PAYLOAD(a[IFA_ADDRESS]) != 4 ||
+      !a[IFA_LOCAL] || RTA_PAYLOAD(a[IFA_LOCAL]) != 4 ||
+      (a[IFA_BROADCAST] && RTA_PAYLOAD(a[IFA_BROADCAST]) != 4))
+    {
+      log(L_ERR "nl_parse_addr: Malformed message received");
+      return;
+    }
+  if (i->ifa_flags & IFA_F_SECONDARY)
+    {
+      DBG("KRT: Received address message for secondary address which is not supported.\n"); /* FIXME */
+      return;
+    }
+
+  ifi = if_find_by_index(i->ifa_index);
+  if (!ifi)
+    {
+      log(L_ERR "KRT: Received address message for unknown interface %d\n", i->ifa_index);
+      return;
+    }
+  memcpy(&f, ifi, sizeof(f));
+
+  if (i->ifa_prefixlen > 32 || i->ifa_prefixlen == 31 ||
+      (f.flags & IF_UNNUMBERED) && i->ifa_prefixlen != 32)
+    {
+      log(L_ERR "KRT: Invalid prefix length for interface %s: %d\n", f.name, i->ifa_prefixlen);
+      new = 0;
+    }
+
+  f.ip = f.brd = f.opposite = IPA_NONE;
+  if (!new)
+    {
+      DBG("KRT: IF%d IP address deleted\n");
+      f.pxlen = 0;
+    }
+  else
+    {
+      memcpy(&f.ip, RTA_DATA(a[IFA_LOCAL]), sizeof(f.ip));
+      f.ip = ipa_ntoh(f.ip);
+      f.pxlen = i->ifa_prefixlen;
+      if (f.flags & IF_UNNUMBERED)
+	{
+	  memcpy(&f.opposite, RTA_DATA(a[IFA_ADDRESS]), sizeof(f.opposite));
+	  f.opposite = f.brd = ipa_ntoh(f.opposite);
+	}
+      else if ((f.flags & IF_BROADCAST) && a[IFA_BROADCAST])
+	{
+	  memcpy(&f.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(f.brd));
+	  f.brd = ipa_ntoh(f.brd);
+	}
+      /* else a NBMA link */
+      f.prefix = ipa_and(f.ip, ipa_mkmask(f.pxlen));
+      DBG("KRT: IF%d IP address set to %I, net %I/%d, brd %I, opp %I\n", f.index, f.ip, f.prefix, f.pxlen, f.brd, f.opposite);
+    }
+  if_update(&f);
 }
 
 static void
@@ -219,10 +332,12 @@ nl_scan_ifaces(void)
 {
   struct nlmsghdr *h;
 
+  if_start_update();
+
   nl_request_dump(RTM_GETLINK);
   while (h = nl_get_scan())
     if (h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)
-      nl_parse_link(h);
+      nl_parse_link(h, 1);
     else
       log(L_DEBUG "nl_scan_ifaces: Unknown packet received (type=%d)", h->nlmsg_type);
 
@@ -233,7 +348,7 @@ nl_scan_ifaces(void)
     else
       log(L_DEBUG "nl_scan_ifaces: Unknown packet received (type=%d)", h->nlmsg_type);
 
-  bug("NIIDW");
+  if_end_update();
 }
 
 /*

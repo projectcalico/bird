@@ -19,11 +19,11 @@ Core
 
 - incoming packets: interface the packet came from? (esp. for multicasts)
 - broadcast/multicast echoing suppresion
-- we need ifindex at least for PtP links
-
-- kernel: RTM_DELROUTE not announced for device routes [confirmed by Alexey: it's a feature]
 
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
+
+- iface: when seen an invalid broadcast, fix it up or at least report
+- iface: we always need ifindex at least for PtP links (OSPF)
 
 Cleanup
 ~~~~~~~
