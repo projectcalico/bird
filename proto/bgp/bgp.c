@@ -160,16 +160,18 @@ bgp_sock_err(sock *sk, int err)
     {
     case BS_CONNECT:
     case BS_OPENSENT:
+      sk_close(conn->sk);
+      conn->sk = NULL;
       conn->state = BS_ACTIVE;
       bgp_start_timer(conn->connect_retry_timer, conn->bgp->cf->connect_retry_time);
       break;
     case BS_OPENCONFIRM:
     case BS_ESTABLISHED:
+      bgp_close_conn(conn);
       break;
     default:
       bug("bgp_sock_err called in invalid state %d", conn->state);
     }
-  bgp_close_conn(conn);
 }
 
 static void
