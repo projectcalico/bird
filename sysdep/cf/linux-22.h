@@ -9,6 +9,7 @@
 #define CONFIG_TOS
 #define CONFIG_AUTO_ROUTES
 #define CONFIG_ALL_MULTICAST
+#define CONFIG_SELF_CONSCIOUS
 
 /*
 Link: sysdep/linux/netlink
