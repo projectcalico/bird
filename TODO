@@ -1,5 +1,11 @@
 Core
 ~~~~
+- debug: interfaces
+- debug: route updates
+- debug: static
+- debug: pipe
+- debug: krt
+
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
 
@@ -12,6 +18,7 @@ Core
 
 Commands
 ~~~~~~~~
+- show status
 - showing of routing table as seen by given protocol
 - printing of dynamic attributes
 

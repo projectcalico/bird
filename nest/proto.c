@@ -33,6 +33,8 @@ static list proto_list;
 		struct proto *p = SKIP_BACK(struct proto, glob_node, nn);
 #define WALK_PROTO_LIST_END } } while(0)
 
+#define PD(pr, msg, args...) do { if (pr->debug & D_STATES) { log(L_TRACE "%s: " msg, pr->name , ## args); } } while(0)
+
 list active_proto_list;
 static list inactive_proto_list;
 static list initial_proto_list;
@@ -45,6 +47,7 @@ static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
 
 static int proto_flush_all(void *);
 static void proto_rethink_goal(struct proto *p);
+static char *proto_state_name(struct proto *p);
 
 static void
 proto_enqueue(list *l, struct proto *p)
@@ -58,6 +61,7 @@ proto_relink(struct proto *p)
 {
   list *l;
 
+  PD(p, "State changed to %s", proto_state_name(p));
   rem_node(&p->n);
   switch (p->core_state)
     {
@@ -112,6 +116,7 @@ proto_add_announce_hook(struct proto *p, struct rtable *t)
   if (!p->rt_notify)
     return NULL;
   DBG("Connecting protocol %s to table %s\n", p->name, t->name);
+  PD(p, "Connected to table %s", t->name);
   h = mb_alloc(p->pool, sizeof(struct announce_hook));
   h->table = t;
   h->proto = p;
@@ -142,6 +147,7 @@ proto_config_new(struct protocol *pr, unsigned size)
   c->name = pr->name;
   c->out_filter = FILTER_REJECT;
   c->table = c->global->master_rtc;
+  c->debug = new_config->proto_default_debug;
   return c;
 }
 
@@ -189,6 +195,7 @@ proto_init(struct proto_config *c)
   q->core_state = FS_HUNGRY;
   proto_enqueue(&initial_proto_list, q);
   add_tail(&proto_list, &q->glob_node);
+  PD(q, "Initializing");
   return q;
 }
 
@@ -223,6 +230,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 		  if (p->proto->reconfigure && p->proto->reconfigure(p, nc))
 		    {
 		      DBG("\t%s: same\n", oc->name);
+		      PD(p, "Reconfigured");
 		      p->cf = nc;
 		      p->name = nc->name;
 		      nc->proto = p;
@@ -231,12 +239,14 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 		}
 	      /* Unsuccessful, force reconfig */
 	      DBG("\t%s: power cycling\n", oc->name);
+	      PD(p, "Reconfiguration failed, restarting");
 	      p->cf_new = nc;
 	      nc->proto = p;
 	    }
 	  else
 	    {
 	      DBG("\t%s: deleting\n", oc->name);
+	      PD(p, "Unconfigured");
 	      p->cf_new = NULL;
 	    }
 	  p->reconfiguring = 1;
@@ -291,6 +301,7 @@ proto_rethink_goal(struct proto *p)
       if (p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
 	{
 	  DBG("Kicking %s up\n", p->name);
+	  PD(p, "Starting");
 	  proto_init_instance(p);
 	  proto_notify_state(p, (q->start ? q->start(p) : PS_UP));
 	}
@@ -300,6 +311,7 @@ proto_rethink_goal(struct proto *p)
       if (p->proto_state == PS_START || p->proto_state == PS_UP)
 	{
 	  DBG("Kicking %s down\n", p->name);
+	  PD(p, "Shutting down");
 	  proto_notify_state(p, (q->shutdown ? q->shutdown(p) : PS_DOWN));
 	}
     }
