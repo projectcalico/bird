@@ -59,7 +59,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
 
       WALK_LIST(nn, ifa->nbma_list)
       {
-	if (ipa_compare(faddr, nn->ip) == 0)
+	if (ipa_equal(faddr, nn->ip))
 	{
 	  found = 1;
 	  break;
@@ -132,24 +132,22 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
       ospf_iface_sm(ifa, ISM_NEICH);
 
     /* Router is declaring itself ad DR and there is no BDR */
-    if ((ipa_compare(n->ip, n->dr) == 0) && (ipa_to_u32(n->bdr) == 0)
+    if (ipa_equal(n->ip, n->dr) && (ipa_to_u32(n->bdr) == 0)
 	&& (n->state != NEIGHBOR_FULL))
       ospf_iface_sm(ifa, ISM_BACKS);
 
     /* Neighbor is declaring itself as BDR */
-    if ((ipa_compare(n->ip, n->bdr) == 0) && (n->state != NEIGHBOR_FULL))
+    if (ipa_equal(n->ip, n->bdr) && (n->state != NEIGHBOR_FULL))
       ospf_iface_sm(ifa, ISM_BACKS);
 
     /* Neighbor is newly declaring itself as DR or BDR */
-    if (((ipa_compare(n->ip, n->dr) == 0) && (ipa_compare(n->dr, olddr) != 0))
-	|| ((ipa_compare(n->ip, n->bdr) == 0)
-	    && (ipa_compare(n->bdr, oldbdr) != 0)))
+    if ((ipa_equal(n->ip, n->dr) && (!ipa_equal(n->dr, olddr)))
+	|| (ipa_equal(n->ip, n->bdr) && (!ipa_equal(n->bdr, oldbdr))))
       ospf_iface_sm(ifa, ISM_NEICH);
 
     /* Neighbor is no more declaring itself as DR or BDR */
-    if (((ipa_compare(n->ip, olddr) == 0) && (ipa_compare(n->dr, olddr) != 0))
-	|| ((ipa_compare(n->ip, oldbdr) == 0)
-	    && (ipa_compare(n->bdr, oldbdr) != 0)))
+    if ((ipa_equal(n->ip, olddr) && (!ipa_equal(n->dr, olddr)))
+	|| (ipa_equal(n->ip, oldbdr) && (!ipa_equal(n->bdr, oldbdr))))
       ospf_iface_sm(ifa, ISM_NEICH);
   }
 
@@ -253,7 +251,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
           send = 1;
           WALK_LIST(n1, ifa->neigh_list)
           {
-            if (ipa_compare(nb->ip, n1->ip) == 0)
+            if (ipa_equal(nb->ip, n1->ip))
             {
               send = 0;
               break;
