@@ -19,10 +19,10 @@
  * constructors and destructors.
  *
  * When the |DEBUGGING| switch is turned on, we automatically fill all
- * newly allocated and freed blocks with a special patterns to make detection
+ * newly allocated and freed blocks with a special pattern to make detection
  * of use of uninitialized or already freed memory easier.
  *
- * Example: Nodes of a FIB are allocated from a Slab.
+ * Example: Nodes of a FIB are allocated from a per-FIB Slab.
  */
 
 #include <stdlib.h>

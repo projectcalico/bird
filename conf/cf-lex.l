@@ -10,12 +10,12 @@
  * DOC: Lexical analyzer
  *
  * The lexical analyzer used for configuration files and CLI commands
- * is generated using the |flex| tool accompanied with a couple of
+ * is generated using the |flex| tool accompanied by a couple of
  * functions maintaining the hash tables containing information about
  * symbols and keywords.
  *
  * Each symbol is represented by a &symbol structure containing name
- * of the symbol, its scope, symbol class (%SYM_PROTO for a name of a protocol,
+ * of the symbol, its lexical scope, symbol class (%SYM_PROTO for a name of a protocol,
  * %SYM_NUMBER for a numeric constant etc.) and class dependent data.
  * When an unknown symbol is encountered, it's automatically added to the
  * symbol table with class %SYM_VOID.
@@ -454,7 +454,7 @@ cf_symbol_class_name(struct symbol *sym)
  * the |gen_parser.m4| script.
  *
  * Grammar snippets are files (usually with extension |.Y|) contributed
- * by various BIRD modules to provide information about syntax of their
+ * by various BIRD modules in order to provide information about syntax of their
  * configuration and their CLI commands. Each snipped consists of several
  * section, each of them starting with a special keyword: |CF_HDR| for
  * a list of |#include| directives needed by the C code, |CF_DEFINES|

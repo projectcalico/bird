@@ -9,9 +9,9 @@
 /**
  * DOC: Configuration manager
  *
- * Configuration of BIRD is complex, but straightforward. There exist three
+ * Configuration of BIRD is complex, yet straightforward. There exist three
  * modules taking care of the configuration: config manager (which takes care
- * of storage of config information and controls switching between configs),
+ * of storage of the config information and controls switching between configs),
  * lexical analyzer and parser.
  *
  * The configuration manager stores each config as a &config structure
@@ -27,7 +27,7 @@
  *
  * Loading of new configuration is very simple: just call config_alloc()
  * to get a new &config structure, then use config_parse() to parse a
- * configuration file and fill all information in the structure
+ * configuration file and fill all fields of the structure
  * and finally ask the config manager to switch to the new
  * config by calling config_commit().
  *

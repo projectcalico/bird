@@ -67,7 +67,7 @@ the following states:
 <p>Unless the protocol is in the <tt/PS_DOWN/ state, it can decide to change
 its state by calling the <func/proto_notify_state/ function.
 
-<p>At any time, the core code can ask the protocol to shut down by calling its stop() hook.
+<p>At any time, the core code can ask the protocol to shut itself down by calling its stop() hook.
 
 <p>The <em/core state machine/ takes care of the core view of protocol state.
 The states are traversed according to changes of the protocol state machine, but

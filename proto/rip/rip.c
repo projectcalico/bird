@@ -18,29 +18,30 @@
  */
 
 /**
- * DOC: Routing information protocol
+ * DOC: Routing Information Protocol
  *
- * Rip is pretty simple protocol so half of this code is interface
- * with core. We maintain our own linked list of &rip_entry -- it serves
- * as our small routing table. Rip never adds into this linked list at
- * packet reception; instead, it lets core know about data from packet,
- * and waits for core to call our rip_rte_notify.
+ * RIP is a pretty simple protocol, so about a half of its code is interface
+ * with the core.
  *
- * Within rip_tx(), this list is
- * walked, and packet is generated using rip_tx_prepare(). This gets
+ * We maintain our own linked list of &rip_entry structures -- it serves
+ * as our small routing table. RIP never adds to this linked list upon
+ * packet reception; instead, it lets the core know about data from the packet
+ * and waits for the core to call rip_rte_notify().
+ *
+ * Within rip_tx(), the list is
+ * walked and a packet is generated using rip_tx_prepare(). This gets
  * tricky because we may need to send more than one packet to one
- * destination. Struct &rip_connection is used to hold info such as how
- * many of &rip_entry's we already send, and is also used to protect
- * from two concurrent sends to one destination. Each &rip_interface has
+ * destination. Struct &rip_connection is used to hold context information such as how
+ * many of &rip_entry's we have already sent and it's also used to protect
+ * against two concurrent sends to one destination. Each &rip_interface has
  * at most one &rip_connection.
  *
  * We are not going to honor requests for sending part of
- * routing table. That would need to turn split horizon off,
- * etc.  
+ * routing table. That would need to turn split horizon off etc.  
  *
- * Triggered updates. RFC says: when triggered update was sent, don't send
- * new one for something between 1 and 5 seconds (and send one
- * after that). We do something else: once in 5 second
+ * About triggered updates, RFC says: when a triggered update was sent,
+ * don't send a new one for something between 1 and 5 seconds (and send one
+ * after that). We do something else: each 5 seconds,
  * we look for any changed routes and broadcast them.
  */
 
@@ -70,7 +71,7 @@ static struct rip_interface *new_iface(struct proto *p, struct iface *new, unsig
 #define P_NAME p->name
 
 /*
- * DOC: Output processing
+ * Output processing
  *
  * This part is responsible for getting packets out to the network.
  */
@@ -251,7 +252,7 @@ find_interface(struct proto *p, struct iface *what)
 }
 
 /*
- * DOC: Input processing
+ * Input processing
  *
  * This part is responsible for any updates that come from network 
  */
@@ -466,7 +467,7 @@ rip_rx(sock *s, int size)
 }
 
 /*
- * DOC: Interface to bird core
+ * Interface to BIRD core
  */
 
 static void
@@ -482,10 +483,10 @@ rip_dump_entry( struct rip_entry *e )
  * @t: timer
  *
  * Broadcast routing tables periodically (using rip_tx) and kill
- * routes that are too old. Rip keeps its own entries in main routing
- * table linked by link list (functions rip_rte_insert() and
- * rip_rte_delete() are responsible for that), walks this list in timer
- * and in case entry is too old, it is discarded.
+ * routes that are too old. RIP keeps a list of its own entries present
+ * in the core table by a linked list (functions rip_rte_insert() and
+ * rip_rte_delete() are responsible for that), it walks this list in the timer
+ * and in case an entry is too old, it is discarded.
  */
 
 static void
@@ -636,13 +637,13 @@ kill_iface(struct proto *p, struct rip_interface *i)
 /**
  * new_iface
  * @p: myself
- * @new: interface to be created or %NULL if we are creating magic
- * socket. Magic socket is used for listening, and is also used for
- * sending requested responses. 
+ * @new: interface to be created or %NULL if we are creating a magic
+ * socket. The magic socket is used for listening and also for
+ * sending requested responses.
  * @flags: interface flags
  * @patt: pattern this interface matched, used for access to config options
  *
- * actually create struct interface and start listening to it
+ * Create an interface structure and start listening on the interface.
  */
 static struct rip_interface *
 new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt )

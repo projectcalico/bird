@@ -21,7 +21,7 @@ modules of BIRD, deallocates everything automatically when a module
 shuts down and it's is able to print out the list of resources and
 the corresponding modules they are allocated by.
 
-<p>Each allocated resource (and from now we'll speak about allocated
+<p>Each allocated resource (from now we'll speak about allocated
 resources only) is represented by a structure starting with a standard
 header (struct <struct/resource/) consisting of a list node (resources are
 often linked to various lists) and a pointer to <struct/resclass/ -- a resource

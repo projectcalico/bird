@@ -26,12 +26,12 @@
  * a continuation line, the whole prefix can be replaced by a single
  * white space character.
  *
- * Reply codes starting with 0 describe `action successfully completed' messages,
+ * Reply codes starting with 0 stand for `action successfully completed' messages,
  * 1 means `table entry', 8 `runtime error' and 9 `syntax error'.
  *
  * Each CLI session is internally represented by a &cli structure and a
  * resource pool containing all resources associated with the connection,
- * so that it can be easily freed whenever the connection closes, not depending
+ * so that it can be easily freed whenever the connection gets closed, not depending
  * on the current state of command processing.
  *
  * The CLI commands are declared as a part of the configuration grammar
@@ -40,9 +40,9 @@
  * it's switched to a special mode by prepending a fake token to the text,
  * so that it uses only the CLI command rules. Then the parser invokes
  * an execution routine corresponding to the command, which either constructs
- * the whole reply and returns or (in case it expects the reply will be long)
+ * the whole reply and returns back or (in case it expects the reply will be long)
  * it prints a partial reply and asks the CLI module (using the @cont hook)
- * to call it again when the output will be transferred to the user.
+ * to call it again when the output is transferred to the user.
  *
  * The @this_cli variable points to a &cli structure of the session being
  * currently parsed, but it's of course available only in command handlers

@@ -21,7 +21,7 @@
  * We use two-stage hashing where we calculate a 16-bit primary hash key independent
  * on hash table size and then we just divide the primary keys modulo table size
  * to get a real hash key used for determining the bucket containing the node.
- * The lists of nodes in each buckets are sorted according to the primary hash
+ * The lists of nodes in each bucket are sorted according to the primary hash
  * key, hence if we keep the total number of buckets to be a power of two,
  * re-hashing of the structure keeps the relative order of the nodes.
  *
@@ -400,7 +400,7 @@ fit_put(struct fib_iterator *i, struct fib_node *n)
  * @f: FIB to be checked
  *
  * This debugging function audits a FIB by checking its internal consistency.
- * Use when you suspect somebody from corrupting innocent data structures.
+ * Use when you suspect somebody of corrupting innocent data structures.
  */
 void
 fib_check(struct fib *f)

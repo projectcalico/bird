@@ -78,11 +78,11 @@ tracked_fopen(pool *p, char *name, char *mode)
  *
  * Timers are resources which represent a wish of a module to call
  * a function at the specified time. The platform dependent code
- * doesn't guarantee the exact timing, only that a timer function
+ * doesn't guarantee exact timing, only that a timer function
  * won't be called before the requested time.
  *
  * In BIRD, real time is represented by values of the &bird_clock_t type
- * which are integral numbers corresponding to a number of seconds since
+ * which are integral numbers interpreted as a number of seconds since
  * a fixed (but platform dependent) epoch. The current time can be read
  * from a variable @now with reasonable accuracy.
  *

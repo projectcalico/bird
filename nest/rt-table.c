@@ -16,7 +16,7 @@
  * There exist multiple routing tables (a primary one together with any
  * number of secondary ones if requested by the configuration). Each table
  * is basically a FIB containing entries describing the individual
- * destination networks. For each network (represented by structure &net)
+ * destination networks. For each network (represented by structure &net),
  * there is a one-way linked list of network entries (&rte), the first entry
  * on the list being the best possible one (i.e., the one we currently use
  * for routing), the order of the other ones is undetermined.

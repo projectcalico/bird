@@ -21,7 +21,7 @@
  * many connections, but not too much and, which is more important, it makes
  * BGP much easier to implement.
  *
- * Each instance of BGP (corresponding to one BGP peer) is described by a &bgp_proto
+ * Each instance of BGP (corresponding to a single BGP peer) is described by a &bgp_proto
  * structure to which are attached individual connections represented by &bgp_connection
  * (usually, there exists only one connection, but during BGP session setup, there
  * can be more of them). The connections are handled according to the BGP state machine
@@ -39,7 +39,7 @@
  * immediately instead of sending both updates). There also exists a special bucket holding
  * all the route withdrawals which cannot be queued anywhere else as they don't have any
  * attributes. If we have any packet to send (due to either new routes or the connection
- * tracking code wanting to send a Open, KeepAlive or Notification message), we call
+ * tracking code wanting to send a Open, Keepalive or Notification message), we call
  * bgp_schedule_packet() which sets the corresponding bit in a @packet_to_send
  * bit field in &bgp_conn and as soon as the transmit socket buffer becomes empty,
  * we call bgp_fire_tx(). It inspects state of all the packet type bits and calls

@@ -20,17 +20,17 @@
  * The neighbor cache maintains a collection of neighbor entries. Each
  * entry represents one IP address corresponding to either our directly
  * connected neighbor or our own end of the link (when the scope of the
- * address is set to %SCOPE_HOST) together with data belonging to a
+ * address is set to %SCOPE_HOST) together with per-neighbor data belonging to a
  * single protocol.
  *
  * Active entries represent known neighbors and are stored in a hash
- * table (to allow fast retrieval based on IP address of the node) and
+ * table (to allow fast retrieval based on the IP address of the node) and
  * two linked lists: one global and one per-interface (allowing quick
  * processing of interface change events). Inactive entries exist only
  * when the protocol has explicitly requested it via the %NEF_STICKY
  * flag because it wishes to be notified when the node will again become
  * a neighbor. Such entries are enqueued in a special list which is walked
- * whenever an interface becomes up.
+ * whenever an interface changes its state to up.
  *
  * When a neighbor event occurs (a neighbor gets disconnected or a sticky
  * inactive neighbor becomes connected), the protocol hook neigh_notify()

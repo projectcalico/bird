@@ -13,12 +13,10 @@
  * Since BIRD is single-threaded, it requires long lasting tasks to be split to smaller
  * parts, so that no module can monopolize the CPU. To split such a task, just create
  * an &event resource, point it to the function you want to have called and call ev_schedule()
- * to ask the core to run the event when nothing more important will require attention.
+ * to ask the core to run the event when nothing more important requires attention.
  *
  * You can also define your own event lists (the &event_list structure), enqueue your
  * events in them and explicitly ask to run them.
- *
- * The actual implementation is system dependent.
  */
 
 #include "nest/bird.h"

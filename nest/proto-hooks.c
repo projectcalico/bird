@@ -9,7 +9,7 @@
 /**
  * DOC: Protocol hooks
  *
- * Each protocol provides a rich set of hook functions referred to by pointers
+ * Each protocol can provide a rich set of hook functions referred to by pointers
  * in either the &proto or &protocol structure. They are called by the core whenever
  * it wants the protocol to perform some action or to notify the protocol about
  * any change of its environment. All of the hooks can be set to %NULL which means

@@ -26,14 +26,14 @@
  * separate KRT protocols which cooperate with each other  [Linux 2.2].
  * In this case, we keep only a single scan timer.
  *
- * We use FIB node flags to keep track of route synchronization status. We also
- * attach temporary &rte's to the routing tables, but it cannot harm the rest of
- * BIRD since table synchronization is an atomic process.
+ * We use FIB node flags in the routing table to keep track of route
+ * synchronization status. We also attach temporary &rte's to the routing table,
+ * but it cannot do any harm to the rest of BIRD since table synchronization is
+ * an atomic process.
  *
  * When starting up, we cheat by looking if there is another
  * KRT instance to be initialized later and performing table scan
- * only once for all the instances.
- */
+ * only once for all the instances.  */
 
 /*
  *  If you are brave enough, continue now.  You cannot say you haven't been warned.

@@ -15,14 +15,14 @@
  * occur only when the user specifies an invalid configuration and therefore
  * he deserves to get what he has asked for, but unfortunately they can also
  * arise legitimately when the daemon is reconfigured and there exists (although
- * for a short time period only) an old protocol being shut down and a new one
+ * for a short time period only) an old protocol instance being shut down and a new one
  * willing to start up on the same interface.
  *
  * The solution is very simple: when any protocol wishes to use a network port
- * or some other non-shareable resource, it asks the core to lock it and doesn't
+ * or some other non-shareable resource, it asks the core to lock it and it doesn't
  * use the resource until it's notified that it has acquired the lock.
  *
- * Object locks are represented by &object_lock which is in turn a kind of
+ * Object locks are represented by &object_lock structures which are in turn a kind of
  * resource. Lockable resources are uniquely determined by resource type
  * (%OBJLOCK_UDP for a UDP port etc.), IP address (usually a broadcast or
  * multicast address the port is bound to), port number and interface.
