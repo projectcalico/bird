@@ -214,7 +214,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   c->done = 0;
   fit_init( &c->iter, &P->rtable );
   add_head( &P->connections, NODE c );
-  debug( "Sending my routing table to %I:%d on %s\n", daddr, dport, rif->iface->name );
+  log( L_TRACE "Sending my routing table to %I:%d on %s\n", daddr, dport, rif->iface->name );
 
   rip_tx(c->rif->sock);
 }
@@ -265,7 +265,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
 
   neighbor = neigh_find( p, &A.gw, 0 );
   if (!neighbor) {
-    log( L_ERR "%I asked me to route %I/%d using not-neighbor %I.", A.from, b->network, pxlen, A.gw );
+    log( L_REMOTE "%I asked me to route %I/%d using not-neighbor %I.", A.from, b->network, pxlen, A.gw );
     return;
   }
 
@@ -281,7 +281,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
   if (pxlen==-1)  {
-    log( L_ERR "%I gave me invalid pxlen/netmask for %I.", A.from, b->network );
+    log( L_REMOTE "%I gave me invalid pxlen/netmask for %I.", A.from, b->network );
     return;
   }
   n = net_get( p->table, b->network, pxlen );
@@ -302,7 +302,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   ip_addr network = block->network;
 
   CHK_MAGIC;
-  debug( "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
+  log( L_TRACE "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
   if ((!metric) || (metric > P_CF->infinity)) {
     log( L_WARN "Got metric %d from %I", metric, whotoldme );
     return;
@@ -339,20 +339,20 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
           break;
   case RIPCMD_RESPONSE: DBG( "*** Rtable from %I\n", whotoldme ); 
           if (port != P_CF->port) {
-	    log( L_ERR "%I send me routing info from port %d", whotoldme, port );
+	    log( L_REMOTE "%I send me routing info from port %d", whotoldme, port );
 #if 0
 	    return 0;
 #else
-	    log( L_ERR "...ignoring" );
+	    log( L_REMOTE "...ignoring" );
 #endif
 	  }
 
 	  if (!neigh_find( p, &whotoldme, 0 )) {
-	    log( L_ERR "%I send me routing info but he is not my neighbour", whotoldme );
+	    log( L_REMOTE "%I send me routing info but he is not my neighbour", whotoldme );
 #if 0
 	    return 0;
 #else
-	    log( L_ERR "...ignoring" );
+	    log( L_REMOTE "...ignoring" );
 #endif
 	  }
 
@@ -435,12 +435,12 @@ rip_timer(timer *t)
     DBG( "Garbage: " ); rte_dump( rte );
 
     if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
-      debug( "RIP: entry is too old: " ); rte_dump( rte );
+      log( L_TRACE "RIP: entry is too old: " ); rte_dump( rte );
       e->metric = P_CF->infinity;
     }
 
     if (now - rte->u.rip.lastmodX > P_CF->garbage_time) {
-      debug( "RIP: entry is much too old: " ); rte_dump( rte );
+      log( L_TRACE "RIP: entry is much too old: " ); rte_dump( rte );
       rte_discard(p->table, rte);
     }
   }
@@ -602,7 +602,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
       }
 
-  log( L_DEBUG "RIP/%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast", rif->sock->daddr );
+  log( L_TRACE "RIP/%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast", rif->sock->daddr );
   
   return rif;
 }
