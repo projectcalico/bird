@@ -43,7 +43,6 @@ struct krt_config {
   struct proto_config c;
   struct krt_set_params set;
   struct krt_scan_params scan;
-  struct krt_if_params iface;
   int persist;			/* Keep routes when we exit */
   int scan_time;		/* How often we re-scan routes */
   int learn;			/* Learn routes from other sources */
