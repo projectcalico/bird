@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2004 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -17,7 +17,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
   ip_addr mask;
   char *beg = "Bad OSPF hello packet from ", *rec = " received: ";
   struct proto *p = (struct proto *) ifa->proto;
-  unsigned int size = ntohs(ps->ospf_packet.length), i, twoway, oldpriority, eligible = 0;
+  unsigned int size = ntohs(ps->ospf_packet.length), i, twoway, oldpriority, eligible = 0, peers;
 
   OSPF_TRACE(D_PACKETS, "Received hello from %I via %s", faddr,
 	     ifa->iface->name);
@@ -101,8 +101,10 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
 
   pnrid = (u32 *) ((struct ospf_hello_packet *) (ps + 1));
 
+  peers = (size - sizeof(struct ospf_hello_packet))/ sizeof(u32);
+
   twoway = 0;
-  for (i = 0; i < size - (sizeof(struct ospf_hello_packet)); i++)
+  for (i = 0; i < peers; i++)
   {
     if (ntohl(*(pnrid + i)) == p->cf->global->router_id)
     {
