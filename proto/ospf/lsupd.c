@@ -393,15 +393,22 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       if(lsadb)
         WALK_LIST(NODE ift,po->iface_list)
           WALK_LIST(NODE ntmp,ift->neigh_list)
-	  {
-	    struct top_hash_entry *en;
-	    if(ntmp->state>NEIGHBOR_EXSTART)
-	      if((en=ospf_hash_find_header(ntmp->lsrth,&lsadb->lsa))!=NULL)
-	      {
-	        s_rem_node(SNODE en);
-	        ospf_hash_delete(ntmp->lsrth,en);
-	      }
-	  }
+          {
+            struct top_hash_entry *en;
+            if(ntmp->state>NEIGHBOR_EXSTART)
+              if((en=ospf_hash_find_header(ntmp->lsrth,&lsadb->lsa))!=NULL)
+              {
+                s_rem_node(SNODE en);
+                ospf_hash_delete(ntmp->lsrth,en);
+              }
+          }
+
+      if((lsatmp.age==LSA_MAXAGE)&&(lsatmp.sn==LSA_MAXSEQNO)
+        &&lsadb&&can_flush_lsa(oa))
+      {
+        flush_lsa(lsadb,oa);
+        continue;
+      }
 
       /* pg 144 (5d) */
       body=mb_alloc(p->pool,lsatmp.length-sizeof(struct ospf_lsa_header));
