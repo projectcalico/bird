@@ -162,10 +162,14 @@ rip_tx( sock *s )
     if (i == !!P_CF->authtype)
       continue;
 #endif
-    if (ipa_nonzero(c->daddr))
-      i = sk_send_to( s, packetlen, c->daddr, c->dport );
-    else
-      i = sk_send( s, packetlen );
+    if (!i)
+      DBG( "not sending NULL update\n" );
+    else {
+      if (ipa_nonzero(c->daddr))
+	i = sk_send_to( s, packetlen, c->daddr, c->dport );
+      else
+	i = sk_send( s, packetlen );
+    }
 
     DBG( "it wants more\n" );
   
