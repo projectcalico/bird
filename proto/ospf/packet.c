@@ -84,6 +84,8 @@ ospf_rx_hook(sock * sk, int size)
   struct ospf_packet *ps;
   struct ospf_iface *ifa = (struct ospf_iface *) (sk->data);
   struct proto *p = (struct proto *) (ifa->proto);
+  struct ospf_neighbor *n;
+  char *mesg = "Bad OSPF packet from ";
 
   if (ifa->stub)
     return (1);
@@ -93,65 +95,71 @@ ospf_rx_hook(sock * sk, int size)
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
   if (ps == NULL)
   {
-    log("%s: Bad OSPF packet received: bad IP header", p->name);
-    log("%s: Discarding", p->name);
-    return (1);
+    log(L_ERR "%s%I - bad IP header", mesg, sk->faddr);
+    return 1;
   }
 
   if ((unsigned) size < sizeof(struct ospf_packet))
   {
-    log("%s: Bad OSPF packet received: too short (%u bytes)", p->name, size);
-    log("%s: Discarding", p->name);
-    return (1);
+    log(L_ERR "%s%I - too short (%u bytes)", mesg, sk->faddr, size);
+    return 1;
   }
 
   if ((ntohs(ps->length) != size) || (size != (4 * (size / 4))))
   {
-    log("%s: Bad OSPF packet received: size field does not match", p->name);
-    log("%s: Discarding", p->name);
-    return (1);
+    log(L_ERR "%s%I - size field does not match", mesg, sk->faddr);
+    return 1;
   }
 
   if (ps->version != OSPF_VERSION)
   {
-    log("%s: Bad OSPF packet received: version %u", p->name, ps->version);
-    log("%s: Discarding", p->name);
-    return (1);
+    log(L_ERR "%s%I - version %u", mesg, sk->faddr, ps->version);
+    return 1;
   }
 
   if (!ipsum_verify(ps, 16, (void *) ps + sizeof(struct ospf_packet),
 		    ntohs(ps->length) - sizeof(struct ospf_packet), NULL))
   {
-    log("%s: Bad OSPF packet received: bad checksum", p->name);
-    log("%s: Discarding", p->name);
-    return (1);
+    log(L_ERR "%s%I - bad checksum", mesg, sk->faddr);
+    return 1;
   }
 
   if (!ospf_rx_authenticate(ifa, ps))
   {
-    log("%s: Bad OSPF packet received: bad password", p->name);
-    return (1);
+    log(L_ERR "%s%I - bad password", mesg, sk->faddr);
+    return 1;
   }
 
   if (ntohl(ps->areaid) != ifa->an)
   {
-    log("%s: Bad OSPF packet received: other area %ld", p->name, ps->areaid);
-    log("%s: Discarding", p->name);
-    return (1);
+    log(L_ERR "%s%I - other area %ld", mesg, sk->faddr, ps->areaid);
+    return 1;
   }
 
   if (ntohl(ps->routerid) == p->cf->global->router_id)
   {
-    log("%s: Bad OSPF packet received: received my own router ID!", p->name);
-    log("%s: Discarding", p->name);
-    return (1);
+    log(L_ERR "%s%I - received my own router ID!", mesg, sk->faddr);
+    return 1;
   }
 
   if (ntohl(ps->routerid) == 0)
   {
-    log("%s: Bad OSPF packet received: Id 0.0.0.0 is not allowed.", p->name);
-    log("%s: Discarding", p->name);
-    return (1);
+    log(L_ERR "%s%I - router id = 0.0.0.0", mesg, sk->faddr);
+    return 1;
+  }
+
+  if ((unsigned) size > ifa->iface->mtu)
+  {
+    log(L_ERR "%s%I - received larger packet than MTU", mesg, sk->faddr);
+    return 1;
+  }
+
+  n = find_neigh(ifa, ntohl(((struct ospf_packet *) ps)->routerid));
+
+  if(!n && (ps->type != HELLO_P))
+  {
+    OSPF_TRACE(D_PACKETS, "Received non-hello packet from uknown neighbor (%I)", sk->faddr);
+    return 1;
   }
 
   /* Dump packet 
@@ -166,30 +174,29 @@ ospf_rx_hook(sock * sk, int size)
   {
   case HELLO_P:
     DBG("%s: Hello received.\n", p->name);
-    ospf_hello_receive((struct ospf_hello_packet *) ps, ifa, size, sk->faddr);
+    ospf_hello_receive((struct ospf_hello_packet *) ps, ifa, n, sk->faddr);
     break;
   case DBDES_P:
     DBG("%s: Database description received.\n", p->name);
-    ospf_dbdes_receive((struct ospf_dbdes_packet *) ps, ifa, size);
+    ospf_dbdes_receive((struct ospf_dbdes_packet *) ps, ifa, n);
     break;
   case LSREQ_P:
     DBG("%s: Link state request received.\n", p->name);
-    ospf_lsreq_receive((struct ospf_lsreq_packet *) ps, ifa, size);
+    ospf_lsreq_receive((struct ospf_lsreq_packet *) ps, ifa, n);
     break;
   case LSUPD_P:
     DBG("%s: Link state update received.\n", p->name);
-    ospf_lsupd_receive((struct ospf_lsupd_packet *) ps, ifa, size);
+    ospf_lsupd_receive((struct ospf_lsupd_packet *) ps, ifa, n);
     break;
   case LSACK_P:
     DBG("%s: Link state ack received.\n", p->name);
-    ospf_lsack_receive((struct ospf_lsack_packet *) ps, ifa, size);
+    ospf_lsack_receive((struct ospf_lsack_packet *) ps, ifa, n);
     break;
   default:
-    log("%s: Bad packet received: wrong type %u", p->name, ps->type);
-    log("%s: Discarding\n", p->name);
-    return (1);
+    log(L_ERR "%s%I - wrong type %u", mesg, sk->faddr, ps->type);
+    return 1;
   };
-  return (1);
+  return 1;
 }
 
 void

@@ -119,25 +119,13 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 
 void
 ospf_lsack_receive(struct ospf_lsack_packet *ps,
-		   struct ospf_iface *ifa, u16 size)
+		   struct ospf_iface *ifa, struct ospf_neighbor *n)
 {
-  u32 nrid, myrid;
-  struct ospf_neighbor *n;
   struct ospf_lsa_header lsa, *plsa;
-  u16 nolsa, i;
+  u16 nolsa;
   struct top_hash_entry *en;
-  u16 lenn = ntohs(ps->ospf_packet.length);
   struct proto *p = (struct proto *) ifa->proto;
-
-  nrid = ntohl(ps->ospf_packet.routerid);
-
-  myrid = p->cf->global->router_id;
-
-  if ((n = find_neigh(ifa, nrid)) == NULL)
-  {
-    OSPF_TRACE(D_PACKETS, "Received LS ack from unknown neigbor! (%I)", nrid);
-    return;
-  }
+  unsigned int size = ntohs(ps->ospf_packet.length), i;
 
   OSPF_TRACE(D_PACKETS, "Received LS ack from %I", n->ip);
   ospf_neigh_sm(n, INM_HELLOREC);
@@ -145,10 +133,10 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
   if (n->state < NEIGHBOR_EXCHANGE)
     return;
 
-  nolsa = (lenn - sizeof(struct ospf_lsack_packet)) /
+  nolsa = (size - sizeof(struct ospf_lsack_packet)) /
     sizeof(struct ospf_lsa_header);
 
-  if ((nolsa < 1) || ((lenn - sizeof(struct ospf_lsack_packet)) !=
+  if ((nolsa < 1) || ((size - sizeof(struct ospf_lsack_packet)) !=
 		      (nolsa * sizeof(struct ospf_lsa_header))))
   {
     log(L_ERR "Received corrupted LS ack from %I", n->ip);

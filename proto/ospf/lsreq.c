@@ -66,36 +66,27 @@ ospf_lsreq_send(struct ospf_neighbor *n)
 
 void
 ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
-		   struct ospf_iface *ifa, u16 size)
+		   struct ospf_iface *ifa, struct ospf_neighbor *n)
 {
-  u32 nrid;
-  struct ospf_neighbor *n;
   struct ospf_lsreq_header *lsh;
   struct l_lsr_head *llsh;
   list uplist;
   slab *upslab;
-  int length, i, lsano;
+  unsigned int size = ntohs(ps->ospf_packet.length);
+  int i, lsano;
   struct proto *p = (struct proto *) ifa->proto;
 
-  nrid = ntohl(ps->ospf_packet.routerid);
-
-  if ((n = find_neigh(ifa, nrid)) == NULL)
-  {
-    OSPF_TRACE(D_PACKETS, "Received lsreq from unknown neighbor! (%I)", nrid);
-    return;
-  }
   if (n->state < NEIGHBOR_EXCHANGE)
     return;
 
   OSPF_TRACE(D_EVENTS, "Received LS req from neighbor: %I", n->ip);
   ospf_neigh_sm(n, INM_HELLOREC);
 
-  length = ntohs(ps->ospf_packet.length);
   lsh = (void *) (ps + 1);
   init_list(&uplist);
   upslab = sl_new(n->pool, sizeof(struct l_lsr_head));
 
-  lsano = (length - sizeof(struct ospf_lsreq_packet)) /
+  lsano = (size - sizeof(struct ospf_lsreq_packet)) /
     sizeof(struct ospf_lsreq_header);
   for (i = 0; i < lsano; lsh++, i++)
   {

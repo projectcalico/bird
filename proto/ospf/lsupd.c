@@ -283,24 +283,15 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 
 void
 ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
-		   struct ospf_iface *ifa, u16 size)
+		   struct ospf_iface *ifa, struct ospf_neighbor *n)
 {
-  u32 area, nrid;
-  struct ospf_neighbor *n, *ntmp;
+  u32 area;
+  struct ospf_neighbor *ntmp;
   struct ospf_lsa_header *lsa;
   struct ospf_area *oa;
   struct proto_ospf *po = ifa->proto;
   struct proto *p = (struct proto *) po;
-  u8 i;
-  int sendreq = 1;
-
-  nrid = ntohl(ps->ospf_packet.routerid);
-
-  if ((n = find_neigh(ifa, nrid)) == NULL)
-  {
-    OSPF_TRACE(D_PACKETS, "Received lsupd from unknown neighbor! (%I)", nrid);
-    return;
-  }
+  unsigned int i, sendreq = 1, size = ntohs(ps->ospf_packet.length);
 
   if (n->state < NEIGHBOR_EXCHANGE)
   {
@@ -329,8 +320,8 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
   {
     struct ospf_lsa_header lsatmp;
     struct top_hash_entry *lsadb;
-    int diff = ((u8 *) lsa) - ((u8 *) ps);
-    u16 chsum, lenn = ntohs(lsa->length);
+    unsigned diff = ((u8 *) lsa) - ((u8 *) ps), lenn = ntohs(lsa->length);
+    u16 chsum;
 
     if (((diff + sizeof(struct ospf_lsa_header)) >= size)
 	|| ((lenn + diff) > size))

@@ -10,18 +10,14 @@
 
 void
 ospf_hello_receive(struct ospf_hello_packet *ps,
-		   struct ospf_iface *ifa, int size, ip_addr faddr)
+		   struct ospf_iface *ifa, struct ospf_neighbor *n, ip_addr faddr)
 {
-  u32 nrid, *pnrid;
-  struct ospf_neighbor *n;
-  u8 i, twoway, oldpriority;
+  u32 *pnrid;
   ip_addr olddr, oldbdr;
   ip_addr mask;
   char *beg = "Bad OSPF hello packet from ", *rec = " received: ";
-  int eligible = 0;
   struct proto *p = (struct proto *) ifa->proto;
-
-  nrid = ntohl(((struct ospf_packet *) ps)->routerid);
+  unsigned int size = ntohs(ps->ospf_packet.length), i, twoway, oldpriority, eligible = 0;
 
   OSPF_TRACE(D_PACKETS, "Received hello from %I via %s", faddr,
 	     ifa->iface->name);
@@ -30,7 +26,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
 
   if ((unsigned) ipa_mklen(mask) != ifa->iface->addr->pxlen)
   {
-    log(L_ERR, "%s%I%sbad netmask %I.", beg, nrid, rec, mask);
+    log(L_ERR "%s%I%sbad netmask %I.", beg, faddr, rec, mask);
     return;
   }
 
@@ -54,7 +50,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
     return;
   }
 
-  if ((n = find_neigh(ifa, nrid)) == NULL)
+  if (!n)
   {
     if ((ifa->type == OSPF_IT_NBMA))
     {
@@ -92,7 +88,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
 
     n = ospf_neighbor_new(ifa);
 
-    n->rid = nrid;
+    n->rid = ntohl(((struct ospf_packet *) ps)->routerid);
     n->ip = faddr;
     n->dr = ps->dr;
     ipa_ntoh(n->dr);

@@ -12,7 +12,7 @@
 
 void ospf_lsupd_send_list(struct ospf_neighbor *n, list * l);
 void ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
-			struct ospf_iface *ifa, u16 size);
+			struct ospf_iface *ifa, struct ospf_neighbor *n);
 int ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 		     struct ospf_lsa_header *hh, struct ospf_iface *iff,
 		     struct ospf_area *oa, int rtl);

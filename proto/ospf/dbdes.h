@@ -12,6 +12,6 @@
 
 void ospf_dbdes_send(struct ospf_neighbor *n);
 void ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
-			struct ospf_iface *ifa, u16 size);
+			struct ospf_iface *ifa, struct ospf_neighbor *n);
 
 #endif /* _BIRD_OSPF_DBDES_H_ */

@@ -182,26 +182,11 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct ospf_neighbor *n)
 
 void
 ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
-		   struct ospf_iface *ifa, u16 size)
+		   struct ospf_iface *ifa, struct ospf_neighbor *n)
 {
   struct proto *p = (struct proto *) ifa->proto;
-  u32 nrid, myrid = p->cf->global->router_id;
-  struct ospf_neighbor *n;
-
-  nrid = ntohl(((struct ospf_packet *) ps)->routerid);
-
-
-  if ((n = find_neigh(ifa, nrid)) == NULL)
-  {
-    OSPF_TRACE(D_PACKETS, "Received dbdes from unknown neigbor! %I.", nrid);
-    return;
-  }
-
-  if (ifa->iface->mtu < size)
-  {
-    OSPF_TRACE(D_PACKETS, "Received dbdes larger than MTU from %I!", n->ip);
-    return;
-  }
+  u32 myrid = p->cf->global->router_id;
+  unsigned int size = ntohs(ps->ospf_packet.length);
 
   OSPF_TRACE(D_PACKETS, "Received dbdes from %I via %s.", n->ip,
 	     ifa->iface->name);
