@@ -23,7 +23,7 @@
 #define HASH_LO_STEP 2
 #define HASH_LO_MIN 8
 
-void
+unsigned int
 make_rt_lsa(struct ospf_area *oa, struct proto_ospf *p)
 {
   struct ospf_iface *ifa;
@@ -147,17 +147,16 @@ make_rt_lsa(struct ospf_area *oa, struct proto_ospf *p)
   rt->links=i;
   if(old->lsa_body!=NULL) mb_free(old->lsa_body);
   old->lsa_body=rt;
+  return rt->links*sizeof(struct ospf_lsa_rt_link)+sizeof(struct ospf_lsa_rt);
 }
 	
 
-	
 void
 addifa_rtlsa(struct ospf_iface *ifa)
 {
   struct ospf_area *oa;
   struct proto_ospf *po;
   u32 rtid;
-  struct top_hash_entry *rt;
   struct top_graph_rtlsa_link *li, *lih;
 
   po=ifa->proto;
@@ -196,8 +195,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
 
   }
-  make_rt_lsa(oa, po);
-  /* FIXME length? */
+  oa->rt->body_len=make_rt_lsa(oa, po);
   /*FIXME seq no++ */
   /*FIXME lsa_flood(oa->rt) */
 }
