@@ -8,15 +8,18 @@
  	FIXME: IpV6 support: packet size
  	FIXME: IpV6 support: use right address for broadcasts
 	FIXME: IpV6 support: receive "route using" blocks
-	FIXME: Do we send "triggered updates" correctly? No.
-	FIXME: When route's metric changes to 16, start garbage collection immediately? Do _not_ restart on new updates with metric == 16.
-	FIXME: When route's 60 seconds old and we get same metric, use that!
-	FIXME: Triggered updates. When triggered update was sent, don't send new one for something between 1 and 5 seconds (and send one after that).
+
+	FIXME: fold rip_connection into rip_interface?
 
 	We are not going to honour requests for sending part of
 	routing table. That would need to turn split horizont off,
 	etc.  
- 
+
+	Triggered updates. When triggered update was sent, don't send
+	new one for something between 1 and 5 seconds (and send one
+	after that), says RFC. We do something else: once in 5 second
+	we look for any changed routes and broadcast them.
+
  */
 
 #define LOCAL_DEBUG
@@ -65,6 +68,46 @@ rip_tx_err( sock *s, int err )
 }
 
 static void
+rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e )
+{
+  DBG( "." );
+  b->family  = htons( 2 ); /* AF_INET */
+  b->tag     = htons( e->tag );
+  b->network = e->n.prefix;
+#ifndef IPV6
+  b->netmask = ipa_mkmask( e->n.pxlen );
+  ipa_hton( b->netmask );
+  b->nexthop = IPA_NONE;	
+  {
+    /*
+     *  FIXME:  This DOESN'T work. The s->daddr will be typically
+     *  a broadcast or multicast address which will be of course
+     *  rejected by the neighbor cache. I've #ifdef'd out the whole
+     *  test to avoid dereferencing NULL pointer.  --mj
+     */
+#if 0
+    neighbor *n1, *n2;
+    n1 = neigh_find( p, &daddr, 0 );	/* FIXME, mj: this is neccessary for responses, still it is too complicated for common case */
+    n2 = neigh_find( p, &e->nexthop, 0 );
+    if (n1->iface == n2->iface)
+      b->nexthop = e->nexthop;
+    else
+#endif
+      b->nexthop = IPA_NONE;	
+  }
+  ipa_hton( b->nexthop );
+#else
+  b->pxlen = e->n.pxlen;
+#endif
+  b->metric  = htonl( e->metric );
+  if (ipa_equal(e->whotoldme, daddr)) {	/* FIXME: ouch, daddr is some kind of broadcast address. How am I expected to do split horizont?!?!? */
+    DBG( "(split horizont)" );
+    b->metric = P_CF->infinity;
+  }
+  ipa_hton( b->network );
+}
+
+static void
 rip_tx( sock *s )
 {
   struct rip_interface *rif = s->data;
@@ -94,42 +137,11 @@ rip_tx( sock *s )
     i = !!P_CF->authtype;
     FIB_ITERATE_START(&P->rtable, &c->iter, z) {
       struct rip_entry *e = (struct rip_entry *) z;
-      DBG( "." );
-      packet->block[i].family  = htons( 2 ); /* AF_INET */
-      packet->block[i].tag     = htons( e->tag );
-      packet->block[i].network = e->n.prefix;
-#ifndef IPV6
-      packet->block[i].netmask = ipa_mkmask( e->n.pxlen );
-      ipa_hton( packet->block[i].netmask );
-      packet->block[i].nexthop = IPA_NONE;	
-      {
-	/*
-	 *  FIXME:  This DOESN'T work. The s->daddr will be typically
-	 *  a broadcast or multicast address which will be of course
-	 *  rejected by the neighbor cache. I've #ifdef'd out the whole
-	 *  test to avoid dereferencing NULL pointer.  --mj
-	 */
-#if 0
-	neighbor *n1, *n2;
-	n1 = neigh_find( p, &s->daddr, 0 );	/* FIXME, mj: this is neccessary for responses, still it is too complicated for common case */
-	n2 = neigh_find( p, &e->nexthop, 0 );
-	if (n1->iface == n2->iface)
-	  packet->block[i].nexthop = e->nexthop;
-	else
-#endif
-	  packet->block[i].nexthop = IPA_NONE;	
-      }
-      ipa_hton( packet->block[i].nexthop );
-#else
-      packet->block[i].pxlen = e->n.pxlen;
-#endif
-      packet->block[i].metric  = htonl( e->metric );
-      if (ipa_equal(e->whotoldme, s->daddr)) {
-	DBG( "(split horizont)" );
-	packet->block[i].metric = P_CF->infinity;
-      }
-      ipa_hton( packet->block[i].network );
 
+      if (rif->triggered && (!(e->updated < now-5)))
+	continue;
+
+      rip_tx_prepare( p, s->daddr, packet->block + i, e );
       if (i++ == ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX)) {
 	FIB_ITERATE_PUT(&c->iter, z);
 	goto break_loop;
@@ -143,6 +155,8 @@ rip_tx( sock *s )
       rip_outgoing_authentication(p, (void *) &packet->block[0], packet, i);
 
     DBG( ", sending %d blocks, ", i );
+    if (!i)
+      continue;
 
     if (ipa_nonzero(c->daddr))
       i = sk_send_to( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ), c->daddr, c->dport );
@@ -155,6 +169,8 @@ rip_tx( sock *s )
   
   if (i<0) rip_tx_err( s, i );
   DBG( "blocked\n" );
+  return;
+
 }
 
 static void
@@ -166,6 +182,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
 
   if (rif->busy) {
     log (L_WARN "Interface %s is much too slow, dropping request", iface->name);
+    /* FIXME: memory leak */
     return;
   }
   rif->busy = c;
@@ -424,6 +441,7 @@ rip_timer(timer *t)
   DBG( "RIP: Broadcasting routing tables\n" );
   {
     struct rip_interface *rif;
+    P->tx_count ++;
 
     WALK_LIST( rif, P->interfaces ) {
       struct iface *iface = rif->iface;
@@ -432,6 +450,7 @@ rip_timer(timer *t)
       if (rif->patt->mode & IM_QUIET) continue;
       if (!(iface->flags & IF_UP)) continue;
 
+      rif->triggered = (P->tx_count % 6);
       rip_sendto( p, IPA_NONE, 0, rif );
     }
   }
@@ -694,7 +713,7 @@ rip_rte_better(struct rte *new, struct rte *old)
   if (old->u.rip.metric > new->u.rip.metric)
     return 1;
 
-  if (new->u.rip.metric == 16) {
+  if ((old->u.rip.metric != 16) && (new->u.rip.metric == 16)) {
     struct proto *p = new->attrs->proto;
     new->u.rip.lastmodX = now - P_CF->timeout_time;	/* Check this: if new metric is 16, act as it was timed out */
   }

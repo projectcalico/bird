@@ -101,6 +101,7 @@ struct rip_interface {
   sock *sock;
   struct rip_connection *busy;
   struct rip_patt *patt;  
+  int triggered;
 };
 
 struct rip_patt {
@@ -144,6 +145,7 @@ struct rip_proto {
   list garbage;
   list interfaces;	/* Interfaces we really know about */
   int magic;
+  int tx_count;		/* Do one regular update once in a while */
 };
 
 
