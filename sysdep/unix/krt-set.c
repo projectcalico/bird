@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Unix Routing Table Syncing
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -115,8 +115,8 @@ krt_add_route(rte *new)
 void
 krt_set_notify(struct proto *x, net *net, rte *new, rte *old)
 {
-  if (x->state != PRS_UP)
-    return;
+  if (x->proto_state != PS_UP)
+    bug("FIXME: krt_set_notify called for downed protocol");
   if (old)
     krt_remove_route(old);
   if (new)
@@ -124,9 +124,14 @@ krt_set_notify(struct proto *x, net *net, rte *new, rte *old)
 }
 
 void
-krt_set_preconfig(struct krt_proto *x)
+krt_set_start(struct krt_proto *x)
 {
   if (if_scan_sock < 0)
     bug("krt set: missing socket");
   x->p.rt_notify = krt_set_notify;
+}
+
+void
+krt_set_preconfig(struct krt_config *c)
+{
 }

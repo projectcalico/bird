@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Unix Routing Table Scanning and Syncing
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -23,43 +23,53 @@
 #include "unix.h"
 #include "krt.h"
 
-struct proto *cf_krt_proto;
+struct proto_config *cf_krt;
 
-void
-krt_start(struct proto *P)
+static int
+krt_start(struct proto *p)
 {
-  struct krt_proto *p = (struct krt_proto *) P;
-  krt_scan_start(p);
-  krt_if_start(p);
+  struct krt_proto *k = (struct krt_proto *) p;
+
+  krt_scan_start(k);
+  krt_set_start(k);
+  krt_if_start(k);
+  return PS_UP;
 }
 
-void
-krt_shutdown(struct proto *P, int time)
+int
+krt_shutdown(struct proto *p)
 {
-  struct krt_proto *p = (struct krt_proto *) P;
-  krt_scan_shutdown(p);
-  krt_if_shutdown(p);
+  struct krt_proto *k = (struct krt_proto *) p;
+
+  krt_scan_shutdown(k);
+  krt_if_shutdown(k);
+  return PS_DOWN;
 }
 
-void
-krt_preconfig(struct protocol *x)
+static void
+krt_preconfig(struct protocol *x, struct config *c)
 {
-  struct krt_proto *p = (struct krt_proto *) proto_new(&proto_unix_kernel, sizeof(struct krt_proto));
+  struct krt_config *z = proto_config_new(&proto_unix_kernel, sizeof(struct krt_config));
 
-  cf_krt_proto = &p->p;
-  p->p.preference = DEF_PREF_UKR;
-  p->p.start = krt_start;
-  p->p.shutdown = krt_shutdown;
-  krt_scan_preconfig(p);
-  krt_set_preconfig(p);
-  krt_if_preconfig(p);
+  cf_krt = &z->c;
+  z->c.preference = DEF_PREF_UKR;
+  krt_scan_preconfig(z);
+  krt_set_preconfig(z);
+  krt_if_preconfig(z);
+}
+
+static struct proto *
+krt_init(struct proto_config *c)
+{
+  struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
+
+  return &p->p;
 }
 
 struct protocol proto_unix_kernel = {
-  { NULL, NULL },
-  "kernel",
-  0,
-  NULL,					/* init */
-  krt_preconfig,
-  NULL					/* postconfig */
+  name:		"Kernel",
+  preconfig:	krt_preconfig,
+  init:		krt_init,
+  start:	krt_start,
+  shutdown:	krt_shutdown,
 };

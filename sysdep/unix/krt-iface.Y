@@ -21,7 +21,7 @@ CF_ADDTO(kern_proto, kern_proto krt_if_item ';')
 krt_if_item:
    SCAN TIME expr {
       /* Scan time of 0 means scan on startup only */
-      ((struct krt_proto *) this_proto)->ifopt.scan_time = $3;
+      ((struct krt_config *) this_proto)->ifopt.scan_time = $3;
    }
  ;
 

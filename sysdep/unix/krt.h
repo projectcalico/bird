@@ -25,29 +25,37 @@
 
 extern struct protocol proto_unix_kernel;
 
-struct krt_proto {
-  struct proto p;
+struct krt_config {
+  struct proto_config c;
   struct krt_set_params setopt;
   struct krt_scan_params scanopt;
   struct krt_if_params ifopt;
 };
 
-extern struct proto *cf_krt_proto;
+struct krt_proto {
+  struct proto p;
+  struct krt_set_status setstat;
+  struct krt_scan_status scanstat;
+  struct krt_if_status ifstat;
+};
+
+extern struct proto_config *cf_krt;
 
 /* krt-scan.c */
 
-void krt_scan_preconfig(struct krt_proto *);
+void krt_scan_preconfig(struct krt_config *);
 void krt_scan_start(struct krt_proto *);
 void krt_scan_shutdown(struct krt_proto *);
 void krt_scan_ifaces_done(struct krt_proto *);
 
 /* krt-set.c */
 
-void krt_set_preconfig(struct krt_proto *);
+void krt_set_preconfig(struct krt_config *);
+void krt_set_start(struct krt_proto *);
 
 /* sync-if.c */
 
-void krt_if_preconfig(struct krt_proto *);
+void krt_if_preconfig(struct krt_config *);
 void krt_if_start(struct krt_proto *);
 void krt_if_shutdown(struct krt_proto *);
 

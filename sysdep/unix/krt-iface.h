@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Unix Kernel Interface Syncer -- Setting Parameters
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -11,6 +11,9 @@
 
 struct krt_if_params {
   int scan_time;
+};
+
+struct krt_if_status {
 };
 
 #endif

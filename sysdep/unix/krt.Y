@@ -21,8 +21,8 @@ CF_GRAMMAR
 CF_ADDTO(proto, kern_proto '}')
 
 kern_proto_start: proto_start KERNEL {
-     if (!(this_proto = cf_krt_proto)) cf_error("Kernel protocol already defined");
-     cf_krt_proto = NULL;
+     if (!(this_proto = cf_krt)) cf_error("Kernel protocol already defined");
+     cf_krt = NULL;
    }
  ;
 

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Unix Interface Scanning and Syncing
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -174,25 +174,26 @@ scan_if(timer *t)
 void
 krt_if_start(struct krt_proto *p)
 {
-  if_scan_timer = tm_new(&root_pool);
+  struct krt_config *c = (struct krt_config *) p->p.cf;
+
+  if_scan_timer = tm_new(p->p.pool);
   if_scan_timer->hook = scan_if;
   if_scan_timer->data = p;
-  if_scan_timer->recurrent = p->ifopt.scan_time;
+  if_scan_timer->recurrent = c->ifopt.scan_time;
   scan_if(if_scan_timer);
-  tm_start(if_scan_timer, p->ifopt.scan_time);
+  tm_start(if_scan_timer, c->ifopt.scan_time);
 }
 
 void
-krt_if_preconfig(struct krt_proto *p)
+krt_if_preconfig(struct krt_config *c)
 {
-  p->ifopt.scan_time = 60;
+  c->ifopt.scan_time = 60;
 }
 
 void
 krt_if_shutdown(struct krt_proto *p)
 {
   tm_stop(if_scan_timer);
-  rfree(if_scan_timer);
   /* FIXME: What should we do with interfaces? */
 }
 
