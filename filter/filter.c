@@ -11,12 +11,6 @@
 
 #undef LOCAL_DEBUG
 
-#include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/signal.h>
-#include <setjmp.h>
-
 #include "nest/bird.h"
 #include "lib/lists.h"
 #include "lib/resource.h"
@@ -112,14 +106,14 @@ static void
 tree_print(struct f_tree *t)
 {
   if (!t) {
-    printf( "() " );
+    debug( "() " );
     return;
   }
-  printf( "[ " );
+  debug( "[ " );
   tree_print( t->left );
-  printf( ", " ); val_print( t->from ); printf( ".." ); val_print( t->to ); printf( ", " );
+  debug( ", " ); val_print( t->from ); debug( ".." ); val_print( t->to ); debug( ", " );
   tree_print( t->right );
-  printf( "] " );
+  debug( "] " );
 }
 
 void
@@ -140,7 +134,7 @@ val_print(struct f_val v)
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   default: PRINTF( "[unknown type %x]", v.type );
   }
-  printf( buf );
+  debug( buf );
 }
 
 static struct rte **f_rte, *f_rte_old;
@@ -283,12 +277,12 @@ interpret(struct f_inst *what)
     res.type = T_BOOL;
     break;
   case '0':
-    printf( "No operation\n" );
+    debug( "No operation\n" );
     break;
   case P('p',','):
     ONEARG;
     if (what->a2.i != F_NONL)
-      printf( "\n" );
+      debug( "\n" );
 
     switch (what->a2.i) {
     case F_QUITBIRD:
@@ -420,7 +414,7 @@ interpret(struct f_inst *what)
 	v1.type = T_VOID;
 	t = find_tree(what->a2.p, v1);
 	if (!t) {
-	  printf( "No else statement?\n ");
+	  debug( "No else statement?\n ");
 	  break;
 	}
       }	
@@ -554,11 +548,11 @@ filters_postconfig(void)
 {
   struct f_val res;
   if (startup_func) {
-    printf( "Launching startup function...\n" );
+    debug( "Launching startup function...\n" );
     res = interpret(startup_func);
     if (res.type == F_ERROR)
       die( "Startup function resulted in error." );
-    printf( "done\n" );
+    debug( "done\n" );
   }
 } 
 
