@@ -169,6 +169,7 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
   }
 
   debug("%s: Received LS ack from %I\n", p->name, n->ip);
+  ospf_neigh_sm(n, INM_HELLOREC);
 
   if(n->state<NEIGHBOR_EXCHANGE) return;
 

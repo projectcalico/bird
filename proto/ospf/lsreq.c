@@ -127,6 +127,7 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
   if(n->state<NEIGHBOR_EXCHANGE) return;
 
   debug("%s: Received LS req from neighbor: %I\n",p->name, n->ip);
+  ospf_neigh_sm(n, INM_HELLOREC);
 
   length=ntohs(ps->ospf_packet.length);
   lsh=(void *)(ps+1);

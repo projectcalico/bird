@@ -219,6 +219,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
   debug("%s: Received dbdes from %I via %s.\n", p->name, n->ip,
     ifa->iface->name);
+  ospf_neigh_sm(n, INM_HELLOREC);
 
   switch(n->state)
   {
