@@ -41,6 +41,12 @@ scan_ifs(struct ifreq *r, int cnt)
     {
       bzero(&i, sizeof(i));
       DBG("%s\n", r->ifr_name);
+      if (strchr(r->ifr_name, ':'))
+	{
+	  /* FIXME: Honour aliases as secondary addresses? */
+	  DBG("Alias, ignored.\n");
+	  continue;
+	}
       strncpy(i.name, r->ifr_name, sizeof(i.name) - 1);
       get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &i.ip, NULL);
       if (ipa_nonzero(i.ip))
