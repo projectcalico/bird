@@ -80,7 +80,6 @@ rte_get_temp(rta *a)
   e->attrs = a;
   e->flags = 0;
   e->pref = a->proto->preference;
-  e->lastmod = 0;			/* FIXME */
   return e;
 }
 
@@ -200,6 +199,7 @@ rte_update(net *net, struct proto *p, rte *new)
     }
   if (old)
     rte_free(old);
+  new->lastmod = now;
 }
 
 void
@@ -207,7 +207,7 @@ rte_dump(net *n, rte *e)
 {
   if (n)
     debug("%1I/%2d ", n->n.prefix, n->n.pxlen);
-  debug("PF=%02x pref=%d lm=%d ", e->pflags, e->pref, e->lastmod);
+  debug("PF=%02x pref=%d lm=%d ", e->pflags, e->pref, now-e->lastmod);
   rta_dump(e->attrs);
   if (e->flags & REF_CHOSEN)
     debug(" [*]");
