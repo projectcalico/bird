@@ -9,7 +9,13 @@
 #ifndef _BIRD_PROTOCOL_H_
 #define _BIRD_PROTOCOL_H_
 
+#include "lib/lists.h"
 #include "lib/resource.h"
+
+struct iface;
+struct rte;
+struct neighbor;
+struct rtattr;
 
 /*
  *	Routing Protocol
@@ -40,19 +46,22 @@ extern struct protocol proto_static;
  */
 
 struct proto {
-  struct proto *next;
+  node n;
   struct protocol *proto;		/* Protocol */
   char *name;				/* Name of this instance */
   unsigned debug;			/* Debugging flags */
   pool *pool;				/* Local objects */
   unsigned preference;			/* Default route preference */
 
-  void (*if_notify)(struct proto *, struct iface *old, struct iface *new);
-  void (*rt_notify)(struct proto *, struct rte *old, struct rte *new);
+  void (*if_notify)(struct proto *, struct iface *new, struct iface *old);
+  void (*rt_notify)(struct proto *, struct rte *new, struct rte *old);
   void (*neigh_lost_notify)(struct proto *, struct neighbor *neigh);
-  void (*debug)(struct proto *);		/* Debugging dump */
+  void (*dump)(struct proto *);			/* Debugging dump */
   void (*start)(struct proto *);		/* Start the instance */
   void (*shutdown)(struct proto *, int time);	/* Stop the instance */
+
+  int (*rta_same)(struct rtattr *, struct rtattr *);
+  int (*rte_better)(struct rte *, struct rte *);
 
   /* Reconfigure function? */
   /* Interface patterns */
@@ -63,5 +72,7 @@ struct proto {
 };
 
 void *proto_new(struct protocol *, unsigned size);
+
+extern list proto_list;
 
 #endif

@@ -21,7 +21,7 @@ export
 all: .dep all-dirs bird
 
 all-dirs:
-	set -e ; for a in $(DIRS) ; do $(MAKE) -C $$a all ; done
+	set -e ; for a in $(DIRS) ; do $(MAKE) -C $$a this ; done
 
 bird: $(PARTOBJS) $(LIBS)
 	$(CC) $(LDFLAGS) -o $@ $^

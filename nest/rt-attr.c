@@ -1,0 +1,143 @@
+/*
+ *	BIRD -- Route Attribute Cache
+ *
+ *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *
+ *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+#include <string.h>
+
+#include "nest/bird.h"
+#include "nest/route.h"
+#include "nest/protocol.h"
+#include "lib/resource.h"
+
+/*
+ *	FIXME: Implement hash tables and garbage collection!
+ */
+
+static rta *first_rta;
+static slab *rta_slab;
+static pool *rta_pool;
+
+static inline int
+ea_same(ea_list *x, ea_list *y)
+{
+  int c;
+
+  while (x && y)
+    {
+      if (x->nattrs != y->nattrs)
+	return 0;
+      for(c=0; c<x->nattrs; c++)
+	{
+	  eattr *a = &x->attrs[c];
+	  eattr *b = &y->attrs[c];
+
+	  if (a->protocol != b->protocol ||
+	      a->flags != b->flags ||
+	      a->id != b->id ||
+	      ((a->flags & EAF_LONGWORD) ? a->u.data != b->u.data :
+	       (a->u.ptr->length != b->u.ptr->length || memcmp(a->u.ptr, b->u.ptr, a->u.ptr->length))))
+	    return 0;
+	}
+      x = x->next;
+      y = y->next;
+    }
+  return (!x && !y);
+}
+
+static inline int
+rta_same(rta *x, rta *y)
+{
+  return (x->proto == y->proto &&
+	  x->source == y->source &&
+	  x->scope == y->scope &&
+	  x->cast == y->cast &&
+	  x->dest == y->dest &&
+	  x->tos == y->tos &&
+	  x->flags == y->flags &&
+	  ipa_equal(x->gw, y->gw) &&
+	  ipa_equal(x->from, y->from) &&
+	  x->iface == y->iface &&
+	  ea_same(x->attrs, y->attrs) &&
+	  x->proto->rta_same(x, y));
+}
+
+static inline ea_list *
+ea_list_copy(ea_list *o)
+{
+  ea_list *n, **p, *z;
+  unsigned i;
+
+  p = &n;
+  while (o)
+    {
+      z = mb_alloc(rta_pool, sizeof(ea_list) + sizeof(eattr) * o->nattrs);
+      memcpy(z, o, sizeof(ea_list) + sizeof(eattr) * o->nattrs);
+      *p = z;
+      p = &z->next;
+      for(i=0; i<o->nattrs; i++)
+	{
+	  eattr *a = o->attrs + i;
+	  if (!(a->flags & EAF_LONGWORD))
+	    {
+	      unsigned size = sizeof(struct adata) + a->u.ptr->length;
+	      struct adata *d = mb_alloc(rta_pool, size);
+	      memcpy(d, a->u.ptr, size);
+	      a->u.ptr = d;
+	    }
+	}
+      o = o->next;
+    }
+  *p = NULL;
+  return n;
+}
+
+static rta *
+rta_copy(rta *o)
+{
+  rta *r = sl_alloc(rta_slab);
+
+  memcpy(r, o, sizeof(rta));
+  r->uc = 1;
+  r->attrs = ea_list_copy(o->attrs);
+  return r;
+}
+
+rta *
+rta_lookup(rta *o)
+{
+  rta *r;
+
+  for(r=first_rta; r; r=r->next)
+    if (rta_same(r, o))
+      return rta_clone(r);
+  r = rta_copy(o);
+  r->next = first_rta;
+  first_rta = r;
+  return r;
+}
+
+void
+_rta_free(rta *r)
+{
+}
+
+void
+rta_dump(rta *r)
+{
+}
+
+void
+rta_dump_all(void)
+{
+}
+
+void
+rta_init(void)
+{
+  rta_pool = rp_new(&root_pool);
+  rta_slab = sl_new(rta_pool, sizeof(rta));
+}

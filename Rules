@@ -9,11 +9,17 @@ ifndef SRCS
 SRCS=$(subst .o,.c,$(OBJS))
 endif
 
+.PHONY: all this dep
+
+all:
+	@echo "Please run the top-level Makefile instead."
+	@exit 1
+
 ifdef OBJS
 
 ifdef LIB
 
-all: $(LIB)
+this: $(LIB)
 
 $(LIB): $(OBJS)
 	rm -f $(LIB)
@@ -22,7 +28,7 @@ $(LIB): $(OBJS)
 
 else
 
-all: $(ONAME)
+this: $(ONAME)
 
 $(ONAME): $(OBJS)
 	$(LD) -r -o $(ONAME) $(OBJS)

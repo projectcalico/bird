@@ -20,6 +20,8 @@ main(void)
 
   log_init_debug(NULL);
   resource_init();
+  rt_init();
+  proto_init();
 
   return 0;
 }

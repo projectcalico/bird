@@ -11,6 +11,8 @@
 
 #include "lib/resource.h"
 
+struct protocol;
+
 /*
  *	Generic data structure for storing network prefixes. Also used
  *	for the master routing table. Currently implemented as a hash 
@@ -131,6 +133,18 @@ typedef struct rte {
 
 #define REF_CHOSEN 1			/* Currently chosen route */
 
+extern rtable master_table;
+
+void rt_init(void);
+void rt_setup(rtable *, char *);
+net *net_find(rtable *tab, unsigned tos, ip_addr mask, unsigned len);
+net *net_get(rtable *tab, unsigned tos, ip_addr mask, unsigned len);
+rte *rte_find(net *net, struct proto *p);
+rte *rte_get_temp(struct rtattr *);
+void rte_update(net *net, rte *new);
+void rte_dump(rte *);
+void rt_dump(rtable *);
+
 /*
  *	Route Attributes
  *
@@ -139,7 +153,7 @@ typedef struct rte {
  *	construction of BGP route attribute lists.
  */
 
-struct rtattr {
+typedef struct rtattr {
   struct rtattr *next, *prev;		/* Hash chain */
   struct rtattr *garbage;		/* Garbage collector chain */
   struct proto *proto;			/* Protocol instance */
@@ -230,6 +244,14 @@ eattr *ea_find(ea_list *, unsigned protocol, unsigned id);
 	memset(p, 0, sizeof(ea_list));				\
 	p->nattrs = cnt;					\
 } while(0)
+
+void rta_init(void);
+rta *rta_lookup(rta *);			/* Get rta equivalent to this one, uc++ */
+static inline rta *rta_clone(rta *r) { r->uc++; return r; }
+void _rta_free(rta *r);
+static inline void rta_free(rta *r) { if (r && !--r->uc) _rta_free(r); }
+void rta_dump(rta *);
+void rta_dump_all(void);
 
 /*
  *	Default protocol preferences
