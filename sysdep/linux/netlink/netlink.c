@@ -45,10 +45,6 @@
 #define MSG_TRUNC 0x20
 #endif
 
-#ifndef RTPROT_BIRD			/* FIXME: Kill after Alexey assigns as a number */
-#define RTPROT_BIRD 13
-#endif
-
 /*
  *	Synchronous Netlink interface
  */
