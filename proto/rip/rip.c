@@ -865,6 +865,16 @@ rip_get_attr(eattr *a, byte *buf)
   }
 }
 
+static int
+rip_reconfigure(struct proto *p, struct proto_config *c)
+{
+  struct rip_config *new = (struct rip_config *) c;
+
+  return !memcmp(((byte *) P_CF) + sizeof(struct proto_config),
+                 ((byte *) new) + sizeof(struct proto_config),
+                 sizeof(struct rip_proto_config) - sizeof(struct proto_config));
+}
+
 struct protocol proto_rip = {
   name: "RIP",
   template: "rip%d",
@@ -875,4 +885,5 @@ struct protocol proto_rip = {
   init: rip_init,
   dump: rip_dump,
   start: rip_start,
+  reconfigure: rip_reconfigure,
 };
