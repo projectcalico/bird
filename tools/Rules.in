@@ -59,7 +59,7 @@ endif
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 depend:
-	gcc $(CPPFLAGS) -MM $(addprefix $(src-path),$(source)) >depend
+	$(CC) $(CPPFLAGS) -MM $(addprefix $(src-path),$(source)) >depend
 
 ifneq ($(wildcard depend),)
 include depend
