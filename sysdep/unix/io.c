@@ -774,7 +774,7 @@ sk_open_unix(sock *s, char *name)
   unlink(name);
   sa.sun_family = AF_UNIX;
   strcpy(sa.sun_path, name);
-  if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
+  if (bind(fd, (struct sockaddr *) &sa, SUN_LEN(&sa)) < 0)
     ERR("bind");
   if (listen(fd, 8))
     ERR("listen");
