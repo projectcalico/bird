@@ -357,6 +357,7 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
 /**
  * max_ext_lsa - calculate the maximum amount of external networks
  * possible for the given prefix length.
+ * @pxlen: network prefix length
  *
  * This is a fix for the previous static use of MAXNETS which did
  * only work correct if MAXNETS < possible IPs for given prefix.
