@@ -288,7 +288,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
     case INM_1WAYREC:
       if(n->state>=NEIGHBOR_2WAY)
       {
-        neigh_chstate(n,NEIGHBOR_DOWN);
+        neigh_chstate(n,NEIGHBOR_INIT);
 	ospf_int_sm(n->ifa, ISM_NEICH);
       }
       break;
