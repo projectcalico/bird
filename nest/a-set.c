@@ -33,7 +33,8 @@ int_set_format(struct adata *set, byte *buf, unsigned int size)
 	  strcpy(buf, "...");
 	  return;
 	}
-      buf += bsprintf(buf, "%d:%d", *z/65536, *z & 0xffff);
+      /* FIXME: should not we use same syntax as in filters (i.e. (x,y) )? */
+      buf += bsprintf(buf, "%d:%d ", *z/65536, *z & 0xffff);
       z++;
     }
   *buf = 0;
