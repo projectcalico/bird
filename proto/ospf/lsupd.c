@@ -44,7 +44,6 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       if(nn->state<NEIGHBOR_EXCHANGE) continue;
       if(nn->state<NEIGHBOR_FULL)
       {
-
         if((en=ospf_hash_find_header(nn->lsrqh,hh))!=NULL)
 	{
 	  switch(lsa_comp(hh,&en->lsa))
@@ -93,9 +92,12 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
           s_rem_node(SNODE en);
           ospf_hash_delete(nn->lsrth, en);
         }
+        ret=1;
       }
     }
+
     if(ret==0) continue;
+
     if(ifa==iff)
     {
       if((n->rid==iff->drid)||n->rid==iff->bdrid) continue;
@@ -307,8 +309,8 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       continue;
     }
     ntohlsah(lsa,&lsatmp);
-    DBG("Processing update Type: %u ID: %I RT: %I\n",lsatmp.type,
-        lsatmp.id, lsatmp.rt);
+    DBG("Processing update Type: %u ID: %I RT: %I, Sn: 0x%08x\n",lsatmp.type,
+      lsatmp.id, lsatmp.rt, lsatmp.sn);
     lsadb=ospf_hash_find_header(oa->gr, &lsatmp);
 
     /* pg 143 (4) */
@@ -358,14 +360,15 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
        {
          struct top_hash_entry *en;
 
+         if((lsatmp.age==LSA_MAXAGE)&&(lsatmp.sn==LSA_MAXSEQNO)) continue;
+
 	 lsatmp.age=LSA_MAXAGE;
 	 lsatmp.sn=LSA_MAXSEQNO;
+         lsa->age=htons(LSA_MAXAGE);
+         lsa->sn=htonl(LSA_MAXSEQNO);
 	 debug("%s: Premature aging self originated lsa.\n",p->name);
          debug("%s: Type: %d, Id: %I, Rt: %I\n", p->name, lsatmp.type,
            lsatmp.id, lsatmp.rt);
-         body=mb_alloc(p->pool,lsatmp.length-sizeof(struct ospf_lsa_header));
-         ntohlsab(lsa+1,body,lsatmp.type,
-           lsatmp.length-sizeof(struct ospf_lsa_header));
 	 lsasum_check(lsa,(lsa+1),po);
 	 lsatmp.checksum=ntohs(lsa->checksum);
          flood_lsa(NULL,lsa,&lsatmp,po,NULL,oa,0);

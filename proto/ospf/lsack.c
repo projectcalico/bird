@@ -191,6 +191,8 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
 
     if(lsa_comp(&lsa,&en->lsa)!=CMP_SAME)
     {
+      if((lsa.sn==LSA_MAXSEQNO)&&(lsa.age==LSA_MAXAGE)) continue;
+
       debug("%s: Strange LS acknoledgement from %I\n",p->name,n->ip);
       debug("%s: Id: %I, Rt: %I, Type: %u\n",p->name,lsa.id,lsa.rt,lsa.type);
       debug("%s: I have: Age: %4u, Seqno: 0x%08x\n",p->name,en->lsa.age,
