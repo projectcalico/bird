@@ -55,6 +55,8 @@ val_compare(struct f_val v1, struct f_val v2)
     if (v1.val.i == v2.val.i) return 0;
     if (v1.val.i < v2.val.i) return -1;
     return 1;
+  case T_IP:
+    return ipa_compare(v1.val.ip, v2.val.ip);
   default: return CMP_ERROR;
   }
 }
