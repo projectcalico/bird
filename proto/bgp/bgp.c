@@ -77,7 +77,7 @@ static void bgp_initiate(struct bgp_proto *p);
 static void bgp_setup_listen_sk(void);
 
 void
-bgp_close(struct bgp_proto *p)
+bgp_close(struct bgp_proto *p UNUSED)
 {
   ASSERT(bgp_counter);
   bgp_counter--;
@@ -370,7 +370,7 @@ bgp_initiate(struct bgp_proto *p)
  * closes the new connection by sending a Notification message.
  */
 static int
-bgp_incoming_connection(sock *sk, int dummy)
+bgp_incoming_connection(sock *sk, int dummy UNUSED)
 {
   struct proto_config *pc;
   int match = 0;

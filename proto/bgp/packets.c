@@ -524,7 +524,6 @@ bgp_do_rx_update(struct bgp_conn *conn,
   rta *a = NULL;
   ip_addr prefix;
   net *n;
-  rte e;
   int err = 0, pxlen;
 
   /* Withdraw routes */
@@ -787,7 +786,7 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
 }
 
 static void
-bgp_rx_keepalive(struct bgp_conn *conn, byte *pkt, unsigned len)
+bgp_rx_keepalive(struct bgp_conn *conn)
 {
   struct bgp_proto *p = conn->bgp;
 
@@ -826,7 +825,7 @@ bgp_rx_packet(struct bgp_conn *conn, byte *pkt, unsigned len)
     case PKT_OPEN:		return bgp_rx_open(conn, pkt, len);
     case PKT_UPDATE:		return bgp_rx_update(conn, pkt, len);
     case PKT_NOTIFICATION:      return bgp_rx_notification(conn, pkt, len);
-    case PKT_KEEPALIVE:		return bgp_rx_keepalive(conn, pkt, len);
+    case PKT_KEEPALIVE:		return bgp_rx_keepalive(conn);
     default:			bgp_error(conn, 1, 3, pkt+18, 1);
     }
 }

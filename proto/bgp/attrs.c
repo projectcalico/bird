@@ -39,7 +39,7 @@ struct attr_desc {
 };
 
 static int
-bgp_check_origin(struct bgp_proto *p, byte *a, int len)
+bgp_check_origin(struct bgp_proto *p UNUSED, byte *a UNUSED, int len)
 {
   if (len > 2)
     return 6;
@@ -55,7 +55,7 @@ bgp_format_origin(eattr *a, byte *buf)
 }
 
 static int
-bgp_check_path(struct bgp_proto *p, byte *a, int len)
+bgp_check_path(struct bgp_proto *p UNUSED, byte *a, int len)
 {
   while (len)
     {
@@ -71,7 +71,7 @@ bgp_check_path(struct bgp_proto *p, byte *a, int len)
 }
 
 static int
-bgp_check_next_hop(struct bgp_proto *p, byte *a, int len)
+bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
 {
 #ifdef IPV6
   return -1;
@@ -88,7 +88,7 @@ bgp_check_next_hop(struct bgp_proto *p, byte *a, int len)
 }
 
 static int
-bgp_check_reach_nlri(struct bgp_proto *p, byte *a, int len)
+bgp_check_reach_nlri(struct bgp_proto *p UNUSED, byte *a UNUSED, int len UNUSED)
 {
 #ifdef IPV6
   p->mp_reach_start = a;
@@ -98,7 +98,7 @@ bgp_check_reach_nlri(struct bgp_proto *p, byte *a, int len)
 }
 
 static int
-bgp_check_unreach_nlri(struct bgp_proto *p, byte *a, int len)
+bgp_check_unreach_nlri(struct bgp_proto *p UNUSED, byte *a UNUSED, int len UNUSED)
 {
 #ifdef IPV6
   p->mp_unreach_start = a;
@@ -415,7 +415,7 @@ bgp_export_check(struct bgp_proto *p, ea_list *new)
 static struct bgp_bucket *
 bgp_get_bucket(struct bgp_proto *p, ea_list *attrs, int originate)
 {
-  ea_list *t, *new;
+  ea_list *new;
   unsigned i, cnt, hash, code;
   eattr *a, *d;
   u32 seen = 0;
@@ -515,7 +515,7 @@ bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck)
 }
 
 void
-bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *attrs)
+bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old UNUSED, ea_list *attrs)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
   struct bgp_bucket *buck;
