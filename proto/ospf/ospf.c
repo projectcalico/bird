@@ -35,6 +35,11 @@ neighbor_timer_hook(timer *timer)
   p=(struct proto *)(ifa->proto);
   debug("%s: Inactivity timer fired on interface %s for neighbor %d.\n",
     p->name, ifa->iface->name, n->rid);
+  tm_stop(n->inactim);
+  rfree(n->inactim);
+  rem_node(NODE n);
+  mb_free(n);
+  debug("%s: Deleting neigbor.\n", p->name);
 }
 
 void
@@ -101,17 +106,16 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->inactim->data=n;
     n->inactim->randomize=0;
     n->inactim->hook=neighbor_timer_hook;
-    n->inactim->recurrent=ifa->deadc*ifa->helloint;
-    n->inactim->expires=0;
-    tm_start(ifa->hello_timer,ifa->deadc*ifa->helloint);
+    n->inactim->recurrent=0;
     DBG("%s: Installing inactivity timer.\n", p->name);
     n->state=NEIGHBOR_INIT;
-    n->rid=nrid;
-    n->dr=ntohl(ps->dr);
-    n->bdr=ntohl(ps->bdr);
-    n->priority=ps->priority;
-    n->options=ps->options;
   }
+  n->rid=nrid;
+  n->dr=ntohl(ps->dr);
+  n->bdr=ntohl(ps->bdr);
+  n->priority=ps->priority;
+  n->options=ps->options;
+  tm_start(ifa->hello_timer,ifa->deadc*ifa->helloint);
 
   /* XXXX */
 
@@ -467,7 +471,6 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
   if(ifa->helloint==0) ifa->helloint=HELLOINT_D;
   ifa->hello_timer->hook=hello_timer_hook;
   ifa->hello_timer->recurrent=ifa->helloint;
-  ifa->hello_timer->expires=0;
   tm_start(ifa->hello_timer,ifa->helloint);
   DBG("%s: Installing hello timer.\n", p->name);
   if((ifa->type!=OSPF_IT_PTP))
@@ -475,10 +478,9 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
     /* Install wait timer on NOT-PtP interfaces */
     ifa->wait_timer=tm_new(pool);
     ifa->wait_timer->data=ifa;
-    ifa->wait_timer->randomize=1;
+    ifa->wait_timer->randomize=0;
     ifa->wait_timer->hook=wait_timer_hook;
     ifa->wait_timer->recurrent=0;
-    ifa->wait_timer->expires=0;
     ifa->state=OSPF_IS_WAITING;
     tm_start(ifa->wait_timer,(wait!=0 ? wait : WAIT_DMH*ifa->helloint));
     DBG(p->name);
@@ -540,21 +542,29 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
     ifa->proto=(struct proto_ospf *)p;
     ifa->iface=iface;
-    add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
-    /* FIXME: This should read config */
-    ospf_add_timers(ifa,p->pool,0);
     if(ifa->type!=OSPF_IT_NBMA)
     {
       if((mcsk=ospf_open_socket(p, ifa))!=NULL)
       {
 	ifa->hello_sk=mcsk;
       }
-      else log("Huh? could not open socket?");
+      else
+      {
+        log("%s: Huh? could not open socket on interface %s?", p->name,
+          iface->name);
+	mb_free(ifa);
+	log("%s: Ignoring this interface\n", p->name);
+	return;
+      }
       /* FIXME: In fail case??? */
       init_list(&(ifa->neigh_list));
     }
     /* FIXME: NBMA? */
+    /* FIXME: This should read config */
+    ifa->helloint=0;
+    ospf_add_timers(ifa,p->pool,0);
+    add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
   }
 
   if(flags & IF_CHANGE_DOWN)
