@@ -532,6 +532,17 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	    ifa->iface->name,ip1->helloint,ip2->helloint);
 	}
 
+	/* POLL TIMER */
+	if(ip1->pollint!=ip2->pollint)
+	{
+	  ifa->pollint=ip2->helloint;
+	  ifa->poll_timer->recurrent=ifa->pollint;
+	  tm_start(ifa->poll_timer,ifa->pollint);
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing poll interval on interface %s from %d to %d",
+	    ifa->iface->name,ip1->pollint,ip2->pollint);
+	}
+
 	/* COST */
 	if(ip1->cost!=ip2->cost)
 	{
