@@ -102,6 +102,7 @@ struct ospf_iface {
 #define WAIT_DMH 3	/* Value of Wait timer - not found it in RFC 
 			 * - using 3*HELLO
 			 */
+  struct top_hash_entry *nlsa;
 };
 
 struct ospf_packet {

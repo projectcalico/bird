@@ -244,6 +244,62 @@ originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
   return en;
 }
 
+void *
+originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
+  struct proto_ospf *po)
+{
+  u16 i=1;
+  struct ospf_neighbor *n;
+  u32 *body;
+
+  WALK_LIST(n,ifa->neigh_list)
+  {
+    if(n->state==NEIGHBOR_FULL) i++;
+  }
+  body=mb_alloc(po->proto.pool,sizeof(u32)*i);
+  i=1;
+  *body=po->proto.cf->global->router_id;
+  WALK_LIST(n,ifa->neigh_list)
+  {
+    if(n->state==NEIGHBOR_FULL)
+    {
+      *(body+i)=n->rid;
+      i++;
+    }
+  }
+  *length=i*sizeof(u32)+sizeof(struct ospf_lsa_header);
+  return body;
+}
+
+struct top_hash_entry *
+originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
+{
+  struct ospf_lsa_header lsa;
+  u32 rtid=po->proto.cf->global->router_id;
+  struct top_hash_entry *en;
+  void *body;
+
+  DBG("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name, ifa->iface->name);
+
+  lsa.age=0;
+  lsa.id=rtid;
+  lsa.type=LSA_T_NET;
+  lsa.rt=rtid;
+  if(ifa->nlsa==NULL)
+  {
+    lsa.sn=LSA_INITSEQNO;
+  }
+  else
+  {
+    lsa.sn=ifa->nlsa->lsa.sn+1;
+  }
+  body=originate_net_lsa_body(ifa, &lsa.length, po);
+  lsasum_calculate(&lsa,body,po);
+  en=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
+  return en;
+}
+
+
   
 
 static void

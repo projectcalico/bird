@@ -111,7 +111,6 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
       if(ifa->state==OSPF_IS_WAITING)
       {
         bdr_election(ifa ,p);
-        originate_rt_lsa(ifa->oa,po);
       }
       break;
     case ISM_NEICH:
@@ -119,8 +118,8 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
         (ifa->state==OSPF_IS_BACKUP))
       {
         bdr_election(ifa ,p);
+        originate_rt_lsa(ifa->oa,po);
       }
-      originate_rt_lsa(ifa->oa,po);
       break;
     case ISM_DOWN:
       iface_chstate(ifa, OSPF_IS_DOWN);
