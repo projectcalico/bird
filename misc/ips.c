@@ -78,7 +78,7 @@ main(int argc, char **argv)
 	int min=cnt, max=0, zer=0;
 	double delta=0;
 	double avg = (double) cnt / z;
-	double exdelta = avg*(1-1/z);
+	double exdelta = avg*(1-1/(double)z);
 	double exzer = exp(-avg);
 	for(i=0; i<z; i++) {
 		if (h[i] < min) min=h[i];
