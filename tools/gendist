@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  Generate BIRD Distribution Archive
-#  (c) 2000 Martin Mares <mj@ucw.cz>
+#  (c) 2000--2003 Martin Mares <mj@ucw.cz>
 #
 
 set -e
@@ -13,17 +13,18 @@ autoconf
 VERSION=`sed <sysdep/config.h '/BIRD_VERSION/!d;s/^.*"\(.*\)"$/\1/'`
 REL=bird-$VERSION
 DREL=bird-doc-$VERSION
+T=/tmp/bird
 echo Building $REL
-rm -rf dist
-mkdir -p dist/$REL dist/$DREL/doc
-cp -a . dist/$REL
-scp -C atrey.karlin.mff.cuni.cz:~mj/BIRD/CVSROOT/ChangeLog dist/$REL
-mv dist/$REL/doc/*.ps dist/$DREL/doc
-rm -f dist/$REL/bird.conf
-rm -rf `find dist/$REL -name CVS -o -name tmp` dist/$REL/{dist,misc,rfc,doc/slides}
-( cd dist ; tar czvvf /tmp/$REL.tar.gz $REL )
-( cd dist ; tar czvvf /tmp/$DREL.tar.gz $DREL )
-rm -rf dist
+rm -rf $T/$REL $T/$DREL
+mkdir -p $T/$REL $T/$DREL $T/$DREL/doc
+cp -a . $T/$REL
+scp -C atrey.karlin.mff.cuni.cz:~mj/BIRD/CVSROOT/ChangeLog $T/$REL
+mv $T/$REL/doc/*.ps $T/$DREL/doc
+rm -f $T/$REL/bird.conf
+rm -rf `find $T/$REL -name CVS -o -name tmp` $T/$REL/{misc,rfc,doc/slides}
+( cd $T ; tar czvvf $REL.tar.gz $REL )
+( cd $T ; tar czvvf $DREL.tar.gz $DREL )
+rm -rf $T/$REL $T/$DREL
 echo Uploading to Atrey...
 scp /tmp/$REL.tar.gz /tmp/$DREL.tar.gz atrey.karlin.mff.cuni.cz:~ftp/pub/bird/
 echo Uploading to Regina...
