@@ -75,17 +75,14 @@ downint(struct ospf_iface *ifa)
   rem_node(NODE ifa);
   if(ifa->hello_sk!=NULL)
   {
-    sk_close(ifa->hello_sk);
     rfree(ifa->hello_sk);
   }
   if(ifa->dr_sk!=NULL)
   {
-    sk_close(ifa->dr_sk);
     rfree(ifa->dr_sk);
   }
   if(ifa->ip_sk!=NULL)
   {
-    sk_close(ifa->ip_sk);
     rfree(ifa->ip_sk);
   }
   if(ifa->wait_timer!=NULL)
