@@ -22,7 +22,7 @@ CF_DECLS
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
-CF_KEYWORDS(PRIMARY)
+CF_KEYWORDS(PRIMARY, STATS)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_EXT, OSPF_IA, OSPF_BOUNDARY, BGP, PIPE)
@@ -240,7 +240,7 @@ CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
 CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
 { if_show_summary(); } ;
 
-CF_CLI(SHOW ROUTE, r_args, [<prefix>] [table <t>] [filter <f>] [all] [primary] [(import|protocol) <p>], [[Show routing table]])
+CF_CLI(SHOW ROUTE, r_args, [<prefix>] [table <t>] [filter <f>] [all] [primary] [(import|protocol) <p>] [stats], [[Show routing table]])
 { rt_show($3); } ;
 
 r_args:
@@ -289,6 +289,10 @@ r_args:
      $$->primary_only = 1;
      $$->import_protocol = c->proto;
      $$->running_on_config = c->proto->cf->global;
+   }
+ | r_args STATS {
+     $$ = $1;
+     $$->stats = 1;
    }
  ;
 

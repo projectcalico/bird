@@ -9,11 +9,12 @@ Core
 
 - Makefile: install target?
 
-- forgetting device routes???
-- filter-defined internal attributes
 - netlink: realms
 
 - filters: deletion of mandatory attributes?
+- filters: user defined attributes?
+
+- cli: show tables?
 
 Documentation
 ~~~~~~~~~~~~~

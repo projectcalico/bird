@@ -209,6 +209,8 @@ struct rt_show_data {
   struct proto *import_protocol;
   int import_mode, primary_only;
   struct config *running_on_config;
+  int net_counter, rt_counter, show_counter;
+  int stats;
 };
 void rt_show(struct rt_show_data *);
 

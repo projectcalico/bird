@@ -720,11 +720,13 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
   int ok;
 
   bsprintf(ia, "%I/%d", n->n.prefix, n->n.pxlen);
+  d->net_counter++;
   for(e=n->routes; e; e=e->next)
     {
       struct ea_list *tmpa, *old_tmpa;
       struct proto *p0 = e->attrs->proto;
       struct proto *p1 = d->import_protocol;
+      d->rt_counter++;
       ee = e;
       rte_update_lock();		/* We use the update buffer for filtering */
       old_tmpa = tmpa = p0->make_tmp_attrs ? p0->make_tmp_attrs(e, rte_update_pool) : NULL;
@@ -743,6 +745,7 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 	}
       if (ok)
 	{
+	  d->show_counter++;
 	  rt_show_rte(c, ia, e, d, tmpa);
 	  ia[0] = 0;
 	}
@@ -789,7 +792,10 @@ rt_show_cont(struct cli *c)
       rt_show_net(c, n, d);
     }
   FIB_ITERATE_END(f);
-  cli_printf(c, 0, "");
+  if (d->stats)
+    cli_printf(c, 14, "%d of %d routes for %d networks", d->show_counter, d->rt_counter, d->net_counter);
+  else
+    cli_printf(c, 0, "");
 done:
   c->cont = c->cleanup = NULL;
 }
