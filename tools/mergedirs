@@ -20,7 +20,7 @@ shift
 
 echo "Merging system-dependent modules ($@)"
 MODULES=`for a in $@ ; do
-		cat sysdep/config.h $SRCDIR/$a/Modules |
+		cat $SRCDIR/sysdep/config.h $SRCDIR/$a/Modules |
 		$cpp -U unix -D MACROS_ONLY - |
 		sed "/^[ ]*\$/d;/^#/d;s@\\(.*\\)@\\1 $a/\\1@"
 		done |
