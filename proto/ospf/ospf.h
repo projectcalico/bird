@@ -207,11 +207,6 @@ struct ospf_lsa_rt_link_tos {	/* Actually we ignore TOS. This is useless */
   u16 metric;
 };
 
-
-struct ospf_lsa_net {
-  u32 netmask;
-};
-
 struct ospf_lsa_summ {
   u32 netmask;
 };
@@ -229,7 +224,7 @@ struct ospf_lsa_ext {
 struct ospf_lsa_ext_tos {
   u8 etos;
   u8 padding;
-  u16 mertic;
+  u16 metric;
   u32 fwaddr;
   u32 tag;
 };
@@ -244,6 +239,11 @@ struct ospf_lsreq_header {
   u8 type;
   u32 id;
   u32 rt;		/* Advertising router */
+};
+
+struct l_lsr_head {
+  node n;
+  struct ospf_lsreq_header lsh;
 };
 
 struct ospf_lsupd_packet {
@@ -345,5 +345,8 @@ static void ospf_postconfig(struct proto_config *c);
 #include "proto/ospf/topology.h"
 #include "proto/ospf/dbdes.h"
 #include "proto/ospf/lsreq.h"
+#include "proto/ospf/lsupd.h"
+#include "proto/ospf/lsack.h"
+#include "proto/ospf/lsalib.h"
 
 #endif /* _BIRD_OSPF_H_ */

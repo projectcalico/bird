@@ -9,32 +9,6 @@
 #include "ospf.h"
 
 void
-htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
-{
-  n->age=htons(h->age);
-  n->options=h->options;
-  n->type=h->type;
-  n->id=htonl(h->id);
-  n->rt=htonl(h->rt);
-  n->sn=htonl(h->sn);
-  n->checksum=htons(h->checksum);
-  n->length=htons(h->length);
-};
-
-void
-ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
-{
-  h->age=ntohs(n->age);
-  h->options=n->options;
-  h->type=n->type;
-  h->id=ntohl(n->id);
-  h->rt=ntohl(n->rt);
-  h->sn=ntohl(n->sn);
-  h->checksum=ntohs(n->checksum);
-  h->length=ntohs(n->length);
-};
-	
-void
 ospf_dbdes_tx(struct ospf_neighbor *n)
 {
   struct ospf_dbdes_packet *pkt;

@@ -42,9 +42,9 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
     lsh->type=en->lsa.type;
     lsh->rt=htonl(en->lsa.rt);
     lsh->id=htonl(en->lsa.id);
-    lsh++;
     DBG("Requesting %uth LSA: Type: %u, Id: %u, RT: %u\n",i, en->lsa.type,
 		    en->lsa.id, en->lsa.rt);
+    lsh++;
     if((sn=sn->next)==NULL) break;
   }
 
@@ -77,6 +77,9 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
   u32 nrid, myrid;
   struct ospf_neighbor *n;
   struct ospf_lsreq_header *lsh;
+  struct l_lsr_head *llsh;
+  list uplist;
+  slab *upslab;
   int length;
   u8 i;
 
@@ -94,17 +97,28 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
 
   length=htons(ps->ospf_packet.length);
   lsh=(void *)(ps+1);
+  init_list(&uplist);
+  upslab=sl_new(p->pool,sizeof(struct l_lsr_head));
+
   for(i=0;i<(length-sizeof(struct ospf_lsreq_packet))/
     sizeof(struct ospf_lsreq_header);i++);
   {
-    DBG("Processing LSA: ID=%u, Type=%u, Router=%u\n", lsh->id, lsh->type,
-      lsh->rt);
-    if(ospf_hash_find(n->ifa->oa->gr, lsh->id, lsh->rt, lsh->type)==NULL)
+    DBG("Processing LSA: ID=%u, Type=%u, Router=%u\n", lsh->id,
+    ntohl(lsh->type), ntohl(lsh->rt));
+    llsh=sl_alloc(upslab);
+    llsh->lsh.id=ntohl(lsh->id);
+    llsh->lsh.rt=ntohl(lsh->rt);
+    llsh->lsh.type=ntohl(lsh->type);
+    add_tail(&uplist, NODE llsh);
+    if(ospf_hash_find(n->ifa->oa->gr, llsh->lsh.id, llsh->lsh.rt,
+      llsh->lsh.type)==NULL)
     {
       ospf_neigh_sm(n,INM_BADLSREQ);
+      rfree(upslab);
       return;
     }
-    /* FIXME Go on */
   }
+  ospf_lsupd_tx_list(n, &uplist);
+  rfree(upslab);
 }
 
