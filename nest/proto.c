@@ -53,6 +53,7 @@ proto_enqueue(list *l, struct proto *p)
 	q = (struct proto *) q->n.next;
       insert_node(&p->n, q->n.prev);
     }
+  p->last_state_change = now;
 }
 
 static void
@@ -446,27 +447,22 @@ proto_state_name(struct proto *p)
 #undef P
 }
 
-static char *
-proto_goal_name(struct proto *p)
-{
-  if (p->disabled)
-    return " <disabled>";
-  if (p->core_goal == p->core_state)
-    return "";
-  if (p->core_goal == FS_HAPPY)
-    return " <starting>";
-  return " <shutting down>";
-}
-
 static void
 proto_do_show(struct proto *p, int verbose)
 {
-  cli_msg(-1002, "%-8s %-8s %-8s %s%s",
+  byte buf[256], reltime[TM_RELTIME_BUFFER_SIZE];
+
+  buf[0] = 0;
+  if (p->proto->get_status)
+    p->proto->get_status(p, buf);
+  tm_format_reltime(reltime, p->last_state_change);
+  cli_msg(-1002, "%-8s %-8s %-8s %-5s %-5s %s",
 	  p->name,
 	  p->proto->name,
 	  p->table->name,
 	  proto_state_name(p),
-	  proto_goal_name(p));
+	  reltime,
+	  buf);
   if (verbose)
     {
       cli_msg(-1006, "\tPreference: %d", p->preference);
@@ -492,7 +488,7 @@ proto_show(struct symbol *s, int verbose)
       cli_msg(9002, "%s is not a protocol", s->name);
       return;
     }
-  cli_msg(-2002, "name     proto    table    state");
+  cli_msg(-2002, "name     proto    table    state since info");
   if (s)
     proto_do_show(((struct proto_config *)s->def)->proto, verbose);
   else

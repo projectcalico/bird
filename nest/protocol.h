@@ -11,6 +11,7 @@
 
 #include "lib/lists.h"
 #include "lib/resource.h"
+#include "lib/timer.h"
 
 struct iface;
 struct ifa;
@@ -45,6 +46,7 @@ struct protocol {
   void (*dump_attrs)(struct rte *);		/* Dump protocol-dependent attributes */
   int (*start)(struct proto *);			/* Start the instance */
   int (*shutdown)(struct proto *);		/* Stop the instance */
+  void (*get_status)(struct proto *, byte *buf); /* Get instance status (for `show protocols' command) */
 };
 
 void protos_build(void);
@@ -98,6 +100,7 @@ struct proto {
   unsigned proto_state;			/* Protocol state machine (see below) */
   unsigned core_state;			/* Core state machine (see below) */
   unsigned core_goal;			/* State we want to reach (see below) */
+  bird_clock_t last_state_change;	/* Time of last state transition */
 
   /*
    *	General protocol hooks:
