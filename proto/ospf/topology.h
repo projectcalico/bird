@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -14,9 +14,19 @@ struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
   struct top_vertex *vertex;
   u32 lsa_id, rtr_id;
   u8 lsa_type;
+#define LSA_T_RT 1
+#define LSA_T_NET 2
+#define LSA_T_SUM_NET 3
+#define LSA_T_SUM_RT 4
+#define LSA_T_EXT 5
   u8 options;
   u16 lsage;
+#define LSA_MAXAGE 3600			/* 1 hour */
+#define LSA_CHECKAGE 300		/* 5 minutes */
+#define LSA_MAXAGEDIFF 900		/* 15 minutes */
   u32 lsseqno;
+#define LSA_INITSEQNO 0x80000001
+#define LSA_MAXSEQNO 0x7fffffff
 };
 
 struct top_graph {

@@ -38,7 +38,7 @@ ospf_dump(struct proto *p)
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct ospf_area *oa;
 
-  debug("%s: AreaID: %u\n", p->name, c->area );
+  debug("%s: Area number: %d\n", p->name, po->areano);
 
   WALK_LIST(ifa, po->iface_list)
   {

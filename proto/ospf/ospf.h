@@ -213,6 +213,8 @@ struct ospf_area {
   struct ospf_area *next;
   u32 areaid;
   struct top_graph *gr;		/* LSA graph */
+  struct top_hash_entry *rt;	/* My own router LSA */
+  slab *rtlinks;
 };
 
 struct proto_ospf {

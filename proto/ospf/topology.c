@@ -1,8 +1,8 @@
 /*
  *	BIRD -- OSPF Topological Database
  *
- *	(c) 1999 Martin Mares <mj@ucw.cz>
- *	(c) 1999 Ondrej Filip <feela@network.cz>
+ *	(c) 1999        Martin Mares <mj@ucw.cz>
+ *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -28,9 +28,13 @@ addifa_rtlsa(struct ospf_iface *ifa)
 {
   struct ospf_area *oa;
   struct proto_ospf *po;
+  u32 rtid;
+  struct top_graph_rtlsa *rt;
+  struct top_graph_rtlsa_link *li, *lih;
 
   po=ifa->proto;
   oa=po->firstarea;
+  rtid=po->proto.cf->global->router_id;
 
   while(oa!=NULL)
   {
@@ -38,22 +42,45 @@ addifa_rtlsa(struct ospf_iface *ifa)
     oa=oa->next;
   }
  
-  if(oa!=NULL)	/* Known area */
+  if(oa==NULL)	/* New area */
   {
-    /**/;
-  }
-  else	/* New area */
-  {
-    po->areano++;
     oa=po->firstarea;
     po->firstarea=mb_alloc(po->proto.pool, sizeof(struct ospf_area));
     po->firstarea->next=oa;
-    po->firstarea->areaid=ifa->area;
-    po->firstarea->gr=ospf_top_new(po);
+    oa=po->firstarea;
+    oa->areaid=ifa->area;
+    oa->gr=ospf_top_new(po);
+    oa->rtlinks=sl_new(po->proto.pool,
+      sizeof(struct top_graph_rtlsa_link));
+    oa->rt=ospf_hash_get(oa->gr, rtid, rtid, LSA_T_RT);
+    DBG("XXXXXX %x XXXXXXX\n", oa->rt);
+    rt=mb_alloc(po->proto.pool, sizeof(struct top_graph_rtlsa));
+    oa->rt->vertex=(void *)rt;
+    oa->rt->lsage=0;
+    oa->rt->lsseqno=LSA_INITSEQNO;	/* FIXME Check it latter */
+    rt->Vbit=0;
+    rt->Ebit= (po->areano++ ? 0 : 1);	/* If it's 1st area set 0 */
+    rt->Bbit=0;				/* FIXME Could read config */
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->area);
-  }
 
-  /* FIXME Go on, change router lsa, bits and so on... */
+    if(po->areano==2)	/* We are attached to more than 2 areas! */
+    {
+      oa=po->firstarea;
+
+      while(oa!=NULL)
+      {
+        rt=(struct top_graph_rtlsa *)oa->rt->vertex;
+	rt->Ebit=1;
+        /*FIXME lsa_flood(oa->rt) */
+	
+        oa=oa->next;
+      }
+    }
+    else
+    {
+      /*FIXME lsa_flood(oa->rt) */;
+    }
+  }
 }
 
   
@@ -174,6 +201,8 @@ ospf_hash_get(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
   e->rtr_id = rtr;
   e->lsa_type = type;
   e->vertex = NULL;
+  e->next=*ee;		/* MJ you forgot this :-) */
+  *ee=e;
   if (f->hash_entries++ > f->hash_entries_max)
     ospf_top_rehash(f, HASH_HI_STEP);
   return e;
@@ -204,14 +233,17 @@ void
 ospf_top_dump(struct top_graph *f)
 {
   unsigned int i;
+  debug("Hash entries: %d\n", f->hash_entries);
 
   for(i=0; i<f->hash_size; i++)
     {
       struct top_hash_entry *e = f->hash_table[i];
       while (e)
 	{
-	  debug("%04x %08x %08x %p\n", e->lsa_type, e->lsa_id, e->rtr_id, e->vertex);
+	  debug("\t%04x %08x %08x %p\n", e->lsa_type, e->lsa_id,
+            e->rtr_id, e->vertex);
 	  e = e->next;
 	}
     }
 }
+
