@@ -6,8 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <stdio.h>
-
 #define LOCAL_DEBUG
 
 #include "nest/bird.h"

@@ -9,8 +9,6 @@
 
 #define LOCAL_DEBUG
 
-#include <stdlib.h>
-
 #include "nest/bird.h"
 #include "nest/iface.h"
 #include "nest/protocol.h"

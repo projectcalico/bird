@@ -6,11 +6,8 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <stdlib.h>
-
 #include "nest/bird.h"
 #include "lib/ip.h"
-#include "lib/string.h"
 
 char *
 ip_scope_text(unsigned scope)
