@@ -43,4 +43,11 @@
 
 #define ip_is_prefix(a,l) (!ipa_nonzero(ipa_and(a, ipa_not(ipa_mkmask(l)))))
 
+/*
+ *	Conversions between internal and string representation
+ */
+
+char *ip_ntop(ip_addr a, char *);
+char *ip_ntox(ip_addr a, char *);
+
 #endif

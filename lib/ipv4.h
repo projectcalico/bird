@@ -37,6 +37,7 @@ typedef u32 ip_addr;
 #endif
 
 #define BITS_PER_IP_ADDRESS 32
+#define STD_ADDRESS_P_LENGTH 15
 
 #define IPA_NONE (_MI(0))
 
