@@ -57,6 +57,7 @@ struct filter {
 
 void filters_postconfig(void);
 struct f_inst *f_new_inst(void);
+struct f_inst *f_new_dynamic_attr(int code);
 struct f_tree *f_new_tree(void);
 
 struct f_tree *build_tree(struct f_tree *);
@@ -120,7 +121,5 @@ struct f_tree {
 };
 
 #define NEW_F_VAL struct f_val * val; val = cfg_alloc(sizeof(struct f_val));
-
-/* Create pair from two letters */
 
 #endif

@@ -25,7 +25,8 @@ CF_DECLS
 CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, PASSWORDS,
 	    MODE, BROADCAST, QUIET, NOLISTEN, VERSION1, 
 	    AUTHENTICATION, NONE, PLAINTEXT, MD5,
-	    HONOUR, NEVER, NEIGHBOUR, ALWAYS)
+	    HONOUR, NEVER, NEIGHBOUR, ALWAYS,
+	    RIP_METRIC, RIP_TAG)
 
 %type <i> rip_mode rip_auth
 
@@ -96,6 +97,9 @@ rip_iface_list:
    INTERFACE rip_iface
  | rip_iface_list ',' rip_iface
  ;
+
+CF_ADDTO(dynamic_attr, RIP_METRIC { $$ = f_new_dynamic_attr(EA_RIP_METRIC); })
+CF_ADDTO(dynamic_attr, RIP_TAG { $$ = f_new_dynamic_attr(EA_RIP_TAG); })
 
 CF_CODE
 

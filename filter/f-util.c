@@ -32,6 +32,15 @@ f_new_inst(void)
   return ret;
 }
 
+struct f_inst *
+f_new_dynamic_attr(int code)
+{
+  struct f_inst *f = f_new_inst();
+  f->aux = T_INT;
+  f->a2.i = code;
+  return f;
+}
+
 char *
 filter_name(struct filter *filter)
 {
