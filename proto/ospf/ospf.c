@@ -66,6 +66,7 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
       DBG(" OSPF: SK_OPEN: failed\n");
       return(NULL);
     }
+    DBG(" OSPF: SK_OPEN: open\n");
     return(mcsk);
   }
   else return(NULL);
@@ -78,7 +79,11 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
 int
 is_good_iface(struct proto *p, struct iface *iface)
 {
-  return(iface->flags & IF_UP);
+  if(iface->flags & IF_UP)
+  {
+    if(!(iface->flags & IF_IGNORE)) return 1;
+  }
+  return 0;
 }
 
 /* Of course, it's NOT true now */
