@@ -400,8 +400,8 @@ main(int argc, char **argv)
   if_init();
 
   protos_build();
-  add_tail(&protocol_list, &proto_unix_kernel.n);
-  add_tail(&protocol_list, &proto_unix_iface.n);
+  proto_build(&proto_unix_kernel);
+  proto_build(&proto_unix_iface);
 
   read_config();
 

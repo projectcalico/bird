@@ -24,6 +24,7 @@ struct config;
 struct proto;
 struct event;
 struct ea_list;
+struct eattr;
 struct symbol;
 
 /*
@@ -35,6 +36,7 @@ struct protocol {
   char *name;
   char *template;			/* Template for automatic generation of names */
   int name_counter;			/* Counter for automatic name generation */
+  int attr_class;			/* Attribute class known to this protocol */
 
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
   void (*postconfig)(struct proto_config *);			/* After configuring each instance */
@@ -46,16 +48,19 @@ struct protocol {
   int (*shutdown)(struct proto *);		/* Stop the instance */
   void (*get_status)(struct proto *, byte *buf); /* Get instance status (for `show protocols' command) */
   void (*get_route_info)(struct rte *, byte *buf); /* Get route information (for `show route' command) */
-  void (*show_route_data)(struct rte *);	/* Print verbose route information (`show route' again) */
+  int (*get_attr)(struct eattr *, byte *buf);	/* ASCIIfy dynamic attribute (returns GA_*) */
 };
 
 void protos_build(void);
+void proto_build(struct protocol *);
 void protos_preconfig(struct config *);
 void protos_postconfig(struct config *);
 void protos_commit(struct config *new, struct config *old, int force_restart);
 void protos_dump_all(void);
 
-extern list protocol_list;
+#define GA_UNKNOWN	0		/* Attribute not recognized */
+#define GA_NAME		1		/* Result = name */
+#define GA_FULL		2		/* Result = both name and value */
 
 /*
  *	Known protocols
@@ -146,7 +151,6 @@ struct proto {
   /* Hic sunt protocol-specific data */
 };
 
-void proto_build(struct proto_config *);
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
 

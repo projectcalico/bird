@@ -283,6 +283,7 @@ typedef struct eattr {
 #define EAP_GENERIC 0			/* Generic attributes */
 #define EAP_BGP 1			/* BGP attributes */
 #define EAP_RIP 2			/* RIP */
+#define EAP_MAX 3
 
 #define EA_CODE(proto,id) (((proto) << 8) | (id))
 #define EA_PROTO(ea) ((ea) >> 8)
@@ -335,6 +336,8 @@ void rta_dump(rta *);
 void rta_dump_all(void);
 static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->eattrs, ea); }
 void rta_show(struct cli *, rta *);
+
+extern struct protocol *attr_class_to_protocol[EAP_MAX];
 
 /*
  *	Default protocol preferences

@@ -22,7 +22,7 @@
 
 static pool *proto_pool;
 
-list protocol_list;
+static list protocol_list;
 static list proto_list;
 
 #define WALK_PROTO_LIST(p) do {							\
@@ -344,6 +344,17 @@ protos_dump_all(void)
 }
 
 void
+proto_build(struct protocol *p)
+{
+  add_tail(&protocol_list, &p->n);
+  if (p->attr_class)
+    {
+      ASSERT(!attr_class_to_protocol[p->attr_class]);
+      attr_class_to_protocol[p->attr_class] = p;
+    }
+}
+
+void
 protos_build(void)
 {
   init_list(&protocol_list);
@@ -352,21 +363,21 @@ protos_build(void)
   init_list(&inactive_proto_list);
   init_list(&initial_proto_list);
   init_list(&flush_proto_list);
-  add_tail(&protocol_list, &proto_device.n);
+  proto_build(&proto_device);
 #ifdef CONFIG_RIP
-  add_tail(&protocol_list, &proto_rip.n);
+  proto_build(&proto_rip);
 #endif
 #ifdef CONFIG_STATIC
-  add_tail(&protocol_list, &proto_static.n);
+  proto_build(&proto_static);
 #endif
 #ifdef CONFIG_OSPF
-  add_tail(&protocol_list, &proto_ospf.n);
+  proto_build(&proto_ospf);
 #endif
 #ifdef CONFIG_PIPE
-  add_tail(&protocol_list, &proto_pipe.n);
+  proto_build(&proto_pipe);
 #endif
 #ifdef CONFIG_BGP
-  add_tail(&protocol_list, &proto_bgp.n);
+  proto_build(&proto_bgp);
 #endif
   proto_pool = rp_new(&root_pool, "Protocols");
   proto_flush_event = ev_new(proto_pool);

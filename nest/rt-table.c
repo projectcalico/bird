@@ -675,11 +675,7 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d)
     bsprintf(info, " (%d)", e->pref);
   cli_printf(c, -1007, "%-18s %s [%s %s%s]%s", ia, via, a->proto->name, tm, from, info);
   if (d->verbose)
-    {
-      rta_show(c, a);
-      if (a->proto->proto->show_route_data)
-	a->proto->proto->show_route_data(e);
-    }
+    rta_show(c, a);
 }
 
 static void

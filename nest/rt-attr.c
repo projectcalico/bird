@@ -19,6 +19,8 @@
 static slab *rta_slab;
 static pool *rta_pool;
 
+struct protocol *attr_class_to_protocol[EAP_MAX];
+
 /*
  *	Extended Attributes
  */
@@ -231,6 +233,60 @@ ea_list_copy(ea_list *o)
 	}
     }
   return n;
+}
+
+void
+ea_format(eattr *e, byte *buf)
+{
+  struct protocol *p;
+  int status = GA_UNKNOWN;
+  unsigned int i, l;
+  struct adata *ad = (e->type & EAF_EMBEDDED) ? NULL : e->u.ptr;
+
+  if (p = attr_class_to_protocol[EA_PROTO(e->id)])
+    {
+      buf += bsprintf(buf, "%s.", p->name);
+      if (p->get_attr)
+	status = p->get_attr(e, buf);
+      buf += strlen(buf);
+    }
+  else if (EA_PROTO(e->id))
+    buf += bsprintf(buf, "%02x.", EA_PROTO(e->id));
+  if (status < GA_NAME)
+    buf += bsprintf(buf, "%02x", EA_ID(e->id));
+  if (status < GA_FULL)
+    {
+      *buf++ = ':';
+      *buf++ = ' ';
+      switch (e->type & EAF_TYPE_MASK)
+	{
+	case EAF_TYPE_INT:
+	  bsprintf(buf, "%d", e->u.data);
+	  break;
+	case EAF_TYPE_OPAQUE:
+	  l = (ad->length < 16) ? ad->length : 16;
+	  for(i=0; i<l; i++)
+	    {
+	      buf += bsprintf(buf, "%02x", ad->data[i]);
+	      if (i < l)
+		*buf++ = ' ';
+	    }
+	  if (l < ad->length)
+	    strcpy(buf, "...");
+	  break;
+	case EAF_TYPE_IP_ADDRESS:
+	  bsprintf(buf, "%I", *(ip_addr *) ad->data);
+	  break;
+	case EAF_TYPE_ROUTER_ID:
+	  bsprintf(buf, "%08x", e->u.data); /* FIXME: Better printing of router ID's */
+	  break;
+	case EAF_TYPE_AS_PATH:		/* FIXME */
+	case EAF_TYPE_INT_SET:		/* FIXME */
+	case EAF_TYPE_UNDEF:
+	default:
+	  bsprintf(buf, "<type %02x>", e->type);
+	}
+    }
 }
 
 void
@@ -484,9 +540,17 @@ rta_show(struct cli *c, rta *a)
 			       "RIP", "RIP-ext", "OSPF", "OSPF-ext", "OSPF-IA", "OSPF-boundary",
 			       "BGP" };
   static char *cast_names[] = { "unicast", "broadcast", "multicast", "anycast" };
+  ea_list *eal;
+  int i;
+  byte buf[256];
 
   cli_printf(c, -1008, "\tType: %s %s %s", src_names[a->source], cast_names[a->cast], ip_scope_text(a->scope));
-  /* FIXME: Here we probably should print the dynamic attributes... */
+  for(eal=a->eattrs; eal; eal=eal->next)
+    for(i=0; i<eal->count; i++)
+      {
+	ea_format(&eal->attrs[i], buf);
+	cli_printf(c, -1012, "\t%s", buf);
+      }
 }
 
 void

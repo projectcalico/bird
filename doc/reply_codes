@@ -35,6 +35,7 @@ Reply codes of BIRD command-line interface
 1009	Static route list
 1010	Symbol list
 1011	Uptime
+1012	Route extended attribute list
 
 8000	Reply too long
 8001	Route not found
