@@ -123,6 +123,8 @@ struct ospf_neighbor
 #define NEIGHBOR_FULL 7
   timer *inactim;	/* Inactivity timer */
   byte ms;		/* Master/slave */
+#define NEIGHBOR_SLAVE 0
+#define NEIGHBOR_MASTER 1
   u32 dds;		/* DD Sequence number being sentg */
   u32 ddr;		/* last Dat Des packet */
   u32 rid;		/* Router ID */
@@ -130,6 +132,7 @@ struct ospf_neighbor
   byte options;		/* Options */
   u32 dr;		/* Neigbour's idea of DR */
   u32 bdr;		/* Neigbour's idea of BDR */
+  u8 adj;		/* built adjacency? */
 };
 
 #endif /* _BIRD_OSPF_H_ */

@@ -44,7 +44,13 @@ tryadj(struct ospf_neighbor *n, struct proto *p)
 {
   DBG("%s: Going to build adjacency.\n", p->name);
   neigh_chstate(n,NEIGHBOR_EXSTART);
-  /* FIXME Go on */
+  if(n->adj==0)	/* First time adjacency */
+  {
+    n->dds=random_u32;
+  }
+  n->dds++;
+  n->ms=NEIGHBOR_MASTER;
+  /* FIXME Go on, start to send DD packets */
 }
 
 /* Neighbor is inactive for a long time. Remove it. */
@@ -284,6 +290,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->priority=ps->priority;
     n->options=ps->options;
     n->ifa=ifa;
+    n->adj=0;
     neigh_chstate(n,NEIGHBOR_INIT);
   }
   tm_start(n->inactim,ifa->deadc*ifa->helloint);
