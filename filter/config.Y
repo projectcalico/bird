@@ -21,7 +21,7 @@ CF_DECLS
 
 CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT)
 
-%type <x> expr
+%type <x> term
 
 CF_GRAMMAR
 
@@ -38,7 +38,7 @@ program: /* EMPTY */
 
 CF_ADDTO(conf, function)
 function:
-   FUNCTION SYM '(' ')' '{' expr '}' { 
+   FUNCTION SYM '(' ')' '{' term '}' { 
      extern struct f_instruction *last_func;
      if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
      $2->class = SYM_FUNCTION;
@@ -50,7 +50,7 @@ function:
 
 CF_ADDTO(conf, filter)
 filter:
-   FILTER SYM '{' expr '}' {
+   FILTER SYM '{' term '}' {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
      $2->class = SYM_FILTER;
      $2->aux = $4;
@@ -60,8 +60,8 @@ filter:
 
 /* Programs */
 
-expr: /* EMPTY */ { $$ = NULL; }
- | expr ';' expr { 
+term: /* EMPTY */ { $$ = NULL; }
+ | term ';' term { 
      $$ = cfg_alloc(sizeof(struct f_instruction));
      printf( "We've got statement here\n" );
      $$->code = ',';
@@ -74,7 +74,7 @@ expr: /* EMPTY */ { $$ = NULL; }
      printf( "New variable\n" );
      $$ = NULL;
    }
- | SYM '=' cexpr {
+ | SYM '=' expr {
      $$ = cfg_alloc(sizeof(struct f_instruction));
      printf( "Ook, we'll set value\n" );
      if ($1->class != SYM_VARIABLE_INT)

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Configuration Parser Top
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -34,7 +34,7 @@ CF_DECLS
 %token <s> SYM
 %token <t> TEXT
 
-%type <i> cexpr bool pxlen
+%type <i> expr bool pxlen
 
 %left '+' '-'
 %left '*' '/' '%'
@@ -59,20 +59,20 @@ CF_ADDTO(conf, /* EMPTY */)
 
 /* Constant expressions */
 
-cexpr:
+expr:
    NUM
- | cexpr '+' cexpr { $$ = $1 + $3; }
- | cexpr '-' cexpr { $$ = $1 - $3; }
- | cexpr '*' cexpr { $$ = $1 * $3; }
- | cexpr '/' cexpr { if ($3) $$ = $1 / $3; else cf_error("Division by zero"); }
- | cexpr '%' cexpr { if ($3) $$ = $1 % $3; else cf_error("Division by zero"); }
- | '(' cexpr ')' { $$ = $2; }
+ | expr '+' expr { $$ = $1 + $3; }
+ | expr '-' expr { $$ = $1 - $3; }
+ | expr '*' expr { $$ = $1 * $3; }
+ | expr '/' expr { if ($3) $$ = $1 / $3; else cf_error("Division by zero"); }
+ | expr '%' expr { if ($3) $$ = $1 % $3; else cf_error("Division by zero"); }
+ | '(' expr ')' { $$ = $2; }
  | SYM { if ($1->class != SYM_NUMBER) cf_error("Number expected"); else $$ = $1->aux; }
  ;
 
 CF_ADDTO(conf, definition)
 definition:
-   DEFINE SYM '=' cexpr {
+   DEFINE SYM '=' expr {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined");
      $2->class = SYM_NUMBER;
      $2->aux = $4;
@@ -82,7 +82,7 @@ definition:
 /* Switches */
 
 bool:
-   cexpr {$$ = !!$1; }
+   expr {$$ = !!$1; }
  | ON { $$ = 1; }
  | YES { $$ = 1; }
  | OFF { $$ = 0; }
