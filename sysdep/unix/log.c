@@ -114,7 +114,7 @@ bug(char *msg, ...)
 
   va_start(args, msg);
   vlog(L_BUG[0], msg, args);
-  exit(1);
+  abort();
 }
 
 void
