@@ -455,8 +455,6 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 
 <sect1>Device
 
-<sect2>Introduction
-
 <p>The Device protocol is not a real routing protocol as it doesn't generate
 any routes and only serves as a module for getting information about network
 interfaces from the kernel.
@@ -465,7 +463,7 @@ interfaces from the kernel.
 this protocol in the configuration since almost all other protocol
 require network interfaces to be defined in order to work.
 
-<sect2>Configuration
+<p>Only configurable thing is interface scan time:
 
 <p><descrip>
 	<tag>scan time <m/number/</tag> Time in seconds between two scans
@@ -475,12 +473,8 @@ require network interfaces to be defined in order to work.
 	notifications, so the default time is set to a large value.
 </descrip>
 
-<sect2>Attributes
-
 <p>As the Device protocol doesn't generate any routes, it cannot have
-any attributes.
-
-<sect2>Example
+any attributes. Example configuration looks really simple:
 
 <p><code>
 protocol device {
@@ -489,8 +483,6 @@ protocol device {
 </code>
 
 <sect1>Direct
-
-<sect2>Introduction
 
 <p>The Direct protocol is a simple generator of device routes for all the
 directly connected networks according to the list of interfaces provided
@@ -501,7 +493,7 @@ unless you want to use BIRD as a route server or a route reflector, that is
 on a machine which doesn't forward packets and only participates in
 distribution of routing information.
 
-<sect2>Configuration
+<p>Only configurable thing about direct is what interfaces it watches:
 
 <p><descrip>
 	<tag>interface <m/pattern [, ...]/</tag> By default, the Direct
@@ -512,11 +504,9 @@ distribution of routing information.
 	just use this clause.
 </descrip>
 
-<sect2>Attributes
-
 <p>Direct device routes don't contain any specific attributes.
 
-<sect2>Example
+<p>Example config might look like this:
 
 <p><code>
 protocol direct {
@@ -632,8 +622,6 @@ protocol rip MyRIP_test {
 
 <sect1>Static
 
-<sect2>Introduction
-
 <p>The static protocol doesn't communicate with other routers in the network,
 but instead it allows you to define routes manually which is often used for
 specifying how to forward packets to parts of the network which don't use
@@ -653,8 +641,6 @@ the next hop of the route is not a neighbor at the moment), Static just
 uninstalls the route from the table its connected to and adds it again as soon
 as the destinations becomes adjacent again.
 
-<sect2>Configuration
-
 <p>The Static protocol has no configuration options. Instead, the
 definition of the protocol contains a list of static routes which
 can contain:
@@ -669,11 +655,9 @@ can contain:
 	it as administratively prohibited.
 </descrip>
 
-<sect2>Attributes
-
 <p>Static routes have no specific attributes.
 
-<sect2>Example
+<p>Example static config might look like this:
 
 <p><code>
 protocol static {
