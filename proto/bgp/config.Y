@@ -29,7 +29,7 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->hold_time = 240;
      BGP_CFG->connect_retry_time = 120;
      BGP_CFG->initial_hold_time = 240;
-     BGP_CFG->default_med = ~0;
+     BGP_CFG->default_med = ~0;		/* RFC 1771 doesn't specify this, draft-09 says ~0 */
      BGP_CFG->compare_path_lengths = 1;
   }
  ;

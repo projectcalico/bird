@@ -6,6 +6,9 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/* FIXME: Latest draft says that LOCAL_PREF is mandatory for iBGP */
+/* FIXME: Mandatory attributes may be missing in messages that don't contain NLRI */
+
 #define LOCAL_DEBUG
 
 #include <stdlib.h>

@@ -216,7 +216,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   if (len < 29 || len != 29 + pkt[28])
     { bgp_error(conn, 1, 2, len, 2); return; }
   if (pkt[19] != BGP_VERSION)
-    { bgp_error(conn, 2, 1, pkt[19], 2); return; }
+    { bgp_error(conn, 2, 1, pkt[19], 1); return; } /* RFC 1771 says 16 bits, draft-09 tells to use 8 */
   as = get_u16(pkt+20);
   hold = get_u16(pkt+22);
   id = get_u32(pkt+24);
