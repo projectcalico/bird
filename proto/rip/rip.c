@@ -578,13 +578,6 @@ rip_rte_better(struct rte *new, struct rte *old)
   return 0;
 }
 
-static int
-rip_rta_same(rta *a, rta *b)
-{
-  /* As we have no specific data in rta, they are always the same */
-  return 1;
-}
-
 static void
 rip_rte_insert(net *net, rte *rte)
 {
@@ -606,7 +599,6 @@ rip_init_instance(struct proto *p)
   p->if_notify = rip_if_notify;
   p->rt_notify = rip_rt_notify;
   p->rte_better = rip_rte_better;
-  p->rta_same = rip_rta_same;
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
 }

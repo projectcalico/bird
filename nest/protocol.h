@@ -93,7 +93,6 @@ struct proto {
   void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
   void (*neigh_notify)(struct neighbor *neigh);
 
-  int (*rta_same)(struct rta *, struct rta *);
   int (*rte_better)(struct rte *, struct rte *);
   void (*rte_insert)(struct network *, struct rte *);
   void (*rte_remove)(struct network *, struct rte *);
