@@ -12,4 +12,4 @@ clean:
 
 distclean: clean
 	rm -rf $(objdir)
-	rm -f config.* configure sysdep/autoconf.h Makefile
+	rm -f config.* configure sysdep/autoconf.h sysdep/paths.h Makefile

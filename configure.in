@@ -144,16 +144,11 @@ BIRD_CHECK_TIME_T
 BIRD_CHECK_STRUCT_IP_MREQN
 
 if test "$enable_debug" = yes ; then
-	AC_DEFINE(PATH_CONFIG_DIR, ".")
-	AC_DEFINE(PATH_CONTROL_SOCKET_DIR, ".")
 	AC_DEFINE(DEBUGGING)
 	AC_CHECK_LIB(dmalloc, dmalloc_debug)
 	if test $ac_cv_lib_dmalloc_dmalloc_debug != yes ; then
 		AC_CHECK_LIB(efence, malloc)
 	fi
-else
-	AC_DEFINE_UNQUOTED(PATH_CONFIG_DIR, "$sysconfdir")
-	AC_DEFINE_UNQUOTED(PATH_CONTROL_SOCKET_DIR, "$localstatedir")
 fi
 
 CLIENT=
