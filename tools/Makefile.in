@@ -1,0 +1,33 @@
+# Makefile for the BIRD Internet Routing Daemon
+# (c) 1999 Martin Mares <mj@ucw.cz>
+
+include Rules
+
+srcdir_abs := $(shell cd $(srcdir) ; pwd)
+
+.PHONY: all subdir depend clean distclean
+
+all: .dir-stamp .dep-stamp subdir $(exedir)/bird
+
+subdir depend:
+	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a $@ ; done
+	set -e ; for a in $(static-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
+
+$(exedir)/bird: $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
+	$(CC) $(LDFLAGS) -o $@ $^
+
+.dir-stamp:
+	mkdir -p $(static-dirs)
+	touch .dir-stamp
+
+.dep-stamp:
+	$(MAKE) depend
+	touch .dep-stamp
+
+clean:
+	rm -f `find . -name "*.[oa]" -or -name core -or -name depend`
+	rm -f $(exedir)/bird .dep-stamp
+
+distclean: clean
+	rm -f config.* configure sysdep/autoconf.h Makefile Rules
+	rm -rf .dir-stamp $(clean-dirs)

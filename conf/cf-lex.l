@@ -24,7 +24,7 @@ static struct keyword {
   int value;
   struct keyword *next;
 } keyword_list[] = {
-#include "keywords.h"
+#include "conf/keywords.h"
   { NULL, -1 } };
 
 #define KW_HASH_SIZE 64

@@ -1,10 +1,17 @@
 #!/bin/sh
 
-if [ -z "$2" ] ; then
-	echo "Usage: mergedirs <obj-dir> <list-of-dirs>"
+if [ -z "$4" ] ; then
+	echo "Usage: mergedirs <src-dir> <src-dir-rel> <obj-dir> <list-of-dirs>"
 	exit 1
 	fi
-TOPDIR=`pwd`
+SRCDIR=$1
+shift
+SRCREL=$1
+case $SRCDIR in
+	/*) ;;
+	*) SRCREL="../$SRCREL" ;;
+	esac
+shift
 OBJDIR=$1
 LIBDIR=$OBJDIR/lib
 CONFDIR=$OBJDIR/conf
@@ -12,26 +19,25 @@ shift
 
 echo "Merging system-dependent modules"
 MODULES=`for a in $@ ; do
-		sed <$a/Modules "s@\\(.*\\)@\\1 $a/\\1@"
+		sed <$SRCDIR/$a/Modules "s@\\(.*\\)@\\1 $a/\\1@"
 		done |
 	sort +0 -1 -u |
 	cut -d ' ' -f 2`
 rm -rf $LIBDIR $CONFDIR
 mkdir -p $LIBDIR $CONFDIR
 for a in $MODULES ; do
-	echo $a
 	b=`basename $a`
 	case $b in
-		*.h)	ln -s $TOPDIR/$a $LIBDIR/$b
+		*.h)	ln -s $SRCREL/$a $LIBDIR/$b
 			;;
 		*.c)	OBJ=`echo $b | sed 's/\.c$/\.o/'`
 			OBJS="$OBJS $OBJ"
 			SRCS="$SRCS \\
-	\$(TOPDIR)/$a"
-			ln -s $TOPDIR/$a $LIBDIR/$b
+	$b"
+			ln -s $SRCREL/$a $LIBDIR/$b
 			;;
-		*.Y)	CONFS="$CONFS\$(TOPDIR)/$a "
-			ln -s $TOPDIR/$a $CONFDIR/$b
+		*.Y)	CONFS="$CONFS\$(srcdir)/$a "
+			ln -s $SRCREL/$a $CONFDIR/$b
 			;;
 		*)	echo "$b: Unknown file type"
 			exit 1
@@ -40,12 +46,15 @@ for a in $MODULES ; do
 	done
 
 cat >$LIBDIR/Makefile <<EOF
-OBJS=$OBJS
-SRCS=$SRCS
-LIB=birdlib.a
+source=$SRCS
+lib-dest=birdlib.a
+root-rel=../
 
-include \$(TOPDIR)/Rules
+include ../Rules
 EOF
 
-sed <$TOPDIR/conf/Makefile >$CONFDIR/Makefile "s|@CONFS@|$CONFS|"
-ln -s $TOPDIR/conf/*.[chl] $CONFDIR/
+sed <$SRCDIR/conf/Makefile >$CONFDIR/Makefile "s|@CONFS@|$CONFS|"
+CONFS=`cd $SRCDIR ; ls conf/*.[chl]`
+for a in $CONFS ; do
+	ln -s $SRCREL/$a $CONFDIR/
+done

@@ -1,0 +1,66 @@
+# Makefile fragments for the BIRD Internet Routing Daemon
+# (c) 1999 Martin Mares <mj@ucw.cz>
+
+srcdir=@srcdir_rel_mf@
+objdir=@objdir@
+exedir=@exedir@
+
+protocols=@protocols@
+static-dirs := nest $(addprefix proto/,$(protocols))
+static-dir-paths := $(addprefix $(srcdir)/,$(static-dirs))
+dynamic-dirs := lib conf
+dynamic-dir-paths := $(dynamic-dirs)
+dir-makefiles := $(addsuffix /Makefile,$(static-dir-paths) $(dynamic-dir-paths))
+
+all-dirs:=$(static-dirs) $(dynamic-dirs)
+clean-dirs:=$(all-dirs) proto sysdep
+dir-objs:=$(addprefix $(objdir)/,$(all-dirs))
+
+CPPFLAGS=-I$(root-rel) -I$(srcdir)
+CFLAGS=$(CPPFLAGS) @CFLAGS@
+CC=@CC@
+M4=@M4@
+BISON=@BISON@
+FLEX=@FLEX@
+RANLIB=@RANLIB@
+
+ifdef source
+
+objs := $(subst .c,.o,$(source))
+
+ifdef dir-name
+src-path := $(srcdir)/$(dir-name)/
+endif
+
+all:
+	cd $(root-rel) && make
+
+ifdef lib-dest
+
+subdir: $(lib-dest)
+
+$(lib-dest): $(objs)
+	rm -f $@
+	ar rcs $@ $^
+	$(RANLIB) $@
+
+else
+
+subdir: all.o
+
+all.o: $(objs)
+	$(LD) -r -o $@ $^
+
+endif
+
+%.o: $(src-path)%.c
+	$(CC) $(CFLAGS) -o $@ -c $^
+
+depend:
+	gcc $(CPPFLAGS) -MM $(addprefix $(src-path),$(source)) >depend
+
+ifneq ($(wildcard .depend),)
+include .depend
+endif
+
+endif

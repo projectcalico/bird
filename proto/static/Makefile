@@ -1,4 +1,6 @@
-THISDIR=proto/static
-OBJS=static.o
+source=static.c
+root-rel=../../
+dir-name=proto/static
 
 include ../../Rules
+

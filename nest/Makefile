@@ -1,4 +1,5 @@
-THISDIR=nest
-OBJS=rt-table.o rt-fib.o rt-attr.o proto.o iface.o rt-dev.o
+source=rt-table.c rt-fib.c rt-attr.c proto.c iface.c rt-dev.c
+root-rel=../
+dir-name=nest
 
 include ../Rules

@@ -1,4 +1,5 @@
-THISDIR=proto/rip
-OBJS=rip.o
+source=rip.c
+root-rel=../../
+dir-name=proto/rip
 
 include ../../Rules
