@@ -120,24 +120,19 @@ WHITE [ \t]
 
 {WHITE}+
 
-\\\n {
-  conf_lino++;
-}
+\\\n	conf_lino++;
+\n	{ conf_lino++; return ';'; }
 
-\n {
-  conf_lino++;
-  return ';';
-}
+#	BEGIN(COMMENT);
 
-#	{ BEGIN(COMMENT); }
-
-\/\*	{ BEGIN(CCOMM); }
+\/\*	BEGIN(CCOMM);
 
 .	cf_error("Unknown character");
 
 <COMMENT>\n {
   conf_lino++;
   BEGIN(INITIAL);
+  return ';';
 }
 
 <COMMENT>.
