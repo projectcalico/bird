@@ -14,6 +14,13 @@ Core
 - configure: --enable-ipv6
 - configure: IPv6 on glibc 2.0?
 
+- forgetting device routes???
+- kernel syncer doesn't support reconfiguration
+- filter-defined internal attributes
+- netlink: realms
+
+- bgp: wait on restart
+
 Commands
 ~~~~~~~~
 - showing of routing table as seen by given protocol
@@ -58,9 +65,6 @@ Various ideas
 - generate default route to IGP's (aggregate engine yet another time?)
 - look at RFC 2386 (QoS-based routing)
 
-
-RIP
-~~~
 
 OSPF
 ~~~~
