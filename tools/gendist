@@ -5,7 +5,9 @@
 #
 
 set -e
-[ -f Makefile ] && make distclean
+autoconf
+./configure
+make distclean
 autoconf
 ( cd doc ; make docs ; make clean )
 VERSION=`sed <sysdep/config.h '/BIRD_VERSION/!d;s/^.*"\(.*\)"$/\1/'`
