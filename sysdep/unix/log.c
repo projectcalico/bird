@@ -157,7 +157,6 @@ log_init(int debug)
       static struct log_config lc_syslog = { mask: ~0 };
       openlog("bird", LOG_CONS | LOG_NDELAY, LOG_DAEMON);
       add_tail(current_log_list, &lc_syslog.n);
-      return;
     }
 #endif
 
