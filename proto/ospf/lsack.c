@@ -198,7 +198,7 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
       debug("%s: I have: Age: %4u, Seqno: 0x%08x, Sum: %u\n",
         p->name, en->lsa.age, en->lsa.sn, en->lsa.checksum);
       debug("%s: He has: Age: %4u, Seqno: 0x%08x, Sum: %u\n",
-        p->name,lsa.age,lsa.sn,en->lsa.checksum);
+        p->name,lsa.age,lsa.sn,lsa.checksum);
       continue;
     }
 
