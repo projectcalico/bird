@@ -846,7 +846,10 @@ rt_show(struct rt_show_data *d)
     }
   else
     {
-      n = fib_find(&d->table->fib, &d->prefix, d->pxlen);
+      if (d->show_for)
+	n = fib_route(&d->table->fib, d->prefix, d->pxlen);
+      else
+	n = fib_find(&d->table->fib, &d->prefix, d->pxlen);
       if (n)
 	{
 	  rt_show_net(this_cli, n, d);

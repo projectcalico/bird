@@ -10,7 +10,6 @@ Core
 - filters: user defined attributes?
 
 - cli: show tables?
-- cli: show where is routed given IP address?
 
 - client: Ctrl-R eats one more enter
 - client: paging?

@@ -22,7 +22,7 @@ CF_DECLS
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
-CF_KEYWORDS(PRIMARY, STATS, COUNT)
+CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_EXT, OSPF_IA, OSPF_BOUNDARY, BGP, PIPE)
@@ -255,6 +255,13 @@ r_args:
      if ($$->pxlen != 256) cf_error("Only one prefix expected");
      $$->prefix = $2.addr;
      $$->pxlen = $2.len;
+   }
+ | r_args FOR prefix_or_ipa {
+     $$ = $1;
+     if ($$->pxlen != 256) cf_error("Only one prefix expected");
+     $$->prefix = $3.addr;
+     $$->pxlen = $3.len;
+     $$->show_for = 1;
    }
  | r_args TABLE SYM {
      $$ = $1;
