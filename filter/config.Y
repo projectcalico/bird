@@ -11,6 +11,8 @@
 	FIXME: create community lists
 	FIXME: access to dynamic attributes
 	FIXME: local namespace for functions
+	FIXME: enumerational types
+	FIXME: defined() keyword
  */
 
 CF_HDR

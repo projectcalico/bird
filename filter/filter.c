@@ -305,7 +305,19 @@ interpret(struct f_inst *what)
     }
     break;
   case 'ea':	/* Access to extended attributes [hmm, but we need it read/write, do we?] */
-    bug( "Implement me" );
+    {
+      eattr *e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
+      if (!e) {
+	res.type = T_VOID;
+	break;
+      }
+      res.type = what->a1.i;
+      switch (what->a1.i) {
+      case T_INT:
+	res.val.i = e->u.data;
+	break;
+      }
+    }
     break;
   case 'cp':	/* Convert prefix to ... */
     ONEARG;
