@@ -229,7 +229,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   if(n->state<NEIGHBOR_EXCHANGE)
   {
     debug("%s: Received lsupd in lesser state than EXCHANGE from (%I)\n",
-      p->name);
+      p->name,n->ip);
     return;
   }
 
