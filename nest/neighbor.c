@@ -138,8 +138,7 @@ neigh_if_up(struct iface *i)
   neighbor *n, *next;
 
   WALK_LIST_DELSAFE(n, next, sticky_neigh_list)
-    if (!n->iface &&
-	if_connected(&n->addr, i) > 0)
+    if (if_connected(&n->addr, i) > 0)
       {
 	n->iface = i;
 	add_tail(&i->neighbors, &n->if_n);

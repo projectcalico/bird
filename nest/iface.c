@@ -232,8 +232,8 @@ if_update(struct iface *new)
   i = mb_alloc(if_pool, sizeof(struct iface));
   memcpy(i, new, sizeof(*i));
   init_list(&i->addrs);
-  init_list(&i->neighbors);
 newif:
+  init_list(&i->neighbors);
   i->flags |= IF_UPDATED | IF_TMP_DOWN;		/* Tmp down as we don't have addresses yet */
   add_tail(&iface_list, &i->n);
   return i;
