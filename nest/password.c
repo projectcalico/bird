@@ -18,10 +18,13 @@ password_find(list *l)
 {
   struct password_item *pi;
 
-  WALK_LIST(pi, *l)
+  if (l)
   {
-    if ((pi->genfrom > now) && (pi->gento < now))
-      return pi;
+    WALK_LIST(pi, *l)
+    {
+      if ((pi->genfrom > now) && (pi->gento < now))
+        return pi;
+    }
   }
   return NULL;
 }
@@ -29,6 +32,6 @@ password_find(list *l)
 void password_cpy(char *dst, char *src, int size)
 {
   bzero(dst, size);
-  memcpy(dst, src, strlen(src) < size ? strlen(src) : size);
+  memcpy(dst, src, strlen(src) < (unsigned) size ? strlen(src) : (unsigned) size);
 }
 
