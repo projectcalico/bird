@@ -426,9 +426,10 @@ struct ospf_iface_patt {
   int autype;
   int strictnbma;
   int stub;
-#define AU_NONE 0
-#define AU_SIMPLE 1
-#define AU_CRYPT 2
+/* must be in network byte order */
+#define AU_NONE htons(0)
+#define AU_SIMPLE htons(1)
+#define AU_CRYPT htons(2)
   u8 password[8];
   list nbma_list;
 };
