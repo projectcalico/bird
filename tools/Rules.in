@@ -21,7 +21,7 @@ clean-dirs:=$(all-dirs) proto sysdep
 
 CPPFLAGS=-I$(root-rel) -I$(srcdir) @CPPFLAGS@
 CFLAGS=$(CPPFLAGS) @CFLAGS@
-LDFLAGS=
+LDFLAGS=@LDFLAGS@
 LIBS=@LIBS@
 CLIENT_LIBS=@CLIENT_LIBS@
 CC=@CC@
