@@ -33,8 +33,12 @@ prog.sgml:
 %.txt: %.sgml
 	./sgml2txt $<
 
+progspell: prog.sgml
+	sed -f prog-spell.sed <prog.sgml >prog.spell
+	ispell prog.spell
+
 userdocs: bird.html bird.dvi bird.txt
 
 clean:
-	rm -f *.html *.tex *.dvi *.log *.ps *.txt *.aux *.toc
+	rm -f *.html *.tex *.dvi *.log *.ps *.txt *.aux *.toc *.spell
 	rm -f prog.sgml
