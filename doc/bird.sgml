@@ -82,7 +82,7 @@ protocols to be incorporated easily. Among other features, BIRD supports:
 </itemize>
 
 <p>BIRD has been developed at the Faculty of Math and Physics, Charles University, Prague,
-Czech Republic as a student project. It's distributed under the terms of the GNU General
+Czech Republic as a student project. It can be freely distributed under the terms of the GNU General
 Public License.
 
 <p>BIRD has been designed to work on all UNIX-like systems. It has been developed and
