@@ -35,6 +35,7 @@ handle_sigusr(int sig)
   neigh_dump_all();
   rta_dump_all();
   rt_dump_all();
+  protos_dump_all();
 
   debug("\n");
 }
