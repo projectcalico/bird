@@ -153,6 +153,7 @@ static struct rte **f_rte, *f_rte_old;
 static struct linpool *f_pool;
 static struct ea_list **f_tmp_attrs;
 static int f_flags;
+static rta *f_rta_copy;
 
 #define runtime(x) do { \
     log( L_ERR x ); \
@@ -404,9 +405,15 @@ interpret(struct f_inst *what)
       }
 
       if (!(what->aux & EAF_TEMP) && (!(f_flags & FF_FORCE_TMPATTR))) {
-	*f_rte = rte_cow(*f_rte);
-	l->next = (*f_rte)->attrs->eattrs;
-	(*f_rte)->attrs->eattrs = l;
+	if (!f_rta_copy) {
+	  f_rta_copy = lp_alloc(f_pool, sizeof(rta));
+	  memcpy(f_rta_copy, (*f_rte)->attrs, sizeof(rta));
+	  f_rta_copy->aflags = 0;
+	  *f_rte = rte_cow(*f_rte);
+	  (*f_rte)->attrs = f_rta_copy;
+	}
+	l->next = f_rta_copy->eattrs;
+	f_rta_copy->eattrs = l;
       } else {
 	l->next = (*f_tmp_attrs);
 	(*f_tmp_attrs) = l;
@@ -607,6 +614,7 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   f_tmp_attrs = tmp_attrs;
   f_rte = rte;
   f_rte_old = *rte;
+  f_rta_copy = NULL;
   f_pool = tmp_pool;
   inst = filter->root;
   res = interpret(inst);
