@@ -56,7 +56,7 @@ bgp_proto:
  | bgp_proto HOLD TIME NUM ';' { BGP_CFG->hold_time = $4; }
  | bgp_proto STARTUP HOLD TIME NUM ';' { BGP_CFG->initial_hold_time = $5; }
  | bgp_proto CONNECT RETRY TIME NUM ';' { BGP_CFG->connect_retry_time = $5; }
- | bgp_proto KEEPALIVE TIME NUM ';' { BGP_CFG->connect_retry_time = $4; }
+ | bgp_proto KEEPALIVE TIME NUM ';' { BGP_CFG->keepalive_time = $4; }
  | bgp_proto MULTIHOP NUM VIA IPA ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
  | bgp_proto PATH METRIC NUM ';' { BGP_CFG->compare_path_lengths = $4; }
