@@ -16,6 +16,10 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifndef HAVE_STRUCT_IP_MREQN
+#include <net/if.h>
+#endif
+
 #include "nest/bird.h"
 #include "lib/lists.h"
 #include "lib/resource.h"
@@ -413,6 +417,12 @@ sk_open(sock *s)
 	ASSERT(s->iface);
 	mreq.imr_ifindex = s->iface->index;
 	set_inaddr(&mreq.imr_address, s->iface->ip);
+#else
+	struct in_addr mreq;
+	struct ip_mreq mreq_add;
+	ASSERT(s->iface);
+	set_inaddr(&mreq, s->iface->ip);
+	mreq_add.imr_interface = mreq;
 #ifdef SO_BINDTODEVICE
 	{
 	  struct ifreq ifr;
@@ -423,12 +433,6 @@ sk_open(sock *s)
 #else
 #error Multicasts not supported on PtP devices		/* FIXME: Solve it somehow? */
 #endif
-#else
-	struct in_addr mreq;
-	struct ip_mreq mreq_add;
-	ASSERT(s->iface);
-	set_inaddr(&mreq, s->iface->ip);
-	mreq_add.imr_interface = mreq;
 #endif
 	set_inaddr(&mreq_add.imr_multiaddr, s->daddr);
 	if (has_dest)
