@@ -6,6 +6,23 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Interfaces
+ *
+ * The interface module keeps track of all network interfaces in the
+ * system and their addresses.
+ *
+ * Each interface is represented by an &iface structure which carries
+ * interface capability flags (%IF_MULTIACCESS, %IF_BROADCAST etc.),
+ * MTU, interface name and index and finally a linked list of network
+ * prefixes assigned to the interface, each one represented by
+ * struct &ifa.
+ *
+ * The interface module keeps a `soft-up' state for each &iface which
+ * is a conjunction of link being up, the interface being of a `sane'
+ * type and at least one IP address assigned to it.
+ */
+
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -22,6 +39,12 @@ static void auto_router_id(void);
 
 list iface_list;
 
+/**
+ * ifa_dump - dump interface address
+ * @a: interface address descriptor
+ *
+ * This function dumps contents of an &ifa to the debug output.
+ */
 void
 ifa_dump(struct ifa *a)
 {
@@ -31,6 +54,13 @@ ifa_dump(struct ifa *a)
 	(a->flags & IA_UNNUMBERED) ? " UNNUM" : "");
 }
 
+/**
+ * if_dump - dump interface
+ * @i: interface to dump
+ *
+ * This function dumps all information associated with a given
+ * network interface to the debug output.
+ */
 void
 if_dump(struct iface *i)
 {
@@ -65,6 +95,12 @@ if_dump(struct iface *i)
     }
 }
 
+/**
+ * if_dump_all - dump all interfaces
+ *
+ * This function dumps information about all known network
+ * interfaces to the debug output.
+ */
 void
 if_dump_all(void)
 {
@@ -200,6 +236,22 @@ if_change_flags(struct iface *i, unsigned flags)
     if_notify_change((i->flags & IF_UP) ? IF_CHANGE_UP : IF_CHANGE_DOWN, i);
 }
 
+/**
+ * if_update - update interface status
+ * @new: new interface status
+ *
+ * if_update() is called by the low-level platform dependent code
+ * whenever it notices an interface change.
+ *
+ * There exist two types of interface updates: synchronous and asynchronous
+ * ones. In the synchronous case, the low-level code calls if_start_update(),
+ * scans all interfaces reported by the OS, uses if_update() and ifa_update()
+ * to pass them to the core and then it finishes the update sequence by
+ * calling if_end_update(). When working asynchronously, the sysdep code
+ * calls if_update() and ifa_update() whenever it notices a change.
+ *
+ * if_update() will automatically notify all other modules about the change.
+ */
 struct iface *
 if_update(struct iface *new)
 {
@@ -284,6 +336,13 @@ if_end_update(void)
     }
 }
 
+/**
+ * if_feed_baby - advertise interfaces to a new protocol
+ * @p: protocol to feed
+ *
+ * When a new protocol starts, this function sends it a series
+ * of notifications about all existing interfaces.
+ */
 void
 if_feed_baby(struct proto *p)
 {
@@ -302,6 +361,14 @@ if_feed_baby(struct proto *p)
     }
 }
 
+/**
+ * if_find_by_index - find interface by ifindex
+ * @idx: ifindex
+ *
+ * This function finds an &iface structure corresponding to an interface
+ * of the given index @idx. Returns a pointer to the structure or %NULL
+ * if no such structure exists.
+ */
 struct iface *
 if_find_by_index(unsigned idx)
 {
@@ -313,6 +380,14 @@ if_find_by_index(unsigned idx)
   return NULL;
 }
 
+/**
+ * if_find_by_name - find interface by name
+ * @name: interface name
+ *
+ * This function finds an &iface structure corresponding to an interface
+ * of the given name @name. Returns a pointer to the structure or %NULL
+ * if no such structure exists.
+ */
 struct iface *
 if_find_by_name(char *name)
 {
@@ -347,6 +422,14 @@ ifa_recalc_primary(struct iface *i)
   return res;
 }
 
+/**
+ * ifa_update - update interface address
+ * @a: new interface address
+ *
+ * This function adds address information to a network
+ * interface. It's called by the platform dependent code during
+ * the interface update process described under if_update().
+ */
 struct ifa *
 ifa_update(struct ifa *a)
 {
@@ -388,6 +471,14 @@ ifa_update(struct ifa *a)
   return b;
 }
 
+/**
+ * ifa_delete - remove interface address
+ * @a: interface address
+ *
+ * This function removes address information from a network
+ * interface. It's called by the platform dependent code during
+ * the interface update process described under if_update().
+ */
 void
 ifa_delete(struct ifa *a)
 {
@@ -434,6 +525,12 @@ auto_router_id(void)
 #endif
 }
 
+/**
+ * if_init - initialize interface module
+ *
+ * This function is called during BIRD startup to initialize
+ * all data structures of the interface module.
+ */
 void
 if_init(void)
 {

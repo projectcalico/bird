@@ -1,9 +1,52 @@
 /*
  *	BIRD Internet Routing Daemon -- Command-Line Interface
  *
- *	(c) 1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1999--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+/**
+ * DOC: Command line interface
+ *
+ * This module takes care of the BIRD's command-line interface (CLI).
+ * The CLI exists to provide a way to control BIRD remotely and to inspect
+ * its status. It uses a very simple textual protocol over a stream
+ * connection provided by the platform dependent code (on UNIX systems,
+ * it's a UNIX domain socket).
+ *
+ * Each session of the CLI consists of a sequence of request and replies,
+ * slightly resembling the FTP and SMTP protocols.
+ * Requests are commands encoded as a single line of text, replies are
+ * sequences of lines starting with a four-digit code followed by either
+ * a space (if it's the last line of the reply) or a minus sign (when the
+ * reply is going to continue with the next line), the rest of the line
+ * contains a textual message semantics of which depends on the numeric
+ * code. If a reply line has the same code as the previous one and it's
+ * a continuation line, the whole prefix can be replaced by a single
+ * white space character.
+ *
+ * Reply codes starting with 0 describe `action successfully completed' messages,
+ * 1 means `table entry', 8 `runtime error' and 9 `syntax error'.
+ *
+ * Each CLI session is internally represented by a &cli structure and a
+ * resource pool containing all resources associated with the connection,
+ * so that it can be easily freed whenever the connection closes, not depending
+ * on the current state of command processing.
+ *
+ * The CLI commands are declared as a part of the configuration grammar
+ * by using the CF_CLI() macro. When a command is received, it's processed
+ * by the same lexical analyser and parser as used for the configuration, but
+ * it's switched to a special mode by prepending a fake token to the text,
+ * so that it uses only the CLI command rules. Then the parser invokes
+ * an execution routine corresponding to the command, which either constructs
+ * the whole reply and returns or (in case it expects the reply will be long)
+ * it prints a partial reply and asks the CLI module (using the @cont hook)
+ * to call it again when the output will be transferred to the user.
+ *
+ * The @this_cli variable points to a &cli structure of the session being
+ * currently parsed, but it's of course available only in command handlers
+ * not entered using the @cont hook.
  */
 
 #include "nest/bird.h"
@@ -41,6 +84,24 @@ cli_alloc_out(cli *c, int size)
   return o->wpos - size;
 }
 
+/**
+ * cli_printf - send reply to a CLI connection
+ * @c: CLI connection
+ * @code: numeric code of the reply, negative for continuation lines
+ * @msg: a printf()-like formatting string.
+ *
+ * This function send a single line of reply to a given CLI connection.
+ * In works in all aspects like bsprintf() except that it automatically
+ * prepends the reply line prefix.
+ *
+ * Please note that if the connection can be already busy sending some
+ * data in which case cli_printf() stores the output to a temporary buffer,
+ * so please avoid sending a large batch of replies without waiting
+ * for the buffers to be flushed.
+ *
+ * If you want to write to the current CLI output, you can use the cli_msg()
+ * macro instead.
+ */
 void
 cli_printf(cli *c, int code, char *msg, ...)
 {
@@ -320,6 +381,12 @@ cli_free(cli *c)
   rfree(c->pool);
 }
 
+/**
+ * cli_init - initialize the CLI module
+ *
+ * This function is called during BIRD startup to initialize
+ * the internal data structures of the CLI module.
+ */
 void
 cli_init(void)
 {
