@@ -421,7 +421,6 @@ struct top_hash_entry *
 lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
 {
   /* LSA can be temporarrily, but body must be mb_allocated. */
-  struct proto *p=&oa->po->proto;
   int change=0;
   unsigned i;
   struct top_hash_entry *en;

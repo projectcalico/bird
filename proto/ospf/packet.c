@@ -31,7 +31,6 @@ fill_ospf_pkt_hdr (struct ospf_iface *ifa, void *buf, u8 h_type)
 void
 ospf_tx_authenticate (struct ospf_iface *ifa, struct ospf_packet *pkt)
 {
-  int i;
   pkt->autype = htons (ifa->autype);
   memcpy (pkt->authetication, ifa->aukey, 8);
   return;
@@ -86,8 +85,6 @@ ospf_rx_hook (sock *sk, int size)
   struct ospf_packet *ps;
   struct ospf_iface *ifa = (struct ospf_iface *) (sk->data);
   struct proto *p = (struct proto *) (ifa->proto);
-  int i;
-  u8 *pu8;
 
   if (ifa->stub)
     return (1);
@@ -218,7 +215,7 @@ ospf_tx_hook (sock * sk)
 }
 
 void
-ospf_err_hook (sock * sk, int err)
+ospf_err_hook (sock * sk, int err UNUSED)
 {
   struct ospf_iface *ifa;
   struct proto *p;
@@ -241,8 +238,6 @@ sk_send_to_agt (sock * sk, u16 len, struct ospf_iface *ifa, u8 state)
 void
 sk_send_to_bdr (sock * sk, u16 len, struct ospf_iface *ifa)
 {
-  struct ospf_neighbor *n;
-
   if (ipa_compare (ifa->drip, ipa_from_u32 (0)) != 0)
     sk_send_to (sk, len, ifa->drip, OSPF_PROTO);
   if (ipa_compare (ifa->bdrip, ipa_from_u32 (0)) != 0)

@@ -124,7 +124,6 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
   u32 nrid, myrid;
   struct ospf_neighbor *n;
   struct ospf_lsa_header lsa, *plsa;
-  int length;
   u16 nolsa, i;
   struct top_hash_entry *en;
   u16 lenn = ntohs(ps->ospf_packet.length);

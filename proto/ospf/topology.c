@@ -29,8 +29,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *ln;
   struct ospf_neighbor *neigh;
-  struct top_hash_entry *old;
-  struct proto_ospf *po=(struct proto_ospf *)p;
 
   DBG("%s: Originating RT_lsa body for area \"%I\".\n", po->proto.name,
     oa->areaid);
@@ -155,8 +153,6 @@ addifa_rtlsa(struct ospf_iface *ifa)
 {
   struct ospf_area *oa;
   struct proto_ospf *po=ifa->proto;
-  struct proto *p=&po->proto;
-
 
   WALK_LIST(NODE oa,po->area_list)
   {
@@ -264,7 +260,6 @@ originate_net_lsa(struct ospf_iface *ifa)
   struct proto_ospf *po=ifa->proto;
   struct ospf_lsa_header lsa;
   u32 rtid=po->proto.cf->global->router_id;
-  struct top_hash_entry *en;
   struct proto *p=&po->proto;
   void *body;
 
@@ -322,7 +317,6 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
   struct proto *p=&po->proto;
   struct ospf_lsa_ext *ext;
   struct ospf_lsa_ext_tos *et;
-  neighbor *nn;
   u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, LSINFINITY);
   u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 10000);
   u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
@@ -673,7 +667,6 @@ can_flush_lsa(struct ospf_area *oa)
 {
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
-  struct proto_ospf *po=oa->po;
 
   WALK_LIST(ifa, iface_list)
   {

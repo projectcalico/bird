@@ -116,7 +116,6 @@ downint(struct ospf_iface *ifa)
 {
   struct ospf_neighbor *n,*nx;
   struct proto *p=&ifa->proto->proto;
-  struct proto_ospf *po=ifa->proto;
 
   WALK_LIST_DELSAFE(n,nx,ifa->neigh_list)
   {
@@ -149,7 +148,6 @@ void
 ospf_int_sm(struct ospf_iface *ifa, int event)
 {
   struct proto *p=(struct proto *)(ifa->proto);
-  struct proto_ospf *po=ifa->proto;
   struct ospf_area *oa=ifa->oa;
 
   OSPF_TRACE(D_EVENTS, "SM on iface %s. Event is \"%s\".",
@@ -324,9 +322,6 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   struct ospf_iface *ifa;
   struct object_lock *lock;
   struct nbma_node *nbma,*nb;
-  u8 i;
-  sock *mcsk;
-
 
   DBG("%s: If notify called\n", p->name);
   if (iface->flags & IF_IGNORE)
@@ -457,7 +452,6 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 void
 ospf_iface_info(struct ospf_iface *ifa)
 {
-  int x;
   char *strict="(strict)";
 
   if((ifa->type!=OSPF_IT_NBMA)||(ifa->strictnbma==0)) strict="";

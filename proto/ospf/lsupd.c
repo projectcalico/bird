@@ -147,7 +147,6 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 
     {
       sock *sk;
-      ip_addr to;
       u16 len, age;
       struct ospf_lsupd_packet *pk;
       struct ospf_packet *op;
@@ -226,8 +225,6 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
   struct ospf_packet *op;
   struct proto *p = &n->ifa->oa->po->proto;
   void *pktpos;
-  u8 ii;
-  u8 *jj = n->ifa->ip_sk->tbuf;
 
   if (EMPTY_LIST(*l))
     return;
@@ -294,7 +291,6 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
   struct ospf_area *oa;
   struct proto_ospf *po = ifa->proto;
   struct proto *p = (struct proto *) po;
-  u16 length;
   u8 i;
   int sendreq = 1;
 

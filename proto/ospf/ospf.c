@@ -129,10 +129,8 @@ ospf_start(struct proto *p)
 static void
 ospf_dump(struct proto *p)
 {
-  char areastr[20];
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
-  struct ospf_config *c = (void *) p->cf;
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct ospf_area *oa;
 
@@ -165,8 +163,6 @@ ospf_init(struct proto_config *c)
   struct proto *p = proto_new(c, sizeof(struct proto_ospf));
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct ospf_config *oc=(struct ospf_config *)c;
-  struct ospf_area_config *ac;
-  struct ospf_iface_patt *patt;
 
   p->import_control = ospf_import_control;
   p->make_tmp_attrs = ospf_make_tmp_attrs;
@@ -185,8 +181,6 @@ ospf_init(struct proto_config *c)
 static int
 ospf_rte_better(struct rte *new, struct rte *old)
 {
-  struct proto *p = new->attrs->proto;
-
   if(new->u.ospf.metric1==LSINFINITY) return 0;
 
   /* External paths are always longer that internal */
@@ -288,7 +282,7 @@ void
 area_disp(timer *timer)
 {
   struct ospf_area *oa=timer->data;
-  struct top_hash_entry *en,*nxt;
+  struct top_hash_entry *nxt;
   struct proto_ospf *po=oa->po;
   struct ospf_iface *ifa;
 
@@ -324,7 +318,6 @@ int
 ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool *pool)
 {
   rte *e=*new;
-  struct proto_ospf *po=(struct proto_ospf *)p;
 
   if(p==e->attrs->proto) return -1;	/* Reject our own routes */
   *attrs = ospf_build_attrs(*attrs, pool, LSINFINITY, 10000, 0);
@@ -360,8 +353,6 @@ ospf_shutdown(struct proto *p)
 {
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct ospf_iface *ifa;
-  struct ospf_neighbor *n;
-  struct ospf_area *oa;
   OSPF_TRACE(D_EVENTS, "Shutdown requested");
 
   /* And send to all my neighbors 1WAY */
@@ -372,7 +363,7 @@ ospf_shutdown(struct proto *p)
 }
 
 void
-ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
+ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old UNUSED, ea_list *attrs)
 {
   struct proto_ospf *po=(struct proto_ospf *)p;
 
@@ -436,7 +427,7 @@ ospf_get_status(struct proto *p, byte *buf)
 }
 
 static void
-ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs)
+ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs UNUSED)
 {
   char met=' ';
   char type=' ';
@@ -851,13 +842,8 @@ ospf_sh(struct proto *p)
 void
 ospf_sh_iface(struct proto *p, char *iff)
 {
-  struct ospf_area *oa;
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct ospf_iface *ifa=NULL,*f;
-  struct ospf_neighbor *n;
-  int ifano;
-  int nno;
-  int adjno;
 
   if(p->proto_state != PS_UP)
   {

@@ -13,13 +13,12 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
 		   struct ospf_iface *ifa, int size, ip_addr faddr)
 {
   u32 nrid, *pnrid;
-  struct ospf_neighbor *neigh, *n;
+  struct ospf_neighbor *n;
   u8 i, twoway, oldpriority;
   ip_addr olddr, oldbdr;
   ip_addr mask;
   char *beg = "Bad OSPF hello packet from ", *rec = " received: ";
   int eligible = 0;
-  pool *pool;
   struct proto *p = (struct proto *) ifa->proto;
 
   nrid = ntohl(((struct ospf_packet *) ps)->routerid);

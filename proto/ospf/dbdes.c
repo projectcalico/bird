@@ -154,7 +154,6 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct ospf_neighbor *n)
   struct top_hash_entry *he, *sn;
   struct top_graph *gr = n->ifa->oa->gr;
   struct ospf_packet *op;
-  struct proto *p = (struct proto *) n->ifa->proto;
   int i, j;
 
   op = (struct ospf_packet *) ps;

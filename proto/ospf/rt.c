@@ -46,14 +46,12 @@ init_efib(struct fib_node *fn)
 void
 ospf_rt_spfa(struct ospf_area *oa)
 {
-  struct top_hash_entry *en;
   u32 i,*rts;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *rtl,*rr;
   struct fib *in=&oa->infib;
   struct infib *nf;
   struct fib_iterator fit;
-  int age=0,flush=0;
   struct proto *p=&oa->po->proto;
   struct proto_ospf *po=oa->po;
   ip_addr ip;
@@ -280,7 +278,6 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
   struct proto *p=&po->proto;
   struct ospf_lsa_ext *le;
   struct ospf_lsa_ext_tos *lt;
-  struct ospf_lsa_rt *rt;
   int mlen;
   ip_addr ip,nnh;
   struct iface *nnhi=NULL;
@@ -527,7 +524,6 @@ noch:
         nf->oldtag=nf->tag;
       }
   }
-let:
   FIB_ITERATE_END(nftmp);
 }
 
@@ -537,9 +533,8 @@ add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
   u16 dist, struct ospf_area *oa)
 {
   node *prev,*n;
-  int flag=0,added=0;
+  int added=0;
   struct top_hash_entry *act;
-  struct proto *p=&oa->po->proto;
 
   if(en==NULL) return;
   if(en->lsa.age==LSA_MAXAGE) return;

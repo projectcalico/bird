@@ -375,7 +375,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 void
 bdr_election(struct ospf_iface *ifa)
 {
-  struct ospf_neighbor *neigh,*ndr,*nbdr,me,*tmp;
+  struct ospf_neighbor *neigh,*ndr,*nbdr,me;
   u32 myid;
   ip_addr ndrip, nbdrip;
   int doadj;
@@ -570,7 +570,6 @@ rxmt_timer_hook(timer *timer)
 {
   struct ospf_neighbor *n = (struct ospf_neighbor *)timer->data;
   struct ospf_iface *ifa = n->ifa;
-  struct proto *p = (struct proto *)(ifa->proto);
   struct top_hash_entry *en;
 
   DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",
