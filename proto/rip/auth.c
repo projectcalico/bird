@@ -50,21 +50,20 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       struct password_item *head;
       struct rip_md5_tail *tail;
 
-      tail = (char *) packet + (block->packetlen - sizeof(struct rip_block_auth));
+      tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
 
       head = P_CF->passwords;
       while (head) {
 	if (head->id == block->keyid) {
 	  struct MD5Context ctxt;
-	  int i;
 	  char md5sum_packet[16];
 	  char md5sum_computed[16];
 
-	  memcpy(md5sum_packet, tail->md5, i);
+	  memcpy(md5sum_packet, tail->md5, 16);
 	  password_strncpy(tail->md5, head->password, 16);
 
 	  MD5Init(&ctxt);
-	  MD5Update(&ctxt, packet, block->packetlen );
+	  MD5Update(&ctxt, (char *) packet, block->packetlen );
 	  MD5Final(md5sum_computed, &ctxt);
 
 	  if (memcmp(md5sum_packet, md5sum_computed, 16))
