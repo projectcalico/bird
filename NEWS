@@ -1,3 +1,9 @@
+Version 1.0.9 (2004-07-15)
+  o  Minor bugfix in RIP
+  o  A lot of OSPF code rewritten, OSPF supports multiple areas,
+     virtual links, MD5 authentication. It is fully compatible
+     with rfc2329.
+
 Version 1.0.8 (2004-06-07)
   o  A lot of bug fixes in RIP, OSPF and BGP (thanx to Andreas Steinmetz)
   o  FreeBSD and NetBSD port introduced
