@@ -2,6 +2,7 @@ Core
 ~~~~
 * right usage of DBG vs. debug
 * cleanup debugging calls!
+- global "interface weed out list"
 
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
 
@@ -9,10 +10,8 @@ Core
 
 - fake multipath?
 - replace all NUM's by expr's
-- config file: symbolic constants?
+- config file: define ipaddr constants?
 - counters (according to SNMP MIB?)
-- generation of subnet mask ICMP's for v6?
-- ipv4: recognize site scope addresses?
 - ifdef out some debugging code?
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
@@ -21,20 +20,12 @@ Core
 
 - filter: logging of dropped routes (?)
 - limitation of memory consumption: per-process and total (?)
-- alloca
-- adding of route: clear all bits not covered by masklen
-- switch: generate default route only if at least one BGP connection exists
-- "interface kill" list
+- adding of route: check whether all bits not covered by masklen are zero
+- switch: generate default route only if at least one BGP connection exists (?)
 
 - route recalculation timing + flap dampening (?)
 
 - "generate default route" switch for all IGP's
-
-- running protocol on an interface:
-	- interface is not required to exist
-	- can specify a wildcard pattern or an interface list
-
-- re-configuration: restart of affected routing protocols (shutdown mode)
 
 - Check incoming packets and log errors!!
 
@@ -45,7 +36,7 @@ RIP
 	- drop RIPv1 (Historic protocol)?
 	- Route Tag
 	- limit routing table xfer (frequency, only to neighbors)
-	- multicast on/off
+	- multicast on/off (per interface)
 	- remember routes for all neighbors?
 
 OSPF
