@@ -414,14 +414,14 @@ sk_open(sock *s)
 #ifdef HAVE_STRUCT_IP_MREQN
 	struct ip_mreqn mreq;
 #define mreq_add mreq
-	ASSERT(s->iface);
+	ASSERT(s->iface && s->iface->addr);
 	mreq.imr_ifindex = s->iface->index;
-	set_inaddr(&mreq.imr_address, s->iface->ip);
+	set_inaddr(&mreq.imr_address, s->iface->addr->ip);
 #else
 	struct in_addr mreq;
 	struct ip_mreq mreq_add;
-	ASSERT(s->iface);
-	set_inaddr(&mreq, s->iface->ip);
+	ASSERT(s->iface && s->iface->addr);
+	set_inaddr(&mreq, s->iface->addr->ip);
 #ifdef SO_BINDTODEVICE
 	{
 	  struct ifreq ifr;

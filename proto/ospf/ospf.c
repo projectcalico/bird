@@ -155,7 +155,7 @@ wait_timer_hook(timer *timer)
     {
       debug(" OSPF: Changing state into DR.\n");
       ifa->state=OSPF_IS_DR;
-      ifa->drip=ifa->iface->ip;
+      ifa->drip=ifa->iface->addr->ip;
       /* FIXME: Set ifa->drid */
     }
     else
@@ -221,7 +221,7 @@ find_iface(struct proto_ospf *p, struct iface *what)
 }
 
 void
-ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface *old)
+ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 {
   struct ospf_iface *ifa;
   sock *mcsk, *newsk;
@@ -231,13 +231,15 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
   c=(struct ospf_config *)(p->cf);
 
   DBG(" OSPF: If notify called\n");
+  if (iface->flags & IF_IGNORE)
+    return;
 
-  if((flags & IF_CHANGE_UP) && is_good_iface(p, new))
+  if((flags & IF_CHANGE_UP) && is_good_iface(p, iface))
   {
-    debug(" OSPF: using interface %s.\n", new->name);
+    debug(" OSPF: using interface %s.\n", iface->name);
     /* FIXME: Latter I'll use config - this is incorrect */
     ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
-    ifa->iface=new;
+    ifa->iface=iface;
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
     /* FIXME: This should read config */
@@ -253,17 +255,17 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
 
   if(flags & IF_CHANGE_DOWN)
   {
-    if((ifa=find_iface((struct proto_ospf *)p, old))!=NULL)
+    if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
-      debug(" OSPF: killing interface %s.\n", old->name);
+      debug(" OSPF: killing interface %s.\n", iface->name);
     }
   }
 
   if(flags & IF_CHANGE_MTU)
   {
-    if((ifa=find_iface((struct proto_ospf *)p, old))!=NULL)
+    if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
-      debug(" OSPF: changing MTU on interface %s.\n", old->name);
+      debug(" OSPF: changing MTU on interface %s.\n", iface->name);
     }
   }
 }
@@ -321,6 +323,4 @@ struct protocol proto_ospf = {
   start:	ospf_start,
   preconfig:	ospf_preconfig,
   postconfig:	ospf_postconfig,
-
 };
-

@@ -407,12 +407,16 @@ krt_if_scan(struct kif_proto *p)
  *	Routes
  */
 
-int					/* FIXME: Check use of this function in krt.c */
+int
 krt_capable(rte *e)
 {
   rta *a = e->attrs;
 
-  if (a->cast != RTC_UNICAST)	/* FIXME: For IPv6, we might support anycasts as well */
+  if (a->cast != RTC_UNICAST
+#ifdef IPV6
+      && a->cast != RTC_ANYCAST
+#endif
+      )
     return 0;
   if (a->source == RTS_DEVICE)	/* Kernel takes care of device routes itself */
     return 0;
@@ -597,7 +601,7 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
   net = net_get(&master_table, dst, i->rtm_dst_len);
   ra.proto = &p->p;
   ra.source = RTS_INHERIT;
-  ra.scope = SCOPE_UNIVERSE;	/* FIXME: Use kernel scope? */
+  ra.scope = SCOPE_UNIVERSE;
   ra.cast = RTC_UNICAST;
   ra.flags = ra.aflags = 0;
   ra.from = IPA_NONE;

@@ -19,19 +19,18 @@
 #include "lib/resource.h"
 
 static void
-dev_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
+dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
 {
   struct rt_dev_config *P = (void *) p->cf;
 
-  if (old && !iface_patt_match(&P->iface_list, old) ||
-      new && !iface_patt_match(&P->iface_list, new))
+  if (!iface_patt_match(&P->iface_list, ad->iface))
     return;
   if (c & IF_CHANGE_DOWN)
     {
       net *n;
 
-      debug("dev_if_notify: %s going down\n", old->name);
-      n = net_find(p->table, old->prefix, old->pxlen);
+      DBG("dev_if_notify: %s:%I going down\n", ad->iface->name, ad->ip);
+      n = net_find(p->table, ad->prefix, ad->pxlen);
       if (!n)
 	{
 	  debug("dev_if_notify: device shutdown: prefix not found\n");
@@ -45,20 +44,20 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
       net *n;
       rte *e;
 
-      debug("dev_if_notify: %s going up\n", new->name);
+      debug("dev_if_notify: %s:%I going up\n", ad->iface->name, ad->ip);
       bzero(&A, sizeof(A));
       A.proto = p;
       A.source = RTS_DEVICE;
-      A.scope = (new->flags & IF_LOOPBACK) ? SCOPE_HOST : SCOPE_UNIVERSE;
+      A.scope = ad->scope;
       A.cast = RTC_UNICAST;
       A.dest = RTD_DEVICE;
-      A.iface = new;
+      A.iface = ad->iface;
       A.attrs = NULL;
       a = rta_lookup(&A);
-      if (new->flags & IF_UNNUMBERED)
-	n = net_get(p->table, new->opposite, new->pxlen);
+      if (ad->flags & IF_UNNUMBERED)
+	n = net_get(p->table, ad->opposite, ad->pxlen);
       else
-	n = net_get(p->table, new->prefix, new->pxlen);
+	n = net_get(p->table, ad->prefix, ad->pxlen);
       e = rte_get_temp(a);
       e->net = n;
       e->pflags = 0;
@@ -71,7 +70,7 @@ dev_init(struct proto_config *c)
 {
   struct proto *p = proto_new(c, sizeof(struct proto));
 
-  p->if_notify = dev_if_notify;
+  p->ifa_notify = dev_ifa_notify;
   return p;
 }
 

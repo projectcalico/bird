@@ -27,6 +27,8 @@ Core
 - iface: we always need ifindex at least for PtP links (OSPF)
 - iface: interface filters should support filtering by IP address as well
 
+- socket: Use IP_RECVERR for BGP TCP sockets?
+
 Cleanup
 ~~~~~~~
 - right usage of DBG vs. debug

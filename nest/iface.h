@@ -15,48 +15,69 @@ extern list iface_list;
 
 struct proto;
 
+struct ifa {				/* Interface address */
+  node n;
+  struct iface *iface;			/* Interface this address belongs to */
+  ip_addr ip;				/* IP address of this host */
+  ip_addr prefix;			/* Network prefix */
+  unsigned pxlen;			/* Prefix length */
+  ip_addr brd;				/* Broadcast address */
+  ip_addr opposite;			/* Opposite end of a point-to-point link */
+  unsigned scope;			/* Interface address scope */
+  unsigned flags;			/* Analogous to iface->flags */
+};
+
 struct iface {
   node n;
   char name[16];
   unsigned flags;
   unsigned mtu;
   unsigned index;			/* OS-dependent interface index */
-  ip_addr ip;				/* IP address of this host (0=unset) */
-  ip_addr prefix;			/* Network prefix */
-  unsigned pxlen;			/* Prefix length */
-  ip_addr brd;				/* Broadcast address */
-  ip_addr opposite;			/* Opposite end of a point-to-point link */
+  list addrs;				/* Addresses assigned to this interface */
+  struct ifa *addr;			/* Primary address */
   struct neighbor *neigh;		/* List of neighbors on this interface */
 };
 
-#define IF_UP 1				/* IF_LINK_UP, not IF_IGNORE and IP address known */
+#define IF_UP 1				/* IF_LINK_UP and IP address known */
 #define IF_MULTIACCESS 2
 #define IF_UNNUMBERED 4
 #define IF_BROADCAST 8
-#define IF_MULTICAST 16
-#define IF_TUNNEL 32
-#define IF_ADMIN_DOWN 64
-#define IF_LOOPBACK 128
-#define IF_IGNORE 256
-#define IF_LINK_UP 512
+#define IF_MULTICAST 0x10
+#define IF_TUNNEL 0x20
+#define IF_ADMIN_DOWN 0x40
+#define IF_LOOPBACK 0x80
+#define IF_IGNORE 0x100			/* Not to be used by routing protocols (loopbacks etc.) */
+#define IF_LINK_UP 0x200
+
+#define IA_PRIMARY 0x10000		/* This address is primary */
+#define IA_SECONDARY 0x20000		/* This address has been reported as secondary by the kernel */
+#define IA_FLAGS 0xff0000
+
+#define IF_JUST_CREATED 0x10000000	/* Send creation event as soon as possible */
+#define IF_TMP_DOWN 0x20000000		/* Temporary shutdown due to interface reconfiguration */
 #define IF_UPDATED 0x40000000		/* Touched in last scan */
 
 /* Interface change events */
 
 #define IF_CHANGE_UP 1
 #define IF_CHANGE_DOWN 2
-#define IF_CHANGE_FLAGS 4		/* Can be converted to down/up internally */
-#define IF_CHANGE_MTU 8
-#define IF_CHANGE_CREATE 16		/* Seen this interface for the first time */
+#define IF_CHANGE_MTU 4
+#define IF_CHANGE_CREATE 8		/* Seen this interface for the first time */
+#define IF_CHANGE_TOO_MUCH 0x40000000	/* Used internally */
 
 void if_init(void);
 void if_dump(struct iface *);
 void if_dump_all(void);
-void if_update(struct iface *);
+void ifa_dump(struct ifa *);
+struct iface *if_update(struct iface *);
+struct ifa *ifa_update(struct ifa *);
+void ifa_delete(struct ifa *);
 void if_start_update(void);
 void if_end_update(void);
+void if_end_partial_update(struct iface *);
 void if_feed_baby(struct proto *);
 struct iface *if_find_by_index(unsigned);
+struct iface *if_find_by_name(char *);
 
 /*
  *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen

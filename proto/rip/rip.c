@@ -491,9 +491,9 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
   if (want_multicast)
     rif->sock->daddr = ipa_from_u32(0x7f000001); /* FIXME: must lookup address in rfc's */
   if (flags & IF_BROADCAST)
-    rif->sock->daddr = new->brd;
+    rif->sock->daddr = new->addr->brd;
   if (flags & IF_UNNUMBERED)
-    rif->sock->daddr = new->opposite;
+    rif->sock->daddr = new->addr->opposite;
 
   if (!ipa_nonzero(rif->sock->daddr))
     log( L_WARN "RIP: interface %s is too strange for me", rif->iface ? rif->iface->name : "(dummy)" );
@@ -507,24 +507,26 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
 }
 
 static void
-rip_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
+rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
 {
   DBG( "RIP: if notify\n" );
-  if (old) {
+  if (iface->flags & IF_IGNORE)
+    return;
+  if (c & IF_CHANGE_DOWN) {
     struct rip_interface *i;
-    i = find_interface(p, old);
+    i = find_interface(p, iface);
     if (i) {
       rem_node(NODE i);
       kill_iface(p, i);
     }
   }
-  if (new) {
+  if (c & IF_CHANGE_UP) {
     struct rip_interface *rif;
-    struct iface_patt *k = iface_patt_match(&P_CF->iface_list, new);
+    struct iface_patt *k = iface_patt_match(&P_CF->iface_list, iface);
 
     if (!k) return; /* We are not interested in this interface */
-    DBG("adding interface %s\n", new->name );
-    rif = new_iface(p, new, new->flags);
+    DBG("adding interface %s\n", iface->name );
+    rif = new_iface(p, iface, iface->flags);
     rif->patt = (void *) k;
     add_head( &P->interfaces, NODE rif );
   }

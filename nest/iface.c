@@ -31,17 +31,22 @@ static list neigh_list;
 static int
 if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
 {
+  struct ifa *b;
+
   if (!(i->flags & IF_UP))
     return 0;
-  if ((i->flags & IF_UNNUMBERED) && ipa_equal(*a, i->opposite))
+  if ((i->flags & IF_UNNUMBERED) && ipa_equal(*a, i->addr->opposite))
     return 1;
-  if (!ipa_in_net(*a, i->prefix, i->pxlen))
-    return 0;
-  if (ipa_equal(*a, i->prefix) ||	/* Network address */
-      ipa_equal(*a, i->brd) ||		/* Broadcast */
-      ipa_equal(*a, i->ip))		/* Our own address */
-    return -1;
-  return 1;
+  WALK_LIST(b, i->addrs)
+    if (ipa_in_net(*a, b->prefix, b->pxlen))
+      {
+	if (ipa_equal(*a, b->prefix) ||	/* Network address */
+	    ipa_equal(*a, b->brd) ||	/* Broadcast */
+	    ipa_equal(*a, b->ip))	/* Our own address */
+	  return -1;
+	return 1;
+      }
+  return 0;
 }
 
 neighbor *
@@ -69,7 +74,7 @@ neigh_find(struct proto *p, ip_addr *a, unsigned flags)
       case -1:
 	return NULL;
       case 1:
-	if (!j || j->pxlen > i->pxlen)
+	if (!j)				/* FIXME: Search for _optimal_ iface route? */
 	  j = i;
 	/* Fall-thru */
       }
@@ -188,8 +193,18 @@ neigh_prune(void)
 list iface_list;
 
 void
+ifa_dump(struct ifa *a)
+{
+  debug("\t%I, net %I/%-2d bc %I -> %I%s%s\n", a->ip, a->prefix, a->pxlen, a->brd, a->opposite,
+	(a->flags & IF_UP) ? "" : " DOWN",
+	(a->flags & IA_PRIMARY) ? "" : " SEC");
+}
+
+void
 if_dump(struct iface *i)
 {
+  struct ifa *a;
+
   debug("IF%d: %s", i->index, i->name);
   if (i->flags & IF_ADMIN_DOWN)
     debug(" ADMIN-DOWN");
@@ -213,8 +228,14 @@ if_dump(struct iface *i)
     debug(" LOOP");
   if (i->flags & IF_IGNORE)
     debug(" IGN");
+  if (i->flags & IF_TMP_DOWN)
+    debug(" TDOWN");
   debug(" MTU=%d\n", i->mtu);
-  debug("\t%I, net %I/%-2d bc %I -> %I\n", i->ip, i->prefix, i->pxlen, i->brd, i->opposite);
+  WALK_LIST(a, i->addrs)
+    {
+      ifa_dump(a);
+      ASSERT((a != i->addr) == !(a->flags & IA_PRIMARY));
+    }
 }
 
 void
@@ -228,151 +249,200 @@ if_dump_all(void)
   debug("Router ID: %08x\n", config->router_id);
 }
 
-static inline int
-if_change_too_big_p(struct iface *i, struct iface *j)
+static inline unsigned
+if_what_changed(struct iface *i, struct iface *j)
 {
-  if (!ipa_equal(i->ip, j->ip) ||	/* Address change isn't */
-      !ipa_equal(i->prefix, j->prefix) ||
-      i->pxlen != j->pxlen ||
-      !ipa_equal(i->brd, j->brd) ||
-      !ipa_equal(i->opposite, j->opposite))
-    return 1;
-  if ((i->flags ^ j->flags) & ~(IF_UP | IF_ADMIN_DOWN | IF_UPDATED | IF_LINK_UP))
-    return 1;				/* Interface type change isn't as well */
-  return 0;
+  unsigned c;
+
+  if (((i->flags ^ j->flags) & ~(IF_UP | IF_ADMIN_DOWN | IF_UPDATED | IF_LINK_UP | IF_TMP_DOWN | IF_JUST_CREATED))
+      || i->index != j->index)
+    return IF_CHANGE_TOO_MUCH;
+  c = 0;
+  if ((i->flags ^ j->flags) & IF_UP)
+    c |= (i->flags & IF_UP) ? IF_CHANGE_DOWN : IF_CHANGE_UP;
+  if (i->mtu != j->mtu)
+    c |= IF_CHANGE_MTU;
+  return c;
 }
 
 static inline void
 if_copy(struct iface *to, struct iface *from)
 {
-  to->flags = from->flags;
+  to->flags = from->flags | (to->flags & IF_TMP_DOWN);
   to->mtu = from->mtu;
-  to->index = from->index;
-  to->neigh = from->neigh;
-}
-
-static unsigned
-if_changed(struct iface *i, struct iface *j)
-{
-  unsigned f = 0;
-
-  if (i->mtu != j->mtu)
-    f |= IF_CHANGE_MTU;
-  if ((i->flags ^ j->flags) & ~IF_UPDATED)
-    {
-      f |= IF_CHANGE_FLAGS;
-      if ((i->flags ^ j->flags) & IF_UP)
-	if (i->flags & IF_UP)
-	  f |= IF_CHANGE_DOWN;
-	else
-	  f |= IF_CHANGE_UP;
-    }
-  return f;
 }
 
 static void
-if_notify_change(unsigned c, struct iface *old, struct iface *new, struct iface *real)
+ifa_notify_change(unsigned c, struct ifa *a)
 {
   struct proto *p;
 
-  debug("Interface change notification (%x) for %s\n", c, new->name);
-  if (old)
-    if_dump(old);
-  if (new)
-    if_dump(new);
+  debug("IFA change notification (%x) for %s:%I\n", c, a->iface->name, a->ip);
+  WALK_LIST(p, proto_list)
+    if (p->ifa_notify)
+      p->ifa_notify(p, c, a);
+}
+
+static void
+if_notify_change(unsigned c, struct iface *i)
+{
+  struct proto *p;
+  struct ifa *a;
+
+  if (i->flags & IF_JUST_CREATED)
+    {
+      i->flags &= ~IF_JUST_CREATED;
+      c |= IF_CHANGE_CREATE | IF_CHANGE_MTU;
+    }
+
+  debug("Interface change notification (%x) for %s\n", c, i->name);
+  if_dump(i);
 
   if (c & IF_CHANGE_UP)
-    neigh_if_up(real);
+    neigh_if_up(i);
+  if (c & IF_CHANGE_DOWN)
+    WALK_LIST(a, i->addrs)
+      {
+	a->flags = (i->flags & ~IA_FLAGS) | (a->flags & IA_FLAGS);
+	ifa_notify_change(IF_CHANGE_DOWN, a);
+      }
 
   WALK_LIST(p, proto_list)
     if (p->if_notify)
-      p->if_notify(p, c, new, old);
+      p->if_notify(p, c, i);
 
+  if (c & IF_CHANGE_UP)
+    WALK_LIST(a, i->addrs)
+      {
+	a->flags = (i->flags & ~IA_FLAGS) | (a->flags & IA_FLAGS);
+	ifa_notify_change(IF_CHANGE_UP, a);
+      }
   if (c & IF_CHANGE_DOWN)
-    neigh_if_down(real);
+    neigh_if_down(i);
 }
 
-void
+static unsigned
+if_recalc_flags(struct iface *i, unsigned flags)
+{
+  if ((flags & (IF_ADMIN_DOWN | IF_TMP_DOWN)) ||
+      !(flags & IF_LINK_UP) ||
+      !i->addr)
+    flags &= ~IF_UP;
+  else
+    flags |= IF_UP;
+  return flags;
+}
+
+static void
+if_change_flags(struct iface *i, unsigned flags)
+{
+  unsigned of = i->flags;
+
+  i->flags = if_recalc_flags(i, flags);
+  if ((i->flags ^ of) & IF_UP)
+    if_notify_change((i->flags & IF_UP) ? IF_CHANGE_UP : IF_CHANGE_DOWN, i);
+}
+
+struct iface *
 if_update(struct iface *new)
 {
   struct iface *i;
+  struct ifa *a, *b;
   unsigned c;
-
-  if ((new->flags & IF_LINK_UP) && !(new->flags & IF_ADMIN_DOWN) && ipa_nonzero(new->ip))
-    new->flags |= IF_UP;
-  else
-    new->flags &= ~IF_UP;
 
   WALK_LIST(i, iface_list)
     if (!strcmp(new->name, i->name))
       {
-	if (if_change_too_big_p(i, new)) /* Changed a lot, convert it to down/up */
+	new->addr = i->addr;
+	new->flags = if_recalc_flags(new, new->flags);
+	c = if_what_changed(i, new);
+	if (c & IF_CHANGE_TOO_MUCH)	/* Changed a lot, convert it to down/up */
 	  {
 	    DBG("Interface %s changed too much -- forcing down/up transition\n", i->name);
-	    if (i->flags & IF_UP)
-	      {
-		struct iface j;
-		memcpy(&j, i, sizeof(struct iface));
-		i->flags &= ~IF_UP;
-		if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, &j, i, i);
-	      }
+	    if_change_flags(i, i->flags | IF_TMP_DOWN);
 	    rem_node(&i->n);
+	    WALK_LIST_DELSAFE(a, b, i->addrs)
+	      ifa_delete(a);
 	    goto newif;
 	  }
-	c = if_changed(i, new);
-	if (c)
-	  if_notify_change(c, i, new, i);
-	if_copy(i, new);		/* Even if c==0 as we might need to update i->index et al. */
+	else if (c)
+	  {
+	    if_copy(i, new);
+	    if_notify_change(c, i);
+	  }
 	i->flags |= IF_UPDATED;
-	return;
+	return i;
       }
-
   i = mb_alloc(if_pool, sizeof(struct iface));
 newif:
   memcpy(i, new, sizeof(*i));
-  i->flags |= IF_UPDATED;
+  init_list(&i->addrs);
+  i->flags |= IF_UPDATED | IF_TMP_DOWN;		/* Tmp down as we don't have addresses yet */
   add_tail(&iface_list, &i->n);
-  if_notify_change(IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0)
-		   | IF_CHANGE_FLAGS | IF_CHANGE_MTU, NULL, i, i);
+  return i;
 }
 
 void
 if_start_update(void)
 {
   struct iface *i;
+  struct ifa *a;
 
   WALK_LIST(i, iface_list)
-    i->flags &= ~IF_UPDATED;
+    {
+      i->flags &= ~IF_UPDATED;
+      WALK_LIST(a, i->addrs)
+	a->flags &= ~IF_UPDATED;
+    }
+}
+
+void
+if_end_partial_update(struct iface *i)
+{
+  if (i->flags & IF_TMP_DOWN)
+    if_change_flags(i, i->flags & ~IF_TMP_DOWN);
 }
 
 void
 if_end_update(void)
 {
   struct iface *i, j;
+  struct ifa *a, *b;
 
   if (!config->router_id)
     auto_router_id();
 
   WALK_LIST(i, iface_list)
-    if (!(i->flags & IF_UPDATED))
-      {
-	memcpy(&j, i, sizeof(struct iface));
-	i->flags = (i->flags & ~(IF_LINK_UP | IF_UP)) | IF_ADMIN_DOWN;
-	if (i->flags != j.flags)
-	  if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, &j, i, i);
-      }
+    {
+      if (!(i->flags & IF_UPDATED))
+	if_change_flags(i, (i->flags & ~IF_LINK_UP) | IF_ADMIN_DOWN);
+      else
+	{
+	  WALK_LIST_DELSAFE(a, b, i->addrs)
+	    if (!(a->flags & IF_UPDATED))
+	      ifa_delete(a);
+	  if_end_partial_update(i);
+	}
+    }
 }
 
 void
 if_feed_baby(struct proto *p)
 {
   struct iface *i;
+  struct ifa *a;
 
-  if (!p->if_notify)
+  if (!p->if_notify && !p->ifa_notify)
     return;
   debug("Announcing interfaces to new protocol %s\n", p->name);
   WALK_LIST(i, iface_list)
-    p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), i, NULL);
+    {
+      if (p->if_notify)
+	p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), i);
+      if (p->ifa_notify && (i->flags & IF_UP))
+	WALK_LIST(a, i->addrs)
+	  p->ifa_notify(p, IF_CHANGE_CREATE | IF_CHANGE_UP, a);
+    }
 }
 
 struct iface *
@@ -386,6 +456,96 @@ if_find_by_index(unsigned idx)
   return NULL;
 }
 
+struct iface *
+if_find_by_name(char *name)
+{
+  struct iface *i;
+
+  WALK_LIST(i, iface_list)
+    if (!strcmp(i->name, name))
+      return i;
+  return NULL;
+}
+
+static int
+ifa_recalc_primary(struct iface *i)
+{
+  struct ifa *a, *b = NULL;
+  int res;
+
+  WALK_LIST(a, i->addrs)
+    {
+      if (!(a->flags & IA_SECONDARY) && (!b || a->scope > b->scope))
+	b = a;
+      a->flags &= ~IA_PRIMARY;
+    }
+  res = (b != i->addr);
+  i->addr = b;
+  if (b)
+    {
+      b->flags |= IA_PRIMARY;
+      rem_node(&b->n);
+      add_head(&i->addrs, &b->n);
+    }
+  return res;
+}
+
+struct ifa *
+ifa_update(struct ifa *a)
+{
+  struct iface *i = a->iface;
+  struct ifa *b;
+
+  WALK_LIST(b, i->addrs)
+    if (ipa_equal(b->ip, a->ip))
+      {
+	if (ipa_equal(b->prefix, a->prefix) &&
+	    b->pxlen == a->pxlen &&
+	    ipa_equal(b->brd, a->brd) &&
+	    ipa_equal(b->opposite, a->opposite) &&
+	    b->scope == a->scope)
+	  {
+	    b->flags |= IF_UPDATED;
+	    return b;
+	  }
+	ifa_delete(b);
+	break;
+      }
+  b = mb_alloc(if_pool, sizeof(struct ifa));
+  memcpy(b, a, sizeof(struct ifa));
+  add_tail(&i->addrs, &b->n);
+  b->flags = (i->flags & ~IA_FLAGS) | (a->flags & IA_FLAGS);
+  if ((!i->addr || i->addr->scope < b->scope) && ifa_recalc_primary(i))
+    if_change_flags(i, i->flags | IF_TMP_DOWN);
+  if (b->flags & IF_UP)
+    ifa_notify_change(IF_CHANGE_CREATE | IF_CHANGE_UP, b);
+  return b;
+}
+
+void
+ifa_delete(struct ifa *a)
+{
+  struct iface *i = a->iface;
+  struct ifa *b;
+
+  WALK_LIST(b, i->addrs)
+    if (ipa_equal(b->ip, a->ip))
+      {
+	rem_node(&b->n);
+	if (b->flags & IF_UP)
+	  {
+	    b->flags &= ~IF_UP;
+	    ifa_notify_change(IF_CHANGE_DOWN, b);
+	  }
+	if (b->flags & IA_PRIMARY)
+	  {
+	    if_change_flags(i, i->flags | IF_TMP_DOWN);
+	    ifa_recalc_primary(i);
+	  }
+	mb_free(b);
+      }
+}
+
 static void
 auto_router_id(void)			/* FIXME: What if we run IPv6??? */
 {
@@ -393,14 +553,15 @@ auto_router_id(void)			/* FIXME: What if we run IPv6??? */
 
   j = NULL;
   WALK_LIST(i, iface_list)
-    if ((i->flags & IF_UP) &&
-	!(i->flags & (IF_UNNUMBERED | IF_IGNORE)) &&
-	(!j || ipa_to_u32(i->ip) < ipa_to_u32(j->ip)))
+    if ((i->flags & IF_LINK_UP) &&
+	!(i->flags & (IF_UNNUMBERED | IF_IGNORE | IF_ADMIN_DOWN)) &&
+	i->addr &&
+	(!j || ipa_to_u32(i->addr->ip) < ipa_to_u32(j->addr->ip)))
       j = i;
   if (!j)
     die("Cannot determine router ID (no suitable network interface found), please configure it manually");
-  debug("Guessed router ID %I (%s)\n", j->ip, j->name);
-  config->router_id = ipa_to_u32(j->ip);
+  debug("Guessed router ID %I (%s)\n", j->addr->ip, j->name);
+  config->router_id = ipa_to_u32(j->addr->ip);
 }
 
 void

@@ -30,7 +30,8 @@ int if_scan_sock = -1;
 static void
 scan_ifs(struct ifreq *r, int cnt)
 {
-  struct iface i;
+  struct iface i, *pi;
+  struct ifa a;
   char *err;
   unsigned fl;
   ip_addr netmask;
@@ -40,6 +41,7 @@ scan_ifs(struct ifreq *r, int cnt)
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
     {
       bzero(&i, sizeof(i));
+      bzero(&a, sizeof(a));
       DBG("%s\n", r->ifr_name);
       if (strchr(r->ifr_name, ':'))
 	{
@@ -48,17 +50,21 @@ scan_ifs(struct ifreq *r, int cnt)
 	  continue;
 	}
       strncpy(i.name, r->ifr_name, sizeof(i.name) - 1);
-      get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &i.ip, NULL);
-      if (ipa_nonzero(i.ip))
+      get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.ip, NULL);
+      if (ipa_nonzero(a.ip))
 	{
-	  l = ipa_classify(i.ip);
+	  l = ipa_classify(a.ip);
 	  if (l < 0 || !(l & IADDR_HOST))
 	    {
 	      log(L_ERR "%s: Invalid interface address", i.name);
-	      i.ip = IPA_NONE;
+	      a.ip = IPA_NONE;
 	    }
-	  else if ((l & IADDR_SCOPE_MASK) == SCOPE_HOST)
-	    i.flags |= IF_LOOPBACK | IF_IGNORE;
+	  else
+	    {
+	      a.scope = l & IADDR_SCOPE_MASK;
+	      if (a.scope == SCOPE_HOST)
+		i.flags |= IF_LOOPBACK | IF_IGNORE;
+	    }
 	}
 
       if (ioctl(if_scan_sock, SIOCGIFFLAGS, r) < 0)
@@ -83,15 +89,15 @@ scan_ifs(struct ifreq *r, int cnt)
 	  log(L_ERR "%s: Invalid netmask", i.name);
 	  goto bad;
 	}
-      i.pxlen = l;
+      a.pxlen = l;
 
       if (fl & IFF_POINTOPOINT)
 	{
 	  i.flags |= IF_UNNUMBERED;
-	  i.pxlen = BITS_PER_IP_ADDRESS;
+	  a.pxlen = BITS_PER_IP_ADDRESS;
 	  if (ioctl(if_scan_sock, SIOCGIFDSTADDR, r) < 0)
 	    { err = "SIOCGIFDSTADDR"; goto faulty; }
-	  get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &i.opposite, NULL);
+	  get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.opposite, NULL);
 	}
       if (fl & IFF_LOOPBACK)
 	i.flags |= IF_LOOPBACK | IF_IGNORE;
@@ -100,24 +106,24 @@ scan_ifs(struct ifreq *r, int cnt)
 #endif
 	i.flags |= IF_MULTICAST;
 
-      i.prefix = ipa_and(i.ip, ipa_mkmask(i.pxlen));
-      if (i.pxlen < 32)
+      a.prefix = ipa_and(a.ip, ipa_mkmask(a.pxlen));
+      if (a.pxlen < 32)
 	{
-	  i.brd = ipa_or(i.prefix, ipa_not(ipa_mkmask(i.pxlen)));
-	  if (ipa_equal(i.ip, i.prefix) || ipa_equal(i.ip, i.brd))
+	  a.brd = ipa_or(a.prefix, ipa_not(ipa_mkmask(a.pxlen)));
+	  if (ipa_equal(a.ip, a.prefix) || ipa_equal(a.ip, a.brd))
 	    {
 	      log(L_ERR "%s: Using network or broadcast address for interface", i.name);
 	      goto bad;
 	    }
 	  if (fl & IFF_BROADCAST)
 	    i.flags |= IF_BROADCAST;
-	  if (i.pxlen < 30)
+	  if (a.pxlen < 30)
 	    i.flags |= IF_MULTIACCESS;
 	  else
-	    i.opposite = ipa_opposite(i.ip);
+	    a.opposite = ipa_opposite(a.ip);
 	}
       else
-	i.brd = i.opposite;
+	a.brd = a.opposite;
 
       if (ioctl(if_scan_sock, SIOCGIFMTU, r) < 0)
 	{ err = "SIOCGIFMTU"; goto faulty; }
@@ -132,7 +138,9 @@ scan_ifs(struct ifreq *r, int cnt)
       /* FIXME: What else? Guess ifindex (we need it at least for OSPF on unnumbered links)? */
 #endif
 
-      if_update(&i);
+      pi = if_update(&i);
+      a.iface = pi;
+      ifa_update(&a);
     }
   if_end_update();
 }

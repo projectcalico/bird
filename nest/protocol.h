@@ -13,6 +13,7 @@
 #include "lib/resource.h"
 
 struct iface;
+struct ifa;
 struct rte;
 struct neighbor;
 struct rta;
@@ -96,6 +97,7 @@ struct proto {
    *	General protocol hooks:
    *
    *	   if_notify	Notify protocol about interface state changes.
+   *	   ifa_notify	Notify protocol about interface address changes.
    *	   rt_notify	Notify protocol about routing table updates.
    *	   neigh_notify	Notify protocol about neighbor cache events.
    *	   make_tmp_attrs  Construct ea_list from private attrs stored in rte.
@@ -106,7 +108,8 @@ struct proto {
    *			0=process it through the import filter set by the user.
    */
 
-  void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
+  void (*if_notify)(struct proto *, unsigned flags, struct iface *i);
+  void (*ifa_notify)(struct proto *, unsigned flags, struct ifa *a);
   void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
   void (*neigh_notify)(struct neighbor *neigh);
   struct ea_list *(*make_tmp_attrs)(struct rte *rt, struct linpool *pool);

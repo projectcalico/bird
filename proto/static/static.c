@@ -134,7 +134,7 @@ static_dump(struct proto *p)
 }
 
 static void
-static_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface *old)
+static_if_notify(struct proto *p, unsigned flags, struct iface *i)
 {
   struct static_route *r;
   struct static_config *c = (void *) p->cf;
@@ -142,13 +142,13 @@ static_if_notify(struct proto *p, unsigned flags, struct iface *new, struct ifac
   if (flags & IF_CHANGE_UP)
     {
       WALK_LIST(r, c->iface_routes)
-	if (!strcmp(r->if_name, new->name))
-	  static_install(p, r, new);
+	if (!strcmp(r->if_name, i->name))
+	  static_install(p, r, i);
     }
   else if (flags & IF_CHANGE_DOWN)
     {
       WALK_LIST(r, c->iface_routes)
-	if (!strcmp(r->if_name, old->name))
+	if (!strcmp(r->if_name, i->name))
 	  static_remove(p, r);
     }
 }
