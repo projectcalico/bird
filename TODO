@@ -1,7 +1,5 @@
 Core
 ~~~~
-- kernel: persistent mode
-
 - client: Ctrl-R eats one more enter
 - client: paging?
 - client: data losses on large dumps?
@@ -11,8 +9,6 @@ Core
 
 - bgp: timing of updates?
 - bgp: dump and get_route_info
-
-- proto: Don't show repeated `Changed state to ...' messages if only internal states change
 
 Documentation
 ~~~~~~~~~~~~~

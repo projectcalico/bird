@@ -59,7 +59,17 @@ proto_relink(struct proto *p)
 {
   list *l;
 
-  PD(p, "State changed to %s", proto_state_name(p));
+  if (p->debug & D_STATES)
+    {
+      char *name = proto_state_name(p);
+      if (name != p->last_state_name_announced)
+	{
+	  p->last_state_name_announced = name;
+	  PD(p, "State changed to %s", proto_state_name(p));
+	}
+    }
+  else
+    p->last_state_name_announced = NULL;
   rem_node(&p->n);
   switch (p->core_state)
     {

@@ -107,6 +107,7 @@ struct proto {
   unsigned reconfiguring;		/* We're shutting down due to reconfiguration */
   u32 hash_key;				/* Random key used for hashing of neighbors */
   bird_clock_t last_state_change;	/* Time of last state transition */
+  char *last_state_name_announced;	/* Last state name we've announced to the user */
 
   /*
    *	General protocol hooks:
