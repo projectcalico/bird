@@ -419,7 +419,7 @@ rta_alloc_hash(void)
 static inline unsigned int
 rta_hash(rta *a)
 {
-  return a->proto->hash_key ^ ipa_hash(a->gw) ^ ea_hash(a->eattrs);
+  return (a->proto->hash_key ^ ipa_hash(a->gw) ^ ea_hash(a->eattrs)) & 0xffff;
 }
 
 static inline int
