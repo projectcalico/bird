@@ -58,10 +58,10 @@ static int
 rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e, struct rip_interface *rif, int pos )
 {
   DBG( "." );
-  b->family  = htons( 2 ); /* AF_INET */
   b->tag     = htons( e->tag );
   b->network = e->n.prefix;
 #ifndef IPV6
+  b->family  = htons( 2 ); /* AF_INET */
   b->netmask = ipa_mkmask( e->n.pxlen );
   ipa_hton( b->netmask );
 
@@ -339,6 +339,8 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 
           for (i=0; i<num; i++) {
 	    struct rip_block *block = &packet->block[i];
+#ifndef IPV6
+	    /* Authentication is not defined for v6 */
 	    if (block->family == 0xffff) {
 	      if (i)
 		continue;	/* md5 tail has this family */
@@ -347,6 +349,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	      authenticated = 1;
 	      continue;
 	    }
+#endif
 	    if ((!authenticated) && (P_CF->authtype != AT_NONE))
 	      BAD( "Packet is not authenticated and it should be" );
 	    ipa_ntoh( block->network );
@@ -597,8 +600,8 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
       rif->sock->daddr = ipa_from_u32(0xe0000009);
       rif->sock->saddr = ipa_from_u32(0xe0000009);
 #else
-      p_pton("FF02::9", &rif->sock->daddr);
-      p_pton("FF02::9", &rif->sock->saddr);
+      ip_pton("FF02::9", &rif->sock->daddr);
+      ip_pton("FF02::9", &rif->sock->saddr);
 #endif
     } else
       rif->sock->daddr = new->addr->brd;
@@ -657,12 +660,16 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
     if (!k) return; /* We are not interested in this interface */
     
     lock = olock_new( p->pool );
+#ifndef IPV6
     lock->addr = ipa_from_u32(0xe0000009);	/* This is okay: we
 						   may actually use
 						   other address, but
 						   we do not want two
 						   rips at one time,
 						   anyway. */
+#else
+    ip_pton("FF02::9", &lock->addr);
+#endif
     lock->port = P_CF->port;
     lock->iface = iface;
     lock->hook = rip_real_if_add;
