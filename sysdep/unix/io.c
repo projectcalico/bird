@@ -493,15 +493,21 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
       char *err;
       t->type = type;
       t->fd = fd;
+      t->ttl = s->ttl;
+      t->tos = s->tos;
+      t->rbsize = s->rbsize;
+      t->tbsize = s->tbsize;
+      if (type == SK_TCP)
+	get_sockaddr((sockaddr *) sa, &t->daddr, &t->dport);
       add_tail(&sock_list, &t->n);
-      s->rx_hook(t, 0);
       if (err = sk_setup(t))
 	{
 	  log(L_ERR "Incoming connection: %s: %m", err);
-	  s->err_hook(s, errno);
-	  return 0;
+	  rfree(t);
+	  return 1;
 	}
       sk_alloc_bufs(t);
+      s->rx_hook(t, 0);
       return 1;
     }
   else if (errno != EINTR && errno != EAGAIN)
@@ -682,7 +688,6 @@ sk_open_unix(sock *s, char *name)
     ERR("bind");
   if (listen(fd, 8))
     ERR("listen");
-  sk_alloc_bufs(s);
   add_tail(&sock_list, &s->n);
   return 0;
 

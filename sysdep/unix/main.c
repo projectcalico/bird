@@ -249,7 +249,6 @@ cli_connect(sock *s, int size)
   s->rx_hook = cli_rx;
   s->tx_hook = cli_tx;
   s->err_hook = cli_err;
-  s->rbsize = 1024;
   s->data = c = cli_new(s);
   s->pool = c->pool;		/* We need to have all the socket buffers allocated in the cli pool */
   c->rx_pos = c->rx_buf;
@@ -266,6 +265,7 @@ cli_init_unix(void)
   s = cli_sk = sk_new(cli_pool);
   s->type = SK_UNIX_PASSIVE;
   s->rx_hook = cli_connect;
+  s->rbsize = 1024;
   if (sk_open_unix(s, path_control_socket) < 0)
     die("Unable to create control socket %s", path_control_socket);
 }
