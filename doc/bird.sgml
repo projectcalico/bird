@@ -986,9 +986,9 @@ protocol ospf &lt;name&gt; {
 	 
 	<tag>dead count <M>num</M></tag>
 	 When router does not receive any message from neighbor in
-	 <dead count>*<hello> seconds, it will declare neighbor down.
+	 <m/dead count/*<m/hello/ seconds, it will declare neighbor down.
 
-	<tag>type <M>broadcast</M><tag>
+	<tag>type <M>broadcast</M></tag>
 	 BIRD detects a type of connected network. However, sometimes is
 	 necessary to change it. On broadcast networks are flooding
 	 and hello messages sent using multicasting. (Single
