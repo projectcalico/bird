@@ -123,10 +123,10 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
   struct proto *p = a->proto;
   rte *new0 = new;
   rte *old0 = old;
+  int ok;
 
   if (new)
     {
-      int ok;
       if ((class & IADDR_SCOPE_MASK) < p->min_scope)
 	{
 	  rte_trace_out(D_FILTERS, p, new, "out of scope");
@@ -148,13 +148,13 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
     }
   if (old && p->out_filter)
     {
-      /* FIXME: Do we really need to filter old routes? */
       if (p->out_filter == FILTER_REJECT)
 	old = NULL;
       else
 	{
 	  ea_list *tmpb = p->make_tmp_attrs ? p->make_tmp_attrs(old, rte_update_pool) : NULL;
-	  if (f_run(p->out_filter, &old, &tmpb, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
+	  ok = p->import_control ? p->import_control(p, &old, &tmpb, rte_update_pool) : 0;
+	  if (ok < 0 || (!ok && f_run(p->out_filter, &old, &tmpb, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
 	    old = NULL;
 	}
     }
@@ -167,8 +167,20 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
       else if (old)
 	rte_trace_out(D_ROUTES, p, old, "removed");
     }
-  if (new || old)
-    p->rt_notify(p, net, new, old, tmpa);
+  if (!new && !old)
+    return;
+  if (!new)
+    p->rt_notify(p, net, NULL, old, NULL);
+  else if (tmpa)
+    {
+      while (tmpa->next)
+	tmpa = tmpa->next;
+      tmpa->next = new->attrs->eattrs;
+      p->rt_notify(p, net, new, old, tmpa);
+      tmpa->next = NULL;
+    }
+  else
+    p->rt_notify(p, net, new, old, new->attrs->eattrs);
   if (new && new != new0)	/* Discard temporary rte's */
     rte_free(new);
   if (old && old != old0)
