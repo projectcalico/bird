@@ -56,6 +56,11 @@ void krt_set_shutdown(struct krt_proto *);
 
 /* sync-if.c */
 
+extern int if_scan_sock;
+extern int if_scan_period;
+
+void scan_if_init(void);
+
 void krt_if_preconfig(struct krt_config *);
 void krt_if_start(struct krt_proto *);
 void krt_if_shutdown(struct krt_proto *);

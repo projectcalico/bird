@@ -3,6 +3,8 @@ main.c
 timer.h
 io.c
 unix.h
+
+#ifndef CONFIG_NETLINK
 sync-if.c
 sync-rt.c
 krt.Y
@@ -12,3 +14,4 @@ krt-set.h
 krt-set.Y
 krt-iface.h
 krt-iface.Y
+#endif

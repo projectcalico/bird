@@ -26,11 +26,4 @@ void io_loop(void);
 void fill_in_sockaddr(struct sockaddr_in *sa, ip_addr a, unsigned port);
 void get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port);
 
-/* sync-if.c */
-
-extern int if_scan_sock;
-extern int if_scan_period;
-
-void scan_if_init(void);
-
 #endif

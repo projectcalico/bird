@@ -1,3 +1,7 @@
+#ifdef CONFIG_NETLINK
+netlink.c
+#else
 krt-scan.c
 krt-scan.h
 krt-scan.Y
+#endif
