@@ -27,7 +27,7 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
+CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST, UNSET,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
 	IF, THEN, ELSE, CASE,
@@ -360,7 +360,11 @@ cmd:
  | RTA '.' any_dynamic '=' term ';' {
      $$ = $3;
      $$->code  = 'eS';
-
+     $$->a1.p = $5;
+   }
+ | UNSET '(' RTA '.' any_dynamic ')' ';' {
+     $$ = $5;
+     $$->code = 'eD';
    }
  | break_command print_list ';' { $$ = f_new_inst(); $$->code = 'p,'; $$->a1.p = $2; $$->a2.i = $1; }
  | SYM '(' var_list ')' ';' {
