@@ -23,19 +23,16 @@ int_set_format(struct adata *set, byte *buf, unsigned int size)
 
   while (l--)
     {
-      if (sp)
-	{
-	  sp = 0;
-	  *buf++ = ' ';
-	}
+      if (!sp)
+	*buf++ = ' ';
       if (buf > end)
 	{
 	  strcpy(buf, "...");
 	  return;
 	}
-      /* FIXME: should not we use same syntax as in filters (i.e. (x,y) )? */
-      buf += bsprintf(buf, "%d:%d ", *z/65536, *z & 0xffff);
+      buf += bsprintf(buf, "(%d,%d)", *z >> 16, *z & 0xffff);
       z++;
+      sp = 0;
     }
   *buf = 0;
 }
@@ -53,8 +50,8 @@ int_set_add(struct linpool *pool, struct adata *list, u32 val)
 int
 int_set_contains(struct adata *list, u32 val)
 {
-  u32 *l = &(list->data);
-  int i;
+  u32 *l = (u32 *) list->data;
+  unsigned int i;
   for (i=0; i<list->length/4; i++)
     if (*l++ == val)
       return 1;
@@ -66,7 +63,7 @@ int_set_del(struct linpool *pool, struct adata *list, u32 val)
 {
   struct adata *res;
   u32 *l, *k;
-  int i;
+  unsigned int i;
 
   if (!int_set_contains(list, val))
     return list;
@@ -74,8 +71,8 @@ int_set_del(struct linpool *pool, struct adata *list, u32 val)
   res = lp_alloc(pool, list->length + sizeof(struct adata) - 4);
   res->length = list->length-4;
 
-  l = &(list->data);
-  k = &(res->data);
+  l = (u32 *) list->data;
+  k = (u32 *) res->data;
   for (i=0; i<list->length/4; i++)
     if (l[i] != val)
       *k++ = l[i];
