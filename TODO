@@ -9,9 +9,6 @@ Core
 
 - tagging of external routes?
 
-- when an identical route is received, don't trigger updates
-
-- configure: --enable-ipv6
 - configure: IPv6 on glibc 2.0?
 
 - Makefile: install target?

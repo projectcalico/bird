@@ -272,6 +272,17 @@ rte_free_quick(rte *e)
   sl_free(rte_slab, e);
 }
 
+static int
+rte_same(rte *x, rte *y)
+{
+  return
+    x->attrs == y->attrs &&
+    x->flags == y->flags &&
+    x->pflags == y->pflags &&
+    x->pref == y->pref &&
+    (!x->attrs->proto->rte_same || x->attrs->proto->rte_same(x, y));
+}
+
 static void
 rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmpa)
 {
@@ -284,6 +295,14 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
     {
       if (old->attrs->proto == p)
 	{
+	  if (rte_same(old, new))
+	    {
+	      /* No changes, ignore the new route */
+	      rte_trace_in(D_ROUTES, p, new, "ignored");
+	      rte_free_quick(new);
+	      old->lastmod = now;
+	      return;
+	    }
 	  *k = old->next;
 	  break;
 	}
