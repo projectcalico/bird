@@ -396,20 +396,29 @@ interpret(struct f_inst *what)
       if ((!e) && (f_flags & FF_FORCE_TMPATTR))
 	e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
       
-      if (!e) {
-	res.type = T_VOID;
-	break;
-      }
       switch (what->aux & EAF_TYPE_MASK) {
       case EAF_TYPE_INT:
+	if (!e) {
+	  res.type = T_VOID;
+	  break;
+	}
 	res.type = T_INT;
 	res.val.i = e->u.data;
 	break;
       case EAF_TYPE_AS_PATH:
+	if (!e) {
+	  res.type = T_VOID;
+	  break;
+	}
         res.type = T_PATH;
 	res.val.ad = e->u.ptr;
 	break;
       case EAF_TYPE_INT_SET:
+	if (!e) {
+	  res.type = T_CLIST;
+	  res.val.ad = adata_empty(f_pool);
+	  break;
+	}
 	res.type = T_CLIST;
 	res.val.ad = e->u.ptr;
 	break;
