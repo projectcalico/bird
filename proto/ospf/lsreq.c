@@ -24,13 +24,11 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
 
   fill_ospf_pkt_hdr(n->ifa, pk, LSREQ);
 
-  s_init(&(n->lsrqi), &(n->lsrql));
-  sn=s_get(&(n->lsrqi));
+  sn=SHEAD(n->lsrql);
   if(sn==NULL) return;
-  /* FIXME above I don't need iterator and slist */
  
   i=j=(n->ifa->iface->mtu-SIPH-sizeof(struct ospf_lsreq_packet))/
-    sizeof(struct ospf_lsreq_header);	/* FIXME IP header! */
+    sizeof(struct ospf_lsreq_header);
   lsh=(struct ospf_lsreq_header *)(pk+1);
   
   for(;i>0;i--)
