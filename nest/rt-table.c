@@ -200,35 +200,6 @@ rte_announce(rtable *tab, net *net, rte *new, rte *old, ea_list *tmpa)
     }
 }
 
-void
-rt_feed_baby(struct proto *p)
-{
-  struct announce_hook *h;
-
-  if (!p->ahooks)
-    return;
-  DBG("Announcing routes to new protocol %s\n", p->name);
-  for(h=p->ahooks; h; h=h->next)
-    {
-      rtable *t = h->table;
-      FIB_WALK(&t->fib, fn)
-	{
-	  net *n = (net *) fn;
-	  rte *e;
-	  for(e=n->routes; e; e=e->next)
-	    {
-	      struct proto *q = e->attrs->proto;
-	      ea_list *tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
-	      do_rte_announce(h, n, e, NULL, tmpa, ipa_classify(n->n.prefix));
-	      lp_flush(rte_update_pool);
-	      if (p->core_state != FS_FEEDING)
-		return;  /* In the meantime, the protocol fell down. */
-	    }
-	}
-      FIB_WALK_END;
-    }
-}
-
 static inline int
 rte_validate(rte *e)
 {
@@ -681,6 +652,74 @@ rt_commit(struct config *new, struct config *old)
 	r->table = t;
       }
   DBG("\tdone\n");
+}
+
+int
+rt_feed_baby(struct proto *p)
+{
+  struct announce_hook *h;
+  struct fib_iterator *fit;
+  int max_feed = 2;			/* FIXME */
+
+  if (!p->feed_ahook)			/* Need to initialize first */
+    {
+      if (!p->ahooks)
+	return 1;
+      DBG("Announcing routes to new protocol %s\n", p->name);
+      p->feed_ahook = p->ahooks;
+      fit = p->feed_iterator = mb_alloc(p->pool, sizeof(struct fib_iterator));
+      goto next_hook;
+    }
+  fit = p->feed_iterator;
+
+again:
+  h = p->feed_ahook;
+  FIB_ITERATE_START(&h->table->fib, fit, fn)
+    {
+      net *n = (net *) fn;
+      rte *e;
+      for(e=n->routes; e; e=e->next)
+	{
+	  struct proto *q = e->attrs->proto;
+	  ea_list *tmpa;
+
+	  if (p->core_state != FS_FEEDING)
+	    return 1;  /* In the meantime, the protocol fell down. */
+	  rte_update_lock();
+	  tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
+	  do_rte_announce(h, n, e, NULL, tmpa, ipa_classify(n->n.prefix));
+	  rte_update_unlock();
+	  if (!--max_feed)
+	    {
+	      FIB_ITERATE_PUT(fit, fn);
+	      return 0;
+	    }
+	}
+    }
+  FIB_ITERATE_END(fn);
+  p->feed_ahook = h->next;
+  if (!p->feed_ahook)
+    {
+      mb_free(p->feed_iterator);
+      p->feed_iterator = NULL;
+      return 1;
+    }
+
+next_hook:
+  h = p->feed_ahook;
+  FIB_ITERATE_INIT(fit, &h->table->fib);
+  goto again;
+}
+
+void
+rt_feed_baby_abort(struct proto *p)
+{
+  if (p->feed_ahook)
+    {
+      /* Unlink the iterator and exit */
+      fit_get(&p->feed_ahook->table->fib, p->feed_iterator);
+      p->feed_ahook = NULL;
+    }
 }
 
 /*

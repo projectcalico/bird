@@ -197,7 +197,8 @@ rte *rte_do_cow(rte *);
 static inline rte * rte_cow(rte *r) { return (r->flags & REF_COW) ? rte_do_cow(r) : r; }
 void rt_dump(rtable *);
 void rt_dump_all(void);
-void rt_feed_baby(struct proto *p);
+int rt_feed_baby(struct proto *p);
+void rt_feed_baby_abort(struct proto *p);
 void rt_prune(rtable *tab);
 void rt_prune_all(void);
 struct rtable_config *rt_new_table(struct symbol *s);

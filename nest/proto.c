@@ -410,6 +410,25 @@ proto_fell_down(struct proto *p)
 }
 
 static void
+proto_feed_more(void *P)
+{
+  struct proto *p = P;
+
+  DBG("Feeding protocol %s continued\n", p->name);
+  if (rt_feed_baby(p))
+    {
+      p->core_state = FS_HAPPY;
+      proto_relink(p);
+      DBG("Protocol %s up and running\n", p->name);
+    }
+  else
+    {
+      p->attn->hook = proto_feed_more;
+      ev_schedule(p->attn);		/* Will continue later... */
+    }
+}
+
+static void
 proto_feed(void *P)
 {
   struct proto *p = P;
@@ -417,10 +436,7 @@ proto_feed(void *P)
   DBG("Feeding protocol %s\n", p->name);
   proto_add_announce_hook(p, p->table);
   if_feed_baby(p);
-  rt_feed_baby(p);
-  p->core_state = FS_HAPPY;
-  proto_relink(p);
-  DBG("Protocol %s up and running\n", p->name);
+  proto_feed_more(P);
 }
 
 void
@@ -444,8 +460,12 @@ proto_notify_state(struct proto *p, unsigned ps)
 	}
       else if (cs == FS_FLUSHING)	/* Still flushing... */
 	;
-      else				/* Need to start flushing */
-	goto schedule_flush;
+      else
+	{
+	  if (cs == FS_FEEDING)		/* Need to abort feeding */
+	    rt_feed_baby_abort(p);
+	  goto schedule_flush;		/* Need to start flushing */
+	}
       break;
     case PS_START:
       ASSERT(ops == PS_DOWN);

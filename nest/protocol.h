@@ -151,6 +151,9 @@ struct proto {
   struct filter *out_filter;		/* Output filter */
   struct announce_hook *ahooks;		/* Announcement hooks for this protocol */
 
+  struct fib_iterator *feed_iterator;	/* Routing table iterator used during protocol feeding */
+  struct announce_hook *feed_ahook;	/* Announce hook we currently feed */
+
   /* Hic sunt protocol-specific data */
 };
 
