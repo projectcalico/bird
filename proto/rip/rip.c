@@ -96,9 +96,15 @@ rip_tx_err( sock *s, int err )
 static int
 rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_entry *e, struct rip_interface *rif, int pos )
 {
+  int metric;
   DBG( "." );
   b->tag     = htons( e->tag );
   b->network = e->n.prefix;
+  metric = e->metric;
+  if (neigh_connected_to(p, &e->whotoldme, rif->iface)) {
+    DBG( "(split horizon)" );
+    metric = P_CF->infinity;
+  }
 #ifndef IPV6
   b->family  = htons( 2 ); /* AF_INET */
   b->netmask = ipa_mkmask( e->n.pxlen );
@@ -108,15 +114,13 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
     b->nexthop = e->nexthop;
   else
     b->nexthop = IPA_NONE;
-  ipa_hton( b->nexthop );
+  ipa_hton( b->nexthop );  
+  b->metric  = htonl( metric );
 #else
   b->pxlen = e->n.pxlen;
+  b->metric  = metric; /* it is u8 */
 #endif
-  b->metric  = htonl( e->metric );
-  if (neigh_connected_to(p, &e->whotoldme, rif->iface)) {
-    DBG( "(split horizon)" );
-    b->metric = htonl( P_CF->infinity );
-  }
+
   ipa_hton( b->network );
 
   return pos+1;
@@ -328,7 +332,12 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   }
   n = net_get( p->table, b->network, pxlen );
   r = rte_get_temp(a);
+#ifndef IPV6
   r->u.rip.metric = ntohl(b->metric) + rif->metric;
+#else  
+  r->u.rip.metric = b->metric + rif->metric;
+#endif
+
   r->u.rip.entry = NULL;
   if (r->u.rip.metric > P_CF->infinity) r->u.rip.metric = P_CF->infinity;
   r->u.rip.tag = ntohl(b->tag);
