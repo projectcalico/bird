@@ -101,7 +101,7 @@ neigh_dump(neighbor *n)
     debug("%s ", n->iface->name);
   else
     debug("[] ");
-  debug("%s %p", n->proto->cf->name, n->data);
+  debug("%s %p", n->proto->name, n->data);
   if (n->flags & NEF_STICKY)
     debug(" STICKY");
   debug("\n");
@@ -319,7 +319,7 @@ if_feed_baby(struct proto *p)
 
   if (!p->if_notify)
     return;
-  debug("Announcing interfaces to new protocol %s\n", p->cf->name);
+  debug("Announcing interfaces to new protocol %s\n", p->name);
   WALK_LIST(i, iface_list)
     p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), NULL, i);
 }

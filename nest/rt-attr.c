@@ -139,7 +139,7 @@ rta_dump(rta *a)
   static char *rtd[] = { "", " DEV", " HOLE", " UNREACH", " PROHIBIT" };
 
   debug("p=%s uc=%d %s %s%s%s TOS=%d",
-	a->proto->cf->name, a->uc, rts[a->source], sco[a->scope], rtc[a->cast],
+	a->proto->name, a->uc, rts[a->source], sco[a->scope], rtc[a->cast],
 	rtd[a->dest], a->tos);
   if (a->flags & RTF_EXTERIOR)
     debug(" EXT");

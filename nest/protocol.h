@@ -20,6 +20,7 @@ struct network;
 struct proto_config;
 struct config;
 struct proto;
+struct event;
 
 /*
  *	Routing Protocol
@@ -75,12 +76,15 @@ struct proto {
   struct protocol *proto;		/* Protocol */
   struct proto_config *cf;		/* Configuration data */
   pool *pool;				/* Pool containing local objects */
+  struct event *attn;			/* "Pay attention" event */
 
+  char *name;				/* Name of this instance (== cf->name) */
   unsigned debug;			/* Debugging flags */
   unsigned preference;			/* Default route preference */
   unsigned disabled;			/* Manually disabled */
   unsigned proto_state;			/* Protocol state machine (see below) */
   unsigned core_state;			/* Core state machine (see below) */
+  unsigned core_goal;			/* State we want to reach (see below) */
 
   void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
   void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
@@ -101,7 +105,7 @@ void proto_build(struct proto_config *);
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
 
-extern list proto_list, inactive_proto_list;
+extern list proto_list;
 
 /*
  *  Each protocol instance runs two different state machines:

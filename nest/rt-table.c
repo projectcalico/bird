@@ -121,7 +121,7 @@ rt_feed_baby(struct proto *p)
 
   if (!p->rt_notify)
     return;
-  debug("Announcing routes to new protocol %s\n", p->cf->name);
+  debug("Announcing routes to new protocol %s\n", p->name);
   while (t)
     {
       FIB_WALK(&t->fib, fn)
