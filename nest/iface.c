@@ -144,7 +144,7 @@ neigh_if_down(struct iface *i)
   for(m=i->neigh; n = m;)
     {
       m = n->sibling;
-      DBG("Flushing neighbor %I on %s\n", n->addr, n->iface->name);
+      DBG("Flushing neighbor %I on %s\n", n->addr, i->name);
       n->iface = NULL;
       if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
 	n->proto->neigh_notify(n);
@@ -153,8 +153,8 @@ neigh_if_down(struct iface *i)
 	  rem_node(&n->n);
 	  sl_free(neigh_slab, n);
 	}
-      i->neigh = NULL;
     }
+  i->neigh = NULL;
 }
 
 void
@@ -248,6 +248,7 @@ if_copy(struct iface *to, struct iface *from)
   to->flags = from->flags;
   to->mtu = from->mtu;
   to->index = from->index;
+  to->neigh = from->neigh;
 }
 
 static unsigned
@@ -270,7 +271,7 @@ if_changed(struct iface *i, struct iface *j)
 }
 
 static void
-if_notify_change(unsigned c, struct iface *old, struct iface *new)
+if_notify_change(unsigned c, struct iface *old, struct iface *new, struct iface *real)
 {
   struct proto *p;
 
@@ -281,14 +282,14 @@ if_notify_change(unsigned c, struct iface *old, struct iface *new)
     if_dump(new);
 
   if (c & IF_CHANGE_UP)
-    neigh_if_up(new);
+    neigh_if_up(real);
 
   WALK_LIST(p, proto_list)
     if (p->if_notify)
       p->if_notify(p, c, new, old);
 
   if (c & IF_CHANGE_DOWN)
-    neigh_if_down(old);
+    neigh_if_down(real);
 }
 
 void
@@ -310,15 +311,17 @@ if_update(struct iface *new)
 	    DBG("Interface %s changed too much -- forcing down/up transition\n", i->name);
 	    if (i->flags & IF_UP)
 	      {
+		struct iface j;
+		memcpy(&j, i, sizeof(struct iface));
 		i->flags &= ~IF_UP;
-		if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, i, NULL);
+		if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, &j, i, i);
 	      }
 	    rem_node(&i->n);
 	    goto newif;
 	  }
 	c = if_changed(i, new);
 	if (c)
-	  if_notify_change(c, i, new);
+	  if_notify_change(c, i, new, i);
 	if_copy(i, new);		/* Even if c==0 as we might need to update i->index et al. */
 	i->flags |= IF_UPDATED;
 	return;
@@ -330,7 +333,7 @@ newif:
   i->flags |= IF_UPDATED;
   add_tail(&iface_list, &i->n);
   if_notify_change(IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0)
-		   | IF_CHANGE_FLAGS | IF_CHANGE_MTU, NULL, i);
+		   | IF_CHANGE_FLAGS | IF_CHANGE_MTU, NULL, i, i);
 }
 
 void
@@ -356,7 +359,7 @@ if_end_update(void)
 	memcpy(&j, i, sizeof(struct iface));
 	i->flags = (i->flags & ~(IF_LINK_UP | IF_UP)) | IF_ADMIN_DOWN;
 	if (i->flags != j.flags)
-	  if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, &j, i);
+	  if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, &j, i, i);
       }
 }
 
