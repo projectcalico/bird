@@ -14,7 +14,6 @@ Core
 - Makefile: install target?
 
 - forgetting device routes???
-- kernel syncer doesn't support reconfiguration
 - filter-defined internal attributes
 - netlink: realms
 

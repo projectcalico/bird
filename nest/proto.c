@@ -193,7 +193,7 @@ proto_init(struct proto_config *c)
   q->core_state = FS_HUNGRY;
   proto_enqueue(&initial_proto_list, q);
   add_tail(&proto_list, &q->glob_node);
-  PD(q, "Initializing");
+  PD(q, "Initializing%s", q->disabled ? " [disabled]" : "");
   return q;
 }
 
