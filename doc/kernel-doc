@@ -13,12 +13,12 @@
 # Note: This only supports 'c'.
 
 # usage:
-# kerneldoc [ -docbook | -html | -text | -man ]
+# kerneldoc [ -docbook | -html | -text | -man | -gnome | -bird ]
 #           [ -function funcname [ -function funcname ...] ] c file(s)s > outputfile
 # or
 #           [ -nofunction funcname [ -function funcname ...] ] c file(s)s > outputfile
 #
-#  Set output format using one of -docbook -html -text or -man.  Default is man.
+#  Set output format using one of -docbook -html -text -man -gnome or -bird.  Default is man.
 #
 #  -function funcname
 #	If set, then only generate documentation for the given function(s).  All
@@ -114,6 +114,13 @@ $blankline_sgml = "</para><para>\n";
 		     $type_param, "<parameter>\$1</parameter>" );
 $blankline_gnome = "</para><para>\n";
 
+# bird documentation
+%highlights_bird = ( $type_constant, "<const/\$1/",
+		     $type_func, "<func/\$1/",
+		     $type_struct, "<struct/\$1/",
+		     $type_param, "<param/\$1/" );
+$blankline_bird = "<p>";
+
 # these are pretty rough
 %highlights_man = ( $type_constant, "\\n.I \\\"\$1\\\"\\n",
 		    $type_func, "\\n.B \\\"\$1\\\"\\n",
@@ -170,6 +177,10 @@ while ($ARGV[0] =~ m/^-(.*)/) {
 	$output_mode = "gnome";
 	%highlights = %highlights_gnome;
 	$blankline = $blankline_gnome;
+    } elsif ($cmd eq "-bird") {
+	$output_mode = "bird";
+	%highlights = %highlights_bird;
+	$blankline = $blankline_bird;
     } elsif ($cmd eq "-module") { # not needed for sgml, inherits from calling document
 	$modulename = shift @ARGV;
     } elsif ($cmd eq "-function") { # to only output specific functions
@@ -506,6 +517,61 @@ sub output_gnome {
     }
 
     print "</sect2>\n\n";
+}
+
+# output in birddoc
+sub output_bird {
+    my %args = %{$_[0]};
+    my ($parameter, $section);
+    my $count;
+    print "<sect2>Function\n";
+
+    print "<p><type>".$args{'functiontype'}."</type>\n";
+    print "<funcdef>".$args{'function'}."</funcdef>\n";
+    print "(";
+    $count = 0;
+    foreach $parameter (@{$args{'parameterlist'}}) {
+	print "<type>".$args{'parametertypes'}{$parameter}."</type> <param>".$parameter."</param>";
+	if ($count != $#{$args{'parameterlist'}}) {
+	    $count++;
+	    print ", ";
+	}
+    }
+    print ")\n";
+
+    print "<sect3>Arguments\n";
+    print "<p><descrip>\n";
+    foreach $parameter (@{$args{'parameterlist'}}) {
+	print "<tagp><type>".$args{'parametertypes'}{$parameter}."</type> <param>".$parameter."</param></tagp>\n";
+	output_highlight($args{'parameters'}{$parameter});
+    }
+    print "</descrip>\n";
+    foreach $section (@{$args{'sectionlist'}}) {
+	print "<sect3>$section\n";
+	print "<p>\n";
+	output_highlight($args{'sections'}{$section});
+    }
+    print "<hrule>\n";
+}
+
+# output in birddoc
+sub output_intro_bird {
+    my %args = %{$_[0]};
+    my ($parameter, $section);
+    my $count;
+    my $id;
+
+    $id = $args{'module'};
+    $id =~ s/[^A-Za-z0-9]/-/g;
+
+    # print out each section
+    $lineprefix="   ";
+    foreach $section (@{$args{'sectionlist'}}) {
+	print "<sect1>$section\n<p>\n";
+	output_highlight($args{'sections'}{$section});
+    }
+
+    print "\n\n";
 }
 
 ##
