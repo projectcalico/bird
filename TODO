@@ -1,37 +1,41 @@
 Core
 ~~~~
-
-* right usage of DBG vs. debug
-* cleanup debugging calls
-* logging and tracing; use appropriate log levels
-* check log calls for trailing newlines
-* check if all protocols set proper packet priorities and TTL's.
-* replace all NUM's by expr's
-
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
 
 - config: executable config files
 - config: define ipaddr constants?
 - config: better default protocol names
 
-- fake multipath?
 - counters (according to SNMP MIB?)
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
 - secondary addresses -> subinterfaces
 
 - static: check validity of route destination?
-- static: device routes
 
 - device: configuration of interface patterns
 
-- filter: logging of dropped routes (?)
 - adding of route: check whether all bits not covered by masklen are zero
-- switch: generate default route only if at least one BGP connection exists (aggregate engine?)
-- route recalculation timing + flap dampening (?)
-- "generate default route" switch for all IGP's (via generic aggregate engine?)
 
-- Check incoming packets and log errors!!
+Cleanup
+~~~~~~~
+- right usage of DBG vs. debug
+- cleanup debugging calls
+- logging and tracing; use appropriate log levels
+- check incoming packets and log errors!!
+- check log calls for trailing newlines
+- check if all protocols set proper packet priorities and TTL's.
+- replace all NUM's by expr's
+
+Various ideas
+~~~~~~~~~~~~~
+- real multipath (doesn't seem to be simple at all :()
+- fake multipath (even less simple)
+- route recalculation timing and flap dampening
+- aggregate engine: standard route aggregation and summarization
+- aggregate engine: injection of manually configured pseudo-static routes
+- generate default route if any working BGP connection exists (aggregate engine again?)
+- generate default route to IGP's (aggregate engine yet another time?)
 
 
 RIP
