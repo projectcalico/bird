@@ -9,6 +9,19 @@
 #ifndef _BIRD_LISTS_H_
 #define _BIRD_LISTS_H_
 
+/*
+ * I admit the list structure is very tricky and also somewhat awkward,
+ * but it's both efficient and easy to manipulate once one understands the
+ * basic trick: The list head always contains two synthetic nodes which are
+ * always present in the list: the head and the tail. But as the `next'
+ * entry of the tail and the `prev' entry of the head are both NULL, the
+ * nodes can overlap each other:
+ *
+ *     head    head_node.next
+ *     null    head_node.prev  tail_node.next
+ *     tail                    tail_node.prev
+ */
+
 typedef struct node {
   struct node *next, *prev;
 } node;
