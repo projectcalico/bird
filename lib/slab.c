@@ -226,7 +226,7 @@ sl_free(slab *s, void *oo)
   struct sl_head *h = o->slab;
 
 #ifdef POISON
-  memset(oo, 0xdb, s->obj_size);
+  memset(o, 0xdb, s->obj_size);
 #endif
   o->u.next = h->first_free;
   h->first_free = o;
