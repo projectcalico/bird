@@ -27,13 +27,17 @@
 
 void log(char *msg, ...);
 void die(char *msg, ...) NORET;
+void bug(char *msg, ...) NORET;
 
 #define L_DEBUG "\001"			/* Debugging messages */
-#define L_INFO "\002"			/* Informational messages */
-#define L_WARN "\003"			/* Warnings */
-#define L_ERR "\004"			/* Errors */
-#define L_AUTH "\005"			/* Authorization failed etc. */
-#define L_FATAL "\006"			/* Fatal errors */
+#define L_TRACE "\002"			/* Protocol tracing */
+#define L_INFO "\003"			/* Informational messages */
+#define L_REMOTE "\004"			/* Remote protocol errors */
+#define L_WARN "\004"			/* Local warnings */
+#define L_ERR "\005"			/* Local errors */
+#define L_AUTH "\006"			/* Authorization failed etc. */
+#define L_FATAL "\007"			/* Fatal errors */
+#define L_BUG "\010"			/* BIRD bugs */
 
 void log_init(char *);			/* Initialize logging to given file (NULL=stderr, ""=syslog) */
 void log_init_debug(char *);		/* Initialize debug dump to given file (NULL=stderr, ""=off) */
@@ -46,6 +50,12 @@ void debug(char *msg, ...);		/* Printf to debug output */
 #define DBG(x, y...) debug(x, ##y)
 #else
 #define DBG(x, y...)
+#endif
+
+#ifdef DEBUGGING
+#define ASSERT(x) do { if (!(x)) bug("Assertion `%s' failed at %s:%d", #x, __FILE__, __LINE__); } while(0)
+#else
+#define ASSERT(x) do { } while(0)
 #endif
 
 #endif

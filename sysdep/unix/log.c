@@ -107,10 +107,20 @@ log(char *msg, ...)
   va_list args;
 
   va_start(args, msg);
-  if (*msg >= 1 && *msg <= 6)
+  if (*msg >= 1 && *msg <= 8)
     class = *msg++;
   vlog(class, msg, args);
   va_end(args);
+}
+
+void
+bug(char *msg, ...)
+{
+  va_list args;
+
+  va_start(args, msg);
+  vlog(L_BUG[0], msg, args);
+  exit(1);
 }
 
 void
@@ -119,7 +129,7 @@ die(char *msg, ...)
   va_list args;
 
   va_start(args, msg);
-  vlog(6, msg, args);
+  vlog(L_FATAL[0], msg, args);
   exit(1);
 }
 

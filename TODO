@@ -1,11 +1,11 @@
 Core
 ~~~~
 * right usage of DBG vs. debug
-* cleanup debugging calls!
+* cleanup debugging calls
+* logging and tracing; use appropriate log levels
+* check log calls for trailing newlines
 
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
-
-- use -freg-struct-return ?
 
 - fake multipath?
 - replace all NUM's by expr's
@@ -24,6 +24,8 @@ Core
 
 - static: check validity of route destination?
 - static: device routes
+
+- device: configuration of interface patterns
 
 - filter: logging of dropped routes (?)
 - limitation of memory consumption: per-process and total (?)
