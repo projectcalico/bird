@@ -58,7 +58,7 @@ if test -z "$GCC" ; then
 AC_MSG_CHECKING([what CFLAGS should we use])
 if test "$ac_test_CFLAGS" != set ; then
 	if test "$enable_warnings" = yes ; then
-		WARNS=""
+		WARNS=" -Wmissing-prototypes -Wundef"
 	else
 		WARNS=" -Wno-unused"
 	fi
