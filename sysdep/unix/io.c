@@ -336,7 +336,10 @@ sk_free(resource *r)
   sock *s = (sock *) r;
 
   if (s->fd >= 0)
-    rem_node(&s->n);
+    {
+      close(s->fd);
+      rem_node(&s->n);
+    }
 }
 
 static void
@@ -382,6 +385,7 @@ sk_new(pool *p)
   s->tbsize = 0;
   s->err_hook = NULL;
   s->fd = -1;
+  s->entered = 0;
   return s;
 }
 
@@ -477,9 +481,9 @@ sk_alloc_bufs(sock *s)
 static void
 sk_tcp_connected(sock *s)
 {
-  s->rx_hook(s, 0);
   s->type = SK_TCP;
   sk_alloc_bufs(s);
+  s->tx_hook(s);
 }
 
 static int
@@ -524,6 +528,8 @@ sk_open(sock *s)
   switch (type)
     {
     case SK_TCP_ACTIVE:
+      s->ttx = "";			/* Force s->ttx != s->tpos */
+      /* Fall thru */
     case SK_TCP_PASSIVE:
       fd = socket(BIRD_PF, SOCK_STREAM, IPPROTO_TCP);
       break;
@@ -625,6 +631,7 @@ sk_open(sock *s)
     case SK_MAGIC:
       break;
     default:
+      sk_alloc_bufs(s);
 #ifdef IPV6
 #ifdef IPV6_MTU_DISCOVER
       {
@@ -644,7 +651,6 @@ sk_open(sock *s)
 #endif
     }
 
-  sk_alloc_bufs(s);
   add_tail(&sock_list, &s->n);
   return 0;
 
@@ -684,6 +690,15 @@ bad:
   close(fd);
   s->fd = -1;
   return -1;
+}
+
+void
+sk_close(sock *s)
+{
+  if (s->entered)
+    s->type = SK_DELETED;
+  else
+    rfree(s);
 }
 
 static int
@@ -767,19 +782,6 @@ sk_read(sock *s)
 {
   switch (s->type)
     {
-    case SK_TCP_ACTIVE:
-      {
-	sockaddr sa;
-	fill_in_sockaddr(&sa, s->daddr, s->dport);
-	if (connect(s->fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0)
-	  sk_tcp_connected(s);
-	else if (errno != EINTR && errno != EAGAIN && errno != EINPROGRESS)
-	  {
-	    log(L_ERR "connect: %m");
-	    s->err_hook(s, errno);
-	  }
-	return 0;
-      }
     case SK_TCP_PASSIVE:
       {
 	sockaddr sa;
@@ -816,6 +818,8 @@ sk_read(sock *s)
       }
     case SK_MAGIC:
       return s->rx_hook(s, 0);
+    case SK_DELETED:
+      return 0;
     default:
       {
 	sockaddr sa;
@@ -842,8 +846,27 @@ sk_read(sock *s)
 static void
 sk_write(sock *s)
 {
-  while (s->ttx != s->tbuf && sk_maybe_write(s) > 0)
-    s->tx_hook(s);
+  switch (s->type)
+    {
+    case SK_TCP_ACTIVE:
+      {
+	sockaddr sa;
+	fill_in_sockaddr(&sa, s->daddr, s->dport);
+	if (connect(s->fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0)
+	  sk_tcp_connected(s);
+	else if (errno != EINTR && errno != EAGAIN && errno != EINPROGRESS)
+	  {
+	    log(L_ERR "connect: %m");
+	    s->err_hook(s, errno);
+	  }
+	break;
+      }
+    case SK_DELETED:
+      return;
+    default:
+      while (s->ttx != s->tbuf && sk_maybe_write(s) > 0)
+	s->tx_hook(s);
+    }
 }
 
 void
@@ -965,6 +988,7 @@ io_loop(void)
 	  WALK_LIST_DELSAFE(n, p, sock_list)
 	    {
 	      s = SKIP_BACK(sock, n, n);
+	      s->entered = 1;
 	      if (FD_ISSET(s->fd, &rd))
 		{
 		  FD_CLR(s->fd, &rd);
@@ -976,6 +1000,7 @@ io_loop(void)
 		  FD_CLR(s->fd, &wr);
 		  sk_write(s);
 		}
+	      s->entered = 0;
 	      if (s->type == SK_DELETED)
 		rfree(s);
 	    }

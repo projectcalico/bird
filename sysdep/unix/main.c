@@ -236,8 +236,8 @@ cli_err(sock *s, int err)
     log(L_INFO "CLI connection dropped: %s", strerror(err));
   else
     log(L_INFO "CLI connection closed");
-  s->type = SK_DELETED;
   cli_free(s->data);
+  sk_close(s);
 }
 
 static int
