@@ -399,7 +399,9 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     }
 
     nf=fib_get(ef,&ip, mlen);
-    if((nf->metric>met) || ((nf->metric==met)&&(nf->metric2>met2)))
+    if(((nf->metric>met)&&(nf->metric2==met2)) || /* both E1 or E2 with same metric */
+      ((nf->metric2>met2)&&(nf->metric2!=LSINFINITY)) || /* E2 smaller and 1st is not E1 */
+      ((nf->metric2==LSINFINITY)&&(met2!=LSINFINITY)))	/* 2nd is E1 and 1st is E2 */
     {
       nf->metric=met;
       nf->metric2=met2;
