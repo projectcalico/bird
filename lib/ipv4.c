@@ -10,6 +10,7 @@
 
 #include "nest/bird.h"
 #include "lib/ip.h"
+#include "lib/string.h"
 
 int
 ipv4_classify(u32 a)
@@ -28,6 +29,25 @@ ipv4_classify(u32 a)
   if (a == 0xffffffff)
     return IADDR_BROADCAST | SCOPE_LINK;
   return IADDR_INVALID;
+}
+
+char *
+ip_ntop(ip_addr a, char *b)
+{
+  u32 x = _I(a);
+
+  return b + bsprintf(b, "%d.%d.%d.%d",
+		      ((x >> 24) & 0xff),
+		      ((x >> 16) & 0xff),
+		      ((x >> 8) & 0xff),
+		      (x & 0xff));
+}
+
+
+char *
+ip_ntox(ip_addr a, char *b)
+{
+  return b + bsprintf(b, "%08x", _I(a));
 }
 
 #endif
