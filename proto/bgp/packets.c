@@ -62,6 +62,7 @@ bgp_encode_prefixes(struct bgp_proto *p, byte *w, struct bgp_bucket *buck, unsig
       ipa_hton(a);
       memcpy(w, &a, bytes);
       w += bytes;
+      remains -= bytes;
       rem_node(&px->bucket_node);
       fib_delete(&p->prefix_fib, px);
     }

@@ -24,9 +24,8 @@ Core
 
 - bgp: timing of updates?
 - bgp: dump and get_route_info
-- bgp: packet size limit in sending of withdrawals?
 
-- proto: `Changed state to ...' message -> show internal states
+- proto: Don't show repeated `Changed state to ...' messages if only internal states change
 
 Documentation
 ~~~~~~~~~~~~~
