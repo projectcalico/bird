@@ -305,13 +305,11 @@ void
 tm_format_reltime(char *x, bird_clock_t t)
 {
   struct tm *tm;
-  bird_clock_t delta = now - t;
+  bird_clock_t delta = (t < now) ? (now - t) : (t - now);
   static char *month_names[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
   tm = localtime(&t);
-  if (delta < 0)
-    strcpy(x, "?fut?");
-  else if (delta < 20*3600)
+  if (delta < 20*3600)
     bsprintf(x, "%02d:%02d", tm->tm_hour, tm->tm_min);
   else if (delta < 360*86400)
     bsprintf(x, "%s%02d", month_names[tm->tm_mon], tm->tm_mday);
