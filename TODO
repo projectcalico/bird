@@ -1,14 +1,6 @@
 Core
 ~~~~
-- configure: default CFLAGS?
-
-- filters: deletion of mandatory attributes?
-- filters: user defined attributes?
-- filters: arithmetics and define'd symbols
-
 - kernel: persistent mode
-
-- cli: show tables?
 
 - client: Ctrl-R eats one more enter
 - client: paging?
@@ -48,6 +40,7 @@ Various ideas
 - netlink: realms
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
 - config: executable config files
+- filters: user defined attributes?
 - client: access control
 - io: use poll if available
 - IPv6 router advertisements
@@ -59,6 +52,7 @@ Various ideas
 - generate default route if any working BGP connection exists (aggregate engine again?)
 - generate default route to IGP's (aggregate engine yet another time?)
 - look at RFC 2386 (QoS-based routing)
+- cli: show tables?
 
 
 OSPF

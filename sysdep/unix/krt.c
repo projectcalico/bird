@@ -667,6 +667,8 @@ krt_notify(struct proto *P, net *net, rte *new, rte *old, struct ea_list *attrs)
 {
   struct krt_proto *p = (struct krt_proto *) P;
 
+  if (shutting_down && KRT_CF->persist)
+    return;
   if (new && (!krt_capable(new) || new->attrs->source == RTS_INHERIT))
     new = NULL;
   if (!(net->n.flags & KRF_INSTALLED))
