@@ -4,9 +4,9 @@
 
 # Yet another comment
 
-router id 62.168.0.1
+#router id 62.168.0.1
 
-define xyzzy = 120+10
+#define xyzzy = 120+10
 
 #protocol rip MyRIP_test {
 #	preference xyzzy
@@ -27,8 +27,8 @@ protocol kernel {
 
 protocol static {
 #	disabled
-	route 0.0.0.0/0 via 62.168.0.13
-	route 62.168.0.0/25 reject
+#	route 0.0.0.0/0 via 62.168.0.13
+#	route 62.168.0.0/25 reject
 #	route 10.0.0.0/8 reject
 #	route 10.1.1.0:255.255.255.0 via 62.168.0.3
 #	route 10.1.2.0:255.255.255.0 via 62.168.0.3
