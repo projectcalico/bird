@@ -185,12 +185,11 @@ typedef struct rta {
   byte tos;				/* TOS of this route */
   byte flags;				/* Route flags (RTF_...) */
   byte aflags;				/* Attribute cache flags (RTAF_...) */
+  byte rfu;				/* Padding */
   ip_addr gw;				/* Next hop */
   ip_addr from;				/* Advertising router */
   struct iface *iface;			/* Outgoing interface */
   struct ea_list *attrs;		/* Extended Attribute chain */
-  union {				/* Protocol-specific data */
-  } u;
 } rta;
 
 #define RTS_DUMMY 0			/* Dummy route to be removed soon */
@@ -228,24 +227,32 @@ typedef struct rta {
  */
 
 typedef struct eattr {
-  byte protocol;			/* Protocol ID (EAP_...) */
-  byte flags;				/* Attribute flags (EAF_...) */
-  byte id;				/* Protocol-dependent ID */
-  byte rfu;				/* ??? */
+  word id;				/* EA_CODE(EAP_..., protocol-dependent ID) */
+  byte flags;				/* Protocol-dependent flags */
+  byte type;				/* Attribute type and several flags (EAF_...) */
   union {
     u32 data;
     struct adata *ptr;			/* Attribute data elsewhere */
   } u;
 } eattr;
 
+/* FIXME: Introduce real protocol numbers? */
 #define EAP_GENERIC 0			/* Generic attributes */
 #define EAP_BGP 1			/* BGP attributes */
 
-#define EAF_OPTIONAL 0x80		/* Refer to BGP specs for full meaning */
-#define EAF_TRANSITIVE 0x40
-#define EAF_PARTIAL 0x20
-#define EAF_EXTENDED_LENGTH 0x10	/* Not used by us, internal to BGP */
-#define EAF_LONGWORD 0x01		/* Embedded value [Not a BGP flag!] */
+#define EA_CODE(proto,id) (((proto) << 8) | (id))
+#define EA_PROTO(ea) ((ea) >> 8)
+#define EA_ID(ea) ((ea) & 0xff)
+
+#define EAF_TYPE_MASK 0x0f		/* Mask with this to get type */
+#define EAF_TYPE_INT 0x01		/* 32-bit signed integer number */
+#define EAF_TYPE_OPAQUE 0x02		/* Opaque byte string (not filterable) */
+#define EAF_TYPE_IP_ADDRESS 0x04	/* IP address [FIXME: embed at least for IPv4?] */
+#define EAF_TYPE_AS_PATH 0x06		/* BGP AS path [FIXME: define storage layout] */
+#define EAF_TYPE_INT_SET 0x0a		/* Set of integers (e.g., a community list) */
+#define EAF_EMBEDDED 0x01		/* Data stored in eattr.u.data (part of type spec) */
+#define EAF_VAR_LENGTH 0x02		/* Attribute length is variable */
+#define EAF_INLINE 0x80			/* Copy of an attribute inlined in rte (temporary ea_lists only) */
 
 struct adata {
   unsigned int length;
@@ -254,28 +261,30 @@ struct adata {
 
 typedef struct ea_list {
   struct ea_list *next;			/* In case we have an override list */
-  byte sorted;				/* `Really sorted' flag (???) */
+  byte flags;				/* Flags: EALF_... */
   byte rfu;
-  word nattrs;				/* Number of attributes */
+  word count;				/* Number of attributes */
   eattr attrs[0];			/* Attribute definitions themselves */
 } ea_list;
 
-eattr *ea_find(ea_list *, unsigned protocol, unsigned id);
+#define EALF_SORTED 1			/* Attributes are sorted by code */
+#define EALF_BISECT 2			/* Use interval bisection for searching */
+#define EALF_CACHED 4			/* Attributes belonging to cached rta */
 
-#define EA_LIST_NEW(p, alloc, n) do {				\
-	unsigned cnt = n;				       	\
-	p = alloc(sizeof(ea_list) + cnt*sizeof(eattr));		\
-	memset(p, 0, sizeof(ea_list));				\
-	p->nattrs = cnt;					\
-} while(0)
+eattr *ea_find(ea_list *, unsigned ea);
+void ea_dump(ea_list *);
+void ea_sort(ea_list *);		/* Sort entries in all sub-lists */
+unsigned ea_scan(ea_list *);		/* How many bytes do we need for merged ea_list (0=merge not needed) */
+void ea_merge(ea_list *from, ea_list *to); /* Merge sub-lists to allocated buffer */
 
 void rta_init(void);
 rta *rta_lookup(rta *);			/* Get rta equivalent to this one, uc++ */
 static inline rta *rta_clone(rta *r) { r->uc++; return r; }
-void _rta_free(rta *r);
-static inline void rta_free(rta *r) { if (r && !--r->uc) _rta_free(r); }
+void rta__free(rta *r);
+static inline void rta_free(rta *r) { if (r && !--r->uc) rta__free(r); }
 void rta_dump(rta *);
 void rta_dump_all(void);
+static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->attrs, ea); }
 
 /*
  *	Default protocol preferences
