@@ -96,7 +96,6 @@ Public License.
 tested under Linux 2.0 to 2.4, but porting to other systems (even non-UNIX ones) should
 be relatively easy due to its highly modular architecture.
 
-
 <sect>Installing BIRD
 
 <p>On a recent UNIX system with GNU development tools (GCC, binutils, m4, make) and Perl, installing BIRD should be as easy as:
@@ -270,44 +269,42 @@ protocol rip {
 	affects one protocol. Only messages in selected debugging categories will be written to the
 	logs.
 
-	<tag>import <m/filter/</tag> filter can be either either <cf> { <m>filter commands</m>
-	}</cf> or <cf>filter <m/name/</cf> or <cf/all/ or <cf/none/. Import filter works in direction from protocol to main
-	routing table. All is shorthand for <cf/{ accept; }/ and none is shorthand for <cf/{ reject; }/.
+	<tag>import { <m/filter commands/ } | <m/name/ | all | none</tag> Specify a filter to be used for filtering routes comming from protocol tothe routing table. Default: <cf/all/. <cf/all/ is shorthand for <cf/{ accept; }/ and <cf/none/ is shorthand for <cf/{ reject; }/.
 
-	<tag>export <m/filter/</tag> This is similar to <cf>export</cf> keyword, except that it
-	works in direction from main routing table to protocol.
+	<tag>export <m/filter/</tag> This is similar to <cf>import</cf> keyword, except that it
+	works in direction from the routing table to the protocol. Default: <cf/none/
 
-	<tag>table <m/name/</tag> Connect this protocol to non-default table.
+	<tag>table <m/name/</tag> Connect this protocol to a non-default routing table.
 </descrip>
 
-<p>There are per-protocol options that give sense only with certain protocols.
+<p>There are several options that give sense only with certain protocols:
 
 <descrip>
 	<tag>passwords { password "<m/password/" from <m/time/ to <m/time/ passive <m/time/ id
-	<m/num/ [...] }</tag> specifies passwords to be used with this protocol. Passive time is
-	time from which password is not announced, but is recognized on reception. id is password id, as needed by
+	<m/num/ [...] }</tag> Specifies passwords to be used with this protocol. <cf>Passive <m/time/</cf> is
+	time from which the password is not used for sending, but it is recognized on reception. <cf/id/ is password id, as needed by
 	certain protocols.
 
-	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [ ... ] } ]</tag> specifies, which
-	interfaces this protocol is active at, and allows you to set options on
-	interface-by-interface basis. Mask is specified in shell-like patters, thus <cf>interface
-	"*" { mode broadcast; };</cf> will start given protocol on all interfaces, with <cf>mode
+	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [ ... ] } ]</tag> Specifies which
+	interfaces this protocol is active on, and allows you to set options on
+	per-interface basis. Mask is specified in shell-like patterns, thus <cf>interface
+	"*" { mode broadcast; };</cf> will start the protocol on all interfaces with <cf>mode
 	broadcast;</cf> option. If first character of mask is <cf/-/, such interfaces are
-	excluded. Masks are parsed left-to-right, thus <cf/interface "-eth0", "*";/ means all but
+	excluded. Masks are parsed left-to-right, thus <cf/interface "-eth*", "*";/ means all but
 	the ethernets.
 						  
 </descrip>
 
 <sect>Client
 
-<p>You can use command-line client <file>birdc</file> to talk with
-running BIRD. Communications is done using <file/bird.ctl/ unix domain
-socket (unless changed with <tt/-s/ option given to both server and
-client). Client can do simple actions such as enabling/disabling
+<p>You can use the command-line client <file>birdc</file> to talk with
+a running BIRD. Communication is done using <file/bird.ctl/ unix domain
+socket (unless changed with the <tt/-s/ option given to both the server and
+the client). The client can do simple actions such as enabling/disabling
 protocols, telling BIRD to show various information, telling it to
 show routing table filtered by any filter, or telling bird to
 reconfigure. Press <tt/?/ at any time to get online help. Option
-<tt/-v/ can be passed to client, telling it to dump numeric return
+<tt/-v/ can be passed to the client, telling it to dump numeric return
 codes. You do not necessarily need to use BIRDC to talk to BIRD, your
 own application could do that, too -- format of communication between
 BIRD and BIRDC is stable (see programmer's documentation).
@@ -317,16 +314,15 @@ BIRD and BIRDC is stable (see programmer's documentation).
 
 <sect>Introduction
 
-<p>BIRD contains rather simple programming language. (No, it can not yet read mail :-). There are
-two objects in this language: filters and functions. Filters are called by BIRD core when route is
-being passed between protocol and main routing table, and filters may call functions. Functions may
-call other functions, but recursion is not allowed. Filter language contains control structures such
+<p>BIRD contains a rather simple programming language. (No, it can't yet read mail :-). There are
+two objects in this language: filters and functions. Filters are called by BIRD core when a route is
+being passed between protocola and routing tables. Filter language contains control structures such
 as if's and switches, but it allows no loops. Filters are
-interpreted. Filter using many features can be found in <file>filter/test.conf</file>. 
+interpreted. An example of a filter using many features can be found in <file>filter/test.conf</file>. 
 
-<p>Filter basically gets the route, looks at its attributes and
-modifies some of them if it wishes. At the end, it decides, whether to
-pass change route through (using <cf/accept/), or whether to <cf/reject/ given route. Simple filter looks
+<p>Filter gets the route, looks at its attributes and
+modifies some of them if it wishes. At the end, it decides whether to
+pass the changed route through (using <cf/accept/) or whether to <cf/reject/ given route. A simple filter looks
 like this:
 
 <code>
@@ -346,15 +342,15 @@ int var;
 }
 </code>
 
-<p>As you can see, filter has a header, list of local variables, and body. Header consists of
-<cf/filter/ keyword, followed by (unique) name of filter. List of local variables consists of
+<p>As you can see, a filter has a header, a list of local variables, and a body. The header consists of
+the <cf/filter/ keyword, followed by a (unique) name of filter. List of local variables consists of
 pairs <cf><M>type name</M>;</cf>, where each pair defines one local variable. Body consists of
-<cf> { <M>statements</M> }</cf>. Each Statement is terminated by <cf/;/. You can group
-several statements into one by <cf>{ <M>statements</M> }</cf> construction, that is useful if
+<cf> { <M>statements</M> }</cf>. Each <m/statement/ is terminated by <cf/;/. You can group
+several statements into one by using braces (<cf>{ <M>statements</M> }</cf>), that is useful if
 you want to make bigger block of code conditional.
 
 <p>BIRD supports functions, so that you don't have to repeat same blocks of code over and
-over. Functions can have zero or more parameters, and can have local variables. They
+over. Functions can have zero or more parameters and they can have local variables. Recursion is not allowed. They
 look like this:
 
 <code>
@@ -370,27 +366,24 @@ function with_parameters (int parameter)
 }
 </code>
 
-<p>Unlike C, variables are declared after function line but before first {. You can not declare
+<p>Unlike in C, variables are declared after function line but before the first {. You can't declare
 variables in nested blocks. Functions are called like in C: <cf>name();
-with_parameters(5);</cf>. Function may return value using <cf>return <m/[expr]/</cf>
-syntax. Returning value exits from current function (this is similar to C).
+with_parameters(5);</cf>. Function may return value using the <cf>return <m/[expr]/</cf>
+command. Returning a value exits from current function (this is similar to C).
 
-<p>Filters are declared in similar way to functions, except they can not have explicit
-parameters. They get route table entry as implicit parameter. Route table entry is passed implicitly
-to any functions being called. Filter must terminate with either
-<cf/accept/ or <cf/reject/ statement. If there's runtime error in filter, route
+<p>Filters are declared in a way similar to functions except they can't have explicit
+parameters. They get route table entry as an implicit parameter, it is also passed automatically 
+to any functions called. The filter must terminate with either
+<cf/accept/ or <cf/reject/ statement. If there's runtime error in filter, the route
 is rejected. 
 
-<p>Nice trick to debug filters is using <cf>show route filter
-<m/name/</cf> from command line client. Example session might look
+<p>A nice trick to debug filters is to use <cf>show route filter
+<m/name/</cf> from the command line client. An example session might look
 like:
 
 <code>
 pavel@bug:~/bird$ ./birdc -s bird.ctl
 BIRD 0.0.0 ready.
-bird> help
-No such command.
-bird>
 bird> show route
 10.0.0.0/8         dev eth0 [direct1 23:21] (240)
 195.113.30.2/32    dev tunl1 [direct1 23:21] (240)
@@ -404,32 +397,32 @@ bird>
 
 <sect>Data types
 
-<p>Each variable and each value has certain type. Unlike C, booleans, integers and enums are
+<p>Each variable and each value has certain type. Booleans, integers and enums are
 incompatible with each other (that is to prevent you from shooting in the foot).
 
 <descrip>
-	<tag/bool/ this is boolean type, it can have only two values, <cf/true/ and
+	<tag/bool/ This is a boolean type, it can have only two values, <cf/true/ and
 	  <cf/false/. Boolean is not compatible with integer and is the only type you can use in if
 	  statements.
 
-	<tag/int/ this is common integer, you can expect it to store signed values from -2000000000
-	  to +2000000000. Overflows are not checked.
+	<tag/int/ This is a general integer type, you can expect it to store signed values from -2000000000
+	  to +2000000000. Overflows are not checked. You can use <cf/0x1234/ syntax to write hexadecimal values.
 
-	<tag/pair/ this is pair of two short integers. Each component can have values from 0 to
-	  65535. Constant of this type is written as <cf/(1234,5678)/.
+	<tag/pair/ This is a pair of two short integers. Each component can have values from 0 to
+	  65535. Literals of this type is written as <cf/(1234,5678)/.
 
-	<tag/string/ this is string of characters. There are no ways to modify strings in
-	  filters. You can pass them between functions, assign to variable of type string, print
-	  such variables, but you can not concatenate two strings (for example). String constants
+	<tag/string/ This is a string of characters. There are no ways to modify strings in
+	  filters. You can pass them between functions, assign them to variables of type <cf/string/, print
+	  such variables, but you can't concatenate two strings. String literals
 	  are written as <cf/"This is a string constant"/.
 
-	<tag/ip/ this type can hold single ip address. Depending on compile-time configuration of BIRD you are using, it
-	  can be IPv4 or IPv6 address. IPv4 addresses are written (as you would expect) as
+	<tag/ip/ This type can hold a single IP address. Depending on the compile-time configuration of BIRD you are using, it
+	  is either an IPv4 or IPv6 address. IPv4 addresses are written (as you would expect) as
 	  <cf/1.2.3.4/. You can apply special operator <cf>.mask(<M>num</M>)</cf>
 	  on values of type ip. It masks out all but first <cf><M>num</M></cf> bits from ip
-	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true.
+	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true. <!-- FIXME: IPv6? -->
 
-	<tag/prefix/ this type can hold ip address and prefix length. Prefixes are written as
+	<tag/prefix/ This type can hold a network prefix consisting of IP address and prefix length. Prefix literals are written as
 	  <cf><M>ipaddress</M>/<M>pxlen</M></cf>, or
 	  <cf><m>ipaddress</m>/<m>netmask</m></cf> There are two special
 	  operators on prefix:
@@ -437,74 +430,78 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  len from the pair. So <cf>1.2.0.0/16.pxlen = 16</cf> is true.
 
 	<tag/int|ip|prefix|pair|enum set/
-	  filters know four types of sets. Sets are similar to strings: you can pass them around
-	  but you can not modify them. Constant of type <cf>set int</cf> looks like <cf>
+	  Filters recognize four types of sets. Sets are similar to strings: you can pass them around
+	  but you can't modify them. Literals of type <cf>set int</cf> look like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
 	  sets. Sets of prefixes are special: you can specify which prefix lengths should match them by
-	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. 3.0.0.0/8{5,6} matches
-	  prefixes 3.X.X.X, whose prefix length is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
-	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}. For example,
-	  <tt>1.2.0.0/16 ~ [ 1.0.0.0/8{ 15 , 17 } ]</tt> is true, but
-	  <tt>1.0.0.0/8 ~ [ 1.0.0.0/8- ]</tt> is false. 
+	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. <cf>3.0.0.0/8{5,6}</cf> matches
+	  prefixes <cf/3.X.X.X/, whose prefix length is 5 to 6. <cf>3.0.0.0/8+</cf> is shorthand for <cf>3.0.0.0/{0,8}</cf>,
+	  <cf>3.0.0.0/8-</cf> is shorthand for <cf>3.0.0.0/{0,7}</cf>. For example,
+	  <cf>1.2.0.0/16 ~ [ 1.0.0.0/8{ 15 , 17 } ]</cf> is true, but
+	  <cf>1.0.0.0/8 ~ [ 1.0.0.0/8- ]</cf> is false. <!-- fixme: use variables instead of examples -->
 
 	<tag/enum/
-	  enumeration types are halfway-internal in the BIRD. You can't define your own
-	  variable of enumeration type, but some route attributes are of enumeration
-	  type. Enumeration types are incompatible with each other, again, for your
-	  protection.
+	  Enumeration types are fixed in BIRD - you can't define your own
+	  variables of enumeration type, but some route attributes are of enumeration
+	  type. Enumeration types are incompatible with each other.
 
 	<tag/bgppath/
-	  bgp path is list of autonomous systems. You can't write constant of this type.
+	  BGP path is a list of autonomous system numbers. You can't write literals of this type.
 
 	<tag/bgpmask/ 
-	  bgp mask is mask used for matching bgp paths
-	  (using <cf>path ~ / 2 3 5 ? / syntax </cf>). Matching is
-	  done using shell-like pattern: <cf/?/ means
+	  BGP mask is a mask used for matching BGP paths
+	  (using <cf>path &tilde; /2 3 5 ?/</cf> syntax). Matching is
+	  done using shell-like patterns: <cf/?/ means
 	  "any number of any autonomous systems". Pattern for single
 	  unknown autonomous system is not supported. (We
 	  did not want to use * because then it becomes too easy to
 	  write <cf>/*</cf> which is start of comment.) For example,
-	  <tt>/ 4 3 2 1 / ~ / ? 4 3 ? /</tt> is true, but 
-	  <tt>/ 4 3 2 1 / ~ / ? 4 5 ? /</tt> is false.
+	  <tt>/4 3 2 1/ ~ /? 4 3 ?/</tt> is true, but 
+	  <tt>/4 3 2 1/ ~ /? 4 5 ?/</tt> is false. <!-- fixme: formulate better -->
 
 	<tag/clist/ 
-	  community list. This is similar to set of pairs,
+	  Community list is similar to set of pairs,
 	  except that unlike other sets, it can be modified.
-	  You can't write constant of this type.
+	  There exist no literals of this type.
 
 </descrip>
 
-<sect>Operations
+<sect>Operators
 
-<p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parentheses <cf/(a*(b+c))/, comparison
+<!-- FIXME: Make it table -->
+
+<p>The filter language supports common integer operators <cf>(+,-,*,/)</cf>, parentheses <cf/(a*(b+c))/, comparison
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
 used on element and set of that elements, or on ip and prefix, or on
 prefix and prefix or on bgppath and bgpmask or on pair and clist. Its result
-is true if element is in given set or if ip address is inside given prefix. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/>).
+is true if element is in given set or if ip address is inside given prefix. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/).
 
 <sect>Control structures
 
-<p>Filters support two control structures: if/then/else and case. Syntax of if/then/else is <cf>if
-<M>expression</M> then <M>command</M>; else <M>command</M>;</cf> and you can use <cf>{
+<p>Filters support two control structures: conditions and case switches. 
+
+<!-- fixme: say explicitly what if and case does -->
+
+<p>Syntax of condition is <cf>if
+<M>boolean expression</M> then <M>command</M>; else <M>command</M>;</cf> and you can use <cf>{
 <M>command_1</M>; <M>command_2</M>; <M>...</M> }</cf> instead of one or both commands. <cf>else</cf>
 clause may be omitted.
 
 <p><cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else |
-<m/num_or_prefix [ .. num_or_prefix]/ : <m/statement/ ; [ ... ] }</cf>. Expression after
-<cf>case</cf> can be of any type that can be on the left side of &tilde; operator, and anything that could
-be member of set is allowed before <cf/:/. Multiple commands are allowed without <cf/{}/ grouping
+<m/num_or_prefix [ .. num_or_prefix]/: <m/statement/ ; [ ... ] }</cf>. Expression after
+<cf>case</cf> can be of any type that can be on the left side of the &tilde; operator, and anything that could
+be a member of a set is allowed before <cf/:/. Multiple commands are allowed without <cf/{}/ grouping
 and break is implicit before each case. If argument
-matches neither of <cf/:/ clauses, <cf/else:/ clause is used. (Case is actually implemented as set matching,
-internally.)
+matches neither of <cf/:/ clauses, <cf/else:/ clause is used.
 
-<p>Here is example that uses if and case structures:
+<p>Here is example that uses <cf/if/ and <cf/case/ structures:
 
 <code>
 case arg1 {
 	2: print "two"; print "I can do more commands without {}";
 	3 .. 5: print "three to five";
 	else: print "something else";
-	}
+}
 
 if 1234 = i then printn "."; else { 
   print "not 1234"; 
@@ -514,58 +511,58 @@ if 1234 = i then printn "."; else {
 
 <sect>Route attributes
 
-<p>Filter is implicitly passed route, and it can access its
-attributes, just like it accesses variables. Access to undefined
-attribute results in runtime error; you can check if attribute is
-defined using <cf>defined( <m>attribute</m> )</cf> syntax.
+<p>An filter is implicitly passed route, and it can access its
+attributes just like it accesses variables. Attempt to access undefined
+attribute result in a runtime error; you can check if an attribute is
+defined using the <cf>defined( <m>attribute</m> )</cf> operator.
+
+<!-- fixme: say which are read-only -->
 
 <descrip>
 	<tag><m/prefix/ net</tag>
-	network this route is talking about. (See section about routing tables)
-
-	<tag><m/int/ preference</tag>
-	preference of this route. (See section about routing tables)
-
-	<tag><m/ip/ from</tag>
-	who told me about this route.
-	
-	<tag><m/ip/ gw</tag>
-	what is next hop packets routed using this route should be forwarded to.
-
-	<tag><m/enum/ source</tag>
-	what protocol told me about this route. This can have values such as <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/.
+	Network the route is talking about. (See the section about routing tables.)
 
 	<tag><m/enum/ scope</tag>
-	FIXME!
+	Address scope of the network (<cf/SCOPE_HOST/ for addresses local to this host, <cf/SCOPE_LINK for those specific for a physical link, ... <!-- FIXME -->)
+
+	<tag><m/int/ preference</tag>
+	Preference of the route. (See section about routing tables.)
+
+	<tag><m/ip/ from</tag>
+	The router which the route has originated from.
+	
+	<tag><m/ip/ gw</tag>
+	Next hop packets routed using this route should be forwarded to.
+
+	<tag><m/enum/ source</tag>
+	what protocol has told me about this route. Possible values: <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/ <!-- fixme -->.
 
 	<tag><m/enum/ cast</tag>
-	FIXME!
+	Route type (<cf/RTC_UNICAST/ for normal routes, ... <!-- FIXME -->)
 
 	<tag><m/enum/ dest</tag>
-	FIXME!
+	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, ...)
 </descrip>
 
-<p>Then there are protocol-specific attributes, which are described in protocol sections.
+<p>There also exist some protocol-specific attributes, which are described in protocol sections.
 
 <sect>Statements
 
-<p>Following statements are supported:
+<p>The following statements are available:
 
 <descrip>
-	<tag><m/variable/ = <m/expr/</tag> set variable to give value.
+	<tag><m/variable/ = <m/expr/</tag> Set variable to a given value.
 
-	<tag>accept [ <m/expr/ ]</tag> accept this route, possibly printing expr
+	<tag>accept|reject [ <m/expr/ ]</tag> Accept or reject the route, possibly printing <cf><m>expr</m></cf>.
 
-	<tag>reject</tag> reject this route
+	<tag>return <m/expr/</tag> Return <cf><m>expr</m></cf> from function, the function ends at this point.
 
-	<tag>return <m/expr/</tag> return given value from function, function ends at this point.
-
-	<tag>print|printn <m/expr/ [ <m/, expr .../ ]</tag>
-	prints given expressions, useful mainly while debugging
-	filters. Printn variant does not go to new line.
+	<tag>print|printn <m/expr/ [<m/, expr.../]</tag>
+	Prints given expressions; useful mainly while debugging
+	filters. The <cf/printn/ variant does not terminate the line.
 
 	<tag>quitbird</tag>
-	terminates bird. Useful while debugging filter interpreter.
+	Terminates BIRD. Useful when debugging filter interpreter.
 </descrip>
 
 <chapt>Protocols
@@ -991,7 +988,7 @@ it and broadcasts it back. Broadcasts are done in regular intervals. Therefore, 
 unreachable, routers keep telling each other that distance is old distance plus 1 (actually, plus
 interface metric, which is usually one). After some time, distance reaches infinity (that's 15 in
 rip) and all routers know that network is unreachable. Rip tries to minimize situations where
-counting to infinity is necessary, because it is slow. Due to infinity being 16, you can not use
+counting to infinity is necessary, because it is slow. Due to infinity being 16, you can't use
 rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <HTMLURL
 URL="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4
 and IPv6 versions of rip are supported by BIRD, historical RIPv1 is
@@ -1134,17 +1131,14 @@ protocol static {
 <chapt>Problems
 
 <p>BIRD is relatively young system, and probably contains some
-bugs. You can report bugs at <HTMLURL URL="fixme">, but before you do,
+bugs. You can report bugs at bird-users mailing list (<HTMLURL URL="mailto:bird-users@bird.network.cz" TEXT="bird-users@bird.network.cz">), but before you do,
 please make sure you have read available documentation, make sure are running latest version (available at <HTMLURL
-URL="fixme">), and that bug was not already reported by someone else
-(mailing list archives are at <HTMLURL URL="fixme">). (Of course, patch
+URL="ftp://bird.network.cz/pub/bird" TEXT="bird.network.cz:/pub/bird>). (Of course, patch
 which fixes the bug along with bug report is always welcome). If you
-want to join the development, join developer's mailing list by sending
-<tt/????/ to <HTMLURL URL="fixme">. You can also get current sources from
-anoncvs at <HTMLURL URL="fixme">. You can find this documentation online
-at <HTMLURL URL="fixme">, main home page of bird is <HTMLURL URL="fixme">. When
+want to use BIRD, join mailing list by sending
+<tt/subscribe bird-users/ to <HTMLURL URL="mailto:majordomo@bird.network.cz" TEXT="majordomo@bird.network.cz">. Main home page of bird is <HTMLURL URL="http://bird.network.cz/" TEXT="http://bird.network.cz/">. When
 trying to understand, what is going on, Internet standards are
-relevant reading; you can get them from <HTMLURL URL="fixme">.
+relevant reading; you can get them from <HTMLURL URL="ftp://ftp.rfc-editor.org/" TEXT="ftp.rfc-editor.org"> (or nicely sorted version from <HTMLURL="ftp://atrey.karlin.mff.cuni.cz/pub/rfc" TEXT="atrey.karlin.mff.cuni.cz:/pub/rfc">.
 
 <p><it/Good luck!/
 
