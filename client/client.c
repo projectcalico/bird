@@ -141,7 +141,7 @@ input_stop_list(void)			/* Reprint the currently edited line after listing */
 }
 
 static int
-input_complete(int arg, int key)
+input_complete(int arg UNUSED, int key UNUSED)
 {
   static int complete_flag;
   char buf[256];
@@ -166,7 +166,7 @@ input_complete(int arg, int key)
 }
 
 static int
-input_help(int arg, int key)
+input_help(int arg, int key UNUSED)
 {
   int i = 0;
 
