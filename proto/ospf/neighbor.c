@@ -25,11 +25,24 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
   if(n->state!=state)
   {
     ifa=n->ifa;
+    if(n->state==NEIGHBOR_FULL)
+    {
+      ifa->fadj++;
+      n->state=state;
+      originate_rt_lsa(ifa->oa,ifa->oa->po);
+      originate_net_lsa(ifa,ifa->oa->po);
+    }
     p=(struct proto *)(ifa->proto);
   
     debug("%s: Neigbor %I changes state from \"%s\" to \"%s\".\n",
       p->name, n->rid, ospf_ns[n->state], ospf_ns[state]);
     n->state=state;
+    if(state==NEIGHBOR_FULL)
+    {
+      ifa->fadj--;
+      originate_rt_lsa(n->ifa->oa,n->ifa->oa->po);
+      originate_net_lsa(ifa,ifa->oa->po);
+    }
   }
 }
 
@@ -236,7 +249,6 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       break;
     case INM_LOADDONE:
         neigh_chstate(n,NEIGHBOR_FULL);
-	originate_rt_lsa(n->ifa->oa,po);
       break;
     case INM_ADJOK:
         switch(n->state)

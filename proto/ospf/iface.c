@@ -356,6 +356,8 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     ospf_add_timers(ifa,p->pool);
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ifa->state=OSPF_IS_DOWN;
+    ifa->nlsa=NULL;
+    ifa->fadj=0;
     ospf_int_sm(ifa, ISM_UP);
   }
 

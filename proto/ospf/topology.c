@@ -211,12 +211,12 @@ addifa_rtlsa(struct ospf_iface *ifa)
 
   ifa->oa=oa;
 
-  oa->rt=originate_rt_lsa(oa,po);
+  originate_rt_lsa(oa,po);
   DBG("RT LSA: rt: %I, id: %I, type: %u\n",oa->rt->lsa.rt,oa->rt->lsa.id,oa->rt->lsa.type);
   flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa);
 }
 
-struct top_hash_entry *
+void
 originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
 {
   struct ospf_lsa_header lsa;
@@ -241,7 +241,8 @@ originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
   body=originate_rt_lsa_body(oa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
   en=lsa_install_new(&lsa, body, oa, &po->proto);
-  return en;
+  oa->rt=en;
+  flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa);
 }
 
 void *
@@ -252,11 +253,7 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
   struct ospf_neighbor *n;
   u32 *body;
 
-  WALK_LIST(n,ifa->neigh_list)
-  {
-    if(n->state==NEIGHBOR_FULL) i++;
-  }
-  body=mb_alloc(po->proto.pool,sizeof(u32)*i);
+  body=mb_alloc(po->proto.pool,sizeof(u32)*ifa->fadj);
   i=1;
   *body=po->proto.cf->global->router_id;
   WALK_LIST(n,ifa->neigh_list)
@@ -271,7 +268,7 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
   return body;
 }
 
-struct top_hash_entry *
+void
 originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
 {
   struct ospf_lsa_header lsa;
@@ -280,6 +277,20 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   void *body;
 
   DBG("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name, ifa->iface->name);
+
+  if(ifa->state!=OSPF_IS_DR) return;
+
+  if(ifa->fadj==0)
+  {
+    if(ifa->nlsa==NULL) return;
+
+    lsa.sn+=1;
+    lsa.age=LSA_MAXAGE;
+    flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa);
+    /* FIXME delete LSA */
+    ifa->nlsa=NULL;
+    return ;
+  }
 
   lsa.age=0;
   lsa.id=rtid;
@@ -291,16 +302,13 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   }
   else
   {
-    lsa.sn=ifa->nlsa->lsa.sn+1;
+    lsa.sn+=1;
   }
   body=originate_net_lsa_body(ifa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
   en=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
-  return en;
+  flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa);
 }
-
-
-  
 
 static void
 ospf_top_ht_alloc(struct top_graph *f)
