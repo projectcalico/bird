@@ -51,8 +51,8 @@ fib_hash(struct fib *f, ip_addr *a)
   return ipa_hash(*a) >> f->hash_shift;
 }
 
-static void *
-fib_dummy_init(struct fib_node *)
+static void
+fib_dummy_init(struct fib_node *dummy)
 {
 }
 
