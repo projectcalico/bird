@@ -1,13 +1,17 @@
 # Makefile for the BIRD Internet Routing Daemon
-# (c) 1999 Martin Mares <mj@ucw.cz>
+# (c) 1999--2000 Martin Mares <mj@ucw.cz>
 
 include Rules
 
 srcdir_abs := $(shell cd $(srcdir) ; pwd)
 
-.PHONY: all subdir depend clean distclean tags
+.PHONY: all daemon client subdir depend clean distclean tags
 
-all: .dep-stamp subdir $(exedir)/bird $(exedir)/birdc
+all: .dep-stamp subdir daemon @CLIENT@
+
+daemon: $(exedir)/bird
+
+client: $(exedir)/birdc
 
 subdir depend: .dir-stamp
 	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a $@ ; done

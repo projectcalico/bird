@@ -19,5 +19,3 @@ krt-iface.h
 krt-set.c
 krt-set.h
 #endif
-
-client-main.c
