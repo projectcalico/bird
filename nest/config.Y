@@ -96,7 +96,7 @@ proto_item:
      if ($2 < 0 || $2 > 255) cf_error("Invalid preference");
      this_proto->preference = $2;
    }
- | DISABLED { this_proto->disabled = 1; }
+ | DISABLED bool { this_proto->disabled = $2; }
  | DEBUG debug_mask { this_proto->debug = $2; }
  | IMPORT imexport { this_proto->in_filter = $2; }
  | EXPORT imexport { this_proto->out_filter = $2; }
