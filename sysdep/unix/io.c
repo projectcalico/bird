@@ -328,6 +328,7 @@ sk_new(pool *p)
 }
 
 #define ERR(x) do { err = x; goto bad; } while(0)
+#define WARN(x) log(L_WARN "sk_setup: " x)
 
 #ifdef IPV6
 
@@ -403,7 +404,7 @@ sk_setup(sock *s)
     ERR("IPV6_UNICAST_HOPS");
 #else
   if ((s->tos >= 0) && setsockopt(fd, SOL_IP, IP_TOS, &s->tos, sizeof(s->tos)) < 0)
-    ERR("IP_TOS");
+    WARN("IP_TOS");
   if (s->ttl >= 0)
     {
       if (setsockopt(fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
@@ -820,6 +821,7 @@ sk_dump_all(void)
 }
 
 #undef ERR
+#undef WARN
 
 /*
  *	Main I/O Loop
