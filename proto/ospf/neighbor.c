@@ -310,6 +310,7 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   me.priority=ifa->priority;
   me.dr=ifa->drid;
   me.bdr=ifa->bdrid;
+  me.ip=ifa->iface->addr->ip;
 
   add_tail(&ifa->neigh_list, NODE &me);
 
