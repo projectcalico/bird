@@ -3,7 +3,7 @@
 
 SHELL = /bin/sh
 
-all: bird.html
+all: bird.html internals.html
 
 clean:
 	rm *.html *.tex *.dvi *.log
@@ -28,3 +28,6 @@ dnl LATEX format:
 
 %.tex: %.sgml
 	./sgml2latex --output=tex $<
+
+internals.html: ../filter/filter.c
+	kernel-doc -html ../filter/filter.c > internals.html
