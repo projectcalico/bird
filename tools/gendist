@@ -25,7 +25,7 @@ rm -rf `find dist/$REL -name CVS -o -name tmp` dist/$REL/{dist,misc,rfc,doc/slid
 ( cd dist ; tar czvvf /tmp/$DREL.tar.gz $DREL )
 rm -rf dist
 echo Uploading to Atrey...
-scp /tmp/$REL.tar.gz /tmp/$DREL.tar.gz atrey:~ftp/pub/bird/
+scp /tmp/$REL.tar.gz /tmp/$DREL.tar.gz atrey.karlin.mff.cuni.cz:~ftp/pub/bird/
 echo Uploading to Regina...
-scp /tmp/$REL.tar.gz /tmp/$DREL.tar.gz regina:~ftp/pub/bird/
+scp /tmp/$REL.tar.gz /tmp/$DREL.tar.gz regina.gin.cz:~ftp/pub/bird/
 echo Done.
