@@ -102,8 +102,8 @@ struct ospf_packet {
 };
 
 struct ospf_hello_packet {
-  struct ospf_packet;
-  u32 netmask;
+  struct ospf_packet ospf_packet;
+  ip_addr netmask;
   u16 hello_int;
   u8 options;
   u8 priority;

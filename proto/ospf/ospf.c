@@ -27,10 +27,22 @@ void
 ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   struct ospf_iface *ifa)
 {
+  char sip[100]; /* FIXME: Should be smaller */
+
+  if(ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
+  {
+    ip_ntop(ps->netmask,sip);
+    log("%s: Bad OSPF packet from %d received: bad netmask %s.",
+      p->name, ntohl(((struct ospf_packet *)ps)->routerid), sip);
+      /*ip_ntop(ps->netmask, sip));*/
+    log("%s: Discarding",p->name);
+    return;
+  }
+
   switch(ifa->state)
   {
     case OSPF_IS_DOWN:
-      die("%s: Iface %s in down state?",p->name, ifa->iface->name);
+      die("%s: Iface %s in down state?", p->name, ifa->iface->name);
       break;
     case OSPF_IS_WAITING:
       DBG(p->name);
