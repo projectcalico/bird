@@ -116,6 +116,28 @@ ospf_iface_clasify(struct iface *ifa)
 }
 
 void
+hello_timer_hook(timer *timer)
+{
+  struct ospf_iface *ifa;
+
+  ifa=(struct ospf_iface *)timer->data;
+  debug(" OSPF: Hello timer fired on interface %s.\n",
+    ifa->iface->name);
+}
+
+void
+add_hello_timer(struct ospf_iface *ifa)
+{
+  if(ifa->helloint==0) ifa->helloint=HELLOINT_D;
+  
+  ifa->timer->hook=hello_timer_hook;
+  ifa->timer->recurrent=ifa->helloint;
+  ifa->timer->expires=0;
+  tm_start(ifa->timer,0);
+  DBG(" OSPF: Installing hello timer.\n");
+}
+
+void
 wait_timer_hook(timer *timer)
 {
   struct ospf_iface *ifa;
@@ -141,7 +163,7 @@ wait_timer_hook(timer *timer)
       debug(" OSPF: Changing state into DROTHER.\n");
       ifa->state=OSPF_IS_DROTHER;
     }
-    /* FIXME: Add hello timer */
+    add_hello_timer(ifa);
   }
   /* FIXME: Destroy timer */
 }
@@ -149,17 +171,20 @@ wait_timer_hook(timer *timer)
 void
 add_wait_timer(struct ospf_iface *ifa,pool *pool, int wait)
 {
-  DBG(" OSPF: add_wait_timer called.\n");
+  ifa->timer=tm_new(pool);
+  ifa->timer->data=ifa;
+  ifa->timer->randomize=1;
   if((ifa->type!=OSPF_IT_PTP))
   {
-    ifa->wait_timer=tm_new(pool);
-    ifa->wait_timer->hook=wait_timer_hook;
-    ifa->wait_timer->data=ifa;
-    ifa->wait_timer->randomize=0;
-    ifa->wait_timer->recurrent=0;
-    ifa->wait_timer->expires=0;
-    tm_start(ifa->wait_timer,(wait!=0 ? wait : WAIT_D));
+    ifa->timer->hook=wait_timer_hook;
+    ifa->timer->recurrent=0;
+    ifa->timer->expires=0;
+    tm_start(ifa->timer,(wait!=0 ? wait : WAIT_D));
     DBG(" OSPF: Installing wait timer.\n");
+  }
+  else
+  {
+    add_hello_timer(ifa);
   }
 }
 
@@ -217,6 +242,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
     ifa->iface=new;
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
+    /* FIXME: This should read config */
     add_wait_timer(ifa,p->pool,0);
     init_list(&(ifa->sk_list));
     if((mcsk=ospf_open_socket(p, ifa))!=NULL)

@@ -14,7 +14,7 @@
 #define AllSPFRouters ipa_from_u32(0xe0000005)	/* 224.0.0.5 */
 #define AllDRouters ipa_from_u32(0xe0000006)	/* 224.0.0.6 */
 #else
-#error Multicast address not defined
+#error Multicast address not defined in IPv6
 #endif
 
 
@@ -55,7 +55,8 @@ struct ospf_iface {
 #define OSPF_IS_DROTHER 3	/* I'm on BCAST or NBMA and I'm not DR */
 #define OSPF_IS_BACKUP 4	/* I'm BDR */
 #define OSPF_IS_DR 5		/* I'm DR */
-  timer *wait_timer;		/* One shot Wait timer - used after DOWN->UP */
+  timer *timer;			/* One shot Wait timer - used after DOWN->UP
+				 * And timer for hello */
 
 /* Default values for interface parameters */
 #define COST_D 10
