@@ -27,10 +27,10 @@ struct slab {
   list objs;
 };
 
-void slab_free(resource *r);
-void slab_dump(resource *r);
+static void slab_free(resource *r);
+static void slab_dump(resource *r);
 
-struct resclass sl_class = {
+static struct resclass sl_class = {
   "Slab",
   sizeof(struct slab),
   slab_free,
@@ -64,7 +64,7 @@ sl_free(slab *s, void *oo)
   xfree(o);
 }
 
-void
+static void
 slab_free(resource *r)
 {
   slab *s = (slab *) r;
@@ -74,7 +74,7 @@ slab_free(resource *r)
     xfree(o);
 }
 
-void
+static void
 slab_dump(resource *r)
 {
   slab *s = (slab *) r;

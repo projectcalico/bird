@@ -27,7 +27,7 @@ struct mempool {
 void mp_free(resource *);
 void mp_dump(resource *);
 
-struct resclass mp_class = {
+static struct resclass mp_class = {
   "MemPool",
   sizeof(struct mempool),
   mp_free,

@@ -17,8 +17,8 @@ struct pool {
   list inside;
 };
 
-void pool_dump(resource *);
-void pool_free(resource *);
+static void pool_dump(resource *);
+static void pool_free(resource *);
 
 static struct resclass pool_class = {
   "Pool",
@@ -39,7 +39,7 @@ rp_new(pool *p)
   return z;
 }
 
-void
+static void
 pool_free(resource *P)
 {
   pool *p = (pool *) P;
@@ -54,7 +54,7 @@ pool_free(resource *P)
     }
 }
 
-void
+static void
 pool_dump(resource *P)
 {
   pool *p = (pool *) P;
@@ -125,18 +125,18 @@ struct mblock {
   byte data[0];
 };
 
-void mbl_free(resource *r)
+static void mbl_free(resource *r)
 {
 }
 
-void mbl_debug(resource *r)
+static void mbl_debug(resource *r)
 {
   struct mblock *m = (struct mblock *) r;
 
   debug("(size=%d)\n", m->size);
 }
 
-struct resclass mb_class = {
+static struct resclass mb_class = {
   "Memory",
   0,
   mbl_free,
