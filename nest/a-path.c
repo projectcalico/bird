@@ -19,7 +19,8 @@ as_path_prepend(struct linpool *pool, struct adata *olda, int as)
 {
   struct adata *newa;
 
-  if (olda->length && olda->data[0] == 2 && olda->data[1] < 255) /* Starting with sequence => just prepend the AS number */
+  if (olda->length && olda->data[0] == AS_PATH_SEQUENCE &&
+      olda->data[1] < 255) /* Starting with sequence => just prepend the AS number */
     {
       newa = lp_alloc(pool, sizeof(struct adata) + olda->length + 2);
       newa->length = olda->length + 2;
@@ -90,37 +91,40 @@ as_path_getlen(struct adata *path)
   u8 *q = p+path->length;
   int len;
 
-  while (p<q) {
-    switch (*p++) {
-    case 1: len = *p++; res++;    p += 2*len; break;
-    case 2: len = *p++; res+=len; p += 2*len; break;
-    default: bug("This should not be in path");
+  while (p<q)
+    {
+      switch (*p++)
+	{
+	case AS_PATH_SET:      len = *p++; res++;    p += 2*len; break;
+	case AS_PATH_SEQUENCE: len = *p++; res+=len; p += 2*len; break;
+	default: bug("as_path_getlen: Invalid path segment");
+	}
     }
-  }
   return res;
 }
 
 #define MASK_PLUS do { mask = mask->next; if (!mask) return next == q; \
-		       asterix = (mask->val == PM_ANY); \
-                       if (asterix) { mask = mask->next; if (!mask) { return 1; } } \
+		       asterisk = (mask->val == PM_ANY); \
+                       if (asterisk) { mask = mask->next; if (!mask) { return 1; } } \
 		       } while(0)
 
 int
 as_path_match(struct adata *path, struct f_path_mask *mask)
 {
   int i;
-  int asterix = 0;
+  int asterisk = 0;
   u8 *p = path->data;
   u8 *q = p+path->length;
   int len;
   u8 *next;
 
-  asterix = (mask->val == PM_ANY);
-  if (asterix) { mask = mask->next; if (!mask) { return 1; } }
+  asterisk = (mask->val == PM_ANY);
+  if (asterisk)
+    { mask = mask->next; if (!mask) return 1; }
 
   while (p<q) {
     switch (*p++) {
-    case 1:	/* This is a set */
+    case AS_PATH_SET:
       len = *p++;
       {
 	u8 *p_save = p;
@@ -128,30 +132,30 @@ as_path_match(struct adata *path, struct f_path_mask *mask)
       retry:
 	p = p_save;
 	for (i=0; i<len; i++) {
-	  if (asterix && (get_u16(p) == mask->val)) {
+	  if (asterisk && (get_u16(p) == mask->val)) {
 	    MASK_PLUS;
 	    goto retry;
 	  }
-	  if (!asterix && (get_u16(p) == mask->val)) {
+	  if (!asterisk && (get_u16(p) == mask->val)) {
 	    p = next;
 	    MASK_PLUS;
 	    goto okay;
 	  }
 	  p+=2;
 	}
-	if (!asterix)
+	if (!asterisk)
 	  return 0;
       okay:
       }
       break;
 
-    case 2:	/* This is a sequence */
+    case AS_PATH_SEQUENCE:
       len = *p++;
       for (i=0; i<len; i++) {
 	next = p+2;
-	if (asterix && (get_u16(p) == mask->val))
+	if (asterisk && (get_u16(p) == mask->val))
 	  MASK_PLUS;
-	else if (!asterix) {
+	else if (!asterisk) {
 	  if (get_u16(p) != mask->val)
 	    return 0;
 	  MASK_PLUS;
@@ -161,7 +165,7 @@ as_path_match(struct adata *path, struct f_path_mask *mask)
       break;
 
     default:
-      bug("This should not be in path");
+      bug("as_path_match: Invalid path component");
     }
   }
   return 0;
