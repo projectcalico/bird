@@ -350,11 +350,182 @@ ospf_get_attr(eattr *a, byte *buf)
     default: return GA_UNKNOWN;
     }
 }
+static int
+ospf_patt_compare(struct ospf_iface_patt *a, struct ospf_iface_patt *b)
+{
+  return ((a->cost==b->cost)&&(a->type==b->type)&&(a->priority==b->priority));
+}
 
 static int
 ospf_reconfigure(struct proto *p, struct proto_config *c)
 {
-  return 0;	/* Alway down :-( */
+  struct ospf_config *old=(struct ospf_config *)(p->cf);
+  struct ospf_config *new=(struct ospf_config *)c;
+  struct ospf_area_config *ac1,*ac2;
+  struct proto_ospf *po=( struct proto_ospf *)p;
+  struct ospf_iface_patt *ip1,*ip2;
+  struct ospf_iface *ifa;
+  struct nbma_node *nb1,*nb2,*nbnx;
+  struct ospf_area *oa;
+  int found;
+
+  po->rfc1583=new->rfc1583;	/* FIXME but if differs schedule RT calc */
+
+  ac1=HEAD(old->area_list);
+  ac2=HEAD(new->area_list);
+
+  /* I should get it in same order */
+  
+  while(((NODE (ac1))->next!=NULL) && ((NODE (ac2))->next!=NULL))
+  {
+    if(ac1->areaid!=ac2->areaid) return 0;
+    if(ac1->stub!=ac2->stub) return 0;
+    if(ac1->tick!=ac2->tick)
+    {
+      WALK_LIST(oa,po->area_list)
+      {
+        if(oa->areaid==ac2->areaid)
+	{
+	  oa->tick=ac2->tick;
+	  tm_start(oa->disp_timer,oa->tick);
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing tick interval on area %I from %d to %d",
+	    oa->areaid, ac1->tick, ac2->tick);
+	  break;
+	}
+      }
+    }
+
+    if(!iface_patts_equal(&ac1->patt_list, &ac2->patt_list,
+      (void *) ospf_patt_compare))
+        return 0;
+
+    WALK_LIST(ifa, po->iface_list)
+    {
+      if(ip1=(struct ospf_iface_patt *)
+        iface_patt_match(&ac1->patt_list, ifa->iface))
+      {
+        /* Now reconfigure interface */
+	if(!(ip2=(struct ospf_iface_patt *)
+	  iface_patt_match(&ac2->patt_list, ifa->iface))) return 0;
+
+	/* HELLO TIMER */
+	if(ip1->helloint!=ip2->helloint)
+	{
+	  ifa->helloint=ip2->helloint;
+	  ifa->hello_timer->recurrent=ifa->helloint;
+	  tm_start(ifa->hello_timer,ifa->helloint);
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing hello interval on interface %s from %d to %d",
+	    ifa->iface->name,ip1->helloint,ip2->helloint);
+	}
+
+	/* AUTHETICATION */
+	if(ip1->autype!=ip2->autype)
+	{
+	  ifa->autype=ip2->autype;
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing autentication type on interface %s",
+	    ifa->iface->name);
+	}
+	if(strncmp(ip1->password,ip2->password,8)!=0)
+	{
+	  memcpy(ifa->aukey,ip2->password,8);
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing password on interface %s",
+	    ifa->iface->name);
+	}
+
+	/* RXMT */
+	if(ip1->rxmtint!=ip2->rxmtint)
+	{
+	  ifa->rxmtint=ip2->rxmtint;
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing retransmit interval on interface %s from %d to %d",
+	    ifa->iface->name,ip1->rxmtint,ip2->rxmtint);
+	}
+
+	/* WAIT */
+	if(ip1->waitint!=ip2->waitint)
+	{
+	  ifa->waitint=ip2->waitint;
+	  if(ifa->wait_timer->expires!=0)
+	    tm_start(ifa->wait_timer,ifa->waitint);
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing wait interval on interface %s from %d to %d",
+	    ifa->iface->name,ip1->waitint,ip2->waitint);
+	}
+
+	/* INFTRANS */
+	if(ip1->inftransdelay!=ip2->inftransdelay)
+	{
+	  ifa->inftransdelay=ip2->inftransdelay;
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing transmit delay on interface %s from %d to %d",
+	    ifa->iface->name,ip1->inftransdelay,ip2->inftransdelay);
+	}
+
+	/* DEAD COUNT */
+	if(ip1->deadc!=ip2->deadc)
+	{
+	  ifa->deadc=ip2->deadc;
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing dead count on interface %s from %d to %d",
+	    ifa->iface->name,ip1->deadc,ip2->deadc);
+	}
+
+	/* NBMA LIST */
+	/* First remove old */
+	WALK_LIST_DELSAFE(nb1, nbnx, ifa->nbma_list)
+	{
+	  found=0;
+	  WALK_LIST(nb2, ip2->nbma_list)
+	    if(ipa_compare(nb1->ip,nb2->ip)==0)
+	    {
+	      found=1;
+	      break;
+	    }
+
+	  if(!found)
+	  {
+	    OSPF_TRACE(D_EVENTS,
+	      "Removing NBMA neighbor %I on interface %s",
+	      nb1->ip,ifa->iface->name);
+	    rem_node(NODE nb1);
+	    mb_free(nb1);
+	  }
+        }
+	/* And then add new */
+	WALK_LIST(nb2, ip2->nbma_list)
+	{
+	  found=0;
+	  WALK_LIST(nb1, ifa->nbma_list)
+	    if(ipa_compare(nb1->ip,nb2->ip)==0)
+	    {
+	      found=1;
+	      break;
+	    }
+	  if(!found)
+	  {
+	    nb1=mb_alloc(p->pool,sizeof(struct nbma_node));
+	    nb1->ip=nb2->ip;
+	    add_tail(&ifa->nbma_list, NODE nb1);
+	    OSPF_TRACE(D_EVENTS,
+	      "Adding NBMA neighbor %I on interface %s",
+	      nb1->ip,ifa->iface->name);
+	  }
+        }
+      }
+    }
+
+    NODE ac1=(NODE (ac1))->next;
+    NODE ac2=(NODE (ac2))->next;
+  }
+
+  if(((NODE (ac1))->next)!=((NODE (ac2))->next))
+    return 0;	/* One is not null */
+
+  return 1;	/* Everythink OK :-) */
 }
 
 void
