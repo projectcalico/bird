@@ -1,14 +1,14 @@
 /*
  *	BIRD -- Core Configuration
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 CF_HDR
 
-static struct proto *this_proto;
+static struct proto_config *this_proto;
 
 #include "nest/rt-dev.h"
 
@@ -27,7 +27,7 @@ CF_GRAMMAR
 
 CF_ADDTO(conf, rtrid)
 rtrid: ROUTER ID idval {
-   router_id = $3;
+   new_config->router_id = $3;
    }
  ;
 
@@ -87,7 +87,7 @@ dev_proto:
 
 dev_iface_list:
    INTERFACE TEXT {
-     init_list(&((struct rt_dev_proto *) this_proto)->iface_list);
+     init_list(&((struct rt_dev_config *) this_proto)->iface_list);
      rt_dev_add_iface($2);
    }
  | dev_iface_list ',' TEXT { rt_dev_add_iface($3); }
@@ -98,7 +98,7 @@ CF_CODE
 void
 rt_dev_add_iface(char *n)
 {
-  struct rt_dev_proto *p = (void *) this_proto;
+  struct rt_dev_config *p = (void *) this_proto;
   struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
 
   k->pattern = cfg_strdup(n);

@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Configuration File Handling
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -10,6 +10,28 @@
 #define _BIRD_CONF_H_
 
 #include "lib/resource.h"
+
+/* Configuration structure */
+
+struct config {
+  pool *pool;				/* Pool the configuration is stored in */
+  linpool *mem;				/* Linear pool containing configuration data */
+  list protos;				/* Configured protocol instances (struct proto_config) */
+  u32 router_id;			/* Our Router ID */
+  u16 this_as;				/* Our Autonomous System Number */
+  char *err_msg;			/* Parser error message */
+  int err_lino;				/* Line containing error */
+  char *file_name;			/* Name of configuration file */
+};
+
+extern struct config *config, *new_config;
+/* Please don't use these variables in protocols. Use proto_config->global instead. */
+
+struct config *config_alloc(byte *name);
+int config_parse(struct config *);
+void config_free(struct config *);
+void config_commit(struct config *);
+void cf_error(char *msg, ...) NORET;
 
 /* Pools */
 
@@ -41,11 +63,11 @@ struct symbol {
 #define SYM_FUNCTION 5
 #define SYM_FILTER 6
 
+extern int conf_lino;
+
 void cf_lex_init_tables(void);
 int cf_lex(void);
 void cf_lex_init(int flag);
-void cf_error(char *msg, ...) NORET;
-void cf_allocate(void);
 struct symbol *cf_default_name(char *prefix);
 
 /* Parser */

@@ -6,6 +6,9 @@ Core
 * logging and tracing; use appropriate log levels
 * check log calls for trailing newlines
 
+* Fix router ID calculation
+* debug dump: dump router ID as well
+
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
 
 - fake multipath?

@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Unix Entry Point
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -74,18 +74,17 @@ cf_read(byte *dest, unsigned int len)
 static void
 read_config(void)
 {
-  cf_lex_init_tables();
-  cf_allocate();
+  struct config *conf = config_alloc(PATH_CONFIG);
+
   conf_fd = open(PATH_CONFIG, O_RDONLY);
   if (conf_fd < 0)
     die("Unable to open configuration file " PATH_CONFIG ": %m");
-  protos_preconfig();
   cf_read_hook = cf_read;
-  cf_lex_init(1);
-  cf_parse();
-  filters_postconfig();
-  protos_postconfig();
+  if (!config_parse(conf))
+    die(PATH_CONFIG ", line %d: %s", conf->err_lino, conf->err_msg);
+  config_commit(conf);
 }
+
 /*
  *	Hic Est main()
  */
@@ -105,15 +104,12 @@ main(void)
 
   protos_build();
   add_tail(&protocol_list, &proto_unix_kernel.n);
-  protos_init();
 
-  debug("Reading configuration file.\n");
   read_config();
 
   signal_init();
 
   scan_if_init();
-  auto_router_id();
 
   protos_start();
 

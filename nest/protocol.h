@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Protocols
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -17,6 +17,9 @@ struct rte;
 struct neighbor;
 struct rtattr;
 struct network;
+struct proto_config;
+struct config;
+struct proto;
 
 /*
  *	Routing Protocol
@@ -27,15 +30,19 @@ struct protocol {
   char *name;
   unsigned debug;			/* Default debugging flags */
 
-  void (*init)(struct protocol *);	/* Boot time */
-  void (*preconfig)(struct protocol *);	/* Just before configuring */
-  void (*postconfig)(struct protocol *); /* After configuring */
+  void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
+  void (*postconfig)(struct proto_config *);			/* After configuring each instance */
+  struct proto * (*init)(struct proto_config *);		/* Create new instance */
+  int (*reconfigure)(struct proto *, struct proto_config *);	/* Try to reconfigure instance */
+  void (*dump)(struct proto *);			/* Debugging dump */
+  int (*start)(struct proto *);			/* Start the instance */
+  int (*shutdown)(struct proto *);		/* Stop the instance */
 };
 
 void protos_build(void);
-void protos_init(void);
-void protos_preconfig(void);
-void protos_postconfig(void);
+void protos_preconfig(struct config *);
+void protos_postconfig(struct config *);
+void protos_commit(struct config *);
 void protos_start(void);
 void protos_dump_all(void);
 
@@ -53,47 +60,128 @@ extern struct protocol proto_static;
  *	Routing Protocol Instance
  */
 
+struct proto_config {
+  node n;
+  struct config *global;		/* Global configuration data */
+  struct protocol *proto;		/* Protocol */
+  char *name;
+  unsigned debug, preference, disabled;	/* Generic parameters */
+
+  /* Protocol-specific data follow... */
+};
+
 struct proto {
   node n;
   struct protocol *proto;		/* Protocol */
-  char *name;				/* Name of this instance */
+  struct proto_config *cf;		/* Configuration data */
+  pool *pool;				/* Pool containing local objects */
+
   unsigned debug;			/* Debugging flags */
-  pool *pool;				/* Local objects */
   unsigned preference;			/* Default route preference */
-  unsigned state;			/* PRS_... */
   unsigned disabled;			/* Manually disabled */
+  unsigned proto_state;			/* Protocol state machine (see below) */
+  unsigned core_state;			/* Core state machine (see below) */
 
   void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
   void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
   void (*neigh_notify)(struct neighbor *neigh);
-  void (*dump)(struct proto *);			/* Debugging dump */
-  void (*start)(struct proto *);		/* Start the instance */
-  void (*shutdown)(struct proto *, int time);	/* Stop the instance */
 
   int (*rta_same)(struct rtattr *, struct rtattr *);
   int (*rte_better)(struct rte *, struct rte *);
   void (*rte_insert)(struct network *, struct rte *);
   void (*rte_remove)(struct network *, struct rte *);
 
-  /* Reconfigure function? */
   /* Input/output filters */
   /* Connection to routing tables? */
 
   /* Hic sunt protocol-specific data */
 };
 
-#define PRS_DOWN 0			/* Inactive */
-#define PRS_STARTING 1
-#define PRS_UP 2
-
-void *proto_new(struct protocol *, unsigned size);
+void proto_build(struct proto_config *);
+void *proto_new(struct proto_config *, unsigned size);
+void *proto_config_new(struct protocol *, unsigned size);
 
 extern list proto_list, inactive_proto_list;
+
+/*
+ *  Each protocol instance runs two different state machines:
+ *
+ *  [P] The protocol machine: (implemented inside protocol)
+ *
+ *		DOWN    ---->    START
+ *		  ^		   |
+ *		  |		   V
+ *		STOP    <----     UP
+ *
+ *	States:	DOWN	Protocol is down and it's waiting for the core
+ *			requesting protocol start.
+ *		START	Protocol is waiting for connection with the rest
+ *			of the network and it's not willing to accept
+ *			packets. When it connects, it goes to UP state.
+ *		UP	Protocol is up and running. When the network
+ *			connection breaks down or the core requests
+ *			protocol to be terminated, it goes to STOP state.
+ *		STOP	Protocol is disconnecting from the network.
+ *			After it disconnects, it returns to DOWN state.
+ *
+ *	In:	start()	Called in DOWN state to request protocol startup.
+ *			Returns new state: either UP or START (in this
+ *			case, the protocol will notify the core when it
+ *			finally comes UP).
+ *		stop()	Called in START, UP or STOP state to request
+ *			protocol shutdown. Returns new state: either
+ *			DOWN or STOP (in this case, the protocol will
+ *			notify the core when it finally comes DOWN).
+ *
+ *	Out:	proto_notify_state() -- called by protocol instance when
+ *			it does any state transition not covered by
+ *			return values of start() and stop(). This includes
+ *			START->UP (delayed protocol startup), UP->STOP
+ *			(spontaneous shutdown) and STOP->DOWN (delayed
+ *			shutdown).
+ */
+
+#define PS_DOWN 0
+#define PS_START 1
+#define PS_UP 2
+#define PS_STOP 3
+
+void proto_notify_state(struct proto *p, unsigned state);
+
+/*
+ *  [F] The feeder machine: (implemented in core routines)
+ *
+ *		HUNGRY    ---->   FEEDING
+ *		 ^		     |
+ *		 | 		     V
+ *		FLUSHING  <----   HAPPY
+ *
+ *	States:	HUNGRY	Protocol either administratively down (i.e.,
+ *			disabled by the user) or temporarily down
+ *			(i.e., [P] is not UP)
+ *		FEEDING	The protocol came up and we're feeding it
+ *			initial routes. [P] is UP.
+ *		HAPPY	The protocol is up and it's receiving normal
+ *			routing updates. [P] is UP.
+ *		FLUSHING The protocol is down and we're removing its
+ *			routes from the table. [P] is STOP or DOWN.
+ *
+ *	Normal lifecycle of a protocol looks like:
+ *
+ *		HUNGRY/DOWN --> HUNGRY/START --> HUNGRY/UP -->
+ *		FEEDING/UP --> HAPPY/UP --> FLUSHING/STOP|DOWN -->
+ *		HUNGRY/STOP|DOWN --> HUNGRY/DOWN
+ */
+
+#define FS_HUNGRY 0
+#define FS_FEEDING 1
+#define FS_HAPPY 2
+#define FS_FLUSHING 3
 
 /*
  *	Known unique protocol instances as referenced by config routines
  */
 
-extern struct proto *cf_dev_proto;
+extern struct proto_config *cf_dev_proto;
 
 #endif

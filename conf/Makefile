@@ -1,4 +1,4 @@
-source=cf-parse.tab.c cf-lex.c
+source=cf-parse.tab.c cf-lex.c conf.c
 root-rel=../
 
 include ../Rules

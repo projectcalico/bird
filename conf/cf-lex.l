@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Configuration Lexer
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -15,7 +15,6 @@
 #include <stdarg.h>
 
 #include "nest/bird.h"
-#include "lib/string.h"
 #include "conf/conf.h"
 #include "conf/cf-parse.tab.h"
 
@@ -34,8 +33,9 @@ static struct keyword {
 static struct keyword *kw_hash[KW_HASH_SIZE];
 static struct symbol **sym_hash;
 static int allow_new_symbols;
-static int cf_lino;
 static int default_counter;
+
+int conf_lino;
 
 static int cf_hash(byte *c);
 static struct symbol *cf_find_sym(byte *c, unsigned int h0);
@@ -121,11 +121,11 @@ WHITE [ \t]
 {WHITE}+
 
 \\\n {
-  cf_lino++;
+  conf_lino++;
 }
 
 \n {
-  cf_lino++;
+  conf_lino++;
   return ';';
 }
 
@@ -136,14 +136,14 @@ WHITE [ \t]
 .	cf_error("Unknown character");
 
 <COMMENT>\n {
-  cf_lino++;
+  conf_lino++;
   BEGIN(INITIAL);
 }
 
 <COMMENT>.
 
 <CCOMM>\*\/	BEGIN(INITIAL);
-<CCOMM>\n	cf_lino++;
+<CCOMM>\n	conf_lino++;
 <CCOMM>\/\*	cf_error("Comment nesting not supported");
 <CCOMM><<EOF>>	cf_error("Unterminated comment");
 <CCOMM>.
@@ -206,7 +206,7 @@ cf_lex_init(int flag)
 {
   if (allow_new_symbols = flag)
     sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
-  cf_lino = 1;
+  conf_lino = 1;
   default_counter = 1;
 }
 
@@ -221,35 +221,4 @@ cf_lex_init_tables(void)
       k->next = kw_hash[h];
       kw_hash[h] = k;
     }
-}
-
-void
-cf_error(char *msg, ...)
-{
-  /* FIXME */
-
-  char buf[1024];
-  va_list args;
-
-  va_start(args, msg);
-  bvsprintf(buf, msg, args);
-  die(PATH_CONFIG ", line %d: %s", cf_lino, buf);
-}
-
-void
-cf_allocate(void)
-{
-  if (cfg_pool)
-    rfree(cfg_pool);
-  cfg_pool = rp_new(&root_pool, "Config");
-  cfg_mem = lp_new(cfg_pool, 1024);
-}
-
-char *
-cfg_strdup(char *c)
-{
-  int l = strlen(c) + 1;
-  char *z = cfg_allocu(l);
-  memcpy(z, c, l);
-  return z;
 }

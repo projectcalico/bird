@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Management of Interfaces and Neighbor Cache
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -15,8 +15,6 @@
 #include "lib/string.h"
 
 static pool *if_pool;
-
-u32 router_id;
 
 /*
  *	Neighbor Cache
@@ -103,7 +101,7 @@ neigh_dump(neighbor *n)
     debug("%s ", n->iface->name);
   else
     debug("[] ");
-  debug("%s %p", n->proto->name, n->data);
+  debug("%s %p", n->proto->cf->name, n->data);
   if (n->flags & NEF_STICKY)
     debug(" STICKY");
   debug("\n");
@@ -199,7 +197,6 @@ if_dump_all(void)
   debug("Known network interfaces:\n");
   WALK_LIST(i, iface_list)
     if_dump(i);
-  debug("\nRouter ID: %08x\n\n", router_id);
 }
 
 static inline int
@@ -322,28 +319,26 @@ if_feed_baby(struct proto *p)
 
   if (!p->if_notify)
     return;
-  debug("Announcing interfaces to new protocol %s\n", p->name);
+  debug("Announcing interfaces to new protocol %s\n", p->cf->name);
   WALK_LIST(i, iface_list)
     p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), NULL, i);
 }
 
-void
+u32
 auto_router_id(void)			/* FIXME: What if we run IPv6??? */
 {
   struct iface *i, *j;
 
-  if (router_id)
-    return;
   j = NULL;
   WALK_LIST(i, iface_list)
     if ((i->flags & IF_UP) &&
 	!(i->flags & (IF_UNNUMBERED | IF_LOOPBACK | IF_IGNORE)) &&
 	(!j || ipa_to_u32(i->ip) < ipa_to_u32(j->ip)))
       j = i;
-  if (!j)				/* FIXME: allow configuration or running without RID */
-    bug("Cannot determine router ID, please configure manually");
-  router_id = ipa_to_u32(j->ip);
-  debug("Router ID set to %08x (%s)\n", router_id, j->name);
+  if (!j)
+    return 0;
+  debug("Guessed router ID %I (%s)\n", j->ip, j->name);
+  return ipa_to_u32(j->ip);
 }
 
 void

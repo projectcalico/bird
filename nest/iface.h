@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Network Interfaces
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -54,7 +54,7 @@ void if_dump_all(void);
 void if_update(struct iface *);
 void if_end_update(void);
 void if_feed_baby(struct proto *);
-void auto_router_id(void);
+u32 auto_router_id(void);
 
 /*
  *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Direct Device Routes
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -18,12 +18,12 @@
 #include "conf/conf.h"
 #include "lib/resource.h"
 
-struct proto *cf_dev_proto;
+struct proto_config *cf_dev_proto;
 
 static void
 dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 {
-  struct rt_dev_proto *P = (void *) p;
+  struct rt_dev_config *P = (void *) p->cf;
 
   if (old && !iface_patt_match(&P->iface_list, old) ||
       new && !iface_patt_match(&P->iface_list, new))
@@ -68,42 +68,30 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
     }
 }
 
-static void
-dev_start(struct proto *p)
+static struct proto *
+dev_init(struct proto_config *c)
 {
+  struct proto *p = proto_new(c, sizeof(struct proto));
+
+  p->if_notify = dev_if_notify;
+  return p;
 }
 
 static void
-dev_init(struct protocol *p)
+dev_preconfig(struct protocol *x, struct config *c)
 {
-}
-
-static void
-dev_preconfig(struct protocol *x)
-{
-  struct rt_dev_proto *P = proto_new(&proto_device, sizeof(struct rt_dev_proto));
-  struct proto *p = &P->p;
+  struct rt_dev_config *p = proto_config_new(&proto_device, sizeof(struct rt_dev_config));
   struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
 
-  cf_dev_proto = p;
-  p->preference = DEF_PREF_DIRECT;
-  p->start = dev_start;
-  p->if_notify = dev_if_notify;
-  init_list(&P->iface_list);
+  cf_dev_proto = &p->c;
+  p->c.preference = DEF_PREF_DIRECT;
+  init_list(&p->iface_list);
   k->pattern = "*";
-  add_tail(&P->iface_list, &k->n);
-}
-
-static void
-dev_postconfig(struct protocol *p)
-{
+  add_tail(&p->iface_list, &k->n);
 }
 
 struct protocol proto_device = {
-  { NULL, NULL },
-  "Device",
-  0,
-  dev_init,
-  dev_preconfig,
-  dev_postconfig
+  name:		"Device",
+  preconfig:	dev_preconfig,
+  init:		dev_init,
 };
