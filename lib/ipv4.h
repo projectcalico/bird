@@ -56,6 +56,7 @@ typedef u32 ip_addr;
 #define ipa_class_mask(x) x = _MI(ipv4_class_mask(_I(x)))
 #define ipa_from_u32(x) _MI(x)
 #define ipa_to_u32(x) _I(x)
+#define ipa_compare(x,y) ipv4_compare(_I(x),_I(y))
 
 int ipv4_classify(u32);
 u32 ipv4_class_mask(u32);
@@ -66,6 +67,11 @@ static inline unsigned ipv4_hash(u32 a)
   a ^= a >> 16;
   a ^= a << 10;
   return a & 0xffff;
+}
+
+static inline int ipv4_compare(u32 x, u32 y)
+{
+  return (x > y) - (x < y);
 }
 
 #endif
