@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Unix Interface Scanning and Syncing
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -14,7 +14,7 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/iface.h"
