@@ -37,9 +37,10 @@ CF_DECLS
 
 %type <i> expr bool pxlen
 
-%left '='
+%nonassoc '=' '<' '>'
 %left '+' '-'
 %left '*' '/' '%'
+%left '!'
 
 CF_KEYWORDS(DEFINE, ON, OFF, YES, NO)
 

@@ -22,119 +22,6 @@
 #include "conf/conf.h"
 #include "filter/filter.h"
 
-struct f_inst *startup_func = NULL;
-
-#define runtime(x) do { \
-    log( L_ERR, x ); \
-    res.type = T_RETURN; \
-    res.val.i = F_ERROR; \
-    return res; \
-  } while(0)
-
-#define ARG(x,y) \
-	x = interpret(what->y); \
-	if (x.type == T_RETURN) \
-		return x;
-
-#define ONEARG ARG(v1, arg1)
-#define TWOARGS ARG(v1, arg1) \
-		ARG(v2, arg2)
-
-static struct f_val
-interpret(struct f_inst *what)
-{
-  struct symbol *sym;
-  struct f_val v1, v2, res;
-
-  res.type = T_VOID;
-  if (!what)
-    return res;
-
-  switch(what->code) {
-  case ',':
-    TWOARGS;
-    break;
-  case '+':
-    TWOARGS;
-    if (v1.type != v2.type)
-      runtime( "Can not operate with values of incompatible types" );
-
-    switch (res.type = v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
-    case T_INT: res.val.i = v1.val.i + v2.val.i; break;
-    default: runtime( "Usage of unknown type" );
-    }
-    break;
-  case '=':
-    ARG(v2, arg2);
-    sym = what->arg1;
-    switch (res.type = v2.type) {
-    case T_VOID: runtime( "Can not assign void values" );
-    case T_INT: 
-      if (sym->class != (SYM_VARIABLE | T_INT))
-	runtime( "Variable of bad type" );
-      sym->aux = v2.val.i; 
-      break;
-    }
-    break;
-  case 'c':
-    res.type = T_INT;
-    res.val.i = (int) what->arg1;
-    break;
-  case 'i':
-    res.type = T_INT;
-    res.val.i = * ((int *) what->arg1);
-    break;
-  case 'p':
-    ONEARG;
-    printf( "Printing: " );
-    switch (v1.type) {
-    case T_VOID: printf( "(void)" ); break;
-    case T_INT: printf( "%d", v1.val.i ); break;
-    default: runtime( "Print of variable of unknown type" );
-    }
-    printf( "\n" );
-    break;
-  case '?':
-    ONEARG;
-    if (v1.type != T_INT)
-      runtime( "If requires integer expression" );
-    if (v1.val.i) {
-      ARG(res,arg2);
-    }
-    break;
-  case 'D':
-    printf( "DEBUGGING PRINT\n" );
-    break;
-  case '0':
-    printf( "No operation\n" );
-    break;
-  case 'd':
-    printf( "Puts: %s\n", (char *) what->arg1 );
-    break;
-  case '!':
-    switch ((int) what->arg1) {
-    case F_QUITBIRD:
-      die( "Filter asked me to die" );
-    case F_ACCEPT:
-      /* Should take care about turning ACCEPT into MODIFY */
-    case F_ERROR:
-    case F_REJECT:
-      res.type = T_RETURN;
-      res.val.i = (int) what->arg1;
-      break;
-    default:
-      bug( "unknown return type: can not happen");
-    }
-    break;
-  default:
-    bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
-  }
-  if (what->next)
-    return interpret(what->next);
-  return res;
-}
-
 struct f_inst *
 f_new_inst(void)
 {
@@ -143,21 +30,6 @@ f_new_inst(void)
   ret->code = 0;
   ret->arg1 = ret->arg2 = ret->next = NULL;
   return ret;
-}
-
-int
-f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool)
-{
-  struct f_inst *inst;
-  struct f_val res;
-  debug( "Running filter `%s'...", filter->name );
-
-  inst = filter->root;
-  res = interpret(inst);
-  if (res.type != T_RETURN)
-    return F_ERROR;
-  debug( "done (%d)\n", res.val.i );
-  return res.val.i;
 }
 
 char *
@@ -170,12 +42,3 @@ filter_name(struct filter *filter)
   else
     return filter->name;
 }
-
-void
-filters_postconfig(void)
-{
-  printf( "Launching startup function..." );
-  if (startup_func)
-    interpret(startup_func);
-  printf( "done\n" );
-} 

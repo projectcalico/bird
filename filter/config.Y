@@ -21,11 +21,12 @@ CF_DECLS
 CF_KEYWORDS(FUNCTION, PRINTDEBUG, PRINT, CONST, PUTS, 
 	ACCEPT, REJECT, ERROR, QUITBIRD,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
-	IF, THEN,
+	IF, THEN, ELSE,
+	TRUE, FALSE,
 	FILTER
 	)
 
-%type <x> term block cmds cmd function_body
+%type <x> term block cmds cmd function_body ifthen constant print_one print_list
 %type <f> filter filter_body
 %type <i> type break_command
 
@@ -127,34 +128,37 @@ block:
    }
  ;
 
+constant:
+   CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_INT; $$->arg2 = $3; }
+ | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_INT;  $$->arg2 = $1; }
+ | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_BOOL; $$->arg2 = 1;  }
+ | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_BOOL; $$->arg2 = 0;  }
+ | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->arg1 = T_STRING; $$->arg2 = $1; } 
+ ;
+
 term:
-   term '+' term {
-     $$ = f_new_inst();
-     $$->code = '+';
-     $$->arg1 = $1;
-     $$->arg2 = $3;
-   }
+   term '+' term     { $$ = f_new_inst(); $$->code = '+';  $$->arg1 = $1; $$->arg2 = $3; }
+
+ | term '=' term     { $$ = f_new_inst(); $$->code = '=='; $$->arg1 = $1; $$->arg2 = $3; }
+ | term '!' '=' term { $$ = f_new_inst(); $$->code = '!='; $$->arg1 = $1; $$->arg2 = $4; }
+ | term '<' term     { $$ = f_new_inst(); $$->code = '<';  $$->arg1 = $1; $$->arg2 = $3; }
+ | term '<' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->arg1 = $1; $$->arg2 = $4; }
+ | term '>' term     { $$ = f_new_inst(); $$->code = '<';  $$->arg1 = $3; $$->arg2 = $1; }
+ | term '>' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->arg1 = $4; $$->arg2 = $1; }
+
  | SYM {
      $$ = f_new_inst();
      switch ($1->class) {
        case SYM_VARIABLE | T_INT:
 	 $$->code = 'i';
-         $$->arg1 = &($1->aux);
+         $$->arg1 = T_INT;
+	 $$->arg2 = &($1->aux);
 	 break;
        default:
 	 cf_error("Can not use this class of symbol as variable" );
      }
    }
- | CONST '(' expr ')' {
-     $$ = f_new_inst();
-     $$->code = 'c';
-     $$->arg1 = $3;
-   }
- | NUM {
-     $$ = f_new_inst();
-     $$->code = 'c';
-     $$->arg1 = $1
-   }
+ | constant { $$ = $1; }
  ;
 
 break_command:
@@ -162,46 +166,52 @@ break_command:
  | ACCEPT { $$ = F_ACCEPT }
  | REJECT { $$ = F_REJECT }
  | ERROR { $$ = F_ERROR }
+ | PRINT { $$ = F_NOP }
  ;
 
-cmd:
+ifthen:
    IF term THEN block {
      $$ = f_new_inst();
      $$->code = '?';
      $$->arg1 = $2;
      $$->arg2 = $4;
    }
+ ;
+
+print_one:
+   term { $$ = f_new_inst(); $$->code = 'p'; $$->arg1 = $1; $$->arg2 = NULL; }
+ ;
+
+print_list: /* EMPTY */ { $$ = NULL; }
+ | print_one print_list {
+     if ($1) {
+       $1->next = $2;
+       $$ = $1;
+     } else $$ = $2;
+   }
+ ;
+
+cmd:
+   ifthen { 
+     $$ = $1;
+   }
+	/* FIXME: this leads to shift/reduce conflict. */
+ | ifthen ELSE block {
+     $$ = f_new_inst();
+     $$->code = '?';
+     $$->arg1 = $1;
+     $$->arg2 = $3;
+   }
  | SYM '=' term ';' {
      $$ = f_new_inst();
      printf( "Ook, we'll set value\n" );
      if (($1->class & ~T_MASK) != SYM_VARIABLE)
        cf_error( "You may only set variables, and this is %x.\n", $1->class );
-     $$->code = '=';
+     $$->code = 's';
      $$->arg1 = $1;
      $$->arg2 = $3;
    }
- | PRINT '(' term ')' ';' {
-     $$ = f_new_inst();
-     printf( "Ook, we'll print something\n" );
-     $$->code = 'p';
-     $$->arg1 = $3;
-     $$->arg2 = NULL;
-   }
- | PUTS '(' TEXT ')' ';' {
-     $$ = f_new_inst();
-     $$->code = 'd';
-     $$->arg1 = $3;
-   }
- | PRINTDEBUG ';' {
-     $$ = f_new_inst();
-     $$->code = 'D';
-     $$->arg1 = $$->arg2 = NULL;
-   }
- | break_command ';' {
-     $$ = f_new_inst();
-     $$->code = '!';
-     (int) $$->arg1 = $1;
-   }
+ | break_command print_list ';' { $$ = f_new_inst(); $$->code = 'p,'; $$->arg1 = $2; $$->arg2 = $1; }
  ;
 
 CF_END

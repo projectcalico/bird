@@ -10,6 +10,7 @@
 #define _BIRD_FILT_H_
 
 #include "lib/resource.h"
+#include "lib/ip.h"
 
 struct f_inst {		/* Instruction */
   struct f_inst *next;	/* Structure is 16 bytes, anyway */
@@ -17,10 +18,17 @@ struct f_inst {		/* Instruction */
   void *arg1, *arg2;
 };
 
+struct prefix {
+  ip_addr ip;
+  int len;
+};
+
 struct f_val {
   int type;
   union {
     int i;
+    struct prefix *px;
+    char *s;
   } val;
 };
 
@@ -35,6 +43,8 @@ struct f_inst *f_new_inst(void);
 int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool);
 char *filter_name(struct filter *filter);
 
+
+#define F_NOP 0
 #define F_ACCEPT 1	/* Need to preserve ordering: accepts < rejects! */
 #define F_MODIFY 2	/* FIXME: Introduce modification flags instead? */
 #define F_REJECT 3

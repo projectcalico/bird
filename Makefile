@@ -9,7 +9,7 @@ all depend:
 
 clean:
 	$(MAKE) -C $(objdir) clean
-	rm -f `find . -name "*~" -or -name "*.[oa]" -or -name "\#*\#" -or -name TAGS -or -name core -or -name depend -or -name .#*`
+	find . -name "*~" -or -name "*.[oa]" -or -name "\#*\#" -or -name TAGS -or -name core -or -name depend -or -name .#* | xargs rm -f
 
 distclean: clean
 	rm -rf $(objdir)
