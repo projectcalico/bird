@@ -422,14 +422,37 @@ sk_next(sock *s)
 }
 
 static void
+sk_alloc_bufs(sock *s)
+{
+  if (!s->rbuf && s->rbsize)
+    s->rbuf = s->rbuf_alloc = xmalloc(s->rbsize);
+  s->rpos = s->rbuf;
+  if (!s->tbuf && s->tbsize)
+    s->tbuf = s->tbuf_alloc = xmalloc(s->tbsize);
+  s->tpos = s->ttx = s->tbuf;
+}
+
+static void
+sk_free_bufs(sock *s)
+{
+  if (s->rbuf_alloc)
+    {
+      xfree(s->rbuf_alloc);
+      s->rbuf = s->rbuf_alloc = NULL;
+    }
+  if (s->tbuf_alloc)
+    {
+      xfree(s->tbuf_alloc);
+      s->tbuf = s->tbuf_alloc = NULL;
+    }
+}
+
+static void
 sk_free(resource *r)
 {
   sock *s = (sock *) r;
 
-  if (s->rbuf_alloc)
-    xfree(s->rbuf_alloc);
-  if (s->tbuf_alloc)
-    xfree(s->tbuf_alloc);
+  sk_free_bufs(s);
   if (s->fd >= 0)
     {
       close(s->fd);
@@ -438,6 +461,13 @@ sk_free(resource *r)
       rem_node(&s->n);
       sock_recalc_fdsets_p = 1;
     }
+}
+
+void
+sk_reallocate(sock *s)
+{
+  sk_free_bufs(s);
+  sk_alloc_bufs(s);
 }
 
 static void
@@ -586,31 +616,6 @@ sk_setup(sock *s)
   err = NULL;
 bad:
   return err;
-}
-
-static void
-sk_alloc_bufs(sock *s)
-{
-  if (!s->rbuf && s->rbsize)
-    s->rbuf = s->rbuf_alloc = xmalloc(s->rbsize);
-  s->rpos = s->rbuf;
-  if (!s->tbuf && s->tbsize)
-    s->tbuf = s->tbuf_alloc = xmalloc(s->tbsize);
-  s->tpos = s->ttx = s->tbuf;
-}
-
-void
-sk_reallocate(sock *s)
-{
-  if(!s) return;
-
-  if (s->rbuf_alloc)
-    xfree(s->rbuf_alloc);
-  s->rbuf = NULL;
-  if (s->tbuf_alloc)
-    xfree(s->tbuf_alloc);
-  s->tbuf = NULL;
-  sk_alloc_bufs(s);
 }
 
 static void
