@@ -34,7 +34,6 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     ip_ntop(ps->netmask,sip);
     log("%s: Bad OSPF packet from %d received: bad netmask %s.",
       p->name, ntohl(((struct ospf_packet *)ps)->routerid), sip);
-      /*ip_ntop(ps->netmask, sip));*/
     log("%s: Discarding",p->name);
     return;
   }
@@ -480,7 +479,6 @@ ospf_postconfig(struct proto_config *c)
   DBG( " OSPF: postconfig\n" );
 }
 
-
 struct protocol proto_ospf = {
   name:		"OSPF",
   init:		ospf_init,
@@ -489,3 +487,4 @@ struct protocol proto_ospf = {
   preconfig:	ospf_preconfig,
   postconfig:	ospf_postconfig,
 };
+
