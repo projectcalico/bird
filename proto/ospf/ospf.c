@@ -23,6 +23,9 @@
 
 #include "ospf.h"
 
+#define IAMMASTER(x) ((x) & DBDES_MS)
+#define INISET(x) ((x) & DBDES_I)
+
 void
 rxmt_timer_hook(timer *timer)
 {
@@ -581,12 +584,66 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         {
           /* Duplicate packet */
           debug("%s: Received duplicate dbdes from (%u)!\n", p->name, nrid);
-          return;
+	  if(IAMMASTER(n->imms))
+	  {
+            return;
+	  }
+	  else
+	  {
+            /* FIXME: Send response! */
+	  }
         }
+
+	if(IAMMASTER(ps->imms)!=IAMMASTER(n->myimms)) /* M/S bit differs */
+        {
+          ospf_neigh_sm(n, INM_SEQMIS);
+	  break;
+        }
+
+	if(INISET(ps->imms))	/* I bit is set */
+        {
+          ospf_neigh_sm(n, INM_SEQMIS);
+	  break;
+        }
+
+	if(ps->options!=n->options)	/* Options differs */
+        {
+          ospf_neigh_sm(n, INM_SEQMIS);
+	  break;
+        }
+
+	if(IAMMASTER(n->myimms))
+        {
+          if(ps->ddseq!=n->dds)
+	  {
+	    ospf_neigh_sm(n, INM_SEQMIS);
+	    break;
+	  }
+        }
+	else
+        {
+          if(ps->ddseq!=(n->dds+1))
+	  {
+	    ospf_neigh_sm(n, INM_SEQMIS);
+	    break;
+	  }
+        }
+
+	/* FIXME: Packet accepted, go on */
 
       break;
     case NEIGHBOR_LOADING:
     case NEIGHBOR_FULL:
+	if((ps->imms==n->imms) && (ps->options=n->options) &&
+	  (ps->ddseq==n->dds)) /* Only duplicate are accepted */
+        {
+          debug("%s: Received duplicate dbdes from (%u)!\n", p->name, nrid);
+          return;
+        }
+	else
+        {
+	  ospf_neigh_sm(n, INM_SEQMIS);
+        }
       break;
    }
 }
