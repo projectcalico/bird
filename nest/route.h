@@ -42,9 +42,9 @@ struct fib_node {
 
 struct fib_iterator {			/* See lib/slists.h for an explanation */
   struct fib_iterator *prev, *next;	/* Must be synced with struct fib_node! */
-  struct fib_node *node;		/* Or NULL if freshly merged */
   byte efef;				/* 0xff to distinguish between iterator and node */
   byte pad[3];
+  struct fib_node *node;		/* Or NULL if freshly merged */
   unsigned int hash;
 };
 

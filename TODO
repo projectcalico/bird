@@ -4,8 +4,6 @@ Core
 - client: paging?
 - client: data losses on large dumps?
 
-- table: ocassional core dumps in rt_prune()
-
 Documentation
 ~~~~~~~~~~~~~
 - write doctool
