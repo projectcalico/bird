@@ -61,12 +61,11 @@ struct symbol {
 #define SYM_VOID 0
 #define SYM_PROTO 1
 #define SYM_NUMBER 2
-#define SYM_STAT 3 /* statement */
-#define SYM_FUNCTION 5
-#define SYM_FILTER 6
-#define SYM_TABLE 7
+#define SYM_FUNCTION 3
+#define SYM_FILTER 4
+#define SYM_TABLE 5
 
-#define SYM_VARIABLE 0x100	/* Reserved 0x100..0x1ff */
+#define SYM_VARIABLE 0x100	/* 0x100-0x1ff are variable types */
 
 extern int conf_lino;
 
