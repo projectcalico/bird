@@ -6,6 +6,8 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#ifndef PASSWORD_H
+#define PASSWORD_H
 struct password_item {
   struct password_item *next;
   char *password;
@@ -14,3 +16,4 @@ struct password_item {
 };
 
 extern struct password_item *last_password_item;
+#endif

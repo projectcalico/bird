@@ -146,15 +146,16 @@ password_begin:
 
 password_items:
    /* empty */ { } 
- | FROM datetime ';' password_items { last_password_item->from = $2; }
- | TO datetime ';' password_items { last_password_item->to = $2; }
- | ID NUM ';' password_items { last_password_item->id = $2; }
+ | FROM datetime password_items { last_password_item->from = $2; }
+ | TO datetime password_items { last_password_item->to = $2; }
+ | ID NUM password_items { last_password_item->id = $2; }
  ;
 
 password_list: 
    /* empty */ { $$ = NULL; } 
- | '{' password_begin ';' password_items '}' password_list {
-     last_password_item->next = $6;
+ | password_begin password_items ';' password_list {
+     last_password_item->next = $4;
+     $$ = last_password_item;
    }
  ;
 
