@@ -173,7 +173,7 @@ ospf_rte_better(struct rte *new, struct rte *old)
 {
   struct proto *p = new->attrs->proto;
 
-  if(new->u.ospf.metric1=LSINFINITY) return 0;
+  if(new->u.ospf.metric1==LSINFINITY) return 0;
 
   /* External paths are always longer that internal */
   if(((new->attrs->source==RTS_OSPF) || (new->attrs->source==RTS_OSPF_IA))
