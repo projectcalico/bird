@@ -642,11 +642,11 @@ rip_gen_attrs(struct proto *p, struct linpool *pool, int metric, u16 tag)
   l->count = 2;
   l->attrs[0].id = EA_RIP_TAG;
   l->attrs[0].flags = 0;
-  l->attrs[0].type = EAF_TYPE_INT | EAF_INLINE;
+  l->attrs[0].type = EAF_TYPE_INT | EAF_TEMP;
   l->attrs[0].u.data = tag;
   l->attrs[1].id = EA_RIP_METRIC;
   l->attrs[1].flags = 0;
-  l->attrs[1].type = EAF_TYPE_INT | EAF_INLINE;
+  l->attrs[1].type = EAF_TYPE_INT | EAF_TEMP;
   l->attrs[1].u.data = metric;
   return l;
 }

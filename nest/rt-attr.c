@@ -253,8 +253,8 @@ ea_dump(ea_list *e)
 	{
 	  eattr *a = &e->attrs[i];
 	  debug(" %02x:%02x.%02x", EA_PROTO(a->id), EA_ID(a->id), a->flags);
-	  if (a->type & EAF_INLINE)
-	    debug("*");
+	  if (a->type & EAF_TEMP)
+	    debug("T");
 	  debug("=%c", "?iO?I?P???S?????" [a->type & EAF_TYPE_MASK]);
 	  if (a->type & EAF_EMBEDDED)
 	    debug(":%08x", a->u.data);

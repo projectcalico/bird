@@ -419,7 +419,7 @@ cmd:
    }
  | UNSET '(' rtadot dynamic_attr ')' ';' {
      $$ = $4;
-     $$->aux = EAF_TYPE_UNDEF | EAF_INLINE;
+     $$->aux = EAF_TYPE_UNDEF | EAF_TEMP;
      $$->code = P('e','S');
      $$->a1.p = NULL;
    }

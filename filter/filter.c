@@ -361,7 +361,7 @@ interpret(struct f_inst *what)
 	break;
       }
 
-      if (what->aux & EAF_INLINE) {
+      if (!(what->aux & EAF_TEMP)) {
 	*f_rte = rte_do_cow(*f_rte);
 	l->next = (*f_rte)->attrs->eattrs;
 	(*f_rte)->attrs->eattrs = l;
