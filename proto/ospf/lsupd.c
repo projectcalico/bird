@@ -260,7 +260,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   }
   if(size<=(sizeof(struct ospf_lsupd_packet)+sizeof(struct ospf_lsa_header)))
   {
-    log("%s: Received lsupd from %I is too short!\n", p->name,n->ip);
+    log("%s: Received lsupd from %I is too short!", p->name,n->ip);
     return;
   }
 
