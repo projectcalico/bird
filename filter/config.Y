@@ -184,7 +184,7 @@ pair:
  * Complex types, their bison value is struct f_val
  */
 prefix_s:
-   IPA '/' NUM { $$.type = T_PREFIX; $$.val.px.ip = $1; $$.val.px.len = $3; cf_error( "%I/%d is not really prefix\n", $$.val.px.ip, $$.val.px.len ); }
+   IPA '/' NUM { $$.type = T_PREFIX; $$.val.px.ip = $1; $$.val.px.len = $3; if (ipa_nonzero(ipa_and($$.val.px.ip, ipa_not(ipa_mkmask($$.val.px.len))))) cf_error( "%I/%d is not really prefix\n", $$.val.px.ip, $$.val.px.len ); }
  ;
 
 prefix:
