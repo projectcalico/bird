@@ -8,6 +8,7 @@ CONFIG_ALL_TABLES_AT_ONCE	Kernel scanner wants to process all tables at once
 
 CONFIG_UNIX_IFACE	Use Unix interface scanner
 CONFIG_UNIX_SET		Use Unix route setting
+CONFIG_UNIX_DONTROUTE   Use setsockopts DONTROUTE (undef for *BSD)
 CONFIG_LINUX_SCAN	Use Linux /proc/net/route scanner
 
 CONFIG_ALL_MULTICAST	krt-iface: All devices support multicasting (i.e., ignore IFF_MULTICAST)

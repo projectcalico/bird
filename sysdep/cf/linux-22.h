@@ -12,6 +12,7 @@
 #define CONFIG_ALL_TABLES_AT_ONCE
 
 #define CONFIG_LINUX_MC_MREQN
+#define CONFIG_UNIX_DONTROUTE
 
 /*
 Link: sysdep/linux/netlink

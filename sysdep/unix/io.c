@@ -578,8 +578,10 @@ sk_setup(sock *s)
     WARN("IP_TOS");
   if (s->ttl >= 0 && setsockopt(fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
     ERR("IP_TTL");
-  //if (s->ttl == 1 && setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
-  //  ERR("SO_DONTROUTE");
+#ifdef CONFIG_UNIX_DONTROUTE
+  if (s->ttl == 1 && setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
+    ERR("SO_DONTROUTE");
+#endif 
 #endif
   err = NULL;
 bad:
