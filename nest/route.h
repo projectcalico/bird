@@ -301,7 +301,7 @@ typedef struct eattr {
 #define EAF_TEMP 0x80			/* A temporary attribute (the one stored in the tmp attr list) */
 
 struct adata {
-  unsigned int length;
+  unsigned int length;			/* Only size of actuall data, not including length field */
   byte data[0];
 };
 
