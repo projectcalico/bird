@@ -21,12 +21,6 @@
 
 static int bgp_mandatory_attrs[] = { BA_ORIGIN, BA_AS_PATH, BA_NEXT_HOP };
 
-struct bgp_bucket {
-  struct bgp_bucket *next;
-  unsigned hash;
-  ea_list eattrs[0];
-};
-
 struct attr_desc {
   char *name;				/* FIXME: Use the same names as in filters */
   int expected_length;
@@ -39,6 +33,13 @@ struct attr_desc {
 extern struct attr_desc bgp_attr_table[];
 
 static void
+bgp_init_prefix(struct fib_node *N)
+{
+  struct bgp_prefix *p = (struct bgp_prefix *) N;
+  /* FIXME */
+}
+
+static void
 bgp_normalize_set(u32 *dest, u32 *src, unsigned cnt)
 {
   memcpy(dest, src, sizeof(u32) * cnt);
@@ -48,7 +49,7 @@ bgp_normalize_set(u32 *dest, u32 *src, unsigned cnt)
 static void
 bgp_rehash_buckets(struct bgp_proto *p)
 {
-  struct bgp_bucket **old = p->bucket_table;
+  struct bgp_bucket **old = p->bucket_hash;
   struct bgp_bucket **new;
   unsigned oldn = p->hash_size;
   unsigned i, e, mask;
@@ -59,14 +60,17 @@ bgp_rehash_buckets(struct bgp_proto *p)
   p->hash_limit *= 4;
   if (p->hash_limit >= 65536)
     p->hash_limit = ~0;
-  new = p->bucket_table = mb_allocz(p->p.pool, p->hash_size * sizeof(struct bgp_bucket *));
+  new = p->bucket_hash = mb_allocz(p->p.pool, p->hash_size * sizeof(struct bgp_bucket *));
   mask = p->hash_size - 1;
   for (i=0; i<oldn; i++)
     while (b = old[i])
       {
-	old[i] = b->next;
+	old[i] = b->hash_next;
 	e = b->hash & mask;
-	b->next = new[e];
+	b->hash_next = new[e];
+	if (b->hash_next)
+	  b->hash_next->hash_prev = b;
+	b->hash_prev = NULL;
 	new[e] = b;
       }
   mb_free(old);
@@ -93,8 +97,11 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
 
   /* Create the bucket and hash it */
   b = mb_alloc(p->p.pool, size);
-  b->next = p->bucket_table[index];
-  p->bucket_table[index] = b;
+  b->hash_next = p->bucket_hash[index];
+  if (b->hash_next)
+    b->hash_next->hash_prev = b;
+  p->bucket_hash[index] = b;
+  b->hash_prev = NULL;
   b->hash = hash;
   memcpy(b->eattrs, new, ea_size);
   dest = ((byte *)b->eattrs) + ea_size_aligned;
@@ -177,7 +184,7 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp)
 
   /* Hash */
   hash = ea_hash(new);
-  for(b=p->bucket_table[hash & (p->hash_size - 1)]; b; b=b->next)
+  for(b=p->bucket_hash[hash & (p->hash_size - 1)]; b; b=b->hash_next)
     if (b->hash == hash && ea_same(b->eattrs, new))
       {
 	DBG("Found bucket.\n");
@@ -688,5 +695,8 @@ bgp_attr_init(struct bgp_proto *p)
 {
   p->hash_size = 256;
   p->hash_limit = p->hash_size * 4;
-  p->bucket_table = mb_allocz(p->p.pool, p->hash_size * sizeof(struct bgp_bucket *));
+  p->bucket_hash = mb_allocz(p->p.pool, p->hash_size * sizeof(struct bgp_bucket *));
+  init_list(&p->bucket_queue);
+  p->withdraw_bucket = NULL;
+  fib_init(&p->prefix_fib, p->p.pool, sizeof(struct bgp_prefix), 0, bgp_init_prefix);
 }

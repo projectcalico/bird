@@ -9,6 +9,8 @@
 #ifndef _BIRD_BGP_H_
 #define _BIRD_BGP_H_
 
+#include "nest/route.h"
+
 struct linpool;
 struct eattr;
 
@@ -53,8 +55,24 @@ struct bgp_proto {
   ip_addr next_hop;			/* Either the peer or multihop_via */
   struct neighbor *neigh;		/* Neighbor entry corresponding to next_hop */
   ip_addr local_addr;			/* Address of the local end of the link to next_hop */
-  struct bgp_bucket **bucket_table;	/* Hash table of attribute buckets */
+  struct bgp_bucket **bucket_hash;	/* Hash table of attribute buckets */
   unsigned int hash_size, hash_count, hash_limit;
+  struct fib prefix_fib;		/* Prefixes to be sent */
+  list bucket_queue;			/* Queue of buckets to send */
+  struct bgp_bucket *withdraw_bucket;	/* Withdrawn routes */
+};
+
+struct bgp_prefix {
+  struct fib_node n;			/* Node in prefix fib */
+  node bucket_node;			/* Node in per-bucket list */
+};
+
+struct bgp_bucket {
+  struct bgp_bucket *hash_next, *hash_prev;	/* Node in bucket hash table */
+  node send_node;			/* Node in send queue */
+  unsigned hash;			/* Hash over extended attributes */
+  list prefixes;			/* Prefixes in this buckets */
+  ea_list eattrs[0];			/* Per-bucket extended attributes */
 };
 
 #define BGP_PORT		179
