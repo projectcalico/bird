@@ -81,9 +81,16 @@ ospf_rx_hook(sock *sk, int size)
   DBG(".\n");
 
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
-  if(!ps || size < sizeof(struct ospf_packet))
+  if(ps==NULL)
   {
-    log("%s: Bad packet received: too short", p->name);
+    log("%s: Bad packet received: bad header", p->name);
+    log("%s: Discarding",p->name);
+    return(1);
+  }
+  
+  if(size < sizeof(struct ospf_packet))
+  {
+    log("%s: Bad packet received: too short (%d bytes)", p->name, size);
     log("%s: Discarding",p->name);
     return(1);
   }
