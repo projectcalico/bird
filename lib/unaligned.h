@@ -1,7 +1,7 @@
 /*
- *	Unaligned Data Accesses -- Generic Version
+ *	Unaligned Data Accesses -- Generic Version, Network Order
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -9,34 +9,44 @@
 #ifndef _BIRD_UNALIGNED_H_
 #define _BIRD_UNALIGNED_H_
 
-#if CPU_NEEDS_ALIGN_WORD != 1 || CPU_NEEDS_ALIGN_LONG != 1
-#include <string.h>
-#endif
+/*
+ *  We don't do any clever tricks with unaligned accesses since it's
+ *  virtually impossible to figure out what alignment does the CPU want
+ *  (unaligned accesses can be emulated by the OS which makes them work,
+ *  but unusably slow). We use memcpy and hope GCC will optimize it out
+ *  if possible.
+ */
 
-#if CPU_NEEDS_ALIGN_WORD == 1
-#define unaligned_u16(p) (*((u16 *)(p)))
-#else
+#include <string.h>
+
 static inline u16
-unaligned_u16(void *p)
+get_u16(void *p)
 {
   u16 x;
-
-  memcpy(&x, p, sizeof(x));
-  return x;
+  memcpy(&x, p, 2);
+  return ntohs(x);
 }
-#endif
 
-#if CPU_NEEDS_ALIGN_LONG == 1
-#define unaligned_u32(p) (*((u32 *)(p)))
-#else
 static inline u32
-unaligned_u32(void *p)
+get_u32(void *p)
 {
   u32 x;
-
-  memcpy(&x, p, sizeof(x));
-  return x;
+  memcpy(&x, p, 4);
+  return ntohl(x);
 }
-#endif
+
+static inline void
+put_u16(void *p, u16 x)
+{
+  x = htons(x);
+  memcpy(p, &x, 2);
+}
+
+static inline void
+put_u32(void *p, u32 x)
+{
+  x = htonl(x);
+  memcpy(p, &x, 4);
+}
 
 #endif
