@@ -721,7 +721,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	/* DEAD COUNT */
 	if (ip1->deadc != ip2->deadc)
 	{
-	  ifa->deadc = ip2->deadc;
+	  ifa->dead = ip2->dead;
 	  OSPF_TRACE(D_EVENTS,
 		     "Changing dead count on interface %s from %d to %d",
 		     ifa->iface->name, ip1->deadc, ip2->deadc);

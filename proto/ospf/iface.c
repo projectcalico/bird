@@ -393,7 +393,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
   ifa->pollint = ip->pollint;
   ifa->strictnbma = ip->strictnbma;
   ifa->waitint = ip->waitint;
-  ifa->deadc = ip->deadc;
+  ifa->dead = (ip->dead == 0) ? ip->deadc * ifa->helloint : ip->dead;
   ifa->stub = ip->stub;
   ifa->autype = ip->autype;
   ifa->passwords = ip->passwords;
@@ -585,7 +585,7 @@ ospf_iface_info(struct ospf_iface *ifa)
     cli_msg(-1015, "\tPoll timer: %u", ifa->pollint);
   }
   cli_msg(-1015, "\tWait timer: %u", ifa->waitint);
-  cli_msg(-1015, "\tDead timer: %u", ifa->deadc * ifa->helloint);
+  cli_msg(-1015, "\tDead timer: %u", ifa->dead);
   cli_msg(-1015, "\tRetransmit timer: %u", ifa->rxmtint);
   if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
   {

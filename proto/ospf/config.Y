@@ -96,6 +96,7 @@ ospf_vlink_item:
  | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=0) cf_error("Retransmit int must be greater than zero"); }
  | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
  | WAIT expr { OSPF_PATT->waitint = $2 ; }
+ | DEAD expr { OSPF_PATT->dead = $2 ; if ($2<=1) cf_error("Dead interval must be greater than one"); }
  | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
@@ -115,6 +116,7 @@ ospf_vlink_start: VIRTUAL LINK idval
   OSPF_PATT->inftransdelay = INFTRANSDELAY_D;
   OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
+  OSPF_PATT->dead = 0;
   OSPF_PATT->type = OSPF_IT_VLINK;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype = OSPF_AUTH_NONE;
@@ -129,6 +131,7 @@ ospf_iface_item:
  | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
  | PRIORITY expr { OSPF_PATT->priority = $2 ; if (($2<0) || ($2>255)) cf_error("Priority must be in range 0-255"); }
  | WAIT expr { OSPF_PATT->waitint = $2 ; }
+ | DEAD expr { OSPF_PATT->dead = $2 ; if ($2<=1) cf_error("Dead interval must be greater than one"); }
  | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
  | TYPE BROADCAST { OSPF_PATT->type = OSPF_IT_BCAST ; }
  | TYPE NONBROADCAST { OSPF_PATT->type = OSPF_IT_NBMA ; }
@@ -210,6 +213,7 @@ ospf_iface_start:
   OSPF_PATT->priority = PRIORITY_D;
   OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
+  OSPF_PATT->dead = 0;
   OSPF_PATT->type = OSPF_IT_UNDEF;
   OSPF_PATT->strictnbma = 0;
   OSPF_PATT->stub = 0;

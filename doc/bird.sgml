@@ -1024,6 +1024,7 @@ protocol ospf &lt;name&gt; {
 			priority &lt;num&gt;;
 			wait &lt;num&gt;;
 			dead count &lt;num&gt;;
+			dead &lt;num&gt;;
 			type [broadcast|nonbroadcast|pointopoint];
 			strict nonbroadcast &lt;switch&gt;;
 			authentication [none|simple];
@@ -1048,6 +1049,7 @@ protocol ospf &lt;name&gt; {
 			retransmit &lt;num&gt;;
 			wait &lt;num&gt;;
 			dead count &lt;num&gt;;
+			dead &lt;num&gt;;
 			authentication [none|simple];
 			password "&lt;text&gt;";
 		};
@@ -1125,6 +1127,11 @@ protocol ospf &lt;name&gt; {
 	<tag>dead count <M>num</M></tag>
 	 When the router does not receive any messages from a neighbor in
 	 <m/dead count/*<m/hello/ seconds, it will consider the neighbor down.
+
+	<tag>dead <M>num</M></tag>
+	 When the router does not receive any messages from a neighbor in
+	 <m/dead/ seconds, it will consider the neighbor down. If both directives
+	 <m/dead count/ and <m/dead/ are used, <m/dead/ has precendence.
 
 	<tag>type broadcast</tag>
 	 BIRD detects a type of a connected network automatically, but sometimes it's

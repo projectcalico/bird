@@ -309,7 +309,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
     case NEIGHBOR_DOWN:
       neigh_chstate(n, NEIGHBOR_INIT);
     default:
-      tm_start(n->inactim, n->ifa->deadc * n->ifa->helloint);	/* Restart inactivity timer */
+      tm_start(n->inactim, n->ifa->dead);	/* Restart inactivity timer */
       break;
     }
     break;

@@ -138,7 +138,7 @@ struct ospf_iface
   u32 waitint;			/* number of sec before changing state from wait */
   u32 rxmtint;			/* number of seconds between LSA retransmissions */
   u32 pollint;			/* Poll interval */
-  u32 deadc;			/* after "deadint" missing hellos is router dead */
+  u32 dead;			/* after "deadint" missing hellos is router dead */
   u32 vid;			/* Id of peer of virtual link */
   ip_addr vip;			/* IP of peer of virtual link */
   struct ospf_area *voa;	/* Area wich the vlink goes through */
@@ -548,6 +548,7 @@ struct ospf_iface_patt
   u32 priority;
   u32 waitint;
   u32 deadc;
+  u32 dead;
   u32 type;
   u32 autype;
   u32 strictnbma;

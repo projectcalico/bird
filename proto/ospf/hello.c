@@ -38,7 +38,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
     return;
   }
 
-  if (ntohl(ps->deadint) != ifa->helloint * ifa->deadc)
+  if (ntohl(ps->deadint) != ifa->dead)
   {
     log(L_ERR "%s%I%sdead interval mismatch (%d).", beg, faddr, rec,
 	ntohl(ps->deadint));
@@ -209,7 +209,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   pkt->helloint = ntohs(ifa->helloint);
   pkt->options = ifa->oa->opt.byte;
   pkt->priority = ifa->priority;
-  pkt->deadint = htonl(ifa->deadc * ifa->helloint);
+  pkt->deadint = htonl(ifa->dead);
   pkt->dr = ifa->drip;
   ipa_hton(pkt->dr);
   pkt->bdr = ifa->bdrip;
