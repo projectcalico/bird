@@ -190,14 +190,13 @@ addifa_rtlsa(struct ospf_iface *ifa)
     oa->rt->lsa_body=NULL;
     lsa->age=0;
     lsa->sn=LSA_INITSEQNO;	/* FIXME Check it latter */
-    lsa->checksum=0;
-    lsa->checksum=ipsum_calculate(lsa,sizeof(struct ospf_lsa_header),NULL);
     ifa->oa=oa;
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
 
   }
   oa->rt->lsa.length=make_rt_lsa(oa, po)+sizeof(struct ospf_lsa_header);
-  /*FIXME seq no++ */
+  oa->rt->lsa.checksum=0;
+  oa->rt->lsa.checksum=ipsum_calculate(&(oa->rt->lsa.options),sizeof(struct ospf_lsa_header)-2,oa->rt->lsa_body,oa->rt->lsa.length-sizeof(struct ospf_lsa_header),NULL);
   /*FIXME lsa_flood(oa->rt) */
 }
 
