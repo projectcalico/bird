@@ -87,7 +87,7 @@ $type_func = "(\\w+\\(\\))";
 $type_param = "\\\@(\\w+)";
 $type_struct = "\\\\\\\\\\\\amp;(\\w+)";
 $type_env = "(\\\$\\w+)";
-$type_code = "\\|(.*)\\|";
+$type_code = "\\|([^|]*)\\|";
 
 
 # Output conversion substitutions.
