@@ -62,7 +62,7 @@ ospf_init(struct proto_config *c)
   struct proto *p = proto_new(c, sizeof(struct proto_ospf));
   struct proto_ospf *po=(struct proto_ospf *)p;
 
-  DBG(" OSPF: Init.\n");
+  debug("OSPF: Init requested.\n");
   p->neigh_notify = NULL;
   p->if_notify = NULL;
   init_list(&(po->iface_list));
