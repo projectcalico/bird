@@ -70,7 +70,7 @@ void if_feed_baby(struct proto *);
 typedef struct neighbor {
   node n;				/* Node in global neighbor list */
   ip_addr addr;				/* Address of the neighbor */
-  struct iface *iface;			/* Interface address it's connected to */
+  struct iface *iface;			/* Interface it's connected to */
   struct neighbor *sibling;		/* Next in per-device chain */
   struct proto *proto;			/* Protocol this belongs to */
   void *data;				/* Protocol-specific data */
