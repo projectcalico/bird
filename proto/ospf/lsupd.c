@@ -251,6 +251,16 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   {
     struct ospf_lsa_header lsatmp;
     struct top_hash_entry *lsadb;
+    u16 lenn;
+
+    lenn=ntohs(lsa->length);
+
+    if((lenn<=sizeof(struct ospf_lsa_header))||(lenn!=(4*(lenn/4))))
+    {
+      log("Received LSA with bad length\n");
+      ospf_neigh_sm(n,INM_BADLSREQ);
+      break;
+    }
     /* pg 143 (1) */
     if(lsa->checksum!=lsasum_check(lsa,NULL,po))
     {
