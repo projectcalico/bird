@@ -430,6 +430,8 @@ krt_capable(rte *e)
 
   if (a->cast != RTC_UNICAST)	/* FIXME: For IPv6, we might support anycasts as well */
     return 0;
+  if (a->source == RTS_DEVICE)	/* Kernel takes care of device routes itself */
+    return 0;
   switch (a->dest)
     {
     case RTD_ROUTER:
@@ -501,9 +503,9 @@ nl_send_route(rte *e, int new)
 void
 krt_set_notify(struct proto *p, net *n, rte *new, rte *old)
 {
-  if (old && old->attrs->source == RTS_DEVICE)	/* Device routes are left to the kernel */
+  if (old && !krt_capable(old))
     old = NULL;
-  if (new && new->attrs->source == RTS_DEVICE)
+  if (new && !krt_capable(new))
     new = NULL;
   if (old && new && old->attrs->tos == new->attrs->tos)
     {

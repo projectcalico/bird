@@ -26,6 +26,10 @@ krt_capable(rte *e)
 {
   rta *a = e->attrs;
 
+#ifdef CONFIG_AUTO_ROUTES
+  if (a->source == RTS_DEVICE)
+    return 0;
+#endif
   return
     a->cast == RTC_UNICAST &&
     (a->dest == RTD_ROUTER
@@ -35,18 +39,6 @@ krt_capable(rte *e)
 #endif
      ) &&
     !a->tos;
-}
-
-static inline int
-krt_capable_op(rte *e)
-{
-  rta *a = e->attrs;
-
-#ifdef CONFIG_AUTO_ROUTES
-  if (a->source == RTS_DEVICE)
-    return 0;
-#endif
-  return krt_capable(e);
 }
 
 static void
@@ -84,12 +76,12 @@ krt_ioctl(int ioc, rte *e, char *name)
     log(L_ERR "%s(%I/%d): %m", name, net->n.prefix, net->n.pxlen);
 }
 
-static void
+static inline void
 krt_remove_route(rte *old)
 {
   net *net = old->net;
 
-  if (!krt_capable_op(old))
+  if (!krt_capable(old))
     {
       DBG("krt_remove_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
       return;
@@ -98,12 +90,12 @@ krt_remove_route(rte *old)
   krt_ioctl(SIOCDELRT, old, "SIOCDELRT");
 }
 
-static void
+static inline void
 krt_add_route(rte *new)
 {
   net *net = new->net;
 
-  if (!krt_capable_op(new))
+  if (!krt_capable(new))
     {
       DBG("krt_add_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
       return;
@@ -115,7 +107,6 @@ krt_add_route(rte *new)
 void
 krt_set_notify(struct proto *x, net *net, rte *new, rte *old)
 {
-  /* FIXME: Fold remove/add route here */
   if (old)
     krt_remove_route(old);
   if (new)

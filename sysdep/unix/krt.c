@@ -88,12 +88,11 @@ krt_got_route(struct krt_proto *p, rte *e)
       return;
     }
 
-  old = net->routes;
-  if (old && !krt_capable(old))
-    old = NULL;
-  if (old)
+  if (old = net->routes)
     {
-      if (krt_uptodate(e, net->routes))
+      if (!krt_capable(old))
+	verdict = krt_capable(e) ? KRF_DELETE : KRF_SEEN;
+      else if (krt_uptodate(e, net->routes))
 	verdict = KRF_SEEN;
       else
 	verdict = KRF_UPDATE;
@@ -156,7 +155,7 @@ krt_prune(struct krt_proto *p)
 		  DBG("krt_prune: removing inherited %I/%d\n", n->n.prefix, n->n.pxlen);
 		  rte_update(n, pp, NULL);
 		}
-	      else
+	      else if (krt_capable(new))
 		{
 		  DBG("krt_prune: reinstalling %I/%d\n", n->n.prefix, n->n.pxlen);
 		  krt_set_notify(pp, n, new, NULL);
