@@ -549,7 +549,8 @@ including several enhancements from the
 latest draft<htmlurl url="ftp://ftp.rfc-editor.org/internet-drafts/draft-ietf-idr-bgp4-09.txt">.
 It also supports the community attributes as per
 RFC 1997<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1997.txt">,
-capability negotiation draft<htmlurl url="ftp://ftp.rfc-editor.org/internet-drafts/draft-ietf-idr-bgp4-cap-neg-06.txt">.
+capability negotiation defined in
+RFC 2842<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2842.txt">,
 For IPv6, it uses the standard multiprotocol extensions defined in
 RFC 2283<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2283.txt">
 including changes described in the
