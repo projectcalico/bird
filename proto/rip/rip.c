@@ -497,7 +497,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
 }
 
 static void
-rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
+rip_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
 {
   DBG( "RIP: if notify\n" );
   if (old) {

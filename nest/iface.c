@@ -283,7 +283,7 @@ if_notify_change(unsigned c, struct iface *old, struct iface *new)
 
   WALK_LIST(p, proto_list)
     if (p->if_notify)
-      p->if_notify(p, c, old, new);
+      p->if_notify(p, c, new, old);
 
   if (c & IF_CHANGE_DOWN)
     neigh_if_down(old);
@@ -351,7 +351,7 @@ if_feed_baby(struct proto *p)
     return;
   debug("Announcing interfaces to new protocol %s\n", p->name);
   WALK_LIST(i, iface_list)
-    p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), NULL, i);
+    p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), i, NULL);
 }
 
 static void

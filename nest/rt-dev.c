@@ -21,7 +21,7 @@
 struct proto_config *cf_dev_proto;
 
 static void
-dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
+dev_if_notify(struct proto *p, unsigned c, struct iface *new, struct iface *old)
 {
   struct rt_dev_config *P = (void *) p->cf;
 
