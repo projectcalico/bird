@@ -1,9 +1,63 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 Ondrej Filip <feela@network.cz>
+ *	(c) 1999-2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+/**
+ * DOC: Open Shortest Path First (OSPF)
+ * 
+ * As OSPF protocol is quite complicated and complex implemenation is
+ * split into many files. In |ospf.c| you can find mostly interfaces
+ * for communication with nest. (E.g. reconfiguration hooks, shutdown
+ * and inicialisation and so on.) In |packet.c| you can find various
+ * functions for sending and receiving generic OSPF packet. There are
+ * also routins for autentications, checksumming. |Iface.c| contains
+ * interface state machine, allocation and deallocation of OSPF's
+ * interface data structures. |Neighbor.c| includes neighbor state
+ * machine and function for election of Designed Router and Backup
+ * Designed router. In |hello.c| there are routines for sending
+ * and receiving hello packets as well as functions for maintaining
+ * wait times and inactivity timer. |Lsreq.c|, |lsack.c|, |dbdes.c|
+ * contains functions for sending and receiving link-state request,
+ * link-state acknoledge and database description respectively.
+ * In |lsupd.c| there are function for sending and receiving
+ * link-state updates and also flooding algoritmus. |Topology.c| is
+ * a place where routins for searching LSAs in link-state database,
+ * adding and deleting them, there are also functions for originating
+ * various types of LSA. (router lsa, net lsa, external lsa) |Rt.c|
+ * contains routins for calculating of routing table.
+ *
+ * Just one instance of protocol is able to hold LSA databases for
+ * multiple OSPF areas and exhange routing information between
+ * multiple neighbors and calculate routing tables. The core
+ * structure is &proto_ospf, to which multiple &ospf_area and
+ * &ospf_iface are connected. To &ospf_area is connected
+ * &top_hash_graph, which is a dynamic hashing structure that
+ * describes link-state database. It allows fast search, adding
+ * and deleting. Every area has it's own area_disp() that is
+ * responsible for late originating of router LSA, calcutating
+ * of routing table and it also ages and flushes LSA database. This
+ * function is called in regular intervals.
+ * To every &ospf_iface is connected one or more
+ * &ospf_neighbors. This structure contains many timers and queues
+ * for building adjacency and exchange routing messages.
+ *
+ * BIRD's OSPF implementation respects RFC2328 in every detail but
+ * some of inner function differs. RFC recommends to make a snapshot
+ * of link-state database when new adjacency is building and send
+ * database description packets based on information of this 
+ * snapshot. The database can be quite large in some networks so
+ * I rather walk through &slist structure which allows me to
+ * continue even if actual LSA I worked on is deleted. New
+ * LSA are added to the tail of this slist.
+ *
+ * I also don't build another, new routing table besides the old
+ * one because nest helps me. I simply flush all calculated and
+ * deleted routes into nest's routing table. It's simplyfies
+ * this process and spares memory.
  */
 
 #include "ospf.h"
