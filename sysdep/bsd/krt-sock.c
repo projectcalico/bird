@@ -183,16 +183,12 @@ krt_sock_send(int cmd, rte *e, char *name)
         fill_in_sockaddr(&gate, i->addr->ip, 0);
         msg.rtm.rtm_addrs |= RTA_GATEWAY;
       }
-      else
-      {
-        bug("krt-sock: interface route %I/%d without interface", net->n.prefix, net->n.pxlen);
-      }
       break;
     default:
       bug("krt-sock: unknown flags, but not filtered");
   }
 
-  if(i) msg.rtm.rtm_index = i->index;
+  msg.rtm.rtm_index = i->index;
 
   NEXTADDR(RTA_DST, dst);
   NEXTADDR(RTA_GATEWAY, gate);
@@ -244,18 +240,20 @@ krt_set_start(struct krt_proto *x, int first)
   sk_rt->fd = rt_sock;
   sk_rt->data = x;
   if (sk_open(sk_rt))
-    bug("Krt_sock: sk_rt_open failed");
+    bug("Krt_sock: sk_open failed");
 }
 
 static int
 krt_set_hook(sock *sk, int size)
 {
-  int l;
   struct ks_msg msg;
-  
-  l = read(sk->fd, (char *)&msg, sizeof(msg));
+  int l = read(sk->fd, (char *)&msg, sizeof(msg));
 
+  if(l <= 0)
+    log(L_WARN "Krt-sock: read failed");
+  else
   krt_read_msg((struct proto *)sk->data, &msg, 0);
+
   return 0;
 }
 
@@ -565,7 +563,7 @@ krt_read_msg(struct proto *p, struct ks_msg *msg, int scan)
 }
 
 
-struct iface *
+static struct iface *
 krt_temp_iface(struct krt_proto *p, char *name)
 {
   struct iface *i;
