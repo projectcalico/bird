@@ -40,6 +40,7 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
     case ISM_UP:
       if(ifa->state==OSPF_IS_DOWN)
       {
+        /* Now, nothing should be adjacent */
         restart_hellotim(ifa);
         if((ifa->type==OSPF_IT_PTP) || (ifa->type==OSPF_IT_VLINK))
         {
@@ -57,6 +58,7 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
              restart_waittim(ifa);
           }
         }
+	addifa_rtlsa(ifa);
       }
       break;
     case ISM_BACKS:
@@ -307,6 +309,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     ifa->waitint=0;
     ospf_add_timers(ifa,p->pool);
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
+    ifa->state=OSPF_IS_DOWN;
     ospf_int_sm(ifa, ISM_UP);
   }
 

@@ -36,6 +36,7 @@ void ospf_top_dump(struct top_graph *);
 struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr, u32 type);
 struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr, u32 type);
 void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
+void addifa_rtlsa(struct ospf_iface *ifa);
 
 struct top_graph_rtlsa {
   u8 Vbit;

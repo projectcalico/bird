@@ -23,6 +23,40 @@
 #define HASH_LO_STEP 2
 #define HASH_LO_MIN 8
 
+void
+addifa_rtlsa(struct ospf_iface *ifa)
+{
+  struct ospf_area *oa;
+  struct proto_ospf *po;
+
+  po=ifa->proto;
+  oa=po->firstarea;
+
+  while(oa!=NULL)
+  {
+    if(oa->areaid==ifa->area) break;
+    oa=oa->next;
+  }
+ 
+  if(oa!=NULL)	/* Known area */
+  {
+    /**/;
+  }
+  else	/* New area */
+  {
+    po->areano++;
+    oa=po->firstarea;
+    po->firstarea=sl_alloc(po->areaslab);
+    po->firstarea->next=oa;
+    po->firstarea->areaid=ifa->area;
+    po->firstarea->gr=ospf_top_new(po);
+  }
+
+  /* FIXME Go on, change router lsa, bits and so on... */
+}
+
+  
+
 static void
 ospf_top_ht_alloc(struct top_graph *f)
 {

@@ -22,7 +22,10 @@ ospf_start(struct proto *p)
   po->firstarea->gr=ospf_top_new(po);
   po->firstarea->next=NULL;
   po->firstarea->areaid=0;
-  
+
+  po->areano=0;		/* Waiting for interfaces comming up */
+  po->firstarea=NULL;
+  po->areaslab=sl_new(p->pool, sizeof(struct ospf_area));
   return PS_UP;
 }
 
