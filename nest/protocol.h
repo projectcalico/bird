@@ -47,6 +47,7 @@ extern list protocol_list;
 
 extern struct protocol proto_device;
 extern struct protocol proto_rip;
+extern struct protocol proto_static;
 
 /*
  *	Routing Protocol Instance

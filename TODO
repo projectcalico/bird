@@ -16,6 +16,8 @@ Core
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
 - secondary addresses -> subinterfaces
 - check if all protocols set proper packet priorities and TTL's.
+- better default protocol names
+- config: comments at end of line -> explicit ';' needed?
 
 - filter: logging of dropped routes (?)
 - limitation of memory consumption: per-process and total (?)

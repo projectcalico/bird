@@ -9,7 +9,7 @@ OPT=-O2
 DEBUG=-g#gdb
 CFLAGS=$(OPT) $(DEBUG) -Wall -W -Wstrict-prototypes -Wno-unused -Wno-parentheses
 
-PROTOCOLS=rip
+PROTOCOLS=rip static
 LIBDIRS=sysdep/linux sysdep/unix lib
 BASEDIRS=nest $(addprefix proto/,$(PROTOCOLS))
 STDDIRS=$(BASEDIRS) $(OBJDIR)/conf
