@@ -15,6 +15,7 @@
 #include "lib/socket.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
+#include "nest/iface.h"
 
 #include "unix.h"
 
@@ -29,6 +30,7 @@ handle_sigusr(int sig)
 
   sk_dump_all();
   tm_dump_all();
+  if_dump_all();
   rta_dump_all();
   rt_dump_all();
 
@@ -83,29 +85,16 @@ main(void)
   resource_init();
   io_init();
   rt_init();
+  if_init();
   protos_init();
+
+  scan_if_init();
+
   signal_init();
 
-  {
-    sock *s = sk_new(&root_pool);
+  handle_sigusr(0);
 
-    if (!s)
-      die("no socket");
-    s->type = SK_UDP_MC;
-    s->sport = 7899;
-    s->saddr = _MI(0x3ea80015);
-    s->daddr = _MI(0xe0000001);
-    s->dport = 7890;
-    s->rx_hook = xxx;
-    s->tx_hook = bla;
-    s->err_hook = erro;
-    s->rbsize = 1024;
-    s->tbsize = 1024;
-    s->ttl = 1;
-    if (sk_open(s))
-      die("open failed");
-    bla(s);
-  }
+  debug("Entering I/O loop.\n");
 
   io_loop();
   die("I/O loop died");

@@ -11,9 +11,11 @@
 
 #include "lib/lists.h"
 
+extern list iface_list;
+
 struct iface {
   node n;
-  char *name;
+  char name[16];
   unsigned flags;
   unsigned mtu;
   struct ifa *ifa;			/* First address is primary */
@@ -26,6 +28,10 @@ struct iface {
 #define IF_BROADCAST 8
 #define IF_MULTICAST 16
 #define IF_TUNNEL 32
+#define IF_ADMIN_DOWN 64
+#define IF_LOOPBACK 128
+#define IF_IGNORE 256
+#define IF_UPDATED 0x1000		/* Touched in last scan */
 
 /* Interface address */
 
@@ -38,5 +44,19 @@ struct ifa {
   ip_addr opposite;			/* Opposite end of a point-to-point link */
   struct neighbor *neigh;		/* List of neighbors on this interface */
 };
+
+/* Interface change events */
+
+#define IF_CHANGE_UP 1
+#define IF_CHANGE_DOWN 2
+#define IF_CHANGE_FLAGS 4
+#define IF_CHANGE_MTU 8
+#define IF_CHANGE_ADDR 16
+
+void if_init(void);
+void if_dump(struct iface *);
+void if_dump_all(void);
+void if_update(struct iface *);
+void if_end_update(void);
 
 #endif

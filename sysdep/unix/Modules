@@ -3,3 +3,4 @@ main.c
 timer.h
 io.c
 unix.h
+sync-if.c
