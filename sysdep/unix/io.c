@@ -698,7 +698,7 @@ bad:
 void
 sk_close(sock *s)
 {
-  if (s->entered)
+  if (s && s->entered)
     s->type = SK_DELETED;
   else
     rfree(s);
