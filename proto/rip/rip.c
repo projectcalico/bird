@@ -368,7 +368,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 #ifndef IPV6
 	    ipa_ntoh( block->netmask );
 	    ipa_ntoh( block->nexthop );
-	    if (packet->heading.version == RIP_V1)
+	    if (packet->heading.version == RIP_V1)	/* FIXME: switch to disable this? (nonurgent) */
 	      block->netmask = ipa_class_mask(block->network);
 #endif
 	    process_block( p, block, whotoldme );

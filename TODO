@@ -63,6 +63,7 @@ Cleanup
 - does everybody test return value of sk_open?
 - add references to RFC's we did follow
 - protocols: implement CLI hooks
+- protocols: use locking
 
 Various ideas
 ~~~~~~~~~~~~~
@@ -78,10 +79,6 @@ Various ideas
 
 RIP
 ~~~
-	- export-only and import-only mode?
-	- drop RIPv1 (Historic protocol)?
-	- Route Tag
-	- limit routing table xfer (frequency, only to neighbors)
 
 OSPF
 ~~~~
