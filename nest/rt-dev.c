@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Direct Device Routes
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -73,6 +73,7 @@ dev_init(struct proto_config *c)
   struct proto *p = proto_new(c, sizeof(struct proto));
 
   p->ifa_notify = dev_ifa_notify;
+  p->min_scope = SCOPE_HOST;
   return p;
 }
 
