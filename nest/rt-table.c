@@ -8,7 +8,7 @@
 
 #include <string.h>
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/route.h"
@@ -196,7 +196,7 @@ rt_feed_baby(struct proto *p)
 
   if (!p->ahooks)
     return;
-  debug("Announcing routes to new protocol %s\n", p->name);
+  DBG("Announcing routes to new protocol %s\n", p->name);
   for(h=p->ahooks; h; h=h->next)
     {
       rtable *t = h->table;

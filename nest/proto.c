@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include <string.h>
 
@@ -157,15 +157,15 @@ protos_preconfig(struct config *c)
   struct protocol *p;
 
   init_list(&c->protos);
-  debug("Protocol preconfig:");
+  DBG("Protocol preconfig:");
   WALK_LIST(p, protocol_list)
     {
-      debug(" %s", p->name);
+      DBG(" %s", p->name);
       p->name_counter = 0;
       if (p->preconfig)
 	p->preconfig(p, c);
     }
-  debug("\n");
+  DBG("\n");
 }
 
 void
@@ -174,15 +174,15 @@ protos_postconfig(struct config *c)
   struct proto_config *x;
   struct protocol *p;
 
-  debug("Protocol postconfig:");
+  DBG("Protocol postconfig:");
   WALK_LIST(x, c->protos)
     {
-      debug(" %s", x->name);
+      DBG(" %s", x->name);
       p = x->protocol;
       if (p->postconfig)
 	p->postconfig(x);
     }
-  debug("\n");
+  DBG("\n");
 }
 
 static struct proto *

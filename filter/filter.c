@@ -9,6 +9,8 @@
  *
  */
 
+#undef LOCAL_DEBUG
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -525,7 +527,7 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
 {
   struct f_inst *inst;
   struct f_val res;
-  debug( "Running filter `%s'...", filter->name );
+  DBG( "Running filter `%s'...", filter->name );
 
   f_tmp_attrs = tmp_attrs;
   f_rte = rte;
@@ -535,7 +537,7 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   res = interpret(inst);
   if (res.type != T_RETURN)
     return F_ERROR;
-  debug( "done (%d)\n", res.val.i );
+  DBG( "done (%d)\n", res.val.i );
   return res.val.i;
 }
 

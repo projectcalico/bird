@@ -9,7 +9,7 @@
 #include <setjmp.h>
 #include <stdarg.h>
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/route.h"

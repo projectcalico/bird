@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include <string.h>
 
@@ -35,7 +35,7 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
       n = net_find(p->table, ad->prefix, ad->pxlen);
       if (!n)
 	{
-	  debug("dev_if_notify: device shutdown: prefix not found\n");
+	  DBG("dev_if_notify: device shutdown: prefix not found\n");
 	  return;
 	}
       rte_update(p->table, n, p, NULL);
@@ -46,7 +46,7 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
       net *n;
       rte *e;
 
-      debug("dev_if_notify: %s:%I going up\n", ad->iface->name, ad->ip);
+      DBG("dev_if_notify: %s:%I going up\n", ad->iface->name, ad->ip);
       bzero(&A, sizeof(A));
       A.proto = p;
       A.source = RTS_DEVICE;

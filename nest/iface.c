@@ -426,7 +426,7 @@ auto_router_id(void)
       j = i;
   if (!j)
     die("Cannot determine router ID (no suitable network interface found), please configure it manually");
-  log(L_INFO, "Guessed router ID %I according to interface %s", j->addr->ip, j->name);
+  log(L_INFO "Guessed router ID %I according to interface %s", j->addr->ip, j->name);
   config->router_id = ipa_to_u32(j->addr->ip);
 #endif
 }

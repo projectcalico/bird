@@ -6,6 +6,8 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#define LOCAL_DEBUG
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -275,7 +277,7 @@ cli_init_unix(void)
 void
 async_shutdown(void)
 {
-  debug("Shutting down...\n");
+  DBG("Shutting down...\n");
   order_shutdown();
 }
 
@@ -293,21 +295,21 @@ sysdep_shutdown_done(void)
 static void
 handle_sighup(int sig)
 {
-  debug("Caught SIGHUP...\n");
+  DBG("Caught SIGHUP...\n");
   async_config_flag = 1;
 }
 
 static void
 handle_sigusr(int sig)
 {
-  debug("Caught SIGUSR...\n");
+  DBG("Caught SIGUSR...\n");
   async_dump_flag = 1;
 }
 
 static void
 handle_sigterm(int sig)
 {
-  debug("Caught SIGTERM...\n");
+  DBG("Caught SIGTERM...\n");
   async_shutdown_flag = 1;
 }
 
@@ -392,7 +394,7 @@ main(int argc, char **argv)
 
   log(L_INFO "Launching BIRD " BIRD_VERSION "...");
 
-  debug("Initializing.\n");
+  DBG("Initializing.\n");
   resource_init();
   olock_init();
   io_init();
@@ -412,7 +414,7 @@ main(int argc, char **argv)
   ev_run_list(&global_event_list);
   async_dump();
 
-  debug("Entering I/O loop.\n");
+  DBG("Entering I/O loop.\n");
 
   io_loop();
   bug("I/O loop died");
