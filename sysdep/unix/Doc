@@ -1,4 +1,4 @@
 H UNIX system dependent parts
-S io.c
 S log.c
 S krt.c
+# io.c is documented under Resources
