@@ -1,14 +1,7 @@
 Core
 ~~~~
-- IPv6: hashing functions etc.
-
-- krt-iface: check whether the interface alias hack works
-
 - better memory allocators
 - real attribute cache
-- real neighbor cache
-
-- preferences of protocols
 
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
@@ -16,15 +9,9 @@ Core
 - rte_update: check whether all bits not covered by masklen are zero
 - rte_update: debug mode
 
-- netlink: import Linux route attributes to our rta's, so that they can be filtered?
-
-- config: when parsing prefix, check zero bits
-
 - krt: rescan interfaces when route addition fails?
 
 - tagging of external routes?
-
-- io: use poll if available
 
 Commands
 ~~~~~~~~
@@ -53,8 +40,11 @@ Globals
 
 Various ideas
 ~~~~~~~~~~~~~
+- netlink: import Linux route attributes to our rta's, so that they can be filtered?
 - config: executable config files
 - client: access control
+- config: when parsing prefix, check zero bits
+- io: use poll if available
 - IPv6 router advertisements
 - real multipath (doesn't seem to be simple at all :()
 - fake multipath (even less simple)
