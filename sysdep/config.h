@@ -13,7 +13,7 @@
 
 /* Include debugging code */
 
-#define DEBUG
+#define DEBUGGING
 
 /* Types */
 

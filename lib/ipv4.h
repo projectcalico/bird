@@ -13,7 +13,7 @@
 
 #include "lib/bitops.h"
 
-#ifdef DEBUG
+#ifdef DEBUGGING
 
 /*
  *	Use the structural representation when you want to make sure

@@ -105,7 +105,7 @@ fib_get(struct fib *f, ip_addr *a, int len)
     e = e->next;
   if (e)
     return e;
-#ifdef DEBUG
+#ifdef DEBUGGING
   if (len < 0 || len > BITS_PER_IP_ADDRESS || !ip_is_prefix(*a,len))
     die("fib_get() called for invalid address");
 #endif
