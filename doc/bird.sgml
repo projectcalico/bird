@@ -177,10 +177,10 @@ protocols.
 <sect>Introduction
 
 <p>BIRD is configured using a text configuration file. Upon startup, BIRD reads <file>$prefix/bird.conf</file> (unless the
-<tt/-c/ command line option is given). Configuration may be changed on user's request: if you modify
-config file and then signal BIRD with SIGHUP, it will adjust to the new
-config. Then there's the client,
-which allows you to talk with BIRD in an extensive way. (Of course you can tell BIRD to reconfigure from BIRDC, you can also tell it to shut down, dump various info etc.).
+<tt/-c/ command line option is given). Configuration may be changed at user's request: if you modify
+the config file and then signal BIRD with <tt/SIGHUP/, it will adjust to the new
+config. Then there's the client
+which allows you to talk with BIRD in an extensive way.
 
 <p>In the config, everything on a line after <cf/#/ or inside <cf>/*
 */</cf> is a comment, whitespace characters are treated as a single space. If there's a variable number of options, they are grouped using
@@ -214,9 +214,9 @@ protocol rip {
 
 <p><descrip>
 	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of classes/ }</tag> 
-	Set logging of messages having the given (either <cf/all/ or <cf/{
+	Set logging of messages having the given class (either <cf/all/ or <cf/{
 	error, trace }/ etc.) into selected destination. Classes are:
-	<cf/info/, <cf/warning/, <cf/error/ and <cf/fatal/ for messages about local problems
+	<cf/info/, <cf/warning/, <cf/error/ and <cf/fatal/ for messages about local problems,
 	<cf/debug/ for debugging messages, 
 	<cf/trace/ when you want to know what happens in the network, 
 	<cf/remote/ for messages about misbehavior of remote machines, 
@@ -239,12 +239,12 @@ protocol rip {
 	about functions in the following chapter.
  
 	<tag>protocol rip|ospf|bgp|... <m/[name]/ { <m>protocol options</m> }</tag> Define a protocol
-	instance called <cf><m/name/</cf> (or with a name like "rip5" generated automatically, if you don't specify <cf><m/name/</cf>). You can learn more
+	instance called <cf><m/name/</cf> (or with a name like "rip5" generated automatically if you don't specify any <cf><m/name/</cf>). You can learn more
 	about configuring protocols in their own chapters. You can run more than one instance of
 	most protocols (like RIP or BGP). By default, no instances are configured.
 
 	<tag>define <m/constant/ = (<m/expression/)|<m/number/|<m/IP address/</tag> Define a constant. You can use it later in every place
-	you could use a simple integer or IP address.
+	you could use a simple integer or an IP address.
 
 	<tag>router id <m/IPv4 address/</tag> Set BIRD's router ID. It's a world-wide unique identification of your router, usually one of router's IPv4 addresses. Default: in IPv4 version, the lowest IP address of a non-loopback interface. In IPv6 version, this option is mandatory. 
 
@@ -253,7 +253,7 @@ protocol rip {
 	to be added by this command.
 
 	<tag>eval <m/expr/</tag> Evaluates given filter expression. It
-	is used by us for testing filters.
+	is used by us for testing of filters.
 </descrip>
 
 <sect>Protocol options
@@ -287,10 +287,10 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	<cf/packets/ for packets sent and received by the protocol. Default: off.
 
 	<tag>import all | none | filter <m/name/ | filter { <m/filter commands/ } | where <m/filter expression/</tag> 
-	Specify a filter to be used for filtering routes coming from protocol to the routing table. <cf/all/ is shorthand for <cf/where true/ and <cf/none/ is shorthand for <cf/where false/. Default: <cf/all/.
+	Specify a filter to be used for filtering routes coming from the protocol to the routing table. <cf/all/ is shorthand for <cf/where true/ and <cf/none/ is shorthand for <cf/where false/. Default: <cf/all/.
 
-	<tag>export <m/filter/</tag> This is similar to <cf>import</cf> keyword, except that it
-	works in direction from the routing table to the protocol. Default: <cf/none/.
+	<tag>export <m/filter/</tag> This is similar to the <cf>import</cf> keyword, except that it
+	works in the direction from the routing table to the protocol. Default: <cf/none/.
 
 	<tag>table <m/name/</tag> Connect this protocol to a non-default routing table.
 </descrip>
@@ -300,14 +300,14 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 <descrip>
 	<tag>passwords { password "<m/password/" from <m/time/ to <m/time/ passive <m/time/ id
 	<m/num/ [...] }</tag> Specifies passwords to be used with this protocol. <cf>Passive <m/time/</cf> is
-	time from which the password is not used for sending, but it is recognized on reception. <cf/id/ is password ID, as needed by
+	time from which the password is not used for sending, but it is recognized on reception. <cf/id/ is password ID as needed by
 	certain protocols. Format of <cf><m/time/</cf> is <tt>dd-mm-yyyy HH:MM:SS</tt>.
 
 	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [ ... ] } ]</tag> Specifies which
-	interfaces this protocol is active on, and allows you to set options on
-	per-interface basis. Mask is specified in shell-like patterns, thus <cf>interface
+	interfaces is this protocol active on and allows you to set options on a
+	per-interface basis. Mask is specified as in shell-like patterns, thus <cf>interface
 	"*" { mode broadcast; };</cf> will start the protocol on all interfaces with <cf>mode
-	broadcast;</cf> option. If first character of mask is <cf/-/, such interfaces are
+	broadcast;</cf> option. If the first character of mask is <cf/-/, such interfaces are
 	excluded. Masks are parsed left-to-right, thus <cf/interface "-eth*", "*";/ means all but
 	the ethernets. Default: none.
 
@@ -316,16 +316,16 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 <chapt>Remote control
 
 <p>You can use the command-line client <file>birdc</file> to talk with
-a running BIRD. Communication is done using <file/bird.ctl/ UNIX domain
+a running BIRD. Communication is done using a <file/bird.ctl/ UNIX domain
 socket (unless changed with the <tt/-s/ option given to both the server and
-the client). The client can do simple actions such as enabling/disabling
-protocols, telling BIRD to show various information, telling it to
-show routing table filtered by any filter, or telling bird to
+the client). The commands can perform simple actions such as enabling/disabling
+of protocols, telling BIRD to show various information, telling it to
+show routing table filtered by filter, or asking BIRD to
 reconfigure. Press <tt/?/ at any time to get online help. Option
-<tt/-v/ can be passed to the client, telling it to dump numeric return
-codes. You do not necessarily need to use BIRDC to talk to BIRD, your
-own application could do that, too -- format of communication between
-BIRD and BIRDC is stable (see programmer's documentation).
+<tt/-v/ can be passed to the client, to make it dump numeric return
+codes along with the messages. You do not necessarily need to use BIRDC to talk to BIRD, your
+own applications could do that, too -- the format of communication between
+BIRD and BIRDC is stable (see the programmer's documentation).
 
 <p>Here is a brief list of supported functions:
 
@@ -334,10 +334,10 @@ BIRD and BIRDC is stable (see programmer's documentation).
 	Dump contents of internal data structures to the debugging output.
 
 	<tag>show status</tag>
-	Show router status, that is bird version, uptime and time from last reconfiguration.
+	Show router status, that is BIRD version, uptime and time from last reconfiguration.
 
 	<tag>show protocols [all]</tag>
-	Show list of protocols along with tables they are connected to and status, possibly giving verbose information.
+	Show list of protocol instances along with tables they are connected to and protocol status, possibly giving verbose information, if <cf/all/ is specified.
 
 	<tag>show ospf [interface|neighbors] [<m/name/] ["<m/interface/"]</tag>
 	Show detailed information about OSPF protocol, possibly giving a verbose list of interfaces and neighbors. The <m/name/ of the protocol instance can be omitted if there exists only a single instance.
@@ -346,14 +346,14 @@ BIRD and BIRDC is stable (see programmer's documentation).
 	Show detailed information about static routes. The <m/name/ of the protocol instance can be omitted if there exists only a single instance.
 	
 	<tag>show interfaces [summary]</tag>
-	Show list of interfaces. For each interface, print its type, state, MTU and addresses assigned. 
+	Show the list of interfaces. For each interface, print its type, state, MTU and addresses assigned. 
 
 	<tag>show symbols</tag>
-	Show list of symbols defined in the configuration (names of protocols, routing tables etc.).
+	Show the list of symbols defined in the configuration (names of protocols, routing tables etc.).
 
 	<tag>show route [<m/prefix/|for <m/prefix or IP/] [primary] [table <m/sym/] [all] [stats|count] [filter <m/name/|where <m/condition/] [(import|proto) <m/sym/]</tag>
 	Show contents of a routing table (by default of the main one),
-	i.e. routes, their metrics and (in case the <cf/all/ switch is given)
+	that is routes, their metrics and (in case the <cf/all/ switch is given)
 	all their attributes.
 
 	<p>You can specify a <m/prefix/ if you want to print routes for a
@@ -375,7 +375,7 @@ BIRD and BIRDC is stable (see programmer's documentation).
 	you use <cf/count/ instead, only the statistics will be printed.
 
 	<tag>enable|disable|restart <m/name/|"<m/pattern/"|all</tag>
-	Enable, disable or restart given protocol instance, instances matching the <cf><m/pattern/</cf> or <cf/all/ instances.
+	Enable, disable or restart a given protocol instance, instances matching the <cf><m/pattern/</cf> or <cf/all/ instances.
 
 	<tag>configure ["<m/config file/"]</tag>
 	Reload configuration from a given file.
@@ -391,15 +391,14 @@ BIRD and BIRDC is stable (see programmer's documentation).
 
 <sect>Introduction
 
-<p>BIRD contains a rather simple programming language. (No, it can't yet read mail :-). There are
-two objects in this language: filters and functions. Filters are called by BIRD core when a route is
-being passed between protocols and routing tables. Filter language contains control structures such
-as if's and switches, but it allows no loops. Filters are
-interpreted. An example of a filter using many features can be found in <file>filter/test.conf</file>. 
+<p>BIRD contains a simple programming language. (No, it can't yet read mail :-). There are
+two objects in this language: filters and functions. Filters are interpreted by BIRD core when a route is
+being passed between protocols and routing tables. The filter language contains control structures such
+as if's and switches, but it allows no loops. An example of a filter using many features can be found in <file>filter/test.conf</file>. 
 
 <p>Filter gets the route, looks at its attributes and
 modifies some of them if it wishes. At the end, it decides whether to
-pass the changed route through (using <cf/accept/) or whether to <cf/reject/ given route. A simple filter looks
+pass the changed route through (using <cf/accept/) or whether to <cf/reject/ it. A simple filter looks
 like this:
 
 <code>
@@ -420,14 +419,14 @@ int var;
 </code>
 
 <p>As you can see, a filter has a header, a list of local variables, and a body. The header consists of
-the <cf/filter/ keyword, followed by a (unique) name of filter. List of local variables consists of
-pairs <cf><M>type name</M>;</cf>, where each pair defines one local variable. Body consists of
-<cf> { <M>statements</M> }</cf>. Each <m/statement/ is terminated by <cf/;/. You can group
-several statements into one by using braces (<cf>{ <M>statements</M> }</cf>), that is useful if
-you want to make bigger block of code conditional.
+the <cf/filter/ keyword followed by a (unique) name of filter. The list of local variables consists of
+<cf><M>type name</M>;</cf> pairs where each pair defines one local variable. The body consists of
+<cf> { <M>statements</M> }</cf>. Each <m/statement/ is terminated by a <cf/;/. You can group
+several statements to a single compound statement by using braces (<cf>{ <M>statements</M> }</cf>) which is useful if
+you want to make a bigger block of code conditional.
 
-<p>BIRD supports functions, so that you don't have to repeat same blocks of code over and
-over. Functions can have zero or more parameters and they can have local variables. Recursion is not allowed. They
+<p>BIRD supports functions, so that you don't have to repeat the same blocks of code over and
+over. Functions can have zero or more parameters and they can have local variables. Recursion is not allowed. Function definitions
 look like this:
 
 <code>
@@ -443,15 +442,15 @@ function with_parameters (int parameter)
 }
 </code>
 
-<p>Unlike in C, variables are declared after function line but before the first {. You can't declare
+<p>Unlike in C, variables are declared after the <cf/function/ line, but before the first <cf/{/. You can't declare
 variables in nested blocks. Functions are called like in C: <cf>name();
-with_parameters(5);</cf>. Function may return value using the <cf>return <m/[expr]/</cf>
+with_parameters(5);</cf>. Function may return values using the <cf>return <m/[expr]/</cf>
 command. Returning a value exits from current function (this is similar to C).
 
 <p>Filters are declared in a way similar to functions except they can't have explicit
-parameters. They get route table entry as an implicit parameter, it is also passed automatically 
+parameters. They get a route table entry as an implicit parameter, it is also passed automatically 
 to any functions called. The filter must terminate with either
-<cf/accept/ or <cf/reject/ statement. If there's runtime error in filter, the route
+<cf/accept/ or <cf/reject/ statement. If there's a runtime error in filter, the route
 is rejected. 
 
 <p>A nice trick to debug filters is to use <cf>show route filter
@@ -466,7 +465,7 @@ bird> show route
 195.113.30.2/32    dev tunl1 [direct1 23:21] (240)
 127.0.0.0/8        dev lo [direct1 23:21] (240)
 bird> show route ?
-show route [<prefix>] [table <t>] [filter <f>] [all] [primary] [(import|protocol) <p>]...
+show route [<prefix>] [table <t>] [filter <f>] [all] [primary]...
 bird> show route filter { if 127.0.0.5 ~ net then accept; }
 127.0.0.0/8        dev lo [direct1 23:21] (240)
 bird>
@@ -479,7 +478,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 
 <descrip>
 	<tag/bool/ This is a boolean type, it can have only two values, <cf/true/ and
-	  <cf/false/. Boolean is not compatible with integer and is the only type you can use in if
+	  <cf/false/. Boolean is the only type you can use in <cf/if/
 	  statements.
 
 	<tag/int/ This is a general integer type, you can expect it to store signed values from -2000000000
@@ -495,15 +494,15 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 
 	<tag/ip/ This type can hold a single IP address. Depending on the compile-time configuration of BIRD you are using, it
 	  is either an IPv4 or IPv6 address. IP addresses are written in the standard notation (<cf/10.20.30.40/ or <cf/fec0:3:4::1/). You can apply special operator <cf>.mask(<M>num</M>)</cf>
-	  on values of type ip. It masks out all but first <cf><M>num</M></cf> bits from ip
+	  on values of type ip. It masks out all but first <cf><M>num</M></cf> bits from the IP
 	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true.
 
 	<tag/prefix/ This type can hold a network prefix consisting of IP address and prefix length. Prefix literals are written as
 	  <cf><M>ipaddress</M>/<M>pxlen</M></cf>, or
-	  <cf><m>ipaddress</m>/<m>netmask</m></cf> There are two special
-	  operators on prefix:
-	  <cf/.ip/, which separates ip address from the pair, and <cf/.len/, which separates prefix
-	  len from the pair. So <cf>1.2.0.0/16.pxlen = 16</cf> is true.
+	  <cf><m>ipaddress</m>/<m>netmask</m></cf>. There are two special
+	  operators on prefixes:
+	  <cf/.ip/ which extracts the IP address from the pair, and <cf/.len/, which separates prefix
+	  length from the pair. So <cf>1.2.0.0/16.pxlen = 16</cf> is true.
 
 	<tag/int|ip|prefix|pair|enum set/
 	  Filters recognize four types of sets. Sets are similar to strings: you can pass them around
@@ -511,14 +510,14 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
 	  sets. Sets of prefixes are special: you can specify which prefix lengths should match them by
 	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. <cf>3.0.0.0/8{5,6}</cf> matches
-	  prefixes <cf/3.X.X.X/, whose prefix length is 5 to 6. <cf><m>address</m>/<m>num</m>+</cf> is shorthand for <cf><m>address</m>/{0,<m/num/}</cf>,
-	  <cf><m>address</m>/<m/num/-</cf> is shorthand for <cf><m>address</m>/{0,<m/num-1/}</cf>. For example,
-	  <cf>1.2.0.0/16 ~ [ 1.0.0.0/8{ 15 , 17 } ]</cf> is true, but
-	  <cf>1.0.0.0/8 ~ [ 1.0.0.0/8- ]</cf> is false.
+	  prefixes <cf/3.X.X.X/ whose prefix length is 5 to 6. <cf><m>address</m>/<m>num</m>+</cf> is a shorthand for <cf><m>address</m>/{0,<m/num/}</cf>,
+	  <cf><m>address</m>/<m/num/-</cf> is a shorthand for <cf><m>address</m>/{0,<m/num-1/}</cf>. For example,
+	  <cf>1.2.0.0/16 &tilde; [ 1.0.0.0/8{ 15 , 17 } ]</cf> is true, but
+	  <cf>1.0.0.0/8 &tilde; [ 1.0.0.0/8- ]</cf> is false.
 
 	<tag/enum/
 	  Enumeration types are fixed in BIRD -- you can't define your own
-	  variables of enumeration type, but some route attributes are of enumeration
+	  variables of such type, but some route attributes are of enumeration
 	  type. Enumeration types are incompatible with each other.
 
 	<tag/bgppath/
@@ -542,29 +541,27 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 
 <sect>Operators
 
-<!-- Sorry, birddoc does not support tables. -->
-
 <p>The filter language supports common integer operators <cf>(+,-,*,/)</cf>, parentheses <cf/(a*(b+c))/, comparison
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/). 
-Special operators include <cf/&tilde;/ for "in" operation. In operation can be
-used on element and set of that elements (returning true if element is within given set), or on IP and prefix (returning true if IP is within range defined by that prefix), or on
-prefix and prefix (returning true if first prefix is more specific than second) or on bgppath and bgpmask (returning true if path matches given path mask) or on pair and clist (returning true if given community is element of community list).
+Special operators include <cf/&tilde;/ for "is element of a set" operation - it can be
+used on element and set of elements of the same type (returning true if element is contained in the given set), or on IP and prefix (returning true if IP is within the range defined by that prefix), or on
+prefix and prefix (returning true if first prefix is more specific than second one) or on bgppath and bgpmask (returning true if the path matches the mask) or on pair and clist (returning true if the community is element of the community list).
 
 
 <sect>Control structures
 
 <p>Filters support two control structures: conditions and case switches. 
 
-<p>Syntax of condition is <cf>if
+<p>Syntax of a condition is: <cf>if
 <M>boolean expression</M> then <M>command1</M>; else <M>command2</M>;</cf> and you can use <cf>{
-<M>command_1</M>; <M>command_2</M>; <M>...</M> }</cf> instead of one or both commands. <cf>else</cf>
-clause may be omitted. If <cf><m>boolean expression</m></cf> is true, <cf><m>command1</m></cf> is executed, otherwise <cf><m>command2</m></cf> is executed.
+<M>command_1</M>; <M>command_2</M>; <M>...</M> }</cf> instead of either command. The <cf>else</cf>
+clause may be omitted. If the <cf><m>boolean expression</m></cf> is true, <cf><m>command1</m></cf> is executed, otherwise <cf><m>command2</m></cf> is executed.
 
-<p><cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else |
-<m/num_or_prefix [ .. num_or_prefix]/: <m/statement/ ; [ ... ] }</cf>. Expression after
-<cf>case</cf> can be of any type that can be on the left side of the &tilde; operator, and anything that could
-be a member of a set is allowed before <cf/:/. Multiple commands are allowed without <cf/{}/ grouping
-and break is implicit before each case. If <cf><m/expr/</cf> matches one of <cf/:/ clauses, statements between it and next <cf/:/ statement are executed. If <cf><m/expr/</cf> matches neither of <cf/:/ clauses, <cf/else:/ statements after <cf/else:/ are executed.
+<p>The <cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else |
+<m/num_or_prefix [ .. num_or_prefix]/: <m/statement/ ; [ ... ] }</cf>. The expression after
+<cf>case</cf> can be of any type which can be on the left side of the &tilde; operator and anything that could
+be a member of a set is allowed before <cf/:/. Multiple commands are allowed without <cf/{}/ grouping.
+If <cf><m/expr/</cf> matches one of the <cf/:/ clauses, statements between it and next <cf/:/ statement are executed. If <cf><m/expr/</cf> matches neither of the <cf/:/ clauses, the statements after <cf/else:/ are executed.
 
 <p>Here is example that uses <cf/if/ and <cf/case/ structures:
 
@@ -583,20 +580,20 @@ if 1234 = i then printn "."; else {
 
 <sect>Route attributes
 
-<p>An filter is implicitly passed route, and it can access its
-attributes just like it accesses variables. Attempt to access undefined
+<p>A filter is implicitly passed a route, and it can access its
+attributes just like it accesses variables. Attempts to access undefined
 attribute result in a runtime error; you can check if an attribute is
-defined using the <cf>defined( <m>attribute</m> )</cf> operator.
+defined by using the <cf>defined( <m>attribute</m> )</cf> operator.
 
 <descrip>
 	<tag><m/prefix/ net</tag>
-	Network the route is talking about. Read-only. (See the section about routing tables.)
+	Network the route is talking about. Read-only. (See the chapter about routing tables.)
 
 	<tag><m/enum/ scope</tag>
 	Address scope of the network (<cf/SCOPE_HOST/ for addresses local to this host, <cf/SCOPE_LINK/ for those specific for a physical link, <cf/SCOPE_SITE/ and <cf/SCOPE_ORGANIZATION/ for private addresses, <cf/SCOPE_UNIVERSE/ for globally visible addresses).
 
 	<tag><m/int/ preference</tag>
-	Preference of the route. (See section about routing tables.)
+	Preference of the route. (See the chapter about routing tables.)
 
 	<tag><m/ip/ from</tag>
 	The router which the route has originated from. Read-only.
@@ -614,9 +611,9 @@ defined using the <cf>defined( <m>attribute</m> )</cf> operator.
 	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_NETWORK/ for routing to a directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silently discarded, <cf/RTD_UNREACHABLE/, <cf/RTD_PROHIBIT/ for packets that should be returned with ICMP host unreachable / ICMP administratively prohibited messages). Read-only.
 </descrip>
 
-<p>There also exist some protocol-specific attributes, which are described in protocol sections.
+<p>There also exist some protocol-specific attributes which are described in the corresponding protocol sections.
 
-<sect>Statements
+<sect>Other statements
 
 <p>The following statements are available:
 
@@ -625,14 +622,14 @@ defined using the <cf>defined( <m>attribute</m> )</cf> operator.
 
 	<tag>accept|reject [ <m/expr/ ]</tag> Accept or reject the route, possibly printing <cf><m>expr</m></cf>.
 
-	<tag>return <m/expr/</tag> Return <cf><m>expr</m></cf> from function, the function ends at this point.
+	<tag>return <m/expr/</tag> Return <cf><m>expr</m></cf> from the current function, the function ends at this point.
 
 	<tag>print|printn <m/expr/ [<m/, expr.../]</tag>
 	Prints given expressions; useful mainly while debugging
 	filters. The <cf/printn/ variant does not terminate the line.
 
 	<tag>quitbird</tag>
-	Terminates BIRD. Useful when debugging filter interpreter.
+	Terminates BIRD. Useful when debugging the filter interpreter.
 </descrip>
 
 <chapt>Protocols
@@ -971,7 +968,7 @@ protocol kernel {		# Secondary routing table
 
 <p>Open Shortest Path First (OSPF) is a quite complex interior gateway
 protocol. The current IPv4 version (OSPFv2) is defined in RFC 2328<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2328.txt">. It's a link
-state (a.k.a. shortest path first) protocol -- Each router maintains a database
+state (a.k.a. shortest path first) protocol -- each router maintains a database
 describing the autonomous system's topology. Each participating router
 has an identical copy of the database and all routers run the same algorithm
 calculating a shortest path tree with themselves as a root.
@@ -981,19 +978,19 @@ OSPF chooses the least cost path as the best path.
 to reduce the amount of resources consumed for exchanging the routing
 information and to protect the other areas from incorrect routing data.
 Topology of the area is hidden to the rest of the autonomous system.
-Unfortunately multiple OSPF areas are not yet fully supported
+Unfortunately, multiple OSPF areas are not yet fully supported
 by this version of BIRD and neither is the IPv6 version (OSPFv3).
 
 <p>Another very important feature of OSPF is that
 it can keep routing information from other protocols (like Static or BGP)
 in its link state database as external routes. Each external route can
-be tagged by the advertising router, making possible to pass additional
+be tagged by the advertising router, making it possible to pass additional
 information between routers on the boundary of the autonomous system.
 
 <p>OSPF quickly detects topological changes in the autonomous system (such
-as router interface failures) and calculates new loop-free routes after a
-period of convergence. This period is short and involves only minimal
-routing traffic.
+as router interface failures) and calculates new loop-free routes after a short
+period of convergence. Only a minimal ammount of 
+routing traffic is involved.
 
 <p>Each router participating in OSPF routing periodically sends Hello messages
 to all its interfaces. This allows neighbors to be discovered dynamically.
@@ -1011,9 +1008,9 @@ on nonbroadcast networks.
 
 <code>
 protocol ospf &lt;name&gt; {
-	rfc1583compat &lt;bool&gt;;
+	rfc1583compat &lt;switch&gt;;
 	area &lt;id&gt; {
-		stub &lt;bool&gt;;
+		stub &lt;switch&gt;;
 		tick &lt;num&gt;;
 		interface &lt;interface pattern&gt;
 		{
@@ -1035,7 +1032,7 @@ protocol ospf &lt;name&gt; {
 </code>
 
 <descrip>
-	<tag>rfc1583compat <M>bool</M></tag>
+	<tag>rfc1583compat <M>switch</M></tag>
 	 This option controls compatibility of routing table
 	 calculation with RFC 1583<htmlurl
 	 url="ftp://ftp.rfc-editor.org/in-notes/rfc1583.txt">. Default
@@ -1047,7 +1044,7 @@ protocol ospf &lt;name&gt; {
 	 The most important area is
 	 the backbone (ID 0) to which every other area must be connected.
 
-	<tag>stub <M>bool</M></tag>
+	<tag>stub <M>switch</M></tag>
 	 No external routes are flooded into stub areas. Default value is no.
 
 	<tag>tick <M>num</M></tag>

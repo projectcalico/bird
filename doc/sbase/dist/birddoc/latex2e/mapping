@@ -1,7 +1,8 @@
 
 % birddoc to LaTeX replacement file
 
-<book>		+ "\\documentclass\[a4paper,10pt,openany\]{book}\n"
+% The \relax is there to avoid sgml2latex rewriting the class
+<book>		+ "\\relax\\documentclass\[a4paper,10pt,openany\]{book}\n"
 			"\\usepackage{birddoc}\n"
 			"\\usepackage{qwertz}\n"
 			"\\usepackage{url}\n"
