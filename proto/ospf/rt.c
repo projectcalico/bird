@@ -16,7 +16,7 @@ void
 ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 {
   struct top_hash_entry *en, *nx;
-  slab *sl;
+  slab *sl, *sll;
   struct spf_n *cn;
   u32 i,*rts;
   struct ospf_lsa_rt *rt;
@@ -37,6 +37,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
   oa->trcap=0;
 
   sl=sl_new(p->pool,sizeof(struct spf_n));
+  sll=sl_new(p->pool,sizeof(list));
 
   cn=sl_alloc(sl);
   cn->en=oa->rt;
@@ -81,7 +82,7 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 	      log("Unknown link type in router lsa.\n");
 	      break;
 	  }
-	  add_cand(&oa->cand,tmp,act->dist+rtl->metric,sl);
+	  add_cand(&oa->cand,tmp,act,act->dist+rtl->metric,sl,sll);
 	}
         break;
       case LSA_T_NET:
@@ -91,10 +92,11 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 	  sizeof(struct ospf_lsa_net))/sizeof(u32);i++)
 	{
 	  tmp=ospf_hash_find(oa->gr, *rts, *rts, LSA_T_RT);
-          add_cand(&oa->cand,tmp,act->dist,sl);
+          add_cand(&oa->cand,tmp,act,act->dist,sl,sll);
 	}
         break;
     }
+    /* FIXME Now modify rt for this entry */
   }
 
   /* Now calculate routes to stub networks */
@@ -128,7 +130,8 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 }
 
 void
-add_cand(list *l, struct top_hash_entry *en, u16 dist, slab *s)
+add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par, 
+  u16 dist, slab *s, slab *sll)
 {
   struct spf_n *tmp;
   node *prev;
@@ -143,12 +146,11 @@ add_cand(list *l, struct top_hash_entry *en, u16 dist, slab *s)
   
   if(dist==en->dist)
   {
-    //Add Next hop
-    //And add it to routing table (Multiple path?)
+    en->nh=multi_next_hop(par,en,s,sll);
   }
   else
   {
-    /* Clear next hop */
+    en->nh=calc_next_hop(par,s,sll);
 
     if(en->color==CANDIDATE)
     {
@@ -185,6 +187,54 @@ add_cand(list *l, struct top_hash_entry *en, u16 dist, slab *s)
       }
     }
     /* FIXME Some VLINK staff should be here */
-    /* Routing table add?*/
   }
 }
+
+list *
+calc_next_hop(struct top_hash_entry *par, slab *sl, slab *sll)
+{
+  struct spf_n *nh;
+  list *l;
+
+  if(par->nh==NULL)
+  {
+    if(par->lsa.type!=LSA_T_RT) return NULL;
+    l=sl_alloc(sll);
+    init_list(l);
+    nh=sl_alloc(sl);
+    nh->en=par;
+    add_head(l, NODE nh);
+    return l;
+  }
+  return par->nh;
+}
+
+list *
+multi_next_hop(struct top_hash_entry *par, struct top_hash_entry *en, slab *sl,
+ slab *sll)
+{
+  struct spf_n *n1,*n2;
+  list *l1,*l2;
+
+  l1=calc_next_hop(par,sl,sll);
+  if(l1==NULL) return en->nh;
+  if(en->nh==NULL) return l1;
+
+  l2=sl_alloc(sll);
+  init_list(l2);
+  WALK_LIST(n1, *l1)
+  {
+    n2=sl_alloc(sl);
+    memcpy(n2,n1,sizeof(struct spf_n));
+    add_tail(l2,NODE n2);
+  }
+
+  WALK_LIST(n1, *en->nh)
+  {
+    n2=sl_alloc(sl);
+    memcpy(n2,n1,sizeof(struct spf_n));
+    add_tail(l2,NODE n2);
+  }
+  return l2;
+}
+
