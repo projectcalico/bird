@@ -79,6 +79,7 @@
 # '&struct_name' - name of a structure
 # '@parameter' - name of a parameter
 # '%CONST' - name of a constant.
+# '|code|' - literal string
 
 # match expressions used to find embedded type information
 $type_constant = "\\\%(\\w+)";
@@ -86,6 +87,7 @@ $type_func = "(\\w+\\(\\))";
 $type_param = "\\\@(\\w+)";
 $type_struct = "\\\\\\\\\\\\amp;(\\w+)";
 $type_env = "(\\\$\\w+)";
+$type_code = "\\|(.*)\\|";
 
 
 # Output conversion substitutions.
@@ -118,7 +120,8 @@ $blankline_gnome = "</para><para>\n";
 %highlights_bird = ( $type_constant, "<const/\$1/",
 		     $type_func, "<func/\$1/",
 		     $type_struct, "<struct/\$1/",
-		     $type_param, "<param/\$1/" );
+		     $type_param, "<param/\$1/",
+		     $type_code, "<tt>\$1</tt>");
 $blankline_bird = "<p>";
 
 # these are pretty rough
