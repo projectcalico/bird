@@ -29,7 +29,8 @@
  * adding and deleting them, there are also functions for originating
  * various types of LSA. (router lsa, net lsa, external lsa) |Rt.c|
  * contains routins for calculating of routing table. |Lsalib.c| is a set
- * of various functions for work with LSAs.
+ * of various functions for work with LSAs. (Endianity transformations,
+ * checksum calculation etc.)
  *
  * Just one instance of protocol is able to hold LSA databases for
  * multiple OSPF areas and exhange routing information between
@@ -38,7 +39,10 @@
  * &ospf_iface are connected. To &ospf_area is connected
  * &top_hash_graph, which is a dynamic hashing structure that
  * describes link-state database. It allows fast search, adding
- * and deleting. Every area has it's own area_disp() that is
+ * and deleting. LSA is kept in two pieces: header and body. Both of them are
+ * kept in endianity of CPU.
+ * 
+ * Every area has it's own area_disp() that is
  * responsible for late originating of router LSA, calcutating
  * of routing table and it also ages and flushes LSA database. This
  * function is called in regular intervals.
