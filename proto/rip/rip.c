@@ -455,6 +455,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
 
   want_multicast = 0 && (flags & IF_MULTICAST);
   /* FIXME: should have config option to disable this one */
+  /* FIXME: lookup multicasts over unnumbered links */
 
   rif->sock = sk_new( p->pool );
   rif->sock->type = want_multicast?SK_UDP_MC:SK_UDP;

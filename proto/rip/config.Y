@@ -8,8 +8,12 @@
 To add:
 
 passive option (== do not send routing updates to this interface)
+version1 switch
+multicast off option for interface
 
+interface mode broadcast/multicast/quiet
 
+*/
 
 
 CF_HDR
@@ -18,13 +22,15 @@ CF_HDR
 #include "nest/iface.h"
 
 void rip_dev_add_iface(char *);
-struct iface_patt *rip_get_iface(void);
+struct rip_patt *rip_get_iface(void);
 
 #define THIS_PROTO ((struct rip_proto *) this_proto)
 
 CF_DECLS
 
-CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME)
+CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, MODE, MULTICAST, BROADCAST, QUIET, DEFAULT)
+
+%type <i> rip_mode
 
 CF_GRAMMAR
 
@@ -46,10 +52,22 @@ rip_proto:
  | rip_proto rip_iface_list ';'
  ;
 
+
+rip_mode: 
+    MULTICAST { $$=IM_MULTICAST; }
+  | BROADCAST { $$=IM_BROADCAST; }
+  | QUIET     { $$=IM_QUIET; }
+  | DEFAULT   { $$=IM_DEFAULT; }
+ ;
+
 rip_iface_item:
  | METRIC expr { 
-   struct iface_patt *k = rip_get_iface();
-   k->u.rip.metric = $2;
+   struct rip_patt *k = rip_get_iface();
+   k->metric = $2;
+ }
+ | MODE rip_mode {
+   struct rip_patt *k = rip_get_iface();
+   k->mode = $2;
  }
  ;
 
@@ -70,16 +88,16 @@ CF_CODE
 void
 rip_dev_add_iface(char *n)
 {
-  struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
+  struct rip_patt *k = cfg_alloc(sizeof(struct rip_patt));
 
-  k->pattern = cfg_strdup(n);
-  add_tail(&THIS_PROTO->iface_list, &k->n);
+  k->i.pattern = cfg_strdup(n);
+  add_tail(&THIS_PROTO->iface_list, &k->i.n);
 }
 
-struct iface_patt *
+struct rip_patt *
 rip_get_iface(void)
 {
-  struct iface_patt *k = TAIL(THIS_PROTO->iface_list);
+  struct rip_patt *k = TAIL(THIS_PROTO->iface_list);
   if (!k)
     cf_error( "This cannot happen" );
   return k;

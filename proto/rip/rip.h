@@ -65,8 +65,21 @@ struct rip_interface {
   struct iface *iface;
   sock *sock;
   struct rip_connection *busy;
+  
 
   int metric;		/* User configurable data */
+  int mode;
+#define IM_DEFAULT 0
+#define IM_QUIET 1
+#define IM_MULTICAST 2
+#define IM_BROADCAST 3
+};
+
+struct rip_patt {
+  struct iface_patt i;
+
+  int metric;
+  int mode;
 };
 
 struct rip_proto {
