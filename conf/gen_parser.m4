@@ -37,7 +37,6 @@ m4_define(CF_KEYWORDS, `m4_define([[CF_toks]],[[]])CF_iterate([[CF_keywd]], [[$@
 m4_define(CF_dyn_rules,)
 m4_define(CF_ADDTO, `m4_define([[CF_rule_$1]],m4_ifdef([[CF_rule_$1]],CF_rule_$1 | ,[[m4_define([[CF_dyn_rules]],CF_dyn_rules[[CF_RULE($1)
 ]])]])$2)DNL')
-m4_define(CF_RULE, `$1: CF_rule_$1')
 
 # After all configuration templates end, we finally generate the grammar file.
 m4_m4wrap(`
@@ -53,6 +52,7 @@ m4_undivert(3)DNL
 
 /* Dynamic rules */
 
+m4_define(CF_RULE, [[$1: CF_rule_$1 ;]])
 CF_dyn_rules
 %%
 m4_undivert(4)DNL
