@@ -11,44 +11,46 @@
 char *ospf_is[]={ "down", "loop", "waiting", "point-to-point", "drother",
   "backup", "dr" };
 
-
 void
 iface_chstate(struct ospf_iface *ifa, u8 state)
 {
   struct proto *p;
 
-  p=(struct proto *)(ifa->proto);
-  debug("%s: Changing state of iface: %s from \"%s\" into \"%s\".\n",
-    p->name, ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
-  ifa->state=state;
-  if(ifa->iface->flags & IF_MULTICAST)
+  if(ifa->state!=state)
   {
-    if((state==OSPF_IS_BACKUP)||(state==OSPF_IS_DR))
+    p=(struct proto *)(ifa->proto);
+    debug("%s: Changing state of iface: %s from \"%s\" into \"%s\".\n",
+      p->name, ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
+    ifa->state=state;
+    if(ifa->iface->flags & IF_MULTICAST)
     {
-      if(ifa->dr_sk==NULL)
+      if((state==OSPF_IS_BACKUP)||(state==OSPF_IS_DR))
       {
-        ifa->dr_sk=sk_new(p->pool);
-	ifa->dr_sk->type=SK_IP_MC;
-	ifa->dr_sk->saddr=AllDRouters;
-	ifa->dr_sk->daddr=AllDRouters;
-	ifa->dr_sk->tos=IP_PREC_INTERNET_CONTROL;
-	ifa->dr_sk->ttl=1;
-	ifa->dr_sk->rx_hook=ospf_rx_hook;
-	ifa->dr_sk->tx_hook=ospf_tx_hook;
-	ifa->dr_sk->err_hook=ospf_err_hook;
-	ifa->dr_sk->iface=ifa->iface;
-	ifa->dr_sk->rbsize=ifa->iface->mtu;
-	ifa->dr_sk->tbsize=ifa->iface->mtu;
-	ifa->dr_sk->data=(void *)ifa;
-	sk_open(ifa->dr_sk);
+        if(ifa->dr_sk==NULL)
+        {
+          ifa->dr_sk=sk_new(p->pool);
+              ifa->dr_sk->type=SK_IP_MC;
+              ifa->dr_sk->saddr=AllDRouters;
+              ifa->dr_sk->daddr=AllDRouters;
+              ifa->dr_sk->tos=IP_PREC_INTERNET_CONTROL;
+              ifa->dr_sk->ttl=1;
+              ifa->dr_sk->rx_hook=ospf_rx_hook;
+              ifa->dr_sk->tx_hook=ospf_tx_hook;
+              ifa->dr_sk->err_hook=ospf_err_hook;
+              ifa->dr_sk->iface=ifa->iface;
+              ifa->dr_sk->rbsize=ifa->iface->mtu;
+              ifa->dr_sk->tbsize=ifa->iface->mtu;
+              ifa->dr_sk->data=(void *)ifa;
+              sk_open(ifa->dr_sk);
+        }
       }
-    }
-    else
-    {
-      if(ifa->dr_sk!=NULL)
+      else
       {
-        sk_close(ifa->dr_sk);
-	rfree(ifa->dr_sk);
+        if(ifa->dr_sk!=NULL)
+        {
+          sk_close(ifa->dr_sk);
+              rfree(ifa->dr_sk);
+        }
       }
     }
   }
