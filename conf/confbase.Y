@@ -14,6 +14,7 @@ CF_HDR
 #include "lib/socket.h"
 #include "lib/timer.h"
 #include "nest/protocol.h"
+#include "nest/iface.h"
 
 CF_DECLS
 

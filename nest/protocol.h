@@ -75,7 +75,6 @@ struct proto {
   void (*rte_remove)(struct network *, struct rte *);
 
   /* Reconfigure function? */
-  /* Interface patterns */
   /* Input/output filters */
   /* Connection to routing tables? */
 
@@ -89,5 +88,11 @@ struct proto {
 void *proto_new(struct protocol *, unsigned size);
 
 extern list proto_list, inactive_proto_list;
+
+/*
+ *	Known unique protocol instances as referenced by config routines
+ */
+
+extern struct proto *cf_dev_proto;
 
 #endif

@@ -2,7 +2,6 @@ Core
 ~~~~
 * right usage of DBG vs. debug
 * cleanup debugging calls!
-- global "interface weed out list"
 
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
 

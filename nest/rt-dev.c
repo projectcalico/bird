@@ -14,11 +14,20 @@
 #include "nest/iface.h"
 #include "nest/protocol.h"
 #include "nest/route.h"
+#include "nest/rt-dev.h"
+#include "conf/conf.h"
 #include "lib/resource.h"
+
+struct proto *cf_dev_proto;
 
 static void
 dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 {
+  struct rt_dev_proto *P = (void *) p;
+
+  if (old && !iface_patt_match(&P->iface_list, old) ||
+      new && !iface_patt_match(&P->iface_list, new))
+    return;
   if (c & IF_CHANGE_DOWN)
     {
       net *n;
@@ -72,11 +81,17 @@ dev_init(struct protocol *p)
 static void
 dev_preconfig(struct protocol *x)
 {
-  struct proto *p = proto_new(&proto_device, sizeof(struct proto));
+  struct rt_dev_proto *P = proto_new(&proto_device, sizeof(struct rt_dev_proto));
+  struct proto *p = &P->p;
+  struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
 
+  cf_dev_proto = p;
   p->preference = DEF_PREF_DIRECT;
   p->start = dev_start;
   p->if_notify = dev_if_notify;
+  init_list(&P->iface_list);
+  k->pattern = "*";
+  add_tail(&P->iface_list, &k->n);
 }
 
 static void

@@ -10,9 +10,14 @@ CF_HDR
 
 static struct proto *this_proto;
 
+#include "nest/rt-dev.h"
+
+void rt_dev_add_iface(char *);
+
 CF_DECLS
 
-CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF)
+CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DEVICE)
+CF_KEYWORDS(INTERFACE)
 
 %type <i> idval
 
@@ -64,6 +69,40 @@ proto_item:
  | DEBUG OFF { this_proto->debug = 0; }
  ;
 
+/* Device protocol */
+
+CF_ADDTO(proto, dev_proto '}')
+
+dev_proto_start: proto_start DEVICE {
+     if (!(this_proto = cf_dev_proto)) cf_error("Device protocol already defined");
+     cf_dev_proto = NULL;
+   }
+ ;
+
+dev_proto:
+   dev_proto_start '{'
+ | dev_proto proto_item ';'
+ | dev_proto dev_iface_list ';'
+ ;
+
+dev_iface_list:
+   INTERFACE TEXT {
+     init_list(&((struct rt_dev_proto *) this_proto)->iface_list);
+     rt_dev_add_iface($2);
+   }
+ | dev_iface_list ',' TEXT { rt_dev_add_iface($3); }
+ ;
+
 CF_CODE
+
+void
+rt_dev_add_iface(char *n)
+{
+  struct rt_dev_proto *p = (void *) this_proto;
+  struct iface_patt *k = cfg_alloc(sizeof(struct iface_patt));
+
+  k->pattern = cfg_strcpy(n);
+  add_tail(&p->iface_list, &k->n);
+}
 
 CF_END
