@@ -289,6 +289,11 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     if(lt->metric==LSINFINITY) continue;
     ip=ipa_and(ipa_from_u32(en->lsa.id),le->netmask);
     mlen=ipa_mklen(le->netmask);
+    if((mlen<0)||(mlen>32))
+    {
+      die("Invalid length of prefix! ID: %I, RT: %I, Type: %u, mask %I",
+        en->lsa.id,en->lsa.rt,en->lsa.type,le->netmask);
+    }
 
     nf=NULL;
 
@@ -304,21 +309,23 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
     met=0;met2=0;
 
+    WALK_LIST(atmp,po->area_list)
+    {
+      if((etmp=ospf_hash_find(atmp->gr,en->lsa.rt,en->lsa.rt,LSA_T_RT))!=NULL)
+      {
+        if((absr==NULL) || (absr->dist>etmp->dist) ||
+          ((etmp->dist==absr->dist) && (absroa->areaid<atmp->areaid)))
+        {
+          absr=etmp;
+          absroa=atmp;
+	  break;
+        }
+      }
+    }
+    if(absr==NULL) continue;
+
     if(1 || ipa_compare(lt->fwaddr,ipa_from_u32(0))==0)	/* FIXME add fwaddr */
     {
-      WALK_LIST(atmp,po->area_list)
-      {
-        if((etmp=ospf_hash_find(atmp->gr,en->lsa.rt,en->lsa.rt,LSA_T_RT))!=NULL)
-	{
-	  if((absr==NULL) || (absr->dist>etmp->dist) ||
-            ((etmp->dist==absr->dist) && (absroa->areaid<atmp->areaid)))
-	  {
-	    absr=etmp;
-	    absroa=atmp;
-	  }
-	}
-      }
-      if(absr==NULL) continue;
       if(lt->etos>0)
       {
         met=absr->dist;
@@ -330,6 +337,29 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 	met2=0;
       }
     }
+    else
+    {
+      nf=NULL;
+      WALK_LIST(atmp,po->area_list)
+      {
+        if((nf=fib_route(&atmp->infib,lt->fwaddr,32))!=NULL)
+	{
+	  break;
+	}
+      }
+      if(nf==NULL) continue;
+      if(lt->etos>0)
+      {
+        met=nf->metric;
+        met2=lt->metric;
+      }
+      else
+      {
+        met=nf->metric+lt->metric;
+	met2=0;
+      }
+    }
+
     nf=fib_get(ef,&ip, mlen);
     if((nf->metric>met) || ((nf->metric==met)&&(nf->metric2>met2)))
     {
