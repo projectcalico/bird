@@ -16,8 +16,6 @@
 #include "nest/route.h"
 #include "lib/resource.h"
 
-static struct proto *dev_proto;
-
 static void
 dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 {
@@ -32,7 +30,7 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 	  debug("dev_if_notify: device shutdown: prefix not found\n");
 	  return;
 	}
-      rte_update(n, dev_proto, NULL);
+      rte_update(n, p, NULL);
     }
   else if (c & IF_CHANGE_UP)
     {
@@ -42,7 +40,7 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 
       debug("dev_if_notify: %s going up\n", new->name);
       bzero(&A, sizeof(A));
-      A.proto = dev_proto;
+      A.proto = p;
       A.source = RTS_DEVICE;
       A.scope = (new->flags & IF_LOOPBACK) ? SCOPE_HOST : SCOPE_UNIVERSE;
       A.cast = RTC_UNICAST;
@@ -53,7 +51,7 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
       n = net_get(&master_table, 0, new->prefix, new->pxlen);
       e = rte_get_temp(a);
       e->pflags = 0;
-      rte_update(n, dev_proto, e);
+      rte_update(n, p, e);
     }
 }
 
@@ -72,7 +70,6 @@ dev_preconfig(struct protocol *x)
 {
   struct proto *p = proto_new(&proto_device, sizeof(struct proto));
 
-  dev_proto = p;
   p->preference = DEF_PREF_DIRECT;
   p->start = dev_start;
   p->if_notify = dev_if_notify;
