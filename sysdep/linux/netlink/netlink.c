@@ -374,9 +374,9 @@ nl_parse_addr(struct nlmsghdr *h)
     }
   else
     {
+#ifndef IPV6
       if (i->ifa_prefixlen == BITS_PER_IP_ADDRESS - 2)
 	ifa.opposite = ipa_opposite(ifa.ip);
-#ifndef IPV6
       if ((ifi->flags & IF_BROADCAST) && a[IFA_BROADCAST])
 	{
 	  memcpy(&ifa.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(ifa.brd));
