@@ -1,4 +1,4 @@
-		       BIRD Internet Routing Daemon 0.0.0
+		       BIRD Internet Routing Daemon 1.0.0
 
 		(c) 1998--2000  Martin Mares <mj@ucw.cz>
                 (c) 1998--2000  Pavel Machek <pavel@ucw.cz>
@@ -11,18 +11,14 @@ systems (but not necessarily limited to them) with full support of all modern
 routing protocols, easy to use configuration interface and powerful route
 filtering language.
 
-BIG FAT WARNING: This is still a development version which probably has lots
-of bugs and missing features (including documentation); see below for what is
-implemented and what still isn't.
+If you want to help us debugging, enhancing and porting BIRD or just lurk
+around to see what's going to develop from this strange creature, feel free
+to subscribe to the BIRD users mailing list (bird-users@bird.network.cz),
+send subscribes to majordomo at the same machine).  Bug reports, suggestions,
+feature requests (: and code :) are welcome.
 
-Welcome to our alpha test team!  If you want to help us debugging, enhancing
-and porting BIRD or just lurking around to see what's going to develop from
-this strange creature, feel free to subscribe to the BIRD users mailing
-list (bird-users@atrey.karlin.mff.cuni.cz, send subscribes to majordomo
-at the same machine).  Bug reports, suggestions, feature requests (: and
-code :) are welcome.
-
-You can download the latest version from ftp://atrey.karlin.mff.cuni.cz/pub/bird/.
+You can download the latest version from ftp://bird.network.cz/pub/bird/
+and look at the BIRD home page at http://bird.network.cz/.
 
 BIRD has been developed as a student project at the Faculty of Math
 and Physics, Charles University, Prague, Czech Republic under supervision
@@ -50,14 +46,17 @@ How to install BIRD:
 	make install
 	vi /usr/local/etc/bird.conf
 
+Online documentation is available as HTML files in the doc directory.
+You can also download a neatly formatted PostScript version as a separate
+archive (bird-doc-*.tar.gz).
+
 What do we support:
 
 	o  Both IPv4 and IPv6 (use --enable-ipv6 when configuring)
 	o  Multiple routing tables
 	o  BGP
 	o  RIP
-	o  Partial implementation of OSPF (IPv4 only; soon to be
-	   functional).
+	o  OSPF (IPv4 only)
 	o  Static routes
 	o  Inter-table protocol
 	o  Command-line interface (using the `birdc' client; to get
@@ -68,12 +67,6 @@ What do we support:
 	   will start using the new configuration, possibly restarting
 	   protocols affected by the configuration changes.
 	o  Powerful language for route filtering (see doc/bird.conf.example).
-
-Missing (see also the TODO file):
-
-	o  Rest of OSPF
-	o  Documentation (see the doc/ directory for a skeleton)
-
 
 Good Luck and enjoy the BIRD :)
 						The BIRD Team
