@@ -1,0 +1,314 @@
+<!doctype linuxdoc system>
+
+<!--
+	Bird documentation
+
+    This is bird documentation system. It looks like html, but it is _not_ html: nonstandard
+    extensions are in use in order to auto-generate nice tex source. Use TT tag to markup short
+    texts that should be rendered in fixed-space font, and further specify what kind of text this
+    is. Currently TT file and TT conf are being used. For multi-line texts, use PRE section, again
+    with option saying what kind of section this is. Use DL conf for definition of configuration
+    keywords.
+
+    (set-fill-column 100)
+
+    Copyright 1999,2000 Pavel Machek <pavel@ucw.cz>, distribute under GPL version 2 or later.
+
+ -->
+
+<article>
+
+<title>Bird
+<author>
+Pavel Machek <tt/pavel@ucw.cz/
+
+<date>2000
+<abstract>
+This document contains documentation for Basic Internet Routing Daemon
+</abstract>
+
+<!-- Table of contents -->
+<toc>
+
+<!-- Begin the document -->
+
+<sect>Introduction
+
+<sect1>What is bird
+
+<p><label id="intro">
+You may wonder what 'bird' means. It is acronym of 'Basic Internet Routing Daemon', and we think
+that's cool name. Its task is similar to what firmware of Cisco routers does, or what gated
+(<HTMLURL URL="fixme">) does. However, you can not run Cisco's firmware on "normal" computer
+and gated is really hard to configure and comes under wrong license. Bird is being developed on
+Charles University, Prague, and can be freely distributed under terms of GNU General Public
+License. Bird is designed to run on unix and unix-like systems, it is primarily developed on Linux.
+
+<sect1>About this documentation
+
+<p>This documentation can have 4 forms: extended html (this is master copy), html with stripped
+extensions, ascii text (generated from html) and dvi/postscript (generated from html using
+html2latex and latex). You should always edit master copy; if you do so be sure to read comment at
+beggining of file. If you want to view documentation, you can either launch your www browser at
+master copy (and hope that browser does not have incompatible extensions from our), or you can
+generate nice printed copy.
+
+<sect1>Configuration
+
+<p>Bird is configured using text configuration file. At startup, bird reads <file/bird.conf/
+(unless -c command line parameter is given). Really simple configuration file might look like this:
+
+<cf>
+
+protocol kernel {
+	persist;		# Don't remove routes on bird shutdown
+	scan time 20;		# Scan kernel routing table every 20 seconds
+	export all;		# Default is export none
+}
+
+protocol device {
+	scan time 10;		# Scan interfaces every 10 seconds
+}
+
+protocol rip {
+	export all;
+	import all;
+}
+</cf>
+
+<p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
+
+<sect>Filters
+
+<sect1>Introduction
+
+<p>Bird contains rather simple programming language. (No, it can not yet read mail :-). There are
+two objects in this language: filters and functions. Filters are called by bird core when route is
+being passed between protocol and main routing table, and filters may call functions. Functions may
+call other functions but recursion is not allowed. Filter language contains control structures such
+as if's and switches, but it allows no loops. Filters are
+interpretted. Filter using many features can be found in <file>filter/test.conf</file>. 
+
+<p>There's one strange thing with filter language: it does not permit you to create loops. There's
+no equivalent of while() or for() command, and recursive functions are not permitted.
+
+<p pgm>You can find sources of filters language in
+<file>filter/</file> directory. <file>filter/config.Y</file> contains
+filter gramar, and basically translates source from user into tree of
+<TT c>f_inst</cf> structures. These trees are later interpreted using
+code in <file>filter/filter.c</file>. Filters internally work with
+values/variables in <TT c>struct f_val</cf>, which contains type of
+value and value.
+
+<p>Filter basically looks like this:
+
+<cf>
+filter not_too_far
+int var;
+{
+	if defined( rip_metric ) then
+		var = rip_metric;
+	else {
+		var = 1;
+		rip_metric = 1;
+	}
+	if rip_metric &gt; 10 then
+		reject "RIP metric is too big";
+	else
+		accept "ok";
+}
+</cf>
+
+<p>As you can see, filter has a header, list of local variables, and body. Header consists of <cf/filter/ keyword, followed by (unique) name of filter. List of local variables consists of
+pairs <cf><I>type name</I>;</cf>, where each pair defines one local variable. Body consists of
+<cf> { <I>statments</I> }</cf>. Statements are terminated by <cf/;/. You can group
+several statments into one by <cf>{ <I>statments</I> }</cf> construction, that is usefull if
+you want to make bigger block of code conditional.
+
+<sect1>Data types
+
+<p>Each variable and each value has certain type. Unlike C, filters distinguish between integers and
+booleans (that is to prevent you from shooting in the foot).
+
+<descrip>
+	<tag/bool/ this is boolean type, it can have only two values,
+	  <cf/TRUE/ and <cf/FALSE/. Boolean is not compatible with
+	  integer and is the only type you can use in if statments.
+
+	<tag/int/ this is common integer, you can expect it to store
+	  signed values from -2000000000 to +2000000000.
+
+	<tag/pair/ this is pair of two short integers. Each component
+	  can have values from 0 to 65535. Constant of this type is
+	  written as <cf/(1234,5678)/.
+
+	<tag/string/ this is string of characters. There are no ways to modify strings in filters. You can
+	  pass them between functions, assign to variable of type string, print such variables, but
+	  you can not concatenate two strings (for example). String constants are written as <cf/
+	  "This is string constant".
+
+	<tag/ip/ this type can hold single ip address. Depending on version of bird you are using, it
+	  can be ipv4 or ipv6 address. Ipv4 addresses addresses are written (as you would expect) as
+	  <cf/1.2.3.4/. You can apply special operator <cf>.mask(<I>num</I>)</cf>
+	  on values of type ip. It masks out all but first <cf><I>num</I></cf> bits from ip
+	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true.
+
+	<tag/prefix/ this type can hold ip address, prefix len
+	  pair. Prefixes are written as <cf><I>ip address</I>/<I>px
+	  len</I></cf>. There are two special operators on prefix:
+	  <cf/.ip/, which separates ip address from the pair, and
+	  <cf/.len/, which separates prefix len from the pair.
+
+	<tag/set int|ip|prefix|pair/
+	  filters know four types of sets. Sets are similar to strings: you can pass them around
+	  but you can not modify them. Constant of type <TT filt>set int</cf> looks like <TT filt>
+	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
+	  sets. Sets of prefixes are special: you can specify which prefixes should match them by
+	  using <TT filt>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. 3.0.0.0/8{5,6} matches
+	  prefixes 3.X.X.X, whose prefixlength is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
+	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}.
+
+	<tag/enum/
+	  enumerational types are halfway-internal in the bird. You can not define your own
+	  variable of enumerational type, but some pre-defined variables are of enumerational
+	  type. Enumerational types are incompatible with each other, again, its for your
+	  protection.
+</descrip>
+
+<sect1>Operations
+
+<p>Filter language supports common integer operations (+,-,*,/), parenthesis (a*(b+c)), comparation
+(a=b, a!=b, a&lt;b, a&gt;=b). Special operators include ~ for "in" operation. In operation can be
+used on element and set of that elements, or on ip and prefix, or on prefix and prefix. Its result
+is true if element is in given set or if ip adress is inside given prefix.
+
+<sect1>Functions
+
+<p>Bird supports functions, so that you don't have to repeat same blocks of code over and
+over. Functions can have zero or more parameters, and can have local variables. Function basically
+looks like this:
+
+<cf>
+function name ()
+int local_variable;
+{
+	local_variable = 5;
+}
+
+function with_parameters (int parameter)
+{
+	print parameter;
+}
+</cf>
+
+<p>Unlike C, variables are declared after function line but before first {. You can not declare
+variables in nested blocks. Functions are called like in C: <cf>name(); with_parameters(5);</cf>.
+
+<p>Filters are declared in similar way to functions, except they can not have explicit
+parameters. They get route table entry as implicit parameter.
+
+<sect1>Control structures
+
+<p>Filters support two control structures: if/then/else and
+case. Syntax of if/then/else is <cf>if <I>expression</I> then
+<I>command</I>; else <I>command</I>;<TT> and you can use <cf>{
+<I>command_1</I>; <I>command_2</I>; <I>...</I> }</cf> instead of one
+or both commands. <cf>else</cf> clause may be ommited. Case is
+used like this:
+
+<cf>
+        case <I>argument</I> {
+        2: print "dva"; print "jeste jednou dva";
+        3 .. 5: print "tri az pet";
+        else: print "neco jineho";
+        }
+</cf>
+
+where <I>argument</I> is any argument that can be on the left side of ~ operator, and anything that
+could be member of set is allowed before :. Multiple commands are allowed without {} grouping. If
+argument matches neither of : clauses, else: clause is used. (Case is actually implemented as set
+matching, internally.)
+
+<sect>Protocols
+
+<sect1>Rip
+
+<sect2>Introduction
+
+<p>Rip protocol (sometimes called Rest In Pieces) is simple protocol, where each router broadcasts
+distances to all networks he can reach. When router hears distance to other network, it increments
+it and broadcasts it back. Broadcasts are done in regular intervals. Therefore, if some network goes
+unreachable, routers keep telling each other that distance is old distance plus 1 (actually, plus
+interface metric, which is usually one). After some time, distance reaches infinity (that's 15 in
+rip) and all routers know that network is unreachable. Rip tries to minimize situations where
+counting to infinity is neccessary, because it is slow. Due to infinity being 16, you can not use
+rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <A
+HREF="fixme">rfc1234</A>.
+
+<sect2>Configuration
+
+<p>In addition to options generic to other protocols, rip supports following options:
+
+<descrip>
+	<tag/authentication none|password|md5/
+	  selects authenticaion method to use. None means that packets are not authenticated at
+	  all, password means that plaintext password is embedded into each packet, and md5 means
+	  that packets are authenticated using md5 cryptographics hash. See <A
+	  HREF="fixme">rfc1234</A>. If you set authentication to non-none, it is good idea to add
+	  <TT conf>passwords { }</cf> section.
+</descrip>
+
+<p>There are two options that can be specified per-interface. First is <cf>metric</cf>, with
+default one.  Second is <cf>mode broadcast|quiet|nolisten|version1</cf>, it selects mode for
+rip to work in. If nothing is specified, rip runs in multicasts mode. <cf>version1</cf> is
+currently equivalent to <cf>broadcast</cf>, and it makes rip talk at broadcast address even
+through multicast mode is possible. <cf>quiet</cf> option means that rip will not transmit
+periodic messages onto this interface and <cf>nolisten</cf> means that rip will talk to this
+interface but not listen on it.
+
+<p>Following options generally override specified behaviour from rfc. If you use any of these
+options, bird will no longer be rfc-compatible, which means it will not be able to talk to anything
+other than equally (mis-)configured bird. I warned you.
+
+<descrip>
+	<tag>port <I>number</I></tag>
+	  selects IP port to operate on, default 520. (This is usefull when testing bird, if you
+	  set this to address &gt;1024, you will not need to run bird with uid==0).
+
+	<tag>infinity <I>number</I></tag>
+	  select value of infinity, default 16. Bigger values will make protocol convergence
+	  even slower.
+
+	<tag>period <I>number</I>
+	  </tag>specifies number of seconds between periodic updates. Default is 30 seconds. Lower
+	  number will mean faster convergence but bigger network load.
+
+	<tag>timeouttime <I>number</I>
+	  </tag>specifies how old route has to be to be considered unreachable. Default is 4*period.
+
+	<tag>garbagetime <I>number</I>
+	  </tag>specifies how old route has to be to be discarded. Default is 10*period.
+</descrip>
+
+<p>In addition, rip defines two filter variables, both of type it. <cf>rip_metric</cf> is rip
+metric of current route, <cf>rip_tag</cf> is tag of current route.
+
+<cf>
+
+protocol rip MyRIP_test {
+        debug all;
+        port 1520;
+        period 7;
+        garbagetime 60;
+        interface "*";
+        honour neighbour;
+        passwords { password "ahoj" from 0 to 10;
+                password "nazdar" from 10;
+        }
+        authentication none;
+        import filter { print "importing"; accept; };
+        export filter { print "exporting"; accept; };
+}
+</cf>
+
+</article>
