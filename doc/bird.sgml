@@ -60,11 +60,13 @@ configuration primitives, &lt;cf&gt; is fragment of configuration within normal 
 <sect1>About routing tables
 
 <p>Bird has one or more routing tables. Each routing table contains
-list of known routes. Each route has certain attributes, most important
-is prefix of network this route is for. Routing table maintains more
-than one entry for network, but at most one entry for one network and
-one protocol. The entry with biggest preference is used for
-routing. You can get list of route attributes in "Route attributes"
+list of known routes. Each route has certain attributes, most
+important is prefix of network this route is for. Routing table
+maintains more than one entry for network, but at most one entry for
+one network and one protocol. The entry with biggest preference is
+used for routing. If there are more entries with same preference and
+they are from same protocol, protocol decides (typically according to
+metrics). You can get list of route attributes in "Route attributes"
 section in filters.
 
 <sect>Configuration
@@ -109,9 +111,12 @@ protocol rip {
 	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of classes/ }</tag> 
 	set logging of classes (either all or <cf/{
 	error, trace }/ etc.) into selected destination. Classes are:
-	<cf/debug/ for debugging message, <cf/trace/, <cf/info/,
-	<cf/remote/ for messages about misbehavior of remote side, <cf/warning/,
-	<cf/error/, <cf/auth/, <cf/fatal/, <cf/bug/ for internal bugs
+	<cf/info/, <cf/warning/, <cf/error/, <cf/fatal/ for messages about local problems
+	<cf/debug/ for debugging messages, 
+	<cf/trace/ when you want to know what happens on network, 
+	<cf/remote/ for messages about misbehavior of remote side, 
+	<cf/auth/ about authentication failures,  
+	<cf/bug/ for internal bugs
 	of BIRD. You may specify more than one <cf/log/ line to log to multiple
 	destinations.
 				  
