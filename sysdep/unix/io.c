@@ -28,6 +28,10 @@
 #include "lib/event.h"
 #include "nest/iface.h"
 
+#ifdef IPV6
+#include <linux/in6.h>			/* FIXMEv6: glibc variant? */
+#endif
+
 #include "lib/unix.h"
 
 /*
@@ -311,6 +315,37 @@ sk_new(pool *p)
 
 #define ERR(x) do { err = x; goto bad; } while(0)
 
+#ifdef IPV6
+
+static inline void
+set_inaddr(struct in6_addr *ia, ip_addr a)
+{
+  ipa_hton(a);
+  memcpy(ia, &a, sizeof(a));
+}
+
+void
+fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
+{
+  sa->sin6_family = AF_INET6;
+  sa->sin6_port = htons(port);
+  sa->sin6_flowinfo = 0;
+  set_inaddr(&sa->sin6_addr, a);
+}
+
+void
+get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port)
+{
+  if (sa->sin6_family != AF_INET6)
+    bug("get_sockaddr called for wrong address family");
+  if (port)
+    *port = ntohs(sa->sin6_port);
+  memcpy(a, &sa->sin6_addr, sizeof(*a));
+  ipa_ntoh(*a);
+}
+
+#else
+
 static inline void
 set_inaddr(struct in_addr *ia, ip_addr a)
 {
@@ -319,7 +354,7 @@ set_inaddr(struct in_addr *ia, ip_addr a)
 }
 
 void
-fill_in_sockaddr(struct sockaddr_in *sa, ip_addr a, unsigned port)
+fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
 {
   sa->sin_family = AF_INET;
   sa->sin_port = htons(port);
@@ -327,7 +362,7 @@ fill_in_sockaddr(struct sockaddr_in *sa, ip_addr a, unsigned port)
 }
 
 void
-get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port)
+get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port)
 {
   if (sa->sin_family != AF_INET)
     bug("get_sockaddr called for wrong address family");
@@ -336,6 +371,8 @@ get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port)
   memcpy(a, &sa->sin_addr.s_addr, sizeof(*a));
   ipa_ntoh(*a);
 }
+
+#endif
 
 static char *
 sk_setup(sock *s)
@@ -346,6 +383,11 @@ sk_setup(sock *s)
 
   if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
     ERR("fcntl(O_NONBLOCK)");
+#ifdef IPV6
+  if (s->ttl >= 0 && s->type != SK_UDP_MC && s->type != SK_IP_MC &&
+      setsockopt(fd, SOL_IPV6, IPV6_UNICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
+    ERR("IPV6_UNICAST_HOPS");
+#else
   if ((s->tos >= 0) && setsockopt(fd, SOL_IP, IP_TOS, &s->tos, sizeof(s->tos)) < 0)
     ERR("IP_TOS");
   if (s->ttl >= 0)
@@ -354,13 +396,6 @@ sk_setup(sock *s)
 	ERR("IP_TTL");
       if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
 	ERR("SO_DONTROUTE");
-    }
-#ifdef IP_PMTUDISC
-  if (s->type != SK_TCP_PASSIVE && s->type != SK_TCP_ACTIVE && s->type != SK_MAGIC)
-    {
-      int dont = IP_PMTUDISC_DONT;
-      if (setsockopt(fd, SOL_IP, IP_PMTUDISC, &dont, sizeof(dont)) < 0)
-	ERR("IP_PMTUDISC");
     }
 #endif
   /* FIXME: Set send/receive buffers? */
@@ -393,7 +428,7 @@ int
 sk_open(sock *s)
 {
   int fd, e;
-  struct sockaddr_in sa;
+  sockaddr sa;
   int zero = 0;
   int one = 1;
   int type = s->type;
@@ -405,15 +440,15 @@ sk_open(sock *s)
     {
     case SK_TCP_ACTIVE:
     case SK_TCP_PASSIVE:
-      fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+      fd = socket(BIRD_PF, SOCK_STREAM, IPPROTO_TCP);
       break;
     case SK_UDP:
     case SK_UDP_MC:
-      fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+      fd = socket(BIRD_PF, SOCK_DGRAM, IPPROTO_UDP);
       break;
     case SK_IP:
     case SK_IP_MC:
-      fd = socket(PF_INET, SOCK_RAW, s->dport);
+      fd = socket(BIRD_PF, SOCK_RAW, s->dport);
       break;
     case SK_MAGIC:
       fd = s->fd;
@@ -432,12 +467,39 @@ sk_open(sock *s)
     case SK_UDP:
     case SK_IP:
       if (s->iface)			/* It's a broadcast socket */
+#ifdef IPV6
+	bug("IPv6 has no broadcasts");
+#else
 	if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) < 0)
 	  ERR("SO_BROADCAST");
+#endif
       break;
     case SK_UDP_MC:
     case SK_IP_MC:
       {
+#ifdef IPV6
+	/* Fortunately, IPv6 socket interface is recent enough and therefore standardized */
+	ASSERT(s->iface && s->iface->addr);
+	if (has_dest)
+	  {
+	    int t = s->iface->index;
+	    if (setsockopt(fd, SOL_IPV6, IPV6_MULTICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
+	      ERR("IPV6_MULTICAST_HOPS");
+	    if (setsockopt(fd, SOL_IPV6, IPV6_MULTICAST_LOOP, &zero, sizeof(zero)) < 0)
+	      ERR("IPV6_MULTICAST_LOOP");
+	    if (setsockopt(fd, SOL_IPV6, IPV6_MULTICAST_IF, &t, sizeof(t)) < 0)
+	      ERR("IPV6_MULTICAST_IF");
+	  }
+	if (has_src)
+	  {
+	    struct ipv6_mreq mreq;
+	    set_inaddr(&mreq.ipv6mr_multiaddr, s->daddr);
+	    mreq.ipv6mr_ifindex = s->iface->index;
+	    if (setsockopt(fd, SOL_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+	      ERR("IPV6_ADD_MEMBERSHIP");
+	  }
+#else
+	/* With IPv4 there are zillions of different socket interface variants. Ugh. */
 #ifdef HAVE_STRUCT_IP_MREQN
 	struct ip_mreqn mreq;
 #define mreq_add mreq
@@ -484,6 +546,7 @@ sk_open(sock *s)
       /* And this one sets interface for _receiving_ multicasts from */
       if (has_src && setsockopt(fd, SOL_IP, IP_ADD_MEMBERSHIP, &mreq_add, sizeof(mreq_add)) < 0)
 	ERR("IP_ADD_MEMBERSHIP");
+#endif
       break;
       }
     }
@@ -516,6 +579,26 @@ sk_open(sock *s)
       if (listen(fd, 8))
 	ERR("listen");
       break;
+    case SK_MAGIC:
+      break;
+    default:
+#ifdef IPV6
+#ifdef IPV6_MTU_DISCOVER
+      {
+	int dont = IPV6_PMTUDISC_DONT;
+	if (setsockopt(fd, SOL_IPV6, IPV6_MTU_DISCOVER, &dont, sizeof(dont)) < 0)
+	  ERR("IPV6_MTU_DISCOVER");
+      }
+#endif
+#else
+#ifdef IP_PMTUDISC
+      {
+	int dont = IP_PMTUDISC_DONT;
+	if (setsockopt(fd, SOL_IP, IP_PMTUDISC, &dont, sizeof(dont)) < 0)
+	  ERR("IP_PMTUDISC");
+      }
+#endif
+#endif
     }
 
   sk_alloc_bufs(s);
@@ -560,7 +643,7 @@ sk_maybe_write(sock *s)
     case SK_IP:
     case SK_IP_MC:
       {
-	struct sockaddr_in sa;
+	sockaddr sa;
 
 	if (s->tbuf == s->tpos)
 	  return 1;
@@ -611,7 +694,7 @@ sk_read(sock *s)
     {
     case SK_TCP_ACTIVE:
       {
-	struct sockaddr_in sa;
+	sockaddr sa;
 	fill_in_sockaddr(&sa, s->daddr, s->dport);
 	if (connect(s->fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0)
 	  sk_tcp_connected(s);
@@ -624,7 +707,7 @@ sk_read(sock *s)
       }
     case SK_TCP_PASSIVE:
       {
-	struct sockaddr_in sa;
+	sockaddr sa;
 	int al = sizeof(sa);
 	int fd = accept(s->fd, (struct sockaddr *) &sa, &al);
 	if (fd >= 0)
@@ -678,7 +761,7 @@ sk_read(sock *s)
       return s->rx_hook(s, 0);
     default:
       {
-	struct sockaddr_in sa;
+	sockaddr sa;
 	int al = sizeof(sa);
 	int e = recvfrom(s->fd, s->rbuf, s->rbsize, 0, (struct sockaddr *) &sa, &al);
 

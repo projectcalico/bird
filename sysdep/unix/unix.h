@@ -21,10 +21,18 @@ volatile int async_config_flag;
 volatile int async_dump_flag;
 volatile int async_shutdown_flag;
 
+#ifdef IPV6
+#define BIRD_PF PF_INET6
+typedef struct sockaddr_in6 sockaddr;
+#else
+#define BIRD_PF PF_INET
+typedef struct sockaddr_in sockaddr;
+#endif
+
 void io_init(void);
 void io_loop(void);
-void fill_in_sockaddr(struct sockaddr_in *sa, ip_addr a, unsigned port);
-void get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port);
+void fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port);
+void get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port);
 
 /* krt.c bits */
 

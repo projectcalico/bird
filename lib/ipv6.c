@@ -88,6 +88,8 @@ ipv6_classify(ip_addr *a)
 	case 14: return IADDR_MULTICAST | SCOPE_UNIVERSE;
 	}
     }
+  if (!x && !a->addr[1] && !a->addr[2] && a->addr[3] == 1)
+    return IADDR_HOST | SCOPE_HOST;		/* Loopback address */
   return IADDR_INVALID;
 }
 
