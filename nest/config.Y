@@ -73,7 +73,7 @@ proto_start: PROTOCOL
 
 proto_name:
    /* EMPTY */ {
-     struct symbol *s = cf_default_name(this_proto->proto->name, &this_proto->proto->name_counter);
+     struct symbol *s = cf_default_name(this_proto->protocol->name, &this_proto->protocol->name_counter);
      s->class = SYM_PROTO;
      s->def = this_proto;
      this_proto->name = s->name;
@@ -163,7 +163,7 @@ password_begin:
      last_password_item = cfg_alloc(sizeof (struct password_item));
      last_password_item->password = $2;
      last_password_item->from = 0;
-     last_password_item->to = 2000000000;
+     last_password_item->to = TIME_INFINITY;
      last_password_item->id = 0;
      last_password_item->next = NULL;
      $$=last_password_item;
