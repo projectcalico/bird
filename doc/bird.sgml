@@ -45,7 +45,7 @@ License. Bird is designed to run on Unix and unix-like systems, it is primarily 
 html) and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy,
 it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is considered definition of
 configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
-"meta" information -- something in config which is not keyword.
+"meta" information within fragment of configuration -- something in config which is not keyword.
 
 <sect>Configuration
 
@@ -71,9 +71,9 @@ protocol rip {
 }
 </code>
 
-<p>Everything on a line after # is a comment, whitespace is
-ignored. If there's variable number of options, it is grouped using {
-} brackets. 
+<p>Everything on a line after <cf/#/ is a comment, whitespace is
+ignored. If there's variable number of options, it is grouped using
+<cf/{ }/ brackets. Each option is terminated by <cf/;/.
 
 <p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
 
@@ -108,7 +108,7 @@ ignored. If there's variable number of options, it is grouped using {
 
 	<tag>table <m/name/</tag> create new routing table.
 
-	<tag>eval <m/expr/</tag> evaluates give filter expression. It is basically mainly for testing.
+	<tag>eval <m/expr/</tag> evaluates given filter expression. It is used for testing.
 </descrip>
 
 <sect1>Per-protocol options
@@ -154,12 +154,9 @@ ignored. If there's variable number of options, it is grouped using {
 <p>Bird contains rather simple programming language. (No, it can not yet read mail :-). There are
 two objects in this language: filters and functions. Filters are called by bird core when route is
 being passed between protocol and main routing table, and filters may call functions. Functions may
-call other functions but recursion is not allowed. Filter language contains control structures such
+call other functions, but recursion is not allowed. Filter language contains control structures such
 as if's and switches, but it allows no loops. Filters are
 interpreted. Filter using many features can be found in <file>filter/test.conf</file>. 
-
-<p>There's one strange thing with filter language: it does not permit you to create loops. There's
-no equivalent of while() or for() command, and recursive functions are not permitted.
 
 <p>You can find sources of filters language in <file>filter/</file>
 directory. <file>filter/config.Y</file> contains filter grammar, and basically translates source from
@@ -167,7 +164,10 @@ user into tree of <cf>f_inst</cf> structures. These trees are later interpreted 
 <file>filter/filter.c</file>. Filters internally work with values/variables in <tt>struct
 f_val</tt>, which contains type of value and value.
 
-<p>Filter basically looks like this:
+<p>Filter basically gets the route, looks at its attributes and
+modifies some of them if it wishes. At the end, it decides, whether to
+pass change route through (using <cf/accept/), or whether to <cf/reject/ given route. It looks
+like this:
 
 <code>
 filter not_too_far
@@ -186,68 +186,12 @@ int var;
 }
 </code>
 
-<p>As you can see, filter has a header, list of local variables, and body. Header consists of <cf/filter/ keyword, followed by (unique) name of filter. List of local variables consists of
+<p>As you can see, filter has a header, list of local variables, and body. Header consists of
+<cf/filter/ keyword, followed by (unique) name of filter. List of local variables consists of
 pairs <cf><M>type name</M>;</cf>, where each pair defines one local variable. Body consists of
 <cf> { <M>statements</M> }</cf>. Statements are terminated by <cf/;/. You can group
 several statements into one by <cf>{ <M>statements</M> }</cf> construction, that is useful if
 you want to make bigger block of code conditional.
-
-<sect1>Data types
-
-<p>Each variable and each value has certain type. Unlike C, filters distinguish between integers and
-booleans (that is to prevent you from shooting in the foot).
-
-<descrip>
-	<tag/bool/ this is boolean type, it can have only two values, <cf/TRUE/ and
-	  <cf/FALSE/. Boolean is not compatible with integer and is the only type you can use in if
-	  statements.
-
-	<tag/int/ this is common integer, you can expect it to store signed values from -2000000000
-	  to +2000000000.
-
-	<tag/pair/ this is pair of two short integers. Each component can have values from 0 to
-	  65535. Constant of this type is written as <cf/(1234,5678)/.
-
-	<tag/string/ this is string of characters. There are no ways to modify strings in
-	  filters. You can pass them between functions, assign to variable of type string, print
-	  such variables, but you can not concatenate two strings (for example). String constants
-	  are written as <cf/ "This is string constant"/.
-
-	<tag/ip/ this type can hold single ip address. Depending on version of bird you are using, it
-	  can be IPv4 or IPv6 address. IPv4 addresses are written (as you would expect) as
-	  <cf/1.2.3.4/. You can apply special operator <cf>.mask(<M>num</M>)</cf>
-	  on values of type ip. It masks out all but first <cf><M>num</M></cf> bits from ip
-	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true.
-
-	<tag/prefix/ this type can hold ip address, prefix len pair. Prefixes are written as
-	  <cf><M>ip address</M>/<M>px len</M></cf>. There are two special operators on prefix:
-	  <cf/.ip/, which separates ip address from the pair, and <cf/.len/, which separates prefix
-	  len from the pair.
-
-	<tag/set int|ip|prefix|pair/
-	  filters know four types of sets. Sets are similar to strings: you can pass them around
-	  but you can not modify them. Constant of type <cf>set int</cf> looks like <cf>
-	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
-	  sets. Sets of prefixes are special: you can specify which prefixes should match them by
-	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. 3.0.0.0/8{5,6} matches
-	  prefixes 3.X.X.X, whose prefix length is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
-	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}.
-
-	<tag/enum/
-	  enumerational types are halfway-internal in the bird. You can not define your own
-	  variable of enumerational type, but some predefined variables are of enumerational
-	  type. Enumerational types are incompatible with each other, again, its for your
-	  protection.
-</descrip>
-
-<sect1>Operations
-
-<p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parenthesis <cf/(a*(b+c))/, comparation
-<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
-used on element and set of that elements, or on ip and prefix, or on prefix and prefix. Its result
-is true if element is in given set or if ip address is inside given prefix.
-
-<sect1>Functions
 
 <p>Bird supports functions, so that you don't have to repeat same blocks of code over and
 over. Functions can have zero or more parameters, and can have local variables. Function basically
@@ -273,7 +217,72 @@ syntax. Returning value exits from current function (this is similar to C).
 
 <p>Filters are declared in similar way to functions, except they can not have explicit
 parameters. They get route table entry as implicit parameter. Route table entry is passed implicitly
-to any functions being called.
+to any functions being called. Filter must terminate with either accept or reject statement.
+
+<sect1>Data types
+
+<p>Each variable and each value has certain type. Unlike C, filters distinguish between integers and
+booleans (that is to prevent you from shooting in the foot).
+
+<descrip>
+	<tag/bool/ this is boolean type, it can have only two values, <cf/TRUE/ and
+	  <cf/FALSE/. Boolean is not compatible with integer and is the only type you can use in if
+	  statements.
+
+	<tag/int/ this is common integer, you can expect it to store signed values from -2000000000
+	  to +2000000000.
+
+	<tag/pair/ this is pair of two short integers. Each component can have values from 0 to
+	  65535. Constant of this type is written as <cf/(1234,5678)/.
+
+	<tag/string/ this is string of characters. There are no ways to modify strings in
+	  filters. You can pass them between functions, assign to variable of type string, print
+	  such variables, but you can not concatenate two strings (for example). String constants
+	  are written as <cf/"This is a string constant"/.
+
+	<tag/ip/ this type can hold single ip address. Depending on version of bird you are using, it
+	  can be IPv4 or IPv6 address. IPv4 addresses are written (as you would expect) as
+	  <cf/1.2.3.4/. You can apply special operator <cf>.mask(<M>num</M>)</cf>
+	  on values of type ip. It masks out all but first <cf><M>num</M></cf> bits from ip
+	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true.
+
+	<tag/prefix/ this type can hold ip address, prefix len pair. Prefixes are written as
+	  <cf><M>ipaddress</M>/<M>pxlen</M></cf>, or
+	  <cf><m>ipaddress</m>/<m>netmask</m></cf> There are two special
+	  operators on prefix:
+	  <cf/.ip/, which separates ip address from the pair, and <cf/.len/, which separates prefix
+	  len from the pair.
+
+	<tag/int|ip|prefix|pair set/
+	  filters know four types of sets. Sets are similar to strings: you can pass them around
+	  but you can not modify them. Constant of type <cf>set int</cf> looks like <cf>
+	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
+	  sets. Sets of prefixes are special: you can specify which prefixes should match them by
+	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. 3.0.0.0/8{5,6} matches
+	  prefixes 3.X.X.X, whose prefix length is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
+	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}.
+
+	<tag/enum/
+	  enumerational types are halfway-internal in the bird. You can not define your own
+	  variable of enumerational type, but some predefined variables are of enumerational
+	  type. Enumerational types are incompatible with each other, again, for your
+	  protection.
+
+	<tag/bgppath/
+
+	<tag/clist/
+
+	<tag/bgpmask/
+	  
+</descrip>
+
+<sect1>Operations
+
+<p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parenthesis <cf/(a*(b+c))/, comparation
+<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
+used on element and set of that elements, or on ip and prefix, or on prefix and prefix. Its result
+is true if element is in given set or if ip address is inside given prefix. Operator <cf/=/ is used to assign value
+to variable.
 
 <sect1>Control structures
 
@@ -300,6 +309,29 @@ case arg1 {
 
 if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 </code>
+
+<sect1>Route attributes
+
+<p>Filter is implicitly passed route, and it can access its attributes, just like it accesses variables.
+
+<desc>
+	<tag>defined( <m>attribute</m></tag>
+	returns TRUE if given attribute is defined. Access to undefined attribute results in runtime error.
+
+	<tag/prefix network/
+	network this route is talking about.
+
+	<tag/ip from/
+	who told me about this route.
+	
+	<tag/ip gw/
+	what is nexthop packets routed using this route should be forwarded to.
+
+	<tag/enum source/
+	what protocol told me about this route. This can have values such as <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/.
+</desc>
+
+<p>Plus, there are protocol-specific attributes, which are described in protocol sections.
 
 <sect>Protocols
 
