@@ -14,4 +14,23 @@
 #define OFFSETOF(s, i) ((unsigned int)&((s *)0)->i)
 #define SKIP_BACK(s, i, p) ((s *)((char *)p - OFFSETOF(s, i)))
 
+/* Logging and dying */
+
+void log(char *msg, ...);
+void die(char *msg, ...);
+
+#define L_DEBUG "\001"			/* Debugging messages */
+#define L_INFO "\002"			/* Informational messages */
+#define L_WARN "\003"			/* Warnings */
+#define L_ERR "\004"			/* Errors */
+#define L_AUTH "\005"			/* Authorization failed etc. */
+
+/* Debugging */
+
+#ifdef LOCAL_DEBUG
+#define DBG(x, y...) log(L_DEBUG x, ##y)
+#else
+#define DBG(x, y...)
+#endif
+
 #endif

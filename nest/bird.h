@@ -11,12 +11,7 @@
 
 #include <sysdep/config.h>
 #include <lib/birdlib.h>
-
-#ifndef IPV6
-#include <nest/ipv4.h>
-#else
-#include <nest/ipv6.h>
-#endif
+#include <lib/ip.h>
 
 extern u32 router_id;			/* Our Router ID */
 extern u16 this_as;			/* Our Autonomous System Number */
