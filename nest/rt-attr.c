@@ -27,8 +27,8 @@ static pool *rta_pool;
  *	Extended Attributes
  */
 
-eattr *
-ea_find(ea_list *e, unsigned id)
+static inline eattr *
+ea__find(ea_list *e, unsigned id)
 {
   eattr *a;
   int l, r, m;
@@ -58,6 +58,17 @@ ea_find(ea_list *e, unsigned id)
       e = e->next;
     }
   return NULL;
+}
+
+eattr *
+ea_find(ea_list *e, unsigned id)
+{
+  eattr *a = ea__find(e, id & EA_CODE_MASK);
+
+  if (a && (a->type & EAF_TYPE_MASK) == EAF_TYPE_UNDEF &&
+      !(id & EA_ALLOW_UNDEF))
+    return NULL;
+  return a;
 }
 
 static inline void
@@ -107,17 +118,24 @@ ea_do_sort(ea_list *e)
 static inline void
 ea_do_prune(ea_list *e)
 {
-  eattr *s, *d;
-  int i;
+  eattr *s, *d, *l;
+  int i = 0;
 
-  /* Discard duplicates. Do you remember sorting was stable? */
-  s = d = e->attrs + 1;
-  for(i=1; i<e->count; i++)
-    if (s->id != d[-1].id)
-      *d++ = *s++;
-    else
+  /* Discard duplicates and undefs. Do you remember sorting was stable? */
+  s = d = e->attrs;
+  l = e->attrs + e->count;
+  while (s < l)
+    {
+      if ((s->type & EAF_TYPE_MASK) != EAF_TYPE_UNDEF)
+	{
+	  *d++ = *s;
+	  i++;
+	}
       s++;
-  e->count = d - e->attrs;
+      while (s < l && s->id == s[-1].id)
+	s++;
+    }
+  e->count = i;
 }
 
 void

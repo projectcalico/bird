@@ -265,12 +265,16 @@ typedef struct eattr {
 #define EA_PROTO(ea) ((ea) >> 8)
 #define EA_ID(ea) ((ea) & 0xff)
 
+#define EA_CODE_MASK 0xffff
+#define EA_ALLOW_UNDEF 0x10000		/* ea_find: allow EAF_TYPE_UNDEF */
+
 #define EAF_TYPE_MASK 0x0f		/* Mask with this to get type */
 #define EAF_TYPE_INT 0x01		/* 32-bit signed integer number */
 #define EAF_TYPE_OPAQUE 0x02		/* Opaque byte string (not filterable) */
 #define EAF_TYPE_IP_ADDRESS 0x04	/* IP address [FIXME: embed at least for IPv4?] */
 #define EAF_TYPE_AS_PATH 0x06		/* BGP AS path [FIXME: define storage layout] */
 #define EAF_TYPE_INT_SET 0x0a		/* Set of integers (e.g., a community list) */
+#define EAF_TYPE_UNDEF 0x0f		/* `force undefined' entry */
 #define EAF_EMBEDDED 0x01		/* Data stored in eattr.u.data (part of type spec) */
 #define EAF_VAR_LENGTH 0x02		/* Attribute length is variable */
 #define EAF_INLINE 0x80			/* Copy of an attribute inlined in rte (temporary ea_lists only) */
