@@ -457,6 +457,10 @@ rip_rx(sock *s, int size)
   struct proto *p = i->proto;
   int num;
 
+  /* In non-listening mode, just ignore packet */
+  if (i->mode & IM_NOLISTEN)
+    return 1;
+
   CHK_MAGIC;
   DBG( "RIP: message came: %d bytes from %I via %s\n", size, s->faddr, i->iface ? i->iface->name : "(dummy)" );
   size -= sizeof( struct rip_packet_heading );
@@ -716,17 +720,15 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   if (!ipa_nonzero(rif->sock->daddr)) {
     if (rif->iface)
       log( L_WARN "%s: interface %s is too strange for me", P_NAME, rif->iface->name );
-  } else
-    if (!(rif->mode & IM_NOLISTEN))
-      if (sk_open(rif->sock)<0) {
-	log( L_ERR "%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
-	if (rif->iface) {
-	  rfree(rif->sock);
-	  mb_free(rif);
-	  return NULL;
-	}
-	/* On dummy, we just return non-working socket, so that user gets error every time anyone requests table */
-      }
+  } else if (sk_open(rif->sock)<0) {
+    log( L_ERR "%s: could not create socket for %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
+    if (rif->iface) {
+      rfree(rif->sock);
+      mb_free(rif);
+      return NULL;
+    }
+    /* On dummy, we just return non-working socket, so that user gets error every time anyone requests table */
+  }
 
   TRACE(D_EVENTS, "Listening on %s, port %d, mode %s (%I)", rif->iface ? rif->iface->name : "(dummy)", P_CF->port, rif->multicast ? "multicast" : "broadcast", rif->sock->daddr );
   
