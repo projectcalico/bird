@@ -26,6 +26,7 @@
 #include "nest/iface.h"
 #include "nest/route.h"
 #include "nest/cli.h"
+#include "nest/locks.h"
 #include "conf/conf.h"
 #include "lib/string.h"
 
@@ -70,6 +71,7 @@ struct ospf_iface {
   struct proto_ospf *proto;
   struct iface *iface;	/* Nest's iface */
   struct ospf_area *oa;
+  struct object_lock *lock;
   u32 an;		/* Area number */
   sock *hello_sk;	/* Hello socket */
   sock *dr_sk;		/* For states DR or BACKUP */

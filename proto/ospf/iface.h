@@ -22,5 +22,6 @@ void ospf_iface_default(struct ospf_iface *ifa);
 struct ospf_iface *find_iface(struct proto_ospf *p, struct iface *what);
 void ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface);
 void ospf_iface_info(struct ospf_iface *ifa);
+void ospf_ifa_add(struct object_lock *lock);
 
 #endif /* _BIRD_OSPF_IFACE_H_ */
