@@ -1,7 +1,7 @@
 /*
  *	BIRD Client
  *
- *	(c) 1999--2000 Martin Mares <mj@ucw.cz>
+ *	(c) 1999--2004 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <termios.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
