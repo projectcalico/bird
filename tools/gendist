@@ -10,7 +10,7 @@ $AC
 ./configure
 make distclean
 $AC
-rm -rf autom4te.cache
+rm -rf autom4te*cache
 ( cd doc ; make docs ; make clean )
 VERSION=`sed <sysdep/config.h '/BIRD_VERSION/!d;s/^.*"\(.*\)"$/\1/'`
 REL=bird-$VERSION
