@@ -13,7 +13,7 @@ add_cand(list * l, struct top_hash_entry *en,
 static void
 calc_next_hop(struct top_hash_entry *en,
 	      struct top_hash_entry *par, struct ospf_area *oa);
-static void ospf_ext_spfa(struct ospf_area *oa);
+static void ospf_ext_spf(struct proto_ospf *po);
 static void rt_sync(struct proto_ospf *po);
 
 static void
@@ -231,7 +231,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  break;
 
 	case LSART_NET:
-	  tmp = ospf_hash_find(oa->gr, rtl->id, rtl->id, LSA_T_NET);
+	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->id, rtl->id, LSA_T_NET);
 	  if (tmp == NULL)
 	    DBG("Not found!\n");
 	  else
@@ -241,7 +241,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	case LSART_VLNK:
           vlink = 1;
 	case LSART_PTP:
-	  tmp = ospf_hash_find(oa->gr, rtl->id, rtl->id, LSA_T_RT);
+	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->id, rtl->id, LSA_T_RT);
 	  DBG("PTP found.\n");
 	  break;
 	default:
@@ -272,7 +272,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 		       sizeof(struct ospf_lsa_net)) / sizeof(u32); i++)
       {
 	DBG("     Working on router %I ", *(rts + i));
-	tmp = ospf_hash_find(oa->gr, *(rts + i), *(rts + i), LSA_T_RT);
+	tmp = ospf_hash_find(po->gr, oa->areaid, *(rts + i), *(rts + i), LSA_T_RT);
 	if (tmp != NULL)
 	  DBG("Found :-)\n");
 	else
@@ -288,7 +288,7 @@ ospf_rt_spfa(struct ospf_area *oa)
   {
     if ((iface->type == OSPF_IT_VLINK) && (iface->voa == oa))
     {
-      if ((tmp = ospf_hash_find(oa->gr, iface->vid, iface->vid, LSA_T_RT)) &&
+      if ((tmp = ospf_hash_find(po->gr, oa->areaid, iface->vid, iface->vid, LSA_T_RT)) &&
         (!ipa_equal(tmp->lb, IPA_NONE)))
       {
         if ((iface->state != OSPF_IS_PTP) || (iface->iface != tmp->nhi) || (!ipa_equal(iface->vip, tmp->lb)))
@@ -319,6 +319,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entr
   struct ospf_lsa_net *ln;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *rtl, *rr;
+  struct proto_ospf *po = oa->po;
 
   if(!pre) return 0;
   if(!fol) return 0;
@@ -335,7 +336,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entr
 	case LSART_STUB:
 	  break;
 	case LSART_NET:
-	  if (ospf_hash_find(oa->gr, rtl->id, rtl->id, LSA_T_NET) == pre)
+	  if (ospf_hash_find(po->gr, oa->areaid, rtl->id, rtl->id, LSA_T_NET) == pre)
           {
             fol->lb = ipa_from_u32(rtl->data);
             return 1;
@@ -343,7 +344,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entr
 	  break;
 	case LSART_VLNK:
 	case LSART_PTP:
-	  if (ospf_hash_find(oa->gr, rtl->id, rtl->id, LSA_T_RT) == pre)
+	  if (ospf_hash_find(po->gr, oa->areaid, rtl->id, rtl->id, LSA_T_RT) == pre)
           {
             fol->lb = ipa_from_u32(rtl->data);
             return 1;
@@ -361,7 +362,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entr
       for (i = 0; i < (fol->lsa.length - sizeof(struct ospf_lsa_header) -
 		       sizeof(struct ospf_lsa_net)) / sizeof(u32); i++)
       {
-	if (ospf_hash_find(oa->gr, *(rts + i), *(rts + i), LSA_T_RT) == pre)
+	if (ospf_hash_find(po->gr, oa->areaid, *(rts + i), *(rts + i), LSA_T_RT) == pre)
         {
           return 1;
         }
@@ -388,8 +389,10 @@ ospf_rt_sum_tr(struct ospf_area *oa)
 
   if(!bb) return;
 
-  WALK_SLIST(en, oa->lsal)
+  WALK_SLIST(en, po->lsal)
   {
+    if (en->oa != oa)
+      continue;
     if (en->lsa.age == LSA_MAXAGE)
       continue;
     if (en->dist == LSINFINITY)
@@ -398,7 +401,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
     if (en->lsa.rt == p->cf->global->router_id)
       continue;
 
-    if((en->lsa.type != LSA_T_SUM_RT) && (en->lsa.type != LSA_T_SUM_NET))
+    if ((en->lsa.type != LSA_T_SUM_RT) && (en->lsa.type != LSA_T_SUM_NET))
       continue;
 
     mask = (ip_addr *)en->lsa_body;
@@ -457,8 +460,10 @@ ospf_rt_sum(struct ospf_area *oa)
 
   OSPF_TRACE(D_EVENTS, "Starting routing table calculation for inter-area routes");
 
-  WALK_SLIST(en, oa->lsal)
+  WALK_SLIST(en, po->lsal)
   {
+    if (en->oa != oa)
+      continue;
     /* Page 169 (1) */
     if (en->lsa.age == LSA_MAXAGE)
       continue;
@@ -528,6 +533,8 @@ ospf_rt_spf(struct proto_ospf *po)
 
   if (po->areano == 0) return;
 
+  po->cleanup = 1;
+
   OSPF_TRACE(D_EVENTS, "Starting routing table calculation");
 
   /* Invalidate old routing table */
@@ -580,20 +587,16 @@ ospf_rt_spf(struct proto_ospf *po)
     }
   }
 
-  WALK_LIST(oa, po->area_list)
-  {
-    if (!oa->stub)
-    {
-      ospf_ext_spfa(oa);
-      break;
-    }
-  }
+  ospf_ext_spf(po);
+
   rt_sync(po);
+
+  po->calcrt = 0;
 }
 
 
 /**
- * ospf_ext_spfa - calculate external paths
+ * ospf_ext_spf - calculate external paths
  * @po: protocol
  *
  * After routing table for any area is calculated, calculation of external
@@ -601,9 +604,8 @@ ospf_rt_spf(struct proto_ospf *po)
  * Inter- and Intra-area paths are always prefered over externals.
  */
 static void
-ospf_ext_spfa(struct ospf_area *oa)
+ospf_ext_spf(struct proto_ospf *po)
 {
-  struct proto_ospf *po = oa->po;
   ort *nf1, *nf2, *nfh;
   orta nfa;
   struct top_hash_entry *en;
@@ -621,7 +623,7 @@ ospf_ext_spfa(struct ospf_area *oa)
 
   OSPF_TRACE(D_EVENTS, "Starting routing table calculation for ext routes");
 
-  WALK_SLIST(en, oa->lsal)
+  WALK_SLIST(en, po->lsal)
   {
     if (en->lsa.type != LSA_T_EXT)
       continue;
@@ -729,7 +731,7 @@ ospf_ext_spfa(struct ospf_area *oa)
     nfa.capa = 0;
     nfa.metric1 = met1;
     nfa.metric2 = met2;
-    nfa.oa = oa;
+    nfa.oa = NULL;
     nfa.ar = nf1->n.ar;
     nfa.nh = nh;
     nfa.ifa = nhi;
@@ -941,7 +943,7 @@ again1:
         {
           if ((ifa->type == OSPF_IT_VLINK) && ipa_equal(ifa->vip, nf->n.nh))
           {
-            if ((en = ospf_hash_find(ifa->voa->gr, ifa->vid, ifa->vid, LSA_T_RT)) &&
+            if ((en = ospf_hash_find(po->gr, ifa->voa->areaid, ifa->vid, ifa->vid, LSA_T_RT)) &&
               (!ipa_equal(en->nh, IPA_NONE)))
             {
               a0.gw = en->nh;

@@ -13,7 +13,6 @@
  * @n: neighbor than sent this lsa (or NULL if generated)
  * @hn: LSA header followed by lsa body in network endianity (may be NULL) 
  * @hh: LSA header in host endianity (must be filled)
- * @po: actual instance of OSPF protocol
  * @iff: interface which received this LSA (or NULL if LSA is generated)
  * @oa: ospf_area which is the LSA generated for
  * @rtl: add this LSA into retransmission list
@@ -48,16 +47,8 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
     }
     else
     {
-      if (oa->areaid == BACKBONE)
-      {
-	if ((ifa->type != OSPF_IT_VLINK) && (ifa->oa != oa))
-	  continue;
-      }
-      else
-      {
-	if (ifa->oa != oa)
-	  continue;
-      }
+      if (ifa->oa != oa)
+        continue;
     }
     ret = 0;
     WALK_LIST(NODE nn, ifa->neigh_list)
@@ -66,7 +57,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	continue;
       if (nn->state < NEIGHBOR_FULL)
       {
-	if ((en = ospf_hash_find_header(nn->lsrqh, hh)) != NULL)
+	if ((en = ospf_hash_find_header(nn->lsrqh, nn->ifa->oa->areaid, hh)) != NULL)
 	{
 	  switch (lsa_comp(hh, &en->lsa))
 	  {
@@ -105,9 +96,9 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 
       if (rtl)
       {
-	if ((en = ospf_hash_find_header(nn->lsrth, hh)) == NULL)
+	if ((en = ospf_hash_find_header(nn->lsrth, nn->ifa->oa->areaid, hh)) == NULL)
 	{
-	  en = ospf_hash_get_header(nn->lsrth, hh);
+	  en = ospf_hash_get_header(nn->lsrth, nn->ifa->oa, hh);
 	}
 	else
 	{
@@ -120,7 +111,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       }
       else
       {
-	if ((en = ospf_hash_find_header(nn->lsrth, hh)) != NULL)
+	if ((en = ospf_hash_find_header(nn->lsrth, nn->ifa->oa->areaid, hh)) != NULL)
 	{
 	  s_rem_node(SNODE en);
 	  if (en->lsa_body != NULL)
@@ -177,7 +168,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 
 	htonlsah(hh, lh);
 	help = (u8 *) (lh + 1);
-	en = ospf_hash_find_header(oa->gr, hh);
+	en = ospf_hash_find_header(po->gr, oa->areaid, hh);
 	htonlsab(en->lsa_body, help, hh->type, hh->length
 		 - sizeof(struct ospf_lsa_header));
       }
@@ -229,7 +220,9 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
   struct top_hash_entry *en;
   struct ospf_lsupd_packet *pk;
   struct ospf_packet *op;
-  struct proto *p = &n->ifa->oa->po->proto;
+  struct ospf_area *oa = n->ifa->oa;
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
   void *pktpos;
 
   if (EMPTY_LIST(*l))
@@ -247,7 +240,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 
   WALK_LIST(llsh, *l)
   {
-    if ((en = ospf_hash_find(n->ifa->oa->gr, llsh->lsh.id, llsh->lsh.rt,
+    if ((en = ospf_hash_find(po->gr, oa->areaid, llsh->lsh.id, llsh->lsh.rt,
 			     llsh->lsh.type)) == NULL)
       continue;			/* Probably flushed LSA */
     /* FIXME This is a bug! I cannot flush LSA that is in lsrt */
@@ -294,8 +287,8 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
   struct ospf_neighbor *ntmp;
   struct ospf_lsa_header *lsa;
   struct ospf_area *oa;
-  struct proto_ospf *po = ifa->proto;
-  struct proto *p = (struct proto *) po;
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
   unsigned int i, sendreq = 1, size = ntohs(ps->ospf_packet.length);
 
   if (n->state < NEIGHBOR_EXCHANGE)
@@ -372,7 +365,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 	lsatmp.type, lsatmp.id, lsatmp.rt, lsatmp.sn, lsatmp.age,
 	lsatmp.checksum);
 
-    lsadb = ospf_hash_find_header(oa->gr, &lsatmp);
+    lsadb = ospf_hash_find_header(po->gr, oa->areaid, &lsatmp);
 
 #ifdef LOCAL_DEBUG
     if (lsadb)
@@ -382,7 +375,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 #endif
 
     /* pg 143 (4) */
-    if ((lsatmp.age == LSA_MAXAGE) && (lsadb == NULL) && can_flush_lsa(oa))
+    if ((lsatmp.age == LSA_MAXAGE) && (lsadb == NULL) && can_flush_lsa(po))
     {
       ospf_lsack_enqueue(n, lsa, ACKL_DIRECT);
       continue;
@@ -433,7 +426,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 	lsasum_check(lsa, (lsa + 1));	/* It also calculates chsum! */
 	lsatmp.checksum = ntohs(lsa->checksum);
 	ospf_lsupd_flood(NULL, lsa, &lsatmp, NULL, oa, 0);
-	if (en = ospf_hash_find_header(oa->gr, &lsatmp))
+	if (en = ospf_hash_find_header(po->gr, oa->areaid, &lsatmp))
 	{
 	  ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
 	}
@@ -468,7 +461,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
       {
 	struct top_hash_entry *en;
 	if (ntmp->state > NEIGHBOR_EXSTART)
-	  if ((en = ospf_hash_find_header(ntmp->lsrth, &lsadb->lsa)) != NULL)
+	  if ((en = ospf_hash_find_header(ntmp->lsrth, ntmp->ifa->oa->areaid, &lsadb->lsa)) != NULL)
 	  {
 	    s_rem_node(SNODE en);
 	    if (en->lsa_body != NULL)
@@ -479,9 +472,9 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
       }
 
       if ((lsatmp.age == LSA_MAXAGE) && (lsatmp.sn == LSA_MAXSEQNO)
-	  && lsadb && can_flush_lsa(oa))
+	  && lsadb && can_flush_lsa(po))
       {
-	flush_lsa(lsadb, oa);
+	flush_lsa(lsadb, po);
 	schedule_rtcalc(po);
 	continue;
       }				/* FIXME lsack? */
@@ -504,7 +497,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
     {
       struct top_hash_entry *en;
       DBG("PG145(7) Got the same LSA\n");
-      if ((en = ospf_hash_find_header(n->lsrth, &lsadb->lsa)) != NULL)
+      if ((en = ospf_hash_find_header(n->lsrth, n->ifa->oa->areaid, &lsadb->lsa)) != NULL)
       {
 	/* pg145 (7a) */
 	s_rem_node(SNODE en);

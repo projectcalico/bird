@@ -41,11 +41,16 @@
  * describes the link-state database. It allows fast search, addition
  * and deletion. Each LSA is kept in two pieces: header and body. Both of them are
  * kept in the endianity of the CPU.
+ *
+ * The heart beat of ospf is ospf_disp(). It is called at regular intervals
+ * (&proto_ospf->tick). It is responsible for aging and flushing of LSAs in
+ * the database, for routing table calculaction and it call area_disp() of every
+ * ospf_area.
  * 
- * Every area has its own area_disp() which is
- * responsible for late originating of router LSA, calculating
- * of the routing table and it also ages and flushes the LSAs. This
- * function is called in regular intervals from ospf_disp()
+ * The function area_disp() is
+ * responsible for late originating of router LSA and network LSA
+ * and for cleanup after routing table calculation process in
+ * the area.
  * To every &ospf_iface, we connect one or more
  * &ospf_neighbor's -- a structure containing many timers and queues
  * for building adjacency and for exchange of routing messages.
@@ -122,6 +127,9 @@ ospf_start(struct proto *p)
   init_list(&(po->area_list));
   fib_init(&po->rtf, p->pool, sizeof(ort), 16, ospf_rt_initort);
   po->areano = 0;
+  po->gr = ospf_top_new(p->pool);
+  po->cleanup = 1;
+  s_init_list(&(po->lsal));
   if (EMPTY_LIST(c->area_list))
   {
     log(L_ERR "Cannot start, no OSPF areas configured!");
@@ -135,8 +143,6 @@ ospf_start(struct proto *p)
     po->areano++;
     oa->stub = ac->stub;
     oa->areaid = ac->areaid;
-    oa->gr = ospf_top_new(p->pool);
-    s_init_list(&(oa->lsal));
     oa->rt = NULL;
     oa->po = po;
     add_area_nets(oa, ac);
@@ -181,13 +187,9 @@ ospf_dump(struct proto *p)
     }
   }
 
-  WALK_LIST(NODE oa, po->area_list)
-  {
-    OSPF_TRACE(D_EVENTS, "LSA graph dump for area \"%I\" start:", oa->areaid);
-    ospf_top_dump(oa->gr, p);
-    OSPF_TRACE(D_EVENTS, "LSA graph dump for area \"%I\" finished",
-	       oa->areaid);
-  }
+  OSPF_TRACE(D_EVENTS, "LSA graph dump start:");
+  ospf_top_dump(po->gr, p);
+  OSPF_TRACE(D_EVENTS, "LSA graph dump finished");
   neigh_dump_all();
 }
 
@@ -293,9 +295,9 @@ schedule_rtcalc(struct proto_ospf *po)
 }
 
 /**
- * area_disp - invokes link-state database aging, origination of
- * router LSA and routing table calculation
- * @timer: it's called every @ospf_area->tick seconds
+ * area_disp - invokes origination of
+ * router LSA and routing table cleanup
+ * @oa: ospf area
  *
  * It invokes aging and when @ospf_area->origrt is set to 1, start
  * function for origination of router LSA and network LSAs.
@@ -316,11 +318,13 @@ area_disp(struct ospf_area *oa)
     if (ifa->orignet && (ifa->oa == oa))
       originate_net_lsa(ifa);
   }
-
-  /* Age LSA DB */
-  ospf_age(oa);
 }
 
+/**
+ * ospf_disp - invokes routing table calctulation, aging and also area_disp()
+ * @timer: timer usually called every @proto_ospf->tick second, @timer->data
+ * point to @proto_ospf
+ */
 void
 ospf_disp(timer * timer)
 {
@@ -330,10 +334,12 @@ ospf_disp(timer * timer)
   WALK_LIST(oa, po->area_list)
     area_disp(oa);
 
+  /* Age LSA DB */
+  ospf_age(po);
+
   /* Calculate routing table */
   if (po->calcrt)
     ospf_rt_spf (po);
-  po->calcrt = 0;
 }
 
 
@@ -425,19 +431,19 @@ ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old UNUSED,
     int max = max_ext_lsa(n->n.pxlen);
 
     /* Flush old external LSA */
-    WALK_LIST(oa, po->area_list)
+    for (i = 0; i < max; i++, pr++)
     {
-      for (i = 0; i < max; i++, pr++)
+      if (en = ospf_hash_find(po->gr, 0, pr, rtid, LSA_T_EXT))
       {
-	if (en = ospf_hash_find(oa->gr, pr, rtid, LSA_T_EXT))
+        ext = en->lsa_body;
+	if (ipa_compare(ext->netmask, ipa_mkmask(n->n.pxlen)) == 0)
 	{
-	  ext = en->lsa_body;
-	  if (ipa_compare(ext->netmask, ipa_mkmask(n->n.pxlen)) == 0)
-	  {
+          WALK_LIST(oa, po->area_list)
+          {
 	    ospf_lsupd_flush_nlsa(en, oa);
-	    break;
 	  }
 	}
+        break;
       }
     }
   }
@@ -830,6 +836,7 @@ ospf_sh(struct proto *p)
   cli_msg(-1014, "RFC1583 compatibility: %s", (po->rfc1583 ? "enable" : "disabled"));
   cli_msg(-1014, "RT scheduler tick: %d", po->tick);
   cli_msg(-1014, "Number of areas: %u", po->areano);
+  cli_msg(-1014, "Number of LSAs in DB:\t%u", po->gr->hash_entries);
 
   WALK_LIST(oa, po->area_list)
   {
@@ -854,7 +861,6 @@ ospf_sh(struct proto *p)
     cli_msg(-1014, "\t\tStub:\t%s", oa->stub ? "Yes" : "No");
     cli_msg(-1014, "\t\tTransit:\t%s", oa->trcap ? "Yes" : "No");
     cli_msg(-1014, "\t\tNumber of interfaces:\t%u", ifano);
-    cli_msg(-1014, "\t\tNumber of LSAs in DB:\t%u", oa->gr->hash_entries);
     cli_msg(-1014, "\t\tNumber of neighbors:\t%u", nno);
     cli_msg(-1014, "\t\tNumber of adjacent neighbors:\t%u", adjno);
 

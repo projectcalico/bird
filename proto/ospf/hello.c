@@ -16,7 +16,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
   ip_addr olddr, oldbdr;
   ip_addr mask;
   char *beg = "Bad OSPF hello packet from ", *rec = " received: ";
-  struct proto *p = (struct proto *) ifa->proto;
+  struct proto *p = (struct proto *) ifa->oa->po;
   unsigned int size = ntohs(ps->ospf_packet.length), i, twoway, oldpriority, eligible = 0, peers;
 
   OSPF_TRACE(D_PACKETS, "Received hello from %I via %s%s", faddr,
@@ -172,6 +172,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   u32 *pp;
   int i, send;
   struct nbma_node *nb;
+
   if (timer == NULL)
     ifa = dirn->ifa;
   else
@@ -183,7 +184,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   if (ifa->stub)
     return;			/* Don't send any packet on stub iface */
 
-  p = (struct proto *) (ifa->proto);
+  p = (struct proto *) (ifa->oa->po);
   DBG("%s: Hello/Poll timer fired on interface %s.\n",
       p->name, ifa->iface->name);
   /* Now we should send a hello packet */

@@ -49,5 +49,4 @@ OSPF
 	- automatic generation of external route tags (RFC1403)
 	- RFC1587 NSSA areas
 	- RFC2370 opaque LSA's
-        - AS external LSAs are in topology database of every OSPF Area
         - Limit export rate of external LSAs (like Gated does)

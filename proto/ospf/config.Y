@@ -104,7 +104,6 @@ ospf_vlink_item:
 
 ospf_vlink_start: VIRTUAL LINK idval
  {
-  log("Vlink start");
   if (this_area->areaid == 0) cf_error("Virtual link cannot be in backbone");
   this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
   add_tail(&this_area->vlink_list, NODE this_ipatt);
@@ -200,7 +199,6 @@ ipa_ne: IPA ELIGIBLE ';'
  
 ospf_iface_start:
  {
-  log("Iface start");
   this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
   add_tail(&this_area->patt_list, NODE this_ipatt);
   OSPF_PATT->cost = COST_D;

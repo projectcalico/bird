@@ -18,7 +18,7 @@ ospf_lsreq_send(struct ospf_neighbor *n)
   struct ospf_lsreq_header *lsh;
   u16 length;
   int i, j;
-  struct proto *p = &n->ifa->proto->proto;
+  struct proto *p = &n->ifa->oa->po->proto;
 
   pk = (struct ospf_lsreq_packet *) n->ifa->ip_sk->tbuf;
   op = (struct ospf_packet *) n->ifa->ip_sk->tbuf;
@@ -73,7 +73,9 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
   slab *upslab;
   unsigned int size = ntohs(ps->ospf_packet.length);
   int i, lsano;
-  struct proto *p = (struct proto *) ifa->proto;
+  struct ospf_area *oa = ifa->oa;
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
 
   if (n->state < NEIGHBOR_EXCHANGE)
     return;
@@ -96,7 +98,7 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
     llsh->lsh.rt = ntohl(lsh->rt);
     llsh->lsh.type = lsh->type;
     add_tail(&uplist, NODE llsh);
-    if (ospf_hash_find(n->ifa->oa->gr, llsh->lsh.id, llsh->lsh.rt,
+    if (ospf_hash_find(po->gr, oa->areaid, llsh->lsh.id, llsh->lsh.rt,
 		       llsh->lsh.type) == NULL)
     {
       log(L_WARN

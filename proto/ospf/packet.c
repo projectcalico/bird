@@ -14,9 +14,7 @@ void
 ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
 {
   struct ospf_packet *pkt;
-  struct proto *p;
-
-  p = (struct proto *) (ifa->proto);
+  struct proto *p = (struct proto *) (ifa->oa->po);
 
   pkt = (struct ospf_packet *) buf;
 
@@ -40,7 +38,7 @@ ospf_pkt_maxsize(struct ospf_iface *ifa)
 void
 ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 {
-  struct proto_ospf *po = ifa->proto;
+  struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
   struct password_item *passwd = password_find (ifa->passwords);
   void *tail;
@@ -97,7 +95,7 @@ static int
 ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_packet *pkt, int size)
 {
   int i;
-  struct proto_ospf *po = ifa->proto;
+  struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
   struct password_item *pass = NULL, *ptmp;
   void *tail;
@@ -219,8 +217,8 @@ ospf_rx_hook(sock * sk, int size)
 {
   struct ospf_packet *ps;
   struct ospf_iface *ifa = (struct ospf_iface *) (sk->data);
-  struct proto_ospf *po = ifa->proto;
-  struct proto *p = (struct proto *) (ifa->proto);
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
   struct ospf_neighbor *n;
   int osize;
   char *mesg = "Bad OSPF packet from ";
@@ -356,24 +354,16 @@ ospf_rx_hook(sock * sk, int size)
 void
 ospf_tx_hook(sock * sk)
 {
-  struct ospf_iface *ifa;
-  struct proto *p;
-
-  ifa = (struct ospf_iface *) (sk->data);
-
-  p = (struct proto *) (ifa->proto);
+  struct ospf_iface *ifa= (struct ospf_iface *) (sk->data);
+  struct proto *p = (struct proto *) (ifa->oa->po);
   DBG("%s: TX_Hook called on interface %s\n", p->name, sk->iface->name);
 }
 
 void
 ospf_err_hook(sock * sk, int err UNUSED)
 {
-  struct ospf_iface *ifa;
-  struct proto *p;
-
-  ifa = (struct ospf_iface *) (sk->data);
-
-  p = (struct proto *) (ifa->proto);
+  struct ospf_iface *ifa= (struct ospf_iface *) (sk->data);
+  struct proto *p = (struct proto *) (ifa->oa->po);
   DBG("%s: Err_Hook called on interface %s\n", p->name, sk->iface->name);
 }
 

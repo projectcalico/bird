@@ -37,7 +37,7 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   struct ospf_lsa_header *h;
   struct lsah_n *no;
   struct ospf_iface *ifa = n->ifa;
-  struct proto *p = &n->ifa->proto->proto;
+  struct proto *p = &n->ifa->oa->po->proto;
 
   if (EMPTY_LIST(n->ackl[queue]))
     return;
@@ -122,7 +122,7 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
   struct ospf_lsa_header lsa, *plsa;
   u16 nolsa;
   struct top_hash_entry *en;
-  struct proto *p = (struct proto *) ifa->proto;
+  struct proto *p = &ifa->oa->po->proto;
   unsigned int size = ntohs(ps->ospf_packet.length), i;
 
   OSPF_TRACE(D_PACKETS, "Received LS ack from %I", n->ip);
@@ -146,7 +146,7 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
   for (i = 0; i < nolsa; i++)
   {
     ntohlsah(plsa + i, &lsa);
-    if ((en = ospf_hash_find_header(n->lsrth, &lsa)) == NULL)
+    if ((en = ospf_hash_find_header(n->lsrth, n->ifa->oa->areaid, &lsa)) == NULL)
       continue;			/* pg 155 */
 
     if (lsa_comp(&lsa, &en->lsa) != CMP_SAME)	/* pg 156 */

@@ -33,7 +33,7 @@ void ackd_timer_hook(timer * t);
 struct ospf_neighbor *
 ospf_neighbor_new(struct ospf_iface *ifa)
 {
-  struct proto *p = (struct proto *) (ifa->proto);
+  struct proto *p = (struct proto *) (ifa->oa->po);
   struct pool *pool = rp_new(p->pool, "OSPF Neighbor");
   struct ospf_neighbor *n = mb_allocz(pool, sizeof(struct ospf_neighbor));
 
@@ -231,7 +231,7 @@ can_do_adj(struct ospf_neighbor *n)
   int i;
 
   ifa = n->ifa;
-  p = (struct proto *) (ifa->proto);
+  p = (struct proto *) (ifa->oa->po);
   i = 0;
 
   switch (ifa->type)
@@ -289,8 +289,8 @@ can_do_adj(struct ospf_neighbor *n)
 void
 ospf_neigh_sm(struct ospf_neighbor *n, int event)
 {
-  struct proto_ospf *po = n->ifa->proto;
-  struct proto *p = (struct proto *) po;
+  struct proto_ospf *po = n->ifa->oa->po;
+  struct proto *p = &po->proto;
 
   DBG("Neighbor state machine for neighbor %I, event \"%s\".", n->ip,
 	     ospf_inm[event]);
@@ -322,7 +322,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
     if (n->state == NEIGHBOR_EXSTART)
     {
       neigh_chstate(n, NEIGHBOR_EXCHANGE);
-      s_init(&(n->dbsi), &(n->ifa->oa->lsal));
+      s_init(&(n->dbsi), &po->lsal);
       while (!EMPTY_LIST(n->ackl[ACKL_DELAY]))
       {
 	struct lsah_n *no;
@@ -396,7 +396,7 @@ bdr_election(struct ospf_iface *ifa)
   u32 myid;
   ip_addr ndrip, nbdrip;
   int doadj;
-  struct proto *p = &ifa->proto->proto;
+  struct proto *p = &ifa->oa->po->proto;
 
   DBG("(B)DR election.\n");
 
@@ -541,13 +541,10 @@ ospf_find_area(struct proto_ospf *po, u32 aid)
 void
 neighbor_timer_hook(timer * timer)
 {
-  struct ospf_neighbor *n;
-  struct ospf_iface *ifa;
-  struct proto *p;
+  struct ospf_neighbor *n = (struct ospf_neighbor *) timer->data;
+  struct ospf_iface *ifa = n->ifa;
+  struct proto *p = &ifa->oa->po->proto;
 
-  n = (struct ospf_neighbor *) timer->data;
-  ifa = n->ifa;
-  p = (struct proto *) (ifa->proto);
   OSPF_TRACE(D_EVENTS,
 	     "Inactivity timer fired on interface %s for neighbor %I.",
 	     ifa->iface->name, n->ip);
@@ -557,11 +554,9 @@ neighbor_timer_hook(timer * timer)
 void
 ospf_neigh_remove(struct ospf_neighbor *n)
 {
-  struct ospf_iface *ifa;
-  struct proto *p;
+  struct ospf_iface *ifa = n->ifa;
+  struct proto *p = &ifa->oa->po->proto;
 
-  ifa = n->ifa;
-  p = (struct proto *) (ifa->proto);
   neigh_chstate(n, NEIGHBOR_DOWN);
   rem_node(NODE n);
   rfree(n->pool);

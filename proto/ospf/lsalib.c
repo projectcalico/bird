@@ -9,9 +9,10 @@
 #include "ospf.h"
 
 void
-flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
+flush_lsa(struct top_hash_entry *en, struct proto_ospf *po)
 {
-  struct proto *p = &oa->po->proto;
+  struct proto *p = &po->proto;
+
   OSPF_TRACE(D_EVENTS,
 	     "Going to remove node Type: %u, Id: %I, Rt: %I, Age: %u, SN: 0x%x",
 	     en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age, en->lsa.sn);
@@ -19,14 +20,14 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
   if (en->lsa_body != NULL)
     mb_free(en->lsa_body);
   en->lsa_body = NULL;
-  ospf_hash_delete(oa->gr, en);
+  ospf_hash_delete(po->gr, en);
 }
 
 /**
  * ospf_age
- * @oa: ospf area
+ * @po: ospf protocol
  *
- * This function is periodicaly invoked from area_disp(). It computes the new
+ * This function is periodicaly invoked from ospf_disp(). It computes the new
  * age of all LSAs and old (@age is higher than %LSA_MAXAGE) LSAs are flushed
  * whenever possible. If an LSA originated by the router itself is older
  * than %LSREFRESHTIME a new instance is originated.
@@ -38,19 +39,17 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
  * table calculation results.
  */
 void
-ospf_age(struct ospf_area *oa)
+ospf_age(struct proto_ospf *po)
 {
-  struct proto *p = &oa->po->proto;
-  struct proto_ospf *po = (struct proto_ospf *) p;
+  struct proto *p = &po->proto;
   struct top_hash_entry *en, *nxt;
-  int flush = can_flush_lsa(oa);
-  int cleanup = (oa->rt && (oa->rt->dist != LSINFINITY));
+  int flush = can_flush_lsa(po);
 
-  if (cleanup) OSPF_TRACE(D_EVENTS, "Running ospf_age cleanup");
+  if (po->cleanup) OSPF_TRACE(D_EVENTS, "Running ospf_age cleanup");
 
-  WALK_SLIST_DELSAFE(en, nxt, oa->lsal)
+  WALK_SLIST_DELSAFE(en, nxt, po->lsal)
   {
-    if (cleanup)
+    if (po->cleanup)
     {
       en->color = OUTSPF;
       en->dist = LSINFINITY;
@@ -63,7 +62,7 @@ ospf_age(struct ospf_area *oa)
     if (en->lsa.age == LSA_MAXAGE)
     {
       if (flush)
-	flush_lsa(en, oa);
+	flush_lsa(en, po);
       continue;
     }
     if ((en->lsa.rt == p->cf->global->router_id) &&(en->lsa.age >=
@@ -76,20 +75,21 @@ ospf_age(struct ospf_area *oa)
       en->inst_t = now;
       en->ini_age = 0;
       lsasum_calculate(&en->lsa, en->lsa_body);
-      ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
+      ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, en->oa, 1);
       continue;
     }
     if ((en->lsa.age = (en->ini_age + (now - en->inst_t))) >= LSA_MAXAGE)
     {
       if (flush)
       {
-	flush_lsa(en, oa);
+	flush_lsa(en, po);
 	schedule_rtcalc(po);
       }
       else
 	en->lsa.age = LSA_MAXAGE;
     }
   }
+  po->cleanup = 0;
 }
 
 void
@@ -446,9 +446,9 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
   struct top_hash_entry *en;
   struct proto_ospf *po = oa->po;
 
-  if ((en = ospf_hash_find_header(oa->gr, lsa)) == NULL)
+  if ((en = ospf_hash_find_header(po->gr, oa->areaid, lsa)) == NULL)
   {
-    en = ospf_hash_get_header(oa->gr, lsa);
+    en = ospf_hash_get_header(po->gr, oa, lsa);
     change = 1;
   }
   else
@@ -474,7 +474,7 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
   DBG("Inst lsa: Id: %I, Rt: %I, Type: %u, Age: %u, Sum: %u, Sn: 0x%x\n",
       lsa->id, lsa->rt, lsa->type, lsa->age, lsa->checksum, lsa->sn);
 
-  s_add_tail(&oa->lsal, SNODE en);
+  s_add_tail(&po->lsal, SNODE en);
   en->inst_t = now;
   if (en->lsa_body != NULL)
     mb_free(en->lsa_body);

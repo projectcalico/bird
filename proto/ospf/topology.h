@@ -18,6 +18,7 @@ struct top_hash_entry
 				 */
   struct top_hash_entry *next;	/* Next in hash chain */
   struct ospf_lsa_header lsa;
+  struct ospf_area *oa;
   void *lsa_body;
   bird_clock_t inst_t;		/* Time of installation into DB */
   ip_addr nh;			/* Next hop */
@@ -47,18 +48,18 @@ struct top_graph
 struct top_graph *ospf_top_new(pool *);
 void ospf_top_free(struct top_graph *);
 void ospf_top_dump(struct top_graph *, struct proto *);
-struct top_hash_entry *ospf_hash_find_header(struct top_graph *f,
+struct top_hash_entry *ospf_hash_find_header(struct top_graph *f, u32 areaid,
 					     struct ospf_lsa_header *h);
-struct top_hash_entry *ospf_hash_get_header(struct top_graph *f,
+struct top_hash_entry *ospf_hash_get_header(struct top_graph *f, struct ospf_area *oa,
 					    struct ospf_lsa_header *h);
-struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr,
+struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 areaid, u32 lsa, u32 rtr,
 				      u32 type);
-struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr,
+struct top_hash_entry *ospf_hash_get(struct top_graph *, struct ospf_area *oa, u32 lsa, u32 rtr,
 				     u32 type);
 void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
 void originate_rt_lsa(struct ospf_area *oa);
 void originate_net_lsa(struct ospf_iface *ifa);
-int can_flush_lsa(struct ospf_area *oa);
+int can_flush_lsa(struct proto_ospf *po);
 int max_ext_lsa(unsigned pxlen);
 void originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 		       struct ea_list *attrs);

@@ -125,7 +125,6 @@ union options
 struct ospf_iface
 {
   node n;
-  struct proto_ospf *proto;
   struct iface *iface;		/* Nest's iface */
   struct ospf_area *oa;
   struct object_lock *lock;
@@ -507,10 +506,7 @@ struct ospf_area
 {
   node n;
   u32 areaid;
-  timer *disp_timer;		/* Area's dispatcher hear beat */
   int origrt;			/* Rt lsa origination scheduled? */
-  struct top_graph *gr;		/* LSA graph */
-  slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
   list cand;			/* List of candidates for RT calc. */
   struct fib net_fib;		/* Networks to advertise or not */
@@ -526,7 +522,10 @@ struct proto_ospf
   struct proto proto;
   timer *disp_timer;		/* OSPF proto dispatcher */
   unsigned tick;
+  struct top_graph *gr;		/* LSA graph */
+  slist lsal;			/* List of all LSA's */
   int calcrt;			/* Routing table calculation scheduled? */
+  int cleanup;                  /* Should I cleanup after RT calculation? */
   list iface_list;		/* Interfaces we really use */
   list area_list;
   int areano;			/* Number of area I belong to */

@@ -35,7 +35,7 @@ static void
 wait_timer_hook(timer * timer)
 {
   struct ospf_iface *ifa = (struct ospf_iface *) timer->data;
-  struct proto *p = (struct proto *) (ifa->proto);
+  struct proto *p = &ifa->oa->po->proto;
 
   OSPF_TRACE(D_EVENTS, "Wait timer fired on interface %s.", ifa->iface->name);
   ospf_iface_sm(ifa, ISM_WAITF);
@@ -45,9 +45,7 @@ static sock *
 ospf_open_ip_socket(struct ospf_iface *ifa)
 {
   sock *ipsk;
-  struct proto *p;
-
-  p = (struct proto *) (ifa->proto);
+  struct proto *p = &ifa->oa->po->proto;
 
   ipsk = sk_new(p->pool);
   ipsk->type = SK_IP;
@@ -86,7 +84,7 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
 void
 ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 {
-  struct proto_ospf *po = ifa->proto;
+  struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
   u8 oldstate = ifa->state;
 
@@ -149,8 +147,8 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 	  {
 	    ospf_lsupd_flush_nlsa(ifa->nlsa, ifa->oa);
 	  }
-	  if (can_flush_lsa(ifa->oa))
-	    flush_lsa(ifa->nlsa, ifa->oa);
+	  if (can_flush_lsa(po))
+	    flush_lsa(ifa->nlsa, po);
 	  ifa->nlsa = NULL;
 	}
       }
@@ -162,8 +160,8 @@ static void
 ospf_iface_down(struct ospf_iface *ifa)
 {
   struct ospf_neighbor *n, *nx;
-  struct proto *p = &ifa->proto->proto;
-  struct proto_ospf *po = ifa->proto;
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
   struct ospf_iface *iff;
 
   /* First of all kill all the related vlinks */
@@ -287,9 +285,7 @@ static sock *
 ospf_open_mc_socket(struct ospf_iface *ifa)
 {
   sock *mcsk;
-  struct proto *p;
-
-  p = (struct proto *) (ifa->proto);
+  struct proto *p = &ifa->oa->po->proto;
 
   mcsk = sk_new(p->pool);
   mcsk->type = SK_IP_MC;
@@ -342,9 +338,9 @@ static void
 ospf_iface_add(struct object_lock *lock)
 {
   struct ospf_iface *ifa = lock->data;
-  struct proto_ospf *po = ifa->proto;
-  struct iface *iface = lock->iface;
+  struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
+  struct iface *iface = lock->iface;
 
   ifa->lock = lock;
 
@@ -387,7 +383,6 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
   struct ospf_area *oa;
 
   ifa = mb_allocz(p->pool, sizeof(struct ospf_iface));
-  ifa->proto = po;
   ifa->iface = iface;
 
   ifa->cost = ip->cost;

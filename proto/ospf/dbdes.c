@@ -25,11 +25,11 @@ ospf_dbdes_send(struct ospf_neighbor *n)
   struct ospf_packet *op;
   struct ospf_iface *ifa = n->ifa;
   struct ospf_area *oa = ifa->oa;
-  u16 length;
-  struct proto *p = (struct proto *) (ifa->proto);
-  u16 i, j;
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
+  u16 length, i, j;
 
-  if ((oa->rt == NULL) || (EMPTY_LIST(oa->lsal)))
+  if ((oa->rt == NULL) || (EMPTY_LIST(po->lsal)))
     originate_rt_lsa(oa);
 
   switch (n->state)
@@ -40,7 +40,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     op = (struct ospf_packet *) pkt;
     ospf_pkt_fill_hdr(ifa, pkt, DBDES_P);
     pkt->iface_mtu = htons(ifa->iface->mtu);
-    pkt->options = ifa->oa->opt.byte;
+    pkt->options = oa->opt.byte;
     pkt->imms = n->myimms;
     pkt->ddseq = htonl(n->dds);
     length = sizeof(struct ospf_dbdes_packet);
@@ -64,7 +64,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 
       ospf_pkt_fill_hdr(ifa, pkt, DBDES_P);
       pkt->iface_mtu = htons(ifa->iface->mtu);
-      pkt->options = ifa->oa->opt.byte;
+      pkt->options = oa->opt.byte;
       pkt->ddseq = htonl(n->dds);
 
       j = i = (ospf_pkt_maxsize(ifa) - sizeof(struct ospf_dbdes_packet)) / sizeof(struct ospf_lsa_header);	/* Number of possible lsaheaders to send */
@@ -77,10 +77,17 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 	DBG("Number of LSA: %d\n", j);
 	for (; i > 0; i--)
 	{
-	  struct top_hash_entry *en;
-	  en = (struct top_hash_entry *) sn;
+	  struct top_hash_entry *en= (struct top_hash_entry *) sn;
+          int send = 1;
 
-          if ((n->ifa->type != OSPF_IT_VLINK) || (en->lsa.type != LSA_T_EXT))
+          /* Don't send ext LSA into stub areas */
+          if (oa->stub && (en->lsa.type == LSA_T_EXT)) send = 0;
+          /* Don't send ext LSAs through VLINK  */
+          if ((ifa->type == OSPF_IT_VLINK) && (en->lsa.type == LSA_T_EXT)) send = 0;;
+          /* Don't send LSA of other areas */
+          if ((en->lsa.type != LSA_T_EXT) && (en->oa != oa)) send = 0;
+
+          if (send)
           {
 	    htonlsah(&(en->lsa), lsa);
 	    DBG("Working on: %d\n", i);
@@ -91,7 +98,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
           }
           else i++;	/* No lsa added */
 
-	  if (sn == STAIL(n->ifa->oa->lsal))
+	  if (sn == STAIL(po->lsal))
           {
             i--;
 	    break;
@@ -100,7 +107,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 	  sn = sn->next;
 	}
 
-	if (sn == STAIL(n->ifa->oa->lsal))
+	if (sn == STAIL(po->lsal))
 	{
 	  DBG("Number of LSA NOT sent: %d\n", i);
 	  DBG("M bit unset.\n");
@@ -163,7 +170,8 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct ospf_neighbor *n)
 {
   struct ospf_lsa_header *plsa, lsa;
   struct top_hash_entry *he, *sn;
-  struct top_graph *gr = n->ifa->oa->gr;
+  struct ospf_area *oa = n->ifa->oa;
+  struct top_graph *gr = oa->po->gr;
   struct ospf_packet *op;
   int i, j;
 
@@ -177,13 +185,13 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct ospf_neighbor *n)
   for (i = 0; i < j; i++)
   {
     ntohlsah(plsa + i, &lsa);
-    if (((he = ospf_hash_find(gr, lsa.id, lsa.rt, lsa.type)) == NULL) ||
+    if (((he = ospf_hash_find(gr, oa->areaid, lsa.id, lsa.rt, lsa.type)) == NULL) ||
 	(lsa_comp(&lsa, &(he->lsa)) == 1))
     {
       /* Is this condition necessary? */
-      if (ospf_hash_find(n->lsrqh, lsa.id, lsa.rt, lsa.type) == NULL)
+      if (ospf_hash_find(n->lsrqh, oa->areaid, lsa.id, lsa.rt, lsa.type) == NULL)
       {
-	sn = ospf_hash_get(n->lsrqh, lsa.id, lsa.rt, lsa.type);
+	sn = ospf_hash_get(n->lsrqh, oa, lsa.id, lsa.rt, lsa.type);
 	ntohlsah(plsa + i, &(sn->lsa));
 	s_add_tail(&(n->lsrql), SNODE sn);
       }
@@ -195,7 +203,7 @@ void
 ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
 		   struct ospf_iface *ifa, struct ospf_neighbor *n)
 {
-  struct proto *p = (struct proto *) ifa->proto;
+  struct proto *p = &ifa->oa->po->proto;
   u32 myrid = p->cf->global->router_id;
   unsigned int size = ntohs(ps->ospf_packet.length);
 
