@@ -1,8 +1,6 @@
 root-rel=../
 dir-name=doc
 
-include ../Rules
-
 progdocs:
 	mkdir -p prog
 	$(srcdir)/tools/progdoc $(srcdir_abs)
