@@ -58,7 +58,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
-  debug("%s: Received hello from %I via %s\n",p->name,faddr,ifa->iface->name);
+  OSPF_TRACE(D_PACKETS, "Received hello from %I via %s",faddr,ifa->iface->name);
 
   if((unsigned)ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
   {
@@ -87,7 +87,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: New neighbor found: %I on %s.", p->name,faddr,
+    OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s.", faddr,
       ifa->iface->name);
     n=mb_allocz(p->pool, sizeof(struct ospf_neighbor));
     add_tail(&ifa->neigh_list, NODE n);
@@ -255,7 +255,7 @@ hello_timer_hook(timer *timer)
     }
     sk_send_to_agt(ifa->ip_sk, length, ifa, NEIGHBOR_DOWN);
   }
-  debug("%s: Hello sent via %s\n",p->name,ifa->iface->name);
+  OSPF_TRACE(D_PACKETS, "Hello sent via %s",ifa->iface->name);
 }
 
 void

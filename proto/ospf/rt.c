@@ -45,7 +45,7 @@ ospf_rt_spfa(struct ospf_area *oa)
   ip_addr ip;
   struct ospf_lsa_net *ln;
 
-  debug("%s: Starting routing table calculation for area %I\n",p->name,
+  OSPF_TRACE(D_EVENTS, "Starting routing table calculation for area %I",
     oa->areaid);
 
   if(oa->rt==NULL) return;
@@ -266,8 +266,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
   u32 tag;
   neighbor *nn;
 
-  debug("%s: Starting routing table calculation for external routes\n",
-    p->name);
+  OSPF_TRACE(D_EVENTS,"Starting routing table calculation for ext routes");
 
   FIB_WALK(ef,nftmp)
   {

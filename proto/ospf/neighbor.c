@@ -37,8 +37,8 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
 
     n->state=state;
 
-    debug("%s: Neighbor %I changes state from \"%s\" to \"%s\".\n",
-      p->name, n->ip, ospf_ns[oldstate], ospf_ns[state]);
+    OSPF_TRACE( D_EVENTS, "Neighbor %I changes state from \"%s\" to \"%s\".",
+      n->ip, ospf_ns[oldstate], ospf_ns[state]);
 
     if((state==NEIGHBOR_2WAY) && (oldstate<NEIGHBOR_2WAY))
       ospf_int_sm(ifa, ISM_NEICH);
@@ -278,7 +278,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       break;
     case INM_SEQMIS:
     case INM_BADLSREQ:
-      debug("%s: Bad LS req!\n", p->name);
+      OSPF_TRACE(D_EVENTS, "Bad LS req!");
       if(n->state>=NEIGHBOR_EXCHANGE)
       {
         neigh_chstate(n,NEIGHBOR_EXSTART);
@@ -439,8 +439,8 @@ neighbor_timer_hook(timer *timer)
   n=(struct ospf_neighbor *)timer->data;
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
-  debug("%s: Inactivity timer fired on interface %s for neighbor %I.\n",
-    p->name, ifa->iface->name, n->ip);
+  OSPF_TRACE(D_EVENTS,"Inactivity timer fired on interface %s for neighbor %I.",
+    ifa->iface->name, n->ip);
   ospf_neigh_remove(n);
 }
 
@@ -484,7 +484,7 @@ ospf_neigh_remove(struct ospf_neighbor *n)
   }
   rem_node(NODE n);
   mb_free(n);
-  debug("%s: Deleting neigbor.\n", p->name);
+  OSPF_TRACE(D_EVENTS, "Deleting neigbor.");
 }
 
 void

@@ -25,8 +25,8 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
 
   if(ifa->state!=state)
   {
-    debug("%s: Changing state of iface: %s from \"%s\" into \"%s\".\n",
-      p->name, ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
+    OSPF_TRACE(D_EVENTS, "Changing state of iface: %s from \"%s\" into \"%s\".",
+      ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
     oldstate=ifa->state;
     ifa->state=state;
     if(ifa->iface->flags & IF_MULTICAST)
@@ -87,7 +87,7 @@ downint(struct ospf_iface *ifa)
 
   WALK_LIST_DELSAFE(n,nx,ifa->neigh_list)
   {
-    debug("%s: Removing neighbor %I\n", p->name, n->ip);
+    OSPF_TRACE(D_EVENTS, "%s: Removing neighbor %I", n->ip);
     ospf_neigh_remove(n);
   }
   rem_node(NODE ifa);
@@ -124,8 +124,8 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
   struct proto_ospf *po=ifa->proto;
   struct ospf_area *oa=ifa->oa;
 
-  debug("%s: SM on iface %s. Event is \"%s\".\n",
-    p->name, ifa->iface->name, ospf_ism[event]);
+  OSPF_TRACE(D_EVENTS, "SM on iface %s. Event is \"%s\".",
+    ifa->iface->name, ospf_ism[event]);
 
   switch(event)
   {
@@ -299,7 +299,6 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 
   if(flags & IF_CHANGE_UP)
   {
-    debug("%s: using interface %s.\n", p->name, iface->name);
     WALK_LIST(ac, c->area_list)
     {
       if(ip=(struct ospf_iface_patt *)
@@ -308,6 +307,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 
     if(ip)
     {
+      OSPF_TRACE(D_EVENTS, "Using interface %s.", iface->name);
       lock = olock_new( p->pool );
       lock->addr = AllSPFRouters;
       lock->type = OBJLOCK_UDP;
@@ -323,7 +323,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   {
     if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
-      debug("%s: killing interface %s.\n", p->name, iface->name);
+      OSPF_TRACE(D_EVENTS, "Killing interface %s.", iface->name);
       ospf_int_sm(ifa, ISM_DOWN);
     }
   }
@@ -332,7 +332,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   {
     if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
-      debug("%s: changing MTU on interface %s.\n", p->name, iface->name);
+      OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", iface->name);
       /* FIXME: change MTU */
     }
   }

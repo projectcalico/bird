@@ -36,7 +36,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       op->length=htons(length);
       ospf_pkt_finalize(ifa, op);
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      debug("%s: DB_DES (I) sent to %I via %s.\n", p->name, n->ip,
+      OSPF_TRACE(D_PACKETS, "DB_DES (I) sent to %I via %s.", n->ip,
         ifa->iface->name);
       break;
 
@@ -117,7 +117,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       }
 
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      debug("%s: DB_DES (M) sent to %I via %s.\n", p->name, n->ip,
+      OSPF_TRACE(D_PACKETS, "DB_DES (M) sent to %I via %s.", n->ip,
         ifa->iface->name);
       if(n->myimms.bit.ms) tm_start(n->rxmt_timer,ifa->rxmtint);
       else
@@ -206,18 +206,18 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received dbdes from unknown neigbor! %I\n", p->name,
+    OSPF_TRACE(D_PACKETS, "Received dbdes from unknown neigbor! %I.",
       nrid);
     return ;
   }
 
   if(ifa->iface->mtu<size)
   {
-    debug("%s: Received dbdes larger than MTU from %I!\n", p->name, n->ip);
+    OSPF_TRACE(D_PACKETS, "Received dbdes larger than MTU from %I!", n->ip);
     return ;
   }
 
-  debug("%s: Received dbdes from %I via %s.\n", p->name, n->ip,
+  OSPF_TRACE(D_PACKETS, "Received dbdes from %I via %s.", n->ip,
     ifa->iface->name);
   ospf_neigh_sm(n, INM_HELLOREC);
 
@@ -242,7 +242,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  n->options=ps->options;
 	  n->myimms.bit.ms=0;
 	  n->imms.byte=ps->imms.byte;
-          debug("%s: I'm slave to %I. \n", p->name, n->ip);
+          OSPF_TRACE(D_PACKETS, "I'm slave to %I.", n->ip);
 	  ospf_neigh_sm(n, INM_NEGDONE);
 	  tm_stop(n->rxmt_timer);
 	  ospf_dbdes_tx(n);
@@ -257,7 +257,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	    n->options=ps->options;
             n->ddr=ntohl(ps->ddseq)-1;
             n->imms.byte=ps->imms.byte;
-            debug("%s: I'm master to %I. \n", p->name, nrid);
+            OSPF_TRACE(D_PACKETS, "I'm master to %I.", nrid);
 	    ospf_neigh_sm(n, INM_NEGDONE);
           }
 	  else
@@ -273,7 +273,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  (ntohl(ps->ddseq)==n->ddr))
         {
           /* Duplicate packet */
-          debug("%s: Received duplicate dbdes from %I!\n", p->name, n->ip);
+          OSPF_TRACE(D_PACKETS, "Received duplicate dbdes from %I.", n->ip);
 	  if(n->imms.bit.ms==0)
 	  {
             ospf_dbdes_tx(n);
@@ -347,7 +347,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	if((ps->imms.byte==n->imms.byte) && (ps->options=n->options) &&
 	  (ps->ddseq==n->dds)) /* Only duplicate are accepted */
         {
-          debug("%s: Received duplicate dbdes from %I!\n", p->name, n->ip);
+          OSPF_TRACE(D_PACKETS, "Received duplicate dbdes from %I.",n->ip);
           return;
         }
 	else
