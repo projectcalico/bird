@@ -20,7 +20,10 @@ cf-parse.y: $(conf-fragments) $(conf-src)/gen_parser.m4
 keywords.h: $(conf-fragments) $(conf-src)/gen_keywords.m4
 	$(M4) -P $(conf-src)/gen_keywords.m4 $(conf-fragments) >keywords.h
 
+commands.h: $(conf-fragments) $(conf-src)/gen_commands.m4
+	$(M4) -P $(conf-src)/gen_commands.m4 $(conf-fragments) | sort >commands.h
+
 cf-lex.c: cf-lex.l
 	$(FLEX) $(FLEX_DEBUG) -sB8 -ocf-lex.c -Pcf_ cf-lex.l
 
-depend: keywords.h cf-parse.tab.c cf-lex.c
+depend: keywords.h commands.h cf-parse.tab.c cf-lex.c
