@@ -251,30 +251,22 @@ r_args:
    }
  ;
 
-/* FIXME: These are examples. Remove them soon. */
-CF_CLI_HELP(TEST, <subsystem>, [[Tests different subsystems]])
-CF_CLI(TEST LEDS, NUM, <N>, [[Flash each LED <N> times]]) { cli_msg(0, "%d", $3); } ;
-CF_CLI(TEST MEMORY,,, [[Replace all useful information by testing patterns]]) { cli_msg(0, "DONE"); } ;
-CF_CLI(TEST LONG,,, [[Test long replies]]) {
-	static void test_command(struct cli *);
-	this_cli->cont = test_command;
-	this_cli->rover = (void *) 1;
-	cli_msg(-2, "Start");
-} ;
+CF_CLI_HELP(DEBUG, <subsystem>, [[Show debugging information]])
+CF_CLI(DEBUG RESOURCES,,, [[Show all allocated resource]])
+{ rdump(&root_pool); }
+CF_CLI(DEBUG SOCKETS,,, [[Show open sockets]])
+{ sk_dump_all(); }
+CF_CLI(DEBUG INTERFACES,,, [[Show interface information]])
+{ if_dump_all(); }
+CF_CLI(DEBUG NEIGHBORS,,, [[Show neighbor cache]])
+{ neigh_dump_all(); }
+CF_CLI(DEBUG ATTRIBUTES,,, [[Show attribute cache]])
+{ rta_dump_all(); }
+CF_CLI(DEBUG ROUTES,,, [[Show routing table]])
+{ rt_dump_all(); }
+CF_CLI(DEBUG PROTOCOLS,,, [[Show protocol information]])
+{ protos_dump_all(); }
 
 CF_CODE
-
-/* FIXME: Test only, remove */
-static void test_command(struct cli *c)
-{
-	int i = (int) c->rover;
-	if (i < 10) {
-		cli_printf(c, -3, "%d", i);
-		c->rover = (void *) ++i;
-	} else {
-		c->cont = NULL;
-		cli_printf(c, 4, "DONE");
-	}
-}
 
 CF_END

@@ -1,7 +1,5 @@
 Core
 ~~~~
-* protocols: implement dumping of protocol-dependent rte attributes
-
 - IPv6 support
 
 - io.c: refuse old-style multicasts for unnumbered interfaces?
@@ -15,8 +13,6 @@ Core
 
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
-
-- *: show route hooks
 
 - rte_update: check whether all bits not covered by masklen are zero
 - rte_update: debug mode
@@ -48,12 +44,11 @@ Commands
 ~~~~~~~~
 shutdown			# order system shutdown
 configure [<file>]
-debug	<what>			# dump debugging information to log
 show	<name>			# show everything you know about symbol <name>
 	rip ??? [<name>]
 	ospf ??? [<name>]
 	static ??? [<name>]
-	filters [<name>]
+	symbols
 (disable|enable|restart) <protocol>	# or ALL?
 
 Cleanup
@@ -68,6 +63,7 @@ Cleanup
 - try compiling with -Wunused
 - does everybody test return value of sk_open?
 - add references to RFC's we did follow
+- protocols: implement CLI hooks
 
 Various ideas
 ~~~~~~~~~~~~~
