@@ -19,3 +19,4 @@ unaligned.h
 xmalloc.c
 printf.c
 string.h
+patmatch.c

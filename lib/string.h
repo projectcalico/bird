@@ -16,4 +16,6 @@ int bvsprintf(char *str, const char *fmt, va_list args);
 int bsnprintf(char *str, int size, const char *fmt, ...);
 int bvsnprintf(char *str, int size, const char *fmt, va_list args);
 
+int patmatch(byte *pat, byte *str);
+
 #endif
