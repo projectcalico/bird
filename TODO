@@ -49,50 +49,16 @@ OSPF
 	- RFC2370 opaque LSA's
 	- respect interface MTU and try not to create larger packets unless unavoidable
 
-Documentation (sorry, its in czech)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Filtry:
-
-o  Vysvetlit nesting a zastinovani.
-
-Protocols:
-
-o  passwords: syntaxe data uz, tusim, davno vypada jinak.
-
-Struktura dokumentace:
-
-o  Na konci (nebo ve zvlast sekci pro kazdy protokol?) by mel byt seznam referenci
-   na vsechny mozne dokumenty, zejmena vsak vsechna RFC, kterymi se ridime nebo
-   ktera maji neco spolecneho s tim, co delame (napriklad RPSL).
-
-K jazyku:
-
-o  K "BIRD Internet Routing Daemon" by mel patrit urcity clen.
-o  Pokud je v zavorce cela veta, patri pred ')' tecka, pokud neni, tak
-   nepatri.
-o  Davej si pozor na rody -- router je vzdycky `it', nikdy `he'.
-
-Jeste by to chtelo trosku podrobneji:
-
-(1) zminit se o atributech, rici, co vsechno o route rikaji a odkazat  
-    na kapitolu o filtrech, kde jsou presne nadefinovany
-(2) kdyz mluvis o preferenci, mel bys rici, co to je (ze to je atribut)
-    a kdo jej vlastne nastavuje (ze existuje globalni default pro typ
-    protokolu, ktery muzes overridovat v konfiguraci protokolu, coz
-    muzes pro konkretni routu overridovat filtrem).
-(3) popsat spojeni mezi routovacimi tabulkami, filtry a protokoly
-
 
 Last minute stuff:
 ~~~~~~~~~~~~~~~~~~
 Martin:	DOC: korektury
 	DOC: typograficky doladit, vyrobit titulni stranku (ta, co ji vygeneruji SGMLtools, vypada priserne)
+	progdoc: dopsat coding convention a jmena typu
 
-Pavel:	RIP: programatorska dokumentace (finish)
-	filtry: programatorska dokumentace
+Pavel:	filtry: programatorska dokumentace
 	filtry: opravit chybove hlasky !!!
 	DOC: dokoncit uzivatelskou dokumentaci (viz predchozi maily)
 	DOC: Pridat odkazy na RFC apod.
 
-Feela:	OSPF: uzivatelska dokumentace
-	OSPF: programatorska dokumentace
+Feela:	OSPF: programatorska dokumentace
