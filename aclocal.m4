@@ -118,7 +118,7 @@ case "$bird_cv_type_time_t" in
 ])
 
 AC_DEFUN(BIRD_CHECK_STRUCT_IP_MREQN,
-[AC_CACHE_CHECK([struct ip_mreqn], bird_cv_struct_ip_mreqn,[
+[AC_CACHE_CHECK([for struct ip_mreqn], bird_cv_struct_ip_mreqn,[
 AC_TRY_COMPILE([#include <netinet/in.h>
 ],[struct ip_mreqn x;
 ],[bird_cv_struct_ip_mreqn=yes
