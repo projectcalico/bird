@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Configuration Parser Top
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -37,6 +37,7 @@ CF_DECLS
   struct password_item *p;
   struct rt_show_data *ra;
   void *g;
+  bird_clock_t time;
 }
 
 %token END CLI_MARKER INVALID_TOKEN
@@ -46,7 +47,8 @@ CF_DECLS
 %token <s> SYM
 %token <t> TEXT
 
-%type <i> expr bool pxlen datetime
+%type <i> expr bool pxlen
+%type <time> datetime
 
 %nonassoc '=' '<' '>' '~' '.'
 %left '+' '-'
@@ -115,8 +117,12 @@ pxlen:
    }
  ;
 
-datetime:	/* Return seconds from epoch, FIXME we want be more user friendly  */
-   NUM { $$ = $1; }
+datetime:	/* Return seconds from epoch, FIXME we want be more user friendly */
+   TEXT {
+     $$ = tm_parse_date($1);
+     if (!$$)
+       cf_error("Invalid date");
+   }
  ;
 
 CF_CODE

@@ -18,10 +18,7 @@ Core
 
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
 
-- config: executable config files
 - config: when parsing prefix, check zero bits
-- config: useless rules when protocols disabled
-- config: better datetime format
 
 - krt: rescan interfaces when route addition fails?
 
@@ -56,6 +53,7 @@ Globals
 
 Various ideas
 ~~~~~~~~~~~~~
+- config: executable config files
 - client: access control
 - IPv6 router advertisements
 - real multipath (doesn't seem to be simple at all :()
