@@ -736,8 +736,10 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   f_pool = tmp_pool;
   inst = filter->root;
   res = interpret(inst);
-  if (res.type != T_RETURN)
+  if (res.type != T_RETURN) {
+    log( L_ERR "Filter %s did not return accept nor reject. Make up your mind", filter->name); 
     return F_ERROR;
+  }
   DBG( "done (%d)\n", res.val.i );
   return res.val.i;
 }
