@@ -14,6 +14,7 @@ struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
   struct top_hash_entry *next;		/* Next in hash chain */
   struct ospf_lsa_header lsa;
   void *lsa_body;
+  bird_clock_t inst_t;			/* Time of installation into DB */
 };
 
 struct top_graph {
@@ -30,6 +31,7 @@ struct top_graph {
 struct top_graph *ospf_top_new(struct proto_ospf *);
 void ospf_top_free(struct top_graph *);
 void ospf_top_dump(struct top_graph *);
+struct top_hash_entry *ospf_hash_find_header(struct top_graph *f, struct ospf_lsa_header *h);
 struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr, u32 type);
 struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr, u32 type);
 void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);

@@ -25,7 +25,7 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
   fill_ospf_pkt_hdr(n->ifa, pk, LSREQ);
 
   sn=SHEAD(n->lsrql);
-  if(sn==NULL)
+  if(EMPTY_SLIST(n->lsrql))
   {
     if(n->state==NEIGHBOR_LOADING) ospf_neigh_sm(n, INM_LOADDONE);
     return;

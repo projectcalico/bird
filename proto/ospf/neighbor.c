@@ -210,10 +210,11 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
         s_init_list(&(n->lsrql));
 	n->lsrqh=ospf_top_new(n->ifa->proto);
         s_init_list(&(n->lsrtl));
+	n->lsrth=ospf_top_new(n->ifa->proto);
 	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
 	s_init(&(n->lsrqi), &(n->lsrql));
+	s_init(&(n->lsrti), &(n->lsrtl));
 	tm_start(n->lsrr_timer,n->ifa->rxmtint);
-	/*ospf_dbdes_tx(n);*/
       }
       else die("NEGDONE and I'm not in EXSTART?\n");
       break;
@@ -222,6 +223,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 	/* FIXME Go on */
       break;
     case INM_LOADDONE:
+        neigh_chstate(n,NEIGHBOR_FULL);
       break;
     case INM_ADJOK:
         switch(n->state)

@@ -87,6 +87,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   struct ospf_neighbor *n;
   struct ospf_lsa_header *lsa;
   struct ospf_area *oa;
+  struct proto_ospf *po=(struct proto_ospf *)p;
   u16 length;
   u8 i;
 
@@ -113,7 +114,9 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   for(i=0;i<ntohl(ps->lsano);i++,
     lsa=(struct ospf_lsa_header *)(((u8 *)lsa)+ntohs(lsa->length)))
   {
-    if(lsa->checksum!=lsasum_check(lsa,NULL,(struct proto_ospf *)p))
+    struct ospf_lsa_header lsatmp;
+    struct top_hash_entry *lsadb;
+    if(lsa->checksum!=lsasum_check(lsa,NULL,po))
     {
       log("Received bad lsa checksum from %u\n",n->rid);
       continue;
@@ -128,9 +131,72 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       log("Received External LSA in stub area from %u\n",n->rid);
       continue;
     }
-      /* FIXME Go on */
+    ntohlsah(lsa,&lsatmp);
     DBG("Processing update Type: %u ID: %u RT: %u\n",lsa->type,
         ntohl(lsa->id), ntohl(lsa->rt));
+    lsadb=ospf_hash_find_header(oa->gr, &lsatmp);
+    if((lsatmp.age==LSA_MAXAGE)&&(lsadb==NULL))
+    {
+      struct ospf_neighbor *n=NULL;
+      struct ospf_iface *ifa=NULL;
+      int flag=0;
+
+      WALK_LIST(NODE ifa,po->iface_list)
+        WALK_LIST(NODE n,ifa->neigh_list)
+          if((n->state==NEIGHBOR_EXCHANGE)&&(n->state==NEIGHBOR_LOADING))
+            flag=1;
+
+      if(flag==0)
+      {
+        add_ack_list(n,lsa);
+	continue;
+      }
+    }
+    if((lsadb==NULL)||(lsa_comp(&lsatmp,&lsadb->lsa)==CMP_NEWER))
+    {
+       struct ospf_neighbor *n=NULL;
+       struct ospf_iface *ifa=NULL;
+
+       /* FIXME self originated? */
+
+      if(lsadb && ((lsadb->inst_t-now)<MINLSARRIVAL)) continue;
+
+      /* Remove old from all ret lists */
+      WALK_LIST(NODE ifa,po->iface_list)
+        WALK_LIST(NODE n,ifa->neigh_list)
+	{
+	  struct top_hash_entry *en;
+	  if((en=ospf_hash_find_header(n->lsrth,&lsadb->lsa))!=NULL)
+	    s_rem_node(SNODE en);
+	}
+
+      /* Install new */
+      memcpy(&lsadb->lsa,&lsatmp,sizeof(struct ospf_lsa_header));
+      lsadb->inst_t=now;
+      if(lsadb->lsa_body!=NULL) mb_free(lsadb->lsa_body);
+      lsadb->lsa_body=mb_alloc(p->pool,lsadb->lsa.length-
+        sizeof(struct ospf_lsa_header));
+      ntohlsab(lsa+1,lsadb->lsa_body,lsadb->lsa.type,lsadb->lsa.length);
+
+      /* FIXME lsa_flood(n,lsadb) */
+      /* FIXME ack_lsa() */
+      continue;
+    }
+
+    /* FIXME pg144 (6)?? */
+
+    if(lsa_comp(&lsatmp,&lsadb->lsa)==CMP_SAME)
+    {
+	struct top_hash_entry *en;
+	if((en=ospf_hash_find_header(n->lsrth,&lsadb->lsa))!=NULL)
+	  s_rem_node(SNODE en);
+        /* FIXME ack_lsa() */
+	continue;
+    }
+
+    if((lsadb->lsa.age==LSA_MAXAGE)&&(lsadb->lsa.sn==LSA_MAXSEQNO)) continue;
+
+    /* FIXME lsa_send(n,lsa) */
   }
 }
 

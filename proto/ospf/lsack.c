@@ -37,3 +37,9 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
   /* FIXME Go on! */
 }
 
+void
+add_ack_list(struct ospf_neighbor *n,struct ospf_lsa_header *lsa)
+{
+  /* FIXME Go on */
+}
+

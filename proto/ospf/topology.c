@@ -292,6 +292,11 @@ ospf_top_rehash(struct top_graph *f, int step)
 }
 
 struct top_hash_entry *
+ospf_hash_find_header(struct top_graph *f, struct ospf_lsa_header *h)
+{
+  return ospf_hash_find(f,h->id,h->rt,h->type);
+}
+struct top_hash_entry *
 ospf_hash_find(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
 {
   struct top_hash_entry *e = f->hash_table[ospf_top_hash(f, lsa, rtr, type)];

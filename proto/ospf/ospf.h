@@ -37,12 +37,12 @@
 #endif
 
 
-#define LSREFRESHTIME 1800	/* 30 minut */
+#define LSREFRESHTIME 1800	/* 30 minutes */
 #define MINLSINTERVAL 5
 #define MINLSARRIVAL 1
 #define MAXAGE 3600		/* 1 hour */
-#define CHECKAGE 300		/* 5 min */
-#define MAXAGEDIFF 900		/* 15 min */
+#define CHECKAGE 300		/* 5 minutes */
+#define MAXAGEDIFF 900		/* 15 minutes */
 #define LSINFINITY 0xffffff
 /*#define DEFAULTDES 0.0.0.0 FIXME: How to define it? */
 #define INITSEQNUM 0x80000001	/* Initial Sequence Number */
@@ -285,6 +285,7 @@ struct ospf_neighbor
   siterator lsrqi;
   slist lsrtl;		/* Link state retransmission list */
   siterator lsrti;
+  struct top_graph *lsrth;
   void *ldbdes;		/* Last database description packet */
   timer *rxmt_timer;	/* RXMT timer */
   timer *lsrr_timer;	/* Link state requiest retransmition timer */

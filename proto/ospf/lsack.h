@@ -13,5 +13,6 @@
 void ospf_lsack_tx(struct ospf_neighbor *n);
 void ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
   struct ospf_iface *ifa, u16 size);
+void add_ack_list(struct ospf_neighbor *n,struct ospf_lsa_header *lsa);
 
 #endif /* _BIRD_OSPF_LSACK_H_ */
