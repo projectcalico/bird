@@ -250,7 +250,7 @@ server_got_reply(char *x)
   if (*x == '+')			/* Async reply */
     printf(">>> %s\n", x+1);
   else if (x[0] == ' ')			/* Continuation */
-    printf("%s%s\n", x+1, verbose ? "     " : "");
+    printf("%s%s\n", verbose ? "     " : "", x+1);
   else if (strlen(x) > 4 &&
 	   sscanf(x, "%d", &code) == 1 && code >= 0 && code < 10000 &&
 	   (x[4] == ' ' || x[4] == '-'))
