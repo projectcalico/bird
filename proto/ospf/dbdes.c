@@ -13,13 +13,11 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 {
   struct ospf_dbdes_packet *pkt;
   struct ospf_packet *op;
-  struct ospf_iface *ifa;
+  struct ospf_iface *ifa=n->ifa;
   u16 length;
   struct proto *p;
   u16 i,j;
   u8 *aa,*bb;
-
-  ifa=n->ifa;
 
   p=(struct proto *)(ifa->proto);
 
@@ -38,7 +36,8 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       op->length=htons(length);
       ospf_pkt_finalize(ifa, op);
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      debug("%s: DB_DES (I) sent to %I.\n", p->name, n->rid);
+      debug("%s: DB_DES (I) sent to %I via %s.\n", p->name, n->ip,
+        ifa->iface->name);
       break;
 
     case NEIGHBOR_EXCHANGE:
@@ -102,7 +101,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	op->length=htons(length);
 	
         ospf_pkt_finalize(ifa, op);
-        DBG("%s: DB_DES (M) sent to %I.\n", p->name, n->rid);
+        DBG("%s: DB_DES (M) sent to %I.\n", p->name, n->ip);
       }
 
     case NEIGHBOR_LOADING:
@@ -117,9 +116,9 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
         *(aa+i)=*(bb+i);	/* Copy last sent packet again */
       }
 
-      DBG("%s: DB_DES sending to %I.\n", p->name, n->rid);
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      debug("%s: DB_DES (M) sent to %I.\n", p->name, n->rid);
+      debug("%s: DB_DES (M) sent to %I via %s.\n", p->name, n->ip,
+        ifa->iface->name);
       if(n->myimms.bit.ms) tm_start(n->rxmt_timer,ifa->rxmtint);
       else
       {
@@ -209,7 +208,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received dbdes from unknown neigbor! (%I)\n", p->name,
+    debug("%s: Received dbdes from unknown neigbor! %I\n", p->name,
       nrid);
     return ;
   }
@@ -220,7 +219,8 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
     return ;
   }
 
-  debug("%s: Received dbdes from %I.\n", p->name, n->ip);
+  debug("%s: Received dbdes from %I via %s.\n", p->name, n->ip,
+    ifa->iface->name);
 
   switch(n->state)
   {
@@ -269,6 +269,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
             break;
           }
         }
+        if(ps->imms.bit.i) break;
     case NEIGHBOR_EXCHANGE:
 	if((ps->imms.byte==n->imms.byte) && (ps->options=n->options) &&
 	  (ntohl(ps->ddseq)==n->ddr))
@@ -286,14 +287,14 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
 	if(ps->imms.bit.ms!=n->imms.bit.ms) /* M/S bit differs */
         {
-          DBG("SEQMIS-BIT-MS\n");
+          debug("SEQMIS-BIT-MS\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
 
 	if(ps->imms.bit.i)	/* I bit is set */
         {
-          DBG("SEQMIS-BIT-I\n");
+          debug("SEQMIS-BIT-I\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
@@ -302,7 +303,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
 	if(ps->options!=n->options)	/* Options differs */
         {
-          DBG("SEQMIS-OPT\n");
+          debug("SEQMIS-OPT\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
@@ -311,7 +312,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         {
           if(ntohl(ps->ddseq)!=n->dds)		/* MASTER */
 	  {
-            DBG("SEQMIS-MASTER\n");
+            debug("SEQMIS-MASTER\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
@@ -332,7 +333,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         {
           if(ntohl(ps->ddseq)!=(n->dds+1))	/* SLAVE */
 	  {
-            DBG("SEQMIS-SLAVE\n");
+            debug("SEQMIS-SLAVE\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
@@ -353,6 +354,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         }
 	else
         {
+	  debug("SEQMIS-FULL\n");
 	  ospf_neigh_sm(n, INM_SEQMIS);
         }
       break;
