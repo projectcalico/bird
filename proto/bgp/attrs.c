@@ -676,7 +676,7 @@ bgp_path_loopy(struct bgp_proto *p, eattr *a)
 }
 
 struct rta *
-bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct linpool *pool)
+bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct linpool *pool, int mandatory)
 {
   struct bgp_proto *bgp = conn->bgp;
   rta *a = lp_alloc(pool, sizeof(struct rta));
@@ -800,13 +800,16 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
     }
 
   /* Check if all mandatory attributes are present */
-  for(i=0; i < sizeof(bgp_mandatory_attrs)/sizeof(bgp_mandatory_attrs[0]); i++)
+  if (mandatory)
     {
-      code = bgp_mandatory_attrs[i];
-      if (!(seen[code/8] & (1 << (code%8))))
+      for(i=0; i < sizeof(bgp_mandatory_attrs)/sizeof(bgp_mandatory_attrs[0]); i++)
 	{
-	  bgp_error(conn, 3, 3, code, 1);
-	  return NULL;
+	  code = bgp_mandatory_attrs[i];
+	  if (!(seen[code/8] & (1 << (code%8))))
+	    {
+	      bgp_error(conn, 3, 3, code, 1);
+	      return NULL;
+	    }
 	}
     }
 
@@ -831,7 +834,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   neigh = neigh_find(&bgp->p, &nexthop, 0) ? : bgp->neigh;
   a->gw = neigh->addr;
   a->iface = neigh->iface;
-  return rta_lookup(a);
+  return a;
 
 malformed:
   bgp_error(conn, 3, 1, len, 0);

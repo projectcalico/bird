@@ -305,6 +305,7 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
   int withdrawn_len, attr_len, nlri_len, pxlen;
   net *n;
   rte e;
+  rta *a0;
   rta *a = NULL;
 
   DBG("BGP: UPDATE\n");
@@ -341,11 +342,10 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 	rte_update(bgp->p.table, n, &bgp->p, NULL);
     }
 
-  if (nlri_len)
+  a0 = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool, nlri_len);
+  if (a0 && nlri_len)
     {
-      a = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool);
-      if (!a)
-	return;
+      a = rta_lookup(a0);
       while (nlri_len)
 	{
 	  rte *e;
@@ -357,9 +357,9 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 	  e->pflags = 0;
 	  rte_update(bgp->p.table, n, &bgp->p, e);
 	}
-      lp_flush(bgp_linpool);
       rta_free(a);
     }
+  lp_flush(bgp_linpool);
   return;
 
 malformed:

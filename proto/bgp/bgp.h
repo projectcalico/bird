@@ -94,7 +94,7 @@ void bgp_close_conn(struct bgp_conn *c);
 
 /* attrs.c */
 
-struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool);
+struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool, int mandatory);
 int bgp_get_attr(struct eattr *e, byte *buf);
 int bgp_rte_better(struct rte *, struct rte *);
 void bgp_rt_notify(struct proto *, struct network *, struct rte *, struct rte *, struct ea_list *);
