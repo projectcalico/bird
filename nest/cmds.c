@@ -15,8 +15,21 @@
 void
 cmd_show_status(void)
 {
-  cli_msg(1000, "BIRD " BIRD_VERSION);
-  /* FIXME: Should include uptime, shutdown flag et cetera */
+  byte tim[TM_DATETIME_BUFFER_SIZE];
+
+  cli_msg(-1000, "BIRD " BIRD_VERSION);
+  tm_format_datetime(tim, now);
+  cli_msg(-1011, "Current server time is %s", tim);
+  tm_format_datetime(tim, boot_time);
+  cli_msg(-1011, "Last reboot on %s", tim);
+  tm_format_datetime(tim, config->load_time);
+  cli_msg(-1011, "Last reconfiguration on %s", tim);
+  if (shutting_down)
+    cli_msg(13, "Shutdown in progress");
+  else if (old_config)
+    cli_msg(13, "Reconfiguration in progress");
+  else
+    cli_msg(13, "Daemon is up and running");
 }
 
 void

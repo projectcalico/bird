@@ -21,6 +21,7 @@ Reply codes of BIRD command-line interface
 0010	Already enabled
 0011	Enabled
 0012	Restarted
+0013	Status report
 
 1000	BIRD version
 1001	Interface list
@@ -33,6 +34,7 @@ Reply codes of BIRD command-line interface
 1008	Route details
 1009	Static route list
 1010	Symbol list
+1011	Uptime
 
 8000	Reply too long
 8001	Route not found

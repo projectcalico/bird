@@ -18,6 +18,7 @@
 #include "lib/resource.h"
 #include "lib/string.h"
 #include "lib/event.h"
+#include "lib/timer.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
 
@@ -26,6 +27,7 @@ static jmp_buf conf_jmpbuf;
 struct config *config, *new_config, *old_config, *future_config;
 static event *config_event;
 int shutting_down;
+bird_clock_t boot_time;
 
 struct config *
 config_alloc(byte *name)
@@ -37,6 +39,9 @@ config_alloc(byte *name)
   c->pool = p;
   cfg_mem = c->mem = l;
   c->file_name = cfg_strdup(name);
+  c->load_time = now;
+  if (!boot_time)
+    boot_time = now;
   return c;
 }
 

@@ -10,6 +10,7 @@
 #define _BIRD_CONF_H_
 
 #include "lib/resource.h"
+#include "lib/timer.h"
 
 /* Configuration structure */
 
@@ -29,6 +30,7 @@ struct config {
   struct symbol **sym_fallback;		/* Lexer: fallback symbol hash table */
   int obstacle_count;			/* Number of items blocking freeing of this config */
   int shutdown;				/* This is a pseudo-config for daemon shutdown */
+  bird_clock_t load_time;		/* When we've got this configuration */
 };
 
 /* Please don't use these variables in protocols. Use proto_config->global instead. */
@@ -38,6 +40,7 @@ extern struct config *old_config;	/* Old configuration when reconfiguration is i
 extern struct config *future_config;	/* New config held here if recon requested during recon */
 
 extern int shutting_down;
+extern bird_clock_t boot_time;
 
 struct config *config_alloc(byte *name);
 int config_parse(struct config *);
