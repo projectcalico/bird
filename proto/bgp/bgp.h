@@ -9,11 +9,14 @@
 #ifndef _BIRD_BGP_H_
 #define _BIRD_BGP_H_
 
+struct linpool;
+
 struct bgp_config {
   struct proto_config c;
   unsigned int local_as, remote_as;
   ip_addr remote_ip;
   int multihop;				/* Number of hops if multihop */
+  ip_addr multihop_via;			/* Multihop: address to route to */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
@@ -63,6 +66,8 @@ void bgp_close_conn(struct bgp_conn *c);
 
 /* attrs.c */
 
+struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool);
+
 /* packets.c */
 
 void bgp_schedule_packet(struct bgp_conn *conn, int type);
@@ -88,7 +93,7 @@ int bgp_rx(struct birdsock *sk, int size);
 #define BA_AS_PATH		0x02				/* WM */
 #define BA_NEXT_HOP		0x03				/* WM */
 #define BA_MULTI_EXIT_DISC	0x04				/* ON */
-#define BA_LOCAL_PREF		0x05				/* WM */
+#define BA_LOCAL_PREF		0x05				/* WD */
 #define BA_ATOMIC_AGGR		0x06				/* WD */
 #define BA_AGGREGATOR		0x07				/* OT */
 #define BA_COMMUNITY		0x08	/* [RFC1997] */		/* OT */
@@ -101,6 +106,9 @@ int bgp_rx(struct birdsock *sk, int size);
 #define BA_MP_REACH_NLRI	0x0e	/* [RFC2283] */
 #define BA_MP_UNREACH_NLRI	0x0f
 #define BA_EXTENDED_COMM	0x10	/* draft-ramachandra-bgp-ext-communities */
+
+#define BGP_PATH_AS_SET		1	/* Types of path segments */
+#define BGP_PATH_AS_SEQUENCE	2
 
 /* BGP states */
 

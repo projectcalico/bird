@@ -96,6 +96,8 @@ bgp_close_conn(struct bgp_conn *conn)
     {
       bgp_close(p);
       p->conn = NULL;
+      if (conn->error_flag)		/* FIXME: Enable automatically? */
+	p->p.disabled = 1;
       proto_notify_state(&p->p, PS_DOWN);
     }
 }

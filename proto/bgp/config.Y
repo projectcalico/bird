@@ -15,7 +15,7 @@ CF_HDR
 CF_DECLS
 
 CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
-	MULTIHOP, STARTUP)
+	MULTIHOP, STARTUP, VIA)
 
 CF_GRAMMAR
 
@@ -46,7 +46,7 @@ bgp_proto:
  | bgp_proto STARTUP HOLD TIME NUM ';' { BGP_CFG->initial_hold_time = $5; }
  | bgp_proto CONNECT RETRY TIME NUM ';' { BGP_CFG->connect_retry_time = $5; }
  | bgp_proto KEEPALIVE TIME NUM ';' { BGP_CFG->connect_retry_time = $4; }
- | bgp_proto MULTIHOP NUM ';' { BGP_CFG->multihop = $3; }
+ | bgp_proto MULTIHOP NUM VIA IPA ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
  ;
 
 CF_CODE
