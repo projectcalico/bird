@@ -272,7 +272,8 @@ struct ospf_neighbor
   u32 bdr;		/* Neigbour's idea of BDR */
   u8 adj;		/* built adjacency? */
   siterator dbsi;	/* Database summary list iterator */
-  slist lsrql;		/* Link state request */ /* FIXME add hashing? */
+  slist lsrql;		/* Link state request */
+  struct top_graph *lsrqh;		/* LSA graph */
   siterator lsrqi;
   slist lsrtl;		/* Link state retransmission list */
   siterator lsrti;

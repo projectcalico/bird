@@ -208,6 +208,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       {
         neigh_chstate(n,NEIGHBOR_EXCHANGE);
         s_init_list(&(n->lsrql));
+	n->lsrqh=ospf_top_new(n->ifa->proto);
         s_init_list(&(n->lsrtl));
 	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
 	s_init(&(n->lsrqi), &(n->lsrql));

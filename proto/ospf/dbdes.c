@@ -234,15 +234,19 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct proto *p,
 
   for(i=0;i<j;i++)
   {
-  ntohlsah(plsa+i, &lsa);
-  /* FIXME Test Checksum */
-  if(((he=ospf_hash_find(gr,lsa.id,lsa.rt,lsa.type))==NULL)||
-    (lsa_comp(&lsa, &(he->lsa))==1))
-  {
-     sn=sl_alloc(gr->hash_slab);
-     ntohlsah(plsa+i, &(sn->lsa));
-     s_add_tail(&(n->lsrql), SNODE sn);
-  }
+    ntohlsah(plsa+i, &lsa);
+    /* FIXME Test Checksum */
+    if(((he=ospf_hash_find(gr,lsa.id,lsa.rt,lsa.type))==NULL)||
+      (lsa_comp(&lsa, &(he->lsa))==1))
+    {
+      /* Is this confition necessary? */
+      if(ospf_hash_find(n->lsrqh,lsa.id,lsa.rt,lsa.type)==NULL)
+      {
+        sn=ospf_hash_get(n->lsrqh,lsa.id,lsa.rt,lsa.type);
+        ntohlsah(plsa+i, &(sn->lsa));
+        s_add_tail(&(n->lsrql), SNODE sn);
+      }
+    }
   }
 }
 
