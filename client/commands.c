@@ -41,7 +41,7 @@ cmd_build_tree(void)
 
   cmd_root.plastson = &cmd_root.son;
 
-  for(i=0; i<sizeof(command_table) / sizeof(struct cmd_info); i++)
+  for(i=0; i<ARRAY_SIZE(command_table); i++)
     {
       struct cmd_info *cmd = &command_table[i];
       struct cmd_node *old, *new;

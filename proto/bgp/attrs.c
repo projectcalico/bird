@@ -185,8 +185,7 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp)
       }
 
   /* Ensure that there are all mandatory attributes */
-  /* FIXME: Introduce array size macro */
-  for(i=0; i<sizeof(bgp_mandatory_attrs)/sizeof(bgp_mandatory_attrs[0]); i++)
+  for(i=0; i<ARRAY_SIZE(bgp_mandatory_attrs); i++)
     if (!(seen & (1 << bgp_mandatory_attrs[i])))
       {
 	log(L_ERR "%s: Mandatory attribute %s missing", p->p.name, bgp_attr_table[bgp_mandatory_attrs[i]].name);
