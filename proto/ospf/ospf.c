@@ -60,79 +60,6 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
   n->state=state;
 }
 
-void
-ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
-  struct ospf_iface *ifa, u16 size)
-{
-  u32 nrid, myrid;
-  struct ospf_neighbor *n;
-  u8 i;
-
-  nrid=ntohl(((struct ospf_packet *)ps)->routerid);
-
-  myrid=p->cf->global->router_id;
-
-  if((n=find_neigh(ifa, nrid))==NULL)
-  {
-    debug("%s: Received dbdes from unknown neigbor! (%u)\n", p->name,
-      nrid);
-    return ;
-  }
-
-  /* FIXME: Now, I should test MTU */
-
-  switch(n->state)
-  {
-    case NEIGHBOR_DOWN:
-    case NEIGHBOR_ATTEMPT:
-    case NEIGHBOR_2WAY:
-        debug("%s: Received dbdes from %u in bad state. (%u)\n", p->name, nrid);
-        return;
-      break;
-    case NEIGHBOR_INIT:
-        /* 
-         * RFC2328 says, that I sould start SM with 2-Way received.
-         * It's to complicated right now. So I'll rather ignore it and
-         * wait for a hello packet. FIXME
-         */
-        return;
-      break;
-    case NEIGHBOR_EXSTART:
-        if(size!=sizeof(struct ospf_dbdes_packet))
-        {
-          debug("%s: Received bas dbdes from %u in exstart state.\n",
-            p->name, nrid);
-          return;
-	}
-        if(ps->imms==(DBDES_I|DBDES_M|DBDES_MS) && n->rid > myrid)
-        {
-          /* I'm slave! */
-          n->dds=ps->ddseq;
-	  n->options=ps->options;
-	  n->myimms=(n->myimms && DBDES_M);
-          debug("%s: I'm slave to %u. \n", p->name, nrid);
-	  /* FIXME Negotiation done */
-        }
-        if(((ps->imms | DBDES_M)== DBDES_M) && (n->rid < myrid) &&
-          (n->dds == ps->ddseq))
-        {
-          /* I'm master! */
-	  n->options=ps->options;
-          debug("%s: I'm master to %u. \n", p->name, nrid);
-	  /* FIXME Negotiation done */
-        }
-
-      break;
-    case NEIGHBOR_EXCHANGE:
-      break;
-    case NEIGHBOR_LOADING:
-    case NEIGHBOR_FULL:
-      break;
-   }
-   n->ddr=ps->ddseq;
-   n->imms=ps->imms;
-}
-
 
 /* Try to build neighbor adjacency (if does not exists) */
 void
@@ -578,6 +505,90 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
       break;
   }
 	
+}
+
+void
+ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
+  struct ospf_iface *ifa, u16 size)
+{
+  u32 nrid, myrid;
+  struct ospf_neighbor *n;
+  u8 i;
+
+  nrid=ntohl(((struct ospf_packet *)ps)->routerid);
+
+  myrid=p->cf->global->router_id;
+
+  if((n=find_neigh(ifa, nrid))==NULL)
+  {
+    debug("%s: Received dbdes from unknown neigbor! (%u)\n", p->name,
+      nrid);
+    return ;
+  }
+
+  if(ifa->iface->mtu<size)
+  {
+    debug("%s: Received dbdes larger than MTU from (%u)!\n", p->name, nrid);
+    return ;
+  }
+
+  switch(n->state)
+  {
+    case NEIGHBOR_DOWN:
+    case NEIGHBOR_ATTEMPT:
+    case NEIGHBOR_2WAY:
+        debug("%s: Received dbdes from %u in bad state. (%u)\n", p->name, nrid);
+        return;
+      break;
+    case NEIGHBOR_INIT:
+        ospf_neigh_sm(n, INM_2WAYREC);
+	if(n->state!=NEIGHBOR_EXSTART) return;
+    case NEIGHBOR_EXSTART:
+        if(size!=sizeof(struct ospf_dbdes_packet))
+        {
+          debug("%s: Received bad dbdes from %u in exstart state.\n",
+            p->name, nrid);
+          return;
+	}
+
+        if(ps->imms==(DBDES_I|DBDES_M|DBDES_MS) && (n->rid > myrid) &&
+          (size == sizeof(struct ospf_dbdes_packet)))
+        {
+          /* I'm slave! */
+          n->dds=ps->ddseq;
+	  n->options=ps->options;
+	  n->myimms=(n->myimms && DBDES_M);
+	  n->ddr=ps->ddseq;
+	  n->imms=ps->imms;
+          debug("%s: I'm slave to %u. \n", p->name, nrid);
+	  ospf_neigh_sm(n, INM_NEGDONE);
+        }
+        if(((ps->imms | DBDES_M)== DBDES_M) && (n->rid < myrid) &&
+          (n->dds == ps->ddseq) && (size == sizeof(struct ospf_dbdes_packet)))
+        {
+          /* I'm master! */
+	  n->options=ps->options;
+          n->ddr=ps->ddseq;
+          n->imms=ps->imms;
+          debug("%s: I'm master to %u. \n", p->name, nrid);
+	  ospf_neigh_sm(n, INM_NEGDONE);
+        }
+
+      break;
+    case NEIGHBOR_EXCHANGE:
+	if((ps->imms==n->imms) && (ps->options=n->options) &&
+	  (ps->ddseq==n->dds))
+        {
+          /* Duplicate packet */
+          debug("%s: Received duplicate dbdes from (%u)!\n", p->name, nrid);
+          return;
+        }
+
+      break;
+    case NEIGHBOR_LOADING:
+    case NEIGHBOR_FULL:
+      break;
+   }
 }
 
 void

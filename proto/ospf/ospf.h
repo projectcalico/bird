@@ -153,9 +153,10 @@ struct ospf_neighbor
 #define NEIGHBOR_FULL 7
   timer *inactim;	/* Inactivity timer */
   u8 imms;		/* I, M, Master/slave */
-  u8 myimms;
-  u32 dds;		/* DD Sequence number being sentg */
-  u32 ddr;		/* last Dat Des packet */
+  u32 dds;		/* DD Sequence number being sent */
+  u32 ddr;		/* last Dat Des packet received */
+  u8 myimms;		/* I, M MS received */
+  u8 myoptions;		/* Options received */
   u32 rid;		/* Router ID */
   u8 priority;		/* Priority */
   u8 options;		/* Options */
