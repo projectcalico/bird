@@ -26,7 +26,7 @@
 
 #define PACKETLEN(num) (num * sizeof(struct rip_block) + sizeof(struct rip_packet_heading))
 
-/**
+/*
  * rip_incoming_authentication - check authentication of incomming packet and return 1 if there's problem.
  */
 int
@@ -110,7 +110,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
   return 0;
 }
 
-/**
+/*
  * rip_outgoing_authentication - append authentication information to the packet.
  * %num: number of rip_blocks already in packets. This function returns size of packet to send.
  */

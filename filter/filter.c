@@ -30,7 +30,8 @@
  * forced. Important thing about &f_val s is that they may be copied
  * with simple =. That's fine for all currently defined types: strings
  * are read-only (and therefore okay), paths are copied for each
- * operation (okay too).  */
+ * operation (okay too).
+ */
 
 #undef LOCAL_DEBUG
 
@@ -70,7 +71,7 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
   }
 }
 
-/**
+/*
  * val_compare - compare two values, returns -1, 0, 1 on <, =, > and 999 on error
  */
 int
@@ -105,7 +106,7 @@ val_compare(struct f_val v1, struct f_val v2)
   }
 }
 
-/**
+/*
  * val_simple_in_range - check if @v1 ~ @v2 for everything except sets
  */ 
 int
@@ -139,7 +140,7 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
   return CMP_ERROR;
 }
 
-/**
+/*
  * val_in_range - check if @v1 ~ @v2
  */
 int
@@ -183,7 +184,7 @@ tree_print(struct f_tree *t)
   debug( "] " );
 }
 
-/**
+/*
  * val_print - format filter value
  */
 void
@@ -218,7 +219,7 @@ static struct ea_list **f_tmp_attrs;
 static int f_flags;
 static rta *f_rta_copy;
 
-/**
+/*
  * rta_cow - prepare rta for modification by filter
  */
 void
@@ -257,7 +258,7 @@ rta_cow(void)
  * interpret
  * @what: filter to interrpret
  *
- * Interrpret given tree of filter instructions. This is core function
+ * Interpret given tree of filter instructions. This is core function
  * of filter system and does all the hard work.
  */
 static struct f_val
@@ -681,7 +682,7 @@ interpret(struct f_inst *what)
 
 #define A2_SAME if (f1->a2.i != f2->a2.i) return 0;
 
-/**
+/*
  * i_same - function that does real comparing of instruction trees, you should call filter_same from outside
  */
 int
@@ -765,8 +766,10 @@ i_same(struct f_inst *f1, struct f_inst *f2)
 /**
  * f_run - external entry point to filters
  * @filter: pointer to filter to run
+ * @tmp_attrs: where to store newly generated temporary attributes
  * @rte: pointer to pointer to rte being filtered. When route is modified, this is changed with rte_cow.
  * @tmp_pool: all filter allocations go from this pool
+ * @flags: flags
  */
 int
 f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool, int flags)

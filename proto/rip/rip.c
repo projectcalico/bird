@@ -22,7 +22,11 @@
  *
  * Rip is pretty simple protocol so half of this code is interface
  * with core. We maintain our own linklist of &rip_entry - it serves
- * as our small routing table. Within rip_tx(), this list is
+ * as our small routing table. Rip never adds into this linklist at
+ * packet reception; instead, it lets core know about data from packet,
+ * and waits for core to call our rip_rte_notify.
+ *
+ * Within rip_tx(), this list is
  * walked, and packet is generated using rip_tx_prepare(). This gets
  * tricky because we may need to send more than one packet to one
  * destination. Struct &rip_connection is used to hold info such as how
@@ -65,7 +69,7 @@ static struct rip_interface *new_iface(struct proto *p, struct iface *new, unsig
 
 #define P_NAME p->name
 
-/** 
+/*
  * DOC: Output processing
  *
  * This part is responsible for getting packets out to the network.
@@ -79,7 +83,7 @@ rip_tx_err( sock *s, int err )
   log( L_ERR "%s: Unexpected error at rip transmit: %M", P_NAME, err );
 }
 
-/**
+/*
  * rip_tx_prepare:
  * @e: rip entry that needs to be translated to form suitable for network
  * @b: block to be filled
@@ -117,7 +121,7 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
   return pos+1;
 }
 
-/**
+/*
  * rip_tx - send one rip packet to the network
  */
 static void
@@ -195,7 +199,7 @@ done:
   return;
 }
 
-/** 
+/* 
  * rip_sendto - send whole routing table to selected destination
  * @rif: interface to use. Notice that we lock interface so that at
  * most one send to one interface is done.
@@ -246,7 +250,7 @@ find_interface(struct proto *p, struct iface *what)
   return NULL;
 }
 
-/**
+/*
  * DOC: Input processing
  *
  * This part is responsible for any updates that come from network 
@@ -262,13 +266,12 @@ rip_rte_update_if_better(rtable *tab, net *net, struct proto *p, rte *new)
     rte_update(tab, net, p, new);
 }
 
-/**
+/*
  * advertise_entry - let main routing table know about our new entry
  * @b: entry in network format
  *
  * This basically translates @b to format used by bird core and feeds
- * bird core with this route. Notice that we do not store info anywhere
- * in our data structures: we'll do that when core notifies us back. 
+ * bird core with this route.
  */
 static void
 advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
@@ -334,7 +337,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   DBG( "done\n" );
 }
 
-/**
+/*
  * process_block - do some basic check and pass block to advertise_entry
  */
 static void
@@ -360,7 +363,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 
 #define BAD( x ) { log( L_REMOTE "%s: " x, P_NAME ); return 1; }
 
-/**
+/*
  * rip_process_packet - this is main routine for incoming packets.
  */
 static int
@@ -430,7 +433,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   return 0;
 }
 
-/**
+/*
  * rip_rx - Receive hook: do basic checks and pass packet to rip_process_packet
  */
 static int
@@ -462,7 +465,7 @@ rip_rx(sock *s, int size)
   return 1;
 }
 
-/**
+/*
  * DOC: Interface to bird core
  */
 
@@ -475,8 +478,16 @@ rip_dump_entry( struct rip_entry *e )
 }
 
 /**
- * rip_timer - broadcast routing tables periodically (using rip_tx) and kill routes that are too old
+ * rip_timer
+ * @t: timer
+ *
+ * Broadcast routing tables periodically (using rip_tx) and kill
+ * routes that are too old. Rip keeps its own entries in main routing
+ * table linked by link list (functions rip_rte_insert and
+ * rip_rte_delete are responsible for that), walks this list in timer
+ * and in case entry is too old, it is discarded.
  */
+
 static void
 rip_timer(timer *t)
 {
@@ -530,7 +541,7 @@ rip_timer(timer *t)
   DBG( "RIP: tick tock done\n" );
 }
 
-/**
+/*
  * rip_start - initialize instance of rip
  */
 static int
@@ -623,10 +634,15 @@ kill_iface(struct proto *p, struct rip_interface *i)
 }
 
 /**
- * new_iface - actually create struct interface and start listening to it
+ * new_iface
+ * @p: myself
  * @new: interface to be created or %NULL if we are creating magic
  * socket. Magic socket is used for listening, and is also used for
  * sending requested responses. 
+ * @flags: interface flags
+ * @patt: pattern this interface matched, used for access to config options
+ *
+ * actually create struct interface and start listening to it
  */
 static struct rip_interface *
 new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt )
@@ -810,7 +826,7 @@ rip_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
   rt->u.rip.metric = ea_get_int(attrs, EA_RIP_METRIC, 1);
 }
 
-/**
+/*
  * rip_rt_notify - core tells us about new route (possibly our
  * own), so store it into our data structures. 
  */
@@ -882,7 +898,7 @@ rip_rte_better(struct rte *new, struct rte *old)
   return 0;
 }
 
-/**
+/*
  * rip_rte_insert - we maintain linked list of "our" entries in main
  * routing table, so that we can timeout them correctly. rip_timer
  * walks the list.
@@ -897,7 +913,7 @@ rip_rte_insert(net *net, rte *rte)
   add_head( &P->garbage, &rte->u.rip.garbage );
 }
 
-/**
+/*
  * rip_rte_remove - link list maintenance
  */
 static void
