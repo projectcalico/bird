@@ -114,13 +114,13 @@ nl_get_reply(void)
       if (NLMSG_OK(nl_last_hdr, nl_last_size))
 	{
 	  struct nlmsghdr *h = nl_last_hdr;
+	  nl_last_hdr = NLMSG_NEXT(h, nl_last_size);
 	  if (h->nlmsg_seq != nl_sync_seq)
 	    {
 	      log(L_WARN "nl_get_reply: Ignoring out of sequence netlink packet (%x != %x)",
 		  h->nlmsg_seq, nl_sync_seq);
 	      continue;
 	    }
-	  nl_last_hdr = NLMSG_NEXT(h, nl_last_size);
 	  return h;
 	}
       if (nl_last_size)
