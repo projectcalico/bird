@@ -731,7 +731,7 @@ ospf_ext_spf(struct proto_ospf *po)
     nfa.capa = 0;
     nfa.metric1 = met1;
     nfa.metric2 = met2;
-    nfa.oa = NULL;
+    nfa.oa = po->backbone;
     nfa.ar = nf1->n.ar;
     nfa.nh = nh;
     nfa.ifa = nhi;
