@@ -461,9 +461,9 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 any routes and only serves as a module for getting information about network
 interfaces from the kernel.
 
-<p>Except for very unusual circumstances, you probably should always include
-this protocol in the configuration since almost all other protocol don't
-do anything if they are not provided with network interfaces.
+<p>Except for very unusual circumstances, you probably should include
+this protocol in the configuration since almost all other protocol
+require network interfaces to be defined in order to work.
 
 <sect2>Configuration
 
@@ -504,7 +504,7 @@ distribution of routing information.
 <sect2>Configuration
 
 <p><descrip>
-	<tag>interface <m/pattern/, <m/.../</tag> By default, the Direct
+	<tag>interface <m/pattern [, ...]/</tag> By default, the Direct
 	protocol will generate device routes for all the interfaces
 	available. If you want to restrict it to some subset of interfaces
 	(for example if you're using multiple routing tables for policy
