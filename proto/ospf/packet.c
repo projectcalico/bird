@@ -149,7 +149,7 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
       }
       if (ntohs(pkt->length) + OSPF_AUTH_CRYPT_SIZE != size)
       {
-        OSPF_TRACE(D_PACKETS, "OSPF_auth: size mismatch (%d vs %s)",
+        OSPF_TRACE(D_PACKETS, "OSPF_auth: size mismatch (%d vs %d)",
 	  ntohs(pkt->length) + OSPF_AUTH_CRYPT_SIZE, size);
         return 0;
       }
