@@ -318,19 +318,38 @@ struct protocol proto_ospf = {
 };
 
 void
-ospf_sh_neigh(struct proto *p)
+ospf_sh_neigh(struct proto *p, char *iff)
 {
-  struct ospf_iface *ifa;
+  struct ospf_iface *ifa=NULL,*f;
   struct ospf_neighbor *n;
   struct proto_ospf *po=(struct proto_ospf *)p;
-
+  
+  if(iff!=NULL)
+  {
+    WALK_LIST(f, po->iface_list)
+    {
+      if(strcmp(iff,f->iface->name)==0) ifa=f;
+      break;
+    }
+    if(ifa==NULL)
+    {
+      cli_msg(0,"");
+      return;
+    }
   cli_msg(-1013,"%s:", p->name);
   cli_msg(-1013,"%-12s\t%3s\t%-15s\t%-5s\t%-12s\t%-10s","Router ID","Pri",
     "     State", "DTime", "Router IP", "Interface");
-  WALK_LIST(ifa,po->iface_list)
-    WALK_LIST(n, ifa->neigh_list)
-      ospf_sh_neigh_info(n);
+  WALK_LIST(n, ifa->neigh_list) ospf_sh_neigh_info(n);
   cli_msg(0,"");
+ }
+
+ cli_msg(-1013,"%s:", p->name);
+ cli_msg(-1013,"%-12s\t%3s\t%-15s\t%-5s\t%-12s\t%-10s","Router ID","Pri",
+   "     State", "DTime", "Router IP", "Interface");
+ WALK_LIST(ifa,po->iface_list)
+   WALK_LIST(n, ifa->neigh_list)
+     ospf_sh_neigh_info(n);
+ cli_msg(0,"");
 }
 
 void
@@ -368,6 +387,39 @@ ospf_sh(struct proto *p)
     cli_msg(-1014,"\t\tNumber of neighbors: %u", nno);
     cli_msg(-1014,"\t\tNumber of fully adjacent neighbors: %u", adjno);
   }
+  cli_msg(0,"");
+}
+
+void
+ospf_sh_iface(struct proto *p, char *iff)
+{
+  struct ospf_area *oa;
+  struct proto_ospf *po=(struct proto_ospf *)p;
+  struct ospf_iface *ifa=NULL,*f;
+  struct ospf_neighbor *n;
+  int ifano;
+  int nno;
+  int adjno;
+
+  if(iff!=NULL)
+  {
+    WALK_LIST(f, po->iface_list)
+    {
+      if(strcmp(iff,f->iface->name)==0) ifa=f;
+      break;
+    }
+    if(ifa==NULL)
+    {
+      cli_msg(0,"");
+      return;
+    }
+    cli_msg(-1015,"%s:", p->name);
+    ospf_iface_info(ifa);
+    cli_msg(0,"");
+    return;
+  }
+  cli_msg(-1015,"%s:", p->name);
+  WALK_LIST(ifa, po->iface_list) ospf_iface_info(ifa);
   cli_msg(0,"");
 }
 

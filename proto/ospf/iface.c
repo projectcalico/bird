@@ -14,6 +14,8 @@ char *ospf_is[]={ "down", "loop", "waiting", "point-to-point", "drother",
 char *ospf_ism[]={ "interface up", "wait timer fired", "backup seen",
   "neighbor change", "loop indicated", "unloop indicated", "interface down"};   
 
+char *ospf_it[]={ "broadcast", "nbma", "point-to-point", "virtual link" };
+
 void
 iface_chstate(struct ospf_iface *ifa, u8 state)
 {
@@ -406,3 +408,22 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   }
 }
 
+void
+ospf_iface_info(struct ospf_iface *ifa)
+{
+  int x;
+  cli_msg(-1015,"Interface \"%s\":", ifa->iface->name);
+  cli_msg(-1015,"\tArea: %I (%u)", ifa->oa->areaid, ifa->oa->areaid);
+  cli_msg(-1015,"\tType: %s", ospf_it[ifa->type]);
+  cli_msg(-1015,"\tState: %s", ospf_is[ifa->state]);
+  cli_msg(-1015,"\tPriority: %u", ifa->priority);
+  cli_msg(-1015,"\tCost: %u", ifa->cost);
+  cli_msg(-1015,"\tHello timer: %u", ifa->helloint);
+  cli_msg(-1015,"\tWait timer: %u", ifa->waitint);
+  cli_msg(-1015,"\tDead timer: %u", ifa->deadc*ifa->helloint);
+  cli_msg(-1015,"\tRetransmit timer: %u", ifa->rxmtint);
+  cli_msg(-1015,"\tDesigned router (ID): %I", ifa->drid);
+  cli_msg(-1015,"\tDesigned router (IP): %I", ifa->drip);
+  cli_msg(-1015,"\tBackup designed router (ID): %I", ifa->bdrid);
+  cli_msg(-1015,"\tBackup designed router (IP): %I", ifa->bdrip);
+}

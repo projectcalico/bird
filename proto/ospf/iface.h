@@ -21,5 +21,6 @@ void ospf_add_timers(struct ospf_iface *ifa, pool *pool);
 void ospf_iface_default(struct ospf_iface *ifa);
 struct ospf_iface *find_iface(struct proto_ospf *p, struct iface *what);
 void ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface);
+void ospf_iface_info(struct ospf_iface *ifa);
 
 #endif /* _BIRD_OSPF_IFACE_H_ */
