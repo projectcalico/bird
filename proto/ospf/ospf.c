@@ -364,10 +364,7 @@ ospf_shutdown(struct proto *p)
 
   /* And send to all my neighbors 1WAY */
   WALK_LIST(ifa, po->iface_list)
-  {
-    init_list(&ifa->neigh_list);
-    hello_timer_hook(ifa->hello_timer);
-  }
+    ospf_iface_shutdown(ifa);
   
   return PS_DOWN;
 }

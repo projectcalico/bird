@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -15,6 +15,32 @@ char *ospf_ism[]={ "interface up", "wait timer fired", "backup seen",
   "neighbor change", "loop indicated", "unloop indicated", "interface down"};   
 
 char *ospf_it[]={ "broadcast", "nbma", "point-to-point", "virtual link" };
+
+void
+poll_timer_hook(timer *timer)
+{
+  ospf_hello_send(timer, 1, NULL);
+}
+
+void
+hello_timer_hook(timer *timer)
+{
+  ospf_hello_send(timer, 0, NULL);
+}
+
+void
+wait_timer_hook(timer *timer)
+{
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  ifa=(struct ospf_iface *)timer->data;
+  p=(struct proto *)(ifa->proto);
+  OSPF_TRACE(D_EVENTS, "Wait timer fired on interface %s.",
+    ifa->iface->name);
+  ospf_int_sm(ifa, ISM_WAITF);
+}
+
 
 /**
  * iface_chstate - handle changes of interface state
@@ -135,8 +161,11 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
       if(ifa->state==OSPF_IS_DOWN)
       {
         /* Now, nothing should be adjacent */
-        restart_hellotim(ifa);
-	restart_polltim(ifa);
+        tm_start(ifa->hello_timer,ifa->helloint);
+
+        if(ifa->poll_timer)
+          tm_start(ifa->poll_timer,ifa->pollint);
+
         if((ifa->type==OSPF_IT_PTP) || (ifa->type==OSPF_IT_VLINK))
         {
           iface_chstate(ifa, OSPF_IS_PTP);
@@ -149,8 +178,8 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
           } 
           else
           {
-             iface_chstate(ifa, OSPF_IS_WAITING);
-             restart_waittim(ifa);
+            iface_chstate(ifa, OSPF_IS_WAITING);
+            tm_start(ifa->wait_timer,ifa->waitint);
           }
         }
       }
@@ -480,3 +509,11 @@ schedule_net_lsa(struct ospf_iface *ifa)
 {
   ifa->orignet=1;
 }
+
+void
+ospf_iface_shutdown(struct ospf_iface *ifa)
+{
+  init_list(&ifa->neigh_list);
+  hello_timer_hook(ifa->hello_timer);
+}
+

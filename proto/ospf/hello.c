@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -9,52 +9,7 @@
 #include "ospf.h"
 
 void
-install_inactim(struct ospf_neighbor *n)
-{
-  struct proto *p;
-  struct ospf_iface *ifa;
-
-  ifa=n->ifa;
-  p=(struct proto *)(ifa->proto);
-
-  if(n->inactim==NULL)
-  {
-    n->inactim=tm_new(n->pool);
-    n->inactim->data=n;
-    n->inactim->randomize=0;
-    n->inactim->hook=neighbor_timer_hook;
-    n->inactim->recurrent=0;
-    DBG("%s: Installing inactivity timer.\n", p->name);
-  }
-}
-
-void
-restart_inactim(struct ospf_neighbor *n)
-{
-  tm_start(n->inactim,n->ifa->deadc*n->ifa->helloint);
-}
-
-void
-restart_hellotim(struct ospf_iface *ifa)
-{
-  tm_start(ifa->hello_timer,ifa->helloint);
-}
-
-void
-restart_polltim(struct ospf_iface *ifa)
-{
-  if(ifa->poll_timer)
-    tm_start(ifa->poll_timer,ifa->pollint);
-}
-
-void
-restart_waittim(struct ospf_iface *ifa)
-{
-  tm_start(ifa->wait_timer,ifa->waitint);
-}
-
-void
-ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
+ospf_hello_receive(struct ospf_hello_packet *ps, struct proto *p,
   struct ospf_iface *ifa, int size, ip_addr faddr)
 {
   u32 nrid, *pnrid;
@@ -131,10 +86,9 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     }
     OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s.", faddr,
       ifa->iface->name);
-    pool=rp_new(p->pool, "OSPF Neighbor");
-    n=mb_allocz(pool, sizeof(struct ospf_neighbor));
-    n->pool=pool;
-    add_tail(&ifa->neigh_list, NODE n);
+
+    n = ospf_neighbor_new(ifa);
+
     n->rid=nrid;
     n->ip=faddr;
     n->dr=ps->dr;
@@ -143,30 +97,6 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     ipa_ntoh(n->bdr);
     n->priority=ps->priority;
     n->options=ps->options;
-    n->ifa=ifa;
-    n->adj=0;
-    n->ldbdes=mb_alloc(pool, ifa->iface->mtu);
-    n->state=NEIGHBOR_DOWN;
-    install_inactim(n);
-    n->rxmt_timer=tm_new(pool);
-    n->rxmt_timer->data=n;
-    n->rxmt_timer->randomize=0;
-    n->rxmt_timer->hook=rxmt_timer_hook;
-    n->rxmt_timer->recurrent=ifa->rxmtint;
-    DBG("%s: Installing rxmt timer.\n", p->name);
-    n->lsrr_timer=tm_new(pool);
-    n->lsrr_timer->data=n;
-    n->lsrr_timer->randomize=0;
-    n->lsrr_timer->hook=lsrr_timer_hook;
-    n->lsrr_timer->recurrent=ifa->rxmtint;
-    DBG("%s: Installing lsrr timer.\n", p->name);
-    init_list(&n->ackl);
-    n->ackd_timer=tm_new(pool);
-    n->ackd_timer->data=n;
-    n->ackd_timer->randomize=0;
-    n->ackd_timer->hook=ackd_timer_hook;
-    n->ackd_timer->recurrent=ifa->rxmtint/2;
-    DBG("%s: Installing ackd timer.\n", p->name);
   }
   ospf_neigh_sm(n, INM_HELLOREC);
 
@@ -220,25 +150,13 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if(ifa->type!=OSPF_IT_NBMA)
   {
-    if((ifa->priority==0)&&(n->priority>0)) hello_send(NULL,0, n);
+    if((ifa->priority==0)&&(n->priority>0)) ospf_hello_send(NULL, 0, n);
   }
   ospf_neigh_sm(n, INM_HELLOREC);
 }
 
 void
-poll_timer_hook(timer *timer)
-{
-  hello_send(timer,1, NULL);
-}
-
-void
-hello_timer_hook(timer *timer)
-{
-  hello_send(timer,0, NULL);
-}
-
-void
-hello_send(timer *timer,int poll, struct ospf_neighbor *dirn)
+ospf_hello_send(timer *timer,int poll, struct ospf_neighbor *dirn)
 {
   struct ospf_iface *ifa;
   struct ospf_hello_packet *pkt;
@@ -350,17 +268,3 @@ hello_send(timer *timer,int poll, struct ospf_neighbor *dirn)
   }
   OSPF_TRACE(D_PACKETS, "Hello sent via %s",ifa->iface->name);
 }
-
-void
-wait_timer_hook(timer *timer)
-{
-  struct ospf_iface *ifa;
-  struct proto *p;
-
-  ifa=(struct ospf_iface *)timer->data;
-  p=(struct proto *)(ifa->proto);
-  OSPF_TRACE(D_EVENTS, "Wait timer fired on interface %s.",
-    ifa->iface->name);
-  ospf_int_sm(ifa, ISM_WAITF);
-}
-

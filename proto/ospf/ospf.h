@@ -356,7 +356,6 @@ struct ospf_neighbor
   struct top_graph *lsrth;
   void *ldbdes;		/* Last database description packet */
   timer *rxmt_timer;	/* RXMT timer */
-  timer *lsrr_timer;	/* Link state request retransmition timer */
   list ackl;
   timer *ackd_timer;	/* Delayed ack timer */
 };

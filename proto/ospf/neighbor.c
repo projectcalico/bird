@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -21,6 +21,60 @@ const char *ospf_inm[]={ "hello received", "neighbor start", "2-way received",
   "negotiation done", "exstart done", "bad ls request", "load done",
   "adjacency ok?", "sequence mismatch", "1-way received", "kill neighbor",
   "inactivity timer", "line down" };
+
+
+void neighbor_timer_hook(timer *timer);
+void rxmt_timer_hook(timer *timer);
+
+
+
+struct ospf_neighbor *
+ospf_neighbor_new(struct ospf_iface *ifa)
+{
+  struct proto *p = (struct proto *)(ifa->proto);
+  struct pool *pool = rp_new(p->pool, "OSPF Neighbor");
+  struct ospf_neighbor *n = mb_allocz(pool, sizeof(struct ospf_neighbor));
+
+  n->pool = pool;
+  n->ifa = ifa;
+  add_tail(&ifa->neigh_list, NODE n);
+  n->adj = 0;
+  n->ldbdes=mb_alloc(pool, ifa->iface->mtu);
+  n->state=NEIGHBOR_DOWN;
+
+  n->inactim = tm_new(pool);
+  n->inactim->data = n;
+  n->inactim->randomize = 0;
+  n->inactim->hook = neighbor_timer_hook;
+  n->inactim->recurrent = 0;
+  DBG("%s: Installing inactivity timer.\n", p->name);
+
+  n->rxmt_timer = tm_new(pool);
+  n->rxmt_timer->data = n;
+  n->rxmt_timer->randomize = 0;
+  n->rxmt_timer->hook = rxmt_timer_hook;
+  n->rxmt_timer->recurrent = ifa->rxmtint;
+  s_init_list(&(n->lsrql));
+  n->lsrqh = ospf_top_new(pool, n->ifa->proto);
+  s_init_list(&(n->lsrtl));
+  n->lsrth = ospf_top_new(pool, n->ifa->proto);
+  s_init(&(n->dbsi), &(n->ifa->oa->lsal));
+  s_init(&(n->lsrqi), &(n->lsrql));
+  s_init(&(n->lsrti), &(n->lsrtl));
+  tm_start(n->rxmt_timer,n->ifa->rxmtint);
+  DBG("%s: Installing rxmt timer.\n", p->name);
+
+  n->ackd_timer = tm_new(pool);
+  n->ackd_timer->data = n;
+  n->ackd_timer->randomize = 0;
+  n->ackd_timer->hook = ackd_timer_hook;
+  n->ackd_timer->recurrent = ifa->rxmtint/2;
+  init_list(&n->ackl);
+  tm_start(n->ackd_timer,n->ifa->rxmtint/2);
+  DBG("%s: Installing ackd timer.\n", p->name);
+
+  return(n);
+}
 
 /**
  * neigh_chstate - handles changes related to new or lod state of neighbor
@@ -67,11 +121,6 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       schedule_rt_lsa(ifa->oa);
       schedule_net_lsa(ifa);
     }
-    if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)
-    {
-      /* Stop RXMT timer */
-      tm_stop(n->rxmt_timer);
-    }
     if(state==NEIGHBOR_EXSTART)
     {
       if(n->adj==0)	/* First time adjacency */
@@ -83,10 +132,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       n->myimms.bit.ms=1;
       n->myimms.bit.m=1;
       n->myimms.bit.i=1;
-      tm_start(n->rxmt_timer,1);	/* Or some other number ? */
     }
-    if(state<NEIGHBOR_EXCHANGE) tm_stop(n->lsrr_timer);
-    if(state<NEIGHBOR_EXSTART) tm_stop(n->rxmt_timer);
     if(state>NEIGHBOR_EXSTART) n->myimms.bit.i=0;
   }
 }
@@ -246,9 +292,9 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       {
         case NEIGHBOR_ATTEMPT:
 	case NEIGHBOR_DOWN:
-	  neigh_chstate(n,NEIGHBOR_INIT);
+	  neigh_chstate(n, NEIGHBOR_INIT);
 	default:
-          restart_inactim(n);
+          tm_start(n->inactim, n->ifa->deadc*n->ifa->helloint);	/* Restart inactivity timer */
 	  break;
       }
       break;
@@ -268,17 +314,6 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
           rem_node(NODE no);
           mb_free(no);
         }
-        s_init_list(&(n->lsrql));
-	if(n->lsrqh) ospf_top_free(n->lsrqh);
-	n->lsrqh=ospf_top_new(n->pool, n->ifa->proto);
-        s_init_list(&(n->lsrtl));
-	if(n->lsrth) ospf_top_free(n->lsrth);
-	n->lsrth=ospf_top_new(n->pool, n->ifa->proto);
-	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
-	s_init(&(n->lsrqi), &(n->lsrql));
-	s_init(&(n->lsrti), &(n->lsrtl));
-	tm_start(n->lsrr_timer,n->ifa->rxmtint);
-	tm_start(n->ackd_timer,n->ifa->rxmtint/2);
       }
       else bug("NEGDONE and I'm not in EXSTART?");
       break;
@@ -531,3 +566,45 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
    cli_msg(-1013,"%-1I\t%3u\t%s/%s\t%-5s\t%-1I\t%-10s",n->rid, n->priority,
      ospf_ns[n->state], pos, etime, n->ip,ifa->iface->name);
 }
+
+void
+rxmt_timer_hook(timer *timer)
+{
+  struct ospf_neighbor *n = (struct ospf_neighbor *)timer->data;
+  struct ospf_iface *ifa = n->ifa;
+  struct proto *p = (struct proto *)(ifa->proto);
+  struct top_hash_entry *en;
+
+  DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",
+    p->name, ifa->iface->name, n->ip);
+  if (n->state < NEIGHBOR_LOADING) ospf_dbdes_tx(n);
+
+  if(n->state < NEIGHBOR_FULL) ospf_lsreq_tx(n);
+  else
+  {
+    if(!EMPTY_SLIST(n->lsrtl))
+    {
+      list uplist;
+      slab *upslab;
+      struct l_lsr_head *llsh;
+
+      init_list(&uplist);
+      upslab=sl_new(n->pool,sizeof(struct l_lsr_head));
+
+      WALK_SLIST(SNODE en,n->lsrtl)
+      {
+	if((SNODE en)->next==(SNODE en)) bug("RTList is cycled");
+        llsh=sl_alloc(upslab);
+        llsh->lsh.id=en->lsa.id;
+        llsh->lsh.rt=en->lsa.rt;
+        llsh->lsh.type=en->lsa.type;
+	DBG("Working on ID: %I, RT: %I, Type: %u\n",
+          en->lsa.id, en->lsa.rt, en->lsa.type);
+        add_tail(&uplist, NODE llsh);
+      }
+      ospf_lsupd_tx_list(n, &uplist);
+      rfree(upslab);
+    }
+  }
+}
+

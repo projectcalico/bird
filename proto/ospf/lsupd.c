@@ -1,12 +1,29 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 2000-2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 #include "ospf.h"
+
+/**
+ * flood_lsa - send received or generated lsa to the neighbors
+ * @n: neighbor than sent this lsa (or NULL if generated)
+ * @hn: LSA header
+ * @hh: LSA header
+ * @po: actual instance of OSPF protocol
+ * @iff: interface which received this LSA (or NULL if LSA is generated)
+ * @oa: ospf_area which is the LSA generated for
+ * @rtl: add this LSA into retransmission list
+ *
+ * Calculation of internal paths in an area is described in 16.1 of RFC 2328.
+ * It's based on Dijkstra's shortest path tree algorithms.
+ * RFC recommends to add ASBR routers into routing table. I don't do this
+ * and latter parts of routing table calculation look directly into LSA
+ * Database. This function is invoked from area_disp().
+ */
 
 int
 flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
@@ -74,8 +91,10 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	  }
 	}
       }
+
       if(nn==n) continue;
-      if(rtl!=0)
+
+      if(rtl)
       {
         if((en=ospf_hash_find_header(nn->lsrth, hh))==NULL)
         {
@@ -100,15 +119,16 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
           ospf_hash_delete(nn->lsrth, en);
         }
       }
+
       ret=1;
     }
 
-    if(ret==0) continue;
+    if(ret==0) continue;	/* pg 150 (2) */
 
     if(ifa==iff)
     {
-      if((n->rid==iff->drid)||n->rid==iff->bdrid) continue;
-      if(iff->state==OSPF_IS_BACKUP) continue;
+      if((n->rid==iff->drid)||n->rid==iff->bdrid) continue;	/* pg 150 (3) */
+      if(iff->state==OSPF_IS_BACKUP) continue;			/* pg 150 (4) */
       retval=1;
     }
 
@@ -127,21 +147,26 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 
       fill_ospf_pkt_hdr(ifa, pk, LSUPD_P);
       pk->lsano=htonl(1);
-      if(hn!=NULL)
+
+      if(hn)
       {
+	struct ospf_lsa_header *lh = (struct ospf_lsa_header *)(pk+1);
+	u16 age = ntohs(lh->age);
+
         memcpy(pk+1,hn,ntohs(hn->length));
         len=sizeof(struct ospf_lsupd_packet)+ntohs(hn->length);
+	age += ifa->inftransdelay;
+	if(age>LSA_MAXAGE) age = LSA_MAXAGE;
+	lh->age = htons(age);
       }
       else
       {
         u8 *help;
 	struct top_hash_entry *en;
-	struct ospf_lsa_header *lh;
-	u16 age;
+	struct ospf_lsa_header *lh = (struct ospf_lsa_header *)(pk+1);
+	u16 age = hh->age;
 
-	lh=(struct ospf_lsa_header *)(pk+1);
         htonlsah(hh,lh);
-	age=hh->age;
 	age+=ifa->inftransdelay;
 	if(age>LSA_MAXAGE) age=LSA_MAXAGE;
 	lh->age=htons(age);
@@ -151,6 +176,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
           -sizeof(struct ospf_lsa_header));
 	len=hh->length+sizeof(struct ospf_lsupd_packet);
       }
+
       op->length=htons(len);
       ospf_pkt_finalize(ifa, op);
       OSPF_TRACE(D_PACKETS, "LS upd flooded via %s", ifa->iface->name);
@@ -263,136 +289,141 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       nrid);
     return ;
   }
+
   if(n->state<NEIGHBOR_EXCHANGE)
   {
-    OSPF_TRACE(D_PACKETS,"Received lsupd in lesser state than EXCHANGE from (%I)",
+    OSPF_TRACE(D_PACKETS, "Received lsupd in lesser state than EXCHANGE from (%I)",
       n->ip);
     return;
   }
+
   if(size<=(sizeof(struct ospf_lsupd_packet)+sizeof(struct ospf_lsa_header)))
   {
-    OSPF_TRACE(D_PACKETS, "Received lsupd from %I is too short!", n->ip);
+    log(L_WARN "Received lsupd from %I is too short!", n->ip);
     return;
   }
 
   OSPF_TRACE(D_PACKETS, "Received LS upd from %I", n->ip);
-  ospf_neigh_sm(n, INM_HELLOREC);
+  ospf_neigh_sm(n, INM_HELLOREC);	/* Questionable */
 
   lsa=(struct ospf_lsa_header *)(ps+1);
   area=htonl(ps->ospf_packet.areaid);
   oa=ospf_find_area((struct proto_ospf *)p,area);
-  for(i=0;i<ntohl(ps->lsano);i++,
+
+  for(i=0; i<ntohl(ps->lsano); i++,
     lsa=(struct ospf_lsa_header *)(((u8 *)lsa)+ntohs(lsa->length)))
   {
     struct ospf_lsa_header lsatmp;
     struct top_hash_entry *lsadb;
-    u16 lenn;
     int diff=((u8 *)lsa)-((u8 *)ps);
-    u16 chsum;
+    u16 chsum, lenn = ntohs(lsa->length);
 
-    if(((diff+sizeof(struct ospf_lsa_header))>=size) ||
-      ((ntohs(lsa->length)+diff)>size))
-      log("%s: Received lsupd from %I is too short.", p->name,n->ip);
-
-    lenn=ntohs(lsa->length);
+    if(((diff+sizeof(struct ospf_lsa_header))>=size) || ((lenn+diff)>size))
+    {
+      log(L_WARN "Received lsupd from %I is too short!", n->ip);
+      ospf_neigh_sm(n, INM_BADLSREQ);
+      break;
+    }
 
     if((lenn<=sizeof(struct ospf_lsa_header))||(lenn!=(4*(lenn/4))))
     {
-      log("Received LSA with bad length");
-      ospf_neigh_sm(n,INM_BADLSREQ);
+      log(L_WARN "Received LSA from %I with bad length", n->ip);
+      ospf_neigh_sm(n, INM_BADLSREQ);
       break;
     }
+
     /* pg 143 (1) */
     chsum=lsa->checksum;
     if(chsum!=lsasum_check(lsa,NULL,po))
     {
-      log("Received bad lsa checksum from %I",n->rid);
+      log(L_WARN "Received bad lsa checksum from %I", n->ip);
       continue;
     }
+
     /* pg 143 (2) */
     if((lsa->type<LSA_T_RT)||(lsa->type>LSA_T_EXT))
     {
-      log("Unknown LSA type from %I",n->rid);
+      log(L_WARN "Unknown LSA type from %I", n->ip);
       continue;
     }
+
     /* pg 143 (3) */
     if((lsa->type==LSA_T_EXT)&&oa->stub)
     {
-      log("Received External LSA in stub area from %I",n->rid);
+      log(L_WARN "Received External LSA in stub area from %I", n->ip);
       continue;
     }
+
     ntohlsah(lsa,&lsatmp);
+
     DBG("Update Type: %u ID: %I RT: %I, Sn: 0x%08x Age: %u, Sum: %u\n",
       lsatmp.type, lsatmp.id, lsatmp.rt, lsatmp.sn, lsatmp.age,
       lsatmp.checksum);
+
     lsadb=ospf_hash_find_header(oa->gr, &lsatmp);
+
+#ifdef LOCAL_DEBUG
     if(lsadb)
       DBG("I have Type: %u ID: %I RT: %I, Sn: 0x%08x Age: %u, Sum: %u\n",
       lsadb->lsa.type, lsadb->lsa.id, lsadb->lsa.rt, lsadb->lsa.sn,
       lsadb->lsa.age, lsadb->lsa.checksum);
+#endif
 
     /* pg 143 (4) */
-    if((lsatmp.age==LSA_MAXAGE)&&(lsadb==NULL))
+    if((lsatmp.age==LSA_MAXAGE)&&(lsadb==NULL)&&can_flush_lsa(oa))
     {
-      int flag=0;
-      struct ospf_iface *ifatmp;
-
-      if(can_flush_lsa(oa))
-      {
-        ospf_lsack_direct_tx(n,lsa);
-	continue;
-      }
+      ospf_lsack_direct_tx(n,lsa);
+      continue;
     }
+
     /* pg 144 (5) */
     if((lsadb==NULL)||(lsa_comp(&lsatmp,&lsadb->lsa)==CMP_NEWER))
     {
-       struct ospf_iface *ift=NULL;
-       void *body;
-       struct ospf_iface *nifa;
-       int self=0;
+      struct ospf_iface *ift=NULL;
+      void *body;
+      struct ospf_iface *nifa;
+      int self = (lsatmp.rt == p->cf->global->router_id);
 
-       DBG("PG143(5): Received LSA is newer\n");
+      DBG("PG143(5): Received LSA is newer\n");
 
-       if(lsatmp.rt==p->cf->global->router_id) self=1;
+      if(lsatmp.type==LSA_T_NET)
+      {
+        WALK_LIST(nifa,po->iface_list)
+        {
+          if(ipa_compare(nifa->iface->addr->ip,ipa_from_u32(lsatmp.id))==0)
+          {
+            self=1;
+            break;
+          }
+        }
+      }
 
-       if(lsatmp.type==LSA_T_NET)
-       {
-         WALK_LIST(nifa,po->iface_list)
-	 {
-	   if(ipa_compare(nifa->iface->addr->ip,ipa_from_u32(lsatmp.id))==0)
-	   {
-	     self=1;
-	     break;
-	   }
-	 }
-       }
+      if(self)
+      {
+        struct top_hash_entry *en;
 
-       if(self)
-       {
-         struct top_hash_entry *en;
+        if((lsatmp.age==LSA_MAXAGE)&&(lsatmp.sn==LSA_MAXSEQNO))
+        {
+          ospf_lsack_direct_tx(n,lsa);
+          continue;
+        }
 
-         if((lsatmp.age==LSA_MAXAGE)&&(lsatmp.sn==LSA_MAXSEQNO))
-         {
-           ospf_lsack_direct_tx(n,lsa);
-           continue;
-         }
-
-	 lsatmp.age=LSA_MAXAGE;
-	 lsatmp.sn=LSA_MAXSEQNO;
-         lsa->age=htons(LSA_MAXAGE);
-         lsa->sn=htonl(LSA_MAXSEQNO);
-	 OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa.");
-         OSPF_TRACE(D_EVENTS, "Type: %d, Id: %I, Rt: %I",lsatmp.type,
-           lsatmp.id, lsatmp.rt);
-	 lsasum_check(lsa,(lsa+1),po);
-	 lsatmp.checksum=ntohs(lsa->checksum);
-         flood_lsa(NULL,lsa,&lsatmp,po,NULL,oa,0);
-	 if(en=ospf_hash_find_header(oa->gr,&lsatmp))
-	 {
-           flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
-	 }
-	 continue;
-       }
+        lsatmp.age=LSA_MAXAGE;
+        lsatmp.sn=LSA_MAXSEQNO;
+        lsa->age=htons(LSA_MAXAGE);
+        lsa->sn=htonl(LSA_MAXSEQNO);
+        OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa.");
+        OSPF_TRACE(D_EVENTS, "Type: %d, Id: %I, Rt: %I",lsatmp.type,
+          lsatmp.id, lsatmp.rt);
+        lsasum_check(lsa,(lsa+1),po);
+        lsatmp.checksum=ntohs(lsa->checksum);
+        flood_lsa(NULL,lsa,&lsatmp,po,NULL,oa,0);
+        if(en=ospf_hash_find_header(oa->gr,&lsatmp))
+        {
+          flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
+        }
+        continue;
+      }
 
       /* pg 144 (5a) */
       if(lsadb && ((now-lsadb->inst_t)<=MINLSARRIVAL))
@@ -488,6 +519,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       ospf_lsupd_tx_list(n, &l);
     }
   }
+
   if(n->state==NEIGHBOR_LOADING)
   {
     ospf_lsreq_tx(n);	/* Send me another part of database */

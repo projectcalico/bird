@@ -134,15 +134,12 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
       OSPF_TRACE(D_PACKETS, "DB_DES (M) sent to %I via %s.", n->ip,
         ifa->iface->name);
-      if(n->myimms.bit.ms) tm_start(n->rxmt_timer,ifa->rxmtint);
-      else
+      if(! n->myimms.bit.ms)
       {
         if((n->myimms.bit.m==0) && (n->imms.bit.m==0) &&
           (n->state==NEIGHBOR_EXCHANGE))
 	{
           ospf_neigh_sm(n, INM_EXDONE);
-	  if(n->myimms.bit.ms) tm_stop(n->rxmt_timer);
-	  else tm_start(n->rxmt_timer,ifa->rxmtint);
 	}
       }
       break;
@@ -150,25 +147,6 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
     default:				/* Ignore it */
       bug("Bug in dbdes sending");
       break;
-  }
-}
-
-void
-rxmt_timer_hook(timer *timer)
-{
-  struct ospf_iface *ifa;
-  struct proto *p;
-  struct ospf_neighbor *n;
-
-  n=(struct ospf_neighbor *)timer->data;
-  ifa=n->ifa;
-  p=(struct proto *)(ifa->proto);
-  DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",
-    p->name, ifa->iface->name, n->ip);
-  if(n->state<NEIGHBOR_LOADING) ospf_dbdes_tx(n);
-  else
-  {
-    tm_stop(n->rxmt_timer);
   }
 }
 
@@ -258,7 +236,6 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  n->imms.byte=ps->imms.byte;
           OSPF_TRACE(D_PACKETS, "I'm slave to %I.", n->ip);
 	  ospf_neigh_sm(n, INM_NEGDONE);
-	  tm_stop(n->rxmt_timer);
 	  ospf_dbdes_tx(n);
 	  break;
         }
