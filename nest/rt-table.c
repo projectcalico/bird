@@ -168,22 +168,19 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
 
   if (new)
     {
+      char *drop_reason = NULL;
       if ((class & IADDR_SCOPE_MASK) < p->min_scope)
-	{
-	  rte_trace_out(D_FILTERS, p, new, "out of scope");
-	  new = NULL;
-	}
+	drop_reason = "out of scope";
       else if ((ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0) < 0)
-	{
-	  rte_trace_out(D_FILTERS, p, new, "rejected by protocol");
-	  new = NULL;
-	}
+	drop_reason = "rejected by protocol";
       else if (ok)
 	rte_trace_out(D_FILTERS, p, new, "forced accept by protocol");
       else if (p->out_filter == FILTER_REJECT ||
 	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
+	drop_reason = "filtered out";
+      if (drop_reason)
 	{
-	  rte_trace_out(D_FILTERS, p, new, "filtered out");
+	  rte_trace_out(D_FILTERS, p, new, drop_reason);
 	  if (new != new0)
 	    rte_free(new);
 	  new = NULL;
@@ -198,7 +195,11 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
 	  ea_list *tmpb = p->make_tmp_attrs ? p->make_tmp_attrs(old, rte_update_pool) : NULL;
 	  ok = p->import_control ? p->import_control(p, &old, &tmpb, rte_update_pool) : 0;
 	  if (ok < 0 || (!ok && f_run(p->out_filter, &old, &tmpb, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
-	    old = NULL;
+	    {
+	      if (old != old0)
+		rte_free(old);
+	      old = NULL;
+	    }
 	}
     }
   if (p->debug & D_ROUTES)
