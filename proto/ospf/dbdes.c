@@ -9,6 +9,32 @@
 #include "ospf.h"
 
 void
+htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
+{
+  n->age=htons(h->age);
+  n->options=h->options;
+  n->type=h->type;
+  n->id=htonl(h->id);
+  n->rt=htonl(h->rt);
+  n->sn=htonl(h->sn);
+  n->checksum=htons(h->checksum);
+  n->length=htons(h->length);
+};
+
+void
+ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
+{
+  h->age=ntohs(n->age);
+  h->options=n->options;
+  h->type=n->type;
+  h->id=ntohl(n->id);
+  h->rt=ntohl(n->rt);
+  h->sn=ntohl(n->sn);
+  h->checksum=ntohs(n->checksum);
+  h->length=ntohs(n->length);
+};
+	
+void
 ospf_dbdes_tx(struct ospf_neighbor *n)
 {
   struct ospf_dbdes_packet *pkt;
@@ -44,7 +70,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       if(! ((IAMMASTER(n->myimms) && (n->dds==n->ddr+1)) || ((!IAMMASTER(n->myimms)) && (n->dds==n->ddr))))
       {
         snode *sn;			/* Send next */
-        struct ospf_lsaheader *lsa;
+        struct ospf_lsa_header *lsa;
 	
         fill_ospf_pkt_hdr(ifa, pkt, DBDES);
         pkt->iface_mtu= ifa->iface->mtu;
@@ -52,7 +78,8 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	pkt->ddseq=n->dds;
 
 	sn=s_get(&(n->dbsi));
-	j=i=(pkt->iface_mtu-sizeof(struct ospf_dbdes_packet))/sizeof(struct ospf_lsaheader);	/* Number of lsaheaders */
+	j=i=(pkt->iface_mtu-sizeof(struct ospf_dbdes_packet))/
+		sizeof(struct ospf_lsa_header);	/* Number of lsaheaders */
 	lsa=(n->ldbdes+sizeof(struct ospf_dbdes_packet));
 
 	for(;i>0;i--)
@@ -60,14 +87,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	  struct top_hash_entry *en;
 	  
 	  en=(struct top_hash_entry *)sn;
-	  lsa->lsage=htons(en->lsage);
-	  lsa->options=htons(en->options);
-	  lsa->lstype=htons(en->lsa_type);
-	  lsa->lsid=htons(en->lsa_id);
-	  lsa->advr=htons(en->rtr_id);
-	  lsa->lssn=htons(en->lsseqno);
-	  lsa->length=htons(en->length);
-	  lsa->checksum=htons(en->checksum);
+	  htonlsah(&(en->lsa), lsa);
 	  if(sn->next==NULL)
 	  {
 	    break;	/* Should set some flag? */
@@ -83,7 +103,8 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
         pkt->imms=n->myimms;
 
-	length=j*sizeof(struct ospf_lsaheader)+sizeof(struct ospf_dbdes_packet);
+	length=j*sizeof(struct ospf_lsa_header)+
+		sizeof(struct ospf_dbdes_packet);
 	op->length=htons(length);
         ospf_pkt_finalize(ifa, op);
         sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);

@@ -12,23 +12,8 @@
 struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
    snode n;
   struct top_hash_entry *next;		/* Next in hash chain */
-  struct top_vertex *vertex;
-  u32 lsa_id, rtr_id;
-  u8 lsa_type;
-#define LSA_T_RT 1
-#define LSA_T_NET 2
-#define LSA_T_SUM_NET 3
-#define LSA_T_SUM_RT 4
-#define LSA_T_EXT 5
-  u8 options;
-  u16 lsage;
-#define LSA_MAXAGE 3600			/* 1 hour */
-#define LSA_CHECKAGE 300		/* 5 minutes */
-#define LSA_MAXAGEDIFF 900		/* 15 minutes */
-  u32 lsseqno;
-  u16 length, checksum;
-#define LSA_INITSEQNO 0x80000001
-#define LSA_MAXSEQNO 0x7fffffff
+  struct ospf_lsa_header lsa;
+  void *lsa_body;
 };
 
 struct top_graph {
@@ -49,22 +34,5 @@ struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr, u32 
 struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr, u32 type);
 void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
 void addifa_rtlsa(struct ospf_iface *ifa);
-
-struct top_graph_rtlsa {
-  u8 Vbit;
-  u8 Ebit;
-  u8 Bbit;
-  int links;		/* Number of links */
-  struct top_graph_rtlsa_link *flink;
-};
-
-struct top_graph_rtlsa_link {	/* FIXME Completely ignoring TOS */
-  u32 id;
-  u32 data;
-  u8 type;
-  u16 metric;
-  struct top_graph_rtlsa_link *next;
-};
-
 
 #endif /* _BIRD_OSPF_TOPOLOGY_H_ */

@@ -148,17 +148,81 @@ struct ospf_dbdes_packet {
   u32 ddseq;
 };
 
-struct ospf_lsaheader {
-  u16 lsage;		/* LS Age */
+
+struct ospf_lsa_header {
+  u16 age;	/* LS Age */
+#define LSA_MAXAGE 3600                 /* 1 hour */
+#define LSA_CHECKAGE 300                /* 5 minutes */
+#define LSA_MAXAGEDIFF 900              /* 15 minutes */
   u8 options;
-  u8 lstype;
-  u32 lsid;		
-  u32 advr;		/* Advertising router */
-  u32 lssn;		/* LS Sequence number */
+  u8 type;
+  u32 id;
+#define LSA_T_RT 1
+#define LSA_T_NET 2
+#define LSA_T_SUM_NET 3
+#define LSA_T_SUM_RT 4
+#define LSA_T_EXT 5
+  u32 rt;		/* Advertising router */
+  u32 sn;		/* LS Sequence number */
+#define LSA_INITSEQNO 0x80000001
+#define LSA_MAXSEQNO 0x7fffffff
   u16 checksum;
-  u16 length;
+  u16 length;  
 };
 
+struct ospf_lsa_rt {
+  u8 VEB;
+#define LSA_RT_V 5
+#define LSA_RT_E 6
+#define LSA_RT_B 7
+  u8 padding;
+  u16 links;
+};
+
+struct ospf_lsa_rt_link {
+  u32 id;
+  u32 data;
+  u8 type;
+#define LSART_PTP 1
+#define LSART_NET 2
+#define LSART_STUB 3
+#define LSART_VLNK 4
+  u8 notos;
+  u16 metric;
+};
+
+struct ospf_lsa_rt_link_tos {	/* Actually we ignore TOS. This is useless */
+  u8 tos;
+  u8 padding;
+  u16 metric;
+};
+
+
+struct ospf_lsa_net {
+  u32 netmask;
+};
+
+struct ospf_lsa_summ {
+  u32 netmask;
+};
+
+struct ospf_lsa_summ_net {
+  u8 tos;
+  u8 padding;
+  u16 metric;
+};
+
+struct ospf_lsa_ext {
+  u32 netmask;
+};
+
+struct ospf_lsa_ext_tos {
+  u8 etos;
+  u8 padding;
+  u16 mertic;
+  u32 fwaddr;
+  u32 tag;
+};
 
 struct ospf_neighbor
 {
@@ -223,7 +287,7 @@ struct ospf_area {
   struct top_graph *gr;		/* LSA graph */
   slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
-  slab *rtlinks;
+  int stub;
 };
 
 struct proto_ospf {

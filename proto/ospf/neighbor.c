@@ -206,7 +206,9 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
         neigh_chstate(n,NEIGHBOR_EXCHANGE);
         s_init_list(&(n->lsrql));
         s_init_list(&(n->lsrtl));
+	DBG("OK1\n");
 	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
+	DBG("OK2\n");
 	ospf_dbdes_tx(n);
       }
       break;
