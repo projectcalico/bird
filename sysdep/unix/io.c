@@ -459,8 +459,6 @@ sk_setup(sock *s)
   if (s->ttl == 1 && setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
     ERR("SO_DONTROUTE");
 #endif
-  /* FIXME: Set send/receive buffers? */
-  /* FIXME: Set keepalive for TCP connections? */
   err = NULL;
 bad:
   return err;
