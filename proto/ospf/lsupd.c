@@ -86,6 +86,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   u32 area,nrid,myrid;
   struct ospf_neighbor *n;
   struct ospf_lsa_header *lsa;
+  struct ospf_area *oa;
   u16 length;
   u8 i;
 
@@ -108,15 +109,28 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
   lsa=(struct ospf_lsa_header *)(ps+1);
   area=htonl(ps->ospf_packet.areaid);
-  for(i=0;i<ntohl(ps->lsano);i++)
+  oa=ospf_find_area((struct proto_ospf *)p,area);
+  for(i=0;i<ntohl(ps->lsano);i++,
+    lsa=(struct ospf_lsa_header *)(((u8 *)lsa)+ntohs(lsa->length)))
   {
-    if(lsa->checksum==lsasum_check(lsa,NULL,(struct proto_ospf *)p))
+    if(lsa->checksum!=lsasum_check(lsa,NULL,(struct proto_ospf *)p))
     {
-      DBG("Processing update Type: %u ID: %u RT: %u\n",lsa->type,
-        ntohl(lsa->id), ntohl(lsa->rt));
-      /* FIXME Go on */
+      log("Received bad lsa checksum from %u\n",n->rid);
+      continue;
     }
-    lsa=(struct ospf_lsa_header *)(((u8 *)lsa)+ntohs(lsa->length));
+    if((lsa->type<LSA_T_RT)||(lsa->type>LSA_T_EXT))
+    {
+      log("Unknown LSA type from %u\n",n->rid);
+      continue;
+    }
+    if((lsa->type==LSA_T_EXT)&&oa->stub)
+    {
+      log("Received External LSA in stub area from %u\n",n->rid);
+      continue;
+    }
+      /* FIXME Go on */
+    DBG("Processing update Type: %u ID: %u RT: %u\n",lsa->type,
+        ntohl(lsa->id), ntohl(lsa->rt));
   }
 }
 

@@ -18,5 +18,6 @@ void tryadj(struct ospf_neighbor *n, struct proto *p);
 void ospf_neigh_sm(struct ospf_neighbor *n, int event);
 void bdr_election(struct ospf_iface *ifa, struct proto *p);
 struct ospf_neighbor *find_neigh(struct ospf_iface *ifa, u32 rid);
+struct ospf_area *ospf_find_area(struct proto_ospf *po, u32 aid);
 
 #endif /* _BIRD_OSPF_NEIGHBOR_H_ */

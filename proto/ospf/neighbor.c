@@ -354,3 +354,13 @@ find_neigh(struct ospf_iface *ifa, u32 rid)
   return NULL;
 }
 
+struct ospf_area *
+ospf_find_area(struct proto_ospf *po, u32 aid)
+{
+  struct ospf_area *oa;
+  WALK_LIST(NODE oa,po->area_list)
+    if(((struct ospf_area *)oa)->areaid==aid) return oa;
+  return NULL;
+}
+
+

@@ -315,7 +315,7 @@ struct ospf_neighbor
 #define INM_LLDOWN 12	/* Line down */
 
 struct ospf_area {
-  struct ospf_area *next;
+  node n;
   u32 areaid;
   struct top_graph *gr;		/* LSA graph */
   slist lsal;			/* List of all LSA's */
@@ -326,8 +326,8 @@ struct ospf_area {
 struct proto_ospf {
   struct proto proto;
   list iface_list;		/* Interfaces we really use */
+  list area_list;
   int areano;			/* Number of area I belong to */
-  struct ospf_area *firstarea;
 };
 
 static int ospf_start(struct proto *p);

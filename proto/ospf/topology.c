@@ -160,25 +160,22 @@ addifa_rtlsa(struct ospf_iface *ifa)
   struct top_graph_rtlsa_link *li, *lih;
 
   po=ifa->proto;
-  oa=po->firstarea;
   rtid=po->proto.cf->global->router_id;
+  DBG("%s: New OSPF area \"%d\" adding.\n", po->proto.name, ifa->an);
+  oa=NULL;
 
-  while(oa!=NULL)
+
+  WALK_LIST(NODE oa,po->area_list)
   {
     if(oa->areaid==ifa->an) break;
-    oa=oa->next;
   }
 
-  ifa->oa=oa;
- 
-  if(oa==NULL)	/* New area */
+  if(EMPTY_LIST(po->area_list) || (oa->areaid!=ifa->an))	/* New area */
   {
     struct ospf_lsa_header *lsa;
 
-    oa=po->firstarea;
-    po->firstarea=mb_alloc(po->proto.pool, sizeof(struct ospf_area));
-    po->firstarea->next=oa;
-    oa=po->firstarea;
+    oa=mb_alloc(po->proto.pool, sizeof(struct ospf_area));
+    add_tail(&po->area_list,NODE oa);
     oa->areaid=ifa->an;
     oa->gr=ospf_top_new(po);
     s_init_list(&(oa->lsal));
@@ -189,13 +186,14 @@ addifa_rtlsa(struct ospf_iface *ifa)
     oa->rt->lsa_body=NULL;
     lsa->age=0;
     lsa->sn=LSA_INITSEQNO;	/* FIXME Check it latter */
-    ifa->oa=oa;
+    po->areano++;
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
-
   }
+
+  ifa->oa=oa;
+ 
   oa->rt->lsa.length=make_rt_lsa(oa, po)+sizeof(struct ospf_lsa_header);
   oa->rt->lsa.checksum=0;
-  /*oa->rt->lsa.checksum=ipsum_calculate(&(oa->rt->lsa.options),sizeof(struct ospf_lsa_header)-2,oa->rt->lsa_body,oa->rt->lsa.length-sizeof(struct ospf_lsa_header),NULL);*/
   lsasum_calculate(&(oa->rt->lsa),oa->rt->lsa_body,po);
   /*FIXME lsa_flood(oa->rt) */
 }
