@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -215,6 +216,10 @@ tm_shot(void)
 /*
  *	Sockets
  */
+
+#ifndef SOL_IP
+#define SOL_IP IPPROTO_IP
+#endif
 
 static list sock_list;
 

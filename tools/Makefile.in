@@ -25,7 +25,7 @@ $(exedir)/bird: $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
 	touch .dep-stamp
 
 clean:
-	rm -f `find . -name "*.[oa]" -or -name core -or -name depend`
+	find . -name "*.[oa]" -or -name core -or -name depend | xargs rm -f
 	rm -f $(exedir)/bird .dep-stamp
 
 distclean: clean
