@@ -28,25 +28,6 @@
 
 struct f_inst *startup_func = NULL;
 
-#define runtime(x) do { \
-    log( L_ERR x ); \
-    res.type = T_RETURN; \
-    res.val.i = F_ERROR; \
-    return res; \
-  } while(0)
-
-#define ARG(x,y) \
-	x = interpret(what->y); \
-	if (x.type == T_RETURN) \
-		return x;
-
-#define ONEARG ARG(v1, a1.p)
-#define TWOARGS ARG(v1, a1.p) \
-		ARG(v2, a2.p)
-#define TWOARGS_C TWOARGS \
-                  if (v1.type != v2.type) \
-		    runtime( "Can not operate with values of incompatible types" );
-
 #define CMP_ERROR 999
 
 /* Compare two values, returns -1, 0, 1 compared, ERROR 999 */
@@ -160,7 +141,24 @@ val_print(struct f_val v)
 static struct rte **f_rte, *f_rte_old;
 static struct linpool *f_pool;
 
-static struct f_val interpret(struct f_inst *what);
+#define runtime(x) do { \
+    log( L_ERR x ); \
+    res.type = T_RETURN; \
+    res.val.i = F_ERROR; \
+    return res; \
+  } while(0)
+
+#define ARG(x,y) \
+	x = interpret(what->y); \
+	if (x.type == T_RETURN) \
+		return x;
+
+#define ONEARG ARG(v1, a1.p)
+#define TWOARGS ARG(v1, a1.p) \
+		ARG(v2, a2.p)
+#define TWOARGS_C TWOARGS \
+                  if (v1.type != v2.type) \
+		    runtime( "Can not operate with values of incompatible types" );
 
 static struct f_val
 interpret(struct f_inst *what)
@@ -412,6 +410,77 @@ interpret(struct f_inst *what)
   return res;
 }
 
+#define ARG(x,y) \
+	if (!i_same(f1->y, f2->y)) \
+		return 0;
+
+#define ONEARG ARG(v1, a1.p)
+#define TWOARGS ARG(v1, a1.p) \
+		ARG(v2, a2.p)
+
+#define A2_SAME if (f1->a2.i != f2->a2.i) return 0;
+
+int
+i_same(struct f_inst *f1, struct f_inst *f2)
+{
+  if (!f1)
+    return 1;
+  if ((!!f1) != (!!f2))
+    return 0;
+  if (f1->aux != f2->aux)
+    return 0;
+  if (f1->code != f2->code)
+    return 0;
+
+  switch(f1->code) {
+  case ',': /* fall through */
+  case '+':
+  case '/':
+  case '!=':
+  case '==':
+  case '<':
+  case '<=': TWOARGS; break;
+
+  case '~': TWOARGS; break;
+  case 'de': ONEARG; break;
+
+  case 's':
+    ARG(v2, a2.p);
+    {
+      struct symbol *s1, *s2;
+      s1 = f1->a1.p;
+      s2 = f2->a1.p;
+      if (strcmp(s1->name, s2->name))
+	return 0;
+      if (s1->class != s2->class)
+	return 0;
+    }
+    break;
+
+  case 'c': A2_SAME; break;
+  case 'C': 
+    if (val_compare(* (struct f_val *) f1->a1.p, * (struct f_val *) f2->a2.p))
+      return 0;
+    break;
+  case 'p': ONEARG; break;
+  case '?': TWOARGS; break;
+  case '0': break;
+  case 'p,': ONEARG; A2_SAME; break;
+  case 'a': A2_SAME; break;
+  case 'ea': A2_SAME; break;
+  case 'eS': ONEARG; A2_SAME; break;
+
+  case 'cp': ONEARG; break;
+  case 'ca': /* CALL, FIXME: exponential in some cases */
+             ONEARG; if (!i_same(f1->a2.p, f2->a2.p)) return 0; break;
+  case 'SW': ONEARG; if (!same_tree(f1->a2.p, f2->a2.p)) return 0; break;
+  case 'iM': TWOARGS; break;
+  default:
+    bug( "Unknown instruction %d in same (%c)", f1->code, f1->code & 0xff);
+  }
+  return i_same(f1->next, f2->next);
+}
+
 /* FIXME: tmp_attrs is unreferenced. That can't be right */
 int
 f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool)
@@ -432,6 +501,7 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
 }
 
 
+
 void
 filters_postconfig(void)
 {
@@ -448,6 +518,5 @@ filters_postconfig(void)
 int
 filter_same(struct filter *new, struct filter *old)
 {
-  /* FIXME: This has to be defined! */
-  return new == old;
+  return i_same(new->root, old->root);
 }

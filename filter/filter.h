@@ -61,6 +61,7 @@ struct f_tree *f_new_tree(void);
 
 struct f_tree *build_tree(struct f_tree *);
 struct f_tree *find_tree(struct f_tree *t, struct f_val val);
+int same_tree(struct f_tree *t1, struct f_tree *t2);
 
 struct ea_list;
 struct rte;
@@ -68,6 +69,8 @@ struct rte;
 int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool);
 char *filter_name(struct filter *filter);
 int filter_same(struct filter *new, struct filter *old);
+
+int i_same(struct f_inst *f1, struct f_inst *f2);
 
 int val_compare(struct f_val v1, struct f_val v2);
 void val_print(struct f_val v);

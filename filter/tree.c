@@ -123,3 +123,23 @@ f_new_tree(void)
   ret->data = NULL;
   return ret;
 }
+
+int
+same_tree(struct f_tree *t1, struct f_tree *t2)
+{
+  if ((!!t1) != (!!t2))
+    return 0;
+  if (!t1)
+    return 1;
+  if (val_compare(t1->from, t2->from))
+    return 0;
+  if (val_compare(t1->to, t2->to))
+    return 0;
+  if (!same_tree(t1->left, t2->left))
+    return 0;
+  if (!same_tree(t1->right, t2->right))
+    return 0;
+  if (!i_same(t1->data, t2->data))
+    return 0;
+  return 1;
+}
