@@ -175,7 +175,7 @@ ospf_rx_hook (sock * sk, int size)
     {
     case HELLO_P:
       DBG ("%s: Hello received.\n", p->name);
-      ospf_hello_receive((struct ospf_hello_packet *) ps, p, ifa, size,
+      ospf_hello_receive((struct ospf_hello_packet *) ps, ifa, size,
 		     sk->faddr);
       break;
     case DBDES_P:
