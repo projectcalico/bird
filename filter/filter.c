@@ -215,6 +215,7 @@ rta_cow(void)
     memcpy(f_rta_copy, (*f_rte)->attrs, sizeof(rta));
     f_rta_copy->aflags = 0;
     *f_rte = rte_cow(*f_rte);
+    rta_free((*f_rte)->attrs);
     (*f_rte)->attrs = f_rta_copy;
   }
 }
