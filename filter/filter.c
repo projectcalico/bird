@@ -61,7 +61,7 @@ int
 val_simple_in_range(struct f_val v1, struct f_val v2)
 {
   if ((v1.type == T_PATH) && (v2.type == T_PATH_MASK))
-    return path_match(v1.val.ad->data, v1.val.ad->length, v2.val.path_mask);
+    return as_path_match(v1.val.ad, v2.val.path_mask);
 
   if ((v1.type == T_IP) && (v2.type == T_PREFIX))
     return !(ipa_compare(ipa_and(v2.val.px.ip, ipa_mkmask(v2.val.px.len)), ipa_and(v1.val.px.ip, ipa_mkmask(v2.val.px.len))));
@@ -620,72 +620,6 @@ filter_same(struct filter *new, struct filter *old)
  * FIXME: It should take struct adata *, not u8 * + length; but that makes it a little more difficult to test.
  * Or maybe both versions are usefull?
  */
-
-#define MASK_PLUS do { mask = mask->next; if (!mask) return next == q; \
-		       asterix = (mask->val == PM_ANY); \
-                       if (asterix) { mask = mask->next; if (!mask) { return 1; } } \
-		       } while(0)
-
-int
-path_match(u8 *p, int len, struct f_path_mask *mask)
-{
-  int i;
-  int asterix = 0;
-  u8 *q = p+len;
-  u8 *next;
-
-  asterix = (mask->val == PM_ANY);
-  if (asterix) { mask = mask->next; if (!mask) { return 1; } }
-
-  while (p<q) {
-    switch (*p++) {
-    case 1:	/* This is a set */
-      len = *p++;
-      {
-	u8 *p_save = p;
-	next = p_save + 2*len;
-      retry:
-	p = p_save;
-	for (i=0; i<len; i++) {
-	  if (asterix && (get_u16(p) == mask->val)) {
-	    MASK_PLUS;
-	    goto retry;
-	  }
-	  if (!asterix && (get_u16(p) == mask->val)) {
-	    p = next;
-	    MASK_PLUS;
-	    goto okay;
-	  }
-	  p+=2;
-	}
-	if (!asterix)
-	  return 0;
-      okay:
-      }
-      break;
-
-    case 2:	/* This is a sequence */
-      len = *p++;
-      for (i=0; i<len; i++) {
-	next = p+2;
-	if (asterix && (get_u16(p) == mask->val))
-	  MASK_PLUS;
-	else if (!asterix) {
-	  if (get_u16(p) != mask->val)
-	    return 0;
-	  MASK_PLUS;
-	}
-	p+=2;
-      }
-      break;
-
-    default:
-      bug("This should not be in path");
-    }
-  }
-  return 0;
-}
-
 struct adata *
 comlist_add(struct linpool *pool, struct adata *list, u32 val)
 {
