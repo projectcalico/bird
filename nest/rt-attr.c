@@ -251,9 +251,17 @@ ea_list_copy(ea_list *o)
 static inline void
 ea_free(ea_list *o)
 {
+  int i;
+
   if (o)
     {
       ASSERT(!o->next);
+      for(i=0; i<o->count; i++)
+	{
+	  eattr *a = &o->attrs[i];
+	  if (!(a->type & EAF_EMBEDDED))
+	    mb_free(a->u.ptr);
+	}
       mb_free(o);
     }
 }
