@@ -1,80 +1,17 @@
 
-% linuxdoc to latex replacement file
+% birddoc to LaTeX replacement file
 
-<qwertz>	+     
-</qwertz>	+
-
-<article>	+ "\\documentclass\[a4paper\]{article}\n"
-			"\\usepackage{linuxdoc-sgml}\n"
+<book>		+ "\\documentclass\[a4paper,10pt,openany\]{book}\n"
+			"\\usepackage{birddoc}\n"
 			"\\usepackage{qwertz}\n"
 			"\\usepackage{url}\n"
 			"\\usepackage\[latin1\]{inputenc}\n"
 			"\\usepackage{t1enc}\n"
-			"\\usepackage{babel}\n"
 			"\\usepackage{epsfig}\n"
 			"\\usepackage{[OPTS]}\n"
-			"\\def\\addbibtoc{\n"
-			"\\addcontentsline{toc}{section}{\\numberline{\\mbox{}}\\relax\\bibname}\n"
-			"}%end-preamble\n"	+
-
-</article>	+	"\\end{document}"	+
-
-<report>	+ "\\documentclass\[a4paper\]{report}\n"
-			"\\usepackage{linuxdoc-sgml}\n"
-			"\\usepackage{qwertz}\n"
-			"\\usepackage{url}\n"
-			"\\usepackage\[latin1\]{inputenc}\n"
-			"\\usepackage{t1enc}\n"
-			"\\usepackage{babel}\n"
-			"\\usepackage{epsfig}\n"
-			"\\usepackage{[OPTS]}\n"
-			"\\def\\addbibtoc{\n"
-			"\\addcontentsline{toc}{chapter}{\\numberline{\\mbox{}}\\relax\\bibname}\n"
-			"}\n"
-			"\\pagestyle{headings}%end-preamble\n"	+
-
-</report>	+	"\\end{document}"	+
-
-<book>	+ 	"\\documentclass\[a4paper\]{book}\n"
-			"\\usepackage{linuxdoc-sgml}\n"
-			"\\usepackage{qwertz}\n"
-			"\\usepackage{url}\n"
-			"\\usepackage\[latin1\]{inputenc}\n"
-			"\\usepackage{t1enc}\n"
-			"\\usepackage{babel}\n"
-			"\\usepackage{epsfig}\n"
-			"\\usepackage{[OPTS]}\n"
-			"\\def\\addbibtoc{\n"
-			"\\addcontentsline{toc}{chapter}{\\numberline{\\mbox{}}\\relax\\bibname}\n"
-			"}\n"
 			"\\pagestyle{headings}%end-preamble\n" 	+
 
 </book>		+	"\\end{document}"	+
-
-
-<notes> +	"\\documentclass\[a4paper\]{article}\n"
-			"\\usepackage{linuxdoc-sgml}\n"
-			"\\usepackage{qwertz}\n"
-			"\\usepackage{url}\n"
-			"\\usepackage\[latin1\]{inputenc}\n"
-			"\\usepackage{t1enc}\n"
-			"\\usepackage{babel}\n"
-			"\\usepackage{epsfig}\n"
-			"\\usepackage{[OPTS]}\n"
-			"\\def\\title#1{\n"
-			"\\begin{center}\n"	
- 			"\\bf\n"			
-			"#1\n"
-			"\\end{center}\n"
-			"\\bigskip\n"		
-			"}\n"
-			"\\begin{document}%end-preamble\n"	
-
-</notes>	+	"\\end{document}"	+
-
-
-<dina4> 	+	""
-</dina4>
 
 % Manual Pages are expected to be formatted using nroff (or groff), unless
 % they are included  as sections of other qwertz documents.  
@@ -188,10 +125,10 @@
 </item>
 
 <tag>		+	"\\item\[{\\ttfamily "
-</tag>			"}\] \\mbox{}\n\n"
+</tag>			"}\] \\hfil\\break\n"	+
 
 <tagp>		+	"\\item\[ "
-</tagp>			"\] \\mbox{}\n\n"
+</tagp>			"\] \\hfil\\break\n"	+
 
 <cite>			"\\cite{[ID]"
 </cite>			"}"
@@ -263,7 +200,7 @@
 </struct>		"}"
 
 <param>			"{\\it "
-</param>		"}"
+</param>		"\\/}"
 
 <type>			"{\\rm "
 </type>			"}"
@@ -313,14 +250,19 @@
 % <main>		+	"\\macro{qwmain}{\\qwmain}"
 % </main>
 
+%<code>		+	"\\par\n"
+%			"\\medbreak\\hrule\\nopagebreak\n"
+%			"\\begin{verbatim}"	+
+%
+%</code>		+	"\\end{verbatim}\n"
+%			"\\nopagebreak\\hrule\\medbreak\n" +
+
 <code>		+	"\\par\n"
-			"\\addvspace{\\medskipamount}\n"
-			"\\nopagebreak\\hrule\n"
+			"\\goodbreak{\\birdnarrow\n"
 			"\\begin{verbatim}"	+
 
-</code>		+	"\\end{verbatim} \n"
-			"\\nopagebreak\\hrule \n"
-			"\\addvspace{\\medskipamount}"	+
+</code>		+	"\\end{verbatim}\n"
+			"}\\smallbreak\n" +
 
 <verb>		+	"\\begin{verbatim}"	+
 </verb>		+	"\\end{verbatim}"	+
@@ -473,291 +415,4 @@
 <hline>		+	"\\hline"	+
 </hline>
 
-% slides
-
-<slides>    + "\\documentclass\[qwertz,dina4,xlatin1,[OPTS]\]{article}\n"
-			"\\input{epsf.tex}\n"	
-			"\\def\\title#1{\n"
-			"\\begin{center}\n"	
- 			"\\bf\\LARGE\n"			
-			"#1\n"
-			"\\end{center}\n"
-			"\\bigskip\n"		
-			"}\n"
-			"\\begin{document}"		+
-</slides>	+ 	"\\end{document}"		+
-
-<slide>	
-</slide>	+	"\\newpage"		+
-
-% letters
-
-
-<letter> +  "\\documentstyle\[qwertz,dina4,xlatin1,[OPTS]\]{letter}\n"
-			"\\input{epsf.tex} \n"
-			"\\newfont{\\gmd}{gmdlogo} \n"
-			"\\font\\agb=pagk at 13truept\n"
-			"\\font\\helv=phvr at 7.4truept\n"
-			"\\parindent 0pt \n"
-			"\\parskip 5pt plus 1pt minus 2pt \n"
-			"\\addtolength{\\oddsidemargin}{-4.0mm} \n"
-			"\\addtolength{\\evensidemargin}{-4.0mm} \n"
-			"\\setlength{\\unitlength}{ 1.0mm } \n"
-
-			% initial values for optional elements in the 
-			% letter head
-
-			"\\def\\semail{} \n"
-			"\\def\\remail{} \n"
-			"\\def\\sphone{} \n"
-			"\\def\\rphone{} \n"	
-			"\\def\\sref{} \n"
-			"\\def\\rref{} \n"
-			"\\def\\rdate{} \n"
-			"\\def\\subj{} \n"
-
-			% switch for distinguishing between context of
-			% sender and receiver's address
-
-			"\\newif\\ifsender \n"
-			"\\newif\\ifsubj \n"
-			"\\subjfalse \n"  	% assume no subject
-
-			"\\newif\\ifcc \n"	% for cc field
-			"\\ccfalse \n"
-
-			"\\newif\\ifsaddress\n"
-			"\\saddressfalse\n"
-			"\\newif\\ifraddress\n"
-			"\\raddressfalse\n"
-
-			"\\newif\\iffax\n"
-			"\\faxfalse\n"
-			
-"\\def\\letterhead{\n"
-"\\begin{picture}(178,54) \n"
-"\\put(0,50){\\agb GESELLSCHAFT F\\\"{U}R MATHEMATIK UND \n"
-"DATENVERARBEITUNG MBH } \n"
-
-"\\put(147,50){\\gmd g} \n "
-
-"\\put(0,40){\\helv GMD, Postfach 1316, Schlo{\\ss} Birlinghoven,  \n "
-"D-53757 Sankt Augustin 1} \n "
-
-"\\put(97,40){\\parbox\[b\]{10cm} \n"
-"{\\helv\\raggedright \n"
-"\\baselineskip=9pt plus 2pt \n"
-"Telefon (0 22 41) 14-0 \\\\ \n"
-"Telefax (0 22 41) 14 26 18, -28 89}}\n"
-
-"\\put(0,210){\\makebox(0,0)\[bl\]{\\today}} \n "
-
-% letter specific information
-
-% from
-
-% name and e-mail
-
-"\\put(0,44){\\sname\\ \\semail} \n"
-
-% phone
-
-"\\put(128,44){-\\sphone} \n"
-
-% To, name and address
-
-"\\put(0,30){\\parbox\[t\]{9.5cm} \n"
-"{\\rname \\\\\n"
-"\\ifraddress\\raddress\\fi}}\n"
-
-% subject
-
-"\\ifsubj{\\put(0,0){\\subj}}\\fi\n"
-
-% sref
-
-% "\\put(70,15){\\sref} \n"
-
-% rref
-
-% "\\put(0,15){\\rref} \n"
-
-% rdate
-
-% "\\put(32,15){\\rdate} \n"
-
-"\\end{picture} \n"
-"}\n"	% end of letterhead definition
-
-</letter>	+	"\\end{document}"	+
-
-<telefax> +	"\\documentstyle\[[OPTS],qwertz,dina4,xlatin1\]{article}\n"
-			"\\def\\faxlength{[LENGTH]}\n"
-
-			% initial values for optional elements in the 
-			% letter head
-
-			"\\def\\semail{} \n"
-			"\\def\\remail{} \n"
-			"\\def\\sphone{} \n"
-			"\\def\\rphone{} \n"
-			"\\def\\rfax{} \n"
-			"\\def\\sfax{} \n"
-			"\\def\\subj{} \n"
-
-			% switch for distinguishing between context of
-			% sender and receiver's address
-
-			"\\newif\\ifsender \n"
-			"\\newif\\ifsubj \n"
-			"\\subjfalse \n"  	% assume no subject
-
-			"\\newif\\ifcc \n"	% for cc field
-			"\\ccfalse \n"
-
-			"\\newif\\ifsaddress\n"
-			"\\saddressfalse\n"
-			"\\newif\\ifraddress\n"
-			"\\raddressfalse\n"
-
-			"\\newif\\iffax\n"
-			"\\faxtrue\n"
-			
-"\\def\\letterhead{\n"
-"\\newfont{\\gmd}{gmdlogo}\n"
-"\\setlength{\\parindent}{0pt}\n"
-
-"\\parbox\[b\]{\\textwidth}{Gesellschaft f\\\"{u}r\n"
-"Mathematik und Datenverarbeitung mbH \\\\\n"
-"Schlo{\\ss} Birlinghoven \\\\\n"
-"D-53757 St.~Augustin \\\\\n"
-"Telefax: +49--2241--142618, "
-"+49--2241--142889}\\makebox\[0pt\]\[r\]{\\gmd e}\n"
-
-"\\begin{center}\n"
-"~ \\\\\n"
-"\\LARGE TELEFAX\n"
-"\\\\ ~\n"
-"\\end{center}\n"
-
-"\\framebox\[\\textwidth\]{\\parbox{0.9\\textwidth}\%\n"
-"{\n"
-"Von/From: \\sname\n"
-"\\\\\n"
-"Datum/Date: \\today\n"
-"}}\n"
-
-"\\framebox\[\\textwidth\]{\\parbox{0.9\\textwidth}\%\n"
-"{\n"
-"An/To: \\rname\n"
-"\\\\\n"
-"Telefax: \\rfax\n"
-"\\\\\n"
-"Firma/Company: \\raddress\n"
-"}}\n"
-
-"\\framebox\[\\textwidth\]{\\parbox{0.9\\textwidth}\%\n"
-"{\n"
-"Anzahl der gesendeten Seiten (inkl. dieses Deckblatts)/ \\\\\n"
-"Number of pages (including this cover sheet): \\faxlength\n"
-"}}\n"
-
-"\\framebox\[\\textwidth\]{\\parbox{0.9\\textwidth}\%\n"
-"{\\setlength{\\parskip}{0.5\\baselineskip}\n"
-"Bemerkungen/Comments: \\\\\n"
-"\\subj\n"
-"\\vspace{60pt}}}\n"
-"}\n"		% end of letterhead definition for fax messages
-
-</telefax>	+	"\\end{document}"	+
-
-<opening>	+  	"\\begin{document}\n"
-			"\\pagestyle{empty}\n"
-			"\\letterhead\n"
-
-"\\iffax\\newpage\n"
-"\\else{\\ifsubj\\vspace{0.5cm}\\fi}\n"
-"\\fi\n\\par" 	+
-
-</opening>	+ 	"\n\n\\vspace{0.6cm}\n\\par"	+
-
-
-<from>		+	"\\sendertrue\n"
-			"\\def\\sname{"
-</from>			"}"	+
-
-
-<to>		+	"\\senderfalse\n"
-			"\\def\\rname{"
-</to>			"}"	+
-
-% first end definition of name
-
-<address>		"\\def\\address{"
-</address>		"}\n"
-			"\\ifsender{\\global\\saddresstrue\n"
-			"\\global\\def\\saddress{\\address}}\n"
-			"\\else{\\global\\raddresstrue\n"
-			"\\global\\def\\raddress{\\address}}\n"
-			"\\fi"	+
-
-<email>		+	"\\def\\email{"
-</email>		"}\n"
-			"\\ifsender\\edef\\semail{(\\email)} \n"
-			"	\\else\\edef\\remail{\\email} \n"
-			"\\fi"	+
-
-<phone>		+	"\\def\\phone{"
-</phone>		"}\n"
-			"\\ifsender\\edef\\sphone{\\phone} \n"
-			"	\\else\\edef\\rphone{\\phone} \n"
-			"\\fi"	+
-
-
-<fax>		+	"\\def\\fax{"
-</fax>			"}\n"
-			"\\ifsender\\edef\\sfax{\\fax} \n"
-			"\\else{\\global\\edef\\rfax{\\fax}\n"
-			"\\newwrite\\faxnum\n"
-			"\\immediate\\openout\\faxnum=.fax=num\n"
-			"\\immediate\\write\\faxnum{\\rfax}\n"
-			"\\immediate\\closeout\\faxnum}\n"
-			"\\fi"	 +
-
-<subject>	+	"\\subjtrue\n"
-			"\\def\\subj{"
-</subject>		"}"	+
-
-
-<sref>		+	"\\newcommand{\\sref}{"
-</sref>			"}"	+
-
-<rref>		+	"\\newcommand{\\rref}{"
-</rref>			"}"	+
-
-<rdate>		+	"\\def\\rdate}{"
-</rdate>		"}"	+
-
-<closing>	+	"\\vspace{1cm} \n\\par\n"
-			"\\parbox\[t\]{\\textwidth} "
-			"{"
-</closing>	+	"}\\vspace{2cm}\n\\par\n"
-			"\\sname \n"		
-			"\\ifcc{\\vspace{0.5cm}\n\\par\n" 
-			"cc:\\ \\ \\parbox\[t\]{14cm}{\n"
-			"\\cc}\\fi\n" +
-			
-<cc>		+	"\\cctrue\n"
-			"\\def\\cc{"
-</cc>			"}"	+
-
-<encl>		+	"\\vspace{0.5cm}\n\\par\n" 
-			"encl:\\ \\ \\parbox\[t\]{14cm}{"
-</encl>			"}\n\n"	+
-
-<ps>		+	"\\vspace{0.5cm}\n\\par"	+	
-</ps>
-
-
 % end of latex replacement file
-
