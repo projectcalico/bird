@@ -105,6 +105,8 @@
 <p>			"<P>"
 </p>			""			+
 
+<hrule>			"<HR>"
+
 <itemize>	+	"<UL>"		+
 </itemize>	+	"</UL>"		+
 
@@ -119,6 +121,9 @@
 
 <tag>			"<DT><CODE>"
 </tag>			"</CODE><DD>"
+
+<tagp>			"<DT>"
+</tagp>			"<DD>"
 
 <cite>			"[<I>[ID]</I>]"
 </cite>
@@ -158,6 +163,24 @@
 
 <m>			"<I>"
 </m>			"</I>"
+
+<const>			"<I>"
+</const>		"</I>"
+
+<func>			"<B>"
+</func>			"</B>"
+
+<struct>		"<I>"
+</struct>		"</I>"
+
+<param>			"<B>"
+</param>		"</B>"
+
+<type>			"<I>"
+</type>			"</I>"
+
+<funcdef>		"<B>"
+</funcdef>		"</B>"
 
 % url support by HG
 

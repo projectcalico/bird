@@ -12,7 +12,10 @@ anywhere else. <pavel@ucw.cz>
      Tom Gordon.
 
      $Log$
-     Revision 1.1  2000-05-29 12:05:21  mj
+     Revision 1.2  2000-05-31 11:28:52  mj
+     Added tags for markup of programmer's documentation.
+
+     Revision 1.1  2000/05/29 12:05:21  mj
      Renamed the DTD from linuxdoc to birddoc.
 
      Pavel, please check whether it builds in your environment as well.
@@ -79,7 +82,7 @@ anywhere else. <pavel@ucw.cz>
 <!-- ================================================= -->
 
 <!entity % emph 
-	" em|it|bf|sf|sl|tt|cf|m|cparam " >
+	" em|it|bf|sf|sl|tt|cf|m|cparam|const|func|struct|param|type|funcdef " >
 
 <!entity % index "idx|cdx|nidx|ncdx" >
 
@@ -94,7 +97,7 @@ anywhere else. <pavel@ucw.cz>
         " list | itemize | enum | descrip " >
 
 <!entity % par 	
-	"  %list; | comment | lq | quote | tscreen " >
+	"  %list; | comment | lq | quote | tscreen | hrule " >
 
 <!entity % mathpar " dm | eq " >
 
@@ -133,6 +136,7 @@ anywhere else. <pavel@ucw.cz>
 <!element  p o o (( %inline | %sectpar )+) +(newline) >
 <!entity ptag '<p>' >
 <!entity psplit '</p><p>' >
+<!element hrule - - EMPTY>
 
 <!shortref pmap
 	"&#RS;B" null 
@@ -160,6 +164,13 @@ anywhere else. <pavel@ucw.cz>
 <!element m - - (%inline)>
 <!element sq - - (%inline)>
 <!element cparam - - (%inline)>
+
+<!element const - - (%inline)>
+<!element func - - (%inline)>
+<!element struct - - (%inline)>
+<!element param - - (%inline)>
+<!element type - - (%inline)>
+<!element funcdef - - (%inline)>
 
 <!entity   ftag     '<f>'    -- formula begin -- >
 <!entity   qendtag  '</sq>'>
@@ -205,13 +216,16 @@ anywhere else. <pavel@ucw.cz>
         "}" rcub
         "|" verbar >
 
-<!element descrip - - (tag?, p+)+ >
+<!element descrip - - ((tag | tagp)?, p+)+ >
 <!usemap desmap descrip>
 
 <!element item o o ((%inline; | %sectpar;)*, p*) >
 
 <!element tag - o (%inline)>
 <!usemap desmap tag>
+
+<!element tagp - o (%inline)>
+<!usemap desmap tagp>
 
 <!usemap global (list,itemize,enum)>
 <!entity space " ">
