@@ -200,7 +200,7 @@ again:
     else
     {
       /* Update routing table */
-      if(nf->en->nhi==NULL)
+      if(ipa_equal(nf->en->nh,ipa_from_u32(0)))
       {
         struct top_hash_entry *en=nf->en;
         struct ospf_neighbor *neigh;
