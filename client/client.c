@@ -92,7 +92,6 @@ got_line(char *cmd_buffer)
       if (cmd)
 	{
 	  add_history(cmd);
-	  puts(cmd);
 	  if (!strcmp(cmd, "exit") || !strcmp(cmd, "quit"))
 	    {
 	      cleanup();
