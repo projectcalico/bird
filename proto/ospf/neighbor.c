@@ -343,9 +343,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
         }
       break;
     case INM_SEQMIS:
-      OSPF_TRACE(D_EVENTS, "Seq mis!");
     case INM_BADLSREQ:
-      OSPF_TRACE(D_EVENTS, "Bad LS req!");
       if(n->state>=NEIGHBOR_EXCHANGE)
       {
         neigh_chstate(n,NEIGHBOR_EXSTART);
