@@ -11,6 +11,7 @@
 
 #define OSPF_PROTO 89
 #ifndef IPV6
+#define OSPF_VERSION 2
 #define AllSPFRouters ipa_from_u32(0xe0000005)	/* 224.0.0.5 */
 #define AllDRouters ipa_from_u32(0xe0000006)	/* 224.0.0.6 */
 #else
@@ -82,6 +83,33 @@ struct ospf_patt {
 
   u16 cost;
   byte mode;
+};
+
+struct ospf_packet {
+  u8 version;
+  u8 type;
+#define HELLO 1 /* Hello */
+#define DBDES 2 /* Database description */
+#define LSREQ 3 /* Link state request */
+#define LSUPD 4 /* Link state update */
+#define LSACK 5 /* Link state acknowledgement */
+  u16 length;
+  u32 routerid;
+  u32 areaid;
+  u16 checksum;
+  u16 autype;
+  u8 authetication[8];
+};
+
+struct ospf_hello_packet {
+  struct ospf_packet;
+  u32 netmask;
+  u16 hello_int;
+  u8 options;
+  u8 priority;
+  u32 deadint;
+  u32 dr;
+  u32 bdr;
 };
 
 #endif /* _BIRD_OSPF_H_ */

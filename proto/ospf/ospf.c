@@ -22,11 +22,37 @@
 
 #include "ospf.h"
 
+void
+ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
+  struct ospf_iface *ifa)
+{
+  switch(ifa->state)
+  {
+    case OSPF_IS_DOWN:
+      die("%s: Iface %s in down state?",p->name, ifa->iface->name);
+      break;
+    case OSPF_IS_WAITING:
+      DBG(p->name);
+      DBG(": Neighbour? on iface ");
+      DBG(ifa->iface->name);
+      DBG("\n");
+      break;
+    default:
+      die("%s: Iface %s in unknown state?",p->name, ifa->iface->name);
+      break;
+  }
+}
+
 int
 ospf_rx_hook(sock *sk, int size)
 {
+#ifndef IPV6
+  struct ospf_packet *ps;
   struct ospf_iface *ifa;
   struct proto *p;
+  int i;
+  u8 *pu8;
+
 
   ifa=(struct ospf_iface *)(sk->data);
 
@@ -35,6 +61,71 @@ ospf_rx_hook(sock *sk, int size)
   DBG(": RX_Hook called on interface ");
   DBG(sk->iface->name);
   DBG(".\n");
+
+  ps=(struct ospf_packet *)(sk->rbuf+5*4);
+
+  if(size<=(20+sizeof(struct ospf_packet)))
+  {
+    log("%s: Bad packet received: too short", p->name);
+    log("%s: Discarding",p->name);
+    return(1);
+  }
+
+  if((ntohs(ps->length))!=(size-20))
+  {
+    log("%s: Bad packet received: size fields does not match", p->name);
+    log("%s: Discarding",p->name);
+    return(1);
+  }
+
+  if(ps->version!=OSPF_VERSION)
+  {
+    log("%s: Bad packet received: version %d", p->name, ps->version);
+    log("%s: Discarding",p->name);
+    return(1);
+  }
+
+  /* FIXME: Count checksum */
+  /* FIXME: Do authetification */
+
+  if(ps->areaid!=ifa->area)
+  {
+    log("%s: Bad packet received: other area %ld", p->name, ps->areaid);
+    log("%s: Discarding",p->name);
+    return(1);
+  }
+
+  /* Dump packet */
+  pu8=(u8 *)(sk->rbuf+5*4);
+  for(i=0;i<ntohs(ps->length);i+=4)
+    debug("%s: received %d,%d,%d,%d\n",p->name, pu8[i+0], pu8[i+1], pu8[i+2],
+		    pu8[i+3]);
+  debug("%s: received size: %d\n",p->name,size);
+
+  switch(ps->type)
+  {
+    case HELLO:
+      DBG(p->name);
+      DBG(": Hello received.\n");
+      ospf_hello_rx((struct ospf_hello_packet *)ps, p, ifa);
+      break;
+    case DBDES:
+      break;
+    case LSREQ:
+      break;
+    case LSUPD:
+      break;
+    case LSACK:
+      break;
+    default:
+      log("%s: Bad packet received: wrong type %d", p->name, ps->type);
+      log("%s: Discarding",p->name);
+      return(1);
+  };
+  DBG("\n");
+#else
+#error RX_Hook does not work for IPv6 now.
+#endif
   return(1);
 }
 
@@ -164,6 +255,7 @@ add_hello_timer(struct ospf_iface *ifa)
   ifa->timer->expires=0;
   tm_start(ifa->timer,0);
   DBG("%s: Installing hello timer.\n", p->name);
+  if(ifa->type=OSPF_IT_PTP) ifa->state=OSPF_IS_PTP;
 }
 
 void
@@ -197,6 +289,10 @@ wait_timer_hook(timer *timer)
     }
     add_hello_timer(ifa);
   }
+  else
+  {
+    die("%s: Wait timer fired I'm not in WAITING state?", p->name);
+  }
 }
 
 void
@@ -213,6 +309,7 @@ add_wait_timer(struct ospf_iface *ifa, pool *pool, int wait)
     ifa->timer->hook=wait_timer_hook;
     ifa->timer->recurrent=0;
     ifa->timer->expires=0;
+    ifa->state=OSPF_IS_WAITING;
     tm_start(ifa->timer,(wait!=0 ? wait : WAIT_D));
     DBG(p->name);
     DBG(": Installing wait timer.\n");
@@ -228,7 +325,7 @@ ospf_iface_default(struct ospf_iface *ifa)
 {
   int i;
 
-  ifa->area=0;
+  ifa->area=0; /* FIXME: Read from config */
   ifa->cost=COST_D;
   ifa->rxmtint=RXMTINT_D;
   ifa->iftransdelay=IFTRANSDELAY_D;
@@ -295,6 +392,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
       debug(" OSPF: killing interface %s.\n", iface->name);
+      /* FIXME: This should delete ifaces */
     }
   }
 
@@ -303,6 +401,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
       debug(" OSPF: changing MTU on interface %s.\n", iface->name);
+      /* FIXME: change MTU */
     }
   }
 }
