@@ -348,8 +348,9 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
         }
       }
     }
-    rt=(struct ospf_lsa_rt *)absr->lsa_body;
-    if((absr==NULL)||(absr->dist==LSINFINITY)||(rt->veb.bit.e==0))
+
+    if((absr==NULL)||(absr->dist==LSINFINITY)||
+      (((struct ospf_lsa_rt *)(absr->lsa_body))->veb.bit.e==0))
     {
       DBG("ASBR is null or its dist=INF\n");
       continue;
