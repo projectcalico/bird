@@ -350,6 +350,7 @@ static struct proto *ospf_init(struct proto_config *c);
 static void ospf_preconfig(struct protocol *p, struct config *c);
 static void ospf_postconfig(struct proto_config *c);
 static int ospf_rte_better(struct rte *new, struct rte *old);
+static int ospf_rte_same(struct rte *new, struct rte *old);
 
 
 #include "proto/ospf/hello.h"

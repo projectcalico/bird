@@ -16,6 +16,7 @@ ospf_start(struct proto *p)
 
   p->if_notify=ospf_if_notify;
   p->rte_better=ospf_rte_better;
+  p->rte_same=ospf_rte_same;
   fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
 
   return PS_UP;
@@ -96,6 +97,17 @@ ospf_rte_better(struct rte *new, struct rte *old)
     if(new->u.ospf.metric1<old->u.ospf.metric1) return 1;
     return 0;
   }
+}
+
+static int
+ospf_rte_same(struct rte *new, struct rte *old)
+{
+  struct proto *p = new->attrs->proto;
+
+  if(new->attrs->source!=old->attrs->source) return 0;
+  if(new->u.ospf.metric1!=old->u.ospf.metric1) return 0;
+  if(new->u.ospf.metric2!=old->u.ospf.metric2) return 0;
+  return 1;
 }
 
 static void
