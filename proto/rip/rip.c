@@ -384,7 +384,7 @@ static int
 rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr whotoldme, int port )
 {
   int i;
-  int native_class = 0, authenticated = 0;
+  int authenticated = 0;
   neighbor *neighbor;
 
   switch( packet->heading.version ) {
@@ -606,7 +606,7 @@ static void
 rip_dump(struct proto *p)
 {
   int i;
-  node *w, *e;
+  node *w;
   struct rip_interface *rif;
   i = 0;
 

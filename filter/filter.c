@@ -294,7 +294,7 @@ interpret(struct f_inst *what)
 {
   struct symbol *sym;
   struct f_val v1, v2, res;
-  int i,j,k;
+  int i;
 
   res.type = T_VOID;
   if (!what)

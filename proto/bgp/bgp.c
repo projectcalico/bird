@@ -373,7 +373,6 @@ static int
 bgp_incoming_connection(sock *sk, int dummy)
 {
   struct proto_config *pc;
-  node *n;
   int match = 0;
 
   DBG("BGP: Incoming connection from %I port %d\n", sk->daddr, sk->dport);
