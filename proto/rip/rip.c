@@ -868,10 +868,11 @@ static int
 rip_reconfigure(struct proto *p, struct proto_config *c)
 {
   struct rip_config *new = (struct rip_config *) c;
+  int generic = sizeof(struct proto_config) + sizeof(list);
 
-  return !memcmp(((byte *) P_CF) + sizeof(struct proto_config),
-                 ((byte *) new) + sizeof(struct proto_config),
-                 sizeof(struct rip_proto_config) - sizeof(struct proto_config));
+  return !memcmp(((byte *) P_CF) + generic,
+                 ((byte *) new) + generic,
+                 sizeof(struct rip_proto_config) - generic);
 }
 
 struct protocol proto_rip = {
