@@ -413,6 +413,16 @@ sk_open(sock *s)
 	ASSERT(s->iface);
 	mreq.imr_ifindex = s->iface->index;
 	set_inaddr(&mreq.imr_address, s->iface->ip);
+#ifdef SO_BINDTODEVICE
+	{
+	  struct ifreq ifr;
+	  strcpy(ifr.ifr_name, s->iface->name);
+	  if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
+	    ERR("SO_BINDTODEVICE");
+	}
+#else
+#error Multicasts not supported on PtP devices		/* FIXME: Solve it somehow? */
+#endif
 #else
 	struct in_addr mreq;
 	struct ip_mreq mreq_add;
