@@ -53,7 +53,7 @@ ospf_area_start: AREA idval '{' {
  }
 ;
 
-ospf_area: ospf_area_start
+ospf_area:
  | ospf_area_start ospf_area_list
 ;
 
