@@ -81,7 +81,7 @@ ospf_dump(struct proto *p)
   WALK_LIST(NODE oa,po->area_list)
   {
     OSPF_TRACE(D_EVENTS, "LSA graph dump for area \"%I\" start:", oa->areaid);
-    ospf_top_dump(oa->gr);
+    ospf_top_dump(oa->gr,p);
     OSPF_TRACE(D_EVENTS, "LSA graph dump for area \"%I\" finished", oa->areaid);
   }
   neigh_dump_all();

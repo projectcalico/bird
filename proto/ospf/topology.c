@@ -174,11 +174,12 @@ originate_rt_lsa(struct ospf_area *oa)
 {
   struct ospf_lsa_header lsa;
   struct proto_ospf *po=oa->po;
+  struct proto *p=&po->proto;
   u32 rtid=po->proto.cf->global->router_id;
   struct top_hash_entry *en;
   void *body;
 
-  debug("%s: Originating RT_lsa for area \"%I\".\n",po->proto.name,oa->areaid);
+  OSPF_TRACE(D_EVENTS, "Originating RT_lsa for area \"%I\".",oa->areaid);
 
   lsa.age=0;
   lsa.id=rtid;
@@ -236,9 +237,10 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   struct ospf_lsa_header lsa;
   u32 rtid=po->proto.cf->global->router_id;
   struct top_hash_entry *en;
+  struct proto *p=&po->proto;
   void *body;
 
-  debug("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name,
+  OSPF_TRACE(D_EVENTS, "Originating Net lsa for iface \"%s\".",
     ifa->iface->name);
 
   if((ifa->state!=OSPF_IS_DR)||(ifa->fadj==0))
@@ -272,8 +274,6 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   body=originate_net_lsa_body(ifa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
   ifa->nlsa=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
-  debug("NetLsa: Id: %I, Sum: %u Sn: 0x%x\n",ifa->nlsa->lsa.id,
-    ifa->nlsa->lsa.checksum, ifa->nlsa->lsa.sn);
   flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,1);
 }
 
@@ -329,7 +329,7 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   struct ospf_lsa_ext *ext1,*ext2;
   int i;
 
-  debug("%s: Originating Ext lsa for %I/%d.\n", po->proto.name, n->n.prefix,
+  OSPF_TRACE(D_EVENTS, "Originating Ext lsa for %I/%d.", n->n.prefix,
     n->n.pxlen);
 
   lsa.age=0;
@@ -548,17 +548,18 @@ ospf_hash_delete(struct top_graph *f, struct top_hash_entry *e)
 }
 
 void
-ospf_top_dump(struct top_graph *f)
+ospf_top_dump(struct top_graph *f, struct proto *p)
 {
   unsigned int i;
-  debug("Hash entries: %d\n", f->hash_entries);
+  OSPF_TRACE(D_EVENTS, "Hash entries: %d", f->hash_entries);
 
   for(i=0; i<f->hash_size; i++)
     {
       struct top_hash_entry *e = f->hash_table[i];
       while (e)
 	{
-	  debug("\t%1x %8I %8I %4u 0x%08x\n", e->lsa.type, e->lsa.id,
+	  OSPF_TRACE(D_EVENTS, "\t%1x %8I %8I %4u 0x%08x",
+	    e->lsa.type, e->lsa.id,
             e->lsa.rt, e->lsa.age, e->lsa.sn);
 	  e = e->next;
 	}

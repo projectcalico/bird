@@ -39,7 +39,7 @@ struct top_graph {
 
 struct top_graph *ospf_top_new(struct proto_ospf *);
 void ospf_top_free(struct top_graph *);
-void ospf_top_dump(struct top_graph *);
+void ospf_top_dump(struct top_graph *, struct proto *);
 struct top_hash_entry *ospf_hash_find_header(struct top_graph *f, struct ospf_lsa_header *h);
 struct top_hash_entry *ospf_hash_get_header(struct top_graph *f, struct ospf_lsa_header *h);
 struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr, u32 type);
