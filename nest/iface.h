@@ -99,12 +99,12 @@ struct iface_patt {
   node n;
   byte *pattern;			/* Interface name pattern */
 
-  /* Protocol-specific data follow */
-  union {
-    struct {
-      int metric;
-    } rip;
-  } u;
+  /* Protocol-specific data follow, but keep them like this:
+     struct rip_iface_patt {
+        struct iface_patt i;
+	whatever you (need);
+     }
+   */
 };
 
 struct iface_patt *iface_patt_match(list *, struct iface *);
