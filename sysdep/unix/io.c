@@ -2,6 +2,7 @@
  *	BIRD Internet Routing Daemon -- Unix I/O
  *
  *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
+ *      (c) 2004       Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -29,6 +30,7 @@
 #include "lib/unix.h"
 #include "lib/sysio.h"
 
+#define LOCAL_DEBUG
 /*
  *	Tracked Files
  */
@@ -399,6 +401,14 @@ tm_format_reltime(char *x, bird_clock_t t)
 #define SOL_IP IPPROTO_IP
 #endif
 
+#ifndef SOL_IPV6
+#define SOL_IPV6 IPPROTO_IPV6
+#endif
+
+#ifndef IPV6_ADD_MEMBERSHIP
+#define IPV6_ADD_MEMBERSHIP IP_ADD_MEMBERSHIP
+#endif
+
 static list sock_list;
 
 static void
@@ -476,17 +486,21 @@ sk_new(pool *p)
 void
 fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
 {
+  memset (sa, 0, sizeof (struct sockaddr_in6));
   sa->sin6_family = AF_INET6;
   sa->sin6_port = htons(port);
   sa->sin6_flowinfo = 0;
+#ifdef HAVE_SIN_LEN
+  sa->sin6_len = sizeof(struct sockaddr_in6);
+#endif
   set_inaddr(&sa->sin6_addr, a);
 }
 
 void
-get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port)
+get_sockaddr(struct sockaddr_in6 *sa, ip_addr *a, unsigned *port, int check)
 {
-  if (sa->sin6_family != AF_INET6)
-    bug("get_sockaddr called for wrong address family");
+  if (check && sa->sin6_family != AF_INET6)
+    bug("get_sockaddr called for wrong address family (%d)", sa->sin6_family);
   if (port)
     *port = ntohs(sa->sin6_port);
   memcpy(a, &sa->sin6_addr, sizeof(*a));
@@ -498,16 +512,20 @@ get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port)
 void
 fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
 {
+  memset (sa, 0, sizeof (struct sockaddr_in));
   sa->sin_family = AF_INET;
   sa->sin_port = htons(port);
+#ifdef HAVE_SIN_LEN
+  sa->sin_len = sizeof(struct sockaddr_in);
+#endif
   set_inaddr(&sa->sin_addr, a);
 }
 
 void
-get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port)
+get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port, int check)
 {
-  if (sa->sin_family != AF_INET)
-    bug("get_sockaddr called for wrong address family");
+  if (check && sa->sin_family != AF_INET)
+    bug("get_sockaddr called for wrong address family (%d)", sa->sin_family);
   if (port)
     *port = ntohs(sa->sin_port);
   memcpy(a, &sa->sin_addr.s_addr, sizeof(*a));
@@ -536,8 +554,8 @@ sk_setup(sock *s)
     WARN("IP_TOS");
   if (s->ttl >= 0 && setsockopt(fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
     ERR("IP_TTL");
-  if (s->ttl == 1 && setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
-    ERR("SO_DONTROUTE");
+  //if (s->ttl == 1 && setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
+  //  ERR("SO_DONTROUTE");
 #endif
   err = NULL;
 bad:
@@ -578,7 +596,7 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
       t->rbsize = s->rbsize;
       t->tbsize = s->tbsize;
       if (type == SK_TCP)
-	get_sockaddr((sockaddr *) sa, &t->daddr, &t->dport);
+	get_sockaddr((sockaddr *) sa, &t->daddr, &t->dport, 1);
       add_tail(&sock_list, &t->n);
       if (err = sk_setup(t))
 	{
@@ -645,7 +663,9 @@ sk_open(sock *s)
   s->fd = fd;
 
   if (err = sk_setup(s))
+  {
     goto bad;
+  }
   switch (type)
     {
     case SK_UDP:
@@ -683,7 +703,7 @@ sk_open(sock *s)
 	    mreq.ipv6mr_ifindex = s->iface->index;
 #else
 	    mreq.ipv6mr_interface = s->iface->index;
-#endif
+#endif /* CONFIG_IPV6_GLIBC_20 */
 	    if (setsockopt(fd, SOL_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
 	      ERR("IPV6_ADD_MEMBERSHIP");
 	  }
@@ -692,7 +712,7 @@ sk_open(sock *s)
 	ASSERT(s->iface && s->iface->addr);
 	if (err = sysio_mcast_join(s))
 	  goto bad;
-#endif
+#endif /* IPV6 */
       break;
       }
     }
@@ -842,6 +862,7 @@ sk_maybe_write(sock *s)
 	if (s->tbuf == s->tpos)
 	  return 1;
 	fill_in_sockaddr(&sa, s->faddr, s->fport);
+
 	e = sendto(s->fd, s->tbuf, s->tpos - s->tbuf, 0, (struct sockaddr *) &sa, sizeof(sa));
 	if (e < 0)
 	  {
@@ -955,7 +976,7 @@ sk_read(sock *s)
 	    return 0;
 	  }
 	s->rpos = s->rbuf + e;
-	get_sockaddr(&sa, &s->faddr, &s->fport);
+	get_sockaddr(&sa, &s->faddr, &s->fport, 1);
 	s->rx_hook(s, e);
 	return 1;
       }

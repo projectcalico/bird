@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/signal.h>
+#include <signal.h>
 
 #include "nest/bird.h"
 #include "lib/lists.h"

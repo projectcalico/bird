@@ -41,5 +41,15 @@
 /* We have <syslog.h> and syslog() */
 #undef HAVE_SYSLOG
 
+/* We have <alloca.h> */
+#undef HAVE_ALLOCA_H
+
 /* Are we using dmalloc? */
 #undef HAVE_LIBDMALLOC
+
+/* Readline stuff */
+#undef HAVE_RL_CRLF
+#undef HAVE_RL_DING
+
+/* struct sockaddr_in(6) */
+#undef HAVE_SIN_LEN

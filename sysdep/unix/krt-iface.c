@@ -2,6 +2,7 @@
  *	BIRD -- Unix Interface Scanning and Syncing
  *
  *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
+ *      (c) 2004       Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -36,6 +37,7 @@ scan_ifs(struct ifreq *r, int cnt)
   unsigned fl;
   ip_addr netmask;
   int l, scope;
+  sockaddr *sa;
 
   if_start_update();
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
@@ -43,7 +45,6 @@ scan_ifs(struct ifreq *r, int cnt)
       int sec = 0;
       bzero(&i, sizeof(i));
       bzero(&a, sizeof(a));
-      DBG("%s\n", r->ifr_name);
       if (colon = strchr(r->ifr_name, ':'))
 	{
 	  /* It's an alias -- let's interpret it as a secondary interface address */
@@ -51,7 +52,10 @@ scan_ifs(struct ifreq *r, int cnt)
 	  *colon = 0;
 	}
       strncpy(i.name, r->ifr_name, sizeof(i.name) - 1);
-      get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.ip, NULL);
+
+      if(ioctl(if_scan_sock, SIOCGIFADDR,r)<0) continue;
+
+      get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.ip, NULL, 1);
       if (ipa_nonzero(a.ip))
 	{
 	  l = ipa_classify(a.ip);
@@ -83,11 +87,11 @@ scan_ifs(struct ifreq *r, int cnt)
 
       if (ioctl(if_scan_sock, SIOCGIFNETMASK, r) < 0)
 	{ err = "SIOCGIFNETMASK"; goto faulty; }
-      get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &netmask, NULL);
+      get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &netmask, NULL, 0);
       l = ipa_mklen(netmask);
       if (l < 0 || l == 31)
 	{
-	  log(L_ERR "%s: Invalid netmask", i.name);
+	  log(L_ERR "%s: Invalid netmask (%x)", i.name, netmask);
 	  goto bad;
 	}
       a.pxlen = l;
@@ -97,7 +101,7 @@ scan_ifs(struct ifreq *r, int cnt)
 	  a.flags |= IA_UNNUMBERED;
 	  if (ioctl(if_scan_sock, SIOCGIFDSTADDR, r) < 0)
 	    { err = "SIOCGIFDSTADDR"; goto faulty; }
-	  get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.opposite, NULL);
+	  get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.opposite, NULL, 1);
 	  a.prefix = a.opposite;
 	  a.pxlen = BITS_PER_IP_ADDRESS;
 	}
@@ -188,40 +192,17 @@ krt_if_scan(struct kif_proto *p)
 
   for(;;)
     {
-      if (last_ifbuf_size)
-	{
-	  struct ifreq *r = alloca(last_ifbuf_size);
-	  ic.ifc_ifcu.ifcu_req = r;
-	  ic.ifc_len = last_ifbuf_size;
-	  res = ioctl(if_scan_sock, SIOCGIFCONF, &ic);
-	  if (res < 0 && errno != EFAULT)
-	    die("SIOCCGIFCONF: %m");
-	  if (res >= 0 && ic.ifc_len < last_ifbuf_size)
-	    {
-	      scan_ifs(r, ic.ifc_len);
-	      break;
-	    }
-	}
-#if 0
-      /*
-       *  Linux 2.1 and higher supports this, but it's not needed since
-       *  we prefer to use Netlink there anyway.
-       */
-      ic.ifc_req = NULL;
-      ic.ifc_len = 999999999;
-      if (ioctl(if_scan_sock, SIOCGIFCONF, &ic) < 0)
-	die("SIOCIFCONF: %m");
-      ic.ifc_len += sizeof(struct ifreq);
-      if (last_ifbuf_size < ic.ifc_len)
-	{
-	  last_ifbuf_size = ic.ifc_len;
-	  DBG("Increased ifconf buffer size to %d\n", last_ifbuf_size);
-	}
-#else
+      ic.ifc_buf = alloca(last_ifbuf_size);
+      ic.ifc_len = last_ifbuf_size;
+      res = ioctl(if_scan_sock, SIOCGIFCONF, &ic);
+      if (res < 0 && errno != EFAULT)
+        die("SIOCCGIFCONF: %m");
+      if (res >= 0 && ic.ifc_len <= last_ifbuf_size)
+        break;
       last_ifbuf_size *= 2;
       DBG("Increased ifconf buffer size to %d\n", last_ifbuf_size);
-#endif
     }
+  scan_ifs(ic.ifc_req, ic.ifc_len);
 }
 
 void
@@ -247,3 +228,4 @@ krt_if_io_init(void)
   if (if_scan_sock < 0)
     die("Cannot create scanning socket: %m");
 }
+
