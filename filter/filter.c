@@ -10,10 +10,10 @@
 /**
  * DOC: Filters
  *
- * You can find sources of filters language in filter/
- * directory. filter/config.Y filter grammar, and basically translates
+ * You can find sources of filters language in |filter/|
+ * directory. |filter/config.Y| filter grammar, and basically translates
  * source from user into tree of &f_inst structures. These trees are
- * later interpreted using code in filter/filter.c. Filters internally
+ * later interpreted using code in |filter/filter.c|. Filters internally
  * work with values/variables in struct f_val, which contains type of
  * value and value.
  *
@@ -25,7 +25,7 @@
  *
  * Filters use structure &f_val for its variables. Each &f_val
  * contains type and value. Types are constants prefixed with %T_. Few
- * of types are special; %T_RETURN can be or--ed with type to indicate
+ * of types are special; %T_RETURN can be or-ed with type to indicate
  * that return from function/from whole filter should be
  * forced. Important thing about &f_val s is that they may be copied
  * with simple =. That's fine for all currently defined types: strings
@@ -72,7 +72,7 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
 }
 
 /**
- * val_compare
+ * val_compare - compare two values
  * @v1: first value
  * @v2: second value
  *
@@ -147,12 +147,12 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
 }
 
 /**
- * val_in_range
+ * val_in_range - implement |~| operator
  * @v1: element
  * @v2: set
  *
  * Checks if @v1 is element (|~| operator) of @v2. Sets are internally represented as balanced trees, see
- * tree.c module (this is not limited to sets, but for non-set cases, val_simple_in_range() is called early).
+ * |tree.c| module (this is not limited to sets, but for non-set cases, val_simple_in_range() is called early).
  */
 int
 val_in_range(struct f_val v1, struct f_val v2)

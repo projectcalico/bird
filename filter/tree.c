@@ -70,7 +70,7 @@ find_median(struct f_tree *from)
  * by &f_val structures (that can be compared by val_compare()). In each node of tree, 
  * either single value (then t->from==t->to) or range is present.
  *
- * Both set matching and switch() { } construction is implemented using this function,
+ * Both set matching and |switch() { }| construction is implemented using this function,
  * thus both are as fast as they can be.
  */
 struct f_tree *
