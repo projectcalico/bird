@@ -44,6 +44,7 @@ typedef u32 ip_addr;
 #define ipa_nonzero(x) _I(x)
 #define ipa_and(x,y) _MI(_I(x) & _I(y))
 #define ipa_or(x,y) _MI(_I(x) | _I(y))
+#define ipa_xor(x,y) _MI(_I(x) ^ _I(y))
 #define ipa_not(x) _MI(~_I(x))
 #define ipa_mkmask(x) _MI(u32_mkmask(x))
 #define ipa_mklen(x) u32_masklen(_I(x))

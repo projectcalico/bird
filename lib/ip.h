@@ -15,6 +15,8 @@
 #include "ipv6.h"
 #endif
 
+#define ipa_in_net(x,n,p) (!ipa_nonzero(ipa_and(ipa_xor((n),(x)),ipa_mkmask(p))))
+
 /*
  *	ip_classify() returns either a negative number for invalid addresses
  *	or scope OR'ed together with address type.

@@ -36,6 +36,10 @@ typedef struct ipv4_addr {
 			_I1(a) | _I1(b), \
 			_I2(a) | _I2(b), \
 			_I3(a) | _I3(b))
+#define ipa_xor(a,b) _MI(_I0(a) ^ _I0(b), \
+			 _I1(a) ^ _I1(b), \
+			 _I2(a) ^ _I2(b), \
+			 _I3(a) ^ _I3(b))
 #define ipa_not(a) _MI(~_I0(a),~_I1(a),~_I2(a),~_I3(a))
 #define ipa_mkmask(x) ipv6_mkmask(x)
 #define ipa_mklen(x) ipv6_mklen(&(x))
