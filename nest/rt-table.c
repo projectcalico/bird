@@ -659,7 +659,7 @@ rt_feed_baby(struct proto *p)
 {
   struct announce_hook *h;
   struct fib_iterator *fit;
-  int max_feed = 2;			/* FIXME */
+  int max_feed = 256;
 
   if (!p->feed_ahook)			/* Need to initialize first */
     {
@@ -678,6 +678,11 @@ again:
     {
       net *n = (net *) fn;
       rte *e;
+      if (max_feed <= 0)
+	{
+	  FIB_ITERATE_PUT(fit, fn);
+	  return 0;
+	}
       for(e=n->routes; e; e=e->next)
 	{
 	  struct proto *q = e->attrs->proto;
@@ -689,11 +694,7 @@ again:
 	  tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
 	  do_rte_announce(h, n, e, NULL, tmpa, ipa_classify(n->n.prefix));
 	  rte_update_unlock();
-	  if (!--max_feed)
-	    {
-	      FIB_ITERATE_PUT(fit, fn);
-	      return 0;
-	    }
+	  max_feed--;
 	}
     }
   FIB_ITERATE_END(fn);
