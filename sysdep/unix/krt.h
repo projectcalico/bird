@@ -52,6 +52,7 @@ void krt_scan_ifaces_done(struct krt_proto *);
 
 void krt_set_preconfig(struct krt_config *);
 void krt_set_start(struct krt_proto *);
+void krt_set_shutdown(struct krt_proto *);
 
 /* sync-if.c */
 

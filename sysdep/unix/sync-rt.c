@@ -43,6 +43,7 @@ krt_shutdown(struct proto *p)
 
   krt_scan_shutdown(k);
   krt_if_shutdown(k);
+  krt_set_shutdown(k);
   return PS_DOWN;
 }
 

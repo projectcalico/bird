@@ -10,6 +10,7 @@
 #define _BIRD_KRT_SET_H_
 
 struct krt_set_params {
+  int persist;
 };
 
 struct krt_set_status {

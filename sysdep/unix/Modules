@@ -9,5 +9,6 @@ krt.Y
 krt.h
 krt-set.c
 krt-set.h
+krt-set.Y
 krt-iface.h
 krt-iface.Y

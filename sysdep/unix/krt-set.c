@@ -133,3 +133,29 @@ void
 krt_set_preconfig(struct krt_config *c)
 {
 }
+
+void
+krt_set_shutdown(struct krt_proto *x)
+{
+  struct rtable *t = &master_table;
+
+  if (((struct krt_config *) x->p.cf)->setopt.persist)
+    return;
+  DBG("Flushing kernel routes...\n");
+  while (t && t->tos)
+    t = t->sibling;
+  if (!t)
+    return;
+  FIB_WALK(&t->fib, f)
+    {
+      net *n = (net *) f;
+      rte *e = n->routes;
+      if (e)
+	{
+	  rta *a = e->attrs;
+	  if (a->source != RTS_DEVICE && a->source != RTS_INHERIT)
+	    krt_remove_route(e);
+	}
+    }
+  FIB_WALK_END;
+} 
