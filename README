@@ -11,6 +11,11 @@ systems (but not necessarily limited to them) with full support of all modern
 routing protocols, easy to use configuration interface and powerful route
 filtering language.
 
+This software should be considered a beta version. It has undergone extensive
+testing by the authors, but since it's the first public release, only a limited
+amount of "real life" experience is known and there still might be problems
+with operation in unusual environments.
+
 If you want to help us debugging, enhancing and porting BIRD or just lurk
 around to see what's going to develop from this strange creature, feel free
 to subscribe to the BIRD users mailing list (bird-users@bird.network.cz),
@@ -46,9 +51,11 @@ How to install BIRD:
 	make install
 	vi /usr/local/etc/bird.conf
 
-Online documentation is available as HTML files in the doc directory.
-You can also download a neatly formatted PostScript version as a separate
-archive (bird-doc-*.tar.gz).
+Online documentation is available as HTML files in the doc directory,
+you can install it by `make install-docs' and rebuild it by `make docs',
+but for the latter you need SGMLtools and LaTeX to be installed on your
+machine. You can also download a neatly formatted PostScript version
+as a separate archive (bird-doc-*.tar.gz).
 
 What do we support:
 
