@@ -24,6 +24,7 @@
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "nest/route.h"
+#include "nest/cli.h"
 #include "conf/conf.h"
 #include "lib/string.h"
 
@@ -361,6 +362,7 @@ void ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old,ea_list *attrs);
 void area_disp(timer *timer);
 void schedule_rt_lsa(struct ospf_area *oa);
 void schedule_rtcalc(struct ospf_area *oa);
+void ospf_sh_neigh(struct proto *p);
 
 #define EA_OSPF_METRIC1	EA_CODE(EAP_OSPF, 0)
 #define EA_OSPF_METRIC2	EA_CODE(EAP_OSPF, 1)

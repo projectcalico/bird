@@ -37,6 +37,7 @@ Reply codes of BIRD command-line interface
 1010	Symbol list
 1011	Uptime
 1012	Route extended attribute list
+1013	Show ospf neighbors
 
 8000	Reply too long
 8001	Route not found

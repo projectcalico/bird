@@ -316,3 +316,19 @@ struct protocol proto_ospf = {
   get_attr:		ospf_get_attr,
   get_status:		ospf_get_status
 };
+
+void
+ospf_sh_neigh(struct proto *p)
+{
+  struct ospf_iface *ifa;
+  struct ospf_neighbor *n;
+  struct proto_ospf *po=(struct proto_ospf *)p;
+
+  cli_msg(-1013,"%s:",p->name);
+  cli_msg(-1013,"%-12s\t%3s\t%-15s\t%-5s\t%-12s\t%-10s","Router ID","Pri",
+    "     State", "DTime", "Router IP", "Interface");
+  WALK_LIST(ifa,po->iface_list)
+    WALK_LIST(n, ifa->neigh_list)
+      ospf_sh_neigh_info(n);
+  cli_msg(0,"");
+}

@@ -8,8 +8,14 @@
 
 #include "ospf.h"
 
-char *ospf_ns[]={"down", "attempt", "init", "2way", "exstart", "exchange",
-  "loading", "full"};
+char *ospf_ns[]={"    down",
+                 " attempt",
+                 "    init",
+                 "    2way",
+                 " exstart",
+                 "exchange",
+                 " loading",
+                 "    full"};
 
 const char *ospf_inm[]={ "hello received", "neighbor start", "2-way received",
   "negotiation done", "exstart done", "bad ls request", "load done",
@@ -479,4 +485,32 @@ ospf_neigh_remove(struct ospf_neighbor *n)
   rem_node(NODE n);
   mb_free(n);
   debug("%s: Deleting neigbor.\n", p->name);
+}
+
+void
+ospf_sh_neigh_info(struct ospf_neighbor *n)
+{
+   struct ospf_iface *ifa=n->ifa;
+   char *pos="other";
+   char etime[6];
+   int exp,sec,min;
+
+   exp=n->inactim->expires-now;
+   sec=exp-(exp/60);
+   min=(exp-sec)/60;
+   if(min>59)
+   {
+     sprintf(etime,"-Inf-");
+   }
+   else
+   {
+     sprintf(etime,"%02u:%02u", min, sec);
+   }
+   
+   if(n->rid==ifa->drid) pos="dr   ";
+   if(n->rid==ifa->bdrid) pos="bdr  ";
+
+
+   cli_msg(-1013,"%-18I\t%3u\t%s/%s\t%-5s\t%-18I\t%-10s",n->rid, n->priority,
+     ospf_ns[n->state], pos, etime, n->ip,ifa->iface->name);
 }
