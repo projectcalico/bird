@@ -41,6 +41,7 @@ extern struct cli *this_cli;		/* Used during parsing */
 /* Functions to be called by command handlers */
 
 void cli_printf(cli *, int, char *, ...);
+#define cli_msg(x...) cli_printf(this_cli, x)
 
 /* Functions provided to sysdep layer */
 

@@ -19,8 +19,6 @@ CF_HDR
 #include "nest/cli.h"
 #include "filter/filter.h"
 
-#define cli_msg(x...) cli_printf(this_cli, x)
-
 CF_DECLS
 
 %union {
