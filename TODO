@@ -58,59 +58,16 @@ OSPF
 
 Documentation (sorry, its in czech)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-K SGML:
-
-o  Mohl bys, prosim, nekam napsat, co je vsechno potreba udelat, aby bylo
-   dokumentaci mozno postavit? Skoncil jsem u toho, ze jsem do doc/sbase/
-   zkopiroval spoustu souboru z /usr/lib/sgml-tools a pridal nekolik symlinku
-   -- ted uz sice dokumentaci vygeneruji, ale asi to neni ta spravna cesta.
-
-K HTML:
-
-o  "2000" zcela vypadava mimo hlavicku.
-o  Zkusit HTML projet nejakym validatorem.
-
-Uvod:
-
-o  Chybi sekce popisujici instalaci, spousteni a command-line options.
-o  "About routing tables" by melo byt podstatne podrobnejsi (vysvetlit, co vlastne
-   routovaci tabulky jsou, co obsahuji, ze vubec existuji nejake atributy, k cemu
-   slouzi, ze nektere tabulky jsou synchronizovane s kernelem, zatimco jine nikoliv,
-   ze lze prenaset routy mezi tabulkami (odkaz na protokol pipe), ze k tabulkam
-   jsou pres filtry pripojeny protokoly atd.) Asi z toho udelat samostatnou kapitolu.
-o  Zminit logy a kategorie hlasek.
-o  Chybi installation requirements: tedy ze potrebujeme GCC a GNU make.
-
 Filtry:
 
-o  Napsat neco o tom, jak filtry debugovat -- ze existuje trasovani filtru
-   a CLI command pro vypsani routovaci tabulky tak, jak projde filtrem ci tak,
-   jak ji vidi dany protokol.
-o  `filters internally work ...' patri do progdoc.
 o  Vysvetlit nesting a zastinovani.
-o  Nadefinovat, co se stane, kdyz funkce nevrati hodnotu, i kdyz ma.
-o  ip: IPv4/IPv6 nezavisi na verzi BIRDa, nybrz na compile-time konfiguraci.
-o  ip: .mask zminit zvlast mezi specialnimi operatory.
-o  set: lepe vysvetlit matchovani prefixu, ukazat na prikladu.
-o  bgppath: list of autonomous system _numbers_
-o  bgpmask: vysvetlit matchovani.
-o  operations: prejmenovat na `operators', mela by to asi byt tabulka
-   operatoru, u kazdeho receno, na jakych typech je definovan a jakeho
-   typu je vysledek.
-o  attributes: nemyslim, ze jsou vsechny -- co treba scope a preference?
-o  print: a coz takhle printn apod.?
-o  Mezi prikazy nikde neni zminen napriklad accept a reject.
-o  Co se stane, kdyz filtr skonci, aniz by vydal verdikt?
 
 Protocols:
 
-o  RIP: Per-interface optiony uvadet tez jako definition list.
 o  passwords: syntaxe data uz, tusim, davno vypada jinak.
 
 Struktura dokumentace:
 
-o  Chybi kapitola o CLI a o clientovi.
 o  Na konci (nebo ve zvlast sekci pro kazdy protokol?) by mel byt seznam referenci
    na vsechny mozne dokumenty, zejmena vsak vsechna RFC, kterymi se ridime nebo
    ktera maji neco spolecneho s tim, co delame (napriklad RPSL).
@@ -121,17 +78,6 @@ o  K "BIRD Internet Routing Daemon" by mel patrit urcity clen.
 o  Pokud je v zavorce cela veta, patri pred ')' tecka, pokud neni, tak
    nepatri.
 o  Davej si pozor na rody -- router je vzdycky `it', nikdy `he'.
-
-> > Nechtel bys kapitolu o clientovy napsat ty? Ja o nem nic nevim, a
-> > kvalita uzivatelske dokumentace je o hodne dulezitejsi nez
-> > programatorske.
->
->    O clientovi neni temer co psat, commandy si, myslim, snadno najdes v config.Y.
-> Protokol je velice jednoduchy: uzivatel posila prikazy, BIRD odpovida radky
-> typu CCCCs..., kde CCCC je kod hlasky (viz doc/reply-codes), `s' je whitespace,
-> `...' hlaska. Viceradkove odpovedi maji na vsech radcich mimo posledniho misto `s'
-> minus a nebo na druhem az predposlednim radku misto celeho prefixu jen whitespace
-> (presne jako ve FTP).
 
 Jeste by to chtelo trosku podrobneji:
 

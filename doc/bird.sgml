@@ -98,30 +98,55 @@ it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is consi
 configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
 "meta" information within fragment of configuration -- something in config which is not keyword.
 
+
+<sect1>About routing tables
+
+<p>Bird has one or more routing tables, which may or may not be
+synchronized with kernel and which may or may not be synchronized with
+each other (see protocol pipe). Each routing table contains list of
+known routes. Each route has certain attributes, most important is
+prefix of network this route is for. Routing table maintains more than
+one entry for network, but at most one entry for one network and one
+protocol. The entry with biggest preference is used for routing. If
+there are more entries with same preference and they are from same
+protocol, protocol decides (typically according to metrics). You can
+get list of route attributes in "Route attributes" section in
+filters. Filters can alter routes passed between routing tables and
+protocols.
+
 <sect1>Installing BIRD
 
-<p>On UNIX system, installing BIRD should be as easy as:
+<p>On recent UNIX system, installing BIRD should be as easy as (bird
+relies on GNU C and GNU make extensions): <!-- It is not true that we
+require gcc, there are other compilers supporting gcc extensions! -->
 
 <code>
         ./configure
         make
         make install
         vi /usr/local/etc/bird.conf
+	bird
 </code>
 
-<p>You can use <tt>./configure --help</tt> to get list of configure options.
+<p>You can use <tt>./configure --help</tt> to get list of configure
+options. Most important (and not easily guessed) option is
+<tt/--enable-ipv6/, which enables IpV6 support.
 
-<sect1>About routing tables
+<p>You can pass several command-line options to bird:
 
-<p>Bird has one or more routing tables. Each routing table contains
-list of known routes. Each route has certain attributes, most
-important is prefix of network this route is for. Routing table
-maintains more than one entry for network, but at most one entry for
-one network and one protocol. The entry with biggest preference is
-used for routing. If there are more entries with same preference and
-they are from same protocol, protocol decides (typically according to
-metrics). You can get list of route attributes in "Route attributes"
-section in filters.
+<descrip>
+	<tag>-c <m/config name/</tag>
+	use given config file instead of <file>bird.conf</file>.
+
+	<tag>-d</tag>
+	enable debugging.
+
+	<tag>-D <m/filename for debug log/</tag>
+	log debugging information to given file
+
+	<tag>-s <m/name of communication socket/</tag>
+	use given filename for socket for communications with bird client, default is <file/bird.ctl/.
+</descrip>
 
 <sect>Configuration
 
@@ -246,7 +271,10 @@ protocols, telling BIRD to show various information, telling it to
 show routing table filtered by any filter, or telling bird to
 reconfigure. Press <tt/?/ at any time to get online help. Option
 <tt/-v/ can be passed to client, telling it to dump numeric return
-codes.
+codes. You do not neccessarily need to use BIRDC to talk to BIRD, your
+own application could do that, too -- format of communication between
+BIRD and BIRDC is stable (see programmer's documenation).
+
 
 <sect>Filters
 
@@ -291,7 +319,6 @@ you want to make bigger block of code conditional.
 <p>There are two special filters, <cf/all/ (which accepts all routes) and <cf/none/ (which rejects
 all routes).
 
-
 <p>Bird supports functions, so that you don't have to repeat same blocks of code over and
 over. Functions can have zero or more parameters, and can have local variables. Function basically
 looks like this:
@@ -319,6 +346,27 @@ parameters. They get route table entry as implicit parameter. Route table entry 
 to any functions being called. Filter must terminate with either
 accept or reject statement. If there's runtime error in filter, route
 is rejected. 
+
+<p>Nice trick to debug filters is using <cf>show route filter
+<m/name/</cf> from command line client. Example session might look
+like:
+
+<code>
+pavel@bug:~/bird$ ./birdc -s bird.ctl
+BIRD 0.0.0 ready.
+bird> help
+No such command.
+bird>
+bird> show route
+10.0.0.0/8         dev eth0 [direct1 23:21] (240)
+195.113.30.2/32    dev tunl1 [direct1 23:21] (240)
+127.0.0.0/8        dev lo [direct1 23:21] (240)
+bird> show route ?
+show route [<prefix>] [table <t>] [filter <f>] [all] [primary] [(import|protocol) <p>] [stats]  Show routing table
+bird> show route filter { if 127.0.0.5 ~ net then accept; }
+127.0.0.0/8        dev lo [direct1 23:21] (240)
+bird>
+</code>
 
 <sect1>Data types
 
@@ -358,10 +406,12 @@ booleans and between integers and enums (that is to prevent you from shooting in
 	  filters know four types of sets. Sets are similar to strings: you can pass them around
 	  but you can not modify them. Constant of type <cf>set int</cf> looks like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
-	  sets. Sets of prefixes are special: you can specify which prefixes should match them by
+	  sets. Sets of prefixes are special: you can specify which prefix lengths should match them by
 	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. 3.0.0.0/8{5,6} matches
 	  prefixes 3.X.X.X, whose prefix length is 5 to 6. 3.0.0.0/8+ is shorthand for 3.0.0.0/{0,8},
-	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}.
+	  3.0.0.0/8- is shorthand for 3.0.0.0/{0,7}. For example,
+	  <tt>1.2.0.0/16 ~ [ 1.0.0.0/8{ 15 , 17 } ]</tt> is true, but
+	  <tt>1.0.0.0/8 ~ [ 1.0.0.0/8- ]</tt> is false. 
 
 	<tag/enum/
 	  enumeration types are halfway-internal in the BIRD. You can not define your own
@@ -374,10 +424,14 @@ booleans and between integers and enums (that is to prevent you from shooting in
 
 	<tag/bgpmask/ 
 	  bgp mask is mask used for matching bgp paths
-	  (using <cf>path ~ / 2 3 5 ? / syntax </cf>). <cf/?/ is
-	  really serving in "any number of autonomous systems", but we
+	  (using <cf>path ~ / 2 3 5 ? / syntax </cf>). Matching is
+	  done using shell-like pattern: <cf/?/ means
+	  "any number of any autonomous systems". Pattern for single
+	  unknown autonomous system is not supported. (We
 	  did not want to use * because then it becomes too easy to
-	  write <cf>/*</cf> which is start of comment.
+	  write <cf>/*</cf> which is start of comment.) For example,
+	  <tt>/ 4 3 2 1 / ~ / ? 4 3 ? 1 /</tt> is true, but 
+	  <tt>/ 4 3 2 1 / ~ / ? 4 5 ? /</tt> is false.
 
 	<tag/clist/ 
 	  community list. This is similar to set of pairs,
@@ -428,10 +482,12 @@ attributes, just like it accesses variables. Access to undefined
 attribute results in runtime error; you can check if attribute is
 defined using <cf>defined( <m>attribute</m> )</cf> syntax.
 
-
 <descrip>
-	<tag/<m/prefix/ network/
+	<tag/<m/prefix/ net/
 	network this route is talking about.
+
+	<tag/<m/int/ preference/
+	preference of this route.
 
 	<tag/<m/ip/ from/
 	who told me about this route.
@@ -441,6 +497,12 @@ defined using <cf>defined( <m>attribute</m> )</cf> syntax.
 
 	<tag/<m/enum/ source/
 	what protocol told me about this route. This can have values such as <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/.
+
+	<tag/<m/enum/ scope/
+
+	<tag/<m/enum/ cast/
+
+	<tag/<m/enum/ dest/
 </descrip>
 
 <p>Plus, there are protocol-specific attributes, which are described in protocol sections.
@@ -1014,11 +1076,18 @@ protocol static {
 }
 </code>
 
-<sect>Getting more help
+<sect>Problems
 
-<p>This is really last section of this file, should give pointers to
-programmers documentation, web pages mailing lists and similar stuff.
+<p>BIRD is relatively young system, and probably contains some
+bugs. You can report bugs at <HTML URL="fixme">, but before you do,
+please make sure you are running latest version (available at <HTML
+URL="fixme">), and that bug was not already reported by someone else
+(mailing list archives are at <HTML URL="fixme">). (Of course, patch
+which fixes the bug along with bug report is always welcome). When
+trying to understand, what is going on, Internet standards are
+relevant reading; you can get them from <HTML URL="fixme">.
 
+<p><it/Good luck!/
 
 </article>
 
