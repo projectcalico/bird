@@ -44,8 +44,8 @@ void
 as_path_format(struct adata *path, byte *buf, unsigned int size)
 {
   byte *p = path->data;
-  byte *e = p + path->length - 8;
-  byte *end = buf + size;
+  byte *e = p + path->length;
+  byte *end = buf + size - 8;
   int sp = 1;
   int l, type, isset, as;
 
