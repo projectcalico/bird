@@ -45,7 +45,6 @@ Various ideas
 - look at RFC 2386 (QoS-based routing)
 - cli: show tables?
 
-
 OSPF
 ~~~~
 	- refuse running on non-multicast devices
@@ -60,7 +59,6 @@ OSPF
 Documentation (sorry, its in czech)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
 K SGML:
 
 o  Mohl bys, prosim, nekam napsat, co je vsechno potreba udelat, aby bylo
@@ -71,6 +69,7 @@ o  Mohl bys, prosim, nekam napsat, co je vsechno potreba udelat, aby bylo
 K HTML:
 
 o  "2000" zcela vypadava mimo hlavicku.
+o  Zkusit HTML projet nejakym validatorem.
 
 Uvod:
 
@@ -116,7 +115,6 @@ o  Co se stane, kdyz filtr skonci, aniz by vydal verdikt?
 Protocols:
 
 o  RIP: Per-interface optiony uvadet tez jako definition list.
-o  RIP: U RIP-specific atributu zminit, jakeho jsou typu a jak vznikaji.
 o  passwords: syntaxe data uz, tusim, davno vypada jinak.
 
 Struktura dokumentace:
