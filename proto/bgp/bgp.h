@@ -151,4 +151,10 @@ int bgp_rx(struct birdsock *sk, int size);
 #define BS_OPENCONFIRM		4
 #define BS_ESTABLISHED		5
 
+/* Well-known communities */
+
+#define BGP_COMM_NO_EXPORT		0xffffff01	/* Don't export outside local AS / confed. */
+#define BGP_COMM_NO_ADVERTISE		0xffffff02	/* Don't export at all */
+#define BGP_COMM_NO_EXPORT_SUBCONFED	0xffffff03	/* NO_EXPORT even in local confederation */
+
 #endif

@@ -297,6 +297,42 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
   return b;
 }
 
+static int
+bgp_export_check(struct bgp_proto *p, ea_list *new)
+{
+  eattr *a;
+  struct adata *d;
+
+  /* Check if next hop is valid */
+  a = ea_find(new, EA_CODE(EAP_BGP, BA_NEXT_HOP));
+  if (!a || ipa_equal(p->next_hop, *(ip_addr *)a->u.ptr))
+    {
+      DBG("\tInvalid NEXT_HOP\n");
+      return 0;
+    }
+
+  /* Check if we aren't forbidden to export the route by communities */
+  a = ea_find(new, EA_CODE(EAP_BGP, BA_COMMUNITY));
+  if (a)
+    {
+      d = a->u.ptr;
+      if (int_set_contains(d, BGP_COMM_NO_ADVERTISE))
+	{
+	  DBG("\tNO_ADVERTISE\n");
+	  return 0;
+	}
+      if (!p->is_internal &&
+	  (int_set_contains(d, BGP_COMM_NO_EXPORT) ||
+	   int_set_contains(d, BGP_COMM_NO_EXPORT_SUBCONFED)))
+	{
+	  DBG("\tNO_EXPORT\n");
+	  return 0;
+	}
+    }
+
+  return 1;
+}
+
 static struct bgp_bucket *
 bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
 {
@@ -375,10 +411,7 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
 	return NULL;
       }
 
-  /* Check if next hop is valid */
-  a = ea_find(new, EA_CODE(EAP_BGP, BA_NEXT_HOP));
-  ASSERT(a);
-  if (ipa_equal(p->next_hop, *(ip_addr *)a->u.ptr))
+  if (!bgp_export_check(p, new))
     return NULL;
 
   /* Create new bucket */
