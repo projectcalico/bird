@@ -336,11 +336,6 @@ struct proto_ospf {
   int areano;			/* Number of area I belong to */
 };
 
-struct spf_n {
-  node n;
-  struct top_hash_entry *en;
-};
-
 static int ospf_start(struct proto *p);
 static void ospf_dump(struct proto *p);
 static struct proto *ospf_init(struct proto_config *c);

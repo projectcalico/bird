@@ -12,10 +12,7 @@
 
 void ospf_rt_spfa(struct ospf_area *oa, struct proto *p);
 void add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
-  u16 dist, slab *s, slab *sll);
-list *calc_next_hop(struct top_hash_entry *par, slab *sl, slab *sll);
-list *multi_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
-  slab *sl, slab *sll);
-
+  u16 dist);
+struct top_hash_entry *calc_next_hop(struct top_hash_entry *par);
 
 #endif /* _BIRD_OSPF_RT_H_ */

@@ -11,11 +11,12 @@
 
 struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
    snode n;
+   node cn;
   struct top_hash_entry *next;		/* Next in hash chain */
   struct ospf_lsa_header lsa;
   void *lsa_body;
   bird_clock_t inst_t;			/* Time of installation into DB */
-  list *nh;				/* List of next hops */
+  struct top_hash_entry *nh;		/* Next hop */
   u16 dist;				/* Distance from the root */
   u8 color;
 #define OUTSPF 0
