@@ -72,6 +72,11 @@ static inline unsigned ipv6_hash(ip_addr *a)
   return (x ^ (x >> 16) ^ (x >> 8)) & 0xffff;
 }
 
-#define IP_PREC_INTERNET_CONTROL 0		/* FIXME: What's the right value? */
+/*
+ *  RFC 1883 defines packet precendece, but RFC 2460 replaces it
+ *  by generic Traffic Class ID with no defined semantics. Better
+ *  not use it yet.
+ */
+#define IP_PREC_INTERNET_CONTROL -1
 
 #endif
