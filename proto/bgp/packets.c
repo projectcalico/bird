@@ -226,10 +226,8 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   if (hold > 0 && hold < 3)
     { bgp_error(conn, 2, 6, hold, 0); return; }
   p->remote_id = id;
-#if 0					/* FIXME */
   if (pkt[28])				/* Currently we support no optional parameters */
-    { bgp_error(conn, 2, 4, pkt[28], 0); return; }
-#endif
+    { bgp_error(conn, 2, 4, pkt[29], 0); return; }
   if (!id || id == 0xffffffff || id == p->local_id)
     { bgp_error(conn, 2, 3, id, 0); return; }
 
