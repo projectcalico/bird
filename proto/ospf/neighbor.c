@@ -21,11 +21,15 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
 {
   struct ospf_iface *ifa;
   struct proto *p;
+  u8 oldstate;
 
-  if(n->state!=state)
+  oldstate=n->state;
+
+  if(oldstate!=state)
   {
     ifa=n->ifa;
-    if(n->state==NEIGHBOR_FULL)
+    n->state=state;
+    if(oldstate==NEIGHBOR_FULL)	/* Decrease number of adjacencies */
     {
       ifa->fadj--;
       n->state=state;
@@ -35,13 +39,30 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     p=(struct proto *)(ifa->proto);
   
     debug("%s: Neighbor %I changes state from \"%s\" to \"%s\".\n",
-      p->name, n->ip, ospf_ns[n->state], ospf_ns[state]);
-    n->state=state;
-    if(state==NEIGHBOR_FULL)
+      p->name, n->ip, ospf_ns[oldstate], ospf_ns[state]);
+    if(state==NEIGHBOR_FULL)	/* Increase number of adjacencies */
     {
       ifa->fadj++;
       originate_rt_lsa(n->ifa->oa,n->ifa->oa->po);
       originate_net_lsa(ifa,ifa->oa->po);
+    }
+    if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)
+    {
+      tm_stop(n->rxmt_timer);
+      /* Stop RXMT timers */
+    }
+    if(state==NEIGHBOR_EXSTART)
+    {
+      if(n->adj==0)	/* First time adjacency */
+      {
+        n->dds=random_u32();
+      }
+      n->dds++;
+      n->myimms.byte=0;
+      n->myimms.bit.ms=1;
+      n->myimms.bit.m=1;
+      n->myimms.bit.i=1;
+      tm_start(n->rxmt_timer,1);	/* Or some other number ? */
     }
   }
 }
@@ -169,24 +190,6 @@ can_do_adj(struct ospf_neighbor *n)
   return i;
 }
 
-/* Try to build neighbor adjacency (if does not exists) */
-void
-tryadj(struct ospf_neighbor *n, struct proto *p)
-{
-  DBG("%s: Going to build adjacency.\n", p->name);
-  neigh_chstate(n,NEIGHBOR_EXSTART);
-  if(n->adj==0)	/* First time adjacency */
-  {
-    n->dds=random_u32();
-  }
-  n->dds++;
-  n->myimms.byte=0;
-  n->myimms.bit.ms=1;
-  n->myimms.bit.m=1;
-  n->myimms.bit.i=1;
-  tm_start(n->rxmt_timer,1);	/* Or some other number ? */
-}
-
 void
 ospf_neigh_sm(struct ospf_neighbor *n, int event)
 	/* Interface state machine */
@@ -222,7 +225,6 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 	if(can_do_adj(n))
         {
           neigh_chstate(n,NEIGHBOR_EXSTART);
-          tryadj(n,p);
         }
 	ospf_int_sm(n->ifa, ISM_NEICH);
       }
@@ -258,7 +260,6 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
             if(can_do_adj(n))
             {
               neigh_chstate(n,NEIGHBOR_EXSTART);
-              tryadj(n,p);
             }
             break;
           default:
