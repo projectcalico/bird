@@ -1008,6 +1008,7 @@ on nonbroadcast networks.
 <code>
 protocol ospf &lt;name&gt; {
 	rfc1583compat &lt;switch&gt;;
+	tick &lt;num&gt;;
 	area &lt;id&gt; {
 		stub cost &lt;num&gt;;
 		tick &lt;num&gt;;
@@ -1076,9 +1077,10 @@ protocol ospf &lt;name&gt; {
 	 Default value is no. (Area is not stub.)
 
 	<tag>tick <M>num</M></tag>
-	 The routing table calculation is not performed when a single link state
+	 The routing table calculation of clean-up in areas' databases
+         is not performed when a single link state
 	 change arrives. To lower the CPU utilization, it's processed later
-	 at periodical intervals of <m/num/ seconds. The default value is 7.
+	 at periodical intervals of <m/num/ seconds. The default value is 1.
 
 	<tag>networks { <m/set/ }</tag>
          Definition of area IP ranges. This is used in summary lsa origination.

@@ -51,8 +51,8 @@
 #define MINLSARRIVAL 1
 #define LSINFINITY 0xffffff
 
-#define DEFAULT_OSPFTICK 5
-#define DEFAULT_AREATICK 4
+#define DEFAULT_OSPFTICK 1
+#define DEFAULT_AREATICK 1
 #define DEFAULT_RFC1583 1	/* compatibility with rfc1583 */
 
 
