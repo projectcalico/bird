@@ -63,7 +63,7 @@ a statically configured table.
 background which does the dynamic part of Internet routing, that is it communicates
 with the other routers, calculates routing tables and sends them to the OS kernel
 which does the actual packet forwarding. There already exist other such routing daemons: routed (rip only), GateD<HTMLURL URL="http://www.gated.org/">
- (non free), Zebra<HTMLURL URL="http://www.zebra.org"> and mrtd<HTMLURL URL="FIXME">, but their capabilities are limited and
+ (non free), Zebra<HTMLURL URL="http://www.zebra.org"> and mrtd<HTMLURL URL="http://www.zcu.cz/ftp/mirrors/mmrz/mrtd">, but their capabilities are limited and
 they are relatively hard to configure and maintain.
 
 <p>BIRD is an Internet Routing Daemon designed to avoid all of these shortcomings,
@@ -435,10 +435,10 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
 	  sets. Sets of prefixes are special: you can specify which prefix lengths should match them by
 	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. <cf>3.0.0.0/8{5,6}</cf> matches
-	  prefixes <cf/3.X.X.X/, whose prefix length is 5 to 6. <cf>3.0.0.0/8+</cf> is shorthand for <cf>3.0.0.0/{0,8}</cf>,
-	  <cf>3.0.0.0/8-</cf> is shorthand for <cf>3.0.0.0/{0,7}</cf>. For example,
+	  prefixes <cf/3.X.X.X/, whose prefix length is 5 to 6. <cf><m>address</m>/<m>num</m>+</cf> is shorthand for <cf><m>address</m>/{0,<m/num/}</cf>,
+	  <cf><m>address</m>/<m/num/-</cf> is shorthand for <cf><m>address</m>/{0,<m/num-1/}</cf>. For example,
 	  <cf>1.2.0.0/16 ~ [ 1.0.0.0/8{ 15 , 17 } ]</cf> is true, but
-	  <cf>1.0.0.0/8 ~ [ 1.0.0.0/8- ]</cf> is false. <!-- fixme: use variables instead of examples -->
+	  <cf>1.0.0.0/8 ~ [ 1.0.0.0/8- ]</cf> is false.
 
 	<tag/enum/
 	  Enumeration types are fixed in BIRD - you can't define your own
@@ -458,7 +458,6 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  write <cf>/*</cf> which is start of comment.) For example,
 	  <tt>/4 3 2 1/ ~ /? 4 3 ?/</tt> is true, but 
 	  <tt>/4 3 2 1/ ~ /? 4 5 ?/</tt> is false. <!-- fixme: formulate better -->
-
 	<tag/clist/ 
 	  Community list is similar to set of pairs,
 	  except that unlike other sets, it can be modified.
@@ -468,13 +467,14 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 
 <sect>Operators
 
-<!-- FIXME: Make it table -->
+<!-- Sorry, birddoc does not support tables. -->
 
 <p>The filter language supports common integer operators <cf>(+,-,*,/)</cf>, parentheses <cf/(a*(b+c))/, comparison
-<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
-used on element and set of that elements, or on ip and prefix, or on
-prefix and prefix or on bgppath and bgpmask or on pair and clist. Its result
-is true if element is in given set or if ip address is inside given prefix. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/).
+<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/). 
+Special operators include <cf/&tilde;/ for "in" operation. In operation can be
+used on element and set of that elements (returning true if element is within given set), or on IP and prefix (returning true if IP is within range defined by that prefix), or on
+prefix and prefix (returning true if first prefix is more specific than second) or on bgppath and bgpmask (returning true if path matches given pathmask) or on pair and clist (returning true if given community is element of community list).
+
 
 <sect>Control structures
 
@@ -520,28 +520,28 @@ defined using the <cf>defined( <m>attribute</m> )</cf> operator.
 
 <descrip>
 	<tag><m/prefix/ net</tag>
-	Network the route is talking about. (See the section about routing tables.)
+	Network the route is talking about. Read-only. (See the section about routing tables.)
 
 	<tag><m/enum/ scope</tag>
-	Address scope of the network (<cf/SCOPE_HOST/ for addresses local to this host, <cf/SCOPE_LINK for those specific for a physical link, ... <!-- FIXME -->)
+	Address scope of the network (<cf/SCOPE_HOST/ for addresses local to this host, <cf/SCOPE_LINK/ for those specific for a physical link, ... <!-- FIXME -->)
 
 	<tag><m/int/ preference</tag>
 	Preference of the route. (See section about routing tables.)
 
 	<tag><m/ip/ from</tag>
-	The router which the route has originated from.
+	The router which the route has originated from. Read-only.
 	
 	<tag><m/ip/ gw</tag>
 	Next hop packets routed using this route should be forwarded to.
 
 	<tag><m/enum/ source</tag>
-	what protocol has told me about this route. Possible values: <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/ <!-- fixme -->.
+	what protocol has told me about this route. Possible values: <cf/RTS_DUMMY, RTS_STATIC, RTS_INHERIT, RTS_DEVICE, RTS_STATIC_DEVICE, RTS_REDIRECT, RTS_RIP, RTS_OSPF, RTS_OSPF_EXT, RTS_OSPF_IA, RTS_OSPF_BOUNDARY, RTS_BGP, RTS_PIPE/.
 
 	<tag><m/enum/ cast</tag>
-	Route type (<cf/RTC_UNICAST/ for normal routes, ... <!-- FIXME -->)
+	Route type (<cf/RTC_UNICAST/ for normal routes, <cf/RTC_BROADCAST, RTC_MULTICAST, RTC_ANYCAST/ for broadcast, multicast and anycast routes.) Read-only.
 
 	<tag><m/enum/ dest</tag>
-	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, ...)
+	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_NETWORK/ for routing to directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silenty discarded, <cf/RTD_UNREACHABLE, RTD_PROHIBIT/ for packets that should be discarded with ICMP host unreachable / ICMP administratively prohibited messages.) Read-only.
 </descrip>
 
 <p>There also exist some protocol-specific attributes, which are described in protocol sections.
@@ -1177,7 +1177,7 @@ interface metric, which is usually one). After some time, the distance reaches i
 RIP) and all routers know that network is unreachable. RIP tries to minimize situations where
 counting to infinity is necessary, because it is slow. Due to infinity being 16, you can't use
 RIP on networks where maximal distance is higher than 15 hosts. You can read more about rip at <HTMLURL
-URL="http://www.ietf.org/html.charters/rip-charter.html" TEXT="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4
+URL="http://www.ietf.org/html.charters/rip-charter.html" name="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4
 and IPv6 versions of RIP are supported by BIRD, historical RIPv1 is
 currently not fully supported.
 
@@ -1318,14 +1318,14 @@ protocol static {
 <chapt>Problems
 
 <p>BIRD is relatively young system, and probably contains some
-bugs. You can report bugs at bird-users mailing list (<HTMLURL URL="mailto:bird-users@bird.network.cz" TEXT="bird-users@bird.network.cz">), but before you do,
+bugs. You can report bugs at bird-users mailing list (<HTMLURL URL="mailto:bird-users@bird.network.cz" name="bird-users@bird.network.cz">), but before you do,
 please make sure you have read available documentation, make sure are running latest version (available at <HTMLURL
-URL="ftp://bird.network.cz/pub/bird" TEXT="bird.network.cz:/pub/bird">). (Of course, patch
+URL="ftp://bird.network.cz/pub/bird" name="bird.network.cz:/pub/bird">). (Of course, patch
 which fixes the bug along with bug report is always welcome). If you
 want to use BIRD, join mailing list by sending
-<tt/subscribe bird-users/ to <HTMLURL URL="mailto:majordomo@bird.network.cz" TEXT="majordomo@bird.network.cz">. Main home page of bird is <HTMLURL URL="http://bird.network.cz/" TEXT="http://bird.network.cz/">. When
+<tt/subscribe bird-users/ to <HTMLURL URL="mailto:majordomo@bird.network.cz" name="majordomo@bird.network.cz">. Main home page of bird is <HTMLURL URL="http://bird.network.cz/" name="http://bird.network.cz/">. When
 trying to understand, what is going on, Internet standards are
-relevant reading; you can get them from <HTMLURL URL="ftp://ftp.rfc-editor.org/" TEXT="ftp.rfc-editor.org"> (or nicely sorted version from <HTMLURL="ftp://atrey.karlin.mff.cuni.cz/pub/rfc" TEXT="atrey.karlin.mff.cuni.cz:/pub/rfc">.
+relevant reading; you can get them from <HTMLURL URL="ftp://ftp.rfc-editor.org/" name="ftp.rfc-editor.org"> (or nicely sorted version from <HTMLURL URL="ftp://atrey.karlin.mff.cuni.cz/pub/rfc" name="atrey.karlin.mff.cuni.cz:/pub/rfc">).
 
 <p><it/Good luck!/
 
