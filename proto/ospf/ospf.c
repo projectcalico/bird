@@ -118,15 +118,39 @@ ospf_iface_clasify(struct iface *ifa)
 void
 wait_timer_hook(timer *timer)
 {
-  debug(" OSPF: Wait timer expired for interface %s.\n",
-    ((struct ospf_iface *)(timer->data))->iface->name);
+  struct ospf_iface *ifa;
+
+  ifa=(struct ospf_iface *)timer->data;
+  debug(" OSPF: Wait timer fired on interface %s.\n",
+    ifa->iface->name);
+  if(ifa->state=OSPF_IS_WAITING)
+  {
+    /*
+     * Wait time fired. Now we must change state
+     * to DR or DROTHER depending on priority
+     */
+    if(ifa->priority!=0)
+    {
+      debug(" OSPF: Changing state into DR.\n");
+      ifa->state=OSPF_IS_DR;
+      ifa->drip=ifa->iface->ip;
+      /* FIXME: Set ifa->drid */
+    }
+    else
+    {
+      debug(" OSPF: Changing state into DROTHER.\n");
+      ifa->state=OSPF_IS_DROTHER;
+    }
+    /* FIXME: Add hello timer */
+  }
+  /* FIXME: Destroy timer */
 }
 
 void
 add_wait_timer(struct ospf_iface *ifa,pool *pool, int wait)
 {
   DBG(" OSPF: add_wait_timer called.\n");
-  if((ifa->type!=OSPF_IT_PTP) && (ifa->priority>0))
+  if((ifa->type!=OSPF_IT_PTP))
   {
     ifa->wait_timer=tm_new(pool);
     ifa->wait_timer->hook=wait_timer_hook;
@@ -183,7 +207,6 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
   c=(struct ospf_config *)(p->cf);
 
   
-
   DBG(" OSPF: If notify called\n");
 
   if((flags & IF_CHANGE_UP) && is_good_iface(p, new))
