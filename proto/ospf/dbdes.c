@@ -227,7 +227,6 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
     case NEIGHBOR_DOWN:
     case NEIGHBOR_ATTEMPT:
     case NEIGHBOR_2WAY:
-        debug("%s: Received dbdes from %I in bad state.\n", p->name, n->ip);
         return;
       break;
     case NEIGHBOR_INIT:

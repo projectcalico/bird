@@ -16,6 +16,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   struct ospf_iface *ifa;
   struct ospf_neighbor *nn;
   struct top_hash_entry *en;
+  struct proto *p=&po->proto;
   int ret,retval=0;
 
   /* pg 148 */
@@ -128,10 +129,11 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	en=ospf_hash_find_header(oa->gr,hh);
 	htonlsab(en->lsa_body,help,hh->type,hh->length
           -sizeof(struct ospf_lsa_header));
-	len=hh->length;
+	len=hh->length+sizeof(struct ospf_lsupd_packet);
       }
       op->length=htons(len);
       ospf_pkt_finalize(ifa, op);
+      debug("%s: LS upd flooded via %s\n", p->name, ifa->iface->name);
 
       if(ifa->type==OSPF_IT_NBMA)
       {
@@ -184,10 +186,10 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
     if((len+en->lsa.length)>n->ifa->iface->mtu)
     {
       pk->lsano=htonl(lsano);
-      op->length=htons(len);
+      op->length=htons(len-SIPH);
       ospf_pkt_finalize(n->ifa, op);
 		       
-      sk_send_to(n->ifa->ip_sk,len, n->ip, OSPF_PROTO);
+      sk_send_to(n->ifa->ip_sk,len-SIPH, n->ip, OSPF_PROTO);
       debug("%s: LS upd sent to %I\n", p->name, n->ip);
 
       DBG("LSupd: next packet\n");
@@ -201,15 +203,15 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
     htonlsab(en->lsa_body, pktpos, en->lsa.type, en->lsa.length
       -sizeof(struct ospf_lsa_header));
     pktpos=pktpos+en->lsa.length-sizeof(struct ospf_lsa_header);
-    len=len+en->lsa.length;
+    len+=en->lsa.length;
     lsano++;
   }
   pk->lsano=htonl(lsano);
   op->length=htons(len-SIPH);
   ospf_pkt_finalize(n->ifa, op);
 
-  sk_send_to(n->ifa->ip_sk,len, n->ip, OSPF_PROTO);
   debug("%s: LS upd sent to %I\n", p->name, n->ip);
+  sk_send_to(n->ifa->ip_sk,len-SIPH, n->ip, OSPF_PROTO);
 }
 
 void
@@ -228,6 +230,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
   myrid=p->cf->global->router_id;
 
+
   if((n=find_neigh(ifa, nrid))==NULL)
   {
     debug("%s: Received lsupd from unknown neigbor! (%I)\n", p->name,
@@ -238,6 +241,11 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   {
     debug("%s: Received lsupd in lesser state than EXCHANGE from (%I)\n",
       p->name,n->ip);
+    return;
+  }
+  if(size<=(sizeof(struct ospf_lsupd_packet)+sizeof(struct ospf_lsa_header)))
+  {
+    log("%s: Received lsupd from %I is too short\n", p->name,n->ip);
     return;
   }
 
@@ -252,6 +260,11 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     struct ospf_lsa_header lsatmp;
     struct top_hash_entry *lsadb;
     u16 lenn;
+    int diff=((u8 *)lsa)-((u8 *)ps);
+
+    if(((diff+sizeof(struct ospf_lsa_header))>=size) ||
+      ((ntohs(lsa->length)+diff)>size))
+      log("%s: Received lsupd from %I is too short\n", p->name,n->ip);
 
     lenn=ntohs(lsa->length);
 
