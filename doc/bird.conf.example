@@ -122,10 +122,12 @@ protocol static {
 #		};
 #		interface "arc0" {
 #			type nonbroadcast;
+#			poll 14;
 #			neighbors {
-#				10.1.1.2;
+#				10.1.1.2 eligible;
 #				10.1.1.4;
 #			};
+#			strict nonbroadcast yes;
 #		};
 #	};
 #	area 20 {
