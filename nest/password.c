@@ -54,6 +54,8 @@ password_strncpy(char *to, char *from, int len)
 int
 password_same(struct password_item *old, struct password_item *new)
 {
+  if (old == new)
+    return 1;
   return ((old->from == new->from) &&
 	  (old->to == new->to) &&
 	  (old->passive == new->passive) &&
