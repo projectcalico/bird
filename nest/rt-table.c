@@ -1,9 +1,31 @@
 /*
- *	BIRD -- Routing Table
+ *	BIRD -- Routing Tables
  *
  *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+/**
+ * DOC: Routing tables
+ *
+ * Routing tables are probably the most important structures BIRD uses. They
+ * hold all the information about known networks, the associated routes and
+ * their attributes.
+ *
+ * There exist multiple routing tables (a primary one together with any
+ * number of secondary ones if requested by the configuration). Each table
+ * is basically a FIB containing entries describing the individual
+ * destination networks. For each network (represented by structure &net)
+ * there is a one-way linked list of network entries (&rte), the first entry
+ * on the list being the best possible one (i.e., the one we currently use
+ * for routing), the order of the other ones is undetermined.
+ *
+ * The &rte contains information specific to the route (preference, protocol
+ * metrics, time of last modification etc.) and a pointer to a &rta structure
+ * (see the route attribute module for a precise explanation) holding the
+ * remaining route attributes which are expected to be shared by multiple
+ * routes in order to conserve memory.
  */
 
 #undef LOCAL_DEBUG
@@ -37,6 +59,14 @@ rte_init(struct fib_node *N)
   n->routes = NULL;
 }
 
+/**
+ * rte_find - find a route
+ * @net: network node
+ * @p: protocol
+ *
+ * The rte_find() function returns a route for destination @net
+ * which belongs has been defined by protocol @p.
+ */
 rte *
 rte_find(net *net, struct proto *p)
 {
@@ -47,6 +77,14 @@ rte_find(net *net, struct proto *p)
   return e;
 }
 
+/**
+ * rte_get_temp - get a temporary &rte
+ * @a: attributes to assign to the new route (a &rta)
+ *
+ * Create a temporary &rte and bind it with the attributes @a.
+ * Also set route preference to the default preference set for
+ * the protocol.
+ */
 rte *
 rte_get_temp(rta *a)
 {
@@ -243,6 +281,12 @@ rte_validate(rte *e)
   return 1;
 }
 
+/**
+ * rte_free - delete a &rte
+ * @e: &rte to be deleted
+ *
+ * rte_free() deletes the given &rte from the routing table it's linked to.
+ */
 void
 rte_free(rte *e)
 {
@@ -375,6 +419,26 @@ rte_update_unlock(void)
     lp_flush(rte_update_pool);
 }
 
+/**
+ * rte_update - enter a new update to a routing table
+ * @table: table to be updated
+ * @net: network node
+ * @p: protocol submitting the update
+ * @new: a &rte representing the new route or %NULL for route removal.
+ *
+ * This function is called by the routing protocols whenever they discover
+ * a new route or wish to update/remove an existing route. The right announcement
+ * sequence is to build route attributes first (either uncached with @aflags set
+ * to zero or a cached one using rta_lookup(); in this case please note that
+ * you need to increase the use count of the attributes yourself by calling
+ * rta_clone()), call rte_get_temp() to obtain a temporary &rte, fill in all
+ * the appropriate data and finally submit the new &rte by calling rte_update().
+ *
+ * rte_update() will automatically find the old route defined by the protocol @p
+ * for network @n, replace it by the new one (or removing it if @new is %NULL),
+ * recalculate the optimal route for this destination and finally broadcast
+ * the change (if any) to all routing protocols.
+ */
 void
 rte_update(rtable *table, net *net, struct proto *p, rte *new)
 {
@@ -431,6 +495,12 @@ rte_discard(rtable *t, rte *old)	/* Non-filtered route deletion, used during gar
   rte_update_unlock();
 }
 
+/**
+ * rte_dump - dump a route
+ * @e: &rte to be dumped
+ *
+ * This functions dumps contents of a &rte to debug output.
+ */
 void
 rte_dump(rte *e)
 {
@@ -446,6 +516,12 @@ rte_dump(rte *e)
   debug("\n");
 }
 
+/**
+ * rt_dump - dump a routing table
+ * @t: routing table to be dumped
+ *
+ * This function dumps contents of a given routing table to debug output.
+ */
 void
 rt_dump(rtable *t)
 {
@@ -469,6 +545,11 @@ rt_dump(rtable *t)
   debug("\n");
 }
 
+/**
+ * rt_dump_all - dump all routing tables
+ *
+ * This function dumps contents of all routing tables to debug output.
+ */
 void
 rt_dump_all(void)
 {
@@ -505,6 +586,12 @@ rt_setup(pool *p, rtable *t, char *name, struct rtable_config *cf)
     }
 }
 
+/**
+ * rt_init - initialize routing tables
+ *
+ * This function is called during BIRD startup. It initializes the
+ * routing table module.
+ */
 void
 rt_init(void)
 {
@@ -515,6 +602,14 @@ rt_init(void)
   init_list(&routing_tables);
 }
 
+/**
+ * rt_prune - prune a routing table
+ * @tab: routing table to be pruned
+ *
+ * This function is called whenever a protocol shuts down. It scans
+ * the routing table and removes all routes belonging to inactive
+ * protocols and also stale network entries.
+ */
 void
 rt_prune(rtable *tab)
 {
@@ -558,6 +653,11 @@ again:
   tab->gc_time = now;
 }
 
+/**
+ * rt_prune_all - prune all routing tables
+ *
+ * This function calls rt_prune() for all known routing tables.
+ */
 void
 rt_prune_all(void)
 {
@@ -589,12 +689,28 @@ rt_preconfig(struct config *c)
   c->master_rtc = rt_new_table(s);
 }
 
+/**
+ * rt_lock_table - lock a routing table
+ * @r: routing table to be locked
+ *
+ * Lock a routing table, because it's in use by a protocol,
+ * preventing it from being freed when it gets undefined in a new
+ * configuration.
+ */
 void
 rt_lock_table(rtable *r)
 {
   r->use_count++;
 }
 
+/**
+ * rt_unlock_table - unlock a routing table
+ * @r: routing table to be unlocked
+ *
+ * Unlock a routing table formerly locked by rt_lock_table(),
+ * that is decrease its use count and delete it if it's scheduled
+ * for deletion by configuration changes.
+ */
 void
 rt_unlock_table(rtable *r)
 {
@@ -609,6 +725,18 @@ rt_unlock_table(rtable *r)
     }
 }
 
+/**
+ * rt_commit - commit new routing table configuration
+ * @new: new configuration
+ * @old: original configuration or %NULL if it's boot time config
+ *
+ * Scan differences between @old and @new configuration and modify
+ * the routing tables according to these changes. If @new defines a
+ * previously unknown table, create it, if it omits a table existing
+ * in @old, schedule it for deletion (it gets deleted when all protocols
+ * disconnect from it by calling rt_unlock_table()), if it exists
+ * in both configurations, leave it unchanged.
+ */
 void
 rt_commit(struct config *new, struct config *old)
 {
@@ -655,6 +783,15 @@ rt_commit(struct config *new, struct config *old)
   DBG("\tdone\n");
 }
 
+/**
+ * rt_feed_baby - advertise routes to a new protocol
+ * @p: protocol to be fed
+ *
+ * This function performs one pass of advertisement of routes to a newly
+ * initialized protocol. It's called by the protocol code as long as it
+ * has something to do. (We avoid transferring all the routes in single
+ * pass in order not to monopolize CPU time.)
+ */
 int
 rt_feed_baby(struct proto *p)
 {
@@ -713,6 +850,14 @@ next_hook:
   goto again;
 }
 
+/**
+ * rt_feed_baby_abort - abort protocol feeding
+ * @p: protocol
+ *
+ * This function is called by the protocol code when the protocol
+ * stops or ceases to exist before the last iteration of rt_feed_baby()
+ * has finished.
+ */
 void
 rt_feed_baby_abort(struct proto *p)
 {
