@@ -619,6 +619,23 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   return i_same(f1->next, f2->next);
 }
 
+/**
+ * f_run - external entry point to filters
+ * @filter: pointer to filter to run
+ * @rte: pointer to pointer to rte being filtered. When route is modified, this is changed with rte_cow.
+ * @tmp_pool: all filter allocations go from this pool
+ *
+ * Filter consists of tree of &f_inst structures, one structure per
+ * "instruction". Each &f_inst contains code, aux value which is
+ * usually type of data this instruction operates on, and two generic
+ * arguments (a1, a2). Some instructinos contain pointer(s) to other
+ * instructions in their (a1, a2) fields.
+ *
+ * Filters use structure &f_val for its variables. Each &f_val contains
+ * type and value. Types are constants prefixed with %T_. Few of types
+ * are special; %T_RETURN can be or-ed with type to indicate that return
+ * from function/from whole filter should be forced. 
+ */
 int
 f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool, int flags)
 {
@@ -659,6 +676,16 @@ filters_postconfig(void)
   }
 } 
 
+/**
+ * filter_same - compare two filters
+ * @new: first filter to be compared
+ * @old: second filter to be compared, notice that this filter is
+ * damaged while comparing.
+ *
+ * Returns 1 in case filters are same, otherwise 0. If there are
+ * underlying bugs, it will rather say 0 on same filters than say
+ * 1 on different.
+ */
 int
 filter_same(struct filter *new, struct filter *old)
 {
@@ -668,51 +695,6 @@ filter_same(struct filter *new, struct filter *old)
       new == FILTER_ACCEPT || new == FILTER_REJECT)
     return 0;
   return i_same(new->root, old->root);
-}
-
-/* This should end up far away from here!
- */
-struct adata *
-comlist_add(struct linpool *pool, struct adata *list, u32 val)
-{
-  struct adata *res = lp_alloc(pool, list->length + sizeof(struct adata) + 4);
-  res->length = list->length+4;
-  * (u32 *) res->data = val;
-  memcpy((char *) res->data + 4, list->data, list->length);
-  return res;
-}
-
-struct adata *
-comlist_contains(struct adata *list, u32 val)
-{
-  u32 *l = &(list->data);
-  int i;
-  for (i=0; i<list->length/4; i++)
-    if (*l++ == val)
-      return 1;
-  return 0;
-}
-
-struct adata *
-comlist_del(struct linpool *pool, struct adata *list, u32 val)
-{
-  struct adata *res;
-  u32 *l, *k;
-  int i;
-
-  if (!comlist_contains(list, val))
-    return list;
-
-  res = lp_alloc(pool, list->length + sizeof(struct adata) - 4);
-  res->length = list->length-4;
-
-  l = &(list->data);
-  k = &(res->data);
-  for (i=0; i<list->length/4; i++)
-    if (l[i] != val)
-      *k++ = l[i];
-
-  return res;
 }
 
 struct adata *
