@@ -14,6 +14,11 @@ void htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n);
 void ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h);
 void htonlsab(void *h, void *n, u8 type, u16 len);
 void ntohlsab(void *n, void *h, u8 type, u16 len);
-void lsasum_calculate(struct ospf_lsa_header *header, void *body, struct proto_ospf *p);
+void lsasum_calculate(struct ospf_lsa_header *header, void *body,
+  struct proto_ospf *p);
+#define CMP_NEWER 1
+#define CMP_SAME 0
+#define CMP_OLDER -1
+int lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2);
 
 #endif /* _BIRD_OSPF_LSALIB_H_ */

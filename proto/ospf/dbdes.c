@@ -168,26 +168,6 @@ rxmt_timer_hook(timer *timer)
   }
 }
 
-int
-lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
-	/* 
-	 *  1	l1 is newer
-	 *  0	identical
-	 * -1	l2 is newer
-	 */
-{
-  if(l1->sn<l2->sn) return 1;
-  if(l1->sn==l2->sn)
-  {
-    if(l1->checksum=!l2->checksum) return l1->checksum<l2->checksum ? -1 :1;
-    if(l1->age==MAXAGE) return 1;
-    if(l2->age==MAXAGE) return -1;
-    if(abs(l1->age-l2->age)>MAXAGEDIFF) return l1->age<l2->age ? 1 : -1;
-  }
-  return 0;
-
-}
-
 void
 ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct proto *p,
   struct ospf_neighbor *n)
@@ -296,8 +276,6 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
             break;
           }
         }
-        //break;	/* I should probably continue processing packet */
-
     case NEIGHBOR_EXCHANGE:
 	if((ps->imms.byte==n->imms.byte) && (ps->options=n->options) &&
 	  (ntohl(ps->ddseq)==n->ddr))

@@ -283,3 +283,20 @@ lsasum_calculate(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
   ntohlsab(b,b,h->type,length+2);
 }
 
+int
+lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
+			/* Return codes form view of l1 */
+{
+  if(l1->sn<l2->sn) return CMP_NEWER;
+    if(l1->sn==l2->sn)
+    {
+      if(l1->checksum=!l2->checksum)
+        return l1->checksum<l2->checksum ? CMP_OLDER : CMP_NEWER;
+      if(l1->age==MAXAGE) return CMP_NEWER;
+      if(l2->age==MAXAGE) return CMP_OLDER;
+      if(abs(l1->age-l2->age)>MAXAGEDIFF)
+        return l1->age<l2->age ? CMP_NEWER : CMP_OLDER;
+    }
+    return CMP_SAME;
+}
+
