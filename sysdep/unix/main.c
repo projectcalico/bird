@@ -385,8 +385,6 @@ main(int argc, char **argv)
     dmalloc_debug(0x2f03d00);
 #endif
 
-  setvbuf(stdout, NULL, _IONBF, 0);	/* FIXME: Kill some day. */
-  setvbuf(stderr, NULL, _IONBF, 0);
   parse_args(argc, argv);
   if (debug_flag == 1)
     log_init_debug("");

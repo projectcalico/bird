@@ -283,7 +283,7 @@ proto_rethink_goal(struct proto *p)
       mb_free(p);
       if (!nc)
 	return;
-      p = proto_init(nc);		/* FIXME: What about protocol priorities??? */
+      p = proto_init(nc);
     }
 
   /* Determine what state we want to reach */

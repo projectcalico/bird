@@ -897,8 +897,6 @@ io_loop(void)
   sock *s;
   node *n, *p;
 
-  /* FIXME: Use poll() if available */
-
   FD_ZERO(&rd);
   FD_ZERO(&wr);
   for(;;)

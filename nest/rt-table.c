@@ -710,7 +710,11 @@ static void
 rt_show_cont(struct cli *c)
 {
   struct rt_show_data *d = c->rover;
-  unsigned max = 1;			/* FIXME: After some debugging, increase to reasonable amount */
+#ifdef DEBUGGING
+  unsigned max = 4;
+#else
+  unsigned max = 64;
+#endif
   struct fib *fib = &d->table->fib;
   struct fib_iterator *it = &d->fit;
 
