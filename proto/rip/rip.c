@@ -241,7 +241,7 @@ rip_rte_update_if_better(rtable *tab, net *net, struct proto *p, rte *new)
   rte *old;
 
   old = rte_find(net, p);
-  if (!old || rip_rte_better(new, old))
+  if (!old || p->rte_better(new, old))
     rte_update(tab, net, p, new);
 }
 
@@ -465,8 +465,6 @@ rip_timer(timer *t)
   DBG( "RIP: Broadcasting routing tables\n" );
   {
     struct rip_interface *rif;
-    P->tx_count ++;
-
     WALK_LIST( rif, P->interfaces ) {
       struct iface *iface = rif->iface;
 
@@ -477,6 +475,7 @@ rip_timer(timer *t)
       rif->triggered = (P->tx_count % 6);
       rip_sendto( p, IPA_NONE, 0, rif );
     }
+    P->tx_count ++;
   }
 
   DBG( "RIP: tick tock done\n" );
