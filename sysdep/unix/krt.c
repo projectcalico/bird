@@ -178,7 +178,14 @@ krt_got_route(struct krt_proto *p, rte *e)
   if (old = net->routes)
     {
       if (!krt_capable(old))
-	verdict = krt_capable(e) ? KRF_DELETE : KRF_SEEN;
+	{
+#ifdef CONFIG_AUTO_ROUTES
+	  if (old->attrs->source == RTS_DEVICE)
+	    verdict = KRF_SEEN;
+	  else
+#endif
+	    verdict = krt_capable(e) ? KRF_DELETE : KRF_SEEN;
+	}
       else if (krt_uptodate(e, net->routes))
 	verdict = KRF_SEEN;
       else
