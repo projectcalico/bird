@@ -13,22 +13,12 @@
 
 	FIXME (nonurgent): fold rip_connection into rip_interface?
 
-	We are not going to honour requests for sending part of
-	routing table. That would need to turn split horizon off,
-	etc.  
-
-	Triggered updates. When triggered update was sent, don't send
-	new one for something between 1 and 5 seconds (and send one
-	after that), says RFC. We do something else: once in 5 second
-	we look for any changed routes and broadcast them.
-
 	FIXME: (nonurgent) allow bigger frequencies than 1 regular update in 6 seconds (?)
 	FIXME: propagation of metric=infinity into main routing table may or may not be good idea.
 
 	FIXME: mj wants us to be able to format attributes:
 
-        Each protocol can now register its own attribute class (protocol->attr_class,
-        set to EAP_xxx) and also a callback for naming and formatting of attributes.
+	and also a callback for naming and formatting of attributes.
         The callback can return one of the following results:
 
         GA_UNKNOWN      Attribute not recognized.
@@ -468,6 +458,28 @@ rip_timer(timer *t)
   DBG( "RIP: tick tock done\n" );
 }
 
+/**
+ * rip_start - initialize instance of rip
+ *
+ * Rip is pretty simple protocol so half of this code is interface
+ * with core. We maintain our own linklist of &rip_entry - it serves
+ * as our small routing table. Within rip_tx(), this list is
+ * walked, and packet is generated using rip_tx_prepare(). This gets
+ * tricky because we may need to send more than one packet to one
+ * destination. Struct &rip_connection is used to hold info such as how
+ * many of &rip_entry ies we already send, and is also used to protect
+ * from two concurrent sends to one destination. Each &rip_interface has
+ * at most one &rip_connection.
+ *
+ * We are not going to honour requests for sending part of
+ * routing table. That would need to turn split horizon off,
+ * etc.  
+ *
+ * Triggered updates. RFC says: when triggered update was sent, don't send
+ * new one for something between 1 and 5 seconds (and send one
+ * after that). We do something else: once in 5 second
+ * we look for any changed routes and broadcast them.
+ */
 static int
 rip_start(struct proto *p)
 {
@@ -834,12 +846,26 @@ rip_preconfig(struct protocol *x, struct config *c)
   DBG( "RIP: preconfig\n" );
 }
 
+static int
+rip_get_attr(eattr *a, byte *buf)
+{
+  unsigned int i = EA_ID(a->id);
+  struct attr_desc *d;
+
+  switch (a->id) {
+  case EA_RIP_METRIC: buf += bsprintf( buf, "metric: %d", a->u.data ); return GA_FULL;
+  case EA_RIP_TAG:    buf += bsprintf( buf, "tag: %d", a->u.data );    return GA_FULL;
+  default: return GA_UNKNOWN;
+  }
+}
+
 struct protocol proto_rip = {
   name: "RIP",
   template: "rip%d",
   attr_class: EAP_RIP,
   preconfig: rip_preconfig,
   get_route_info: rip_get_route_info,
+  get_attr: rip_get_attr,
 
   init: rip_init,
   dump: rip_dump,
