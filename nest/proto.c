@@ -30,8 +30,6 @@ static list inactive_proto_list;
 static list initial_proto_list;
 static list flush_proto_list;
 
-static int proto_shutdown_counter;
-
 static event *proto_flush_event;
 
 static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
@@ -221,7 +219,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 	{
 	  struct proto *p = oc->proto;
 	  struct symbol *sym = cf_find_symbol(oc->name);
-	  if (sym && sym->class == SYM_PROTO)
+	  if (sym && sym->class == SYM_PROTO && !new->shutdown)
 	    {
 	      /* Found match, let's check if we can smoothly switch to new configuration */
 	      nc = sym->def;
@@ -236,7 +234,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 		{
 		  /* Generic attributes match, try converting them and then ask the protocol */
 		  p->debug = nc->debug;
-		  if (p->proto->reconfigure(p, nc))
+		  if (p->proto->reconfigure && p->proto->reconfigure(p, nc))
 		    {
 		      DBG("\t%s: same\n", oc->name);
 		      p->cf = nc;
@@ -247,6 +245,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 	      /* Unsuccessful, force reconfig */
 	      DBG("\t%s: power cycling\n", oc->name);
 	      p->cf_new = nc;
+	      nc->proto = p;
 	    }
 	  else
 	    {
@@ -290,7 +289,7 @@ proto_rethink_goal(struct proto *p)
     }
 
   /* Determine what state we want to reach */
-  if (p->disabled || shutting_down || p->reconfiguring)
+  if (p->disabled || p->reconfiguring)
     p->core_goal = FS_HUNGRY;
   else
     p->core_goal = FS_HAPPY;
@@ -317,25 +316,6 @@ proto_rethink_goal(struct proto *p)
 	  DBG("Kicking %s down\n", p->name);
 	  proto_notify_state(p, (q->shutdown ? q->shutdown(p) : PS_DOWN));
 	}
-    }
-}
-
-void
-protos_shutdown(void)
-{
-  struct proto *p, *n;
-
-  debug("Protocol shutdown\n");
-  WALK_LIST_BACKWARDS_DELSAFE(p, n, inactive_proto_list)
-    if (p->core_state != FS_HUNGRY || p->proto_state != PS_DOWN)
-    {
-      proto_shutdown_counter++;
-      proto_rethink_goal(p);
-    }
-  WALK_LIST_BACKWARDS_DELSAFE(p, n, proto_list)
-    {
-      proto_shutdown_counter++;
-      proto_rethink_goal(p);
     }
 }
 
@@ -389,8 +369,6 @@ proto_fell_down(struct proto *p)
 {
   DBG("Protocol %s down\n", p->name);
   rt_unlock_table(p->table);
-  if (!--proto_shutdown_counter)
-    protos_shutdown_notify();
   proto_rethink_goal(p);
 }
 

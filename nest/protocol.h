@@ -56,7 +56,6 @@ void protos_preconfig(struct config *);
 void protos_postconfig(struct config *);
 void protos_commit(struct config *new, struct config *old, int force_restart);
 void protos_dump_all(void);
-void protos_shutdown(void);
 
 extern list protocol_list;
 
@@ -250,11 +249,5 @@ struct announce_hook {
 };
 
 struct announce_hook *proto_add_announce_hook(struct proto *, struct rtable *);
-
-/*
- *	Callback to sysdep code when shutdown is finished
- */
-
-void protos_shutdown_notify(void);
 
 #endif

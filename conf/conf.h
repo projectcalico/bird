@@ -27,6 +27,7 @@ struct config {
   struct symbol **sym_hash;		/* Lexer: symbol hash table */
   struct symbol **sym_fallback;		/* Lexer: fallback symbol hash table */
   int obstacle_count;			/* Number of items blocking freeing of this config */
+  int shutdown;				/* This is a pseudo-config for daemon shutdown */
 };
 
 /* Please don't use these variables in protocols. Use proto_config->global instead. */
@@ -34,6 +35,8 @@ extern struct config *config;		/* Currently active configuration */
 extern struct config *new_config;	/* Configuration being parsed */
 extern struct config *old_config;	/* Old configuration when reconfiguration is in progress */
 extern struct config *future_config;	/* New config held here if recon requested during recon */
+
+extern int shutting_down;
 
 struct config *config_alloc(byte *name);
 int config_parse(struct config *);
@@ -43,10 +46,12 @@ int config_commit(struct config *);
 void cf_error(char *msg, ...) NORET;
 void config_add_obstacle(struct config *);
 void config_del_obstacle(struct config *);
+void order_shutdown(void);
 
 #define CONF_DONE 0
 #define CONF_PROGRESS 1
 #define CONF_QUEUED 2
+#define CONF_SHUTDOWN 3
 
 /* Pools */
 
@@ -98,5 +103,6 @@ int cf_parse(void);
 
 void sysdep_preconfig(struct config *);
 int sysdep_commit(struct config *, struct config *);
+void sysdep_shutdown_done(void);
 
 #endif

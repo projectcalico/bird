@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Basic Declarations
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -12,7 +12,5 @@
 #include "sysdep/config.h"
 #include "lib/birdlib.h"
 #include "lib/ip.h"
-
-extern int shutting_down;		/* The daemon is shutting down */
 
 #endif

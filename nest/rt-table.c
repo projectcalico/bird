@@ -513,7 +513,7 @@ rt_commit(struct config *new, struct config *old)
 	  if (!ot->deleted)
 	    {
 	      struct symbol *sym = cf_find_symbol(o->name);
-	      if (sym && sym->class == SYM_TABLE)
+	      if (sym && sym->class == SYM_TABLE && !new->shutdown)
 		{
 		  DBG("\t%s: same\n", o->name);
 		  r = sym->def;
@@ -522,7 +522,7 @@ rt_commit(struct config *new, struct config *old)
 		}
 	      else
 		{
-		  DBG("\t%s: deleted", o->name);
+		  DBG("\t%s: deleted\n", o->name);
 		  ot->deleted = old;
 		  config_add_obstacle(old);
 		  rt_lock_table(ot);

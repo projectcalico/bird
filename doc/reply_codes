@@ -11,6 +11,11 @@ Reply codes of BIRD command-line interface
 0000	OK
 0001	Welcome
 0002	Reading configuration
+0003	Reconfigured
+0004	Reconfiguration in progress
+0005	Reconfiguration already in progress, queueing
+0006	Reconfiguration ignored, shutting down
+0007	Shutdown ordered
 
 1000	BIRD version
 1001	Interface list

@@ -29,8 +29,6 @@
 #include "unix.h"
 #include "krt.h"
 
-int shutting_down;
-
 /*
  *	Debugging
  */
@@ -152,6 +150,9 @@ cmd_reconfig(char *name)
 	  break;
 	case CONF_PROGRESS:
 	  cli_msg(4, "Reconfiguration in progress.");
+	  break;
+	case CONF_SHUTDOWN:
+	  cli_msg(6, "Reconfiguration ignored, shutting down.");
 	  break;
 	default:
 	  cli_msg(5, "Reconfiguration already in progress, queueing new config");
@@ -275,12 +276,11 @@ void
 async_shutdown(void)
 {
   debug("Shutting down...\n");
-  shutting_down = 1;
-  protos_shutdown();
+  order_shutdown();
 }
 
 void
-protos_shutdown_notify(void)
+sysdep_shutdown_done(void)
 {
   unlink(PATH_CONTROL_SOCKET);
   die("System shutdown completed");

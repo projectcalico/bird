@@ -25,6 +25,7 @@ static jmp_buf conf_jmpbuf;
 
 struct config *config, *new_config, *old_config, *future_config;
 static event *config_event;
+int shutting_down;
 
 struct config *
 config_alloc(byte *name)
@@ -100,11 +101,13 @@ config_del_obstacle(struct config *c)
 }
 
 static int
-global_commit(struct config *c, struct config *old)
+global_commit(struct config *new, struct config *old)
 {
   if (!old)
     return 0;
-  if (c->router_id != old->router_id)
+  if (!new->router_id)
+    new->router_id = old->router_id;
+  if (new->router_id != old->router_id)
     return 1;
   return 0;
 }
@@ -116,7 +119,7 @@ config_do_commit(struct config *c)
 
   DBG("do_commit\n");
   old_config = config;
-  config = c;
+  config = new_config = c;
   if (old_config)
     old_config->obstacle_count++;
   DBG("sysdep_commit\n");
@@ -144,6 +147,8 @@ config_done(void *unused)
   DBG("config_done\n");
   for(;;)
     {
+      if (config->shutdown)
+	sysdep_shutdown_done();
       log(L_INFO "Reconfigured");
       if (old_config)
 	{
@@ -171,6 +176,12 @@ config_commit(struct config *c)
     }
   if (old_config)			/* Reconfiguration already in progress */
     {
+      if (shutting_down)
+	{
+	  log(L_INFO "New configuration discarded due to shutdown");
+	  config_free(c);
+	  return CONF_SHUTDOWN;
+	}
       if (future_config)
 	{
 	  log(L_INFO "Queueing new configuration, ignoring the one already queued");
@@ -192,6 +203,23 @@ config_commit(struct config *c)
       config_event->hook = config_done;
     }
   return CONF_PROGRESS;
+}
+
+void
+order_shutdown(void)
+{
+  struct config *c;
+
+  if (shutting_down)
+    return;
+  log(L_INFO "Shutting down");
+  c = lp_alloc(config->mem, sizeof(struct config));
+  memcpy(c, config, sizeof(struct config));
+  init_list(&c->protos);
+  init_list(&c->tables);
+  c->shutdown = 1;
+  config_commit(c);
+  shutting_down = 1;
 }
 
 void
