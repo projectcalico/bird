@@ -35,7 +35,7 @@ rip_reply(struct proto *p)
 #endif
 }
 
-#define P_NAME "rip/unknown" /* FIXME */
+#define P_NAME p->name
 
 /*
  * Output processing
@@ -88,8 +88,8 @@ rip_tx( sock *s )
       packet->block[i].tag     = htons( 0 ); /* FIXME: What should I set it to? */
       packet->block[i].network = e->n.prefix;
       packet->block[i].netmask = ipa_mkmask( e->n.pxlen );
-      packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? */
-      packet->block[i].metric  = htonl( 1+ (e->metric?:1) );
+      packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? My own IP address? */
+      packet->block[i].metric  = htonl( 1+ (e->metric?:1) );	/* FIXME: is this right? I already ++ metric at input side */
       if (ipa_equal(e->whotoldme, s->daddr)) {
 	DBG( "(split horizont)" );
 	/* FIXME: should we do it in all cases? */
@@ -160,7 +160,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   rip_tx(c->rif->sock);
 }
 
-struct rip_interface*
+static struct rip_interface*
 find_interface(struct proto *p, struct iface *what)
 {
   struct rip_interface *i;
@@ -190,7 +190,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   rte *r;
   net *n;
   neighbor *neighbor;
-  struct rip_interface *i;
+  struct rip_interface *rif;
 
   bzero(&A, sizeof(A));
   A.proto = p;
@@ -202,7 +202,9 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   A.flags = 0;
   A.gw = ipa_nonzero(b->nexthop) ? b->nexthop : whotoldme;
   A.from = whotoldme;
-  
+
+  /* FIXME: Check if destination looks valid - ie not net 0 or 127 */
+
   neighbor = neigh_find( p, &A.gw, 0 );
   if (!neighbor) {
     log( L_ERR "%I asked me to route %I/%I using not-neighbor %I.", A.from, b->network, b->netmask, A.gw );
@@ -210,14 +212,23 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   }
 
   A.iface = neighbor->iface;
-  if (!(i = neighbor->data)) {
-    i = neighbor->data = find_interface(p, A.iface);
+  if (!(rif = neighbor->data)) {
+    rif = neighbor->data = find_interface(p, A.iface);
   }
+  if (!rif) {
+    bug("Route packet using unknown interface? No.");
+    return;
+  }
+    
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
-  n = net_get( &master_table, 0, b->network, ipa_mklen( b->netmask )); /* FIXME: should verify that it really is netmask */
+  if (!ipa_equal( ipa_mkmask(ipa_mklen(b->netmask)), b->netmask)) {
+    log( L_ERR "%I asked me to route %I/%I, but that is not valid netmask.", A.from, b->network, b->netmask );
+    return;
+  }
+  n = net_get( &master_table, 0, b->network, ipa_mklen( b->netmask ));
   r = rte_get_temp(a);
-  r->u.rip.metric = ntohl(b->metric) + i->metric;
+  r->u.rip.metric = ntohl(b->metric) + rif->metric;
   if (r->u.rip.metric > P_CF->infinity) r->u.rip.metric = P_CF->infinity;
   r->u.rip.tag = ntohl(b->tag);
   r->net = n;
@@ -238,8 +249,6 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
     log( L_WARN "Got metric %d from %I", metric, whotoldme );
     return;
   }
-
-  /* FIXME: Check if destination looks valid - ie not net 0 or 127 */
 
   debug( "block: %I tells me: %I/%I available, metric %d... ", whotoldme, network, block->netmask, metric );
 
