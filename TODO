@@ -1,6 +1,7 @@
 Core
 ~~~~
 * router id
+* right usage of DBG vs. debug
 
 - use -freg-struct-return ?
 
