@@ -150,7 +150,8 @@ htonlsab(void *h, void *n, u8 type, u16 len)
         (nt+i)->etos=(ht+i)->etos;
         (nt+i)->padding=0;
         (nt+i)->metric=htons((ht+i)->metric);
-        (nt+i)->fwaddr=htonl((ht+i)->fwaddr);
+        (nt+i)->fwaddr=(ht+i)->fwaddr;
+        ipa_hton((nt+i)->fwaddr);
         (nt+i)->tag=htonl((ht+i)->tag);
       }
       break;
@@ -244,7 +245,8 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
         (ht+i)->etos=(nt+i)->etos;
         (ht+i)->padding=0;
         (ht+i)->metric=ntohs((nt+i)->metric);
-        (ht+i)->fwaddr=ntohl((nt+i)->fwaddr);
+        (ht+i)->fwaddr=(nt+i)->fwaddr;
+        ipa_ntoh((ht+i)->fwaddr);
         (ht+i)->tag=ntohl((nt+i)->tag);
       }
       break;
