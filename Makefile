@@ -4,7 +4,7 @@
 TOPDIR=$(shell pwd)
 OBJDIR=obj
 
-CPPFLAGS=-I$(TOPDIR)/$(OBJ) -I$(TOPDIR)
+CPPFLAGS=-I$(TOPDIR)/$(OBJDIR) -I$(TOPDIR)
 OPT=-O2
 DEBUG=-g#gdb
 CFLAGS=$(OPT) $(DEBUG) -Wall -W -Wstrict-prototypes -Wno-unused -Wno-parentheses
