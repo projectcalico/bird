@@ -78,6 +78,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
         s_rem_node(SNODE en);
       }
       s_add_tail(&nn->lsrtl, SNODE en);
+      memcpy(&en->lsa,hh,sizeof(struct ospf_lsa_header));
       ret=1;
       DBG("Adding LSA lsrt RT: %I, Id: %I, Type: %u for n: %I\n",
         en->lsa.rt,en->lsa.id, en->lsa.type, nn->ip);

@@ -186,8 +186,8 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
     {
       log("Strange LS acknoledgement from %I",n->rid);
       log("Id: %I, Rt: %I, Type: %u",lsa.id, lsa.rt, lsa.type);
-      log("I have: Age: %u, Seqno: %u", en->lsa.age, en->lsa.sn);
-      log("He has: Age: %u, Seqno: %u", lsa.age, lsa.sn);
+      log("I have: Age: %4u, Seqno: 0x%08x", en->lsa.age, en->lsa.sn);
+      log("He has: Age: %4u, Seqno: 0x%08x", lsa.age, lsa.sn);
       continue;
     }
 
