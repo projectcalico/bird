@@ -1,0 +1,12 @@
+# Makefile for the BIRD Internet Routing Daemon
+# (c) 1998 Martin Mares <mj@ucw.cz>
+
+THISDIR=$(shell pwd)
+RELDIR=$(subst $(TOPDIR)/,,$(THISDIR))
+ANAME=$(subst /,_,$(RELDIR)).a
+
+all: $(ANAME)
+
+$(ANAME): $(OBJS)
+	rm -f $(ANAME)
+	ar rcs $(ANAME) $(OBJS)
