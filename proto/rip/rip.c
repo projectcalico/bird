@@ -585,13 +585,9 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
     rif->sock->ttl = 30;
   rif->sock->tos = IP_PREC_INTERNET_CONTROL;
 
-
-  if (flags & IF_BROADCAST)
-    rif->sock->daddr = new->addr->brd;
-  if (flags & IF_UNNUMBERED) {
-    rif->sock->daddr = new->addr->opposite;
+  rif->sock->daddr = new->addr->brd;
+  if (new->addr->flags & IA_UNNUMBERED)
     log( L_WARN "RIP/%s: rip is not defined over unnumbered links\n", P_NAME );
-  }
   if (want_multicast) {
     rif->sock->daddr = ipa_from_u32(0xe0000009);
     rif->sock->saddr = ipa_from_u32(0xe0000009);
