@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Unix I/O
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -231,7 +231,7 @@ static void
 sk_dump(resource *r)
 {
   sock *s = (sock *) r;
-  static char *sk_type_names[] = { "TCP<", "TCP>", "TCP", "UDP", "UDP/MC", "IP", "IP/MC" };
+  static char *sk_type_names[] = { "TCP<", "TCP>", "TCP", "UDP", "UDP/MC", "IP", "IP/MC", "MAGIC" };
 
   debug("(%s, ud=%p, sa=%08x, sp=%d, da=%08x, dp=%d, tos=%d, ttl=%d, if=%s)\n",
 	sk_type_names[s->type],
@@ -320,7 +320,7 @@ sk_setup(sock *s)
 	ERR("SO_DONTROUTE");
     }
 #ifdef IP_PMTUDISC
-  if (s->type != SK_TCP_PASSIVE && s->type != SK_TCP_ACTIVE)
+  if (s->type != SK_TCP_PASSIVE && s->type != SK_TCP_ACTIVE && s->type != SK_MAGIC)
     {
       int dont = IP_PMTUDISC_DONT;
       if (setsockopt(fd, SOL_IP, IP_PMTUDISC, &dont, sizeof(dont)) < 0)
@@ -379,8 +379,11 @@ sk_open(sock *s)
     case SK_IP_MC:
       fd = socket(PF_INET, SOCK_RAW, s->dport);
       break;
+    case SK_MAGIC:
+      fd = s->fd;
+      break;
     default:
-      bug("sk_open() called for invalid sock type %d", s->type);
+      bug("sk_open() called for invalid sock type %d", type);
     }
   if (fd < 0)
     die("sk_open: socket: %m");
@@ -489,6 +492,7 @@ sk_maybe_write(sock *s)
   switch (s->type)
     {
     case SK_TCP:
+    case SK_MAGIC:
       while (s->ttx != s->tpos)
 	{
 	  e = write(s->fd, s->ttx, s->tpos - s->ttx);
@@ -625,6 +629,8 @@ sk_read(sock *s)
 	  }
 	return 0;
       }
+    case SK_MAGIC:
+      return s->rx_hook(s, 0);
     default:
       {
 	struct sockaddr_in sa;

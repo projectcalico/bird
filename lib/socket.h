@@ -1,7 +1,7 @@
 /*
  *	BIRD Socket Interface
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -57,5 +57,6 @@ void sk_dump_all(void);
 #define SK_UDP_MC       4          /* ?  ?  *  *  *  *   -	*/
 #define SK_IP		5          /* ?  ?  -  *  -  ?   ?	*/
 #define SK_IP_MC	6          /* ?  ?  *  *  *  *   -	*/
+#define SK_MAGIC	7	   /* Internal use by sysdep code */
 
 #endif
