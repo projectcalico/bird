@@ -34,6 +34,8 @@ Core
 
 - Check incoming packets and log errors!!
 
+- implement snprintf etc. and clean up debugging and logging functions
+
 
 RIP
 ~~~

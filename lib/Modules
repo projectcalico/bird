@@ -17,3 +17,5 @@ slab.c
 socket.h
 unaligned.h
 xmalloc.c
+printf.c
+string.h
