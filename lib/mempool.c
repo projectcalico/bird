@@ -143,6 +143,11 @@ lp_free(resource *r)
       c = d->next;
       xfree(d);
     }
+  for(d=m->first_large; d; d = c)
+    {
+      c = d->next;
+      xfree(d);
+    }
 }
 
 void
