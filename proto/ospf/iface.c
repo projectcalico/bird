@@ -185,6 +185,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 	  tm_start(ifa->wait_timer, ifa->waitint);
 	}
       }
+      hello_timer_hook(ifa->hello_timer);
     }
     schedule_rt_lsa(ifa->oa);
     break;
