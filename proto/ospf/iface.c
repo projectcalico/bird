@@ -63,11 +63,11 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
 void
 downint(struct ospf_iface *ifa)
 {
-  struct ospf_neighbor *n;
+  struct ospf_neighbor *n,*nx;
   struct proto *p=&ifa->proto->proto;
   struct proto_ospf *po=ifa->proto;
 
-  WALK_LIST(n,ifa->neigh_list)
+  WALK_LIST_DELSAFE(n,nx,ifa->neigh_list)
   {
     debug("%s: Removing neighbor %I\n", p->name, n->ip);
     ospf_neigh_remove(n);
@@ -384,7 +384,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   {
     if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
-      debug(" OSPF: killing interface %s.\n", iface->name);
+      debug("%s: killing interface %s.\n", p->name, iface->name);
       ospf_int_sm(ifa, ISM_DOWN);
     }
   }
@@ -393,7 +393,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   {
     if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
-      debug(" OSPF: changing MTU on interface %s.\n", iface->name);
+      debug("%s: changing MTU on interface %s.\n", p->name, iface->name);
       /* FIXME: change MTU */
     }
   }
