@@ -119,7 +119,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->ackd_timer->data=n;
     n->ackd_timer->randomize=0;
     n->ackd_timer->hook=ackd_timer_hook;
-    n->ackd_timer->recurrent=ifa->rxmtint/2;	/* FIXME use some config? */
+    n->ackd_timer->recurrent=ifa->rxmtint/2;
     DBG("%s: Installing ackd timer.\n", p->name);
   }
   ospf_neigh_sm(n, INM_HELLOREC);

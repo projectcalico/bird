@@ -51,7 +51,7 @@
 #define MINLSINTERVAL 5
 #define MINLSARRIVAL 1
 #define LSINFINITY 0xffff	/* RFC says 0xffffff ??? */
-#define DISPTICK 7		/* FIXME What's good value? */
+#define DISPTICK 7
 
 struct ospf_config {
   struct proto_config c;

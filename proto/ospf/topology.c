@@ -12,7 +12,7 @@
 
 #include "ospf.h"
 
-#define HASH_DEF_ORDER 6		/* FIXME: Increase */
+#define HASH_DEF_ORDER 20
 #define HASH_HI_MARK *4
 #define HASH_HI_STEP 2
 #define HASH_HI_MAX 16
