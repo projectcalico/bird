@@ -8,6 +8,7 @@ Version 1.0.6 (2002-04-06)
      IPv6 needs that.
   o  Comparison of prefixes in filters doesn't ignore their lengts.
   o  As usually, OSPF bug fixes.
+  o  Documentation building tools now work with recent linuxdoc-tools.
 
 Version 1.0.5 (2001-06-09)
 
