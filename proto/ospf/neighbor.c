@@ -34,8 +34,8 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     }
     p=(struct proto *)(ifa->proto);
   
-    debug("%s: Neigbor %I changes state from \"%s\" to \"%s\".\n",
-      p->name, n->rid, ospf_ns[n->state], ospf_ns[state]);
+    debug("%s: Neighbor %I changes state from \"%s\" to \"%s\".\n",
+      p->name, n->ip, ospf_ns[n->state], ospf_ns[state]);
     n->state=state;
     if(state==NEIGHBOR_FULL)
     {
