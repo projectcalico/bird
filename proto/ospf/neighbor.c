@@ -159,7 +159,10 @@ tryadj(struct ospf_neighbor *n, struct proto *p)
     n->dds=random_u32();
   }
   n->dds++;
-  n->myimms=(DBDES_MS | DBDES_M | DBDES_I );
+  n->myimms.byte=0;
+  n->myimms.bit.ms=1;
+  n->myimms.bit.m=1;
+  n->myimms.bit.i=1;
   tm_start(n->ifa->rxmt_timer,1);	/* Or some other number ? */
 }
 

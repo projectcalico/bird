@@ -11,9 +11,6 @@
 
 #define LOCAL_DEBUG
 
-#define IAMMASTER(x) ((x) & DBDES_MS)
-#define INISET(x) ((x) & DBDES_I)
-
 #include <string.h>
 
 #include "nest/bird.h"
@@ -137,11 +134,23 @@ struct ospf_hello_packet {
   u32 bdr;
 };
 
+struct immsb {
+  u8 ms:1;
+  u8 m:1;
+  u8 i:1;
+  u8 padding:5;
+};
+
+union imms {
+  u8 byte;
+  struct immsb bit;
+};
+
 struct ospf_dbdes_packet {
   struct ospf_packet ospf_packet;
   u16 iface_mtu;
   u8 options;
-  u8 imms;		/* I, M, MS bits */
+  union imms imms;		/* I, M, MS bits */
 #define DBDES_MS 1
 #define DBDES_M 2
 #define DBDES_I 4
@@ -238,10 +247,10 @@ struct ospf_neighbor
 #define NEIGHBOR_LOADING 6
 #define NEIGHBOR_FULL 7
   timer *inactim;	/* Inactivity timer */
-  u8 imms;		/* I, M, Master/slave received */
+  union imms imms;		/* I, M, Master/slave received */
   u32 dds;		/* DD Sequence number being sent */
   u32 ddr;		/* last Dat Des packet received */
-  u8 myimms;		/* I, M Master/slave */
+  union imms myimms;		/* I, M Master/slave */
   u32 rid;		/* Router ID */
   ip_addr ip;		/* IP of it's interface */
   u8 priority;		/* Priority */
