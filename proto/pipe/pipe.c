@@ -31,7 +31,7 @@
 #include "pipe.h"
 
 static void
-pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old, ea_list *attrs)
+pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old UNUSED, ea_list *attrs)
 {
   net *nn;
   rte *e;
@@ -80,7 +80,7 @@ pipe_rt_notify_sec(struct proto *P, net *net, rte *new, rte *old, ea_list *attrs
 }
 
 static int
-pipe_import_control(struct proto *P, rte **ee, ea_list **ea, struct linpool *p)
+pipe_import_control(struct proto *P, rte **ee, ea_list **ea UNUSED, struct linpool *p UNUSED)
 {
   struct proto *pp = (*ee)->attrs->proto;
 
