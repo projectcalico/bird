@@ -2,6 +2,7 @@
  *	Rest in pieces - RIP protocol
  *
  *	Copyright (c) 1998, 1999 Pavel Machek <pavel@ucw.cz>
+ *	              2004       Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
@@ -267,7 +268,6 @@ rip_rte_update_if_better(rtable *tab, net *net, struct proto *p, rte *new)
   if (!old || p->rte_better(new, old) ||
       (ipa_equal(old->attrs->from, new->attrs->from) &&
       (old->u.rip.metric != new->u.rip.metric)) )
-
     rte_update(tab, net, p, new);
 }
 
@@ -361,8 +361,8 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   ip_addr network = block->network;
 
   CHK_MAGIC;
-  TRACE(D_ROUTES, "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
-  /* FIXME: Why `???'? If prefix is unknown, just don't print it.  [mj] */
+  TRACE(D_ROUTES, "block: %I tells me: %I/%d available, metric %d... ",
+      whotoldme, network, ipa_mklen(block->netmask), metric );
   if ((!metric) || (metric > P_CF->infinity)) {
 #ifdef IPV6 /* Someone is sedning us nexthop and we are ignoring it */
     if (metric == 0xff)
@@ -882,6 +882,14 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
 }
 
 static int
+rip_rte_same(struct rte *new, struct rte *old)
+{
+  /* new->attrs == old->attrs always */
+  return new->u.rip.metric == old->u.rip.metric;
+}
+
+
+static int
 rip_rte_better(struct rte *new, struct rte *old)
 {
   struct proto *p = new->attrs->proto;
@@ -938,6 +946,7 @@ rip_init_instance(struct proto *p)
   p->make_tmp_attrs = rip_make_tmp_attrs;
   p->store_tmp_attrs = rip_store_tmp_attrs;
   p->rte_better = rip_rte_better;
+  p->rte_same = rip_rte_same;
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
 }
