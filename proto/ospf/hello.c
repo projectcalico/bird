@@ -150,10 +150,12 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     if(n->priority!=oldpriority) ospf_int_sm(ifa, ISM_NEICH);
 
     /* Router is declaring itself ad DR and there is no BDR */
-    if((n->rid==n->dr) && (n->bdr==0)) ospf_int_sm(ifa, ISM_BACKS);
+    if((n->rid==n->dr) && (n->bdr==0) && (n->state!=NEIGHBOR_FULL))
+      ospf_int_sm(ifa, ISM_BACKS);
 
     /* Neighbor is declaring itself as BDR */
-    if(n->rid==n->bdr) ospf_int_sm(ifa, ISM_BACKS);
+    if((n->rid==n->bdr) && (n->state!=NEIGHBOR_FULL))
+      ospf_int_sm(ifa, ISM_BACKS);
 
     /* Neighbor is newly declaring itself as DR or BDR */
     if(((n->rid==n->dr) && (n->dr!=olddr)) || ((n->rid==n->bdr) &&
