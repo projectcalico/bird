@@ -579,8 +579,7 @@ interpret(struct f_inst *what)
 	  break;
 	}
       }	
-      if (!t->data)
-	bug( "Impossible: no code associated!" );
+      /* It is actually possible to have t->data NULL */
       return interpret(t->data);
     }
     break;

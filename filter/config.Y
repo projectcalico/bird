@@ -5,6 +5,7 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
+	FIXME: priority of ! should be lower
  */
 
 CF_HDR
