@@ -288,12 +288,17 @@ proto_rethink_goal(struct proto *p)
 
   /* Determine what state we want to reach */
   if (p->disabled || p->reconfiguring)
-    p->core_goal = FS_HUNGRY;
+    {
+      p->core_goal = FS_HUNGRY;
+      if (p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
+	return;
+    }
   else
-    p->core_goal = FS_HAPPY;
-
-  if (p->core_state == p->core_goal)
-    return;
+    {
+      p->core_goal = FS_HAPPY;
+      if (p->core_state == FS_HAPPY && p->proto_state == PS_UP)
+	return;
+    }
 
   q = p->proto;
   if (p->core_goal == FS_HAPPY)		/* Going up */
@@ -424,6 +429,7 @@ proto_notify_state(struct proto *p, unsigned ps)
     case PS_DOWN:
       if (cs == FS_HUNGRY)		/* Shutdown finished */
 	{
+	  p->proto_state = ps;
 	  proto_fell_down(p);
 	  return;			/* The protocol might have ceased to exist */
 	}
@@ -445,7 +451,7 @@ proto_notify_state(struct proto *p, unsigned ps)
       ev_schedule(p->attn);
       break;
     case PS_STOP:
-      if (cs == FS_FEEDING || cs == FS_HAPPY)
+      if (ops != PS_DOWN)
 	{
 	schedule_flush:
 	  DBG("%s: Scheduling flush\n", p->name);
