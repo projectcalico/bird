@@ -55,7 +55,7 @@ struct rip_block { /* IPv6 version! */
   ip_addr network;
   u16 tag;
   u8 pxlen;
-  u8 metric
+  u8 metric;
 };
 #endif
 
