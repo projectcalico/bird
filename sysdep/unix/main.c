@@ -22,6 +22,7 @@
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "nest/cli.h"
+#include "nest/locks.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
 
@@ -334,6 +335,7 @@ main(int argc, char **argv)
 
   debug("Initializing.\n");
   resource_init();
+  olock_init();
   io_init();
   rt_init();
   if_init();
