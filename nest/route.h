@@ -15,6 +15,9 @@
 
 struct protocol;
 struct proto;
+struct symbol;
+struct filter;
+struct cli;
 
 /*
  *	Generic data structure for storing network prefixes. Also used
@@ -186,6 +189,16 @@ void rt_feed_baby(struct proto *p);
 void rt_prune(rtable *tab);
 void rt_prune_all(void);
 
+struct rt_show_data {
+  ip_addr prefix;
+  unsigned pxlen;
+  rtable *table;
+  struct filter *filter;
+  int verbose;
+  struct fib_iterator fit;
+};
+void rt_show(struct rt_show_data *);
+
 /*
  *	Route Attributes
  *
@@ -311,6 +324,7 @@ static inline void rta_free(rta *r) { if (r && !--r->uc) rta__free(r); }
 void rta_dump(rta *);
 void rta_dump_all(void);
 static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->eattrs, ea); }
+void rta_show(struct cli *, rta *);
 
 /*
  *	Default protocol preferences

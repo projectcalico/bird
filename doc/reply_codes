@@ -18,8 +18,11 @@ Reply codes of BIRD command-line interface
 1004	Interface flags
 1005	Interface summary
 1006	Protocol details
+1007	Route list
+1008	Route details
 
 8000	Reply too long
+8001	Route not found
 
 9000	Command too long
 9001	Parse error

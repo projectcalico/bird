@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Routing Table
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -13,8 +13,11 @@
 #include "nest/bird.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
+#include "nest/cli.h"
+#include "nest/iface.h"
 #include "lib/resource.h"
 #include "lib/event.h"
+#include "lib/string.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
 
@@ -487,5 +490,124 @@ rt_commit(struct config *c)
       rt_setup(rt_table_pool, t, r->name);
       add_tail(&routing_tables, &t->n);
       r->table = t;
+    }
+}
+
+/*
+ *  CLI commands
+ */
+
+static void
+rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d)
+{
+  byte via[STD_ADDRESS_P_LENGTH+32], from[STD_ADDRESS_P_LENGTH];
+  byte tm[TM_RELTIME_BUFFER_SIZE], info[256];
+  rta *a = e->attrs;
+
+  switch (a->dest)
+    {
+    case RTD_ROUTER:	bsprintf(via, "via %I on %s", a->gw, a->iface->name); break;
+    case RTD_DEVICE:	bsprintf(via, "dev %s", a->iface->name); break;
+    case RTD_BLACKHOLE:	bsprintf(via, "blackhole"); break;
+    case RTD_UNREACHABLE:	bsprintf(via, "unreachable"); break;
+    case RTD_PROHIBIT:	bsprintf(via, "prohibited"); break;
+    default:		bsprintf(via, "???");
+    }
+  tm_format_reltime(tm, e->lastmod);
+  if (ipa_nonzero(a->from) && !ipa_equal(a->from, a->gw))
+    bsprintf(from, " from %I", a->from);
+  else
+    from[0] = 0;
+  if (a->proto->proto->get_route_info)
+    a->proto->proto->get_route_info(e, info);
+  else
+    bsprintf(info, " (%d)", e->pref);
+  cli_printf(c, -1007, "%-18s %s [%s %s%s]%s", ia, via, a->proto->name, tm, from, info);
+  if (d->verbose)
+    {
+      rta_show(c, a);
+      if (a->proto->proto->show_route_data)
+	a->proto->proto->show_route_data(e);
+    }
+}
+
+static void
+rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
+{
+  rte *e, *ee;
+  byte ia[STD_ADDRESS_P_LENGTH+8];
+
+  bsprintf(ia, "%I/%d", n->n.prefix, n->n.pxlen);
+  for(e=n->routes; e; e=e->next)
+    {
+      struct ea_list *tmpa = NULL;
+      ee = e;
+      rte_update_lock();		/* We use the update buffer for filtering */
+      if (d->filter == FILTER_ACCEPT || f_run(d->filter, &ee, &tmpa, rte_update_pool) <= F_MODIFY)
+	{
+	  rt_show_rte(c, ia, e, d);
+	  ia[0] = 0;
+	}
+      if (e != ee)
+	rte_free(ee);
+      rte_update_unlock();
+    }
+}
+
+static void
+rt_show_cont(struct cli *c)
+{
+  struct rt_show_data *d = c->rover;
+  unsigned max = 1;			/* FIXME: After some debugging, increase to reasonable amount */
+  struct fib *fib = &d->table->fib;
+  struct fib_iterator *it = &d->fit;
+
+  FIB_ITERATE_START(fib, it, f)
+    {
+      net *n = (net *) f;
+      if (!max--)
+	{
+	  FIB_ITERATE_PUT(it, f);
+	  return;
+	}
+      rt_show_net(c, n, d);
+    }
+  FIB_ITERATE_END(f);
+  cli_printf(c, 0, "");
+  c->cont = c->cleanup = NULL;
+}
+
+static void
+rt_show_cleanup(struct cli *c)
+{
+  struct rt_show_data *d = c->rover;
+
+  /* Unlink the iterator */
+  fit_get(&d->table->fib, &d->fit);
+}
+
+void
+rt_show(struct rt_show_data *d)
+{
+  struct rtable_config *tc;
+  net *n;
+
+  if (d->pxlen == 256)
+    {
+      FIB_ITERATE_INIT(&d->fit, &d->table->fib);
+      this_cli->cont = rt_show_cont;
+      this_cli->cleanup = rt_show_cleanup;
+      this_cli->rover = d;
+    }
+  else
+    {
+      n = fib_find(&d->table->fib, &d->prefix, d->pxlen);
+      if (n)
+	{
+	  rt_show_net(this_cli, n, d);
+	  cli_msg(0, "");
+	}
+      else
+	cli_msg(8001, "Network not in table");
     }
 }

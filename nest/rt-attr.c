@@ -13,6 +13,7 @@
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
+#include "nest/cli.h"
 #include "lib/resource.h"
 
 /*
@@ -347,12 +348,11 @@ rta_dump(rta *a)
 			 "RTS_STAT_DEV", "RTS_REDIR", "RTS_RIP", "RTS_RIP_EXT",
 			 "RTS_OSPF", "RTS_OSPF_EXT", "RTS_OSPF_IA",
 			 "RTS_OSPF_BOUNDARY", "RTS_BGP" };
-  static char *sco[] = { "HOST", "LINK", "SITE", "UNIV" };
   static char *rtc[] = { "", " BC", " MC", " AC" };
   static char *rtd[] = { "", " DEV", " HOLE", " UNREACH", " PROHIBIT" };
 
   debug("p=%s uc=%d %s %s%s%s",
-	a->proto->name, a->uc, rts[a->source], sco[a->scope], rtc[a->cast],
+	a->proto->name, a->uc, rts[a->source], ip_scope_text(a->scope), rtc[a->cast],
 	rtd[a->dest]);
   if (a->flags & RTF_EXTERIOR)
     debug(" EXT");
@@ -385,6 +385,18 @@ rta_dump_all(void)
       debug("\n");
     }
   debug("\n");
+}
+
+void
+rta_show(struct cli *c, rta *a)
+{
+  static char *src_names[] = { "dummy", "static", "inherit", "device", "static-device", "redirect",
+			       "RIP", "RIP-ext", "OSPF", "OSPF-ext", "OSPF-IA", "OSPF-boundary",
+			       "BGP" };
+  static char *cast_names[] = { "unicast", "broadcast", "multicast", "anycast" };
+
+  cli_printf(c, -1008, "\tType: %s %s %s", src_names[a->source], cast_names[a->cast], ip_scope_text(a->scope));
+  /* FIXME: Here we probably should print the dynamic attributes... */
 }
 
 void

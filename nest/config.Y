@@ -28,6 +28,7 @@ CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIREC
 %type <r> rtable
 %type <p> password_list password_begin
 %type <s> optsym
+%type <ra> r_args
 
 CF_GRAMMAR
 
@@ -201,11 +202,48 @@ CF_CLI(SHOW PROTOCOLS, optsym, [<name>], [[Show routing protocols]])
 CF_CLI(SHOW PROTOCOLS VERBOSE, optsym, [<name>], [[Show routing protocol details]])
 { proto_show($4, 1); } ;
 
+optsym:
+   SYM
+ | /* empty */ { $$ = NULL; }
+ ;
+
 CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
 { if_show(); } ;
 
 CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
 { if_show_summary(); } ;
+
+CF_CLI(SHOW ROUTE, r_args, [<prefix>] [table <t>] [filter <f>] [all], [[Show routing table]])
+{ rt_show($3); } ;
+
+r_args:
+   /* empty */ {
+     $$ = cfg_allocz(sizeof(struct rt_show_data));
+     $$->pxlen = 256;
+     $$->filter = FILTER_ACCEPT;
+     $$->table = config->master_rtc->table;
+   }
+ | r_args IPA pxlen {
+     $$ = $1;
+     if ($$->pxlen != 256) cf_error("Only one prefix expected");
+     if (!ip_is_prefix($2, $3)) cf_error("Invalid prefix");
+     $$->prefix = $2;
+     $$->pxlen = $3;
+   }
+ | r_args TABLE SYM {
+     $$ = $1;
+     if ($3->class != SYM_TABLE) cf_error("%s is not a table", $3->name);
+     $$->table = ((struct rtable_config *)$3->def)->table;
+   }
+ | r_args FILTER filter {
+     $$ = $1;
+     $$->filter = $3;
+   }
+ | r_args ALL {
+     $$ = $1;
+     $$->verbose = 1;
+   }
+ ;
 
 /* FIXME: These are examples. Remove them soon. */
 CF_CLI_HELP(TEST, <subsystem>, [[Tests different subsystems]])
@@ -217,11 +255,6 @@ CF_CLI(TEST LONG,,, [[Test long replies]]) {
 	this_cli->rover = (void *) 1;
 	cli_msg(-2, "Start");
 } ;
-
-optsym:
-   SYM
- | /* empty */ { $$ = NULL; }
- ;
 
 CF_CODE
 
