@@ -7,7 +7,7 @@ This documentation can have 4 forms: sgml (this is master copy), html,
 ASCII text and dvi/postscript (generated from sgml using
 sgmltools). You should always edit master copy.
 
-This is slightly modified linuxdoc dtd.  Anything in <descrip> tags is considered definition of
+This is a slightly modified linuxdoc dtd.  Anything in <descrip> tags is considered definition of
 configuration primitives, <cf> is fragment of configuration within normal text, <m> is
 "meta" information within fragment of configuration - something in config which is not keyword.
 
@@ -63,7 +63,7 @@ a statically configured table.
 background which does the dynamic part of Internet routing, that is it communicates
 with the other routers, calculates routing tables and sends them to the OS kernel
 which does the actual packet forwarding. There already exist other such routing daemons: routed (rip only), GateD<HTMLURL URL="http://www.gated.org/">
- (non free), Zebra<HTMLURL URL="http://www.zebra.org"> and mrtd<HTMLURL URL="http://www.zcu.cz/ftp/mirrors/mmrz/mrtd">, but their capabilities are limited and
+ (non free), Zebra<HTMLURL URL="http://www.zebra.org"> and MRTD<HTMLURL URL="http://www.zcu.cz/ftp/mirrors/mmrz/mrtd">, but their capabilities are limited and
 they are relatively hard to configure and maintain.
 
 <p>BIRD is an Internet Routing Daemon designed to avoid all of these shortcomings,
@@ -143,7 +143,7 @@ each other (see the Pipe protocol). Each routing table contains list of
 known routes. Each route consists of:
 
 <itemize>
-	<item>network prefix this route is for (consists of networkk address and number of bits forming the network part of the address)
+	<item>network prefix this route is for (consists of network address and number of bits forming the network part of the address)
 	<item>preference of this route (taken from preference of
 	protocol and possibly altered by filters)
 	<item>IP address of router who told us about this route
@@ -223,7 +223,7 @@ protocol rip {
 	<cf/trace/ when you want to know what happens in the network, 
 	<cf/remote/ for messages about misbehavior of remote machines, 
 	<cf/auth/ about authentication failures,
-	<cf/bug/ for internal BIRD bugs. You may specify more than one <cf/log/ line to estabilish logging to multiple
+	<cf/bug/ for internal BIRD bugs. You may specify more than one <cf/log/ line to establish logging to multiple
 	destinations.
 
 	<!--fixme: mj says explain-->
@@ -269,7 +269,7 @@ protocol rip {
 	affects one protocol. Only messages in selected debugging categories will be written to the
 	logs.
 
-	<tag>import { <m/filter commands/ } | <m/name/ | all | none</tag> Specify a filter to be used for filtering routes comming from protocol tothe routing table. Default: <cf/all/. <cf/all/ is shorthand for <cf/{ accept; }/ and <cf/none/ is shorthand for <cf/{ reject; }/.
+	<tag>import { <m/filter commands/ } | <m/name/ | all | none</tag> Specify a filter to be used for filtering routes coming from protocol to the routing table. Default: <cf/all/. <cf/all/ is shorthand for <cf/{ accept; }/ and <cf/none/ is shorthand for <cf/{ reject; }/.
 
 	<tag>export <m/filter/</tag> This is similar to <cf>import</cf> keyword, except that it
 	works in direction from the routing table to the protocol. Default: <cf/none/
@@ -316,7 +316,7 @@ BIRD and BIRDC is stable (see programmer's documentation).
 
 <p>BIRD contains a rather simple programming language. (No, it can't yet read mail :-). There are
 two objects in this language: filters and functions. Filters are called by BIRD core when a route is
-being passed between protocola and routing tables. Filter language contains control structures such
+being passed between protocols and routing tables. Filter language contains control structures such
 as if's and switches, but it allows no loops. Filters are
 interpreted. An example of a filter using many features can be found in <file>filter/test.conf</file>. 
 
@@ -441,7 +441,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  <cf>1.0.0.0/8 ~ [ 1.0.0.0/8- ]</cf> is false.
 
 	<tag/enum/
-	  Enumeration types are fixed in BIRD - you can't define your own
+	  Enumeration types are fixed in BIRD -- you can't define your own
 	  variables of enumeration type, but some route attributes are of enumeration
 	  type. Enumeration types are incompatible with each other.
 
@@ -473,7 +473,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/). 
 Special operators include <cf/&tilde;/ for "in" operation. In operation can be
 used on element and set of that elements (returning true if element is within given set), or on IP and prefix (returning true if IP is within range defined by that prefix), or on
-prefix and prefix (returning true if first prefix is more specific than second) or on bgppath and bgpmask (returning true if path matches given pathmask) or on pair and clist (returning true if given community is element of community list).
+prefix and prefix (returning true if first prefix is more specific than second) or on bgppath and bgpmask (returning true if path matches given path mask) or on pair and clist (returning true if given community is element of community list).
 
 
 <sect>Control structures
@@ -541,7 +541,7 @@ defined using the <cf>defined( <m>attribute</m> )</cf> operator.
 	Route type (<cf/RTC_UNICAST/ for normal routes, <cf/RTC_BROADCAST, RTC_MULTICAST, RTC_ANYCAST/ for broadcast, multicast and anycast routes.) Read-only.
 
 	<tag><m/enum/ dest</tag>
-	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_NETWORK/ for routing to directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silenty discarded, <cf/RTD_UNREACHABLE, RTD_PROHIBIT/ for packets that should be discarded with ICMP host unreachable / ICMP administratively prohibited messages.) Read-only.
+	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_NETWORK/ for routing to directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silently discarded, <cf/RTD_UNREACHABLE, RTD_PROHIBIT/ for packets that should be discarded with ICMP host unreachable / ICMP administratively prohibited messages.) Read-only.
 </descrip>
 
 <p>There also exist some protocol-specific attributes, which are described in protocol sections.
@@ -886,13 +886,13 @@ state (a.k.a. shortest path first) protocol -- Each router maintains a database
 describing the autonomous system's topology. Each participating router
 has an identical copy of the database and all routers run the same algorithm
 calculating a shortest path tree with themselves as a root.
-OSPF choses the least cost path as the best path.
+OSPF chooses the least cost path as the best path.
 
 <p>In OSPF, the autonomous system can be split to several areas in order
 to reduce the amount of resources consumed for exchanging the routing
 information and to protect the other areas from incorrect routing data.
 Topology of the area is hidden to the rest of the autonomous system.
-Unfortunatelly multiple OSPF areas are not yet fully supported
+Unfortunately multiple OSPF areas are not yet fully supported
 by this version of BIRD and neither is the IPv6 version (OSPFv3).
 
 <p>Another very important feature of OSPF is that
@@ -974,7 +974,7 @@ protocol ospf &lt;name&gt; {
 	 Default value is 10.
 
 	<tag>retransmit <M>num</M></tag>
-	 Specifies interval in seconds between retransmissions of unacknoledged updates.
+	 Specifies interval in seconds between retransmissions of unacknowledged updates.
 	 Default value is 5.
 
         <tag>priority <M>num</M></tag>
@@ -1005,12 +1005,12 @@ protocol ospf &lt;name&gt; {
 	 Point-to-point networks connect just 2 routers together. No election
 	 is performed there which reduces the number of messages sent.
 
-	<tag>authetication none</tag>
+	<tag>authentication none</tag>
 	 No passwords are sent in OSPF packets. This is the default value.
 
-	<tag>authetication simple</tag>
+	<tag>authentication simple</tag>
 	 Every packet carries 8 bytes of password. Received packets
-	 lacking this password are ignored. This autentication mechanism is
+	 lacking this password are ignored. This authentication mechanism is
 	 very weak.
 
 	<tag>password <M>text</M></tag>
@@ -1347,7 +1347,8 @@ LocalWords:  linuxdoc dtd descrip config conf syslog stderr auth ospf bgp Mbps
 LocalWords:  router's eval expr num birdc ctl unix if's enums bool int ip GCC
 LocalWords:  len ipaddress pxlen netmask enum bgppath bgpmask clist gw md eth
 LocalWords:  RTS printn quitbird iBGP AS'es eBGP RFC multiprotocol IGP Machek
-LocalWords:  EGP misconfigurations keepalive pref aggr aggregator BIRD's
-LocalWords:  OS'es AS's multicast nolisten misconfigured UID blackhole
-LocalWords:  uninstalls ethernets IP
+LocalWords:  EGP misconfigurations keepalive pref aggr aggregator BIRD's RTC
+LocalWords:  OS'es AS's multicast nolisten misconfigured UID blackhole MRTD
+LocalWords:  uninstalls ethernets IP binutils ANYCAST anycast dest RTD ICMP rfc
+LocalWords:  compat multicasts nonbroadcast pointopoint
  -->
