@@ -80,11 +80,11 @@ main(void)
   protos_preconfig();
   protos_postconfig();
 
-  scan_if_init();
-
   signal_init();
 
   protos_start();
+
+  scan_if_init();
 
   handle_sigusr(0);
 
