@@ -5,8 +5,6 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
- * 	Notice that pair is stored as integer: first << 16 | second
- *
  */
 
 #define LOCAL_DEBUG
@@ -26,7 +24,7 @@
 
 #define P(a,b) ((a<<8) | b)
 
-struct f_inst *startup_func = NULL;
+struct f_inst *startup_func = NULL, *test1_func, *test2_func;
 
 #define CMP_ERROR 999
 
@@ -630,6 +628,9 @@ void
 filters_postconfig(void)
 {
   struct f_val res;
+
+  if (!i_same(test1_func, test2_func))
+    bug("i_same does not work");
   if (startup_func) {
     debug( "Launching startup function...\n" );
     f_pool = lp_new(&root_pool, 1024);

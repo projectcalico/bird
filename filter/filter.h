@@ -99,7 +99,7 @@ void val_print(struct f_val v);
 /* User visible types, which fit in int */
 #define T_INT 0x10
 #define T_BOOL 0x11
-#define T_PAIR 0x12
+#define T_PAIR 0x12  /*	Notice that pair is stored as integer: first << 16 | second */
 
 /* Put enumerational types in 0x30..0x3f range */
 #define T_ENUM_LO 0x30
