@@ -174,6 +174,8 @@ addifa_rtlsa(struct ospf_iface *ifa)
  
   if(oa==NULL)	/* New area */
   {
+    struct ospf_lsa_header *lsa;
+
     oa=po->firstarea;
     po->firstarea=mb_alloc(po->proto.pool, sizeof(struct ospf_area));
     po->firstarea->next=oa;
@@ -183,9 +185,14 @@ addifa_rtlsa(struct ospf_iface *ifa)
     s_init_list(&(oa->lsal));
     oa->rt=ospf_hash_get(oa->gr, rtid, rtid, LSA_T_RT);
     s_add_head(&(oa->lsal), (snode *)oa->rt);
+    ((snode *)oa->rt)->next=NULL;
+    lsa=&(oa->rt->lsa);
     oa->rt->lsa_body=NULL;
-    oa->rt->lsa.age=0;
-    oa->rt->lsa.sn=LSA_INITSEQNO-1;	/* FIXME Check it latter */
+    lsa->age=0;
+    lsa->sn=LSA_INITSEQNO-1;	/* FIXME Check it latter */
+    lsa->checksum=0;
+    lsa->checksum=ipsum_calculate(lsa,sizeof(struct ospf_lsa_header),NULL);
+    ifa->oa=oa;
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
 
   }

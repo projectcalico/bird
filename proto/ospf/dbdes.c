@@ -48,14 +48,14 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
   ifa=n->ifa;
 
   p=(struct proto *)(ifa->proto);
-  pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
-  op=(struct ospf_packet *)pkt;
 
   switch(n->state)
   {
     case NEIGHBOR_EXSTART:		/* Send empty packets */
+      pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
+      op=(struct ospf_packet *)pkt;
       fill_ospf_pkt_hdr(ifa, pkt, DBDES);
-      pkt->iface_mtu=ifa->iface->mtu;
+      pkt->iface_mtu=htons(ifa->iface->mtu);
       pkt->options= ifa->options;
       pkt->imms=n->myimms;
       pkt->ddseq=n->dds;
@@ -63,62 +63,78 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       op->length=htons(length);
       ospf_pkt_finalize(ifa, op);
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
+      debug("%s: DB_DES (I) sent for %u.\n", p->name, n->rid);
       break;
 
     case NEIGHBOR_EXCHANGE:
-      if(! ((IAMMASTER(n->myimms) && (n->dds==n->ddr+1)) || ((!IAMMASTER(n->myimms)) && (n->dds==n->ddr))))
+      if(! ((IAMMASTER(n->myimms) && (n->dds==n->ddr+1)) ||
+         ((!IAMMASTER(n->myimms)) && (n->dds==n->ddr))))
       {
         snode *sn;			/* Send next */
         struct ospf_lsa_header *lsa;
+
+	pkt=n->ldbdes;
+        op=(struct ospf_packet *)pkt;
 	
         fill_ospf_pkt_hdr(ifa, pkt, DBDES);
-        pkt->iface_mtu= ifa->iface->mtu;
+        pkt->iface_mtu=htons(ifa->iface->mtu);
         pkt->options= ifa->options;
 	pkt->ddseq=n->dds;
 
-	sn=s_get(&(n->dbsi));
-	j=i=(pkt->iface_mtu-sizeof(struct ospf_dbdes_packet))/
+	j=i=(ifa->iface->mtu-sizeof(struct ospf_dbdes_packet))/
 		sizeof(struct ospf_lsa_header);	/* Number of lsaheaders */
 	lsa=(n->ldbdes+sizeof(struct ospf_dbdes_packet));
 
+	sn=s_get(&(n->dbsi));
+
+	DBG("Number of LSA: %d\n", j);
 	for(;i>0;i--)
 	{
 	  struct top_hash_entry *en;
 	  
 	  en=(struct top_hash_entry *)sn;
 	  htonlsah(&(en->lsa), lsa);
+	  DBG("Working on: %d\n", i);
+          debug("\t%04x %08x %08x %p\n", en->lsa.type, en->lsa.id,
+            en->lsa.rt, en->lsa_body);
+
 	  if(sn->next==NULL)
 	  {
 	    break;	/* Should set some flag? */
 	  }
 	  sn=sn->next;
+	  lsa++;
 	}
-	s_put(&(n->dbsi),sn);
+	i--;
 
 	if(sn->next==NULL)
 	{
+	  DBG("Number of LSA NOT sent: %d\n", i);
+	  DBG("M bit unset.\n");
 	  n->myimms=(n->myimms-DBDES_M);	/* Unset more bit */
 	}
 
+	s_put(&(n->dbsi),sn);
+
         pkt->imms=n->myimms;
 
-	length=j*sizeof(struct ospf_lsa_header)+
+	length=(j-i)*sizeof(struct ospf_lsa_header)+
 		sizeof(struct ospf_dbdes_packet);
 	op->length=htons(length);
         ospf_pkt_finalize(ifa, op);
-        sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
       }
 
       aa=ifa->ip_sk->tbuf;
       bb=n->ldbdes;
+      op=n->ldbdes;
       length=ntohs(op->length);
 
       for(i=0; i<ifa->iface->mtu; i++)
       {
-        *(aa+i)=*(bb+i);	/* Copy last sent packet again */
+        *(bb+i)=*(aa+i);	/* Copy last sent packet again */
       }
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
+      debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
 
     default:				/* Ignore it */
       break;
@@ -227,18 +243,21 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
 	if(IAMMASTER(ps->imms)!=IAMMASTER(n->myimms)) /* M/S bit differs */
         {
+          DBG("SEQMIS-IMMS\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
 
 	if(INISET(ps->imms))	/* I bit is set */
         {
+          DBG("SEQMIS-BIT-I\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
 
 	if(ps->options!=n->options)	/* Options differs */
         {
+          DBG("SEQMIS-OPT\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
@@ -247,6 +266,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         {
           if(ps->ddseq!=n->dds)
 	  {
+            DBG("SEQMIS-MASTER\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
@@ -255,6 +275,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         {
           if(ps->ddseq!=(n->dds+1))
 	  {
+            DBG("SEQMIS-SLAVE\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
