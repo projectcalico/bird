@@ -121,7 +121,7 @@ options. The most important ones are:
 
 <descrip>
 	<tag>-c <m/config name/</tag>
-	use given configuration file instead of <file>$prefix/etc/bird.conf</file>.
+	use given configuration file instead of <it/prefix/<file>/etc/bird.conf</file>.
 
 	<tag>-d</tag>
 	enable debug messages and run bird in foreground.
@@ -130,7 +130,7 @@ options. The most important ones are:
 	log debugging information to given file instead of stderr
 
 	<tag>-s <m/name of communication socket/</tag>
-	use given filename for a  socket for communications with the client, default is <file>$prefix/var/run/bird.ctl</file>.
+	use given filename for a  socket for communications with the client, default is <it/prefix/<file>/var/run/bird.ctl</file>.
 </descrip>
 
 <p>BIRD writes messages about its work to log files or syslog (according to config).
@@ -176,7 +176,7 @@ protocols.
 
 <sect>Introduction
 
-<p>BIRD is configured using a text configuration file. Upon startup, BIRD reads <file>$prefix/bird.conf</file> (unless the
+<p>BIRD is configured using a text configuration file. Upon startup, BIRD reads <it/prefix/<file>/etc/bird.conf</file> (unless the
 <tt/-c/ command line option is given). Configuration may be changed at user's request: if you modify
 the config file and then signal BIRD with <tt/SIGHUP/, it will adjust to the new
 config. Then there's the client
@@ -323,9 +323,9 @@ of protocols, telling BIRD to show various information, telling it to
 show routing table filtered by filter, or asking BIRD to
 reconfigure. Press <tt/?/ at any time to get online help. Option
 <tt/-v/ can be passed to the client, to make it dump numeric return
-codes along with the messages. You do not necessarily need to use BIRDC to talk to BIRD, your
+codes along with the messages. You do not necessarily need to use <file/birdc/ to talk to BIRD, your
 own applications could do that, too -- the format of communication between
-BIRD and BIRDC is stable (see the programmer's documentation).
+BIRD and <file/birdc/ is stable (see the programmer's documentation).
 
 <p>Here is a brief list of supported functions:
 
@@ -466,7 +466,7 @@ bird> show route
 127.0.0.0/8        dev lo [direct1 23:21] (240)
 bird> show route ?
 show route [<prefix>] [table <t>] [filter <f>] [all] [primary]...
-bird> show route filter { if 127.0.0.5 ~ net then accept; }
+bird> show route filter { if 127.0.0.5 &tilde; net then accept; }
 127.0.0.0/8        dev lo [direct1 23:21] (240)
 bird>
 </code>
@@ -516,7 +516,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  <cf>1.0.0.0/8 &tilde; [ 1.0.0.0/8- ]</cf> is false.
 
 	<tag/enum/
-	  Enumeration types are fixed in BIRD -- you can't define your own
+	  Enumeration types are fixed sets of possibilities. You can't define your own
 	  variables of such type, but some route attributes are of enumeration
 	  type. Enumeration types are incompatible with each other.
 
@@ -530,8 +530,8 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  system numbers match themselves, <cf/?/ matches any (even empty)
 	  sequence of arbitrary AS numbers (<cf/*/ hasn't been chosen, because
 	  <cf>/*</cf> starts a comment). For example:
-	  <tt>/4 3 2 1/ ~ /? 4 3 ?/</tt> is true, but 
-	  <tt>/4 3 2 1/ ~ /? 4 5 ?/</tt> is false.
+	  <tt>/4 3 2 1/ &tilde; /? 4 3 ?/</tt> is true, but 
+	  <tt>/4 3 2 1/ &tilde; /? 4 5 ?/</tt> is false.
 	<tag/clist/ 
 	  Community list is similar to set of pairs,
 	  except that unlike other sets, it can be modified.
@@ -542,7 +542,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 <sect>Operators
 
 <p>The filter language supports common integer operators <cf>(+,-,*,/)</cf>, parentheses <cf/(a*(b+c))/, comparison
-<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/). 
+<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Logical operations include unary not (<cf/!/), and (<cf/&amp;&amp;/) and or (<cf/&verbar;&verbar;/). 
 Special operators include <cf/&tilde;/ for "is element of a set" operation - it can be
 used on element and set of elements of the same type (returning true if element is contained in the given set), or on IP and prefix (returning true if IP is within the range defined by that prefix), or on
 prefix and prefix (returning true if first prefix is more specific than second one) or on bgppath and bgpmask (returning true if the path matches the mask) or on pair and clist (returning true if the community is element of the community list).
