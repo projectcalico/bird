@@ -24,14 +24,16 @@ CF_GRAMMAR
 CF_ADDTO(proto, kern_proto '}')
 
 kern_proto_start: proto_start KERNEL {
+#ifndef CONFIG_MULTIPLE_TABLES
      if (cf_krt)
        cf_error("Kernel protocol already defined");
+#endif
      cf_krt = this_proto = proto_config_new(&proto_unix_kernel, sizeof(struct krt_config));
      this_proto->preference = 0;
      THIS_KRT->scan_time = 60;
      THIS_KRT->learn = THIS_KRT->persist = 0;
-     krt_scan_preconfig(THIS_KRT);
-     krt_set_preconfig(THIS_KRT);
+     krt_scan_construct(THIS_KRT);
+     krt_set_construct(THIS_KRT);
    }
  ;
 
@@ -64,7 +66,7 @@ kif_proto_start: proto_start DEVICE {
      cf_kif = this_proto = proto_config_new(&proto_unix_iface, sizeof(struct kif_config));
      this_proto->preference = DEF_PREF_DIRECT;
      THIS_KIF->scan_time = 60;
-     krt_if_preconfig(THIS_KIF);
+     krt_if_construct(THIS_KIF);
    }
  ;
 

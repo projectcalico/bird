@@ -13,9 +13,34 @@
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "lib/timer.h"
+#include "conf/conf.h"
 
 #include "unix.h"
 #include "krt.h"
+
+/*
+ *  The whole kernel synchronization is a bit messy and touches some internals
+ *  of the routing table engine, because routing table maintenance is a typical
+ *  example of the proverbial compatibility between different Unices and we want
+ *  to keep the overhead of our krt business as low as possible and avoid maintaining
+ *  a local routing table copy.
+ *
+ *  The kernel syncer can work in three different modes (according to system config header):
+ *	o  Single routing table, single krt protocol.  [traditional Unix]
+ *	o  Many routing tables, separate krt protocols for all of them.
+ *	o  Many routing tables, but every scan includes all tables, so we start
+ *	   separate krt protocols which cooperate with each other.  [Linux 2.2]
+ *	   In this case, we keep only a single scan timer.
+ *
+ *  The hacky bits:
+ *	o  We use FIB node flags to keep track of route synchronization status.
+ *	o  When starting up, we cheat by looking if there is another kernel
+ *	   krt instance to be initialized later and performing table scan
+ *	   only once for all the instances.
+ *	o  We attach temporary rte's to routing tables.
+ *
+ *  If you are brave enough, continue now.  You cannot say you haven't been warned.
+ */
 
 static int krt_uptodate(rte *k, rte *e);
 
@@ -23,9 +48,12 @@ static int krt_uptodate(rte *k, rte *e);
  *	Global resources
  */
 
+pool *krt_pool;
+
 void
 krt_io_init(void)
 {
+  krt_pool = rp_new(&root_pool, "Kernel Syncer");
   krt_if_io_init();
 }
 
@@ -96,6 +124,12 @@ kif_shutdown(struct proto *P)
 
   if_start_update();	/* Remove all interfaces */
   if_end_update();
+  /*
+   *  FIXME: Is it really a good idea?  It causes routes to be flushed,
+   *  but at the same time it avoids sending of these deletions to the kernel,
+   *  because krt thinks the kernel itself has already removed the route
+   *  when downing the interface.  Sad.
+   */
 
   return PS_DOWN;
 }
@@ -181,8 +215,6 @@ krt_learn_scan(struct krt_proto *p, rte *e)
       e->u.krt.seen = 1;
     }
 }
-
-/* FIXME: Add dump function */
 
 static void
 krt_learn_prune(struct krt_proto *p)
@@ -353,6 +385,12 @@ krt_dump_attrs(rte *e)
  *	Routes
  */
 
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+static timer *krt_scan_timer;
+static int krt_instance_count;
+static list krt_instance_list;
+#endif
+
 static void
 krt_flush_routes(struct krt_proto *p)
 {
@@ -372,8 +410,6 @@ krt_flush_routes(struct krt_proto *p)
     }
   FIB_WALK_END;
 }
-
-/* FIXME: Synchronization of multiple routing tables? */
 
 static int
 krt_uptodate(rte *k, rte *e)
@@ -469,7 +505,7 @@ krt_prune(struct krt_proto *p)
   struct rtable *t = p->p.table;
   struct fib_node *f;
 
-  DBG("Pruning routes...\n");
+  DBG("Pruning routes in table %s...\n", t->name);
   FIB_WALK(&t->fib, f)
     {
       net *n = (net *) f;
@@ -556,17 +592,29 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
  *	Periodic scanning
  */
 
-static timer *krt_scan_timer;
-
 static void
 krt_scan(timer *t)
 {
-  struct krt_proto *p = t->data;
+  struct krt_proto *p;
 
   kif_force_scan();
-  DBG("KRT: It's route scan time...\n");
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+  {
+    void *q;
+    DBG("KRT: It's route scan time...\n");
+    krt_scan_fire(NULL);
+    WALK_LIST(q, krt_instance_list)
+      {
+	p = SKIP_BACK(struct krt_proto, instance_node, q);
+	krt_prune(p);
+      }
+  }
+#else
+  p = t->data;
+  DBG("KRT: It's route scan time for %s...\n", p->p.name);
   krt_scan_fire(p);
   krt_prune(p);
+#endif
 }
 
 /*
@@ -595,41 +643,106 @@ krt_notify(struct proto *P, net *net, rte *new, rte *old, struct ea_list *tmpa)
 
 struct proto_config *cf_krt;
 
+static void
+krt_preconfig(struct protocol *P, struct config *c)
+{
+  krt_scan_preconfig(c);
+}
+
+static void
+krt_postconfig(struct proto_config *C)
+{
+  struct krt_config *c = (struct krt_config *) C;
+
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+  struct krt_config *first = (struct krt_config *) cf_krt;
+  if (first->scan_time != c->scan_time)
+    cf_error("All kernel syncers must use the same table scan interval");
+#endif
+
+  if (C->table->krt_attached)
+    cf_error("Kernel syncer (%s) already attached to table %s", C->table->krt_attached->name, C->table->name);
+  C->table->krt_attached = C;
+  krt_scan_postconfig(c);
+}
+
+static timer *
+krt_start_timer(struct krt_proto *p)
+{
+  timer *t;
+
+  t = tm_new(p->krt_pool);
+  t->hook = krt_scan;
+  t->data = p;
+  t->recurrent = KRT_CF->scan_time;
+  tm_start(t, KRT_CF->scan_time);
+  return t;
+}
+
 static int
 krt_start(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
+  int first = 1;
+
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+  if (!krt_instance_count++)
+    init_list(&krt_instance_list);
+  else
+    first = 0;
+  p->krt_pool = krt_pool;
+  add_tail(&krt_instance_list, &p->instance_node);
+#else
+  p->krt_pool = P->pool;
+#endif
 
 #ifdef KRT_ALLOW_LEARN
   krt_learn_init(p);
 #endif
 
-  krt_scan_start(p);
-  krt_set_start(p);
+  krt_scan_start(p, first);
+  krt_set_start(p, first);
 
   /* Start periodic routing table scanning */
-  krt_scan_timer = tm_new(P->pool);
-  krt_scan_timer->hook = krt_scan;
-  krt_scan_timer->data = p;
-  krt_scan_timer->recurrent = KRT_CF->scan_time;
-  krt_scan(krt_scan_timer);
-  tm_start(krt_scan_timer, KRT_CF->scan_time);
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+  if (first)
+    krt_scan_timer = krt_start_timer(p);
+  p->scan_timer = krt_scan_timer;
+  /* If this is the last instance to be initialized, kick the timer */
+  if (!P->proto->startup_counter)
+    krt_scan(p->scan_timer);
+#else
+  p->scan_timer = krt_start_timer(p);
+  krt_scan(p->scan_timer);
+#endif
 
   return PS_UP;
 }
 
-int
+static int
 krt_shutdown(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
+  int last = 1;
 
-  tm_stop(krt_scan_timer);
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+  rem_node(&p->instance_node);
+  if (--krt_instance_count)
+    last = 0;
+  else
+#endif
+    tm_stop(p->scan_timer);
 
   if (!KRT_CF->persist)
     krt_flush_routes(p);
 
-  krt_set_shutdown(p);
-  krt_scan_shutdown(p);
+  krt_set_shutdown(p, last);
+  krt_scan_shutdown(p, last);
+
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+  if (last)
+    rfree(krt_scan_timer);
+#endif
 
   return PS_DOWN;
 }
@@ -646,6 +759,8 @@ krt_init(struct proto_config *c)
 struct protocol proto_unix_kernel = {
   name:		"Kernel",
   priority:	80,
+  preconfig:	krt_preconfig,
+  postconfig:	krt_postconfig,
   init:		krt_init,
   start:	krt_start,
   shutdown:	krt_shutdown,

@@ -9,6 +9,7 @@
 #ifndef _BIRD_KRT_H_
 #define _BIRD_KRT_H_
 
+struct config;
 struct krt_config;
 struct krt_proto;
 struct kif_config;
@@ -56,9 +57,15 @@ struct krt_proto {
 #ifdef KRT_ALLOW_LEARN
   struct rtable krt_table;	/* Internal table of inherited routes */
 #endif
+  pool *krt_pool;		/* Pool used for common krt data */
+  timer *scan_timer;
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+  node instance_node;		/* Node in krt instance list */
+#endif
 };
 
 extern struct proto_config *cf_krt;
+extern pool *krt_pool;
 
 #define KRT_CF ((struct krt_config *)p->p.cf)
 
@@ -90,24 +97,26 @@ extern struct proto_config *cf_kif;
 
 /* krt-scan.c */
 
-void krt_scan_preconfig(struct krt_config *);
-void krt_scan_start(struct krt_proto *);
-void krt_scan_shutdown(struct krt_proto *);
+void krt_scan_preconfig(struct config *);
+void krt_scan_postconfig(struct krt_config *);
+void krt_scan_construct(struct krt_config *);
+void krt_scan_start(struct krt_proto *, int);
+void krt_scan_shutdown(struct krt_proto *, int);
 
 void krt_scan_fire(struct krt_proto *);
 
 /* krt-set.c */
 
-void krt_set_preconfig(struct krt_config *);
-void krt_set_start(struct krt_proto *);
-void krt_set_shutdown(struct krt_proto *);
+void krt_set_construct(struct krt_config *);
+void krt_set_start(struct krt_proto *, int);
+void krt_set_shutdown(struct krt_proto *, int);
 
 int krt_capable(rte *e);
 void krt_set_notify(struct krt_proto *x, net *net, rte *new, rte *old);
 
 /* krt-iface.c */
 
-void krt_if_preconfig(struct kif_config *);
+void krt_if_construct(struct kif_config *);
 void krt_if_start(struct kif_proto *);
 void krt_if_shutdown(struct kif_proto *);
 

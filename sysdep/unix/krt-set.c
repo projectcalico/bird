@@ -92,18 +92,18 @@ krt_set_notify(struct krt_proto *p, net *net, rte *new, rte *old)
 }
 
 void
-krt_set_start(struct krt_proto *x)
+krt_set_start(struct krt_proto *x, int first)
 {
   if (if_scan_sock < 0)
     bug("krt set: missing socket");
 }
 
 void
-krt_set_preconfig(struct krt_config *c)
+krt_set_construct(struct krt_config *c)
 {
 }
 
 void
-krt_set_shutdown(struct krt_proto *x)
+krt_set_shutdown(struct krt_proto *x, int last)
 {
 } 

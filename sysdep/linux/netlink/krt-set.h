@@ -19,8 +19,8 @@ struct krt_set_params {
 struct krt_set_status {
 };
 
-static inline void krt_set_preconfig(struct krt_config *c) { };
-static inline void krt_set_start(struct krt_proto *p) { };
-static inline void krt_set_shutdown(struct krt_proto *p) { };
+static inline void krt_set_construct(struct krt_config *c) { };
+static inline void krt_set_start(struct krt_proto *p, int first) { };
+static inline void krt_set_shutdown(struct krt_proto *p, int last) { };
 
 #endif

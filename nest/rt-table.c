@@ -104,6 +104,7 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
   struct proto *p = a->proto;
   rte *new0 = new;
   rte *old0 = old;
+
   if (new)
     {
       int ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0;

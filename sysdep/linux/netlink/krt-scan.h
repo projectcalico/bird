@@ -17,6 +17,7 @@
 
 struct krt_scan_params {
   int async;				/* Allow asynchronous events */
+  int table_id;				/* Kernel table ID we sync with */
 };
 
 struct krt_scan_status {

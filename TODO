@@ -6,8 +6,6 @@ Core
 
 - config: executable config files
 
-- do we really need preconfig?
-
 - counters (according to SNMP MIB?)
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
@@ -25,6 +23,10 @@ Core
 - socket: Use IP_RECVERR for BGP TCP sockets?
 
 - OSPF: refuse running on non-multicast devices
+
+- config: when parsing prefix, check zero bits
+
+- krt: rescan interfaces when route addition fails?
 
 Cleanup
 ~~~~~~~

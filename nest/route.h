@@ -109,6 +109,7 @@ struct rtable_config {
   node n;
   char *name;
   struct rtable *table;
+  struct proto_config *krt_attached;	/* Kernel syncer attached to this table */
 };
 
 typedef struct rtable {

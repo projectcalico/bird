@@ -10,7 +10,7 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(ASYNC)
+CF_KEYWORDS(ASYNC, KERNEL, TABLE)
 
 CF_GRAMMAR
 
@@ -18,6 +18,11 @@ CF_ADDTO(kern_proto, kern_proto nl_item ';')
 
 nl_item:
    ASYNC bool { THIS_KRT->scan.async = $2; }
+ | KERNEL TABLE expr {
+	if ($3 <= 0 || $3 >= 255)
+	  cf_error("Kernel routing table number out of range");
+	THIS_KRT->scan.table_id = $3;
+   }
  ;
 
 CF_CODE

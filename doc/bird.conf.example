@@ -32,6 +32,7 @@ protocol kernel {
 #	async off;		# Netlink: Disable asynchronous events
 #	import none;		# Default is import all
 	export all;		# Default is export none
+#	kernel table 5;		# Kernel table to synchronize with (default: main)
 }
 
 protocol device {

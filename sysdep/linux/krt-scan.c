@@ -174,17 +174,27 @@ krt_scan_fire(struct krt_proto *p)
 }
 
 void
-krt_scan_preconfig(struct krt_config *c)
+krt_scan_construct(struct krt_config *c)
 {
 }
 
 void
-krt_scan_start(struct krt_proto *x)
+krt_scan_preconfig(struct config *c)
+{
+}
+
+void
+krt_scan_postconfig(struct krt_config *c)
+{
+}
+
+void
+krt_scan_start(struct krt_proto *x, int first)
 {
   init_list(&x->scan.temp_ifs);
 }
 
 void
-krt_scan_shutdown(struct krt_proto *x)
+krt_scan_shutdown(struct krt_proto *x, int last)
 {
 }

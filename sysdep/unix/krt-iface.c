@@ -205,7 +205,7 @@ krt_if_scan(struct kif_proto *p)
 }
 
 void
-krt_if_preconfig(struct kif_config *c)
+krt_if_construct(struct kif_config *c)
 {
 }
 

@@ -24,6 +24,7 @@
 #include "lib/unix.h"
 #include "lib/krt.h"
 #include "lib/socket.h"
+#include "conf/conf.h"
 
 #include <asm/types.h>
 #include <linux/netlink.h>
@@ -403,6 +404,8 @@ krt_if_scan(struct kif_proto *p)
  *	Routes
  */
 
+static struct krt_proto *nl_table_map[256];
+
 int
 krt_capable(rte *e)
 {
@@ -431,7 +434,7 @@ krt_capable(rte *e)
 }
 
 static void
-nl_send_route(rte *e, int new)
+nl_send_route(struct krt_proto *p, rte *e, int new)
 {
   net *net = e->net;
   rta *a = e->attrs;
@@ -453,10 +456,10 @@ nl_send_route(rte *e, int new)
 
   r.r.rtm_family = AF_INET;
   r.r.rtm_dst_len = net->n.pxlen;
-  r.r.rtm_tos = 0;	/* FIXME: Non-zero TOS? */
-  r.r.rtm_table = RT_TABLE_MAIN;	/* FIXME: Other tables? */
+  r.r.rtm_tos = 0;
+  r.r.rtm_table = KRT_CF->scan.table_id;
   r.r.rtm_protocol = RTPROT_BIRD;
-  r.r.rtm_scope = RT_SCOPE_UNIVERSE;	/* FIXME: Other scopes? */
+  r.r.rtm_scope = RT_SCOPE_UNIVERSE;
   nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
   switch (a->dest)
     {
@@ -489,19 +492,22 @@ krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old)
 {
   if (old && new)
     {
-      /* FIXME: Priorities and TOS should be identical as well, but we don't use them yet. */
-      nl_send_route(new, 1);
+      /*
+       *  We should check whether priority and TOS is identical as well,
+       *  but we don't use these and default value is always equal to default value. :-)
+       */
+      nl_send_route(p, new, 1);
     }
   else
     {
       if (old)
 	{
 	  if (!old->attrs->iface || (old->attrs->iface->flags & IF_UP))
-	    nl_send_route(old, 0);
+	    nl_send_route(p, old, 0);
 	  /* else the kernel has already flushed it */
 	}
       if (new)
-	nl_send_route(new, 1);
+	nl_send_route(p, new, 1);
     }
 }
 
@@ -524,8 +530,9 @@ krt_temp_iface(struct krt_proto *p, unsigned index)
 }
 
 static void
-nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
+nl_parse_route(struct nlmsghdr *h, int scan)
 {
+  struct krt_proto *p;
   struct rtmsg *i;
   struct rtattr *a[RTA_CACHEINFO+1];
   int new = h->nlmsg_type == RTM_NEWROUTE;
@@ -549,10 +556,15 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
       return;
     }
 
-  if (i->rtm_table != RT_TABLE_MAIN)	/* FIXME: What about other tables? */
+  p = nl_table_map[i->rtm_table];	/* Do we know this table? */
+  if (!p)
     return;
-  if (i->rtm_tos != 0)			/* FIXME: What about TOS? */
-    return;
+
+  if (i->rtm_tos != 0)			/* We don't support TOS */
+    {
+      DBG("KRT: Ignoring route with TOS %02x\n", i->rtm_tos);
+      return;
+    }
 
   if (scan && !new)
     {
@@ -572,7 +584,7 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
   else
     oif = ~0;
 
-  DBG("Got %I/%d, type=%d, oif=%d\n", dst, i->rtm_dst_len, i->rtm_type, oif);
+  DBG("Got %I/%d, type=%d, oif=%d, table=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, p->p.name);
 
   switch (i->rtm_protocol)
     {
@@ -647,7 +659,7 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
       return;
     }
 
-  if (i->rtm_scope != RT_SCOPE_UNIVERSE)	/* FIXME: Other scopes? */
+  if (i->rtm_scope != RT_SCOPE_UNIVERSE)
     {
       DBG("KRT: Ignoring route with scope=%d\n", i->rtm_scope);
       return;
@@ -669,14 +681,14 @@ nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
 }
 
 void
-krt_scan_fire(struct krt_proto *p)
+krt_scan_fire(struct krt_proto *p)	/* CONFIG_ALL_TABLES_AT_ONCE => p is NULL */
 {
   struct nlmsghdr *h;
 
   nl_request_dump(RTM_GETROUTE);
   while (h = nl_get_scan())
     if (h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE)
-      nl_parse_route(p, h, 1);
+      nl_parse_route(h, 1);
     else
       log(L_DEBUG "nl_scan_fire: Unknown packet received (type=%d)", h->nlmsg_type);
 }
@@ -689,14 +701,14 @@ static sock *nl_async_sk;		/* BIRD socket for asynchronous notifications */
 static byte *nl_async_rx_buffer;	/* Receive buffer */
 
 static void
-nl_async_msg(struct krt_proto *p, struct nlmsghdr *h)
+nl_async_msg(struct nlmsghdr *h)
 {
   switch (h->nlmsg_type)
     {
     case RTM_NEWROUTE:
     case RTM_DELROUTE:
       DBG("KRT: Received async route notification (%d)\n", h->nlmsg_type);
-      nl_parse_route(p, h, 0);
+      nl_parse_route(h, 0);
       break;
     case RTM_NEWLINK:
     case RTM_DELLINK:
@@ -716,7 +728,6 @@ nl_async_msg(struct krt_proto *p, struct nlmsghdr *h)
 static int
 nl_async_hook(sock *sk, int size)
 {
-  struct krt_proto *p = sk->data;
   struct iovec iov = { nl_async_rx_buffer, NL_RX_SIZE };
   struct sockaddr_nl sa;
   struct msghdr m = { (struct sockaddr *) &sa, sizeof(sa), &iov, 1, NULL, 0, 0 };
@@ -746,7 +757,7 @@ nl_async_hook(sock *sk, int size)
     }
   while (NLMSG_OK(h, len))
     {
-      nl_async_msg(p, h);
+      nl_async_msg(h);
       h = NLMSG_NEXT(h, len);
     }
   if (len)
@@ -755,7 +766,7 @@ nl_async_hook(sock *sk, int size)
 }
 
 static void
-nl_open_async(struct krt_proto *p)
+nl_open_async(void)
 {
   sock *sk;
   struct sockaddr_nl sa;
@@ -766,7 +777,7 @@ nl_open_async(struct krt_proto *p)
   fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
   if (fd < 0)
     {
-      log(L_ERR "Unable to open secondary rtnetlink socket: %m");
+      log(L_ERR "Unable to open asynchronous rtnetlink socket: %m");
       return;
     }
 
@@ -775,13 +786,12 @@ nl_open_async(struct krt_proto *p)
   sa.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV4_ROUTE;
   if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
     {
-      log(L_ERR "Unable to bind secondary rtnetlink socket: %m");
+      log(L_ERR "Unable to bind asynchronous rtnetlink socket: %m");
       return;
     }
 
-  sk = nl_async_sk = sk_new(p->p.pool);
+  sk = nl_async_sk = sk_new(krt_pool);
   sk->type = SK_MAGIC;
-  sk->data = p;
   sk->rx_hook = nl_async_hook;
   sk->fd = fd;
   if (sk_open(sk))
@@ -795,24 +805,47 @@ nl_open_async(struct krt_proto *p)
  *	Interface to the UNIX krt module
  */
 
+static u8 nl_cf_table[256 / 8];
+
 void
-krt_scan_preconfig(struct krt_config *x)
+krt_scan_preconfig(struct config *c)
+{
+  bzero(&nl_cf_table, sizeof(nl_cf_table));
+}
+
+void
+krt_scan_postconfig(struct krt_config *x)
+{
+  int id = x->scan.table_id;
+
+  if (nl_cf_table[id/8] & (1 << (id%8)))
+    cf_error("Multiple kernel syncers defined for table #%d", id);
+  nl_cf_table[id/8] |= (1 << (id%8));
+}
+
+void
+krt_scan_construct(struct krt_config *x)
 {
   x->scan.async = 1;
+  x->scan.table_id = RT_TABLE_MAIN;
   /* FIXME: Use larger defaults for scanning times? */
 }
 
 void
-krt_scan_start(struct krt_proto *p)
+krt_scan_start(struct krt_proto *p, int first)
 {
   init_list(&p->scan.temp_ifs);
-  nl_open();
-  if (KRT_CF->scan.async)	/* FIXME: Async is for debugging only. Get rid of it some day. */
-    nl_open_async(p);
+  nl_table_map[KRT_CF->scan.table_id] = p;
+  if (first)
+    {
+      nl_open();
+      if (KRT_CF->scan.async)	/* FIXME: Async is for debugging only. Get rid of it some day. */
+	nl_open_async();
+    }
 }
 
 void
-krt_scan_shutdown(struct krt_proto *p)
+krt_scan_shutdown(struct krt_proto *p, int last)
 {
 }
 
