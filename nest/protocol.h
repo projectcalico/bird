@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Protocols
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -103,6 +103,7 @@ struct proto {
   unsigned core_state;			/* Core state machine (see below) */
   unsigned core_goal;			/* State we want to reach (see below) */
   unsigned reconfiguring;		/* We're shutting down due to reconfiguration */
+  u32 hash_key;				/* Random key used for hashing of neighbors */
   bird_clock_t last_state_change;	/* Time of last state transition */
 
   /*

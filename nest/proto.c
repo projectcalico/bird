@@ -89,6 +89,7 @@ proto_new(struct proto_config *c, unsigned size)
   p->in_filter = c->in_filter;
   p->out_filter = c->out_filter;
   p->min_scope = SCOPE_SITE;
+  p->hash_key = random_u32();
   c->proto = p;
   return p;
 }
