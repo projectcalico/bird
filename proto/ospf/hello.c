@@ -54,16 +54,19 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   struct ospf_neighbor *neigh,*n;
   u8 i,twoway,oldpriority;
   ip_addr olddr,oldbdr;
+  ip_addr mask;
   char *beg=": Bad OSPF hello packet from ", *rec=" received: ";
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
   OSPF_TRACE(D_PACKETS, "Received hello from %I via %s",faddr,ifa->iface->name);
+  mask=ps->netmask;
+  ipa_ntoh(mask);
 
-  if((unsigned)ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
+  if((unsigned)ipa_mklen(mask)!=ifa->iface->addr->pxlen)
   {
     log("%s%s%I%s%Ibad netmask %I.", p->name, beg, nrid, rec,
-      ipa_ntoh(ps->netmask));
+      mask);
     return;
   }
   
@@ -93,8 +96,10 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     add_tail(&ifa->neigh_list, NODE n);
     n->rid=nrid;
     n->ip=faddr;
-    n->dr=ipa_ntoh(ps->dr);
-    n->bdr=ipa_ntoh(ps->bdr);
+    n->dr=ps->dr;
+    ipa_ntoh(n->dr);
+    n->bdr=ps->bdr;
+    ipa_ntoh(n->bdr);
     n->priority=ps->priority;
     n->options=ps->options;
     n->ifa=ifa;
@@ -213,8 +218,10 @@ hello_timer_hook(timer *timer)
   pkt->options=ifa->options;
   pkt->priority=ifa->priority;
   pkt->deadint=htonl(ifa->deadc*ifa->helloint);
-  pkt->dr=ipa_hton(ifa->drip);
-  pkt->bdr=ipa_hton(ifa->bdrip);
+  pkt->dr=ifa->drip;
+  ipa_hton(pkt->dr);
+  pkt->bdr=ifa->bdrip;
+  ipa_hton(pkt->bdr);
 
   /* Fill all neighbors */
   i=0;
