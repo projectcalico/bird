@@ -56,6 +56,7 @@ CF_DECLS
 %type <a> ipa
 %type <px> prefix prefix_or_ipa
 
+%nonassoc PREFIX_DUMMY
 %nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ
 %left '+' '-'
 %left '*' '/' '%'
