@@ -57,7 +57,7 @@ struct filter {
 
 void filters_postconfig(void);
 struct f_inst *f_new_inst(void);
-struct f_inst *f_new_dynamic_attr(int code);
+struct f_inst *f_new_dynamic_attr(int type, int code);
 struct f_tree *f_new_tree(void);
 
 struct f_tree *build_tree(struct f_tree *);
