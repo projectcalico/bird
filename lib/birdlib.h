@@ -39,11 +39,11 @@ void bug(char *msg, ...) NORET;
 #define L_TRACE "\002"			/* Protocol tracing */
 #define L_INFO "\003"			/* Informational messages */
 #define L_REMOTE "\004"			/* Remote protocol errors */
-#define L_WARN "\004"			/* Local warnings */
-#define L_ERR "\005"			/* Local errors */
-#define L_AUTH "\006"			/* Authorization failed etc. */
-#define L_FATAL "\007"			/* Fatal errors */
-#define L_BUG "\010"			/* BIRD bugs */
+#define L_WARN "\005"			/* Local warnings */
+#define L_ERR "\006"			/* Local errors */
+#define L_AUTH "\007"			/* Authorization failed etc. */
+#define L_FATAL "\010"			/* Fatal errors */
+#define L_BUG "\011"			/* BIRD bugs */
 
 void debug(char *msg, ...);		/* Printf to debug output */
 
