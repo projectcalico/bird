@@ -179,6 +179,8 @@ WHITE [ \t]
 \!\= return NEQ;
 \<\= return LEQ;
 \>\= return GEQ;
+\&\& return AND;
+\|\| return OR;
 
 %%
 

@@ -290,6 +290,19 @@ interpret(struct f_inst *what)
     default: runtime( "Usage of unknown type" );
     }
     break;
+    
+  case '&':
+    TWOARGS_C;
+    res.type = v1.type;
+    if (res.type != T_BOOL) runtime( "Can not do boolean operation on non-booleans" );
+    res.val.i = v1.val.i && v2.val.i;
+    break;
+  case '|':
+    TWOARGS_C;
+    res.type = v1.type;
+    if (res.type != T_BOOL) runtime( "Can not do boolean operation on non-booleans" );
+    res.val.i = v1.val.i || v2.val.i;
+    break;
 
 /* Relational operators */
 
@@ -665,6 +678,8 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case '-':
   case '*':
   case '/':
+  case '|':
+  case '&':
   case P('!','='):
   case P('=','='):
   case '<':
