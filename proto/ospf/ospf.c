@@ -55,7 +55,7 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
 
   /* No NBMA networks now */
 
-  if(((struct iface *)ifa)->flags & IF_MULTICAST)
+  if(ifa->iface->flags & IF_MULTICAST)
   {
     mcsk=sk_new(p->pool);
     mcsk->type=SK_IP_MC;
@@ -66,9 +66,9 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
     mcsk->rx_hook=ospf_rx_hook;
     mcsk->tx_hook=ospf_tx_hook;
     mcsk->err_hook=ospf_err_hook;
-    mcsk->iface=(struct iface *)ifa;
-    mcsk->rbsize=((struct iface *)ifa)->mtu;
-    mcsk->tbsize=((struct iface *)ifa)->mtu;
+    mcsk->iface=ifa->iface;
+    mcsk->rbsize=ifa->iface->mtu;
+    mcsk->tbsize=ifa->iface->mtu;
     if(sk_open(mcsk)!=0)
     {
       DBG(" OSPF: SK_OPEN: failed\n");
@@ -119,7 +119,7 @@ void
 wait_timer_hook(timer *timer)
 {
   debug(" OSPF: Wait timer expired for interface %s.\n",
-    ((struct iface *)timer->data)->name);
+    ((struct ospf_iface *)(timer->data))->iface->name);
 }
 
 void
@@ -158,7 +158,7 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->drid=0;
   ifa->bdrip=ipa_from_u32(0x00000000);
   ifa->bdrid=0;
-  ifa->type=ospf_iface_clasify((struct iface *)ifa);
+  ifa->type=ospf_iface_clasify(ifa->iface);
 }
 
 struct ospf_iface*
@@ -167,7 +167,7 @@ find_iface(struct proto_ospf *p, struct iface *what)
   struct ospf_iface *i;
 
   WALK_LIST (i, p->iface_list)
-    if (((struct iface *)i)->index == what->index)
+    if ((i)->iface == what)
       return i;
   return NULL;
 }
@@ -177,6 +177,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
 {
   struct ospf_iface *ifa;
   sock *mcsk, *newsk;
+  struct ospf_sock *osk;
 
   struct ospf_config *c;
   c=(struct ospf_config *)(p->cf);
@@ -190,16 +191,16 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
     debug(" OSPF: using interface %s.\n", new->name);
     /* FIXME: Latter I'll use config - this is incorrect */
     ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
-    memcpy(ifa, new, sizeof(struct iface));
+    ifa->iface=new;
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
     add_wait_timer(ifa,p->pool,0);
     init_list(&(ifa->sk_list));
     if((mcsk=ospf_open_socket(p, ifa))!=NULL)
     {
-#if 0	/* FIXME: You cannot do this: the socket nodes are used internally by the resource manager */
-      add_tail(&(ifa->sk_list),NODE mcsk);
-#endif
+      osk=(struct ospf_sock *)mb_alloc(p->pool, sizeof(struct ospf_sock));
+      osk->sk=mcsk;
+      add_tail(&(ifa->sk_list),NODE osk);
     }
   }
 

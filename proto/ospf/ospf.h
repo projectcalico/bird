@@ -20,12 +20,13 @@
 
 struct ospf_config {
   struct proto_config c;
-  u32 area;		/* Area ID  !!! This is wrong !!!
+  u32 area;		/* FIXME: Area ID  !!! This is wrong !!!
                          * Should respect interface */
 };
 
 struct ospf_iface {
-  struct iface i;	/* Nest's iface */
+  node n;
+  struct iface *iface;	/* Nest's iface */
   list sk_list;		/* List of active sockets */
   u32 area;		/* OSPF Area */
   u16 cost;		/* Cost of iface */
@@ -48,11 +49,12 @@ struct ospf_iface {
 #define OSPF_IT_NBMA 1
 #define OSPF_IT_PTP 2
   int state;		/* Interface state machine */
-#define OSPF_IS_WAITING 0	/* Waiting for Wait timer */
-#define OSPF_IS_PTP 1		/* PTP operational */
-#define OSPF_IS_DROTHER 2	/* I'm on BCAST or NBMA and I'm not DR */
-#define OSPF_IS_BACKUP 3	/* I'm BDR */
-#define OSPF_IS_DR 4		/* I'm DR */
+#define OSPF_IS_DOWN 0		/* Should never happen */
+#define OSPF_IS_WAITING 1	/* Waiting for Wait timer */
+#define OSPF_IS_PTP 2		/* PTP operational */
+#define OSPF_IS_DROTHER 3	/* I'm on BCAST or NBMA and I'm not DR */
+#define OSPF_IS_BACKUP 4	/* I'm BDR */
+#define OSPF_IS_DR 5		/* I'm DR */
   timer *wait_timer;		/* One shot Wait timer - used after DOWN->UP */
 
 /* Default values for interface parameters */
@@ -66,6 +68,10 @@ struct ospf_iface {
 
 };
 
+struct ospf_sock {
+  node n;
+  sock *sk;
+};
 
 struct ospf_patt {
   struct iface_patt i;
