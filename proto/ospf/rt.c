@@ -318,9 +318,10 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
     WALK_LIST(atmp,po->area_list)
     {
-      if((nf=fib_find(&atmp->infib,&ip, mlen))!=NULL) continue;
-      /* Some intra area path exists */
+      if((nf=fib_find(&atmp->infib,&ip, mlen))!=NULL) break;
     }
+
+    if(nf!=NULL) continue;	/* Some intra area path exists */
 
     absr=NULL;
     absroa=NULL;
@@ -329,7 +330,10 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
     met=0;met2=0;tag=0;
 
-    WALK_LIST(atmp,po->area_list)
+    WALK_LIST(atmp,po->area_list)	/*
+					 * Find shortest path
+					 * to advertising router 
+					 */
     {
       if((etmp=ospf_hash_find(atmp->gr,en->lsa.rt,en->lsa.rt,LSA_T_RT))!=NULL)
       {
@@ -344,13 +348,13 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     }
     if((absr==NULL)||(absr->dist==LSINFINITY))
     {
-      DBG("ABSR is null or its dist=INF\n");
+      DBG("ASBR is null or its dist=INF\n");
       continue;
     }
 
     if(ipa_compare(lt->fwaddr,ipa_from_u32(0))==0)
     {
-      if(lt->etos>0)
+      if(lt->etos>0)	/* FW address == 0 */
       {
         met=absr->dist;
         met2=lt->metric;
@@ -364,7 +368,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     }
     else
     {
-      nf=NULL;
+      nf=NULL;		/* FW address !=0 */
       WALK_LIST(atmp,po->area_list)
       {
         if((nf=fib_route(&atmp->infib,lt->fwaddr,32))!=NULL)
@@ -396,12 +400,21 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
         nnh=nn->addr;
         nnhi=nn->iface;
       }
+      else
+      {
+        nnh=nf->nh;
+        nnhi=nf->nhi;
+      }
+
     }
 
     nf=fib_get(ef,&ip, mlen);
-    if(((nf->metric>met)&&(nf->metric2==met2)) || /* both E1 or E2 with same metric */
-      ((nf->metric2>met2)&&(nf->metric2!=LSINFINITY)) || /* E2 smaller and 1st is not E1 */
-      ((nf->metric2==LSINFINITY)&&(met2!=LSINFINITY)))	/* 2nd is E1 and 1st is E2 */
+    if(((nf->metric>met)&&(nf->metric2==met2)) || /* both E1 or E2
+						   * with same metric */
+      ((nf->metric2>met2)&&(nf->metric2!=LSINFINITY)) || /* E2 smaller and
+							  * 1st is not E1 */
+      ((nf->metric2!=LSINFINITY)&&(met2==LSINFINITY)))	/* 2nd is E1 and
+							 * 1st is E2 */
     {
       nf->metric=met;
       nf->metric2=met2;
