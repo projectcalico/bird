@@ -12,8 +12,8 @@ endif
 .PHONY: prog.sgml bird.sgml
 
 docs: progdocs userdocs
-
-progdocs: prog.html prog.dvi
+progdocs: prog.html prog.ps
+userdocs: bird.html bird.ps
 
 prog.sgml:
 	$(srcdir)/tools/progdoc $(srcdir_abs)
@@ -21,11 +21,12 @@ prog.sgml:
 %.html: %.sgml
 	./sgml2html $<
 
-%.info: %.sgml
-	sgml2info $<
+%.dvi: %.tex
+	latex $<
+	latex $<
 
-%.dvi: %.sgml
-	./sgml2latex $<
+%.ps: %.dvi
+	dvips -D600 -ta4 -o $@ $<
 
 %.tex: %.sgml
 	./sgml2latex --output=tex $<
@@ -37,8 +38,9 @@ progspell: prog.sgml
 	sed -f prog-spell.sed <prog.sgml >prog.spell
 	ispell prog.spell
 
-userdocs: bird.html bird.dvi bird.txt
-
 clean:
-	rm -f *.html *.tex *.dvi *.log *.ps *.txt *.aux *.toc *.spell
+	rm -f *.tex *.dvi *.log *.txt *.aux *.toc *.spell
 	rm -f prog.sgml
+
+distclean: clean
+	rm -f *.html *.ps

@@ -54,6 +54,10 @@ install: all
 		echo "Not overwriting old bird.conf" ;						\
 	fi
 
+install-docs:
+	$(INSTALL) -d $(docdir)
+	$(INSTALL_DATA) $(srcdir)/doc/{bird,prog}{,-*}.html $(docdir)/
+
 clean:
 	find . -name "*.[oa]" -o -name core -o -name depend -o -name "*.html" | xargs rm -f
 	rm -f $(exedir)/bird $(exedir)/birdc $(exedir)/bird.ctl .dep-stamp
