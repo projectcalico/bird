@@ -4,6 +4,7 @@ if [ -z "$4" ] ; then
 	echo "Usage: mergedirs <src-dir> <src-dir-rel> <obj-dir> <list-of-dirs>"
 	exit 1
 	fi
+cpp=${CPP:-gcc -E}
 SRCDIR=$1
 shift
 SRCREL=$1
@@ -19,7 +20,9 @@ shift
 
 echo "Merging system-dependent modules ($@)"
 MODULES=`for a in $@ ; do
-		sed <$SRCDIR/$a/Modules "s@\\(.*\\)@\\1 $a/\\1@"
+		cat sysdep/autoconf.h $SRCDIR/$a/Modules |
+		$cpp -U unix - |
+		sed "/^[ ]*\$/d;/^#/d;s@\\(.*\\)@\\1 $a/\\1@"
 		done |
 	sort +0 -1 -u |
 	cut -d ' ' -f 2`

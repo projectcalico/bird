@@ -114,7 +114,7 @@ else
 fi
 
 AC_CONFIG_HEADER(sysdep/autoconf.h)
-AC_OUTPUT_COMMANDS(,[$srcdir/tools/mergedirs $srcdir $srcdir_rel $objdir $sysdep_dirs])
+AC_OUTPUT_COMMANDS(,[CPP="$CPP" $srcdir/tools/mergedirs $srcdir $srcdir_rel $objdir $sysdep_dirs])
 AC_OUTPUT($makefiles)
 
 cat >&AC_FD_MSG <<EOF
