@@ -139,7 +139,7 @@ bgp_close_conn(struct bgp_conn *conn)
   conn->keepalive_timer = NULL;
   rfree(conn->hold_timer);
   conn->hold_timer = NULL;
-  sk_close(conn->sk);
+  rfree(conn->sk);
   conn->sk = NULL;
   conn->state = BS_IDLE;
   if (conn->error_flag > 1)
@@ -235,7 +235,7 @@ bgp_sock_err(sock *sk, int err)
     {
     case BS_CONNECT:
     case BS_OPENSENT:
-      sk_close(conn->sk);
+      rfree(conn->sk);
       conn->sk = NULL;
       conn->state = BS_ACTIVE;
       bgp_start_timer(conn->connect_retry_timer, p->cf->connect_retry_time);

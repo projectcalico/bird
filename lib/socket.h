@@ -1,7 +1,7 @@
 /*
  *	BIRD Socket Interface
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2004 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -13,7 +13,7 @@
 
 typedef struct birdsock {
   resource r;
-  pool *pool;				/* Pool for socket data */
+  pool *pool;				/* Pool where incoming connections should be allocated (for SK_xxx_PASSIVE) */
   int type;				/* Socket type */
   void *data;				/* User data */
   ip_addr saddr, daddr;			/* IPA_NONE = unspecified */
@@ -38,12 +38,11 @@ typedef struct birdsock {
 
   int fd;				/* System-dependent data */
   node n;
-  int entered;
+  void *rbuf_alloc, *tbuf_alloc;
 } sock;
 
 sock *sk_new(pool *);			/* Allocate new socket */
 int sk_open(sock *);			/* Open socket */
-void sk_close(sock *);			/* Safe close of socket even from socket hook */
 int sk_send(sock *, unsigned len);	/* Send data, <0=err, >0=ok, 0=sleep */
 int sk_send_to(sock *, unsigned len, ip_addr to, unsigned port); /* sk_send to given destination */
 void sk_dump_all(void);
@@ -68,7 +67,6 @@ sk_send_buffer_empty(sock *sk)
 #define SK_MAGIC	7	   /* Internal use by sysdep code */
 #define SK_UNIX_PASSIVE	8
 #define SK_UNIX		9
-#define SK_DELETED	10	   /* Internal use by sk_close */
 
 /*
  *  Multicast sockets are slightly different from the other ones:

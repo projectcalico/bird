@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Unix I/O
  *
- *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2004 Martin Mares <mj@ucw.cz>
  *      (c) 2004       Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
@@ -30,7 +30,6 @@
 #include "lib/unix.h"
 #include "lib/sysio.h"
 
-#define LOCAL_DEBUG
 /*
  *	Tracked Files
  */
@@ -394,7 +393,7 @@ tm_format_reltime(char *x, bird_clock_t t)
  * (@rx_hook), when the contents of the transmit buffer have been transmitted
  * (@tx_hook) and when an error or connection close occurs (@err_hook).
  *
- * You should not use rfree() from inside a socket hook, please use sk_close() instead.
+ * Freeing of sockets from inside socket hooks is perfectly safe.
  */
 
 #ifndef SOL_IP
@@ -410,16 +409,34 @@ tm_format_reltime(char *x, bird_clock_t t)
 #endif
 
 static list sock_list;
+static struct birdsock *current_sock;
+static int sock_recalc_fdsets_p;
+
+static inline sock *
+sk_next(sock *s)
+{
+  if (!s->n.next->next)
+    return NULL;
+  else
+    return SKIP_BACK(sock, n, s->n.next);
+}
 
 static void
 sk_free(resource *r)
 {
   sock *s = (sock *) r;
 
+  if (s->rbuf_alloc)
+    xfree(s->rbuf_alloc);
+  if (s->tbuf_alloc)
+    xfree(s->tbuf_alloc);
   if (s->fd >= 0)
     {
       close(s->fd);
+      if (s == current_sock)
+	current_sock = sk_next(s);
       rem_node(&s->n);
+      sock_recalc_fdsets_p = 1;
     }
 }
 
@@ -474,12 +491,16 @@ sk_new(pool *p)
   s->tbsize = 0;
   s->err_hook = NULL;
   s->fd = -1;
-  s->entered = 0;
+  s->rbuf_alloc = s->tbuf_alloc = NULL;
   return s;
 }
 
-#define ERR(x) do { err = x; goto bad; } while(0)
-#define WARN(x) log(L_WARN "sk_setup: %s: %m", x)
+static void
+sk_insert(sock *s)
+{
+  add_tail(&sock_list, &s->n);
+  sock_recalc_fdsets_p = 1;
+}
 
 #ifdef IPV6
 
@@ -534,6 +555,9 @@ get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port, int check)
 
 #endif
 
+#define ERR(x) do { err = x; goto bad; } while(0)
+#define WARN(x) log(L_WARN "sk_setup: %s: %m", x)
+
 static char *
 sk_setup(sock *s)
 {
@@ -566,10 +590,10 @@ static void
 sk_alloc_bufs(sock *s)
 {
   if (!s->rbuf && s->rbsize)
-    s->rbuf = mb_alloc(s->pool, s->rbsize);
+    s->rbuf = s->rbuf_alloc = xmalloc(s->rbsize);
   s->rpos = s->rbuf;
   if (!s->tbuf && s->tbsize)
-    s->tbuf = mb_alloc(s->pool, s->tbsize);
+    s->tbuf = s->tbuf_alloc = xmalloc(s->tbsize);
   s->tpos = s->ttx = s->tbuf;
 }
 
@@ -597,7 +621,7 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
       t->tbsize = s->tbsize;
       if (type == SK_TCP)
 	get_sockaddr((sockaddr *) sa, &t->daddr, &t->dport, 1);
-      add_tail(&sock_list, &t->n);
+      sk_insert(t);
       if (err = sk_setup(t))
 	{
 	  log(L_ERR "Incoming connection: %s: %m", err);
@@ -663,9 +687,8 @@ sk_open(sock *s)
   s->fd = fd;
 
   if (err = sk_setup(s))
-  {
     goto bad;
-  }
+
   switch (type)
     {
     case SK_UDP:
@@ -769,7 +792,7 @@ sk_open(sock *s)
 #endif
     }
 
-  add_tail(&sock_list, &s->n);
+  sk_insert(s);
   return 0;
 
 bad:
@@ -799,7 +822,7 @@ sk_open_unix(sock *s, char *name)
     ERR("bind");
   if (listen(fd, 8))
     ERR("listen");
-  add_tail(&sock_list, &s->n);
+  sk_insert(s);
   return 0;
 
 bad:
@@ -807,23 +830,6 @@ bad:
   close(fd);
   s->fd = -1;
   return -1;
-}
-
-/**
- * sk_close - close a socket
- * @s: a socket
- *
- * If sk_close() has been called from outside of any socket hook,
- * it translates to a rfree(), else it just marks the socket for
- * deletion as soon as the socket hook returns.
- */
-void
-sk_close(sock *s)
-{
-  if (s && s->entered)
-    s->type = SK_DELETED;
-  else
-    rfree(s);
 }
 
 static int
@@ -954,15 +960,17 @@ sk_read(sock *s)
 	  {
 	    s->rpos += c;
 	    if (s->rx_hook(s, s->rpos - s->rbuf))
-	      s->rpos = s->rbuf;
+	      {
+		/* We need to be careful since the socket could have been deleted by the hook */
+		if (current_sock == s)
+		  s->rpos = s->rbuf;
+	      }
 	    return 1;
 	  }
 	return 0;
       }
     case SK_MAGIC:
       return s->rx_hook(s, 0);
-    case SK_DELETED:
-      return 0;
     default:
       {
 	sockaddr sa;
@@ -983,7 +991,7 @@ sk_read(sock *s)
     }
 }
 
-static void
+static int
 sk_write(sock *s)
 {
   switch (s->type)
@@ -996,13 +1004,15 @@ sk_write(sock *s)
 	  sk_tcp_connected(s);
 	else if (errno != EINTR && errno != EAGAIN && errno != EINPROGRESS)
 	  s->err_hook(s, errno);
-	break;
+	return 0;
       }
-    case SK_DELETED:
-      return;
     default:
-      while (s->ttx != s->tpos && sk_maybe_write(s) > 0)
-	s->tx_hook(s);
+      if (s->ttx != s->tpos && sk_maybe_write(s) > 0)
+	{
+	  s->tx_hook(s);
+	  return 1;
+	}
+      return 0;
     }
 }
 
@@ -1052,10 +1062,9 @@ io_loop(void)
   time_t tout;
   int hi, events;
   sock *s;
-  node *n, *p;
+  node *n;
 
-  FD_ZERO(&rd);
-  FD_ZERO(&wr);
+  sock_recalc_fdsets_p = 1;
   for(;;)
     {
       events = ev_run_list(&global_event_list);
@@ -1069,6 +1078,13 @@ io_loop(void)
       timo.tv_sec = events ? 0 : tout - now;
       timo.tv_usec = 0;
 
+      if (sock_recalc_fdsets_p)
+	{
+	  sock_recalc_fdsets_p = 0;
+	  FD_ZERO(&rd);
+	  FD_ZERO(&wr);
+	}
+
       hi = 0;
       WALK_LIST(n, sock_list)
 	{
@@ -1079,12 +1095,16 @@ io_loop(void)
 	      if (s->fd > hi)
 		hi = s->fd;
 	    }
+	  else
+	    FD_CLR(s->fd, &rd);
 	  if (s->tx_hook && s->ttx != s->tpos)
 	    {
 	      FD_SET(s->fd, &wr);
 	      if (s->fd > hi)
 		hi = s->fd;
 	    }
+	  else
+	    FD_CLR(s->fd, &wr);
 	}
 
       /*
@@ -1122,24 +1142,29 @@ io_loop(void)
 	}
       if (hi)
 	{
-	  WALK_LIST_DELSAFE(n, p, sock_list)
+	  current_sock = SKIP_BACK(sock, n, HEAD(sock_list));	/* guaranteed to be non-empty */
+	  while (current_sock)
 	    {
-	      s = SKIP_BACK(sock, n, n);
-	      s->entered = 1;
+	      sock *s = current_sock;
+	      int e;
 	      if (FD_ISSET(s->fd, &rd))
-		{
-		  FD_CLR(s->fd, &rd);
-		  while (sk_read(s))
-		    ;
-		}
-	      if (s->type != SK_DELETED && FD_ISSET(s->fd, &wr))
-		{
-		  FD_CLR(s->fd, &wr);
-		  sk_write(s);
-		}
-	      s->entered = 0;
-	      if (s->type == SK_DELETED)
-		rfree(s);
+		do
+		  {
+		    e = sk_read(s);
+		    if (s != current_sock)
+		      goto next;
+		  }
+		while (e);
+	      if (FD_ISSET(s->fd, &wr))
+		do
+		  {
+		    e = sk_write(s);
+		    if (s != current_sock)
+		      goto next;
+		  }
+		while (e);
+	      current_sock = sk_next(s);
+	    next: ;
 	    }
 	}
     }
