@@ -298,6 +298,7 @@ typedef struct eattr {
 #define EAF_TYPE_UNDEF 0x0f		/* `force undefined' entry */
 #define EAF_EMBEDDED 0x01		/* Data stored in eattr.u.data (part of type spec) */
 #define EAF_VAR_LENGTH 0x02		/* Attribute length is variable (part of type spec) */
+#define EAF_ORIGINATED 0x40		/* The attribute has originated locally */
 #define EAF_TEMP 0x80			/* A temporary attribute (the one stored in the tmp attr list) */
 
 struct adata {

@@ -117,7 +117,7 @@ ea_do_sort(ea_list *e)
 static inline void
 ea_do_prune(ea_list *e)
 {
-  eattr *s, *d, *l;
+  eattr *s, *d, *l, *s0;
   int i = 0;
 
   /* Discard duplicates and undefs. Do you remember sorting was stable? */
@@ -125,14 +125,17 @@ ea_do_prune(ea_list *e)
   l = e->attrs + e->count;
   while (s < l)
     {
-      if ((s->type & EAF_TYPE_MASK) != EAF_TYPE_UNDEF)
-	{
-	  *d++ = *s;
-	  i++;
-	}
-      s++;
+      s0 = s++;
       while (s < l && s->id == s[-1].id)
 	s++;
+      /* s0 is the most recent version, s[-1] the oldest one */
+      if ((s0->type & EAF_TYPE_MASK) != EAF_TYPE_UNDEF)
+	{
+	  *d = *s0;
+	  d->type = (d->type & ~EAF_ORIGINATED) | (s[-1].type & EAF_ORIGINATED);
+	  d++;
+	  i++;
+	}
     }
   e->count = i;
 }
@@ -320,6 +323,8 @@ ea_dump(ea_list *e)
 	  if (a->type & EAF_TEMP)
 	    debug("T");
 	  debug("=%c", "?iO?I?P???S?????" [a->type & EAF_TYPE_MASK]);
+	  if (a->type & EAF_ORIGINATED)
+	    debug("o");
 	  if (a->type & EAF_EMBEDDED)
 	    debug(":%08x", a->u.data);
 	  else
