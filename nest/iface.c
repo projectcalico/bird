@@ -23,7 +23,6 @@ static void auto_router_id(void);
  *	Neighbor Cache
  *
  *	FIXME: Use hashing to get some real speed.
- *	FIXME: Cleanup when a protocol goes down.
  */
 
 static slab *neigh_slab;
@@ -157,6 +156,30 @@ neigh_if_down(struct iface *i)
 	  sl_free(neigh_slab, n);
 	}
       i->neigh = NULL;
+    }
+}
+
+void
+neigh_prune(void)
+{
+  neighbor *n, *m, **N;
+  struct iface *i;
+
+  DBG("Pruning neighbors\n");
+  WALK_LIST(i, iface_list)
+    {
+      N = &i->neigh;
+      while (n = *N)
+	{
+	  if (n->proto->core_state == FS_HUNGRY || n->proto->core_state == FS_FLUSHING)
+	    {
+	      *N = n->sibling;
+	      rem_node(&n->n);
+	      sl_free(neigh_slab, n);
+	      continue;
+	    }
+	  N = &n->sibling;
+	}
     }
 }
 

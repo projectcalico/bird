@@ -330,6 +330,7 @@ proto_flush_all(void *unused)
   struct proto *p;
 
   rt_prune(&master_table);
+  neigh_prune();
   while ((p = HEAD(flush_proto_list))->n.next)
     {
       DBG("Flushing protocol %s\n", p->name);

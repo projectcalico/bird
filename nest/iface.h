@@ -89,6 +89,7 @@ neighbor *neigh_find(struct proto *, ip_addr *, unsigned flags);
 
 void neigh_dump(neighbor *);
 void neigh_dump_all(void);
+void neigh_prune(void);
 
 /*
  *	Interface Pattern Lists
