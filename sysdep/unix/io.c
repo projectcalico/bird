@@ -293,6 +293,16 @@ tm_format_date(char *x, bird_clock_t t)
 }
 
 void
+tm_format_datetime(char *x, bird_clock_t t)
+{
+  struct tm *tm;
+
+  tm = localtime(&t);
+  if (strftime(x, TM_DATETIME_BUFFER_SIZE, "%d-%m-%Y %H:%M:%S", tm) == TM_DATETIME_BUFFER_SIZE)
+    strcpy(x, "<too-long>");
+}
+
+void
 tm_format_reltime(char *x, bird_clock_t t)
 {
   struct tm *tm;
