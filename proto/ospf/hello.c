@@ -7,8 +7,6 @@
  */
 
 #include "ospf.h"
-#include <sys/socket.h>
-#include "lib/sysio.h"
 
 void
 install_inactim(struct ospf_neighbor *n)
