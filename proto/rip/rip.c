@@ -282,15 +282,17 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
     log( L_REMOTE "%s: %I asked me to route %I/%d using not-neighbor %I.", p->name, A.from, b->network, pxlen, A.gw );
     return;
   }
+  if (neighbor->scope == SCOPE_HOST) {
+    DBG("Self-destined route, ignoring.\n");
+    return;
+  }
 
   A.iface = neighbor->iface;
   if (!(rif = neighbor->data)) {
     rif = neighbor->data = find_interface(p, A.iface);
   }
-  if (!rif) {
+  if (!rif)
     bug("Route packet using unknown interface? No.");
-    return;
-  }
     
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
@@ -338,6 +340,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 {
   int i;
   int native_class = 0, authenticated = 0;
+  neighbor *neighbor;
 
   switch( packet->heading.version ) {
   case RIP_V1: DBG( "Rip1: " ); break;
@@ -360,7 +363,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    return 1;
 	  }
 
-	  if (!neigh_find( p, &whotoldme, 0 )) {
+	  if (!(neighbor = neigh_find( p, &whotoldme, 0 )) || neighbor->scope == SCOPE_HOST) {
 	    log( L_REMOTE "%s: %I send me routing info but he is not my neighbor", P_NAME, whotoldme );
 	    return 0;
 	  }
