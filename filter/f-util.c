@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/signal.h>
+#include <setjmp.h>
 
 #include "nest/bird.h"
 #include "lib/lists.h"
@@ -21,9 +22,23 @@
 #include "conf/conf.h"
 #include "filter/filter.h"
 
-struct f_inst *last_func = NULL;
+struct f_inst *autoexec_func = NULL;
 
-#define runtime die
+#define runtime(x) do { \
+    log( L_ERR, x ); \
+    res.type = T_RETURN; \
+    res.val.i = F_ERROR; \
+    return res; \
+  } while(0)
+
+#define ARG(x,y) \
+	x = interpret(what->y); \
+	if (x.type == T_RETURN) \
+		return x;
+
+#define ONEARG ARG(v1, arg1)
+#define TWOARGS ARG(v1, arg1) \
+		ARG(v2, arg2)
 
 static struct f_val
 interpret(struct f_inst *what)
@@ -37,12 +52,10 @@ interpret(struct f_inst *what)
 
   switch(what->code) {
   case ',':
-    interpret(what->arg1);
-    interpret(what->arg2);
+    TWOARGS;
     break;
   case '+':
-    v1 = interpret(what->arg1);
-    v2 = interpret(what->arg2);
+    TWOARGS;
     if (v1.type != v2.type)
       runtime( "Can not operate with values of incompatible types" );
 
@@ -53,14 +66,14 @@ interpret(struct f_inst *what)
     }
     break;
   case '=':
-    v1 = interpret(what->arg2);
+    ARG(v2, arg2);
     sym = what->arg1;
-    switch (res.type = v1.type) {
+    switch (res.type = v2.type) {
     case T_VOID: runtime( "Can not assign void values" );
     case T_INT: 
       if (sym->class != SYM_VARIABLE_INT)
 	runtime( "Variable of bad type" );
-      sym->aux = v1.val.i; 
+      sym->aux = v2.val.i; 
       break;
     }
     break;
@@ -73,7 +86,7 @@ interpret(struct f_inst *what)
     res.val.i = * ((int *) what->arg1);
     break;
   case 'p':
-    v1 = interpret(what->arg1);
+    ONEARG;
     printf( "Printing: " );
     switch (v1.type) {
     case T_VOID: printf( "(void)" ); break;
@@ -83,11 +96,12 @@ interpret(struct f_inst *what)
     printf( "\n" );
     break;
   case '?':
-    v1 = interpret(what->arg1);
+    ONEARG;
     if (v1.type != T_INT)
       runtime( "If requires integer expression" );
-    if (v1.val.i)
-      res = interpret(what->arg2);
+    if (v1.val.i) {
+      ARG(res,arg2);
+    }
     break;
   case 'D':
     printf( "DEBUGGING PRINT\n" );
@@ -96,27 +110,30 @@ interpret(struct f_inst *what)
     printf( "No operation\n" );
     break;
   case 'd':
-    printf( "Puts: %s\n", what->arg1 );
+    printf( "Puts: %s\n", (char *) what->arg1 );
     break;
   case '!':
-    die( "Filter asked me to die" );
+    switch ((int) what->arg1) {
+    case F_QUITBIRD:
+      die( "Filter asked me to die" );
+    case F_ACCEPT:
+      /* Should take care about turning ACCEPT into MODIFY */
+    case F_ERROR:
+    case F_REJECT:
+      res.type = T_RETURN;
+      res.val = (int) what->arg1;
+      break;
+    default:
+      bug( "unknown return type: can not happen");
+    }
+    break;
   default:
-    die( "Unknown insruction %d(%c)", what->code, what->code & 0xff);
+    bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
   }
   if (what->next)
     return interpret(what->next);
   return res;
 }
-
-void
-filters_postconfig(void)
-{
-  if (!last_func)
-    printf( "No function defined\n" );
-  else {
-    interpret(last_func);
-  }
-} 
 
 struct f_inst *
 f_new_inst(void)
@@ -132,10 +149,20 @@ int
 f_run(struct symbol *filter, struct rte *rtein, struct rte **rteout)
 {
   struct f_inst *inst;
+  struct f_val res;
   debug( "Running filter `%s'...", filter->name );
 
   inst = filter->def;
-  interpret(inst);
-  debug( "done\n" );
-  return F_ACCEPT;
+  res = interpret(inst);
+  if (res.type != T_RETURN)
+    return F_ERROR;
+  debug( "done (%d)\n", res.val.i );
+  return res.val.i;
 }
+
+void
+filters_postconfig(void)
+{
+  if (autoexec_func)
+    interpret(autoexec_func);
+} 

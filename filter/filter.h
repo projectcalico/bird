@@ -30,9 +30,14 @@ struct f_inst *f_new_inst(void);
 #define F_ACCEPT 1
 #define F_REJECT 2
 #define F_MODIFY 3
+#define F_ERROR 4
+#define F_QUITBIRD 5
 
 #define T_VOID 0
-#define T_INT 1
-#define T_PX 2
+#define T_RETURN 1
+#define T_INT 10
+#define T_PX 11		/* prefix */
+#define T_INTLIST 12
+
 
 #endif

@@ -19,7 +19,8 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT, CONST, VAR, PUTS, DIE, IF)
+CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT, CONST, VAR, PUTS, IF, 
+	ACCEPT, REJECT, ERROR, QUITBIRD)
 
 %type <x> term
 %type <x> block
@@ -30,11 +31,12 @@ CF_GRAMMAR
 CF_ADDTO(conf, function)
 function:
    FUNCTION SYM '(' ')' '{' cmds '}' { 
-     extern struct f_inst *last_func;
+     extern struct f_inst *autoexec_func;
      if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
      $2->class = SYM_FUNCTION;
      $2->def = $6;
-     last_func = $6;
+     if (!strcasecmp($2->name, "autoexec"))
+	autoexec_func = $6;
      printf("Hmm, we've got one function here\n"); 
    }
  ;
@@ -150,9 +152,25 @@ term:
      $$->code = 'd';
      $$->arg1 = $3;
    }
- | DIE {
+ | QUITBIRD {
      $$ = f_new_inst();
      $$->code = '!';
+     (int) $$->arg1 = F_QUITBIRD;
+   }
+ | ACCEPT {
+     $$ = f_new_inst();
+     $$->code = '!';
+     (int) $$->arg1 = F_ACCEPT;
+   }
+ | REJECT {
+     $$ = f_new_inst();
+     $$->code = '!';
+     (int) $$->arg1 = F_REJECT;
+   }
+ | ERROR {
+     $$ = f_new_inst();
+     $$->code = '!';
+     (int) $$->arg1 = F_ERROR;
    }
  | PRINTDEBUG {
      $$ = f_new_inst();
