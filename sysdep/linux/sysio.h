@@ -23,6 +23,8 @@ set_inaddr(struct in6_addr *ia, ip_addr a)
 
 #else
 
+#include <net/if.h>
+
 static inline void
 set_inaddr(struct in_addr *ia, ip_addr a)
 {
@@ -78,14 +80,18 @@ static inline char *sysio_mcast_join(sock *s)
 {
   struct ip_mreqn mreq;
   char *err;
+  struct ifreq ifr;
 
   if (err = sysio_mcast_setup(s))
     return err;
+  strcpy(ifr.ifr_name, s->iface->name);
+  if (setsockopt(s->fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
+    return "SO_BINDTODEVICE";
   mreq.imr_ifindex = s->iface->index;
   set_inaddr(&mreq.imr_address, s->iface->addr->ip);
   set_inaddr(&mreq.imr_multiaddr, s->daddr);
   /* This defines where should we send _outgoing_ multicasts */
-  if (setsockopt(s->fd, SOL_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0)
+  if (ipa_nonzero(s->daddr) && setsockopt(s->fd, SOL_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0)
     return "IP_MULTICAST_IF";
   /* And this one sets interface for _receiving_ multicasts from */
   if (ipa_nonzero(s->saddr) && setsockopt(s->fd, SOL_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
@@ -100,8 +106,6 @@ static inline char *sysio_mcast_join(sock *s)
  *  addresses and thus fails on unnumbered devices. On newer 2.0 kernels
  *  we can use SO_BINDTODEVICE to circumvent this problem.
  */
-
-#include <net/if.h>
 
 static inline char *sysio_mcast_join(sock *s)
 {
@@ -125,7 +129,7 @@ static inline char *sysio_mcast_join(sock *s)
 #endif
   set_inaddr(&mreq_add.imr_multiaddr, s->daddr);
   /* This defines where should we send _outgoing_ multicasts */
-  if (setsockopt(s->fd, SOL_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0)
+  if (ipa_nonzero(s->daddr) && setsockopt(s->fd, SOL_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0)
     return "IP_MULTICAST_IF";
   /* And this one sets interface for _receiving_ multicasts from */
   if (ipa_nonzero(s->saddr) && setsockopt(s->fd, SOL_IP, IP_ADD_MEMBERSHIP, &mreq_add, sizeof(mreq_add)) < 0)
