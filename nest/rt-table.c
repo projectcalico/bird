@@ -141,7 +141,7 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
       else if (ok)
 	rte_trace_out(D_FILTERS, p, new, "forced accept by protocol");
       else if (p->out_filter == FILTER_REJECT ||
-	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool, 0) > F_ACCEPT)
+	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
 	{
 	  rte_trace_out(D_FILTERS, p, new, "filtered out");
 	  new = NULL;
@@ -155,7 +155,7 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
       else
 	{
 	  ea_list *tmpb = p->make_tmp_attrs ? p->make_tmp_attrs(old, rte_update_pool) : NULL;
-	  if (f_run(p->out_filter, &old, &tmpb, rte_update_pool, 0) > F_ACCEPT)
+	  if (f_run(p->out_filter, &old, &tmpb, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
 	    old = NULL;
 	}
     }
