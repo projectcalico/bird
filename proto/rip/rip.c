@@ -5,6 +5,8 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
+        FIXME: lock interface so we are not started twice on same interface.
+
  	FIXME: IpV6 support: packet size
  	FIXME: IpV6 support: use right address for broadcasts
 	FIXME: IpV6 support: receive "route using" blocks
@@ -12,7 +14,7 @@
 	FIXME (nonurgent): fold rip_connection into rip_interface?
 
 	We are not going to honour requests for sending part of
-	routing table. That would need to turn split horizont off,
+	routing table. That would need to turn split horizon off,
 	etc.  
 
 	Triggered updates. When triggered update was sent, don't send
@@ -49,15 +51,6 @@
 #define TRACE(level, msg, args...) do { if (p->debug & level) { log(L_TRACE "%s: " msg, p->name , ## args); } } while(0)
 
 static struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt);
-
-static void
-rip_reply(struct proto *p)
-{
-#if 0
-  P->listen->tbuf = "ACK!";
-  sk_send_to( P->listen, 5, P->listen->faddr, P->listen->fport );
-#endif
-}
 
 #define P_NAME p->name
 
@@ -106,8 +99,8 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
   b->pxlen = e->n.pxlen;
 #endif
   b->metric  = htonl( e->metric );
-  if (ipa_equal(e->whotoldme, daddr)) {	/* FIXME: ouch, daddr is some kind of broadcast address. How am I expected to do split horizont?!?!? */
-    DBG( "(split horizont)" );
+  if (ipa_equal(e->whotoldme, daddr)) {	/* FIXME: ouch, daddr is some kind of broadcast address. How am I expected to do split horizon?!?!? */
+    DBG( "(split horizon)" );
     b->metric = htonl( P_CF->infinity );
   }
   ipa_hton( b->network );
@@ -313,7 +306,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   advertise_entry( p, block, whotoldme );
 }
 
-#define BAD( x ) { log( L_WARN "RIP/%s: " x, P_NAME ); return 1; }
+#define BAD( x ) { log( L_REMOTE "%s: " x, P_NAME ); return 1; }
 
 static int
 rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr whotoldme, int port )
@@ -330,11 +323,11 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   switch( packet->heading.command ) {
   case RIPCMD_REQUEST: DBG( "Asked to send my routing table\n" ); 
 	  if (P_CF->honour == HO_NEVER) {
-	    log( L_WARN "They asked me to send routing table, but I was told not to do it\n" );
+	    log( L_REMOTE "They asked me to send routing table, but I was told not to do it" );
 	    return 0;
 	  }
 	  if ((P_CF->honour == HO_NEIGHBOUR) && (!neigh_find( p, &whotoldme, 0 ))) {
-	    log( L_WARN "They asked me to send routing table, but he is not my neighbour\n" );
+	    log( L_REMOTE "They asked me to send routing table, but he is not my neighbour" );
 	    return 0;
 	  }
     	  rip_sendto( p, whotoldme, port, HEAD(P->interfaces) ); /* no broadcast */
@@ -386,7 +379,6 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   default: BAD( "Unknown command" );
   }
 
-  rip_reply(p);
   return 0;
 }
 
@@ -437,12 +429,12 @@ rip_timer(timer *t)
     DBG( "Garbage: " ); rte_dump( rte );
 
     if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
-      TRACE(D_EVENTS, "RIP: entry is too old: " ); rte_dump( rte );
+      TRACE(D_EVENTS, "RIP: entry is too old: %I", rte->net->n.prefix );
       e->metric = P_CF->infinity;
     }
 
     if (now - rte->u.rip.lastmodX > P_CF->garbage_time) {
-      TRACE(D_EVENTS, "RIP: entry is much too old: " ); rte_dump( rte );
+      TRACE(D_EVENTS, "RIP: entry is much too old: %I", rte->net->n.prefix );
       rte_discard(p->table, rte);
     }
   }
@@ -589,22 +581,22 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 
   rif->sock->daddr = new->addr->brd;
   if (new->addr->flags & IA_UNNUMBERED)
-    log( L_WARN "RIP/%s: rip is not defined over unnumbered links\n", P_NAME );
+    log( L_WARN "%s: rip is not defined over unnumbered links", P_NAME );
   if (want_multicast) {
     rif->sock->daddr = ipa_from_u32(0xe0000009);
     rif->sock->saddr = ipa_from_u32(0xe0000009);
   }
 
   if (!ipa_nonzero(rif->sock->daddr)) {
-    log( L_WARN "RIP/%s: interface %s is too strange for me", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
+    log( L_WARN "%s: interface %s is too strange for me", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
   } else
     if (!(rif->patt->mode & IM_NOLISTEN))
       if (sk_open(rif->sock)<0) {
-	log( L_ERR "RIP/%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
+	log( L_ERR "%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
 	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
       }
 
-  TRACE(D_EVENTS, "RIP/%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast", rif->sock->daddr );
+  TRACE(D_EVENTS, "%s: listening on %s, port %d, mode %s (%I)", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast", rif->sock->daddr );
   
   return rif;
 }
@@ -786,16 +778,10 @@ rip_preconfig(struct protocol *x, struct config *c)
   DBG( "RIP: preconfig\n" );
 }
 
-static void
-rip_postconfig(struct proto_config *c)
-{
-}
-
 struct protocol proto_rip = {
   name: "RIP",
   template: "rip%d",
   preconfig: rip_preconfig,
-  postconfig: rip_postconfig,
   get_route_info: rip_get_route_info,
 
   init: rip_init,
