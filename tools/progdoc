@@ -2,76 +2,46 @@
 
 $srcdir = $ARGV[0];
 
-open(OUT, ">prog/index.html") || die "Cannot create output file";
-html_header(*OUT{IO}, "BIRD: The Developer's Guide");
-print OUT "<H1>BIRD: The Developer's Guide</H1>\n";
-print OUT "<UL>\n";
+open(OUT, ">prog.sgml") || die "Cannot create output file";
+include("prog-head.sgml");
 process("");
-html_footer(*OUT{IO});
-print OUT "</UL>\n";
+include("prog-foot.sgml");
 close OUT;
 exit 0;
+
+sub include {
+  my $f = shift @_;
+  open(IN, "$srcdir/doc/$f") || die "Unable to find $f";
+  while (<IN>) {
+    print OUT;
+  }
+  close IN;
+}
 
 sub process {
   my $dir = shift @_;
   print "$dir/Doc\n";
   open(IN, "$srcdir/$dir/Doc") || die "Unable to read $dir/Doc";
   my @docfile = <IN>;
-  my @stack = ();
   close IN;
-  push @docfile, "X\n";
   foreach $_ (@docfile) {
     chomp;
     /^#/ && next;
-    /^(\.*)([A-Z]+)\s*(.*)/ || die "Parse error: $_";
-    $indent = length $1;
-    $cmd = $2;
-    $arg = $3;
-    while (@stack > $indent) {
-      $x = pop @stack;
-      if ($x eq "H") { print OUT "</UL>\n"; }
-      elsif ($x eq "F") { html_footer(*AUX{IO}); close AUX; }
-      else { print STDERR "Unknown stack element $x\n"; }
-    }
-    (@stack == $indent) or die "Invalid nesting: $_";
+    /^([A-Z]+)\s*(.*)/ || die "Parse error: $_";
+    $cmd = $1;
+    $arg = $2;
     if ($cmd eq "C") { process("$dir/$arg"); }
     elsif ($cmd eq "H") {
       push @stack, "H";
-      print OUT "<LI>$arg";
-      print OUT "<UL>\n";
-    } elsif ($cmd eq "F") {
-      $arg =~ /^(\S+)\s+(.*)$/ || die "Invalid command: $_";
-      push @stack, "F";
-      print "  $1\n";
-      open(AUX, ">prog/$1.html") || die "Unable to create output file";
-      print OUT "<LI><A HREF=\"$1.html\">$2</A>\n";
-      html_header(*AUX{IO}, "BIRD: $2");
+      print OUT "<sect>$arg\n";
     } elsif ($cmd eq "S") {
       print "    $arg\n";
-      open(DOC, "cd $srcdir/$dir ; $srcdir/doc/kernel-doc -html $arg |") || die "Unable to start kernel-doc";
-      while (<DOC>) { print AUX; }
+      open(DOC, "cd $srcdir/$dir ; $srcdir/doc/kernel-doc -bird $arg |") || die "Unable to start kernel-doc";
+      while (<DOC>) { print OUT; }
       close DOC;
-    } elsif ($cmd eq "X") {
+    } elsif ($cmd eq "D") {
+      print "    $arg\n";
+      include($arg);
     } else { die "Unknown command: $cmd"; }
   }
-}
-
-sub html_header {
-  my $out = shift @_;
-  my $title = shift @_;
-  print $out <<EOF
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
-<HTML><HEAD><TITLE>$title</TITLE>
-<LINK REV=MADE HREF="mailto:bird\@atrey.karlin.mff.cuni.cz">
-</HEAD><BODY>
-EOF
-;
-}
-
-sub html_footer {
-  my $out = shift @_;
-  print $out <<EOF
-</BODY></HTML>
-EOF
-;
 }
