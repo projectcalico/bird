@@ -162,7 +162,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
     /* Neighbor is no more declaring itself as DR or BDR */
     if(((n->rid==olddr) && (n->dr!=olddr)) || ((n->rid==oldbdr) &&
-      (n->dr!=oldbdr)))
+      (n->bdr!=oldbdr)))
       ospf_int_sm(ifa, ISM_NEICH);
   }
 

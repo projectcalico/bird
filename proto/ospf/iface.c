@@ -76,7 +76,7 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
   struct proto *p=(struct proto *)(ifa->proto);
   struct proto_ospf *po=ifa->proto;
 
-  DBG("%s: SM on iface %s. Event is \"%s\".\n",
+  debug("%s: SM on iface %s. Event is \"%s\".\n",
     p->name, ifa->iface->name, ospf_ism[event]);
 
   switch(event)
