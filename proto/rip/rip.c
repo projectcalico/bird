@@ -361,8 +361,14 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   ip_addr network = block->network;
 
   CHK_MAGIC;
+#ifdef IPV6
+  TRACE(D_ROUTES, "block: %I tells me: %I/%d available, metric %d... ",
+      whotoldme, network, block->pxlen, metric );
+#else
   TRACE(D_ROUTES, "block: %I tells me: %I/%d available, metric %d... ",
       whotoldme, network, ipa_mklen(block->netmask), metric );
+#endif
+
   if ((!metric) || (metric > P_CF->infinity)) {
 #ifdef IPV6 /* Someone is sedning us nexthop and we are ignoring it */
     if (metric == 0xff)
