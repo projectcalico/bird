@@ -81,7 +81,6 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 int
 ospf_rx_hook(sock * sk, int size)
 {
-#ifndef IPV6
   struct ospf_packet *ps;
   struct ospf_iface *ifa = (struct ospf_iface *) (sk->data);
   struct proto *p = (struct proto *) (ifa->proto);
@@ -190,9 +189,6 @@ ospf_rx_hook(sock * sk, int size)
     log("%s: Discarding\n", p->name);
     return (1);
   };
-#else
-#error RX_Hook does not work for IPv6 now.
-#endif
   return (1);
 }
 
