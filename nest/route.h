@@ -98,6 +98,7 @@ typedef struct rte {
 #endif
 #ifdef CONFIG_RIP
     struct {
+      node garbage;			/* List for garbage collection */
       byte metric;			/* RIP metric */
       u16 tag;				/* External route tag */
     } rip;

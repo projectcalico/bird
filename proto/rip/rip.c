@@ -30,6 +30,9 @@ int infinity = 16;
 /* FIXME: should be 30 */
 #define RIP_TIME 5
 
+/* FIXME: should be 120+180 */
+#define RIP_GB_TIME 30
+
 static void
 rip_reply(struct proto *p)
 {
@@ -148,7 +151,7 @@ givemore:
     packet->block[i].network = c->sendptr->network;
     packet->block[i].netmask = ipa_mkmask( c->sendptr->pxlen );
     packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? */
-    packet->block[i].metric  = htonl( c->sendptr->metric );
+    packet->block[i].metric  = htonl( c->sendptr->metric?:1 );
     if (ipa_equal(c->sendptr->whotoldme, s->daddr)) {
       debug( "(split horizont)" );
       /* FIXME: should we do it in all cases? */
@@ -174,7 +177,7 @@ givemore:
 }
 
 static void
-rip_sendto( struct proto *p, ip_addr daddr, int dport )
+rip_sendto( struct proto *p, ip_addr daddr, int dport, struct iface *iface )
 {
   struct rip_connection *c = mb_alloc( p->pool, sizeof( struct rip_connection ));
   static int num = 0;
@@ -192,6 +195,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport )
   c->send->tx_hook = rip_tx;
   c->send->err_hook = rip_tx_err;
   c->send->data = c;
+  c->send->iface = iface;
   c->send->tbuf = mb_alloc( p->pool, sizeof( struct rip_packet ));
   if (sk_open(c->send)<0) {
     log( L_ERR "Could not open socket for data send to %I:%d\n", daddr, dport );
@@ -223,6 +227,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   rta *a, A;
   rte *r;
   net *n;
+  neighbor *neighbor;
 
   debug( "rip: Advertising entry..." );
   bzero(&A, sizeof(A));
@@ -235,13 +240,21 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   A.flags = 0;
   A.gw = ipa_nonzero(b->nexthop) ? b->nexthop : whotoldme;
   A.from = whotoldme;
-  A.iface = /* FIXME: need to set somehow */ NULL;
+  
+  neighbor = neigh_find( p, &A.gw, 0 );
+  if (!neighbor) {
+    log( L_ERR "%I asked me to route %I/%I using not-neighbor %I.\n", A.from, b->network, b->netmask, A.gw );
+    return;
+  }
+
+  A.iface = neighbor->iface;
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
   n = net_get( &master_table, 0, b->network, ipa_mklen( b->netmask )); /* FIXME: should verify that it really is netmask */
   r = rte_get_temp(a);
   r->u.rip.metric = ntohl(b->metric);
   r->u.rip.tag = ntohl(b->tag);
+  r->net = n;
   r->pflags = 0; /* Here go my flags */
   rte_update( n, p, r );
   debug( "done\n" );
@@ -287,7 +300,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 
   switch( packet->heading.command ) {
   case RIPCMD_REQUEST: debug( "Asked to send my routing table\n" ); 
-    	  rip_sendto( p, whotoldme, port );
+    	  rip_sendto( p, whotoldme, port, NULL ); /* no broadcast */
           break;
   case RIPCMD_RESPONSE: debug( "Part of routing table came\n" ); 
           if (port != RIP_PORT) {
@@ -368,25 +381,38 @@ rip_timer(timer *t)
 
   CHK_MAGIC;
   debug( "RIP: tick tock\n" );
+  
+  WALK_LIST_DELSAFE( e, et, P->garbage ) {
+    rte *rte;
+    rte = SKIP_BACK( struct rte, u.rip.garbage, e );
+    debug( "Garbage: " ); rte_dump( rte );
 
-#if 0
-  /* This needs to be completely redone. We need garbage collecting based on main routing table, not on our copy */
-  WALK_LIST_DELSAFE( e, et, P->rtable ) {
-    if (!(E->flags & RIP_F_EXTERNAL))
-      if ((now - E->updated) > (180+120)) {
-	debug( "RIP: entry is too old: " );
-	rip_dump_entry( E );
-	kill_entry( p, E );
-      }
+    if (now - rte->lastmod > (RIP_GB_TIME)) {
+      debug( "RIP: entry is too old: " ); rte_dump( rte );
+      rte_discard(rte);
+    }
   }
-#endif
 
-#if 0
   debug( "RIP: Broadcasting routing tables\n" );
-  rip_sendto( p, _MI( 0x0a000001 ), RIP_PORT );
-#endif
+  {
+    struct iface *iface;
 
-  /* FIXME: Should broadcast routing tables to all known interfaces every 30 seconds */
+    /* FIXME: needs to be configured */
+    WALK_LIST( iface, iface_list ) {
+      if (!(iface->flags & IF_UP)) continue;
+      if (iface->flags & (IF_IGNORE | IF_LOOPBACK)) continue;
+
+      if (iface->flags & IF_BROADCAST) {
+	rip_sendto( p, iface->brd, RIP_PORT, iface );
+	continue;
+      }
+      if (iface->flags & IF_UNNUMBERED) {
+	rip_sendto( p, iface->opposite, RIP_PORT, NULL );
+	continue;
+      }
+      debug( "RIP/send: can not happen\n" );
+    }
+  }
 
   debug( "RIP: tick tock done\n" );
 }
@@ -407,6 +433,7 @@ rip_start(struct proto *p)
     die( "RIP/%s: could not listen\n", p->name );
   init_list( &P->rtable );
   init_list( &P->connections );
+  init_list( &P->garbage );
   P->timer = tm_new( p->pool );
   P->timer->data = p;
   P->timer->randomize = 5;
@@ -479,7 +506,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
   }
 }
 
-static int /* FIXME: should not they pass me struct proto * ? */
+static int
 rip_rte_better(struct rte *new, struct rte *old)
 {
   if (old->u.rip.metric < new->u.rip.metric)
@@ -504,17 +531,33 @@ rip_rta_same(rta *a, rta *b)
 }
 
 static void
+rip_rte_insert(net *net, rte *rte)
+{
+  struct proto *p = rte->attrs->proto;
+  add_head( &P->garbage, &rte->u.rip.garbage );
+}
+
+static void
+rip_rte_remove(net *net, rte *rte)
+{
+  struct proto *p = rte->attrs->proto;
+  rem_node( &rte->u.rip.garbage );
+}
+
+static void
 rip_preconfig(struct protocol *x)
 {
   struct proto *p = proto_new(&proto_rip, sizeof(struct rip_data));
 
   debug( "RIP: preconfig\n" );
-  p->preference = DEF_PREF_DIRECT;
+  p->preference = DEF_PREF_RIP;
   p->start = rip_start;
   p->if_notify = rip_if_notify;
   p->rt_notify = rip_rt_notify;
   p->rte_better = rip_rte_better;
   p->rta_same = rip_rta_same;
+  p->rte_insert = rip_rte_insert;
+  p->rte_remove = rip_rte_remove;
   p->dump = rip_dump;
 }
 

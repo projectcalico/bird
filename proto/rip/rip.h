@@ -60,6 +60,7 @@ struct rip_data {
   timer *timer;
   list connections;
   list rtable;
+  list garbage;
   int magic;
 };
 
