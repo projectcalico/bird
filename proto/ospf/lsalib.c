@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999-2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -18,6 +18,18 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
   ospf_hash_delete(oa->gr,en);
 }
 
+/**
+ * ospf_age
+ * @oa: ospf area
+ *
+ * This function is periodicaly invoked from area_disp(). It computes new
+ * age of all LSAs and old (@age is higher than %LSA_MAXAGE) are flushed
+ * when ever possible. If some LSA originated by router itself is older
+ * than %LSREFRESHTIME new instance is originated.
+ *
+ * RFC says, that router should check checksum of every LSA to detect some
+ * hardware problem. BIRD does not do it to minimalize CPU utilization.
+ */
 void
 ospf_age(struct ospf_area *oa)
 {
@@ -379,11 +391,21 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
   return CMP_SAME;
 }
 
-/* LSA can be temporarrily, but body must be mb_alloced. */
+/**
+ * lsa_install_new - install new LSA into database
+ * @lsa: LSA header
+ * @body pointer to LSA body
+ * @oa: current ospf_area
+ *
+ * This function ensures installing new LSA into LSA database. Old instance is
+ * replaced. Several actions are taken to detec if new routing table
+ * calculation is necessary. This is described in 13.2 of RFC 2328.
+ */
 struct top_hash_entry *
-lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
-  struct proto *p)
+lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
 {
+  /* LSA can be temporarrily, but body must be mb_alloced. */
+  struct proto *p=&oa->po->proto;
   int change=0;
   unsigned i;
   struct top_hash_entry *en;

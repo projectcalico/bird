@@ -205,7 +205,7 @@ originate_rt_lsa(struct ospf_area *oa)
   }
   body=originate_rt_lsa_body(oa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
-  en=lsa_install_new(&lsa, body, oa, &po->proto);
+  en=lsa_install_new(&lsa, body, oa);
   oa->rt=en;
   flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa,1);
   schedule_rtcalc(oa);
@@ -297,7 +297,7 @@ originate_net_lsa(struct ospf_iface *ifa)
 
   body=originate_net_lsa_body(ifa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
-  ifa->nlsa=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
+  ifa->nlsa=lsa_install_new(&lsa, body, ifa->oa);
   flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,1);
 }
 
@@ -401,7 +401,7 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   lsasum_calculate(&lsa,body,po);
   WALK_LIST(oa, po->area_list)
   {
-    en=lsa_install_new(&lsa, body, oa, &po->proto);
+    en=lsa_install_new(&lsa, body, oa);
     flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
     body=originate_ext_lsa_body(n, e, po, attrs);
   }
