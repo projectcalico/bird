@@ -45,6 +45,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       ifa->fadj++;
       originate_rt_lsa(n->ifa->oa,n->ifa->oa->po);
       originate_net_lsa(ifa,ifa->oa->po);
+      tm_stop(n->lsrr_timer);
     }
     if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)
     {
@@ -247,7 +248,6 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       break;
     case INM_EXDONE:
         neigh_chstate(n,NEIGHBOR_LOADING);
-	/* FIXME Go on */
       break;
     case INM_LOADDONE:
         neigh_chstate(n,NEIGHBOR_FULL);
@@ -267,7 +267,6 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
               if(!can_do_adj(n))
               {
                 neigh_chstate(n,NEIGHBOR_2WAY);
-		/* FIXME Stop timers, kill database... */
               }
             break;
         }
@@ -278,7 +277,6 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       if(n->state>=NEIGHBOR_EXCHANGE)
       {
         neigh_chstate(n,NEIGHBOR_EXSTART);
-	/* FIXME: Go on....*/
       }
       break;
     case INM_KILLNBR:
