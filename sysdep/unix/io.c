@@ -709,7 +709,10 @@ io_loop(void)
 	  continue;
 	}
       else
-	timo.tv_sec = tout - now;
+	{
+	  timo.tv_sec = tout - now;
+	  timo.tv_usec = 0;
+	}
 
       hi = 0;
       WALK_LIST(n, sock_list)
