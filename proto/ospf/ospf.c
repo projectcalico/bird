@@ -649,15 +649,15 @@ hello_timer_hook(timer *timer)
     pkt->options=ifa->options;
     pkt->priority=ifa->priority;
     pkt->deadint=htonl(ifa->deadc*ifa->helloint);
-    pkt->dr=ifa->drid;
-    pkt->bdr=ifa->bdrid;
+    pkt->dr=htonl(ifa->drid);
+    pkt->bdr=htonl(ifa->bdrid);
 
     /* Fill all neighbors */
     i=0;
     pp=(u32 *)(((byte *)pkt)+sizeof(struct ospf_hello_packet));
     WALK_LIST (neigh, ifa->neigh_list)
     {
-      *(pp+i)=neigh->rid;
+      *(pp+i)=htonl(neigh->rid);
       i++;
     }
 
