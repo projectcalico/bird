@@ -90,7 +90,7 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
     mask = ipa_mkmask( v2.val.px.len & LEN_MASK );
     if (ipa_compare(ipa_and(v2.val.px.ip, mask), ipa_and(v1.val.px.ip, mask)))
       return 0;
-    /* FIXME: read rpsl or better ask mj: is it really like this? */
+
     if ((v2.val.px.len & LEN_MINUS) && (v1.val.px.len <= (v2.val.px.len & LEN_MASK)))
       return 0;
     if ((v2.val.px.len & LEN_PLUS) && (v1.val.px.len < (v2.val.px.len & LEN_MASK)))
@@ -216,7 +216,6 @@ interpret(struct f_inst *what)
   case '<': COMPARE(i==-1);
   case '<=': COMPARE(i!=1);
 
-    /* FIXME: Should be able to work with prefixes of limited sizes */
   case '~':
     TWOARGS;
     res.type = T_BOOL;
@@ -357,8 +356,8 @@ interpret(struct f_inst *what)
 	break;
       }
       *f_rte = rte_do_cow(*f_rte);
-      l->next = *f_rte->attrs->eattrs;
-      *f_rte->attrs->eattrs = l;
+      l->next = (*f_rte)->attrs->eattrs;
+      (*f_rte)->attrs->eattrs = l;
     }
     break;
 
