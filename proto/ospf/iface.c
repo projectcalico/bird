@@ -64,7 +64,7 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
 	  ifa->dr_sk=NULL;
 	}
       }
-      if(oldstate==OSPF_IS_DR)
+      if((oldstate==OSPF_IS_DR)&&(state>=OSPF_IS_WAITING))
       {
         net_flush_lsa(ifa->nlsa,po,ifa->oa);
         if(can_flush_lsa(ifa->oa)) flush_lsa(ifa->nlsa,ifa->oa);
