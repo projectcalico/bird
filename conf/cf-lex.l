@@ -213,11 +213,33 @@ cf_hash(byte *c)
 }
 
 static struct symbol *
+cf_new_sym(byte *c, unsigned int h)
+{
+  struct symbol *s, **ht;
+  int l;
+
+  if (!new_config->sym_hash)
+    new_config->sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
+  ht = new_config->sym_hash;
+  l = strlen(c);
+  if (l > SYM_MAX_LEN)
+    cf_error("Symbol too long");
+  s = cfg_alloc(sizeof(struct symbol) + l);
+  s->next = ht[h];
+  ht[h] = s;
+  s->scope = conf_this_scope;
+  s->class = SYM_VOID;
+  s->def = NULL;
+  s->aux = 0;
+  strcpy(s->name, c);
+  return s;
+}
+
+static struct symbol *
 cf_find_sym(byte *c, unsigned int h0)
 {
   unsigned int h = h0 & (SYM_HASH_SIZE-1);
   struct symbol *s, **ht;
-  int l;
 
   if (ht = new_config->sym_hash)
     {
@@ -232,20 +254,7 @@ cf_find_sym(byte *c, unsigned int h0)
 	if (!strcmp(s->name, c) && s->scope->active)
 	  return s;
     }
-  if (!ht)
-    ht = new_config->sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
-  l = strlen(c);
-  if (l > SYM_MAX_LEN)
-    cf_error("Symbol too long");
-  s = cfg_alloc(sizeof(struct symbol) + l);
-  s->next = ht[h];
-  ht[h] = s;
-  s->scope = conf_this_scope;
-  s->class = SYM_VOID;
-  s->def = NULL;
-  s->aux = 0;
-  strcpy(s->name, c);
-  return s;
+  return cf_new_sym(c, h);
 }
 
 /**
@@ -291,17 +300,27 @@ cf_default_name(char *template, int *counter)
  * @type: symbol class to assign
  * @def: class dependent data
  *
- * This function takes a symbol, checks whether it's really
- * an undefined one (else it raises an error) and assigns the
- * given class and definition to it.
+ * Defines new meaning of a symbol. If the symbol is an undefined
+ * one (%SYM_VOID), it's just re-defined to the new type. If it's defined
+ * in different scope, a new symbol in current scope is created and the
+ * meaning is assigned to it. If it's already defined in the current scope,
+ * an error is reported via cf_error().
+ *
+ * Result: Pointer to the newly defined symbol. If we are in the top-level
+ * scope, it's the same @sym as passed to the function.
  */
-void
+struct symbol *
 cf_define_symbol(struct symbol *sym, int type, void *def)
 {
   if (sym->class)
-    cf_error("Symbol already defined");
+    {
+      if (sym->scope == conf_this_scope)
+	cf_error("Symbol already defined");
+      sym = cf_new_sym(sym->name, cf_hash(sym->name) & (SYM_HASH_SIZE-1));
+    }
   sym->class = type;
   sym->def = def;
+  return sym;
 }
 
 static void
