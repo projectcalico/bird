@@ -24,7 +24,7 @@ neigh_hash(struct proto *p, ip_addr *a)
   return (p->hash_key ^ ipa_hash(*a)) & (NEIGH_HASH_SIZE-1);
 }
 
-static int
+int
 if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
 {
   struct ifa *b;
