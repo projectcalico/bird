@@ -173,22 +173,9 @@ again:
     if(nf->metric==LSINFINITY) 
     {
       net *ne;
-      rta a0;
       struct top_hash_entry *en=nf->en;
       ln=en->lsa_body;
   
-      bzero(&a0, sizeof(a0));
-  
-      a0.proto=p;
-      a0.source=RTS_OSPF;
-      a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
-      a0.cast=RTC_UNICAST;
-      a0.dest=RTD_ROUTER;
-      a0.flags=0;
-      a0.aflags=0;
-      a0.iface=en->nhi;
-      a0.gw=en->nh;
-      a0.from=en->nh;		/* FIXME Just a test */
       ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
       DBG("Deleting rt entry %I\n     (IP: %I, GW: %I, Iface: %s)\n",
         nf->fn.prefix,ip,en->nh,en->nhi->name);
@@ -254,15 +241,16 @@ again:
   }
 skip:
   FIB_ITERATE_END(nftmp);
+  ospf_ext_spfa(po);
 }
 
 void
 ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 {
   struct top_hash_entry *en,*etmp,*absr;
-  struct fib *in=&po->efib;
+  struct fib *ef=&po->efib;
   struct extfib *nf;
-  struct fib_iterator efit;
+  struct fib_iterator fit;
   struct ospf_area *oa=NULL,*atmp,*absroa;
   struct proto *p=&po->proto;
   struct ospf_lsa_ext *le;
@@ -273,6 +261,14 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
   debug("%s: Starting routing table calculation for external routes\n",
     p->name);
+
+  FIB_WALK(ef,nftmp)
+  {
+    nf=(struct extfib *)nftmp;
+    nf->metric=LSINFINITY;
+    nf->metric2=LSINFINITY;
+  }
+  FIB_WALK_END;
 
   WALK_LIST(oa,po->area_list)
   {
@@ -298,11 +294,11 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
     WALK_LIST(atmp,po->area_list)
     {
-      if((nf=fib_get(&atmp->infib,&ip, mlen))!=NULL) break;
+      if((nf=fib_find(&atmp->infib,&ip, mlen))!=NULL) break;
     }
 
     if(nf!=NULL) continue;	/* Some intra area path exists */
-
+    
     absr=NULL;
     absroa=NULL;
 
@@ -334,7 +330,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 	met2=0;
       }
     }
-    nf=fib_get(&po->efib,&ip, mlen);
+    nf=fib_get(ef,&ip, mlen);
     if((nf->metric>met) || ((nf->metric==met)&&(nf->metric2>met2)))
     {
       nf->metric=met;
@@ -346,7 +342,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
         if((neigh=find_neigh_noifa(po,absr->lsa.rt))==NULL)
 	{
-	  goto skip2;
+	  continue;
 	}
         nn=neigh_find(p,&neigh->ip,0);
         DBG("     Next hop calculated: %I\n", nn->addr);
@@ -362,37 +358,24 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
   }
 
   DBG("\nNow syncing my rt table with nest's\n\n");
-  FIB_ITERATE_INIT(&efit,&po->efib);
-again2:
-  FIB_ITERATE_START(&po->efib,&efit,nfptmp)
+  FIB_ITERATE_INIT(&fit,ef);
+noch:
+  FIB_ITERATE_START(ef,&fit,nftmp)
   {
-    nf=(struct extfib *)nfptmp;
+    nf=(struct extfib *)nftmp;
     if(nf->metric==LSINFINITY) 
     {
       net *ne;
-      rta a0;
   
-      bzero(&a0, sizeof(a0));
-  
-      a0.proto=p;
-      a0.source=RTS_OSPF_EXT;
-      a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
-      a0.cast=RTC_UNICAST;
-      a0.dest=RTD_ROUTER;
-      a0.flags=0;
-      a0.aflags=0;
-      a0.iface=nf->nhi;
-      a0.gw=nf->nh;
-      a0.from=nf->nh;		/* FIXME Just a test */
       ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
-      DBG("Deleting rt entry %I\n     (IP: %I, GW: %I, Iface: %s)\n",
-        nf->fn.prefix,ip,nf->nh,nf->nhi->name);
+      DBG("Deleting rt entry %I\n     (IP: %I, GW: %I)\n",
+        nf->fn.prefix,ip,nf->nh);
       rte_update(p->table, ne, p, NULL);
 
       /* Now delete my fib */
-      FIB_ITERATE_PUT(&efit, nfptmp);
-      fib_delete(&po->efib, nfptmp);
-      goto again2;
+      FIB_ITERATE_PUT(&fit, nftmp);
+      fib_delete(ef, nftmp);
+      goto noch;
     }
     else
     {
@@ -420,13 +403,13 @@ again2:
       e->pflags = 0;
       e->net=ne;
       e->pref = p->preference;
-      DBG("Modifying rt entry %I\n     (IP: %I, GW: %I, Iface: %s)\n",
-        nf->fn.prefix,ip,en->nh,en->nhi->name);
+      DBG("Modifying rt entry %I\n     (IP: %I, GW: %I)\n",
+        nf->fn.prefix,ip,nf->nh);
       rte_update(p->table, ne, p, e);
     }
   }
-skip2:
-  FIB_ITERATE_END(nfptmp);
+let:
+  FIB_ITERATE_END(nftmp);
 }
 
 void
