@@ -528,8 +528,13 @@ sub output_bird {
     print "<funcdef>".$args{'function'}."</funcdef>\n";
     print "(";
     $count = 0;
+    my $ntyped = 0;
     foreach $parameter (@{$args{'parameterlist'}}) {
-	print "<type>".$args{'parametertypes'}{$parameter}."</type> <param>".$parameter."</param>";
+	if ($args{'parametertypes'}{$parameter} ne "") {
+	    print "<type>".$args{'parametertypes'}{$parameter}."</type> ";
+	    $ntyped++;
+	}
+	print "<param>".$parameter."</param>";
 	if ($count != $#{$args{'parameterlist'}}) {
 	    $count++;
 	    print ", ";
@@ -537,13 +542,15 @@ sub output_bird {
     }
     print ")\n";
 
-    print "<funcsect>Arguments\n";
-    print "<p><descrip>\n";
-    foreach $parameter (@{$args{'parameterlist'}}) {
-	print "<tagp><type>".$args{'parametertypes'}{$parameter}."</type> <param>".$parameter."</param></tagp>\n";
-	output_highlight($args{'parameters'}{$parameter});
+    if ($ntyped) {
+	print "<funcsect>Arguments\n";
+	print "<p><descrip>\n";
+	foreach $parameter (@{$args{'parameterlist'}}) {
+	    print "<tagp><type>".$args{'parametertypes'}{$parameter}."</type> <param>".$parameter."</param></tagp>\n";
+	    output_highlight($args{'parameters'}{$parameter});
+	}
+	print "</descrip>\n";
     }
-    print "</descrip>\n";
     foreach $section (@{$args{'sectionlist'}}) {
 	print "<funcsect>$section\n";
 	print "<p>\n";
