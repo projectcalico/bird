@@ -70,6 +70,7 @@ struct proto_config {
   struct protocol *proto;		/* Protocol */
   char *name;
   unsigned debug, preference, disabled;	/* Generic parameters */
+  struct filter *in_filter, *out_filter; /* Attached filters */
 
   /* Protocol-specific data follow... */
 };
@@ -97,7 +98,9 @@ struct proto {
   void (*rte_insert)(struct network *, struct rte *);
   void (*rte_remove)(struct network *, struct rte *);
 
-  /* Input/output filters */
+  struct filter *in_filter;		/* Input filter */
+  struct filter *out_filter;		/* Output filter */
+
   /* Connection to routing tables? */
 
   /* Hic sunt protocol-specific data */

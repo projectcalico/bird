@@ -15,6 +15,7 @@
 #include "nest/protocol.h"
 #include "lib/resource.h"
 #include "lib/event.h"
+#include "filter/filter.h"
 
 rtable master_table;
 static slab *rte_slab;
@@ -115,6 +116,20 @@ rte_better(rte *new, rte *old)
   return 0;
 }
 
+static inline void
+do_rte_announce(struct proto *p, net *net, rte *new, rte *old)
+{
+  if (p->out_filter)
+    {
+      if (old && f_run(p->out_filter, old, NULL) != F_ACCEPT)
+	old = NULL;
+      if (new && f_run(p->out_filter, new, NULL) != F_ACCEPT)
+	new = NULL;
+    }
+  if (new || old)
+    p->rt_notify(p, net, new, old);
+}
+
 void
 rte_announce(net *net, rte *new, rte *old)
 {
@@ -124,7 +139,7 @@ rte_announce(net *net, rte *new, rte *old)
     {
       ASSERT(p->core_state == FS_HAPPY);
       if (p->rt_notify)
-	p->rt_notify(p, net, new, old);
+	do_rte_announce(p, net, new, old);
     }
 }
 
@@ -143,7 +158,7 @@ rt_feed_baby(struct proto *p)
 	  net *n = (net *) fn;
 	  rte *e;
 	  for(e=n->routes; e; e=e->next)
-	    p->rt_notify(p, n, e, NULL);
+	    do_rte_announce(p, n, e, NULL);
 	}
       FIB_WALK_END;
       t = t->sibling;
@@ -171,6 +186,12 @@ rte_update(net *net, struct proto *p, rte *new)
   rte *old_best = net->routes;
   rte *old = NULL;
   rte **k, *r, *s;
+
+  if (new && p->in_filter && f_run(p->in_filter, new, NULL) != F_ACCEPT)
+    {
+      rte_free(new);
+      return;
+    }
 
   if (new && !(new->attrs->aflags & RTAF_CACHED)) /* Need to copy attributes */
     new->attrs = rta_lookup(new->attrs);

@@ -18,6 +18,7 @@
 #include "conf/conf.h"
 #include "nest/route.h"
 #include "nest/iface.h"
+#include "filter/filter.h"
 
 static pool *proto_pool;
 
@@ -85,6 +86,8 @@ proto_new(struct proto_config *c, unsigned size)
   p->preference = c->preference;
   p->disabled = c->disabled;
   p->proto = pr;
+  p->in_filter = c->in_filter;
+  p->out_filter = c->out_filter;
   return p;
 }
 
@@ -242,6 +245,10 @@ protos_dump_all(void)
     {
       debug("  protocol %s (pri=%d): state %s/%s\n", p->name, p->proto->priority,
 	    p_states[p->proto_state], c_states[p->core_state]);
+      if (p->in_filter)
+	debug("\tInput filter: %s\n", p->in_filter->name);
+      if (p->out_filter)
+	debug("\tOutput filter: %s\n", p->out_filter->name);
       if (p->disabled)
 	debug("\tDISABLED\n");
       else if (p->proto->dump)

@@ -17,7 +17,7 @@ void rt_dev_add_iface(char *);
 CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DEVICE)
-CF_KEYWORDS(INTERFACE)
+CF_KEYWORDS(INTERFACE, INPUT, OUTPUT, FILTER)
 
 %type <i> idval
 
@@ -67,6 +67,8 @@ proto_item:
  | DEBUG expr { this_proto->debug = $2; }
  | DEBUG ALL { this_proto->debug = ~0; }
  | DEBUG OFF { this_proto->debug = 0; }
+ | INPUT FILTER filter { this_proto->in_filter = $3; }
+ | OUTPUT FILTER filter { this_proto->out_filter = $3; }
  ;
 
 /* Device protocol */
