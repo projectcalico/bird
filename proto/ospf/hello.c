@@ -236,12 +236,10 @@ hello_timer_hook(timer *timer)
   }
   else	/* NBMA */
   {
-    list n_list;
     struct ospf_neighbor *n1;
     struct nbma_node *nb;
     int send;
 
-    init_list(&n_list);
     WALK_LIST(nb,ifa->nbma_list)
     {
       send=1;
