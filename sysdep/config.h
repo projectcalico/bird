@@ -6,6 +6,9 @@
 #ifndef _BIRD_CONFIG_H_
 #define _BIRD_CONFIG_H_
 
+/* BIRD version */
+#define BIRD_VERSION "0.0.0"
+
 /* Include parameters determined by configure script */
 #include "sysdep/autoconf.h"
 

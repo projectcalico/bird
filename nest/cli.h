@@ -24,26 +24,32 @@ struct cli_out {
 typedef struct cli {
   pool *pool;
   void *priv;				/* Private to sysdep layer */
-  int inited;
   byte rx_buf[CLI_RX_BUF_SIZE];
   byte *rx_pos, *rx_aux;		/* sysdep */
   struct cli_out *tx_buf, *tx_pos, *tx_write;
   event *event;
+  void (*cont)(struct cli *c);
+  void *rover;				/* Private to continuation routine */
+  int last_reply;
 } cli;
 
 extern pool *cli_pool;
+
+/* Functions to be called by command handlers */
+
+void cli_printf(cli *, int, char *, ...);
+
+/* Functions provided to sysdep layer */
 
 cli *cli_new(void *);
 void cli_init(void);
 void cli_free(cli *);
 void cli_kick(cli *);
 void cli_written(cli *);
-void cli_printf(cli *, int, char *, ...);
 
-/* Function provided by sysdep layer */
+/* Functions provided by sysdep layer */
 
 int cli_write(cli *);
-void cli_disconnect(cli *);
 int cli_get_command(cli *);
 
 #endif

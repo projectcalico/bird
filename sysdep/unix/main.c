@@ -93,12 +93,6 @@ async_config(void)
 
 static sock *cli_sk;
 
-void
-cli_disconnect(cli *c)
-{
-  bug("CLI DISCONNECT: Not implemented"); /* FIXME */
-}
-
 int
 cli_write(cli *c)
 {
@@ -146,7 +140,6 @@ cli_get_command(cli *c)
 static int
 cli_rx(sock *s, int size)
 {
-  debug("CLI RX\n");
   cli_kick(s->data);
   return 0;
 }
@@ -156,7 +149,6 @@ cli_tx(sock *s)
 {
   cli *c = s->data;
 
-  debug("CLI TX\n");
   if (cli_write(c))
     cli_written(c);
 }
@@ -313,7 +305,7 @@ main(int argc, char **argv)
   setvbuf(stderr, NULL, _IONBF, 0);
   parse_args(argc, argv);
 
-  log(L_INFO "Launching BIRD 0.0.0...");
+  log(L_INFO "Launching BIRD " BIRD_VERSION "...");
 
   debug("Initializing.\n");
   resource_init();

@@ -32,7 +32,7 @@ tags:
 
 clean:
 	find . -name "*.[oa]" -or -name core -or -name depend | xargs rm -f
-	rm -f $(exedir)/bird $(exedir)/birdc .dep-stamp
+	rm -f $(exedir)/bird $(exedir)/birdc $(exedir)/bird.ctl .dep-stamp
 
 distclean: clean
 	rm -f config.* configure sysdep/autoconf.h Makefile Rules
