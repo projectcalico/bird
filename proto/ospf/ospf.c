@@ -18,6 +18,7 @@
 #include "lib/ip.h"
 #include "lib/socket.h"
 #include "lib/lists.h"
+#include "lib/timer.h"
 
 #include "ospf.h"
 
@@ -67,6 +68,7 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
     mcsk->err_hook=ospf_err_hook;
     mcsk->iface=(struct iface *)ifa;
     mcsk->rbsize=((struct iface *)ifa)->mtu;
+    mcsk->tbsize=((struct iface *)ifa)->mtu;
     if(sk_open(mcsk)!=0)
     {
       DBG(" OSPF: SK_OPEN: failed\n");
@@ -96,11 +98,45 @@ is_good_iface(struct proto *p, struct iface *iface)
 int
 ospf_iface_clasify(struct iface *ifa)
 {
+  /* FIXME: Latter I'll use config - this is incorrect */
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
-    IF_MULTIACCESS|IF_MULTICAST) return OSPF_IM_BROADCAST;
+    (IF_MULTIACCESS|IF_MULTICAST))
+  {
+     DBG(" OSPF: Clasifying BROADCAST.\n");
+     return OSPF_IT_BROADCAST;
+  }
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
-    IF_MULTIACCESS) return OSPF_IM_NBMA;
-  return OSPF_IM_PTP;
+    IF_MULTIACCESS)
+  {
+    DBG(" OSPF: Clasifying NBMA.\n");
+    return OSPF_IT_NBMA;
+  }
+  DBG(" OSPF: Clasifying P-T-P.\n");
+  return OSPF_IT_PTP;
+}
+
+void
+wait_timer_hook(timer *timer)
+{
+  debug(" OSPF: Wait timer expired for interface %s.\n",
+    ((struct iface *)timer->data)->name);
+}
+
+void
+add_wait_timer(struct ospf_iface *ifa,pool *pool, int wait)
+{
+  DBG(" OSPF: add_wait_timer called.\n");
+  if((ifa->type!=OSPF_IT_PTP) && (ifa->priority>0))
+  {
+    ifa->wait_timer=tm_new(pool);
+    ifa->wait_timer->hook=wait_timer_hook;
+    ifa->wait_timer->data=ifa;
+    ifa->wait_timer->randomize=0;
+    ifa->wait_timer->recurrent=0;
+    ifa->wait_timer->expires=0;
+    tm_start(ifa->wait_timer,(wait!=0 ? wait : WAIT_D));
+    DBG(" OSPF: Installing wait timer.\n");
+  }
 }
 
 void
@@ -125,11 +161,22 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->type=ospf_iface_clasify((struct iface *)ifa);
 }
 
+struct ospf_iface*
+find_iface(struct proto_ospf *p, struct iface *what)
+{
+  struct ospf_iface *i;
+
+  WALK_LIST (i, p->iface_list)
+    if (((struct iface *)i)->index == what->index)
+      return i;
+  return NULL;
+}
+
 void
 ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface *old)
 {
   struct ospf_iface *ifa;
-  sock *mcsk;
+  sock *mcsk, *newsk;
 
   struct ospf_config *c;
   c=(struct ospf_config *)(p->cf);
@@ -141,15 +188,32 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
   if(((flags & IF_CHANGE_UP)==IF_CHANGE_UP) && is_good_iface(p, new))
   {
     debug(" OSPF: using interface %s.\n", new->name);
-    /* Latter I'll use config - this is incorrect */
+    /* FIXME: Latter I'll use config - this is incorrect */
     ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
     bcopy(new, ifa, sizeof(struct ospf_iface));
-    add_tail(&c->iface_list, NODE ifa);
+    add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
+    add_wait_timer(ifa,p->pool,0);
     init_list(&(ifa->sk_list));
     if((mcsk=ospf_open_socket(p, ifa))!=NULL)
     {
       add_tail(&(ifa->sk_list),NODE mcsk);
+    }
+  }
+
+  if((flags & IF_CHANGE_DOWN)==IF_CHANGE_DOWN)
+  {
+    if((ifa=find_iface((struct proto_ospf *)p, old))!=NULL)
+    {
+      debug(" OSPF: killing interface %s.\n", old->name);
+    }
+  }
+
+  if((flags & IF_CHANGE_MTU)==IF_CHANGE_MTU)
+  {
+    if((ifa=find_iface((struct proto_ospf *)p, old))!=NULL)
+    {
+      debug(" OSPF: changing MTU on interface %s.\n", old->name);
     }
   }
 }
@@ -178,12 +242,12 @@ ospf_dump(struct proto *p)
 static struct proto *
 ospf_init(struct proto_config *c)
 {
-  struct proto *p = proto_new(c, sizeof(struct proto));
+  struct proto *p = proto_new(c, sizeof(struct proto_ospf));
 
   DBG(" OSPF: Init.\n");
-  init_list(&((struct ospf_config *)c)->iface_list);
   p->neigh_notify = NULL;
   p->if_notify = NULL;
+  init_list(&((struct proto_ospf *)p)->iface_list);
   return p;
 }
 

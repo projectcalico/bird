@@ -22,7 +22,6 @@ struct ospf_config {
   struct proto_config c;
   u32 area;		/* Area ID  !!! This is wrong !!!
                          * Should respect interface */
-  list iface_list;
 };
 
 struct ospf_iface {
@@ -45,17 +44,26 @@ struct ospf_iface {
   ip_addr bdrip;	/* Backup DR */
   u32 bdrid;
   int type;		/* OSPF view of type */
-#define OSPF_IM_BROADCAST 0
-#define OSPF_IM_NBMA 1
-#define OSPF_IM_PTP 2
+#define OSPF_IT_BROADCAST 0
+#define OSPF_IT_NBMA 1
+#define OSPF_IT_PTP 2
+  int state;		/* Interface state machine */
+#define OSPF_IS_WAITING 0	/* Waiting for Wait timer */
+#define OSPF_IS_PTP 1		/* PTP operational */
+#define OSPF_IS_DROTHER 2	/* I'm on BCAST or NBMA and I'm not DR */
+#define OSPF_IS_BACKUP 3	/* I'm BDR */
+#define OSPF_IS_DR 4		/* I'm DR */
+  timer *wait_timer;		/* One shot Wait timer - used after DOWN->UP */
 
 /* Default values for interface parameters */
 #define COST_D 10
 #define RXMTINT_D 5
 #define IFTRANSDELAY_D 1
-#define PRIORITY_D 0
+#define PRIORITY_D 1
 #define HELLOINT_D 10
 #define DEADINT_D 4
+#define WAIT_D 40	/* Value of Wait timer - I didn't found it in RFC */
+
 };
 
 
@@ -66,5 +74,9 @@ struct ospf_patt {
   byte mode;
 };
 
+struct proto_ospf {
+  struct proto proto;
+  list iface_list;		/* Interfaces we really use */
+};
 
 #endif /* _BIRD_OSPF_H_ */
