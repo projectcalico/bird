@@ -46,9 +46,12 @@ bgp_close(struct bgp_proto *p)
 void
 bgp_start_timer(timer *t, int value)
 {
-  /* FIXME: Randomize properly */
   if (value)
-    tm_start(t, value);
+    {
+      /* The randomization procedure is specified in RFC 1771: 9.2.3.3 */
+      t->randomize = value / 4;
+      tm_start(t, value - t->randomize);
+    }
   else
     tm_stop(t);
 }
