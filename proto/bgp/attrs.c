@@ -23,16 +23,20 @@ void
 bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *tmpa)
 {
   DBG("BGP: Got route %I/%d\n", n->n.prefix, n->n.pxlen);
+  /* FIXME: Normalize attributes */
+  /* FIXME: Check next hop */
+  /* FIXME: Someone might have undefined the mandatory attributes */
 }
 
-static ea_list *
-bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list *old, struct linpool *pool)
+static int
+bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *pool)
 {
   ea_list *ea = lp_alloc(pool, sizeof(ea_list) + 3*sizeof(eattr));
   eattr *a = ea->attrs;
   rta *rta = e->attrs;
 
-  ea->next = old;
+  ea->next = *attrs;
+  *attrs = ea;
   ea->flags = EALF_SORTED;
   ea->count = 3;
 
@@ -68,17 +72,14 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list *old, struct linpool *pool
   a->type = EAF_TYPE_IP_ADDRESS;
   a->u.ptr = lp_alloc(pool, sizeof(struct adata) + sizeof(ip_addr));
   a->u.ptr->length = sizeof(ip_addr);
-
-  /* FIXME: These rules are bogus!!! */
-  if (rta->dest == RTD_ROUTER)
-    *(ip_addr *)a->u.ptr->data = e->attrs->gw;
+  if (p->cf->next_hop_self ||
+      !p->is_internal ||
+      rta->dest != RTD_ROUTER)
+    *(ip_addr *)a->u.ptr->data = p->local_addr;
   else
-    {
-      /* FIXME: Next hop == self ... how to do that? */
-      *(ip_addr *)a->u.ptr->data = IPA_NONE;
-    }
+    *(ip_addr *)a->u.ptr->data = e->attrs->gw;
 
-  return ea;
+  return 0;				/* Leave decision to the filters */
 }
 
 ea_list *
@@ -115,15 +116,37 @@ bgp_path_prepend(struct linpool *pool, eattr *a, ea_list *old, int as)
   return e;
 }
 
-static ea_list *
-bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list *old, struct linpool *pool)
+static int
+bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *pool)
 {
+  eattr *a;
+
   if (!p->is_internal)
-    old = bgp_path_prepend(pool, ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH)), old, p->local_as);
+    *attrs = bgp_path_prepend(pool, ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH)), *attrs, p->local_as);
 
-  /* FIXME: Set NEXT_HOP to self */
+  a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
+  if (a && (p->is_internal || (!p->is_internal && e->attrs->iface == p->neigh->iface)))
+    {
+      /* Leave the original next hop attribute, will check later where does it point */
+    }
+  else
+    {
+      /* Need to create new one */
+      ea_list *ea = lp_alloc(pool, sizeof(ea_list) + sizeof(eattr));
+      ea->next = *attrs;
+      *attrs = ea;
+      ea->flags = EALF_SORTED;
+      ea->count = 1;
+      a = ea->attrs;
+      a->id = EA_CODE(EAP_BGP, BA_NEXT_HOP);
+      a->flags = BAF_TRANSITIVE;
+      a->type = EAF_TYPE_IP_ADDRESS;
+      a->u.ptr = lp_alloc(pool, sizeof(struct adata) + sizeof(ip_addr));
+      a->u.ptr->length = sizeof(ip_addr);
+      *(ip_addr *)a->u.ptr->data = p->local_addr;
+    }
 
-  return old;
+  return 0;				/* Leave decision to the filters */
 }
 
 int
@@ -133,19 +156,16 @@ bgp_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *
   struct bgp_proto *p = (struct bgp_proto *) P;
   struct bgp_proto *new_bgp = (e->attrs->proto->proto == &proto_bgp) ? (struct bgp_proto *) e->attrs->proto : NULL;
 
-  if (e->attrs->dest != RTD_ROUTER)	/* FIXME: This is a debugging kludge, remove some day */
+  if (p == new_bgp)			/* Poison reverse updates */
     return -1;
   if (new_bgp)
     {
       if (p->local_as == new_bgp->local_as && p->is_internal && new_bgp->is_internal)
 	return -1;			/* Don't redistribute internal routes with IBGP */
-      *attrs = bgp_update_attrs(p, e, *attrs, pool);
+      return bgp_update_attrs(p, e, attrs, pool);
     }
   else
-    *attrs = bgp_create_attrs(p, e, *attrs, pool);
-  if (p == new_bgp)			/* FIXME: Use a more realistic check based on the NEXT_HOP attribute */
-    return 1;
-  return 0;				/* Leave the decision to the filter */
+    return bgp_create_attrs(p, e, attrs, pool);
 }
 
 int
@@ -284,7 +304,7 @@ static struct attr_desc bgp_attr_table[] = {
   { "aggregator", 6, BAF_OPTIONAL, EAF_TYPE_OPAQUE,		/* BA_AGGREGATOR */
     NULL, NULL },
 #if 0
-  /* FIXME: Handle community lists */
+  /* FIXME: Handle community lists and remember to convert their endianity and normalize them */
   { 0, 0 },									/* BA_COMMUNITY */
   { 0, 0 },									/* BA_ORIGINATOR_ID */
   { 0, 0 },									/* BA_CLUSTER_LIST */
@@ -443,19 +463,12 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   e = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
   ASSERT(e);
   nexthop = *(ip_addr *) e->u.ptr->data;
-  neigh = neigh_find(&bgp->p, &nexthop, 0);
-  if (!neigh)
+  if (ipa_equal(nexthop, bgp->local_addr))
     {
-      if (bgp->cf->multihop)
-	neigh = neigh_find(&bgp->p, &bgp->cf->multihop_via, 0);
-      else
-	neigh = neigh_find(&bgp->p, &bgp->cf->remote_ip, 0);
-    }
-  if (!neigh || !neigh->iface)
-    {
-      DBG("BGP: No route to peer!\n");	/* FIXME */
+      DBG("BGP: Loop!\n");		/* FIXME */
       return NULL;
     }
+  neigh = neigh_find(&bgp->p, &nexthop, 0) ? : bgp->neigh;
   a->gw = neigh->addr;
   a->iface = neigh->iface;
   return rta_lookup(a);

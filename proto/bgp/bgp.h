@@ -18,6 +18,7 @@ struct bgp_config {
   ip_addr remote_ip;
   int multihop;				/* Number of hops if multihop */
   ip_addr multihop_via;			/* Multihop: address to route to */
+  int next_hop_self;			/* Always set next hop to local IP address */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
@@ -49,6 +50,9 @@ struct bgp_proto {
   struct bgp_conn outgoing_conn;	/* Outgoing connection we're working with */
   struct bgp_conn incoming_conn;	/* Incoming connection we have neither accepted nor rejected yet */
   struct object_lock *lock;		/* Lock for neighbor connection */
+  ip_addr next_hop;			/* Either the peer or multihop_via */
+  struct neighbor *neigh;		/* Neighbor entry corresponding to next_hop */
+  ip_addr local_addr;			/* Address of the local end of the link to next_hop */
 };
 
 #define BGP_PORT		179

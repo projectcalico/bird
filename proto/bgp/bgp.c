@@ -26,25 +26,6 @@ static list bgp_list;			/* List of active BGP instances */
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established" };
 
 static void bgp_connect(struct bgp_proto *p);
-static void bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s);
-
-static struct proto *
-bgp_init(struct proto_config *C)
-{
-  struct bgp_config *c = (struct bgp_config *) C;
-  struct proto *P = proto_new(C, sizeof(struct bgp_proto));
-  struct bgp_proto *p = (struct bgp_proto *) P;
-
-  P->rt_notify = bgp_rt_notify;
-  P->rte_better = bgp_rte_better;
-  P->import_control = bgp_import_control;
-  p->cf = c;
-  p->local_as = c->local_as;
-  p->remote_as = c->remote_as;
-  p->is_internal = (c->local_as == c->remote_as);
-  p->local_id = C->global->router_id;
-  return P;
-}
 
 void
 bgp_close(struct bgp_proto *p)
@@ -99,6 +80,27 @@ bgp_close_conn(struct bgp_conn *conn)
     }
 }
 
+static int
+bgp_graceful_close_conn(struct bgp_conn *c)
+{
+  switch (c->state)
+    {
+    case BS_IDLE:
+      return 0;
+    case BS_CONNECT:
+    case BS_ACTIVE:
+      bgp_close_conn(c);
+      return 1;
+    case BS_OPENSENT:
+    case BS_OPENCONFIRM:
+    case BS_ESTABLISHED:
+      bgp_error(c, 6, 0, 0, 0);
+      return 1;
+    default:
+      bug("bgp_graceful_close_conn: Unknown state %d", c->state);
+    }
+}
+
 static void
 bgp_send_open(struct bgp_conn *conn)
 {
@@ -150,33 +152,6 @@ bgp_sock_err(sock *sk, int err)
       bug("bgp_sock_err called in invalid state %d", conn->state);
     }
   bgp_close_conn(conn);
-}
-
-static int
-bgp_incoming_connection(sock *sk, int dummy)
-{
-  node *n;
-
-  DBG("BGP: Incoming connection from %I port %d\n", sk->daddr, sk->dport);
-  WALK_LIST(n, bgp_list)
-    {
-      struct bgp_proto *p = SKIP_BACK(struct bgp_proto, bgp_node, n);
-      if (ipa_equal(p->cf->remote_ip, sk->daddr) && sk->dport == BGP_PORT)
-	{
-	  DBG("BGP: Authorized\n");
-	  if (p->incoming_conn.sk)
-	    {
-	      DBG("BGP: But one incoming connection already exists, how is that possible?\n");
-	      break;
-	    }
-	  bgp_setup_sk(p, &p->incoming_conn, sk);
-	  bgp_send_open(&p->incoming_conn);
-	  return 0;
-	}
-    }
-  DBG("BGP: Unauthorized\n");
-  rfree(sk);
-  return 0;
 }
 
 static void
@@ -253,12 +228,38 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   bgp_start_timer(conn->connect_retry_timer, p->cf->connect_retry_time);
 }
 
-static void
-bgp_start_locked(struct object_lock *lock)
+static int
+bgp_incoming_connection(sock *sk, int dummy)
 {
-  struct bgp_proto *p = lock->data;
+  node *n;
 
-  DBG("BGP: Got lock\n");
+  DBG("BGP: Incoming connection from %I port %d\n", sk->daddr, sk->dport);
+  WALK_LIST(n, bgp_list)
+    {
+      struct bgp_proto *p = SKIP_BACK(struct bgp_proto, bgp_node, n);
+      if (ipa_equal(p->cf->remote_ip, sk->daddr) && sk->dport == BGP_PORT)
+	{
+	  DBG("BGP: Authorized\n");
+	  if (p->incoming_conn.sk)
+	    {
+	      DBG("BGP: But one incoming connection already exists, how is that possible?\n");
+	      break;
+	    }
+	  bgp_setup_sk(p, &p->incoming_conn, sk);
+	  bgp_send_open(&p->incoming_conn);
+	  return 0;
+	}
+    }
+  DBG("BGP: Unauthorized\n");
+  rfree(sk);
+  return 0;
+}
+
+static void
+bgp_start_neighbor(struct bgp_proto *p)
+{
+  p->local_addr = p->neigh->iface->addr->ip;
+  DBG("BGP: local=%I remote=%I\n", p->local_addr, p->next_hop);
   if (!bgp_counter++)
     init_list(&bgp_list);
   if (!bgp_listen_sk)
@@ -282,7 +283,49 @@ bgp_start_locked(struct object_lock *lock)
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);
   add_tail(&bgp_list, &p->bgp_node);
-  bgp_connect(p);			/* FIXME: Use neighbor cache for fast up/down transitions? */
+  bgp_connect(p);
+}
+
+static void
+bgp_neigh_notify(neighbor *n)
+{
+  struct bgp_proto *p = (struct bgp_proto *) n->proto;
+
+  if (n->iface)
+    {
+      DBG("BGP: Neighbor is reachable\n");
+      bgp_start_neighbor(p);
+    }
+  else
+    {
+      DBG("BGP: Neighbor is unreachable\n");
+      /* Send cease packets, but don't wait for them to be delivered */
+      bgp_graceful_close_conn(&p->outgoing_conn);
+      bgp_graceful_close_conn(&p->incoming_conn);
+      proto_notify_state(&p->p, PS_DOWN);
+      /* FIXME: Remember to delay protocol startup here! */
+    }
+}
+
+static void
+bgp_start_locked(struct object_lock *lock)
+{
+  struct bgp_proto *p = lock->data;
+  struct bgp_config *cf = p->cf;
+
+  DBG("BGP: Got lock\n");
+  p->next_hop = cf->multihop ? cf->multihop_via : cf->remote_ip;
+  p->neigh = neigh_find(&p->p, &p->next_hop, NEF_STICKY);
+  if (!p->neigh)
+    {
+      log(L_ERR "%s: Invalid next hop %I", p->p.name, p->next_hop);
+      p->p.disabled = 1;
+      proto_notify_state(&p->p, PS_DOWN);
+    }
+  else if (p->neigh->iface)
+    bgp_start_neighbor(p);
+  else
+    DBG("BGP: Waiting for neighbor\n");
 }
 
 static int
@@ -313,27 +356,6 @@ bgp_start(struct proto *P)
 }
 
 static int
-bgp_graceful_close(struct bgp_conn *c)
-{
-  switch (c->state)
-    {
-    case BS_IDLE:
-      return 0;
-    case BS_CONNECT:
-    case BS_ACTIVE:
-      bgp_close_conn(c);
-      return 1;
-    case BS_OPENSENT:
-    case BS_OPENCONFIRM:
-    case BS_ESTABLISHED:
-      bgp_error(c, 6, 0, 0, 0);
-      return 1;
-    default:
-      bug("bgp_graceful_close: Unknown state %d", c->state);
-    }
-}
-
-static int
 bgp_shutdown(struct proto *P)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
@@ -356,7 +378,7 @@ bgp_shutdown(struct proto *P)
       else if (p->incoming_conn.state != BS_IDLE)
 	p->incoming_conn.primary = 1;
     }
-  if (bgp_graceful_close(&p->outgoing_conn) || bgp_graceful_close(&p->incoming_conn))
+  if (bgp_graceful_close_conn(&p->outgoing_conn) || bgp_graceful_close_conn(&p->incoming_conn))
     return p->p.proto_state;
   else
     {
@@ -364,6 +386,25 @@ bgp_shutdown(struct proto *P)
       bgp_close(p);
       return PS_DOWN;
     }
+}
+
+static struct proto *
+bgp_init(struct proto_config *C)
+{
+  struct bgp_config *c = (struct bgp_config *) C;
+  struct proto *P = proto_new(C, sizeof(struct bgp_proto));
+  struct bgp_proto *p = (struct bgp_proto *) P;
+
+  P->rt_notify = bgp_rt_notify;
+  P->rte_better = bgp_rte_better;
+  P->import_control = bgp_import_control;
+  P->neigh_notify = bgp_neigh_notify;
+  p->cf = c;
+  p->local_as = c->local_as;
+  p->remote_as = c->remote_as;
+  p->is_internal = (c->local_as == c->remote_as);
+  p->local_id = C->global->router_id;
+  return P;
 }
 
 void
