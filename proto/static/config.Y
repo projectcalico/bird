@@ -10,6 +10,8 @@ CF_HDR
 
 #include "proto/static/static.h"
 
+CF_DEFINES
+
 static struct static_route *this_srt;
 
 CF_DECLS

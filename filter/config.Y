@@ -16,6 +16,8 @@
 
 CF_HDR
 
+CF_DEFINES
+
 #define P(a,b) ((a<<8) | b)
 
 CF_DECLS

@@ -10,6 +10,8 @@ CF_HDR
 
 #include "lib/krt.h"
 
+CF_DEFINES
+
 #define THIS_KRT ((struct krt_config *) this_proto)
 #define THIS_KIF ((struct kif_config *) this_proto)
 

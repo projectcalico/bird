@@ -19,6 +19,7 @@ m4_define(DNL, `m4_dnl')
 # Define macros for defining sections
 m4_define(CF_ZONE, `m4_divert($1)/* $2 from m4___file__ */')
 m4_define(CF_HDR, `CF_ZONE(1, Headers)')
+m4_define(CF_DEFINES, `CF_ZONE(1, Defines)')
 m4_define(CF_DECLS, `CF_ZONE(2, Declarations)')
 m4_define(CF_GRAMMAR, `CF_ZONE(3, Grammar)')
 m4_define(CF_CODE, `CF_ZONE(4, C Code)')

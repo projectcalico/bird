@@ -8,12 +8,14 @@
 
 CF_HDR
 
-static struct proto_config *this_proto;
-static struct iface_patt *this_ipatt;
-
 #include "nest/rt-dev.h"
 #include "nest/password.h"
 #include "nest/cmds.h"
+
+CF_DEFINES
+
+static struct proto_config *this_proto;
+static struct iface_patt *this_ipatt;
 
 CF_DECLS
 

@@ -17,6 +17,8 @@ CF_HDR
 #include "proto/rip/rip.h"
 #include "nest/iface.h"
 
+CF_DEFINES
+
 #define RIP_CFG ((struct rip_proto_config *) this_proto)
 #define RIP_IPATT ((struct rip_patt *) this_ipatt)
 
