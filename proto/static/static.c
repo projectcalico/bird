@@ -73,7 +73,8 @@ static_start(struct proto *p)
 	      r->chain = n->data;
 	      n->data = r;
 	      r->neigh = n;
-	      static_install(p, r, n->iface);
+	      if (n->iface)
+		static_install(p, r, n->iface);
 	    }
 	  else
 	    log(L_ERR "Static route destination %I is invalid. Ignoring.\n", r->via);
