@@ -15,7 +15,7 @@ CF_HDR
 CF_DECLS
 
 CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
-	MULTIHOP, STARTUP, VIA, NEXT, HOP, SELF)
+	MULTIHOP, STARTUP, VIA, NEXT, HOP, SELF, BGP_PATH)
 
 CF_GRAMMAR
 
@@ -49,6 +49,8 @@ bgp_proto:
  | bgp_proto MULTIHOP NUM VIA IPA ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
  ;
+
+CF_ADDTO(dynamic_attr, BGP_PATH { $$ = f_new_dynamic_attr(EAF_TYPE_AS_PATH, EA_CODE(EAP_BGP, BA_AS_PATH)); })
 
 CF_CODE
 
