@@ -1,7 +1,7 @@
 /*
  *	BIRD Library -- malloc() With Checking
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -13,6 +13,16 @@
 
 #ifndef HAVE_LIBDMALLOC
 
+/**
+ * xmalloc - malloc with checking
+ * @size: block size
+ *
+ * This function is equivalent to malloc() except that in case of
+ * failure it calls die() to quit the program instead of returning
+ * a %NULL pointer.
+ *
+ * Whereever possible, please use the memory resources instead.
+ */
 void *
 xmalloc(unsigned size)
 {

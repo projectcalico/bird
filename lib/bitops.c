@@ -9,12 +9,27 @@
 #include "nest/bird.h"
 #include "bitops.h"
 
+/**
+ * u32_mkmask - create a bit mask
+ * @n: number of bits
+ *
+ * u32_mkmask() returns an unsigned 32-bit integer which binary
+ * representation consists of @n ones followed by zeroes.
+ */
 u32
 u32_mkmask(unsigned n)
 {
   return n ? ~((1 << (32 - n)) - 1) : 0;
 }
 
+/**
+ * u32_masklen - calculate length of a bit mask
+ * @x: bit mask
+ *
+ * This function checks whether the given integer @x represents
+ * a valid bit mask (binary representation contains first ones, then
+ * zeroes) and returns the number of ones or -1 if the mask is invalid.
+ */
 int
 u32_masklen(u32 x)
 {

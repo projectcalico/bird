@@ -1,12 +1,8 @@
-H Library
-S checksum.c md5.c
+H Library functions
 S ip.c ipv4.c ipv6.c
 S lists.c
-S bitops.c
-S patmatch.c
-S printf.c
-S unaligned.h
-H Resource management
+S checksum.c bitops.c patmatch.c printf.c xmalloc.c
+H Resources
 S resource.c
 S mempool.c
 S slab.c

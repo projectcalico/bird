@@ -109,6 +109,23 @@ static char * number(char * str, long num, int base, int size, int precision,
 	return str;
 }
 
+/**
+ * bvsnprintf - BIRD's vsnprintf()
+ * @buf: destination buffer
+ * @size: size of the buffer
+ * @fmt: format string
+ * @args: a list of arguments to be formatted
+ *
+ * This functions acts like ordinary sprintf() except that it checks
+ * available space to avoid buffer overflows and it allows some more
+ * format specifiers: |%I| for formatting of IP addresses and |%M| for
+ * error messages (uses strerror() to translate @errno code to
+ * message text). On the other hand, it doesn't support floating
+ * point numbers.
+ *
+ * Result: number of characters of the output string or -1 if
+ * the buffer space was insufficient.
+ */
 int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 {
 	int len;
@@ -308,11 +325,31 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 	return str-buf;
 }
 
+/**
+ * bvsprintf - BIRD's vsprintf()
+ * @buf: buffer
+ * @fmt: format string
+ * @args: a list of arguments to be formatted
+ *
+ * This function is equivalent to bvsnprintf() with an infinite
+ * buffer size. Please use carefully only when you are absolutely
+ * sure the buffer won't overflow.
+ */
 int bvsprintf(char *buf, const char *fmt, va_list args)
 {
   return bvsnprintf(buf, 1000000000, fmt, args);
 }
 
+/**
+ * bsprintf - BIRD's sprintf()
+ * @buf: buffer
+ * @fmt: format string
+ *
+ * This function is equivalent to bvsnprintf() with an infinite
+ * buffer size and variable arguments instead of a &va_list.
+ * Please use carefully only when you are absolutely
+ * sure the buffer won't overflow.
+ */
 int bsprintf(char * buf, const char *fmt, ...)
 {
   va_list args;
@@ -324,6 +361,14 @@ int bsprintf(char * buf, const char *fmt, ...)
   return i;
 }
 
+/**
+ * bsnprintf - BIRD's snprintf()
+ * @buf: buffer
+ * @size: buffer size
+ * @fmt: format string
+ *
+ * This function is equivalent to bsnprintf() with variable arguments instead of a &va_list.
+ */
 int bsnprintf(char * buf, int size, const char *fmt, ...)
 {
   va_list args;

@@ -1,9 +1,13 @@
 /*
  *	BIRD Library -- IP One-Complement Checksum
  *
- *	(c) 1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1999--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+/**
+ * DOC: Miscellaneous functions.
  */
 
 #include <stdarg.h>
@@ -83,6 +87,20 @@ ipsum_calc(void *frag, unsigned len, va_list args)
   return sum;
 }
 
+/**
+ * ipsum_verify - verify an IP checksum
+ * @frag: first packet fragment
+ * @len: length in bytes
+ *
+ * This function verifies whether a given fragmented packet
+ * has correct one's complement checksum as used by the IP
+ * protocol.
+ *
+ * It uses all the clever tricks described in RFC 1071 to speed
+ * up checksum calculation as much as possible.
+ *
+ * Result: 1 if the checksum is correct, 0 else.
+ */
 int
 ipsum_verify(void *frag, unsigned len, ...)
 {
@@ -95,6 +113,17 @@ ipsum_verify(void *frag, unsigned len, ...)
   return sum == 0xffff;
 }
 
+/**
+ * ipsum_calculate - compute an IP checksum
+ * @frag: first packet fragment
+ * @len: length in bytes
+ *
+ * This function caculates a one's complement checksum of a given fragmented
+ * packet.
+ *
+ * It uses all the clever tricks described in RFC 1071 to speed
+ * up checksum calculation as much as possible.
+ */
 u16
 ipsum_calculate(void *frag, unsigned len, ...)
 {

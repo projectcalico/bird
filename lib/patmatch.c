@@ -1,7 +1,7 @@
 /*
  *	BIRD Library -- Generic Shell-Like Pattern Matching (currently only '?' and '*')
  *
- *	(c) 1998 Martin Mares, <mj@atrey.karlin.mff.cuni.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  */
 
 #include "nest/bird.h"
@@ -52,3 +52,23 @@ MATCH_FUNC_NAME(byte *p, byte *s)
     }
   return !*s;
 }
+
+#if 0
+/**
+ * patmatch - match shell-like patterns
+ * @p: pattern
+ * @s: string
+ *
+ * patmatch() returns whether given string @s matches the given shell-like
+ * pattern @p. The patterns consist of characters (which are matched literally),
+ * question marks which match any single character, asterisks which match any
+ * (possibly empty) string of characters and backslashes which are used to
+ * escape any special characters and force them to be treated literally.
+ *
+ * The matching process is not optimized with respect to time, so please
+ * avoid using this function for complex patterns.
+ */
+int
+patmatch(byte *p, byte *s)
+{ DUMMY; }
+#endif
