@@ -264,6 +264,9 @@ protos_build(void)
 #ifdef CONFIG_STATIC
   add_tail(&protocol_list, &proto_static.n);
 #endif
+#ifdef CONFIG_OSPF
+  add_tail(&protocol_list, &proto_ospf.n);
+#endif
   proto_pool = rp_new(&root_pool, "Protocols");
   proto_flush_event = ev_new(proto_pool);
   proto_flush_event->hook = proto_flush_all;
