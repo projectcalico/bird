@@ -14,7 +14,8 @@
 
 struct f_inst {		/* Instruction */
   struct f_inst *next;	/* Structure is 16 bytes, anyway */
-  int code;
+  u16 code;
+  u16 aux;
   union {
     int i;
     void *p;
@@ -85,8 +86,9 @@ void val_print(struct f_val v);
 #define T_MASK 0xff
 
 /* Internal types */
-#define T_VOID 0
-#define T_RETURN 1
+/* Do not use type of zero, that way we'll see errors easier. */
+#define T_VOID 1
+#define T_RETURN 2
 
 /* User visible types, which fit in int */
 #define T_INT 0x10

@@ -10,6 +10,7 @@
 	FIXME: create community lists
 	FIXME: write access to dynamic attributes.
 	FIXME: '! =' should not be permitted. Ze `!=' by nemelo byt totez jako `! =' Nadefinujes si pres %token novy token a do cf-lex.l pridas nove pravidlo, ktere jej rozpoznava. Napriklad !=      return NEQ;
+	FIXME: write access to static attribute: Z rte ma byt read/write: pref, attrs (neprimo).
 
  */
 
@@ -229,21 +230,21 @@ switch_body: /* EMPTY */ { $$ = NULL; }
  ;
 
 constant:
-   CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT; $$->a2.i = $3; }
- | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT;  $$->a2.i = $1; }
- | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 1;  }
- | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 0;  }
- | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; }
- | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_PAIR;  $$->a2.i = $1; }
+   CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; }
+ | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT;  $$->a2.i = $1; }
+ | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_BOOL; $$->a2.i = 1;  }
+ | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_BOOL; $$->a2.i = 0;  }
+ | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_STRING; $$->a2.p = $1; }
+ | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PAIR;  $$->a2.i = $1; }
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
- | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
- | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = $1 >> 16; $$->a2.i = $1 & 0xffff; }
+ | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
+ | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
  ;
 
 any_dynamic:
-   RIP_METRIC { $$ = f_new_inst(); $$->a1.i = T_INT; $$->a2.i = EA_RIP_METRIC;}
- | RIP_TAG    { $$ = f_new_inst(); $$->a1.i = T_INT; $$->a2.i = EA_RIP_TAG; }
+   RIP_METRIC { $$ = f_new_inst(); $$->aux = T_INT; $$->a2.i = EA_RIP_METRIC;}
+ | RIP_TAG    { $$ = f_new_inst(); $$->aux = T_INT; $$->a2.i = EA_RIP_TAG; }
  ;
 
 
@@ -283,8 +284,8 @@ term:
 
  | RTA '.' any_dynamic { $$ = $3; $$->code = 'ea'; }
 
- | term '.' IP { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_IP; }
- | term '.' LEN { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_INT; }
+ | term '.' IP { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->aux = T_IP; }
+ | term '.' LEN { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->aux = T_INT; }
  | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = 'iM'; $$->a1.p = $1; $$->a2.p = $5; }
  ;
 
@@ -355,6 +356,11 @@ cmd:
      $$->code = 's';
      $$->a1.p = $1;
      $$->a2.p = $3;
+   }
+ | RTA '.' any_dynamic '=' term ';' {
+     $$ = $3;
+     $$->code  = 'eS';
+
    }
  | break_command print_list ';' { $$ = f_new_inst(); $$->code = 'p,'; $$->a1.p = $2; $$->a2.i = $1; }
  | SYM '(' var_list ')' ';' {

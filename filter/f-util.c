@@ -27,7 +27,7 @@ f_new_inst(void)
 {
   struct f_inst * ret;
   ret = cfg_alloc(sizeof(struct f_inst));
-  ret->code = 0;
+  ret->code = ret->aux = 0;
   ret->arg1 = ret->arg2 = ret->next = NULL;
   return ret;
 }

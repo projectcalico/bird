@@ -250,7 +250,7 @@ interpret(struct f_inst *what)
     break;
 
   case 'c':	/* integer (or simple type) constant */
-    res.type = what->a1.i;
+    res.type = what->aux;
     res.val.i = what->a2.i;
     break;
   case 'C':
@@ -284,7 +284,7 @@ interpret(struct f_inst *what)
     case F_ACCEPT:
       /* Should take care about turning ACCEPT into MODIFY */
     case F_ERROR:
-    case F_REJECT:
+    case F_REJECT:	/* FIXME (noncritical) Should print compele route along with reason to reject route */
       res.type = T_RETURN;
       res.val.i = what->a1.i;
       break;
@@ -298,10 +298,13 @@ interpret(struct f_inst *what)
   case 'a':	/* rta access */
     {
       struct rta *rta = (*f_rte)->attrs;
-      res.type = what->a1.i;
+      res.type = what->aux;
       switch(res.type) {
       case T_IP:
 	res.val.px.ip = * (ip_addr *) ((char *) rta + what->a2.i);
+	break;
+      case T_ENUM:
+	res.val.i = * ((char *) rta + what->a2.i);
 	break;
       case T_PREFIX:	/* Warning: this works only for prefix of network */
 	{
@@ -321,7 +324,7 @@ interpret(struct f_inst *what)
 	res.type = T_VOID;
 	break;
       }
-      res.type = what->a1.i;
+      res.type = what->aux;
       switch (what->a1.i) {
       case T_INT:
 	res.val.i = e->u.data;
@@ -333,7 +336,7 @@ interpret(struct f_inst *what)
     ONEARG;
     if (v1.type != T_PREFIX)
       runtime( "Can not convert non-prefix this way" );
-    res.type = what->a2.i;
+    res.type = what->aux;
     switch(res.type) {
     case T_INT:	res.val.i = v1.val.px.len; break;
     case T_IP: res.val.px.ip = v1.val.px.ip; break;
