@@ -142,7 +142,7 @@ rte_announce(rtable *tab, net *net, rte *new, rte *old, ea_list *tmpa)
 
   WALK_LIST(a, tab->hooks)
     {
-      ASSERT(a->proto->core_state == FS_HAPPY);
+      ASSERT(a->proto->core_state == FS_HAPPY || a->proto->core_state == FS_FEEDING);
       do_rte_announce(a, net, new, old, tmpa);
     }
 }
