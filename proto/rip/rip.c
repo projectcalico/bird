@@ -114,7 +114,7 @@ rip_tx( sock *s )
   struct rip_connection *c = rif->busy;
   struct proto *p = c->proto;
   struct rip_packet *packet = (void *) s->tbuf;
-  int i;
+  int i, packetlen;
 
   DBG( "Sending to %I\n", s->daddr );
   do {
@@ -151,17 +151,17 @@ rip_tx( sock *s )
 
   break_loop:
 
-    if (P_CF->authtype)
-      rip_outgoing_authentication(p, (void *) &packet->block[0], packet, i);
+    packetlen = rip_outgoing_authentication(p, (void *) &packet->block[0], packet, i);
 
     DBG( ", sending %d blocks, ", i );
-    if (!i)
+#if 0	/* FIXME: enable this for production! */
+    if (i == !!P_CF->authtype)
       continue;
-
+#endif
     if (ipa_nonzero(c->daddr))
-      i = sk_send_to( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ), c->daddr, c->dport );
+      i = sk_send_to( s, packetlen, c->daddr, c->dport );
     else
-      i = sk_send( s, sizeof( struct rip_packet_heading ) + i*sizeof( struct rip_block ) );
+      i = sk_send( s, packetlen );
 
     DBG( "it wants more\n" );
   
@@ -294,12 +294,11 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   ip_addr network = block->network;
 
   CHK_MAGIC;
+  debug( "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
   if ((!metric) || (metric > P_CF->infinity)) {
     log( L_WARN "Got metric %d from %I", metric, whotoldme );
     return;
   }
-
-  debug( "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
 
   advertise_entry( p, block, whotoldme );
 }
@@ -351,12 +350,14 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 
           for (i=0; i<num; i++) {
 	    struct rip_block *block = &packet->block[i];
-	    if (block->family == 0xffff)
-	      if (!i) {
-		if (rip_incoming_authentication(p, (void *) block, packet, num))
-		  BAD( "Authentication failed" );
-		authenticated = 1;
-	      } 
+	    if (block->family == 0xffff) {
+	      if (i)
+		BAD( "Authentication header is not the first" );
+	      if (rip_incoming_authentication(p, (void *) block, packet, num))
+		BAD( "Authentication failed" );
+	      authenticated = 1;
+	      continue;
+	    }
 	    if ((!authenticated) && (P_CF->authtype != AT_NONE))
 	      BAD( "Packet is not authenticated and it should be" );
 	    ipa_ntoh( block->network );

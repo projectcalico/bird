@@ -42,7 +42,7 @@ struct rip_packet_heading {
 };
 
 #ifndef IPV6
-struct rip_block {
+struct rip_block {	/* 20 bytes */
   u16 family;	/* 0xffff on first message means this is authentication */
   u16 tag;
   ip_addr network;
@@ -51,7 +51,7 @@ struct rip_block {
   u32 metric;
 };
 #else
-struct rip_block {
+struct rip_block { /* IPv6 version! */
   ip_addr network;
   u16 tag;
   u8 pxlen;
@@ -59,7 +59,7 @@ struct rip_block {
 };
 #endif
 
-struct rip_block_auth {
+struct rip_block_auth { /* 20 bytes */
   u16 mustbeFFFF;
   u16 authtype;
   u16 packetlen;
@@ -70,7 +70,7 @@ struct rip_block_auth {
   u32 zero1;
 };
 
-struct rip_md5_tail {
+struct rip_md5_tail {	/* 20 bytes */
   u16 mustbeFFFF;
   u16 mustbe0001;
   char md5[16];
@@ -158,4 +158,4 @@ void rip_init_config(struct rip_proto_config *c);
 /* Authentication functions */
 
 int rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num );
-void rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num );
+int rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num );

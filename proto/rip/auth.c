@@ -4,6 +4,7 @@
  *	Copyright (c) 1999 Pavel Machek <pavel@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ *
  */
 
 #define LOCAL_DEBUG
@@ -34,15 +35,19 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 {
   DBG( "Incoming authentication: " );
   switch (block->authtype) {	/* Authentication type */
-  case AT_PLAINTEXT:
-    DBG( "Plaintext passwd" );
-    if (!P_CF->passwords) {
-      log( L_AUTH "no passwords set and password authentication came\n" );
-      return 1;
-    }
-    if (strncmp( (char *) (&block->packetlen), P_CF->passwords->password, 16)) {
-      log( L_AUTH "Passwd authentication failed!\n" );
-      return 1;
+  case AT_PLAINTEXT: 
+    {
+      struct password_item *passwd = get_best_password( P_CF->passwords, 0 );
+      DBG( "Plaintext passwd" );
+      if (!passwd) {
+	log( L_AUTH "no passwords set and password authentication came\n" );
+	return 1;
+      }
+      if (strncmp( (char *) (&block->packetlen), passwd->password, 16)) {
+	log( L_AUTH "Passwd authentication failed!\n" );
+	DBG( "Expected %s, got %s\n", passwd->password, &block->packetlen );
+	return 1;
+      }
     }
     return 0;
   case AT_MD5:
@@ -51,12 +56,16 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       struct password_item *head;
       struct rip_md5_tail *tail;
 
-      if (block->packetlen != PACKETLEN(num)) {
+      if (block->packetlen != PACKETLEN(num) + 20) {
 	log( L_ERR "packetlen in md5 does not match computed value\n" );
 	return 1;
       }
 
       tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
+      if ((tail->mustbeFFFF != 0xffff) || (tail->mustbe0001 != 0x0001)) {
+	log( L_ERR "md5 tail signature is not there\n" );
+	return 1;
+      }
 
       head = P_CF->passwords;
       while (head) {
@@ -91,15 +100,19 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
   return 0;
 }
 
-void
+int
 rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
 {
   struct password_item *passwd = get_best_password( P_CF->passwords, 0 );
+
+  if (!P_CF->authtype)
+    return PACKETLEN(num);
+
   DBG( "Outgoing authentication: " );
 
   if (!passwd) {
     log( L_ERR "no suitable password found for authentication\n" );
-    return;
+    return PACKETLEN(num);
   }
 
   block->authtype = P_CF->authtype;
@@ -107,7 +120,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
   switch (P_CF->authtype) {
   case AT_PLAINTEXT:
     password_strncpy( (char *) (&block->packetlen), passwd->password, 16);
-    return;
+    return PACKETLEN(num);
   case AT_MD5:
     {
       struct rip_md5_tail *tail;
@@ -121,8 +134,8 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       block->authlen = 20;
       block->seq = sequence++;
       block->zero0 = 0;
-      block->zero1 = 1;
-      block->packetlen = PACKETLEN(num);
+      block->zero1 = 0;
+      block->packetlen = PACKETLEN(num) + block->authlen;
 
       tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
       tail->mustbeFFFF = 0xffff;
@@ -132,7 +145,9 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       MD5Init(&ctxt);
       MD5Update(&ctxt, (char *) packet, block->packetlen );
       MD5Final((char *) (&tail->md5), &ctxt);
-      return;
+      return block->packetlen;
     }
+  default:
+    bug( "Uknown authtype in outgoing authentication?\n" );
   }
 }
