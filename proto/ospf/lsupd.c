@@ -145,7 +145,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       }
       op->length=htons(len);
       ospf_pkt_finalize(ifa, op);
-      debug("%s: LS upd flooded via %s\n", p->name, ifa->iface->name);
+      OSPF_TRACE(D_PACKETS, "LS upd flooded via %s", ifa->iface->name);
 
       if(ifa->type==OSPF_IT_NBMA)
       {
@@ -204,7 +204,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
       ospf_pkt_finalize(n->ifa, op);
 		       
       sk_send_to(n->ifa->ip_sk,len-SIPH, n->ip, OSPF_PROTO);
-      debug("%s: LS upd sent to %I (%d LSAs)\n", p->name, n->ip, lsano);
+      OSPF_TRACE(D_PACKETS, "LS upd sent to %I (%d LSAs)", n->ip, lsano);
 
       DBG("LSupd: next packet\n");
       fill_ospf_pkt_hdr(n->ifa, pk, LSUPD_P);
@@ -226,7 +226,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
     op->length=htons(len-SIPH);
     ospf_pkt_finalize(n->ifa, op);
 
-    debug("%s: LS upd sent to %I (%d LSAs)\n", p->name, n->ip, lsano);
+    OSPF_TRACE(D_PACKETS, "LS upd sent to %I (%d LSAs)", n->ip, lsano);
     sk_send_to(n->ifa->ip_sk,len-SIPH, n->ip, OSPF_PROTO);
   }
 }
@@ -250,23 +250,23 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received lsupd from unknown neigbor! (%I)\n", p->name,
+    OSPF_TRACE(D_PACKETS, "Received lsupd from unknown neigbor! (%I)",
       nrid);
     return ;
   }
   if(n->state<NEIGHBOR_EXCHANGE)
   {
-    debug("%s: Received lsupd in lesser state than EXCHANGE from (%I)\n",
-      p->name,n->ip);
+    OSPF_TRACE(D_PACKETS,"Received lsupd in lesser state than EXCHANGE from (%I)",
+      n->ip);
     return;
   }
   if(size<=(sizeof(struct ospf_lsupd_packet)+sizeof(struct ospf_lsa_header)))
   {
-    log("%s: Received lsupd from %I is too short!", p->name,n->ip);
+    OSPF_TRACE(D_PACKETS, "Received lsupd from %I is too short!", n->ip);
     return;
   }
 
-  debug("%s: Received LS upd from %I\n", p->name, n->ip);
+  OSPF_TRACE(D_PACKETS, "Received LS upd from %I", n->ip);
   ospf_neigh_sm(n, INM_HELLOREC);
 
   lsa=(struct ospf_lsa_header *)(ps+1);
@@ -368,8 +368,8 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 	 lsatmp.sn=LSA_MAXSEQNO;
          lsa->age=htons(LSA_MAXAGE);
          lsa->sn=htonl(LSA_MAXSEQNO);
-	 debug("%s: Premature aging self originated lsa.\n",p->name);
-         debug("%s: Type: %d, Id: %I, Rt: %I\n", p->name, lsatmp.type,
+	 OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa.");
+         OSPF_TRACE(D_EVENTS, "%s: Type: %d, Id: %I, Rt: %I",lsatmp.type,
            lsatmp.id, lsatmp.rt);
 	 lsasum_check(lsa,(lsa+1),po);
 	 lsatmp.checksum=ntohs(lsa->checksum);
@@ -482,12 +482,13 @@ net_flush_lsa(struct top_hash_entry *en, struct proto_ospf *po,
   struct ospf_area *oa)
 {
   struct ospf_lsa_header *lsa=&en->lsa;
+  struct proto *p=&po->proto;
 
   lsa->age=LSA_MAXAGE;
   lsa->sn=LSA_MAXSEQNO;
   lsasum_calculate(lsa,en->lsa_body,po);
-  debug("%s: Premature aging self originated lsa!\n",po->proto.name);
-  debug("%s: Type: %d, Id: %I, Rt: %I\n", po->proto.name, lsa->type,
+  OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa!");
+  OSPF_TRACE(D_EVENTS, "Type: %d, Id: %I, Rt: %I", lsa->type,
     lsa->id, lsa->rt);
   flood_lsa(NULL,NULL,lsa,po,NULL,oa,0);
 }
