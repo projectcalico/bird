@@ -14,6 +14,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
   struct ospf_dbdes_packet *pkt;
   struct ospf_packet *op;
   struct ospf_iface *ifa=n->ifa;
+  struct ospf_area *oa=ifa->oa;
   u16 length;
   struct proto *p;
   u16 i,j;
@@ -42,6 +43,9 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
     case NEIGHBOR_EXCHANGE:
       n->myimms.bit.i=0;
+
+      if(oa->rt==NULL) originate_rt_lsa(oa);
+      oa->origrt=0;
 
       if(((n->myimms.bit.ms) && (n->dds==n->ddr+1)) ||
          ((!(n->myimms.bit.ms)) && (n->dds==n->ddr)))
