@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+#  Generate BIRD Distribution Archive
+#  (c) 2000 Martin Mares <mj@ucw.cz>
+#
+
+[ -f Makefile ] && make distclean
+autoconf
+VERSION=`sed <sysdep/config.h '/BIRD_VERSION/!d;s/^.*"\(.*\)"$/\1/'`
+REL=bird-$VERSION
+echo Building $REL
+rm -rf dist
+mkdir -p dist/$REL
+cp -a . dist/$REL
+rm -rf `find dist/$REL -name CVS -o -name tmp` dist/$REL/{dist,misc,rfc}
+cd dist ; tar czvvf /tmp/$REL.tar.gz $REL
+rm -rf dist
+echo Done.

@@ -1,15 +1,11 @@
 Core
 ~~~~
 - config: when parsing prefix, check zero bits
+- config: try to unify expressions
 
 - static: check validity of route destination?
-- static: allow specifying a per-route filter program for setting route attributes?
 
 - configure: default CFLAGS?
-
-- daemonization
-
-- netlink: realms
 
 - filters: deletion of mandatory attributes?
 - filters: user defined attributes?
@@ -22,11 +18,16 @@ Core
 - client: data losses on large dumps?
 
 - table: ocassional core dumps in rt_prune()
+- table: filtering of old routes during updates?
+- table: do feeding by parts
 
 - bgp: timing of updates?
 - bgp: dump and get_route_info
+- bgp: when protocol is down, don't print Idle state
 
 - proto: Don't show repeated `Changed state to ...' messages if only internal states change
+
+- iface: Don't complain about missing broadcast addresses.
 
 Documentation
 ~~~~~~~~~~~~~
@@ -54,6 +55,8 @@ Globals
 
 Various ideas
 ~~~~~~~~~~~~~
+- static: allow specifying a per-route filter program for setting route attributes?
+- netlink: realms
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
 - config: executable config files
 - client: access control
