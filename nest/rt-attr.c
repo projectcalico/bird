@@ -222,7 +222,7 @@ ea_list_copy(ea_list *o)
   for(i=0; i<o->count; i++)
     {
       eattr *a = &n->attrs[i];
-      if (!(a->flags & EAF_EMBEDDED))
+      if (!(a->type & EAF_EMBEDDED))
 	{
 	  unsigned size = sizeof(struct adata) + a->u.ptr->length;
 	  struct adata *d = mb_alloc(rta_pool, size);
