@@ -129,7 +129,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
     /* Latter I'll use config - this is incorrect */
     ospf_iface=mb_alloc(p->pool, sizeof(struct ospf_iface));
     ospf_iface->iface=new;
-    add_tail(&(c->iface_list), NODE ospf_iface);
+    add_tail(&c->iface_list, NODE ospf_iface);
     ospf_iface_default(ospf_iface);
     init_list(&(ospf_iface->sk_list));
     if(ospf_open_socket(p, ospf_iface)!=NULL)
@@ -166,16 +166,16 @@ ospf_init(struct proto_config *c)
   struct proto *p = proto_new(c, sizeof(struct proto));
 
   DBG(" OSPF: Init.\n");
+  init_list(&((struct ospf_config *)c)->iface_list);
   p->neigh_notify = NULL;
   p->if_notify = NULL;
   return p;
 }
 
 static void
-ospf_preconfig(struct protocol *x, struct config *c)
+ospf_preconfig(struct protocol *p, struct config *c)
 {
   DBG( " OSPF: preconfig\n" );
-  init_list(&(((struct ospf_config *)c)->iface_list));
 }
 
 static void
