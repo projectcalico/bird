@@ -311,6 +311,7 @@ bgp_start_locked(struct object_lock *lock)
   struct bgp_config *cf = p->cf;
 
   DBG("BGP: Got lock\n");
+  p->local_id = cf->c.global->router_id;
   p->next_hop = cf->multihop ? cf->multihop_via : cf->remote_ip;
   p->neigh = neigh_find(&p->p, &p->next_hop, NEF_STICKY);
   if (!p->neigh)
@@ -400,7 +401,6 @@ bgp_init(struct proto_config *C)
   p->local_as = c->local_as;
   p->remote_as = c->remote_as;
   p->is_internal = (c->local_as == c->remote_as);
-  p->local_id = C->global->router_id;
   return P;
 }
 
