@@ -72,6 +72,10 @@ struct bgp_proto {
   struct bgp_bucket *withdraw_bucket;	/* Withdrawn routes */
   unsigned startup_delay;		/* Time to delay protocol startup by due to errors */
   bird_clock_t last_connect;		/* Time of last connect attempt */
+#ifdef IPV6
+  byte *mp_reach_start, *mp_unreach_start; /* Multiprotocol BGP attribute notes */
+  unsigned mp_reach_len, mp_unreach_len;
+#endif
 };
 
 struct bgp_prefix {
@@ -180,5 +184,9 @@ void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subco
 #define ORIGIN_IGP		0
 #define ORIGIN_EGP		1
 #define ORIGIN_INCOMPLETE	2
+
+/* Address families */
+
+#define BGP_AF_IPV6		2
 
 #endif

@@ -68,6 +68,8 @@ bgp_encode_prefixes(struct bgp_proto *p, byte *w, struct bgp_bucket *buck, unsig
   return w - start;
 }
 
+#ifndef IPV6		/* IPv4 version */
+
 static byte *
 bgp_create_update(struct bgp_conn *conn, byte *buf)
 {
@@ -116,6 +118,16 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
     }
   return (wd_size || r_size) ? w : NULL;
 }
+
+#else		/* IPv6 version */
+
+static byte *
+bgp_create_update(struct bgp_conn *conn, byte *buf)
+{
+  return NULL;
+}
+
+#endif
 
 static void
 bgp_create_header(byte *buf, unsigned int len, unsigned int type)
@@ -321,9 +333,9 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   int b = *pp++;				\
   int q;					\
   ll--;						\
-  if (b > BITS_PER_IP_ADDRESS) { bgp_error(conn, 3, 10, NULL, 0); return; } \
+  if (b > BITS_PER_IP_ADDRESS) { err=10; goto bad; } \
   q = (b+7) / 8;				\
-  if (ll < q) goto malformed;			\
+  if (ll < q) { err=1; goto bad; }		\
   memcpy(&prefix, pp, q);			\
   pp += q;					\
   ll -= q;					\
@@ -332,17 +344,196 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   pxlen = b;					\
 } while (0)
 
+static inline int
+bgp_get_nexthop(struct bgp_proto *bgp, rta *a)
+{
+  neighbor *neigh;
+  ip_addr nexthop;
+  struct eattr *nh = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
+  ASSERT(nh);
+  nexthop = *(ip_addr *) nh->u.ptr->data;
+  if (ipa_equal(nexthop, bgp->local_addr))
+    {
+      DBG("BGP: Loop!\n");
+      return 0;
+    }
+  neigh = neigh_find(&bgp->p, &nexthop, 0) ? : bgp->neigh;
+  a->gw = neigh->addr;
+  a->iface = neigh->iface;
+  return 1;
+}
+
+#ifndef IPV6		/* IPv4 version */
+
+static void
+bgp_do_rx_update(struct bgp_conn *conn,
+		 byte *withdrawn, int withdrawn_len,
+		 byte *nlri, int nlri_len,
+		 byte *attrs, int attr_len)
+{
+  struct bgp_proto *p = conn->bgp;
+  rta *a0;
+  rta *a = NULL;
+  ip_addr prefix;
+  net *n;
+  rte e;
+  int err = 0, pxlen;
+
+  /* Withdraw routes */
+  while (withdrawn_len)
+    {
+      DECODE_PREFIX(withdrawn, withdrawn_len);
+      DBG("Withdraw %I/%d\n", prefix, pxlen);
+      if (n = net_find(p->p.table, prefix, pxlen))
+	rte_update(p->p.table, n, &p->p, NULL);
+    }
+
+  if (!attr_len && !nlri_len)		/* shortcut */
+    return;
+
+  a0 = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool, nlri_len);
+  if (a0 && nlri_len && bgp_get_nexthop(p, a0))
+    {
+      a = rta_lookup(a0);
+      while (nlri_len)
+	{
+	  rte *e;
+	  DECODE_PREFIX(nlri, nlri_len);
+	  DBG("Add %I/%d\n", prefix, pxlen);
+	  e = rte_get_temp(rta_clone(a));
+	  n = net_get(p->p.table, prefix, pxlen);
+	  e->net = n;
+	  e->pflags = 0;
+	  rte_update(p->p.table, n, &p->p, e);
+	}
+    }
+bad:
+  if (a)
+    rta_free(a);
+  if (err)
+    bgp_error(conn, 3, err, NULL, 0);
+  return;
+}
+
+#else			/* IPv6 version */
+
+#define DO_NLRI(name)					\
+  start = x = p->name##_start;				\
+  len = len0 = p->name##_len;				\
+  if (len)						\
+    {							\
+      if (len < 3) goto bad;				\
+      af = get_u16(x);					\
+      sub = x[2];					\
+      x += 3;						\
+      len -= 3;						\
+      DBG("\tNLRI AF=%d sub=%d len=%d\n", af, sub, len);\
+    }							\
+  else							\
+    af = 0;						\
+  if (af == BGP_AF_IPV6)
+
+static void
+bgp_do_rx_update(struct bgp_conn *conn,
+		 byte *withdrawn, int withdrawn_len,
+		 byte *nlri, int nlri_len,
+		 byte *attrs, int attr_len)
+{
+  struct bgp_proto *p = conn->bgp;
+  byte *start, *x;
+  int len, len0;
+  unsigned af, sub;
+  rta *a0;
+  rta *a = NULL;
+  ip_addr prefix;
+  net *n;
+  rte e;
+  int err = 0, pxlen;
+
+  p->mp_reach_len = 0;
+  p->mp_unreach_len = 0;
+  a0 = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool, 0);
+  if (!a0)
+    return;
+
+  DO_NLRI(mp_unreach)
+    {
+      while (len)
+	{
+	  DECODE_PREFIX(x, len);
+	  DBG("Withdraw %I/%d\n", prefix, pxlen);
+	  if (n = net_find(p->p.table, prefix, pxlen))
+	    rte_update(p->p.table, n, &p->p, NULL);
+	}
+    }
+
+  DO_NLRI(mp_reach)
+    {
+      ea_list *e = lp_alloc(bgp_linpool, sizeof(ea_list) + sizeof(eattr));
+      struct adata *ad = lp_alloc(bgp_linpool, sizeof(struct adata) + 16);
+      int i;
+
+      /* Create fake NEXT_HOP attribute */
+      if (len < 1 || (*x != 16 && *x != 32) || len < *x + 2)
+	goto bad;
+      e->next = a0->eattrs;
+      a0->eattrs = e;
+      e->flags = EALF_SORTED;
+      e->count = 1;
+      e->attrs[0].id = EA_CODE(EAP_BGP, BA_NEXT_HOP);
+      e->attrs[0].flags = BAF_TRANSITIVE;
+      e->attrs[0].type = EAF_TYPE_IP_ADDRESS;
+      e->attrs[0].u.ptr = ad;
+      ad->length = 16;
+      memcpy(ad->data, x+1, 16);
+      len -= *x + 1;
+      x += *x + 1;
+
+      /* Ignore SNPA info */
+      i = *x++;
+      while (i--)
+	{
+	  if (len < 1 || len < 1 + *x)
+	    goto bad;
+	  len -= *x + 1;
+	  x += *x + 1;
+	}
+
+      if (bgp_get_nexthop(p, a0))
+	{
+	  a = rta_lookup(a0);
+	  while (len)
+	    {
+	      rte *e;
+	      DECODE_PREFIX(x, len);
+	      DBG("Add %I/%d\n", prefix, pxlen);
+	      e = rte_get_temp(rta_clone(a));
+	      n = net_get(p->p.table, prefix, pxlen);
+	      e->net = n;
+	      e->pflags = 0;
+	      rte_update(p->p.table, n, &p->p, e);
+	    }
+	  rta_free(a);
+	}
+    }
+
+  return;
+
+bad:
+  bgp_error(conn, 3, 9, start, len0);
+  if (a)
+    rta_free(a);
+  return;
+}
+
+#endif
+
 static void
 bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 {
   struct bgp_proto *p = conn->bgp;
   byte *withdrawn, *attrs, *nlri;
-  ip_addr prefix;
-  int withdrawn_len, attr_len, nlri_len, pxlen;
-  net *n;
-  rte e;
-  rta *a0;
-  rta *a = NULL;
+  int withdrawn_len, attr_len, nlri_len;
 
   BGP_TRACE(D_PACKETS, "Got UPDATE");
   if (conn->state != BS_ESTABLISHED)
@@ -369,41 +560,12 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
     goto malformed;
   DBG("Sizes: withdrawn=%d, attrs=%d, NLRI=%d\n", withdrawn_len, attr_len, nlri_len);
 
-  /* Withdraw routes */
-  while (withdrawn_len)
-    {
-      DECODE_PREFIX(withdrawn, withdrawn_len);
-      DBG("Withdraw %I/%d\n", prefix, pxlen);
-      if (n = net_find(p->p.table, prefix, pxlen))
-	rte_update(p->p.table, n, &p->p, NULL);
-    }
-
-  if (!attr_len && !nlri_len)		/* shortcut */
-    return;
-
-  a0 = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool, nlri_len);
-  if (a0 && nlri_len)
-    {
-      a = rta_lookup(a0);
-      while (nlri_len)
-	{
-	  rte *e;
-	  DECODE_PREFIX(nlri, nlri_len);
-	  DBG("Add %I/%d\n", prefix, pxlen);
-	  e = rte_get_temp(rta_clone(a));
-	  n = net_get(p->p.table, prefix, pxlen);
-	  e->net = n;
-	  e->pflags = 0;
-	  rte_update(p->p.table, n, &p->p, e);
-	}
-      rta_free(a);
-    }
   lp_flush(bgp_linpool);
+
+  bgp_do_rx_update(conn, withdrawn, withdrawn_len, nlri, nlri_len, attrs, attr_len);
   return;
 
 malformed:
-  if (a)
-    rta_free(a);
   bgp_error(conn, 3, 1, NULL, 0);
 }
 

@@ -22,7 +22,11 @@
 
 #include "bgp.h"
 
-static byte bgp_mandatory_attrs[] = { BA_ORIGIN, BA_AS_PATH, BA_NEXT_HOP };
+static byte bgp_mandatory_attrs[] = { BA_ORIGIN, BA_AS_PATH
+#ifndef IPV6
+,BA_NEXT_HOP
+#endif
+};
 
 struct attr_desc {
   char *name;
@@ -69,6 +73,9 @@ bgp_check_path(struct bgp_proto *p, byte *a, int len)
 static int
 bgp_check_next_hop(struct bgp_proto *p, byte *a, int len)
 {
+#ifdef IPV6
+  return -1;
+#else
   ip_addr addr;
 
   memcpy(&addr, a, len);
@@ -77,31 +84,61 @@ bgp_check_next_hop(struct bgp_proto *p, byte *a, int len)
     return 0;
   else
     return 8;
+#endif
+}
+
+static int
+bgp_check_reach_nlri(struct bgp_proto *p, byte *a, int len)
+{
+#ifdef IPV6
+  p->mp_reach_start = a;
+  p->mp_reach_len = len;
+  return 0;
+#else
+  return -1;
+#endif
+}
+
+static int
+bgp_check_unreach_nlri(struct bgp_proto *p, byte *a, int len)
+{
+#ifdef IPV6
+  p->mp_unreach_start = a;
+  p->mp_unreach_len = len;
+  return 0;
+#else
+  return -1;
+#endif
 }
 
 static struct attr_desc bgp_attr_table[] = {
-  { NULL, -1, 0, 0, 0,						/* Undefined */
+  { NULL, -1, 0, 0, 0,								/* Undefined */
     NULL, NULL },
-  { "origin", 1, BAF_TRANSITIVE, EAF_TYPE_INT, 1,		/* BA_ORIGIN */
+  { "origin", 1, BAF_TRANSITIVE, EAF_TYPE_INT, 1,				/* BA_ORIGIN */
     bgp_check_origin, bgp_format_origin },
-  { "as_path", -1, BAF_TRANSITIVE, EAF_TYPE_AS_PATH, 1,		/* BA_AS_PATH */
+  { "as_path", -1, BAF_TRANSITIVE, EAF_TYPE_AS_PATH, 1,				/* BA_AS_PATH */
     bgp_check_path, NULL },
-  { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS, 1,	/* BA_NEXT_HOP */
+  { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS, 1,			/* BA_NEXT_HOP */
     bgp_check_next_hop, NULL },
-  { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,			/* BA_MULTI_EXIT_DISC */
+  { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,					/* BA_MULTI_EXIT_DISC */
     NULL, NULL },
-  { "local_pref", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,		/* BA_LOCAL_PREF */
+  { "local_pref", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,				/* BA_LOCAL_PREF */
     NULL, NULL },
-  { "atomic_aggr", 0, BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_ATOMIC_AGGR */
+  { "atomic_aggr", 0, BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,			/* BA_ATOMIC_AGGR */
     NULL, NULL },
   { "aggregator", 6, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_AGGREGATOR */
     NULL, NULL },
-  { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET, 1,  /* BA_COMMUNITY */
+  { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET, 1,	/* BA_COMMUNITY */
     NULL, NULL },
-#if 0
-  { 0, 0 },									/* BA_ORIGINATOR_ID */
-  { 0, 0 },									/* BA_CLUSTER_LIST */
-#endif
+  { NULL, },									/* BA_ORIGINATOR_ID */
+  { NULL, },									/* BA_CLUSTER_LIST */
+  { NULL, },									/* BA_DPA */
+  { NULL, },									/* BA_ADVERTISER */
+  { NULL, },									/* BA_RCID_PATH */
+  { "mp_reach_nlri", -1, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,			/* BA_MP_REACH_NLRI */
+    bgp_check_reach_nlri, NULL },
+  { "mp_unreach_nlri", -1, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,			/* BA_MP_UNREACH_NLRI */
+    bgp_check_unreach_nlri, NULL },
 };
 
 #define ATTR_KNOWN(code) ((code) < ARRAY_SIZE(bgp_attr_table) && bgp_attr_table[code].name)
@@ -708,8 +745,6 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   eattr *e;
   ea_list *ea;
   struct adata *ad;
-  neighbor *neigh;
-  ip_addr nexthop;
 
   a->proto = &bgp->p;
   a->source = RTS_BGP;
@@ -820,6 +855,11 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 	}
     }
 
+#ifdef IPV6
+  if (seen[BA_MP_REACH_NLRI / 8] & (1 << (BA_MP_REACH_NLRI % 8)))
+    mandatory = 1;
+#endif
+
   /* Check if all mandatory attributes are present */
   if (mandatory)
     {
@@ -855,19 +895,6 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
       ea->attrs[0].type = EAF_TYPE_INT;
       ea->attrs[0].u.data = 0;
     }
-
-  /* Fill in the remaining rta fields */
-  e = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
-  ASSERT(e);
-  nexthop = *(ip_addr *) e->u.ptr->data;
-  if (ipa_equal(nexthop, bgp->local_addr))
-    {
-      DBG("BGP: Loop!\n");
-      return NULL;
-    }
-  neigh = neigh_find(&bgp->p, &nexthop, 0) ? : bgp->neigh;
-  a->gw = neigh->addr;
-  a->iface = neigh->iface;
   return a;
 
 malformed:
