@@ -768,8 +768,8 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
     e->metric = 0;
     e->whotoldme = IPA_NONE;
 
-    e->tag = ea_find(attrs, EA_RIP_TAG)->u.data;
-    e->metric = ea_find(attrs, EA_RIP_METRIC)->u.data;
+    e->tag = ea_get_int(attrs, EA_RIP_TAG, 0);
+    e->metric = ea_get_int(attrs, EA_RIP_METRIC, 1);
     if (e->metric > P_CF->infinity)
       e->metric = P_CF->infinity;
 
