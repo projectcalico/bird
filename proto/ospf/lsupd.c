@@ -8,12 +8,6 @@
 
 #include "ospf.h"
 
-void
-ospf_lsupd_tx(struct ospf_neighbor *n)
-{
-  /* FIXME Go on! */
-}
-
 int
 flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   struct ospf_lsa_header *hh, struct proto_ospf *po, struct ospf_iface *iff,

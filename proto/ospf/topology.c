@@ -175,7 +175,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
   {
     struct ospf_lsa_header *lsa;
 
-    oa=mb_alloc(po->proto.pool, sizeof(struct ospf_area));
+    oa=mb_allocz(po->proto.pool, sizeof(struct ospf_area));
     add_tail(&po->area_list,NODE oa);
     oa->areaid=ifa->an;
     oa->gr=ospf_top_new(po);

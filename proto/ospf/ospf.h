@@ -202,6 +202,10 @@ struct ospf_lsa_rt_link_tos {	/* Actually we ignore TOS. This is useless */
   u16 metric;
 };
 
+struct ospf_lsa_net {
+  u32 netmask;
+};
+
 struct ospf_lsa_summ {
   u32 netmask;
 };
@@ -320,7 +324,9 @@ struct ospf_area {
   struct top_graph *gr;		/* LSA graph */
   slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
-  int stub;
+  list cand;			/* List of candidates for RT calc. */
+  u8 stub;
+  u8 trcap;			/* Transit capability? */
 };
 
 struct proto_ospf {
@@ -328,6 +334,11 @@ struct proto_ospf {
   list iface_list;		/* Interfaces we really use */
   list area_list;
   int areano;			/* Number of area I belong to */
+};
+
+struct spf_n {
+  node n;
+  struct top_hash_entry *en;
 };
 
 static int ospf_start(struct proto *p);
@@ -346,5 +357,6 @@ static void ospf_postconfig(struct proto_config *c);
 #include "proto/ospf/lsupd.h"
 #include "proto/ospf/lsack.h"
 #include "proto/ospf/lsalib.h"
+#include "proto/ospf/rt.h"
 
 #endif /* _BIRD_OSPF_H_ */
