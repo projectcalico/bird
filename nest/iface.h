@@ -17,6 +17,7 @@ struct iface {
   unsigned flags;
   unsigned mtu;
   struct ifa *ifa;			/* First address is primary */
+  unsigned index;			/* OS-dependent interface index */
 };
 
 #define IF_UP 1
