@@ -139,9 +139,6 @@ int bgp_rx(struct birdsock *sk, int size);
 #define BA_MP_UNREACH_NLRI	0x0f
 #define BA_EXTENDED_COMM	0x10	/* draft-ramachandra-bgp-ext-communities */
 
-#define BGP_PATH_AS_SET		1	/* Types of path segments */
-#define BGP_PATH_AS_SEQUENCE	2
-
 /* BGP states */
 
 #define BS_IDLE			0

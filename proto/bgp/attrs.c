@@ -54,7 +54,7 @@ bgp_check_path(struct bgp_proto *p, byte *a, int len)
     {
       DBG("Path segment %02x %02x\n", a[0], a[1]);
       if (len < 2 ||
-	  a[0] != BGP_PATH_AS_SET && a[0] != BGP_PATH_AS_SEQUENCE ||
+	  a[0] != AS_PATH_SET && a[0] != AS_PATH_SEQUENCE ||
 	  2*a[1] + 2 > len)
 	return 11;
       len -= 2*a[1] + 2;
@@ -101,9 +101,9 @@ static struct attr_desc bgp_attr_table[] = {
     NULL, NULL },
   { "aggregator", 6, BAF_OPTIONAL, EAF_TYPE_OPAQUE,		/* BA_AGGREGATOR */
     NULL, NULL },
+  { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET,	/* BA_COMMUNITY */
+    NULL, NULL },
 #if 0
-  /* FIXME: Handle community lists and remember to convert their endianity and normalize them */
-  { 0, 0 },									/* BA_COMMUNITY */
   { 0, 0 },									/* BA_ORIGINATOR_ID */
   { 0, 0 },									/* BA_CLUSTER_LIST */
 #endif
@@ -177,9 +177,16 @@ bgp_encode_attrs(byte *w, struct bgp_bucket *buck)
 	    memcpy(w, &ip, len);
 	    break;
 	  }
+	case EAF_TYPE_INT_SET:
+	  {
+	    u32 *z = (u32 *)a->u.ptr->data;
+	    int i;
+	    for(i=0; i<len; i+=4)
+	      put_u32(w+i, *z++);
+	    break;
+	  }
 	case EAF_TYPE_OPAQUE:
 	case EAF_TYPE_AS_PATH:
-	case EAF_TYPE_INT_SET:
 	  memcpy(w, a->u.ptr->data, len);
 	  break;
 	default:
@@ -318,7 +325,7 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp)
       a = &new->attrs[i];
 #ifdef LOCAL_DEBUG
       {
-	byte buf[256];
+	byte buf[EA_FORMAT_BUF_SIZE];
 	ea_format(a, buf);
 	DBG("\t%s\n", buf);
       }
@@ -710,6 +717,13 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 	case EAF_TYPE_IP_ADDRESS:
 	  ipa_ntoh(*(ip_addr *)ad->data);
 	  break;
+	case EAF_TYPE_INT_SET:
+	  {
+	    u32 *z = (u32 *) ad->data;
+	    for(i=0; i<ad->length/4; i++)
+	      z[i] = ntohl(z[i]);
+	    break;
+	  }
 	}
     }
 

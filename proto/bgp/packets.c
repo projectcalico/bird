@@ -81,6 +81,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   int r_size = 0;
 
   DBG("BGP: Sending update\n");
+  /* FIXME: Better timing of updates */
   w = buf+2;
   if ((buck = bgp->withdraw_bucket) && !EMPTY_LIST(buck->prefixes))
     {
