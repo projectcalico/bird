@@ -41,6 +41,8 @@ ospf_age(struct ospf_area *oa)
   struct top_hash_entry *en,*nxt;
   int flush=can_flush_lsa(oa);
 
+  OSPF_TRACE(D_EVENTS, "Running ospf_age");
+
   WALK_SLIST_DELSAFE(en,nxt,oa->lsal)
   {
     if(oa->calcrt)
