@@ -44,6 +44,7 @@ struct iface {
 #define IF_CHANGE_DOWN 2
 #define IF_CHANGE_FLAGS 4		/* Can be converted to down/up internally */
 #define IF_CHANGE_MTU 8
+#define IF_CHANGE_CREATE 16		/* Seen this interface for the first time */
 
 void if_init(void);
 void if_dump(struct iface *);

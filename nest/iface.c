@@ -193,7 +193,7 @@ if_dump_all(void)
 {
   struct iface *i;
 
-  debug("Known network interfaces:\n\n");
+  debug("Known network interfaces:\n");
   WALK_LIST(i, iface_list)
     if_dump(i);
   debug("\n");
@@ -292,7 +292,8 @@ newif:
   memcpy(i, new, sizeof(*i));
   i->flags |= IF_UPDATED;
   add_tail(&iface_list, &i->n);
-  if_notify_change(IF_CHANGE_UP | IF_CHANGE_FLAGS | IF_CHANGE_MTU, NULL, i);
+  if_notify_change(IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0)
+		   | IF_CHANGE_FLAGS | IF_CHANGE_MTU, NULL, i);
 }
 
 void
