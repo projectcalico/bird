@@ -319,7 +319,5 @@ static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->eattrs, 
 #define DEF_PREF_OSPF_EXTERNAL	80	/* OSPF external routes */
 #define DEF_PREF_RIP_EXTERNAL	70	/* RIP external routes */
 #define DEF_PREF_PIPE		60	/* Routes piped from other tables */
-#define DEF_PREF_UKR		50	/* Unidentified Kernel Route */
-#define DEF_PREF_SINK		10	/* Sink route */
 
 #endif
