@@ -348,7 +348,6 @@ void rta__free(rta *r);
 static inline void rta_free(rta *r) { if (r && !--r->uc) rta__free(r); }
 void rta_dump(rta *);
 void rta_dump_all(void);
-static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->eattrs, ea); }
 void rta_show(struct cli *, rta *, ea_list *);
 
 extern struct protocol *attr_class_to_protocol[EAP_MAX];
