@@ -283,7 +283,7 @@ protocol rip {
 	<tag>passwords { password "<m/password/" from <m/time/ to <m/time/ passive <m/time/ id
 	<m/num/ [...] }</tag> Specifies passwords to be used with this protocol. <cf>Passive <m/time/</cf> is
 	time from which the password is not used for sending, but it is recognized on reception. <cf/id/ is password ID, as needed by
-	certain protocols.
+	certain protocols. Format of <cf><m/time/</cf> is <tt>dd-mm-yy HH:MM:SS</tt>.
 
 	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [ ... ] } ]</tag> Specifies which
 	interfaces this protocol is active on, and allows you to set options on
@@ -309,6 +309,24 @@ codes. You do not necessarily need to use BIRDC to talk to BIRD, your
 own application could do that, too -- format of communication between
 BIRD and BIRDC is stable (see programmer's documentation).
 
+<p>Here is very brief list of supported functions:
+
+<descrip>
+	<tag>dump resources|sockets|interfaces|neighbors|attributs|routes|protocols</tag>
+	Send requested information to a standard logging facility.
+
+	<tag>show status|protocols [all]|interfaces [summary]|symbols</tag>
+	Show requested information on client.
+
+	<tag>show route [<m/prefix/|for <m/prefix or IP/] [table <m/name/] [table <m/sym/] [all] [stats] [count] [primary] [filter <m/name/] [import_or_proto <m/sym/]</tag>
+	Show contents of the routing table, possibly filtered by the filter. If you put <cf><m/prefix/</cf> on the line, only routes to given destination are shown. You can also make list more verbose by using <cf/all/ or limit routes to be shown to those from given protocol (using <cf/import_or_proto/).
+	
+	<tag>enable|disable|restart <m/name/|all</tag>
+	Enable/disable or restart given protocol.
+
+	<tag>debug <m/protocol/|<m/pattern/|all all|off|{ states | routes | filters | events | packets }
+	Control protocol debugging.
+</descrip>
 
 <chapt>Filters
 
@@ -513,14 +531,12 @@ attributes just like it accesses variables. Attempt to access undefined
 attribute result in a runtime error; you can check if an attribute is
 defined using the <cf>defined( <m>attribute</m> )</cf> operator.
 
-<!-- fixme: say which are read-only -->
-
 <descrip>
 	<tag><m/prefix/ net</tag>
 	Network the route is talking about. Read-only. (See the section about routing tables.)
 
 	<tag><m/enum/ scope</tag>
-	Address scope of the network (<cf/SCOPE_HOST/ for addresses local to this host, <cf/SCOPE_LINK/ for those specific for a physical link, ... <!-- FIXME -->)
+	Address scope of the network (<cf/SCOPE_HOST/ for addresses local to this host, <cf/SCOPE_LINK/ for those specific for a physical link, <cf/SCOPE_SITE/, <cf/SCOPE_ORGANIZATION/, <cf/SCOPE_UNIVERSE/)
 
 	<tag><m/int/ preference</tag>
 	Preference of the route. (See section about routing tables.)
@@ -877,8 +893,7 @@ protocol kernel {		# Secondary routing table
 <sect1>Introduction
 
 <p>Open Shortest Path First (OSPF) is a quite complex interior gateway
-protocol. The current IPv4 version (OSPFv2) is defined in RFC 2328
-<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2328.txt">. It's a link
+protocol. The current IPv4 version (OSPFv2) is defined in RFC 2328<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2328.txt">. It's a link
 state (a.k.a. shortest path first) protocol -- Each router maintains a database
 describing the autonomous system's topology. Each participating router
 has an identical copy of the database and all routers run the same algorithm
@@ -1188,7 +1203,7 @@ RIP) and all routers know that network is unreachable. RIP tries to minimize sit
 counting to infinity is necessary, because it is slow. Due to infinity being 16, you can't use
 RIP on networks where maximal distance is higher than 15 hosts. You can read more about rip at <HTMLURL
 URL="http://www.ietf.org/html.charters/rip-charter.html" name="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4  
-(RFC ????<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc????.txt">)
+(RFC 1723<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1723.txt">)
 and IPv6 (RFC 2080<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2080.txt">) versions of RIP are supported by BIRD, historical RIPv1 (RFC 1058<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1058.txt">)is
 not currently supported. RIPv4 md5 authentication (RFC 2082<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2082.txt">) is supported.
 
@@ -1352,4 +1367,5 @@ LocalWords:  EGP misconfigurations keepalive pref aggr aggregator BIRD's RTC
 LocalWords:  OS'es AS's multicast nolisten misconfigured UID blackhole MRTD
 LocalWords:  uninstalls ethernets IP binutils ANYCAST anycast dest RTD ICMP rfc
 LocalWords:  compat multicasts nonbroadcast pointopoint
+LocalWords:  Perl SIGHUP dd mm yy HH MM SS EXT IA UNICAST multihop Discriminator txt
  -->
