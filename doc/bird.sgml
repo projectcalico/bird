@@ -53,11 +53,9 @@ a statically configured table.
 <p>A <em/Routing Daemon/ is in UNIX terminology a non-interactive program running on
 background which does the dynamic part of Internet routing, that is it communicates
 with the other routers, calculates routing tables and sends them to the OS kernel
-which does the actual packet forwarding.
-
-<p>There already exist some such routing daemons (routed, GateD <HTMLURL URL="http://www.gated.org/">
-and Zebra <HTMLURL URL="http://www.zebra.org">), but their capabilities are very limited and
-they are very hard to configure and maintain.
+which does the actual packet forwarding. There are other such routing daemons: routed (rip only), GateD <HTMLURL URL="http://www.gated.org/">
+ (non free) and Zebra <HTMLURL URL="http://www.zebra.org">, but their capabilities are limited and
+they are relatively hard to configure and maintain.
 
 <p>BIRD is an Internet Routing Daemon designed to avoid all of these shortcomings,
 to support all the routing technology used in the today's Internet or planned to be
@@ -87,7 +85,7 @@ Public License.
 
 <p>BIRD has been designed to work on all UNIX-like systems. It has been developed and
 tested under Linux 2.0 to 2.3, but porting to other systems (even non-UNIX ones) should
-be relatively easy due to its highly modular architecture).
+be relatively easy due to its highly modular architecture.
 
 <sect1>About this documentation
 
