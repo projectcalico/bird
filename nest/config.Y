@@ -199,7 +199,7 @@ CF_CLI(SHOW STATUS,,, [[Show router status]]) {
 CF_CLI(SHOW PROTOCOLS, optsym, [<name>], [[Show routing protocols]])
 { proto_show($3, 0); } ;
 
-CF_CLI(SHOW PROTOCOLS VERBOSE, optsym, [<name>], [[Show routing protocol details]])
+CF_CLI(SHOW PROTOCOLS ALL, optsym, [<name>], [[Show routing protocol details]])
 { proto_show($4, 1); } ;
 
 optsym:
