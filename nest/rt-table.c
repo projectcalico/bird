@@ -108,14 +108,14 @@ static inline void
 rte_trace_in(unsigned int flag, struct proto *p, rte *e, char *msg)
 {
   if (p->debug & flag)
-    rte_trace(p, e, '<', msg);
+    rte_trace(p, e, '>', msg);
 }
 
 static inline void
 rte_trace_out(unsigned int flag, struct proto *p, rte *e, char *msg)
 {
   if (p->debug & flag)
-    rte_trace(p, e, '>', msg);
+    rte_trace(p, e, '<', msg);
 }
 
 static inline void
