@@ -192,13 +192,10 @@ addifa_rtlsa(struct ospf_iface *ifa)
     	/* FIXME 16?? (Oh, sweet 16.... :-) */
     po->areano++;
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
+    ifa->oa=oa;
+    schedule_rt_lsa(oa);
   }
-
-  ifa->oa=oa;
-
-  originate_rt_lsa(oa);
-  DBG("RT LSA: rt: %I, id: %I, type: %u\n",oa->rt->lsa.rt,oa->rt->lsa.id,oa->rt->lsa.type);
-  flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa,1);
+  else ifa->oa=oa;
 }
 
 void
@@ -353,7 +350,7 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   u32 rtid=po->proto.cf->global->router_id;
   struct top_hash_entry *en=NULL;
   void *body=NULL;
-  struct ospf_iface *ifa;
+  struct ospf_area *oa;
 
   debug("%s: Originating Ext lsa for %I/%d.\n", po->proto.name, n->n.prefix,
     n->n.pxlen);
@@ -367,12 +364,13 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   lsa.length=sizeof(struct ospf_lsa_ext)+sizeof(struct ospf_lsa_ext_tos)+
     sizeof(struct ospf_lsa_header);
   lsasum_calculate(&lsa,body,po);
-  WALK_LIST(ifa, po->iface_list)
+  WALK_LIST(oa, po->area_list)
   {
-    en=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
+    en=lsa_install_new(&lsa, body, oa, &po->proto);
+    flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
+    body=originate_ext_lsa_body(n, e, po, attrs);
   }
-  if(en==NULL) die("Some bug in Ext lsa generating\n");
-  flood_lsa(NULL,NULL,&en->lsa,po,NULL,ifa->oa,1);
+  mb_free(body);
 }
 
 
