@@ -76,15 +76,18 @@ ignored. If there's variable number of options, it is grouped using {
 <p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
 
 <sect2>Global options
-	
 <p><descrip>
-	<tag>log "<m/filename/"|syslog|stderr all|{ debug, trace, info, remote, warning, error,
-	auth, fatal, bug }</tag> set logging of classes (either all or { error, trace } etc.) into
-	selected destination. You may specify more than one <cf/log/ line to log to multiple
+	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of
+	classes/ }</tag> set logging of classes (either all or <cf/{
+	error, trace }/ etc.) into selected destination. Classes are:
+	<cf/debug/ for debugging message, <cf/trace/, <cf/info/,
+	<cf/remote/ for messages about misbehaviour of remote side, <cf/warning/,
+	<cf/error/, <cf/auth/, <cf/fatal/, <cf/bug/ for internal bugs
+	of bird. You may specify more than one <cf/log/ line to log to multiple
 	destinations.
 				  
 	<tag>debug protocols all|off|{ states, routes, filters, interfaces, events, packets }</tag>
-	set debugging options.
+	sets global default of debugging options.
 
 	<tag>filter <m/name/{ <m/commands/ }</tag> define filter. You can learn more about filters
 	in next chapter.
@@ -230,8 +233,8 @@ booleans (that is to prevent you from shooting in the foot).
 
 <sect1>Operations
 
-<p>Filter language supports common integer operations (+,-,*,/), parenthesis (a*(b+c)), comparation
-(a=b, a!=b, a&lt;b, a&gt;=b). Special operators include ~ for "in" operation. In operation can be
+<p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parenthesis <cf/(a*(b+c))/, comparation
+<cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/~/ for "in" operation. In operation can be
 used on element and set of that elements, or on ip and prefix, or on prefix and prefix. Its result
 is true if element is in given set or if ip address is inside given prefix.
 
