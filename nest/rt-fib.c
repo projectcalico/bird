@@ -79,7 +79,7 @@ fib_hash(struct fib *f, ip_addr *a)
 }
 
 static void
-fib_dummy_init(struct fib_node *dummy)
+fib_dummy_init(struct fib_node *dummy UNUSED)
 {
 }
 

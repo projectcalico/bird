@@ -619,7 +619,7 @@ proto_notify_state(struct proto *p, unsigned ps)
 }
 
 static void
-proto_flush_all(void *unused)
+proto_flush_all(void *unused UNUSED)
 {
   struct proto *p;
 

@@ -153,7 +153,7 @@ olock_acquire(struct object_lock *l)
 }
 
 static void
-olock_run_event(void *unused)
+olock_run_event(void *unused UNUSED)
 {
   node *n;
   struct object_lock *q;

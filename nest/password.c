@@ -25,7 +25,7 @@ password_goodness(struct password_item *i)
 }
 
 struct password_item *
-get_best_password(struct password_item *head, int flags)
+get_best_password(struct password_item *head, int flags UNUSED)
 {
   int good = -1;
   struct password_item *best = NULL;

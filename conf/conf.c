@@ -210,7 +210,7 @@ config_do_commit(struct config *c)
 }
 
 static void
-config_done(void *unused)
+config_done(void *unused UNUSED)
 {
   struct config *c;
 
