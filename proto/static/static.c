@@ -98,7 +98,7 @@ static_add(struct proto *p, struct static_route *r)
 	      static_install(p, r, n->iface);
 	  }
 	else
-	  log(L_ERR "Static route destination %I is invalid. Ignoring.\n", r->via);
+	  log(L_ERR "Static route destination %I is invalid. Ignoring.", r->via);
 	break;
       }
     case RTD_DEVICE:

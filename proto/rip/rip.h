@@ -152,7 +152,7 @@ struct rip_proto {
 
 
 #define RIP_MAGIC 81861253
-#define CHK_MAGIC do { if (P->magic != RIP_MAGIC) bug( "Not enough magic\n" ); } while (0)
+#define CHK_MAGIC do { if (P->magic != RIP_MAGIC) bug( "Not enough magic" ); } while (0)
 
 void rip_init_instance(struct proto *p);
 void rip_init_config(struct rip_proto_config *c);

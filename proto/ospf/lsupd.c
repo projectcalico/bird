@@ -64,7 +64,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	      ospf_hash_delete(nn->lsrqh,en);
 	      if(EMPTY_SLIST(nn->lsrql)) ospf_neigh_sm(nn, INM_LOADDONE);
 	      break;
-	    default: bug("Bug in lsa_comp?\n");
+	    default: bug("Bug in lsa_comp?");
 	  }
 	}
       }
@@ -279,32 +279,32 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
     if(((diff+sizeof(struct ospf_lsa_header))>=size) ||
       ((ntohs(lsa->length)+diff)>size))
-      log("%s: Received lsupd from %I is too short.\n", p->name,n->ip);
+      log("%s: Received lsupd from %I is too short.", p->name,n->ip);
 
     lenn=ntohs(lsa->length);
 
     if((lenn<=sizeof(struct ospf_lsa_header))||(lenn!=(4*(lenn/4))))
     {
-      log("Received LSA with bad length\n");
+      log("Received LSA with bad length");
       ospf_neigh_sm(n,INM_BADLSREQ);
       break;
     }
     /* pg 143 (1) */
     if(lsa->checksum!=lsasum_check(lsa,NULL,po))
     {
-      log("Received bad lsa checksum from %I\n",n->rid);
+      log("Received bad lsa checksum from %I",n->rid);
       continue;
     }
     /* pg 143 (2) */
     if((lsa->type<LSA_T_RT)||(lsa->type>LSA_T_EXT))
     {
-      log("Unknown LSA type from %I\n",n->rid);
+      log("Unknown LSA type from %I",n->rid);
       continue;
     }
     /* pg 143 (3) */
     if((lsa->type==LSA_T_EXT)&&oa->stub)
     {
-      log("Received External LSA in stub area from %I\n",n->rid);
+      log("Received External LSA in stub area from %I",n->rid);
       continue;
     }
     ntohlsah(lsa,&lsatmp);

@@ -348,7 +348,7 @@ nl_parse_addr(struct nlmsghdr *h)
   ifi = if_find_by_index(i->ifa_index);
   if (!ifi)
     {
-      log(L_ERR "KIF: Received address message for unknown interface %d\n", i->ifa_index);
+      log(L_ERR "KIF: Received address message for unknown interface %d", i->ifa_index);
       return;
     }
 

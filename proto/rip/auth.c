@@ -4,7 +4,6 @@
  *	Copyright (c) 1999 Pavel Machek <pavel@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
- *
  */
 
 #define LOCAL_DEBUG
@@ -38,11 +37,11 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       struct password_item *passwd = get_best_password( P_CF->passwords, 0 );
       DBG( "Plaintext passwd" );
       if (!passwd) {
-	log( L_AUTH "no passwords set and password authentication came\n" );
+	log( L_AUTH "No passwords set and password authentication came" );
 	return 1;
       }
       if (strncmp( (char *) (&block->packetlen), passwd->password, 16)) {
-	log( L_AUTH "Passwd authentication failed!\n" );
+	log( L_AUTH "Passwd authentication failed!" );
 	DBG( "Expected %s, got %s\n", passwd->password, &block->packetlen );
 	return 1;
       }
@@ -55,13 +54,13 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       struct rip_md5_tail *tail;
 
       if (block->packetlen != PACKETLEN(num)) {
-	log( L_ERR "packetlen in md5 does not match computed value\n" );
+	log( L_ERR "Packet length in MD5 does not match computed value" );
 	return 1;
       }
 
       tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
       if ((tail->mustbeFFFF != 0xffff) || (tail->mustbe0001 != 0x0001)) {
-	log( L_ERR "md5 tail signature is not there\n" );
+	log( L_ERR "MD5 tail signature is not there" );
 	return 1;
       }
 
@@ -73,10 +72,10 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 	if (block->seq) {
 	  struct neighbor *neigh = neigh_find(p, &whotoldme, 0);
 	  if (!neigh) {
-	    log( L_AUTH "Non-neighbour md5 checksummed packet?\n" );
+	    log( L_AUTH "Non-neighbour MD5 checksummed packet?" );
 	  } else {
 	    if (neigh->aux > block->seq) {
-	      log( L_AUTH "md5 prottected packet with lower numbers\n" );
+	      log( L_AUTH "MD5 protected packet with lower numbers" );
 	      return 0;
 	    }
 	    neigh->aux = block->seq;
@@ -120,7 +119,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
   DBG( "Outgoing authentication: " );
 
   if (!passwd) {
-    log( L_ERR "no suitable password found for authentication\n" );
+    log( L_ERR "No suitable password found for authentication" );
     return PACKETLEN(num);
   }
 
@@ -137,7 +136,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       static int sequence = 0;
 
       if (num > PACKET_MD5_MAX)
-	bug(  "we can not add MD5 authentication to this long packet\n" );
+	bug(  "We can not add MD5 authentication to this long packet" );
 
       block->keyid = passwd->id;
       block->authlen = 20;
@@ -157,6 +156,6 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       return PACKETLEN(num) + block->authlen;
     }
   default:
-    bug( "Uknown authtype in outgoing authentication?\n" );
+    bug( "Unknown authtype in outgoing authentication?" );
   }
 }

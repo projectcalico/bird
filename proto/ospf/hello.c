@@ -62,32 +62,32 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if((unsigned)ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
   {
-    log("%s%s%I%s%Ibad netmask %I.\n", p->name, beg, nrid, rec,
+    log("%s%s%I%s%Ibad netmask %I.", p->name, beg, nrid, rec,
       ipa_ntoh(ps->netmask));
     return;
   }
   
   if(ntohs(ps->helloint)!=ifa->helloint)
   {
-    log("%s%s%I%shello interval mismatch.\n", p->name, beg, faddr, rec);
+    log("%s%s%I%shello interval mismatch.", p->name, beg, faddr, rec);
     return;
   }
 
   if(ntohl(ps->deadint)!=ifa->helloint*ifa->deadc)
   {
-    log("%s%s%I%sdead interval mismatch.\n", p->name, beg, faddr, rec);
+    log("%s%s%I%sdead interval mismatch.", p->name, beg, faddr, rec);
     return;
   }
 
   if(ps->options!=ifa->options)
   {
-    log("%s%s%I%soptions mismatch.\n", p->name, beg, faddr, rec);
+    log("%s%s%I%soptions mismatch.", p->name, beg, faddr, rec);
     return;
   }
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: New neighbor found: %I on %s.\n", p->name,faddr,
+    debug("%s: New neighbor found: %I on %s.", p->name,faddr,
       ifa->iface->name);
     n=mb_allocz(p->pool, sizeof(struct ospf_neighbor));
     add_tail(&ifa->neigh_list, NODE n);

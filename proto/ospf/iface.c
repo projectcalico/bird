@@ -362,7 +362,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
         log("%s: Huh? could not open mc socket on interface %s?", p->name,
           iface->name);
 	mb_free(ifa);
-	log("%s: Ignoring this interface\n", p->name);
+	log("%s: Ignoring this interface.", p->name);
 	return;
       }
       ifa->dr_sk=NULL;
@@ -372,7 +372,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
         log("%s: Huh? could not open ip socket on interface %s?", p->name,
           iface->name);
 	mb_free(ifa);
-	log("%s: Ignoring this interface\n", p->name);
+	log("%s: Ignoring this interface", p->name);
 	return;
       }
 

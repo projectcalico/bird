@@ -172,7 +172,7 @@ htonlsab(void *h, void *n, u8 type, u16 len)
       }
       break;
     }
-    default: die("(hton): Unknown LSA\n");
+    default: die("(hton): Unknown LSA");
   }
 };
 
@@ -269,7 +269,7 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
       }
       break;
     }
-    default: die("(ntoh): Unknown LSA\n");
+    default: die("(ntoh): Unknown LSA");
   }
 };
 

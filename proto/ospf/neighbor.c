@@ -249,7 +249,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 	tm_start(n->lsrr_timer,n->ifa->rxmtint);
 	tm_start(n->ackd_timer,n->ifa->rxmtint/2);
       }
-      else die("NEGDONE and I'm not in EXSTART?\n");
+      else die("NEGDONE and I'm not in EXSTART?");
       break;
     case INM_EXDONE:
         neigh_chstate(n,NEIGHBOR_LOADING);
@@ -358,7 +358,7 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   else
   {
     if((tmp=find_neigh(ifa,ndrid))==NULL)
-      die("Error in DR election.\n");
+      die("Error in DR election.");
     ifa->drid=ndrid;
     ifa->drip=tmp->ip;
   }
@@ -371,7 +371,7 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   else
   {
     if((tmp=find_neigh(ifa,nbdrid))==NULL)
-      die("Error in BDR election.\n");
+      die("Error in BDR election.");
     ifa->bdrid=nbdrid;
     ifa->bdrip=tmp->ip;
   }

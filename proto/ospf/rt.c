@@ -127,7 +127,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	      DBG("PTP searched.\n");
 	      break;
 	    default:
-	      log("Unknown link type in router lsa.\n");
+	      log("Unknown link type in router lsa.");
 	      break;
 	  }
 	  add_cand(&oa->cand,tmp,act,act->dist+rtl->metric,oa);
@@ -287,7 +287,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     mlen=ipa_mklen(le->netmask);
     if((mlen<0)||(mlen>32))
     {
-      log("%s: Invalid mask in LSA.\nID: %I, RT: %I, Type: %u, Mask %I",
+      log("%s: Invalid mask in LSA. ID: %I, RT: %I, Type: %u, Mask %I",
         p->name,en->lsa.id,en->lsa.rt,en->lsa.type,le->netmask);
       continue;
     }
