@@ -190,7 +190,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface 
     debug(" OSPF: using interface %s.\n", new->name);
     /* FIXME: Latter I'll use config - this is incorrect */
     ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
-    memcpy(ifa, new, sizeof(struct ospf_iface));
+    memcpy(ifa, new, sizeof(struct iface));
     add_tail(&((struct proto_ospf *)p)->iface_list, NODE ifa);
     ospf_iface_default(ifa);
     add_wait_timer(ifa,p->pool,0);
