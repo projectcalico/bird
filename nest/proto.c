@@ -77,6 +77,21 @@ protos_start(void)
 }
 
 void
+protos_dump_all(void)
+{
+  struct proto *p;
+
+  debug("Protocols:\n");
+
+  WALK_LIST(p, proto_list)
+    {
+      debug("  protocol %s:\n", p->name);
+      if (p->dump)
+	p->dump(p);
+    }
+}
+
+void
 protos_init(void)
 {
   struct protocol *p;
@@ -84,6 +99,7 @@ protos_init(void)
   debug("Initializing protocols\n");
   init_list(&protocol_list);
   add_tail(&protocol_list, &proto_device.n);
+  add_tail(&protocol_list, &proto_rip.n); /* HACK: We should really read this from config */
   WALK_LIST(p, protocol_list)
     p->init(p);
 }

@@ -35,6 +35,7 @@ void protos_init(void);
 void protos_preconfig(void);
 void protos_postconfig(void);
 void protos_start(void);
+void protos_dump_all(void);
 
 extern list protocol_list;
 
@@ -43,6 +44,7 @@ extern list protocol_list;
  */
 
 extern struct protocol proto_device;
+extern struct protocol proto_rip;
 
 /*
  *	Routing Protocol Instance
