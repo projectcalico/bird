@@ -57,7 +57,8 @@ val_compare(struct f_val v1, struct f_val v2)
   case T_IP:
   case T_PREFIX:
     return ipa_compare(v1.val.px.ip, v2.val.px.ip);
-  default: { printf( "Error comparing\n" ); return CMP_ERROR; }
+  default:
+    return CMP_ERROR;
   }
 }
 
@@ -256,7 +257,7 @@ interpret(struct f_inst *what)
       * (struct f_val *) sym->aux2 = v2; 
       break;
     default:
-      bug( "Set to invalid type\n" );
+      bug( "Set to invalid type" );
     }
     break;
 
@@ -324,18 +325,18 @@ interpret(struct f_inst *what)
 	  break;
 	}
       default:
-	bug( "Invalid type for rta access (%x)\n" );
+	bug( "Invalid type for rta access (%x)", res.type );
       }
     }
     break;
   case P('e','a'):	/* Access to extended attributes */
     {
       eattr *e = NULL;
-      if (!(f_flags & FF_OUTGOING))
+      if (!(f_flags & FF_FORCE_TMPATTR))
 	e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
       if (!e) 
 	e = ea_find( (*f_tmp_attrs), what->a2.i );
-      if ((!e) && (f_flags & FF_OUTGOING))
+      if ((!e) && (f_flags & FF_FORCE_TMPATTR))
 	e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
       
       if (!e) {
@@ -353,7 +354,7 @@ interpret(struct f_inst *what)
   case P('e','S'):
     ONEARG;
     if (v1.type != what->aux)
-      runtime("Wrong type when setting dynamic attribute\n");
+      runtime("Wrong type when setting dynamic attribute");
 
     {
       struct ea_list *l = lp_alloc(f_pool, sizeof(struct ea_list) + sizeof(eattr));
@@ -377,8 +378,8 @@ interpret(struct f_inst *what)
 	break;
       }
 
-      if (!(what->aux & EAF_TEMP) && (!(f_flags & FF_OUTGOING))) {
-	*f_rte = rte_do_cow(*f_rte);
+      if (!(what->aux & EAF_TEMP) && (!(f_flags & FF_FORCE_TMPATTR))) {
+	*f_rte = rte_cow(*f_rte);
 	l->next = (*f_rte)->attrs->eattrs;
 	(*f_rte)->attrs->eattrs = l;
       } else {
@@ -396,7 +397,7 @@ interpret(struct f_inst *what)
     switch(res.type) {
     case T_INT:	res.val.i = v1.val.px.len; break;
     case T_IP: res.val.px.ip = v1.val.px.ip; break;
-    default: bug( "Unknown prefix to conversion\n" );
+    default: bug( "Unknown prefix to conversion" );
     }
     break;
   case 'r':
@@ -424,7 +425,7 @@ interpret(struct f_inst *what)
 	}
       }	
       if (!t->data)
-	die( "Impossible: no code associated!\n" );
+	bug( "Impossible: no code associated!" );
       return interpret(t->data);
     }
     break;

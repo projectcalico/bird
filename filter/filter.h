@@ -122,6 +122,6 @@ struct f_tree {
 
 #define NEW_F_VAL struct f_val * val; val = cfg_alloc(sizeof(struct f_val));
 
-#define FF_OUTGOING 1
+#define FF_FORCE_TMPATTR 1		/* Force all attributes to be temporary */
 
 #endif
