@@ -151,24 +151,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
 }
 
 void
-age_timer_hook(timer *timer)
-{
-  struct ospf_area *oa=timer->data;
-  bird_clock_t delta;
-  struct top_hash_entry *en,*nxt;
-  int flush=0;
-
-  flush=can_flush_lsa(oa);
-
-  if((delta=now-oa->lage)>=AGINGDELTA)
-  {
-    WALK_SLIST_DELSAFE(en,nxt,oa->lsal) ospf_age(en,delta,flush,oa);
-    oa->lage=now;
-  }
-}
-	
-
-void
 addifa_rtlsa(struct ospf_iface *ifa)
 {
   struct ospf_area *oa;
@@ -196,14 +178,15 @@ addifa_rtlsa(struct ospf_iface *ifa)
     oa->gr=ospf_top_new(po);
     s_init_list(&(oa->lsal));
     oa->rt=NULL;
-    oa->lage=now;
     oa->po=po;
-    oa->age_timer=tm_new(po->proto.pool);
-    oa->age_timer->data=oa;
-    oa->age_timer->randomize=0;
-    oa->age_timer->hook=age_timer_hook;
-    oa->age_timer->recurrent=AGINGDELTA;
-    tm_start(oa->age_timer,AGINGDELTA);
+    oa->disp_timer=tm_new(po->proto.pool);
+    oa->disp_timer->data=oa;
+    oa->disp_timer->randomize=0;
+    oa->disp_timer->hook=area_disp;
+    oa->disp_timer->recurrent=DISPTICK;
+    tm_start(oa->disp_timer,DISPTICK);
+    oa->calcrt=1;
+    oa->origrt=0;
     fib_init(&oa->infib,po->proto.pool,sizeof(struct infib),16,init_infib);
     	/* FIXME 16?? (Oh, sweet 16.... :-) */
     po->areano++;
@@ -212,15 +195,16 @@ addifa_rtlsa(struct ospf_iface *ifa)
 
   ifa->oa=oa;
 
-  originate_rt_lsa(oa,po);
+  originate_rt_lsa(oa);
   DBG("RT LSA: rt: %I, id: %I, type: %u\n",oa->rt->lsa.rt,oa->rt->lsa.id,oa->rt->lsa.type);
   flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa,1);
 }
 
 void
-originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
+originate_rt_lsa(struct ospf_area *oa)
 {
   struct ospf_lsa_header lsa;
+  struct proto_ospf *po=oa->po;
   u32 rtid=po->proto.cf->global->router_id;
   struct top_hash_entry *en;
   void *body;

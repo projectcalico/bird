@@ -42,14 +42,14 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     if(oldstate==NEIGHBOR_FULL)	/* Decrease number of adjacencies */
     {
       ifa->fadj--;
-      originate_rt_lsa(ifa->oa,po);
+      schedule_rt_lsa(ifa->oa);
       originate_net_lsa(ifa,po);
     }
   
     if(state==NEIGHBOR_FULL)	/* Increase number of adjacencies */
     {
       ifa->fadj++;
-      originate_rt_lsa(ifa->oa,po);
+      schedule_rt_lsa(ifa->oa);
       originate_net_lsa(ifa,po);
     }
     if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)

@@ -50,20 +50,11 @@ ospf_rt_spfa(struct ospf_area *oa)
   debug("%s: Starting routing table calculation for area %I\n",p->name,
     oa->areaid);
 
-  flush=can_flush_lsa(oa);
-
-  if((delta=now-oa->lage)>=AGINGDELTA)
-  {
-     oa->lage=now;
-     age=1;
-  }
-
   WALK_SLIST_DELSAFE(SNODE en, nx, oa->lsal)
   {
     en->color=OUTSPF;
     en->dist=LSINFINITY;
     en->nhi=NULL;
-    if(age) ospf_age(en,delta,flush,oa);
   }
 
   FIB_WALK(in,nftmp)

@@ -400,8 +400,7 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
     /* FIXME decide if route calculation must be done and how */
     if(oa->rt!=NULL)
     {
-      DBG("Starting routing table calculation.\n");
-      ospf_rt_spfa(oa);
+      schedule_rtcalc(oa);
     }
   }
   

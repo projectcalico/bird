@@ -135,6 +135,47 @@ ospf_build_attrs(ea_list *next, struct linpool *pool, u32 m1, u32 m2, u32 tag)
   return l;
 }
 
+void
+schedule_rt_lsa(struct ospf_area *oa)
+{
+  struct proto_ospf *po=oa->po;
+  struct proto *p=&po->proto;
+
+  debug("%s: Scheduling RT lsa origination for area %I.\n", p->name,
+    oa->areaid);
+  oa->origrt=1;
+}
+
+void
+schedule_rtcalc(struct ospf_area *oa)
+{
+  struct proto_ospf *po=oa->po;
+  struct proto *p=&po->proto;
+
+  debug("%s: Scheduling RT calculation for area %I.\n", p->name,
+    oa->areaid);
+  oa->calcrt=1;
+}
+
+void
+area_disp(timer *timer)
+{
+  struct ospf_area *oa=timer->data;
+  struct top_hash_entry *en,*nxt;
+  int flush=0;
+
+  /* First of all try to age LSA DB */
+  flush=can_flush_lsa(oa);
+  WALK_SLIST_DELSAFE(en,nxt,oa->lsal) ospf_age(en,DISPTICK,flush,oa);
+
+  /* Now try to originage rt_lsa */
+  if(oa->origrt) originate_rt_lsa(oa);
+  oa->origrt=0;
+
+  if(oa->calcrt) ospf_rt_spfa(oa);
+  oa->calcrt=0;
+}
+
 int
 ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool *pool)
 {

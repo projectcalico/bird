@@ -42,7 +42,7 @@
 #define MINLSINTERVAL 5
 #define MINLSARRIVAL 1
 #define LSINFINITY 0xffff	/* RFC says 0xffffff ??? */
-#define AGINGDELTA 7		/* FIXME What's good value? */
+#define DISPTICK 7		/* FIXME What's good value? */
 
 struct ospf_config {
   struct proto_config c;
@@ -324,8 +324,9 @@ struct ospf_neighbor
 struct ospf_area {
   node n;
   u32 areaid;
-  bird_clock_t lage;		/* A time of last aging */
-  timer *age_timer;			/* A timer for aging */
+  timer *disp_timer;		/* Area's dispatcher hear beat */
+  int calcrt;			/* Routing table calculation scheduled? */
+  int origrt;			/* Rt lsa origination scheduled? */
   struct top_graph *gr;		/* LSA graph */
   slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
@@ -356,6 +357,9 @@ int ospf_import_control(struct proto *p, rte **new, ea_list **attrs,
 struct ea_list *ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool);
 void ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs);
 void ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old,ea_list *attrs);
+void area_disp(timer *timer);
+void schedule_rt_lsa(struct ospf_area *oa);
+void schedule_rtcalc(struct ospf_area *oa);
 
 #define EA_OSPF_METRIC1	EA_CODE(EAP_OSPF, 0)
 #define EA_OSPF_METRIC2	EA_CODE(EAP_OSPF, 1)
