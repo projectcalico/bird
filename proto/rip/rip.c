@@ -528,7 +528,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
 }
 
 static void
-rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old)
+rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old, struct ea_list *tmpa)
 {
   CHK_MAGIC;
 

@@ -127,7 +127,7 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
 	}
     }
   if (new || old)
-    p->rt_notify(p, net, new, old);
+    p->rt_notify(p, net, new, old, tmpa);
   if (new && new != new0)	/* Discard temporary rte's */
     rte_free(new);
   if (old && old != old0)
