@@ -24,6 +24,7 @@ typedef struct ipv6_addr {
 
 #define BITS_PER_IP_ADDRESS 128
 #define STD_ADDRESS_P_LENGTH 39
+#define SIZE_OF_IP_HEADER 40
 
 #define IPA_NONE _MI(0,0,0,0)
 

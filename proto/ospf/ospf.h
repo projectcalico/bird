@@ -9,7 +9,7 @@
 #ifndef _BIRD_OSPF_H_
 #define _BIRD_OSPF_H_
 
-#define SIPH 64		/* FIXME Size Of IP header */
+#define SIPH SIZE_OF_IP_HEADER
 #define MAXNETS 10
 #ifdef LOCAL_DEBUG
 #define OSPF_FORCE_DEBUG 1
