@@ -343,12 +343,20 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
   struct bgp_bucket *b;
 
   /* Merge the attribute lists */
-  for(t=tmp; t->next; t=t->next)
-    ;
-  t->next = old;
-  new = alloca(ea_scan(tmp));
-  ea_merge(tmp, new);
-  t->next = NULL;
+  if (tmp)
+    {
+      for(t=tmp; t->next; t=t->next)
+	;
+      t->next = old;
+      new = alloca(ea_scan(tmp));
+      ea_merge(tmp, new);
+      t->next = NULL;
+    }
+  else
+    {
+      new = alloca(ea_scan(old));
+      ea_merge(old, new);
+    }
   ea_sort(new);
 
   /* Normalize attributes */
@@ -668,7 +676,7 @@ bgp_path_loopy(struct bgp_proto *p, eattr *a)
   while (len > 0)
     {
       n = path[1];
-      len -= 2 - 2*n;
+      len -= 2 + 2*n;
       path += 2;
       for(i=0; i<n; i++)
 	{

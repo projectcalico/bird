@@ -315,6 +315,7 @@ bgp_start_neighbor(struct bgp_proto *p)
       s->tos = IP_PREC_INTERNET_CONTROL;
       s->ttl = 1;
       s->rbsize = BGP_RX_BUFFER_SIZE;
+      s->tbsize = BGP_TX_BUFFER_SIZE;
       s->rx_hook = bgp_incoming_connection;
       if (sk_open(s))
 	{
