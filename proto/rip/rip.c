@@ -20,6 +20,9 @@
 	after that), says RFC. We do something else: once in 5 second
 	we look for any changed routes and broadcast them.
 
+	FIXME: (nonurgent) allow bigger frequencies than 1 regular update in 6 seconds (?)
+	FIXME: propagation of metric=infinity into main routing table may or may not be good idea.
+
  */
 
 #define LOCAL_DEBUG
@@ -102,7 +105,7 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
   b->metric  = htonl( e->metric );
   if (ipa_equal(e->whotoldme, daddr)) {	/* FIXME: ouch, daddr is some kind of broadcast address. How am I expected to do split horizont?!?!? */
     DBG( "(split horizont)" );
-    b->metric = P_CF->infinity;
+    b->metric = htonl( P_CF->infinity );
   }
   ipa_hton( b->network );
 }
@@ -471,7 +474,7 @@ rip_start(struct proto *p)
   P->timer = tm_new( p->pool );
   P->timer->data = p;
   P->timer->randomize = 5;
-  P->timer->recurrent = P_CF->period; 
+  P->timer->recurrent = (P_CF->period / 6)+1; 
   P->timer->hook = rip_timer;
   tm_start( P->timer, 5 );
   rif = new_iface(p, NULL, 0, NULL);	/* Initialize dummy interface */
@@ -712,7 +715,7 @@ rip_rte_better(struct rte *new, struct rte *old)
   if (old->u.rip.metric > new->u.rip.metric)
     return 1;
 
-  if ((old->u.rip.metric != 16) && (new->u.rip.metric == 16)) {
+  if ((old->u.rip.metric != 16) && (new->u.rip.metric == 16)) {	/* FIXME: check wrt. strange infinity values */
     struct proto *p = new->attrs->proto;
     new->u.rip.lastmodX = now - P_CF->timeout_time;	/* Check this: if new metric is 16, act as it was timed out */
   }

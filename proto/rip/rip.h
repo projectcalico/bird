@@ -109,7 +109,6 @@ struct rip_patt {
 
   int metric;
   int mode;
-#define IM_MULTICAST 1
 #define IM_BROADCAST 2
 #define IM_QUIET 4
 #define IM_NOLISTEN 8
