@@ -643,7 +643,7 @@ rip_real_if_add(struct object_lock *lock)
   DBG("adding interface %s\n", iface->name );
   rif = new_iface(p, iface, iface->flags, k);
   add_head( &P->interfaces, NODE rif );
-  DBG("Adding object lock of %p\n", lock);
+  DBG("Adding object lock of %p for %p\n", lock, rif);
   rif->lock = lock;
 }
 
@@ -658,8 +658,8 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
     i = find_interface(p, iface);
     if (i) {
       rem_node(NODE i);
-      kill_iface(p, i);
       rfree(i->lock);
+      kill_iface(p, i);
     }
   }
   if (c & IF_CHANGE_UP) {
