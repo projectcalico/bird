@@ -36,19 +36,19 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
 
   if (ntohs(ps->helloint) != ifa->helloint)
   {
-    log(L_WARN "%s%I%shello interval mismatch.", beg, faddr, rec);
+    log(L_WARN "%s%I%shello interval mismatch (%d).", beg, faddr, rec, ntohs(ps->helloint));
     return;
   }
 
   if (ntohl(ps->deadint) != ifa->helloint * ifa->deadc)
   {
-    log(L_ERR "%s%I%sdead interval mismatch.", beg, faddr, rec);
+    log(L_ERR "%s%I%sdead interval mismatch (%d).", beg, faddr, rec, ntohl(ps->deadint));
     return;
   }
 
   if (ps->options != ifa->options)
   {
-    log(L_ERR "%s%I%soptions mismatch.", beg, faddr, rec);
+    log(L_ERR "%s%I%soptions mismatch (0x%x).", beg, faddr, rec, ps->options);
     return;
   }
 
@@ -129,28 +129,28 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
   if (n->state >= NEIGHBOR_2WAY)
   {
     if (n->priority != oldpriority)
-      ospf_int_sm(ifa, ISM_NEICH);
+      ospf_iface_sm(ifa, ISM_NEICH);
 
     /* Router is declaring itself ad DR and there is no BDR */
     if ((ipa_compare(n->ip, n->dr) == 0) && (ipa_to_u32(n->bdr) == 0)
 	&& (n->state != NEIGHBOR_FULL))
-      ospf_int_sm(ifa, ISM_BACKS);
+      ospf_iface_sm(ifa, ISM_BACKS);
 
     /* Neighbor is declaring itself as BDR */
     if ((ipa_compare(n->ip, n->bdr) == 0) && (n->state != NEIGHBOR_FULL))
-      ospf_int_sm(ifa, ISM_BACKS);
+      ospf_iface_sm(ifa, ISM_BACKS);
 
     /* Neighbor is newly declaring itself as DR or BDR */
     if (((ipa_compare(n->ip, n->dr) == 0) && (ipa_compare(n->dr, olddr) != 0))
 	|| ((ipa_compare(n->ip, n->bdr) == 0)
 	    && (ipa_compare(n->bdr, oldbdr) != 0)))
-      ospf_int_sm(ifa, ISM_NEICH);
+      ospf_iface_sm(ifa, ISM_NEICH);
 
     /* Neighbor is no more declaring itself as DR or BDR */
     if (((ipa_compare(n->ip, olddr) == 0) && (ipa_compare(n->dr, olddr) != 0))
 	|| ((ipa_compare(n->ip, oldbdr) == 0)
 	    && (ipa_compare(n->bdr, oldbdr) != 0)))
-      ospf_int_sm(ifa, ISM_NEICH);
+      ospf_iface_sm(ifa, ISM_NEICH);
   }
 
   if (ifa->type != OSPF_IT_NBMA)
@@ -171,7 +171,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   struct ospf_neighbor *neigh;
   u16 length;
   u32 *pp;
-  u8 i;
+  int i;
 
   if (timer == NULL)
     ifa = dirn->ifa;
