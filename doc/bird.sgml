@@ -32,7 +32,17 @@ This document contains documentation for BIRD Internet Routing Daemon
 <sect1>What is BIRD
 
 <p><label id="intro"> You may wonder what 'BIRD' means. It is acronym of 'BIRD Internet Routing
-Daemon', and we think that's cool name. Its task is similar to what firmware of Cisco routers does,
+Daemon', and we think that's cool name. 
+
+<p>Routers are devices for connecting networks. Router has several
+network interfaces, listens for packets on them, and forwards packets
+closer to their destination. For simple situations, such as tree,
+static routing is enough and your kernel can do routing for you. For
+more complicated topologies, you need routers to talk to eachother (in
+order to discover alternate ways to deliver packets after network
+failure). Routing deamon is the beast that accomplishes this
+communication. It does not forward packets itself, but it tells kernel
+where to forward them. Its task is similar to what firmware of Cisco routers does,
 or what gated <HTMLURL URL="http://www.gated.org/"> or GNU zebra <HTMLURL
 URL="http://www.zebra.org/"> does. However, you can not run Cisco's firmware on "normal" computer
 and gated is really hard to configure and comes under wrong license. BIRD is being developed on
@@ -96,8 +106,8 @@ protocol rip {
 <sect1>Global options
 
 <p><descrip>
-	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of
-	classes/ }</tag> set logging of classes (either all or <cf/{
+	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of classes/ }</tag> 
+	set logging of classes (either all or <cf/{
 	error, trace }/ etc.) into selected destination. Classes are:
 	<cf/debug/ for debugging message, <cf/trace/, <cf/info/,
 	<cf/remote/ for messages about misbehavior of remote side, <cf/warning/,
@@ -241,7 +251,9 @@ syntax. Returning value exits from current function (this is similar to C).
 
 <p>Filters are declared in similar way to functions, except they can not have explicit
 parameters. They get route table entry as implicit parameter. Route table entry is passed implicitly
-to any functions being called. Filter must terminate with either accept or reject statement.
+to any functions being called. Filter must terminate with either
+accept or reject statement. If there's runtime error in filter, route
+is rejected. 
 
 <sect1>Data types
 
@@ -313,7 +325,8 @@ booleans (that is to prevent you from shooting in the foot).
 
 <p>Filter language supports common integer operations <cf>(+,-,*,/)</cf>, parentheses <cf/(a*(b+c))/, comparison
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Special operators include <cf/&tilde;/ for "in" operation. In operation can be
-used on element and set of that elements, or on ip and prefix, or on prefix and prefix or on bgppath and bgpmask. Its result
+used on element and set of that elements, or on ip and prefix, or on
+prefix and prefix or on bgppath and bgpmask or on pair and clist. Its result
 is true if element is in given set or if ip address is inside given prefix. Operator <cf/=/ is used to assign value
 to variable.
 
