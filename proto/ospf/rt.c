@@ -318,7 +318,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
         }
       }
     }
-    if(absr==NULL) continue;
+    if((absr==NULL)||(absr->dist==LSINFINITY)) continue;
 
     if(ipa_compare(lt->fwaddr,ipa_from_u32(0))==0)
     {
