@@ -56,6 +56,9 @@ struct f_tree *f_new_tree(void);
 struct f_tree *build_tree(struct f_tree *);
 struct f_tree *find_tree(struct f_tree *t, struct f_val val);
 
+struct ea_list;
+struct rte;
+
 int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool);
 char *filter_name(struct filter *filter);
 
