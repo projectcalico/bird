@@ -578,7 +578,8 @@ iface_patts_equal(list *a, list *b, int (*comp)(struct iface_patt *, struct ifac
   y = HEAD(*b);
   while (x->n.next && y->n.next)
     {
-      if (strcmp(x->pattern, y->pattern) ||
+      if ((!(x->pattern==NULL)&&(x->pattern==NULL) &&
+          strcmp(x->pattern, y->pattern)) ||
 	  !ipa_equal(x->prefix, y->prefix) ||
 	  x->pxlen != y->pxlen ||
 	  comp && !comp(x, y))
