@@ -116,15 +116,8 @@ rip_tx( sock *s )
   DBG( "Sending to %I\n", s->daddr );
   do {
 
-    if (c->done) {
-    im_done:
-      DBG( "Looks like I'm" );
-      c->rif->busy = NULL;
-      rem_node(NODE c);
-      mb_free(c);
-      DBG( " done\n" );
-      return;
-    }
+    if (c->done)
+      goto done;
 
     DBG( "Preparing packet to send: " );
 
@@ -159,14 +152,12 @@ rip_tx( sock *s )
     if (!i) {
       DBG( "not sending NULL update\n" );
       c->done = 1;
-      goto im_done;
+      goto done;
     }
-    else {
-      if (ipa_nonzero(c->daddr))
-	i = sk_send_to( s, packetlen, c->daddr, c->dport );
-      else
-	i = sk_send( s, packetlen );
-    }
+    if (ipa_nonzero(c->daddr))
+      i = sk_send_to( s, packetlen, c->daddr, c->dport );
+    else
+      i = sk_send( s, packetlen );
 
     DBG( "it wants more\n" );
   
@@ -176,6 +167,13 @@ rip_tx( sock *s )
   DBG( "blocked\n" );
   return;
 
+done:
+  DBG( "Looks like I'm" );
+  c->rif->busy = NULL;
+  rem_node(NODE c);
+  mb_free(c);
+  DBG( " done\n" );
+  return;
 }
 
 static void
