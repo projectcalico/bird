@@ -163,7 +163,7 @@ tryadj(struct ospf_neighbor *n, struct proto *p)
   n->myimms.bit.ms=1;
   n->myimms.bit.m=1;
   n->myimms.bit.i=1;
-  tm_start(n->ifa->rxmt_timer,1);	/* Or some other number ? */
+  tm_start(n->rxmt_timer,1);	/* Or some other number ? */
 }
 
 void
@@ -210,10 +210,12 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
         s_init_list(&(n->lsrql));
         s_init_list(&(n->lsrtl));
 	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
-	ospf_dbdes_tx(n);
+	/*ospf_dbdes_tx(n);*/
       }
       break;
     case INM_EXDONE:
+        neigh_chstate(n,NEIGHBOR_LOADING);
+	/* FIXME Go on */
       break;
     case INM_LOADDONE:
       break;

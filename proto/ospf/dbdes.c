@@ -59,7 +59,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       pkt->iface_mtu=htons(ifa->iface->mtu);	/*FIXME NOT for VLINK! */
       pkt->options= ifa->options;
       pkt->imms=n->myimms;
-      pkt->ddseq=n->dds;
+      pkt->ddseq=htonl(n->dds);
       length=sizeof(struct ospf_dbdes_packet);
       op->length=htons(length);
       ospf_pkt_finalize(ifa, op);
@@ -69,8 +69,8 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
     case NEIGHBOR_EXCHANGE:
       n->myimms.bit.i=0;
-      if(! (((n->myimms.bit.ms) && (n->dds==n->ddr+1)) ||
-         ((!(n->myimms.bit.ms)) && (n->dds==n->ddr))))
+      if(((n->myimms.bit.ms) && (n->dds==n->ddr+1)) ||
+         ((!(n->myimms.bit.ms)) && (n->dds==n->ddr)))
       {
         snode *sn;			/* Send next */
         struct ospf_lsa_header *lsa;
@@ -81,11 +81,14 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
         fill_ospf_pkt_hdr(ifa, pkt, DBDES);
         pkt->iface_mtu=htons(ifa->iface->mtu);
         pkt->options= ifa->options;
-	pkt->ddseq=n->dds;
+	pkt->ddseq=htonl(n->dds);
 
 	j=i=(ifa->iface->mtu-sizeof(struct ospf_dbdes_packet))/
 		sizeof(struct ospf_lsa_header);	/* Number of lsaheaders */
 	lsa=(n->ldbdes+sizeof(struct ospf_dbdes_packet));
+
+	if(n->myimms.bit.m)
+	{
 
 	sn=s_get(&(n->dbsi));
 
@@ -114,10 +117,10 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	  DBG("Number of LSA NOT sent: %d\n", i);
 	  DBG("M bit unset.\n");
 	  n->myimms.bit.m=0;	/* Unset more bit */
-	  DBG("Ini: %d, M: %d MS: %d.\n",n->imms.bit.i, n->imms.bit.m, n->imms.bit.ms);
 	}
 
 	s_put(&(n->dbsi),sn);
+	}
 
         pkt->imms.byte=n->myimms.byte;
 
@@ -127,6 +130,9 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	
         ospf_pkt_finalize(ifa, op);
       }
+
+    case NEIGHBOR_LOADING:
+    case NEIGHBOR_FULL:
 
       aa=ifa->ip_sk->tbuf;
       bb=n->ldbdes;
@@ -150,9 +156,21 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
       debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
-      if(n->myimms.bit.ms) tm_start(n->ifa->rxmt_timer,1);
+      if(n->myimms.bit.ms) tm_start(n->rxmt_timer,ifa->rxmtint);
+      else
+      {
+        if((n->myimms.bit.m==0) && (n->imms.bit.m==0) &&
+          (n->state==NEIGHBOR_EXCHANGE))
+	{
+          ospf_neigh_sm(n, INM_EXDONE);
+	  if(n->myimms.bit.ms) tm_stop(n->rxmt_timer);
+	  else tm_start(n->rxmt_timer,ifa->rxmtint);
+	}
+      }
+      break;
 
     default:				/* Ignore it */
+      die("Bug in dbdes sending\n");
       break;
   }
 }
@@ -164,13 +182,54 @@ rxmt_timer_hook(timer *timer)
   struct proto *p;
   struct ospf_neighbor *n;
 
-  ifa=(struct ospf_iface *)timer->data;
+  n=(struct ospf_neighbor *)timer->data;
+  ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
   debug("%s: RXMT timer fired on interface %s.\n",
     p->name, ifa->iface->name);
-  WALK_LIST (n, ifa->neigh_list)	/* Try to send db_des */
+  if(n->state<NEIGHBOR_LOADING) ospf_dbdes_tx(n);
+   	/* else FIXME I should dealloc ldbdes */
+}
+
+int
+lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
+	/* 
+	 *  1	l1 is newer
+	 *  0	identical
+	 * -1	l2 is newer
+	 */
+{
+  if(l1->sn<l2->sn) return 1;
+  if(l1->sn==l2->sn)
   {
-    ospf_dbdes_tx(n);
+    if(l1->checksum=!l2->checksum) return l1->checksum<l2->checksum ? -1 :1;
+    if(l1->age==MAXAGE) return 1;
+    if(l2->age==MAXAGE) return -1;
+    if(abs(l1->age-l2->age)>MAXAGEDIFF) return l1->age<l2->age ? 1 : -1;
+  }
+  return 0;
+
+}
+
+void
+ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct proto *p,
+  struct ospf_neighbor *n)
+{
+  struct ospf_lsa_header *plsa,lsa;
+  struct top_hash_entry *he,*sn;
+  struct top_graph *gr;
+
+  gr=n->ifa->oa->gr;
+
+  plsa=(void *)(ps+1);
+  ntohlsah(plsa, &lsa);
+  /* FIXME Test Checksum */
+  if(((he=ospf_hash_find(gr,lsa.id,lsa.rt,lsa.type))==NULL)||
+    (lsa_comp(&lsa, &(he->lsa))==1))
+  {
+     sn=sl_alloc(gr->hash_slab);
+     ntohlsah(plsa, &(sn->lsa));
+     s_add_tail(&(n->lsrql), SNODE sn);
   }
 }
 
@@ -216,23 +275,25 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
           (size == sizeof(struct ospf_dbdes_packet)))
         {
           /* I'm slave! */
-          n->dds=ps->ddseq;
+          n->dds=ntohl(ps->ddseq);
+	  n->ddr=ntohl(ps->ddseq);
 	  n->options=ps->options;
 	  n->myimms.bit.ms=0;
-	  n->ddr=ps->ddseq;
 	  n->imms.byte=ps->imms.byte;
           debug("%s: I'm slave to %u. \n", p->name, nrid);
 	  ospf_neigh_sm(n, INM_NEGDONE);
-	  tm_stop(n->ifa->rxmt_timer);
+	  tm_stop(n->rxmt_timer);
+	  ospf_dbdes_tx(n);
+	  break;
         }
         else
         {
           if(((ps->imms.bit.i==0) && (ps->imms.bit.ms==0)) &&
-            (n->rid < myrid) && (n->dds == ps->ddseq))
+            (n->rid < myrid) && (n->dds == ntohl(ps->ddseq)))
           {
             /* I'm master! */
 	    n->options=ps->options;
-            n->ddr=ps->ddseq;
+            n->ddr=ntohl(ps->ddseq)-1;
             n->imms.byte=ps->imms.byte;
             debug("%s: I'm master to %u. \n", p->name, nrid);
 	    ospf_neigh_sm(n, INM_NEGDONE);
@@ -240,15 +301,15 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  else
           {
             debug("%s: Nothing happend to %u (imms=%u)", p->name, nrid,
-              ps->imms);
+              ps->imms.byte);
             break;
           }
         }
-        break;	/* I should probably continue processing packet */
+        //break;	/* I should probably continue processing packet */
 
     case NEIGHBOR_EXCHANGE:
 	if((ps->imms.byte==n->imms.byte) && (ps->options=n->options) &&
-	  (ps->ddseq==n->dds))
+	  (ntohl(ps->ddseq)==n->ddr))
         {
           /* Duplicate packet */
           debug("%s: Received duplicate dbdes from (%u)!\n", p->name, nrid);
@@ -259,9 +320,11 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
           return;
         }
 
-	if(ps->imms.bit.ms!=n->myimms.bit.m) /* M/S bit differs */
+        n->ddr=ntohl(ps->ddseq);
+
+	if(ps->imms.bit.ms!=n->imms.bit.ms) /* M/S bit differs */
         {
-          DBG("SEQMIS-IMMS\n");
+          DBG("SEQMIS-BIT-MS\n");
           ospf_neigh_sm(n, INM_SEQMIS);
 	  break;
         }
@@ -282,24 +345,37 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 
 	if(n->myimms.bit.ms)
         {
-          if(ps->ddseq!=n->dds)
+          if(ntohl(ps->ddseq)!=n->dds)		/* MASTER */
 	  {
             DBG("SEQMIS-MASTER\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
+	  n->dds++;
+          DBG("Incrementing dds\n");
+	  ospf_dbdes_reqladd(ps,p,n);
+	  if((n->myimms.bit.m==0) && (ps->imms.bit.m==0))
+	  {
+	    ospf_neigh_sm(n, INM_EXDONE);
+	  }
+	  else
+	  {
+	    ospf_dbdes_tx(n);
+	  }
+
         }
 	else
         {
-          if(ps->ddseq!=(n->dds+1))
+          if(ps->ddseq!=(n->dds+1))	/* SLAVE */
 	  {
             DBG("SEQMIS-SLAVE\n");
 	    ospf_neigh_sm(n, INM_SEQMIS);
 	    break;
 	  }
+	  n->ddr=ps->ddseq;
+	  ospf_dbdes_reqladd(ps,p,n);
+	  ospf_dbdes_tx(n);
         }
-
-	/* FIXME: Packet accepted, go on */
 
       break;
     case NEIGHBOR_LOADING:

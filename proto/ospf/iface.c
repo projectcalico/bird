@@ -211,14 +211,6 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool)
   ifa->hello_timer->recurrent=ifa->helloint;
   DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
 
-  ifa->rxmt_timer=tm_new(pool);
-  ifa->rxmt_timer->data=ifa;
-  ifa->rxmt_timer->randomize=0;
-  if(ifa->rxmtint==0) ifa->rxmtint=RXMTINT_D;
-  ifa->rxmt_timer->hook=rxmt_timer_hook;
-  ifa->rxmt_timer->recurrent=ifa->rxmtint;
-  DBG("%s: Installing rxmt timer. (%u)\n", p->name, ifa->rxmtint);
-
   ifa->wait_timer=tm_new(pool);
   ifa->wait_timer->data=ifa;
   ifa->wait_timer->randomize=0;
@@ -226,6 +218,8 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool)
   ifa->wait_timer->recurrent=0;
   if(ifa->waitint==0) ifa->waitint= WAIT_DMH*ifa->helloint;
   DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
+
+  if(ifa->rxmtint==0) ifa->rxmtint=RXMTINT_D;
 }
 
 void

@@ -94,7 +94,6 @@ struct ospf_iface {
 #define OSPF_IS_DR 6		/* I'm DR */
   timer *wait_timer;		/* WAIT timer */
   timer *hello_timer;		/* HELLOINT timer */
-  timer *rxmt_timer;		/* RXMT timer */
 /* Default values for interface parameters */
 #define COST_D 10
 #define RXMTINT_D 5
@@ -172,7 +171,7 @@ struct ospf_lsa_header {
 #define LSA_T_SUM_RT 4
 #define LSA_T_EXT 5
   u32 rt;		/* Advertising router */
-  u32 sn;		/* LS Sequence number */
+  s32 sn;		/* LS Sequence number */
 #define LSA_INITSEQNO 0x80000001
 #define LSA_MAXSEQNO 0x7fffffff
   u16 checksum;
@@ -264,6 +263,7 @@ struct ospf_neighbor
   slist lsrtl;		/* Link state retransmission list */
   siterator lsrti;
   void *ldbdes;		/* Last database description packet */
+  timer *rxmt_timer;		/* RXMT timer */
 };
 
 /* Definitions for interface state machine */
