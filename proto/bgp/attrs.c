@@ -8,6 +8,8 @@
 
 #define LOCAL_DEBUG
 
+#include <stdlib.h>
+
 #include "nest/bird.h"
 #include "nest/iface.h"
 #include "nest/protocol.h"
@@ -123,6 +125,7 @@ bgp_encode_attrs(byte *w, struct bgp_bucket *buck)
       eattr *a = &buck->eattrs->attrs[i];
       ASSERT(EA_PROTO(a->id) == EAP_BGP);
       code = EA_ID(a->id);
+      flags = a->flags & (BAF_OPTIONAL | BAF_TRANSITIVE | BAF_PARTIAL);
       if (code && code < ARRAY_SIZE(bgp_attr_table))
 	{
 	  struct attr_desc *desc = &bgp_attr_table[code];
@@ -138,14 +141,12 @@ bgp_encode_attrs(byte *w, struct bgp_bucket *buck)
 	  ASSERT((a->type & EAF_TYPE_MASK) == EAF_TYPE_OPAQUE);
 	  len = a->u.ptr->length;
 	}
-      DBG("\tAttribute %02x (type %02x, %d bytes)\n", code, a->type, len);
-      /* FIXME: Partial bit for locally added transitive attributes */
+      DBG("\tAttribute %02x (type %02x, %d bytes, flags %02x)\n", code, a->type, len, flags);
       if (remains < len + 4)
 	{
 	  log(L_ERR "BGP: attribute list too long, ignoring the remaining attributes");
 	  break;
 	}
-      flags = a->flags & (BAF_OPTIONAL | BAF_TRANSITIVE | BAF_PARTIAL);
       if (len < 256)
 	{
 	  *w++ = flags;
@@ -206,11 +207,17 @@ bgp_init_prefix(struct fib_node *N)
   p->bucket_node.next = NULL;
 }
 
+static int
+bgp_compare_u32(const u32 *x, const u32 *y)
+{
+  return (*x < *y) ? -1 : (*x > *y) ? 1 : 0;
+}
+
 static void
 bgp_normalize_set(u32 *dest, u32 *src, unsigned cnt)
 {
   memcpy(dest, src, sizeof(u32) * cnt);
-  /* FIXME */
+  qsort(dest, cnt, sizeof(u32), (int(*)(const void *, const void *)) bgp_compare_u32);
 }
 
 static void
@@ -298,7 +305,7 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
 }
 
 static struct bgp_bucket *
-bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp)
+bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
 {
   ea_list *t, *new;
   unsigned i, cnt;
@@ -335,9 +342,11 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp)
       if (EA_ID(a->id) < 32)
 	seen |= 1 << EA_ID(a->id);
       *d = *a;
+      if ((d->type & EAF_ORIGINATED) && !originate && (d->flags & BAF_TRANSITIVE) && (d->flags & BAF_OPTIONAL))
+	d->flags |= BAF_PARTIAL;
       switch (d->type & EAF_TYPE_MASK)
 	{
-	case EAF_TYPE_INT_SET:		/* FIXME: Normalize the other attributes? */
+	case EAF_TYPE_INT_SET:
 	  {
 	    struct adata *z = alloca(sizeof(struct adata) + d->u.ptr->length);
 	    z->length = d->u.ptr->length;
@@ -402,7 +411,7 @@ bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *tmpa)
 
   if (new)
     {
-      buck = bgp_get_bucket(p, new->attrs->eattrs, tmpa);
+      buck = bgp_get_bucket(p, new->attrs->eattrs, tmpa, new->attrs->source != RTS_BGP);
       if (!buck)			/* Inconsistent attribute list */
 	return;
     }
@@ -682,7 +691,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 	  type = desc->type;
 	}
       else				/* Unknown attribute */
-	{				/* FIXME: Send partial bit when forwarding */
+	{
 	  if (!(flags & BAF_OPTIONAL))
 	    { errcode = 2; goto err; }
 	  type = EAF_TYPE_OPAQUE;
@@ -756,7 +765,10 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   e = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
   ASSERT(e);
   if (bgp_path_loopy(bgp, e))
-    return NULL;
+    {
+      DBG("BGP: Path loop!\n");
+      return NULL;
+    }
 
   /* Fill in the remaining rta fields */
   e = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
@@ -764,7 +776,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   nexthop = *(ip_addr *) e->u.ptr->data;
   if (ipa_equal(nexthop, bgp->local_addr))
     {
-      DBG("BGP: Loop!\n");		/* FIXME */
+      DBG("BGP: Loop!\n");
       return NULL;
     }
   neigh = neigh_find(&bgp->p, &nexthop, 0) ? : bgp->neigh;
