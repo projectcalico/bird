@@ -315,7 +315,7 @@ bgp_path_prepend(struct linpool *pool, eattr *a, ea_list *old, int as)
   e->attrs[0].id = EA_CODE(EAP_BGP, BA_AS_PATH);
   e->attrs[0].flags = BAF_TRANSITIVE;
   e->attrs[0].type = EAF_TYPE_AS_PATH;
-  e->attrs[0].u.ptr = path_prepend(pool, olda, as);
+  e->attrs[0].u.ptr = as_path_prepend(pool, olda, as);
   return e;
 }
 
