@@ -41,6 +41,23 @@ wait_timer_hook(timer * timer)
   ospf_iface_sm(ifa, ISM_WAITF);
 }
 
+u32
+rxbufsize(struct ospf_iface *ifa)
+{
+  switch(ifa->rxbuf)
+  {
+    case OSPF_RXBUF_NORMAL:
+      return (ifa->iface->mtu * 2);
+      break;
+    case OSPF_RXBUF_LARGE:
+      return OSPF_MAX_PKT_SIZE;
+      break;
+    default:
+      return ifa->rxbuf;
+      break;
+  }
+}
+
 static sock *
 ospf_open_ip_socket(struct ospf_iface *ifa)
 {
@@ -59,7 +76,7 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
   ipsk->tx_hook = ospf_tx_hook;
   ipsk->err_hook = ospf_err_hook;
   ipsk->iface = ifa->iface;
-  ipsk->rbsize = OSPF_MAX_PKT_SIZE;
+  ipsk->rbsize = rxbufsize(ifa);
   ipsk->tbsize = ifa->iface->mtu;
   ipsk->data = (void *) ifa;
   if (sk_open(ipsk) != 0)
@@ -126,7 +143,7 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 	    ifa->dr_sk->tx_hook = ospf_tx_hook;
 	    ifa->dr_sk->err_hook = ospf_err_hook;
 	    ifa->dr_sk->iface = ifa->iface;
-	    ifa->dr_sk->rbsize = OSPF_MAX_PKT_SIZE;
+	    ifa->dr_sk->rbsize = rxbufsize(ifa);
 	    ifa->dr_sk->tbsize = ifa->iface->mtu;
 	    ifa->dr_sk->data = (void *) ifa;
 	    if (sk_open(ifa->dr_sk) != 0)
@@ -299,7 +316,7 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
   mcsk->tx_hook = ospf_tx_hook;
   mcsk->err_hook = ospf_err_hook;
   mcsk->iface = ifa->iface;
-  mcsk->rbsize = OSPF_MAX_PKT_SIZE;
+  mcsk->rbsize = rxbufsize(ifa);
   mcsk->tbsize = ifa->iface->mtu;
   mcsk->data = (void *) ifa;
   if (sk_open(mcsk) != 0)
@@ -397,6 +414,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
   ifa->stub = ip->stub;
   ifa->autype = ip->autype;
   ifa->passwords = ip->passwords;
+  ifa->rxbuf = ip->rxbuf;
 
   if (ip->type == OSPF_IT_UNDEF)
     ifa->type = ospf_iface_clasify(ifa->iface);
@@ -477,6 +495,44 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
 }
 
 void
+ospf_iface_change_mtu(struct proto_ospf *po, struct ospf_iface *ifa)
+{
+  struct proto *p = &po->proto;
+  struct ospf_packet *op;
+  struct ospf_neighbor *n;
+  OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", ifa->iface->name);
+  if (ifa->hello_sk)
+  {
+    ifa->hello_sk->rbsize = rxbufsize(ifa);
+    ifa->hello_sk->tbsize = ifa->iface->mtu;
+    sk_reallocate(ifa->hello_sk);
+  }
+  if (ifa->dr_sk)
+  {
+    ifa->dr_sk->rbsize = rxbufsize(ifa);
+    ifa->dr_sk->tbsize = ifa->iface->mtu;
+    sk_reallocate(ifa->dr_sk);
+  }
+  if (ifa->ip_sk)
+  {
+    ifa->ip_sk->rbsize = rxbufsize(ifa);
+    ifa->ip_sk->tbsize = ifa->iface->mtu;
+    sk_reallocate(ifa->ip_sk);
+  }
+
+  WALK_LIST(n, ifa->neigh_list)
+  {
+    op = (struct ospf_packet *) n->ldbdes;
+    n->ldbdes = mb_allocz(n->pool, ifa->iface->mtu);
+
+    if (ntohs(op->length) <= ifa->iface->mtu)	/* If the packet in old buffer is bigger, let it filled by zeros */
+      memcpy(n->ldbdes, op, ifa->iface->mtu);	/* If the packet is old is same or smaller, copy it */
+
+    rfree(op);
+  }
+}
+
+void
 ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
@@ -517,40 +573,7 @@ ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
   if (flags & IF_CHANGE_MTU)
   {
     if ((ifa = ospf_iface_find((struct proto_ospf *) p, iface)) != NULL)
-    {
-      struct ospf_packet *op;
-      struct ospf_neighbor *n;
-      OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", iface->name);
-      if (ifa->hello_sk)
-      {
-	ifa->hello_sk->rbsize = OSPF_MAX_PKT_SIZE;
-	ifa->hello_sk->tbsize = ifa->iface->mtu;
-	sk_reallocate(ifa->hello_sk);
-      }
-      if (ifa->dr_sk)
-      {
-	ifa->dr_sk->rbsize = OSPF_MAX_PKT_SIZE;
-	ifa->dr_sk->tbsize = ifa->iface->mtu;
-	sk_reallocate(ifa->dr_sk);
-      }
-      if (ifa->ip_sk)
-      {
-	ifa->ip_sk->rbsize = OSPF_MAX_PKT_SIZE;
-	ifa->ip_sk->tbsize = ifa->iface->mtu;
-	sk_reallocate(ifa->ip_sk);
-      }
-
-      WALK_LIST(n, ifa->neigh_list)
-      {
-	op = (struct ospf_packet *) n->ldbdes;
-	n->ldbdes = mb_allocz(n->pool, iface->mtu);
-
-	if (ntohs(op->length) <= iface->mtu)	/* If the packet in old buffer is bigger, let it filled by zeros */
-	  memcpy(n->ldbdes, op, iface->mtu);	/* If the packet is old is same or smaller, copy it */
-
-	rfree(op);
-      }
-    }
+      ospf_iface_change_mtu(po, ifa);
   }
 }
 

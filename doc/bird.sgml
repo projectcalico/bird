@@ -1026,6 +1026,7 @@ protocol ospf &lt;name&gt; {
 			wait &lt;num&gt;;
 			dead count &lt;num&gt;;
 			dead &lt;num&gt;;
+			rx buffer [normal|large|&lt;num&gt;];
 			type [broadcast|nonbroadcast|pointopoint];
 			strict nonbroadcast &lt;switch&gt;;
 			authentication [none|simple];
@@ -1133,6 +1134,11 @@ protocol ospf &lt;name&gt; {
 	 When the router does not receive any messages from a neighbor in
 	 <m/dead/ seconds, it will consider the neighbor down. If both directives
 	 <m/dead count/ and <m/dead/ are used, <m/dead/ has precendence.
+
+	<tag>rx buffer <M>num</M></tag>
+	 This sets the size of buffer used for receiving packets. The buffer should
+	 be bigger than maximal size of any packets. Value NORMAL (default)
+	 means 2*MTU, value LARGE means maximal allowed packet - 65536.
 
 	<tag>type broadcast</tag>
 	 BIRD detects a type of a connected network automatically, but sometimes it's

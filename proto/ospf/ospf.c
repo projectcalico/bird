@@ -637,7 +637,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
       {
 	/* Now reconfigure interface */
 	if (!(newip = (struct ospf_iface_patt *)
-	      iface_patt_match(&oldac->patt_list, ifa->iface)))
+	      iface_patt_match(&newac->patt_list, ifa->iface)))
 	  return 0;
 
 	/* HELLO TIMER */
@@ -670,6 +670,16 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 		     "Changing cost interface %s from %d to %d",
 		     ifa->iface->name, oldip->cost, newip->cost);
 	  schedule_rt_lsa(ifa->oa);
+	}
+
+	/* RX BUFF */
+	if (oldip->rxbuf != newip->rxbuf)
+	{
+	  ifa->rxbuf = newip->rxbuf;
+	  OSPF_TRACE(D_EVENTS,
+		     "Changing rxbuf interface %s from %d to %d",
+		     ifa->iface->name, oldip->rxbuf, newip->rxbuf);
+	  ospf_iface_change_mtu(po, ifa);
 	}
 
 	/* strict nbma */

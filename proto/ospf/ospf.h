@@ -11,19 +11,13 @@
 
 #define MAXNETS 10
 #define OSPF_VLINK_MTU 576	/* RFC2328 - A.1 */
-#undef OSPF_BIG_PACKETS	/*
+#define OSPF_MAX_PKT_SIZE 65536
+			/*
                          * RFC 2328 says, maximum packet size is 65535
 			 * This could be too much for small systems, so I
 			 * normally allocate 2*mtu - (I found one cisco
 			 * sending packets mtu+16)
 			 */
-
-#ifdef OSPF_BIG_PACKETS
-#define OSPF_MAX_PKT_SIZE 65536
-#else
-#define OSPF_MAX_PKT_SIZE (ifa->iface->mtu * 2)
-#endif
-
 #ifdef LOCAL_DEBUG
 #define OSPF_FORCE_DEBUG 1
 #else
@@ -206,6 +200,7 @@ struct ospf_iface
   list nbma_list;
   u8 priority;			/* A router priority for DR election */
   u8 ioprob;
+  u32 rxbuf;
 };
 
 struct ospf_md5
@@ -572,6 +567,10 @@ struct ospf_iface_patt
 #define OSPF_AUTH_SIMPLE 1
 #define OSPF_AUTH_CRYPT 2
 #define OSPF_AUTH_CRYPT_SIZE 16
+  u32 rxbuf;
+#define OSPF_RXBUF_NORMAL 0
+#define OSPF_RXBUF_LARGE 1
+#define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */
   list *passwords;
   list nbma_list;
 };

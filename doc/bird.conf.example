@@ -120,6 +120,7 @@ protocol static {
 #			password "pass";
 #		};
 #		interface "arc0" {
+#			rx buffer large;
 #			type nonbroadcast;
 #			poll 14;
 #			dead 75;
