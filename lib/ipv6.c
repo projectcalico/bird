@@ -322,6 +322,17 @@ ip_pton(char *a, ip_addr *o)
   return 1;
 }
 
+void ipv6_absolutize(ip_addr *a, ip_addr *ifa)
+{
+  if ((a->addr[0] & 0xffc00000) == 0xfe800000 &&	/* a is link-scope */
+      ((ifa->addr[0] & 0xe0000000) == 0x20000000 |	/* ifa is AGU ... */
+       (ifa->addr[0] & 0xffc00000) == 0xfec00000))	/* ... or site-scope */
+    {
+      a->addr[0] = ifa->addr[0];	/* Copy the prefix, leave interface ID */
+      a->addr[1] = ifa->addr[1];
+    }
+}
+
 #ifdef TEST
 
 #include "bitops.c"
