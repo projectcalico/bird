@@ -357,6 +357,7 @@ interpret(struct f_inst *what)
       case T_INT:
 	res.val.i = e->u.data;
 	break;
+      case T_CLIST:
       case T_PATH:
 	res.val.ad = e->u.ptr;
 	break;
@@ -388,6 +389,11 @@ interpret(struct f_inst *what)
       case EAF_TYPE_AS_PATH:
 	if (v1.type != T_PATH)
 	  runtime( "Setting path attribute to non-path value" );
+	l->attrs[0].u.ptr = v1.val.ad;
+	break;
+      case EAF_TYPE_INT_SET:
+	if (v1.type != T_CLIST)
+	  runtime( "Setting int set  attribute to non-clist value" );
 	l->attrs[0].u.ptr = v1.val.ad;
 	break;
       case EAF_TYPE_UNDEF:
