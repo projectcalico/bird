@@ -15,6 +15,7 @@ CF_HDR
 #include "lib/timer.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
+#include "nest/route.h"
 
 CF_DECLS
 
@@ -31,12 +32,12 @@ CF_DECLS
 %token <s> SYM
 %token <t> TEXT
 
-%type <i> expr
+%type <i> expr bool
 
 %left '+' '-'
 %left '*' '/' '%'
 
-CF_KEYWORDS(DEFINE)
+CF_KEYWORDS(DEFINE, ON, OFF, YES, NO)
 
 CF_GRAMMAR
 
@@ -74,6 +75,17 @@ definition:
      $2->class = SYM_NUMBER;
      $2->aux = $4;
    }
+ ;
+
+/* Switches */
+
+bool:
+   expr {$$ = !!$1; }
+ | ON { $$ = 1; }
+ | YES { $$ = 1; }
+ | OFF { $$ = 0; }
+ | NO { $$ = 0; }
+ | /* Silence means agreement */ { $$ = 1; }
  ;
 
 CF_CODE
