@@ -45,7 +45,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
   }
   rt=mb_allocz(p->proto.pool, sizeof(struct ospf_lsa_rt)+
     i*sizeof(struct ospf_lsa_rt_link));
-  if((p->areano>1) && (!oa->stub)) rt->veb.bit.b=1;
+  if(p->areano>1) rt->veb.bit.b=1;
   if((p->ebit)&&(!oa->stub)) rt->veb.bit.e=1;
   rt->veb.bit.v=v;
   ln=(struct ospf_lsa_rt_link *)(rt+1);
