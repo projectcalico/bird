@@ -104,6 +104,7 @@ async_config(void)
  */
 
 static sock *cli_sk;
+static char *path_control_socket = PATH_CONTROL_SOCKET;
 
 int
 cli_write(cli *c)
@@ -187,6 +188,7 @@ cli_connect(sock *s, int size)
   s->err_hook = cli_err;
   s->rbsize = 1024;
   s->data = c = cli_new(s);
+  s->pool = c->pool;		/* We need to have all the socket buffers allocated in the cli pool */
   c->rx_pos = c->rx_buf;
   c->rx_aux = NULL;
   return 1;
@@ -201,7 +203,8 @@ cli_init_unix(void)
   s = cli_sk = sk_new(cli_pool);
   s->type = SK_UNIX_PASSIVE;
   s->rx_hook = cli_connect;
-  sk_open_unix(s, PATH_CONTROL_SOCKET);
+  if (sk_open_unix(s, path_control_socket) < 0)
+    die("Unable to create control socket %s", path_control_socket);
 }
 
 /*
@@ -270,13 +273,13 @@ signal_init(void)
  *	Parsing of command-line arguments
  */
 
-static char *opt_list = "c:dD:";
+static char *opt_list = "c:dD:s:";
 static int debug_flag = 1;		/* FIXME: Turn off for production use */
 
 static void
 usage(void)
 {
-  fprintf(stderr, "Usage: bird [-c <config-file>] [-d] [-D <debug-file>]\n");
+  fprintf(stderr, "Usage: bird [-c <config-file>] [-d] [-D <debug-file>] [-s <control-socket>]\n");
   exit(1);
 }
 
@@ -297,6 +300,9 @@ parse_args(int argc, char **argv)
       case 'D':
 	log_init_debug(optarg);
 	debug_flag |= 2;
+	break;
+      case 's':
+	path_control_socket = optarg;
 	break;
       default:
 	usage();
