@@ -3,7 +3,7 @@
 
 objdir=@objdir@
 
-all:
+all depend:
 	$(MAKE) -C $(objdir) $@
 
 clean:
