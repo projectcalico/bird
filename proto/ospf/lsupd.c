@@ -460,6 +460,10 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       ospf_lsupd_tx_list(n, &l);
     }
   }
+  if(n->state==NEIGHBOR_LOADING)
+  {
+    ospf_lsreq_tx(n);	/* Send me another part of database */
+  }
 }
 
 void
