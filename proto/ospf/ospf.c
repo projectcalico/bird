@@ -62,6 +62,7 @@ ospf_init(struct proto_config *c)
   struct proto *p = proto_new(c, sizeof(struct proto_ospf));
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct ospf_config *oc=(struct ospf_config *)c;
+  struct ospf_area_config *ac;
 
   debug("OSPF: Init requested.\n");
   p->import_control = ospf_import_control;
@@ -73,6 +74,10 @@ ospf_init(struct proto_config *c)
   p->rte_same = ospf_rte_same;
 
   po->rfc1583=oc->rfc1583;
+  WALK_LIST(ac, oc->area_list)
+  {
+    debug("OSPF: area: %I, stub=%u tick=%u\n", ac->areaid, ac->stub, ac->tick);
+  }
 
   return p;
 }

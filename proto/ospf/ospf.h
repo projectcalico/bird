@@ -48,8 +48,14 @@
 struct ospf_config {
   struct proto_config c;
   int rfc1583;
-  u32 area;		/* FIXME: Area ID  !!! This is wrong !!!
-                         * Should respect interface */
+  list area_list;
+};
+
+struct ospf_area_config {
+  node n;
+  u32 areaid;
+  int stub;
+  unsigned tick;
 };
 
 struct ospf_iface {
@@ -105,6 +111,7 @@ struct ospf_iface {
 			 */
   struct top_hash_entry *nlsa;	/* Originated net lsa */
   int fadj;		/* Number of full adjacent neigh */
+  unsigned tick;
 };
 
 struct ospf_packet {
@@ -334,8 +341,8 @@ struct ospf_area {
   slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
   list cand;			/* List of candidates for RT calc. */
-  u8 stub;
-  u8 trcap;			/* Transit capability? */
+  int stub;
+  int trcap;			/* Transit capability? */
   struct proto_ospf *po;
   struct fib infib;		/* FIB for intra-area routes */
 };

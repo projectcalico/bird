@@ -13,11 +13,12 @@ CF_HDR
 CF_DEFINES
 
 #define OSPF_CFG ((struct ospf_config *) this_proto)
+static struct ospf_area_config *this_area;
 
 CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
-CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT)
+CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK)
 
 %type <t> opttext
 
@@ -28,21 +29,35 @@ CF_ADDTO(proto, ospf_proto '}')
 ospf_proto_start: proto_start OSPF {
      this_proto = proto_config_new(&proto_ospf, sizeof(struct ospf_config));
      this_proto->preference = DEF_PREF_OSPF;
+     init_list(&OSPF_CFG->area_list);
   }
  ;
 
 ospf_proto:
    ospf_proto_start proto_name '{'
  | ospf_proto proto_item ';'
- | ospf_proto ospf_area ';'
  | ospf_proto RFC1583COMPAT bool ';' { OSPF_CFG->rfc1583 = $3; }
- ;
+ | ospf_proto ospf_area '}'
+;
 
-ospf_area: AREA idval {
-    ((struct ospf_config *)this_proto)->area = $2;
+ospf_area_start: AREA idval '{' {
+  this_area = cfg_allocz(sizeof(struct ospf_area_config));
+  add_tail(&OSPF_CFG->area_list, NODE this_area);
+  this_area->areaid = $2;
+  this_area->tick = DISPTICK;
+  this_area->stub = 0;
  }
 ;
 
+ospf_area: ospf_area_start
+ | ospf_area_start ospf_area_item
+;
+
+ospf_area_item:
+ | STUB bool ';' { this_area->stub = $2 ; }
+ | TICK NUM ';' { this_area->tick = $2 ; }
+;
+ 
 opttext:
     TEXT
 | /* empty */ { $$ = NULL; }
