@@ -49,7 +49,7 @@ ospf_age(struct ospf_area *oa)
 
   WALK_SLIST_DELSAFE(en, nxt, oa->lsal)
   {
-    if (po->calcrt)
+    if (oa->rt && (oa->rt->dist != LSINFINITY))
     {
       en->color = OUTSPF;
       en->dist = LSINFINITY;

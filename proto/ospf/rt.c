@@ -69,6 +69,9 @@ ospf_rt_spfa(struct ospf_area *oa)
   if (oa->rt == NULL)
     return;
 
+  if (oa->rt->dist != LSINFINITY)
+    ospf_age(oa);
+
   FIB_WALK(in, nftmp)
   {
     nf = (struct infib *) nftmp;

@@ -201,6 +201,7 @@ originate_rt_lsa(struct ospf_area *oa)
   lsasum_calculate(&lsa, body, po);
   en = lsa_install_new(&lsa, body, oa);
   oa->rt = en;
+  en->dist = 0; /* Force area aging */
   ospf_lsupd_flood(NULL, NULL, &oa->rt->lsa, NULL, oa, 1);
   schedule_rtcalc(po);
   oa->origrt = 0;
