@@ -1,11 +1,12 @@
 Summary: BIRD Internet Routing Daemon
 Name: bird
-Version: 1.0.5
+Version: 1.0.8
 Release: 1
 Copyright: GPL
 Group: Networking/Daemons
 Source: ftp://bird.network.cz/pub/bird/bird-%{version}.tar.gz
 Source1: bird.init
+Source2: birdc6
 Buildroot: /var/tmp/bird-root
 Url: http://bird.network.cz
 Prereq: /sbin/chkconfig
@@ -18,22 +19,23 @@ protocols BGP, RIP and OSPF.
 %setup -n bird-%{version}
 
 %build
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var/run --enable-ipv6
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-ipv6
 make
 mv bird bird6
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var/run
+make clean
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
 make
 
 
 %install
 rm -rf $RPM_BUILD_ROOT/*
-make install prefix=$RPM_BUILD_ROOT/usr sysconfdir=$RPM_BUILD_ROOT/etc localstatedir=$RPM_BUILD_ROOT/var/run
+make install prefix=$RPM_BUILD_ROOT/usr sysconfdir=$RPM_BUILD_ROOT/etc localstatedir=$RPM_BUILD_ROOT/var
 install bird6 $RPM_BUILD_ROOT/usr/sbin
 
 cd $RPM_BUILD_ROOT
 install -d etc/rc.d/init.d
 install $RPM_SOURCE_DIR/bird.init etc/rc.d/init.d/bird
-install $RPM_SOURCE_DIR/birdc6 usr/bin/
+install $RPM_SOURCE_DIR/birdc6 usr/sbin/birdc6
 
 %post
 /sbin/ldconfig
@@ -50,4 +52,3 @@ fi
 %attr(755,root,root) /usr/sbin/birdc
 %attr(755,root,root) /usr/sbin/birdc6
 %attr(755,root,root) /etc/rc.d/init.d/bird
-%config /etc/bird.conf

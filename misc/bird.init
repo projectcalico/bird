@@ -15,38 +15,59 @@
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-# Check that networking is up.
-if [ "${NETWORKING}" = "no" ]
-then
-	exit 0
-fi
+[ -f /etc/sysconfig/network ] || exit 0
 
-[ -f /etc/bird.conf ] || exit 0
+. /etc/sysconfig/network
 
-[ -f /usr/sbin/bird ] || exit 0
+BIRD4="yes"
+BIRD6="yes"
+
+[ -f /etc/bird.conf ] || BIRD4="no"
+[ -f /usr/sbin/bird ] || BIRD4="no"
+[ "${NETWORKING}" = "yes" ] || BIRD4="no"
+
+[ -f /etc/bird-6.conf ] || BIRD6="no"
+[ -f /usr/sbin/bird6 ] || BIRD6="no"
+[ "${NETWORKING_IPV6}" = "yes" ] || BIRD6="no"
 
 RETVAL=0
 
 # See how we were called.
 case "$1" in
   start)
-	echo -n "Starting BIRD: "
-	daemon bird
-	RETVAL=$?
-
-	echo
-	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/bird
+	if [ "$BIRD4" = "yes" ]
+	then
+		echo -n "Starting BIRD for IPv4: "
+		daemon bird
+		RETVAL=$?
+		echo
+		[ $RETVAL -eq 0 ] && touch /var/lock/subsys/bird
+	fi
+	if [ "$BIRD6" = "yes" ]
+	then
+		echo -n "Starting BIRD for IPv6: "
+		daemon bird6
+		RETVAL=$?
+		echo
+		[ $RETVAL -eq 0 ] && touch /var/lock/subsys/bird6
+	fi
 	;;
   stop)
-	echo -n "Stopping BIRD: "
+	echo -n "Stopping BIRD for IPv4: "
 	killproc bird
 	RETVAL=$?
-
 	echo
 	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/bird
+
+	echo -n "Stopping BIRD for IPv6: "
+	killproc bird6
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/bird6
 	;;
   status)
 	status bird
+	status bird6
 	RETVAL=$?
 	;;
   restart)
@@ -56,6 +77,7 @@ case "$1" in
 	;;
   reload)
 	killall -HUP bird
+	killall -HUP bird6
 	RETVAL=$?
 	;;
   *)
