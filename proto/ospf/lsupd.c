@@ -356,12 +356,18 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
        if(self)
        {
+         struct top_hash_entry *en;
+
          lsa->age=(htons(LSA_MAXAGE));
 	 lsatmp.age=LSA_MAXAGE;
 	 debug("%s: Premature aging self originated lsa.\n",p->name);
          debug("%s: Type: %d, Id: %I, Rt: %I\n", p->name, lsatmp.type,
            lsatmp.id, lsatmp.rt);
          flood_lsa(NULL,lsa,&lsatmp,po,NULL,oa,0);
+	 if(en=ospf_hash_find_header(oa->gr,&lsatmp))
+	 {
+           flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
+	 }
 	 continue;
        }
 
