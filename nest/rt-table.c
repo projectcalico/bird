@@ -203,9 +203,12 @@ rte_update(net *net, struct proto *p, rte *new)
 	p->rte_remove(net, old);
       rte_free(old);
     }
-  new->lastmod = now;
-  if (p->rte_insert)
-    p->rte_insert(net, new);
+  if (new)
+    {
+      new->lastmod = now;
+      if (p->rte_insert)
+	p->rte_insert(net, new);
+    }
 }
 
 void
