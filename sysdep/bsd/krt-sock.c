@@ -44,7 +44,7 @@ int rt_sock = 0;
 #define CHECK_FAMILY(sa) \
   ((((struct sockaddr *)sa)->sa_family) == BIRD_AF)
 
-struct iface *
+static struct iface *
 krt_temp_iface_index(struct krt_proto *p, unsigned index)
 {
   struct iface *i, *j;
@@ -97,7 +97,7 @@ krt_capable(rte *e)
           memmove(body, &(u), l); body += l;}
 
 static void
-krt_sock_send(int cmd, rte *e, char *name)
+krt_sock_send(int cmd, rte *e)
 {
   net *net = e->net;
   rta *a = e->attrs;
@@ -208,13 +208,12 @@ krt_set_notify(struct krt_proto *p, net *net, rte *new, rte *old)
   if (old)
     {
       DBG("krt_remove_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
-      krt_sock_send(RTM_DELETE, old, "RTM_DELETE");
-
+      krt_sock_send(RTM_DELETE, old);
     }
   if (new)
     {
       DBG("krt_add_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
-      krt_sock_send(RTM_ADD, new, "RTM_ADD");
+      krt_sock_send(RTM_ADD, new);
     }
 }
 
@@ -264,7 +263,6 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
   rta a;
   rte *e;
   net *net;
-  u32 oif;
   ip_addr idst, igate, imask;
   void *body = (char *)msg->buf;
   int new = (msg->rtm.rtm_type == RTM_ADD);
@@ -460,7 +458,6 @@ krt_read_addr(struct ks_msg *msg)
   struct ifa_msghdr *ifam = (struct ifa_msghdr *)&msg->rtm;
   void *body = (void *)(ifam + 1);
   sockaddr addr, mask, brd;
-  unsigned int i;
   struct iface *iface = NULL;
   struct ifa ifa;
   struct sockaddr null;
@@ -468,7 +465,6 @@ krt_read_addr(struct ks_msg *msg)
   int addrs = ifam->ifam_addrs;
   int scope, masklen = -1;
   int new = (ifam->ifam_type == RTM_NEWADDR);
-  int fl = ifam->ifam_flags;
 
   if(!(iface = if_find_by_index(ifam->ifam_index)))
   {
@@ -550,22 +546,6 @@ krt_read_msg(struct proto *p, struct ks_msg *msg, int scan)
       break;
   }
 }
-
-
-static struct iface *
-krt_temp_iface(struct krt_proto *p, char *name)
-{
-  struct iface *i;
-
-  WALK_LIST(i, p->scan.temp_ifs)
-    if (!strcmp(i->name, name))
-      return i;
-  i = mb_allocz(p->p.pool, sizeof(struct iface));
-  strcpy(i->name, name);
-  add_tail(&p->scan.temp_ifs, &i->n);
-  return i;
-}
-
 
 void
 krt_scan_construct(struct krt_config *c)
