@@ -439,19 +439,20 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
       /* Remove old from all ret lists */
       /* pg 144 (5c) */
-      WALK_LIST(NODE ift,po->iface_list)
-        WALK_LIST(NODE ntmp,ift->neigh_list)
-        {
-          struct top_hash_entry *en;
-          if(ntmp->state>NEIGHBOR_EXSTART)
-            if((en=ospf_hash_find_header(ntmp->lsrth,&lsadb->lsa))!=NULL)
-            {
-              s_rem_node(SNODE en);
-              if(en->lsa_body!=NULL) mb_free(en->lsa_body);
-              en->lsa_body=NULL;
-              ospf_hash_delete(ntmp->lsrth,en);
-            }
-        }
+      if(lsadb)
+        WALK_LIST(NODE ift,po->iface_list)
+          WALK_LIST(NODE ntmp,ift->neigh_list)
+          {
+            struct top_hash_entry *en;
+            if(ntmp->state>NEIGHBOR_EXSTART)
+              if((en=ospf_hash_find_header(ntmp->lsrth,&lsadb->lsa))!=NULL)
+              {
+                s_rem_node(SNODE en);
+                if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+                en->lsa_body=NULL;
+                ospf_hash_delete(ntmp->lsrth,en);
+              }
+          }
 
       if((lsatmp.age==LSA_MAXAGE)&&(lsatmp.sn==LSA_MAXSEQNO)
         &&lsadb&&can_flush_lsa(oa))
