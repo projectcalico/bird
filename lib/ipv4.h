@@ -51,6 +51,7 @@ typedef u32 ip_addr;
 #define ipa_hton(x) x = _MI(htonl(_I(x)))
 #define ipa_ntoh(x) x = _MI(ntohl(_I(x)))
 #define ipa_classify(x) ipv4_classify(_I(x))
+#define ipa_opposite(x) _MI(_I(x) ^ 1)
 
 int ipv4_classify(u32);
 
