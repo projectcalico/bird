@@ -26,17 +26,21 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
   struct ospf_lsa_rt_link *rtl,*rr;
   struct fib fib;
   struct stub_fib *sf;
+  bird_clock_t delta;
+  int age=0,flush=0;
 
-  /*
-   * First of all, mark all vertices as they are not in SPF
-   * Maybe I can join this work with Aging of structure
-   * FIXME look at it
-   */
+  /* FIXME if I'm not in LOADING or EXCHANGE set flush=1 */
+  if((delta=now-oa->lage)>=AGINGDELTA)
+  {
+     oa->lage=now;
+     age=1;
+  }
 
-  WALK_SLIST(SNODE en, oa->lsal)
+  WALK_SLIST_DELSAFE(SNODE en, nx, oa->lsal)	/* FIXME Make it DELSAFE */
   {
     en->color=OUTSPF;
     en->dist=LSINFINITY;
+    if(age) ospf_age(en,delta,flush,p);
   }
 
   init_list(&oa->cand);		/* Empty list of candidates */

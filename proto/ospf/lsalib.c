@@ -8,6 +8,34 @@
 
 #include "ospf.h"
 
+/* FIXME Go on */
+void
+flush_lsa(struct top_hash_entry *en)
+{
+  return;
+}
+
+void
+ospf_age(struct top_hash_entry *en, bird_clock_t delta, int flush,
+  struct proto *p)
+{
+  if(en->lsa.age==LSA_MAXAGE)
+  {
+    if(flush) flush_lsa(en);
+    return;
+  }
+  if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>LSREFRESHTIME))
+  {
+     /* FIXME Reflood again my self originated LSA */
+  }
+  if((en->lsa.age+=delta)>LSA_MAXAGE)
+  {
+    if(flush) flush_lsa(en);
+    else en->lsa.age=LSA_MAXAGE;
+    return;
+  }
+}
+
 void
 htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
 {

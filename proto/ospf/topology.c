@@ -150,17 +150,33 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
     sizeof(struct ospf_lsa_header);
   return rt;
 }
+
+void
+age_timer_hook(timer *timer)
+{
+  struct ospf_area *oa=timer->data;
+  bird_clock_t delta;
+  struct top_hash_entry *en,*nxt;
+  int flush=0;
+
+  /* FIXME Fill flush! */
+
+  if((delta=now-oa->lage)>=AGINGDELTA)
+  {
+    WALK_SLIST_DELSAFE(en,nxt,oa->lsal) ospf_age(en,delta,flush,&oa->po->proto);
+    oa->lage=now;
+  }
+}
 	
 
 void
 addifa_rtlsa(struct ospf_iface *ifa)
 {
   struct ospf_area *oa;
-  struct proto_ospf *po;
+  struct proto_ospf *po=ifa->proto;
   u32 rtid;
   struct top_graph_rtlsa_link *li, *lih;
 
-  po=ifa->proto;
   rtid=po->proto.cf->global->router_id;
   DBG("%s: New OSPF area \"%d\" adding.\n", po->proto.name, ifa->an);
   oa=NULL;
@@ -181,6 +197,14 @@ addifa_rtlsa(struct ospf_iface *ifa)
     oa->gr=ospf_top_new(po);
     s_init_list(&(oa->lsal));
     oa->rt=NULL;
+    oa->lage=now;
+    oa->po=po;
+    oa->age_timer=tm_new(po->proto.pool);
+    oa->age_timer->data=oa;
+    oa->age_timer->randomize=0;
+    oa->age_timer->hook=age_timer_hook;
+    oa->age_timer->recurrent=AGINGDELTA;
+    tm_start(oa->age_timer,AGINGDELTA);
     po->areano++;
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
   }

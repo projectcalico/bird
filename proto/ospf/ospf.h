@@ -43,6 +43,7 @@
 #define MINLSINTERVAL 5
 #define MINLSARRIVAL 1
 #define LSINFINITY 0xffff	/* RFC says 0xffffff ??? */
+#define AGINGDELTA 20		/* FIXME What's good value? */
 
 struct ospf_config {
   struct proto_config c;
@@ -322,12 +323,15 @@ struct ospf_neighbor
 struct ospf_area {
   node n;
   u32 areaid;
+  bird_clock_t lage;		/* A time of last aging */
+  timer *age_timer;			/* A timer for aging */
   struct top_graph *gr;		/* LSA graph */
   slist lsal;			/* List of all LSA's */
   struct top_hash_entry *rt;	/* My own router LSA */
   list cand;			/* List of candidates for RT calc. */
   u8 stub;
   u8 trcap;			/* Transit capability? */
+  struct proto_ospf *po;
 };
 
 struct proto_ospf {
