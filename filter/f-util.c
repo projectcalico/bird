@@ -28,7 +28,7 @@ interpret(struct f_instruction *what)
 {
   struct symbol *sym;
   if (!what)
-    return 0;
+    return;
   switch(what->code) {
   case ',':
     interpret(what->arg1);
@@ -36,7 +36,7 @@ interpret(struct f_instruction *what)
     break;
   case '=':
     sym = what->arg1;
-    sym->aux = what->arg2;
+    sym->aux = (int) what->arg2;
     break;
   case 'p':
     sym = what->arg1;
@@ -52,7 +52,11 @@ interpret(struct f_instruction *what)
   case 'D':
     printf( "DEBUGGING PRINT\n" );
     break;
+  case '0':
+    printf( "No operation\n" );
+    break;
   }
+  interpret(what->next);
 }
 
 void
@@ -65,3 +69,24 @@ filters_postconfig(void)
   }
 } 
 
+struct f_instruction *
+f_new_inst(void)
+{
+  struct f_instruction * ret;
+  ret = cfg_alloc(sizeof(struct f_instruction));
+  ret->code = 0;
+  ret->arg1 = ret->arg2 = ret->next = NULL;
+  return ret;
+}
+
+int
+f_run(struct symbol *filter, struct rte *rtein, struct rte **rteout)
+{
+  struct f_instruction *inst;
+  debug( "Running filter `%s'...", filter->name );
+
+  inst = filter->def;
+  interpret(inst);
+  debug( "done\n" );
+  return F_ACCEPT;
+}

@@ -22,20 +22,17 @@ CF_DECLS
 CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT)
 
 %type <x> term
+%type <x> cmds
 
 CF_GRAMMAR
 
-program: /* EMPTY */
- | program function
- ;
-
 CF_ADDTO(conf, function)
 function:
-   FUNCTION SYM '(' ')' '{' term '}' { 
+   FUNCTION SYM '(' ')' '{' cmds '}' { 
      extern struct f_instruction *last_func;
      if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
      $2->class = SYM_FUNCTION;
-     $2->aux = $6;
+     $2->def = $6;
      last_func = $6;
      printf("Hmm, we've got one function here\n"); 
    }
@@ -43,23 +40,34 @@ function:
 
 CF_ADDTO(conf, filter)
 filter:
-   FILTER SYM '{' term '}' {
+   FILTER SYM '{' cmds '}' {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
      $2->class = SYM_FILTER;
-     $2->aux = $4;
+     $2->def = $4;
      printf( "We have new filter defined (%s)\n", $2->name )
    }
  ;
 
 /* Programs */
 
-term: /* EMPTY */ { $$ = NULL; }
- | term ';' term { 
-     $$ = cfg_alloc(sizeof(struct f_instruction));
-     printf( "We've got statement here\n" );
-     $$->code = ',';
-     $$->arg1 = $1;
-     $$->arg2 = $3;
+cmds:
+   term {
+     if ($1) {
+       $1->next = NULL;
+       $$ = $1;
+     } else $$ = NULL;
+   }
+ | term ';' cmds {
+     if ($1) {
+       $1->next = $3;
+       $$ = $1;
+     } else $$ = $3;
+   }
+ ;
+
+term:
+   /* EMPTY */ { 
+     $$ = NULL;
    }
  | INT SYM {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined, can not use as variable\n" );
@@ -68,7 +76,7 @@ term: /* EMPTY */ { $$ = NULL; }
      $$ = NULL;
    }
  | SYM '=' expr {
-     $$ = cfg_alloc(sizeof(struct f_instruction));
+     $$ = f_new_inst();
      printf( "Ook, we'll set value\n" );
      if ($1->class != SYM_VARIABLE_INT)
        cf_error( "You may only set variables\n" );
@@ -77,14 +85,14 @@ term: /* EMPTY */ { $$ = NULL; }
      $$->arg2 = $3;
    }
  | PRINT '(' SYM ')' {
-     $$ = cfg_alloc(sizeof(struct f_instruction));
+     $$ = f_new_inst();
      printf( "Ook, we'll print something\n" );
      $$->code = 'p';
      $$->arg1 = $3;
      $$->arg2 = NULL;
    }
  | PRINTDEBUG {
-     $$ = cfg_alloc(sizeof(struct f_instruction));
+     $$ = f_new_inst();
      $$->code = 'D';
      $$->arg1 = $$->arg2 = NULL;
  }
