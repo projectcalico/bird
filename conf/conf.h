@@ -52,6 +52,7 @@ struct symbol {
   struct symbol *next;
   int class;
   int aux;
+  void *aux2; 
   void *def;
   char name[1];
 };

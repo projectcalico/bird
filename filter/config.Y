@@ -1,7 +1,7 @@
 /*
  *	BIRD - filters
  *
- *	Copyright 1998 Pavel Machek
+ *	Copyright 1998,1999 Pavel Machek
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -29,11 +29,12 @@ CF_KEYWORDS(FUNCTION, PRINT, CONST,
 	FILTER
 	)
 
-%type <x> term block cmds cmd function_body ifthen constant print_one print_list
+%type <x> term block cmds cmd function_body ifthen constant print_one print_list var_list
 %type <f> filter filter_body
 %type <i> type break_command
 %type <e> set_item set_items
 %type <v> set_atom
+%type <s> decls function_params 
 
 CF_GRAMMAR
 
@@ -63,10 +64,12 @@ type:
 	}
  ;
 
-decls: /* EMPTY */
+decls: /* EMPTY */ { $$ = NULL; }
  | type SYM ';' decls {
      cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
      printf( "New variable %s type %x\n", $2->name, $1 );
+     $2->aux = $4;
+     $$=$2;
    }
  ;
 
@@ -88,7 +91,7 @@ filter:
  ;
 
 function_params:
-   '(' decls ')' { printf( "Have function parameters\n" ); }
+   '(' decls ')' { printf( "Have function parameters\n" ); $$=$2; }
  ;
 
 function_body:
@@ -104,6 +107,8 @@ function_def:
      cf_define_symbol($2, SYM_FUNCTION, $4);
      if (!strcasecmp($2->name, "startup"))
 	startup_func = $4;
+     $2->aux = $3;
+     $2->aux2 = $4;
      printf("Hmm, we've got one function here - %s\n", $2->name); 
    }
  ;
@@ -173,7 +178,7 @@ term:
 	 $$->a2.p = &($1->aux);
 	 break;
        default:
-	 cf_error("Can not use this class of symbol as variable" );
+	 cf_error("Can not use this class of symbol as variable." );
      }
    }
  | constant { $$ = $1; }
@@ -216,6 +221,16 @@ print_list: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
+var_list: /* EMPTY */ { $$ = NULL; }
+ | term ',' var_list {
+     $$ = f_new_inst();
+     $$->code = 's';
+     $$->a1.p = NULL;
+     $$->a2.p = $1;
+     $$->next = $3;
+   }
+ ;
+
 cmd:
    ifthen { 
      $$ = $1;
@@ -237,6 +252,26 @@ cmd:
      $$->a2.p = $3;
    }
  | break_command print_list ';' { $$ = f_new_inst(); $$->code = 'p,'; $$->a1.p = $2; $$->a2.i = $1; }
+ | SYM '(' var_list ')' ';' {
+     struct symbol *sym;
+     struct f_inst *inst = $3;
+     if ($1->class != SYM_FUNCTION)
+       cf_error("You can not call something which is not function. Really.");
+     printf("You are calling function %s\n", $1->name);
+     $$ = f_new_inst();
+     $$->code = 'ca';
+     $$->a1.p = inst;
+     $$->a2.p = $1->aux2;
+     sym = $1->aux;
+     while (sym || inst) {
+       if (!sym || !inst)
+	 cf_error("wrong number of arguments for function %s.", $1->name);
+       printf( "You should pass parameter called %s\n", sym->name);
+       inst->a1.p = sym;
+       sym = sym->aux;
+       inst = inst->next;
+     }
+   }
  ;
 
 CF_END

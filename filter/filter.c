@@ -250,6 +250,10 @@ interpret(struct f_inst *what)
     default: bug( "Unknown prefix to conversion\n" );
     }
     break;
+  case 'ca': /* CALL */
+    ONEARG;
+    res = interpret(what->a2.p);
+    break;
   default:
     bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
   }
