@@ -749,7 +749,8 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
       if (ok)
 	{
 	  d->show_counter++;
-	  rt_show_rte(c, ia, e, d, tmpa);
+	  if (d->stats < 2)
+	    rt_show_rte(c, ia, e, d, tmpa);
 	  ia[0] = 0;
 	}
       if (e != ee)
