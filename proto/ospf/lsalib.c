@@ -33,13 +33,15 @@ ospf_age(struct ospf_area *oa)
       if(flush) flush_lsa(en,oa);
       continue;
     }
-    if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>LSREFRESHTIME))
+    if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>=LSREFRESHTIME))
     {
+       debug("%s: Refreshing my LSA: Type: %u, Id: %I, Rt: %I\n",
+         p->name,en->lsa.type, en->lsa.id, en->lsa.rt);
        en->lsa.sn++;
        en->lsa.age=0;
-       flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
        lsasum_calculate(&en->lsa,en->lsa_body,po);
-       return;
+       flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
+       continue;
     }
     if((en->lsa.age+=delta)>=LSA_MAXAGE)
     {
