@@ -16,7 +16,7 @@ all-dirs:=$(static-dirs) $(dynamic-dirs)
 clean-dirs:=$(all-dirs) proto sysdep
 dir-objs:=$(addprefix $(objdir)/,$(all-dirs))
 
-CPPFLAGS=-I$(root-rel) -I$(srcdir)
+CPPFLAGS=-I$(root-rel) -I$(srcdir) @CPPFLAGS@
 CFLAGS=$(CPPFLAGS) @CFLAGS@
 LDFLAGS=
 LIBS=@LIBS@
