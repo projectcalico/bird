@@ -13,12 +13,15 @@
 
 <article>
 
-<title>BIRD
+<title>BIRD User's Guide
 <author>
-Pavel Machek <tt/pavel@ucw.cz/
+Ondrej Filip <it/&lt;feela@network.cz&gt;/,
+Pavel Machek <it/&lt;pavel@ucw.cz&gt;/,
+Martin Mares <it/&lt;mj@ucw.cz&gt;/
+</author>
 
 <abstract>
-This document contains documentation for BIRD Internet Routing Daemon
+This document contains user documentation for the BIRD Internet Routing Daemon project.
 </abstract>
 
 <!-- Table of contents -->
