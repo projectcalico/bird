@@ -7,10 +7,6 @@ Core
 
 - krt: rescan interfaces when route addition fails?
 
-- tagging of external routes?
-
-- configure: IPv6 on glibc 2.0?
-
 - Makefile: install target?
 
 - forgetting device routes???

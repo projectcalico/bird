@@ -8,8 +8,10 @@
 
 #ifdef IPV6
 
-#ifdef CONFIG_IPV6_GLIBC_20
+#ifndef IPV6_UNICAST_HOPS
+/* Needed on glibc 2.0 systems */
 #include <linux/in6.h>
+#define CONFIG_IPV6_GLIBC_20
 #endif
 
 static inline void
