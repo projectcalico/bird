@@ -28,6 +28,17 @@ struct f_inst *startup_func = NULL, *test1_func, *test2_func;
 
 #define CMP_ERROR 999
 
+int
+pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
+{
+  while (1) {
+    if ((!m1) || (!m2))
+      return !((!m1) && (!m2));
+    m1 = m1->next;
+    m2 = m2->next;
+  }
+}
+
 /* Compare two values, returns -1, 0, 1 compared, ERROR 999 */
 int
 val_compare(struct f_val v1, struct f_val v2)
@@ -53,6 +64,8 @@ val_compare(struct f_val v1, struct f_val v2)
   case T_IP:
   case T_PREFIX:
     return ipa_compare(v1.val.px.ip, v2.val.px.ip);
+  case T_PATH_MASK:
+    return pm_path_compare(v1.val.path_mask, v2.val.path_mask);
   default:
     debug( "Compare of unkown entities: %x\n", v1.type );
     return CMP_ERROR;
