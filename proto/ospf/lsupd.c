@@ -157,7 +157,8 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       }
       else
       {
-        if((ifa->state==OSPF_IS_BACKUP)||(ifa->state==OSPF_IS_DR))
+        if((ifa->state==OSPF_IS_BACKUP)||(ifa->state==OSPF_IS_DR)||
+	  (ifa->type==OSPF_IT_PTP))
           sk_send_to(sk,len, AllSPFRouters, OSPF_PROTO);
 	else sk_send_to(sk,len, AllDRouters, OSPF_PROTO);
       }
