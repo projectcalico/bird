@@ -237,7 +237,6 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     return;
   }
 
-  
   if(ps->options!=ifa->options)
   {
     log("%s: Bad OSPF packet from %u received: options mismatch.",
@@ -410,28 +409,28 @@ ospf_rx_hook(sock *sk, int size)
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
   if(ps==NULL)
   {
-    log("%s: Bad packet received: bad IP header", p->name);
+    log("%s: Bad OSPF packet received: bad IP header", p->name);
     log("%s: Discarding",p->name);
     return(1);
   }
   
   if(size < sizeof(struct ospf_packet))
   {
-    log("%s: Bad packet received: too short (%u bytes)", p->name, size);
+    log("%s: Bad OSPF packet received: too short (%u bytes)", p->name, size);
     log("%s: Discarding",p->name);
     return(1);
   }
 
   if(ntohs(ps->length) != size)
   {
-    log("%s: Bad packet received: size field does not match", p->name);
+    log("%s: Bad OSPF packet received: size field does not match", p->name);
     log("%s: Discarding",p->name);
     return(1);
   }
 
   if(ps->version!=OSPF_VERSION)
   {
-    log("%s: Bad packet received: version %u", p->name, ps->version);
+    log("%s: Bad OSPF packet received: version %u", p->name, ps->version);
     log("%s: Discarding",p->name);
     return(1);
   }
@@ -439,7 +438,7 @@ ospf_rx_hook(sock *sk, int size)
   if(!ipsum_verify(ps, 16,(void *)ps+sizeof(struct ospf_packet),
     ntohs(ps->length)-sizeof(struct ospf_packet), NULL))
   {
-    log("%s: Bad packet received: bad checksum", p->name);
+    log("%s: Bad OSPF packet received: bad checksum", p->name);
     log("%s: Discarding",p->name);
     return(1);
   }
@@ -448,10 +447,25 @@ ospf_rx_hook(sock *sk, int size)
 
   if(ps->areaid!=ifa->area)
   {
-    log("%s: Bad packet received: other area %ld", p->name, ps->areaid);
+    log("%s: Bad OSPF packet received: other area %ld", p->name, ps->areaid);
     log("%s: Discarding",p->name);
     return(1);
   }
+
+  if(ntohl(ps->routerid)==p->cf->global->router_id)
+  {
+    log("%s: Bad OSPF packet received: received my own IP!.", p->name);
+    log("%s: Discarding",p->name);
+    return(1);
+  }
+
+  if(ntohl(ps->routerid)==0)
+  {
+    log("%s: Bad OSPF packet received: Id 0.0.0.0 is not allowed.", p->name);
+    log("%s: Discarding",p->name);
+    return(1);
+  }
+  
 
   /* Dump packet */
   pu8=(u8 *)(sk->rbuf+5*4);
