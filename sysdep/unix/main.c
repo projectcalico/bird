@@ -19,6 +19,7 @@
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "conf/conf.h"
+#include "conf/filter.h"
 
 #include "unix.h"
 #include "krt.h"
@@ -84,7 +85,6 @@ read_config(void)
   cf_parse();
   protos_postconfig();
 }
-
 /*
  *	Hic Est main()
  */
@@ -92,7 +92,7 @@ read_config(void)
 int
 main(void)
 {
-  log(L_INFO "Launching BIRD -1.-1-pre-omega...");
+  log(L_INFO "Launching BIRD 0.0.0...");
 
   log_init_debug(NULL);
 
@@ -108,6 +108,7 @@ main(void)
 
   debug("Reading configuration file.\n");
   read_config();
+  filters_init();
 
   signal_init();
 
