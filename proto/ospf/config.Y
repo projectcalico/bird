@@ -39,10 +39,14 @@ ospf_proto_start: proto_start OSPF {
 
 ospf_proto:
    ospf_proto_start proto_name '{'
- | ospf_proto proto_item ';'
- | ospf_proto RFC1583COMPAT bool ';' { OSPF_CFG->rfc1583 = $3; }
- | ospf_proto ospf_area '}'
-;
+ | ospf_proto ospf_proto_item ';'
+ ;
+
+ospf_proto_item:
+   proto_item
+ | RFC1583COMPAT bool ';' { OSPF_CFG->rfc1583 = $2; }
+ | ospf_area '}'
+ ;
 
 ospf_area_start: AREA idval '{' {
   this_area = cfg_allocz(sizeof(struct ospf_area_config));
@@ -52,19 +56,21 @@ ospf_area_start: AREA idval '{' {
   this_area->stub = 0;
   init_list(&this_area->patt_list);
  }
-;
+ ;
 
 ospf_area: ospf_area_start ospf_area_opts
-;
+ ;
 
 ospf_area_opts:
- | ospf_area_opts ospf_area_item
+   /* empty */
+ | ospf_area_opts ospf_area_item ';'
+ ;
 
 ospf_area_item:
-   STUB bool ';' { this_area->stub = $2 ; }
- | TICK NUM ';' { this_area->tick = $2 ; }
- | ospf_iface_list '}'
-;
+   STUB bool { this_area->stub = $2 ; }
+ | TICK NUM { this_area->tick = $2 ; }
+ | INTERFACE ospf_iface_list
+ ;
 
 ospf_iface_item:
    COST NUM { OSPF_PATT->cost = $2 ; }
@@ -78,7 +84,7 @@ ospf_iface_item:
  | TYPE NONBROADCAST { OSPF_PATT->type = OSPF_IT_NBMA ; }
  | TYPE POINTOPOINT { OSPF_PATT->type = OSPF_IT_PTP ; }
  | 
-;
+ ;
  
 ospf_iface_start:
  {
@@ -96,26 +102,28 @@ ospf_iface_start:
 ;
 
 ospf_iface_opts:
-   '{'
+   /* empty */
  | ospf_iface_opts ospf_iface_item ';'
  ;
 
-ospf_iface_opt_list: /* EMPTY */ | ospf_iface_opts
-;
+ospf_iface_opt_list:
+   /* empty */
+ | '{' ospf_iface_opts '}'
+ ;
 
 ospf_iface:
   ospf_iface_start iface_patt ospf_iface_opt_list
-;
+ ;
 
 ospf_iface_list:
-   INTERFACE ospf_iface
+   ospf_iface
  | ospf_iface_list ',' ospf_iface
  ;
 
 opttext:
     TEXT
-| /* empty */ { $$ = NULL; }
-;
+ | /* empty */ { $$ = NULL; }
+ ;
 
 CF_ADDTO(dynamic_attr, OSPF_METRIC1 { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_METRIC1); })
 CF_ADDTO(dynamic_attr, OSPF_METRIC2 { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_METRIC2); })
