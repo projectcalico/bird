@@ -3,7 +3,9 @@
 <!--
 	BIRD documentation
 
-    Look for "about this documentation" section to learn more.
+This is slightly modified linuxdoc dtd.  Anything in <descrip> tags is considered definition of
+configuration primitives, <cf> is fragment of configuration within normal text, <m> is
+"meta" information within fragment of configuration -- something in config which is not keyword.
 
     (set-fill-column 100)
 
@@ -49,7 +51,9 @@ the topology of the network which allows them to find optimal (in terms of some 
 forwarding of packets (which will be called routes in the rest of this document) and to adapt to the
 changing conditions such as outages of network links, building of new connections and so on. Most of
 these routers are costly dedicated devices running obscure firmware which is hard to configure and
-not open to any changes.  Fortunately, most operating systems of the UNIX family allow an ordinary
+not open to any changes. (But these costly dedicated beasts are a
+requirement for routing of many fast interfaces - PCclass machine can not keep up with more than 4
+100Mbps interfaces) Fortunately, most operating systems of the UNIX family allow an ordinary 
 computer to act as a router and forward packets belonging to the other hosts, but only according to
 a statically configured table.
 
@@ -92,33 +96,41 @@ be relatively easy due to its highly modular architecture.
 
 <sect1>About this documentation
 
-<p>This documentation can have 4 forms: sgml (this is master copy), html, ASCII text (generated from
-html) and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy,
-it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is considered definition of
-configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
-"meta" information within fragment of configuration -- something in config which is not keyword.
-
+<p>This documentation can have 4 forms: sgml (this is master copy), html, ASCII text and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy.
 
 <sect1>About routing tables
 
 <p>Bird has one or more routing tables, which may or may not be
 synchronized with kernel and which may or may not be synchronized with
 each other (see protocol pipe). Each routing table contains list of
-known routes. Each route has certain attributes, most important is
-prefix of network this route is for. Routing table maintains more than
+known routes. Each route consists of:
+
+<itemize>
+	<item>network this route is for
+	<item>preference of this route (taken from preference of
+	protocol and possibly alterred by filters)
+	<item>ip address of router who told us about this route
+	<item>ip address of router we should use for packets routing
+	using this route
+	<item>other attributes common to all routes
+	<item>dynamic attributes defined by protocols, which may or
+	may not be present (typically protocol metric)
+</itemize>
+
+Routing table maintains more than
 one entry for network, but at most one entry for one network and one
 protocol. The entry with biggest preference is used for routing. If
 there are more entries with same preference and they are from same
-protocol, protocol decides (typically according to metrics). You can
+protocol, protocol decides (typically according to metrics). If not,
+internal ordering is used to decide. You can
 get list of route attributes in "Route attributes" section in
 filters. Filters can alter routes passed between routing tables and
 protocols.
 
 <sect1>Installing BIRD
 
-<p>On recent UNIX system, installing BIRD should be as easy as (bird
-relies on GNU C and GNU make extensions): <!-- It is not true that we
-require gcc, there are other compilers supporting gcc extensions! -->
+<p>On recent UNIX (with GNU-compatible tools - BIRD relies on GCC extensions)
+system, installing BIRD should be as easy as:
 
 <code>
         ./configure
@@ -142,7 +154,7 @@ options. Most important (and not easily guessed) option is
 	enable debugging.
 
 	<tag>-D <m/filename for debug log/</tag>
-	log debugging information to given file
+	log debugging information to given file.
 
 	<tag>-s <m/name of communication socket/</tag>
 	use given filename for socket for communications with bird client, default is <file/bird.ctl/.
@@ -154,18 +166,22 @@ options. Most important (and not easily guessed) option is
 
 <p>BIRD is configured using text configuration file. At startup, BIRD reads <file/bird.conf/ (unless
 -c command line parameter is given). Configuration may be changed on user request: if you modify
-config file and then signal BIRD with SIGHUP, it will adjust to new config. There's BIRD client,
+config file and then signal BIRD with SIGHUP, it will adjust to new
+config. Then there's BIRD client,
 which allows you to talk with BIRD in more extensive way than just telling it to reconfigure. BIRD
 writes messages about its work to log files or syslog (according to config).
 
-<p>Bird is configured using text configuration file. At startup, bird
-reads <file/bird.conf/ (unless -c command line parameter is
-given). Everything on a line after <cf/#/ is a comment, whitespace is
+<p>In config, everything on a line after <cf/#/ or inside <cf>/*
+*/</cf> is a comment, whitespace is
 ignored, C-style comments <cf>/* comment */</cf> are also
-recognized. If there's variable number of options, it is grouped using
-<cf/{ }/ brackets. Each option is terminated by <cf/;/.
+recognized. If there's variable number of options, they are grouped using
+<cf/{ }/ brackets. Each option is terminated by <cf/;/. Configuration
+is case sensitive.
 
-<p>Really simple configuration file might look like this:
+<p>Really simple configuration file might look like this: It enables
+synchronization of routing tables with kernel, scans for 
+new network interfaces every 10 seconds and runs RIP on all interfaces found.
+
 
 <code>
 protocol kernel {
@@ -183,6 +199,7 @@ protocol rip {
 	import all;
 }
 </code>
+
 
 <sect1>Global options
 
@@ -202,7 +219,11 @@ protocol rip {
 	<tag>debug protocols all|off|{ states, routes, filters, interfaces, events, packets }</tag>
 	sets global default of protocol debugging options.
 
-	<tag>filter <m/name/{ <m/commands/ }</tag> define filter. You can learn more about filters
+	<tag>filter <m/name local variables/{ <m/commands/ }</tag> define filter. You can learn more about filters
+	in next chapter.
+
+	<tag>function <m/name (parameters) local variables/ { <m/commands/ }</tag> define function. You can learn more
+	about functions 
 	in next chapter.
  
 	<tag>protocol rip|ospf|bgp|... <m/[name]/ { <m>protocol options</m> }</tag> define protocol
@@ -210,15 +231,18 @@ protocol rip {
 	about configuring protocols in their own chapters. You can run more than one instance of
 	most protocols (like rip or bgp).
 
-	<tag>define constant = expression</tag> define constant. You can use it later in every place
+	<tag>define constant = (<m/expression/)|<m/number/</tag> define constant. You can use it later in every place
 	you could use simple integer.
 
 	<tag>router id <m/IPv4 address/</tag> set router id. Router id needs to be world-wide
 	unique. It is usually one of router's IPv4 addresses.
 
-	<tag>table <m/name/</tag> create new routing table.
+	<tag>table <m/name/</tag> create new routing table. Default
+	routing table is created implicitly, other routing tables have
+	to be added by this command.
 
-	<tag>eval <m/expr/</tag> evaluates given filter expression. It is used for testing.
+	<tag>eval <m/expr/</tag> evaluates given filter expression. It
+	is used by us for testing.
 </descrip>
 
 <sect1>Protocol options
@@ -229,15 +253,15 @@ protocol rip {
 	<tag>preference <m/expr/</tag> sets preference of routes generated by this protocol.
 
 	<tag>disabled</tag> disables given protocol. You can disable/enable protocol from command
-	line interface without needing to touch config.
+	line interface without needing to touch config. Disabled protocol is not activated.
 
 	<tag>debug <m/setting/</tag> this is similar to global debug setting, except that it only
 	affects one protocol. Only messages in selected debugging categories will be written to
 	logs.
 
 	<tag>import <m/filter/</tag> filter can be either either <cf> { <m>filter commands</m>
-	}</cf> or <cf>filter <m/name/</cf>. Import filter works in direction from protocol to main
-	routing table.
+	}</cf> or <cf>filter <m/name/</cf> or <cf/all/ or <cf/none/. Import filter works in direction from protocol to main
+	routing table. All is shorthand for <cf/{ accept; }/ and none is shorthand for <cf/{ reject; }/.
 
 	<tag>export <m/filter/</tag> This is similar to <cf>export</cf> keyword, except that it
 	works in direction from main routing table to protocol.
@@ -250,14 +274,16 @@ protocol rip {
 <descrip>
 	<tag>passwords { password "<m/password/" from <m/time/ to <m/time/ passive <m/time/ id
 	<m/num/ [...] }</tag> specifies passwords to be used with this protocol. Passive time is
-	time from which password is not announced but is allowed. id is password id, as needed by
+	time from which password is not announced, but is recognized on reception. id is password id, as needed by
 	certain protocols.
 
 	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [ ... ] } ]</tag> specifies, which
 	interfaces this protocol is active at, and allows you to set options on
 	interface-by-interface basis. Mask is specified in shell-like patters, thus <cf>interface
 	"*" { mode broadcast; };</cf> will start given protocol on all interfaces, with <cf>mode
-	broadcast;</cf> option.
+	broadcast;</cf> option. If first character of mask is <cf/-/, such interfaces are
+	excluded. Masks are parsed left-to-right, thus <cf/interface "-eth0", "*";/ means all but
+	ethernets.
 						  
 </descrip>
 
@@ -289,7 +315,7 @@ interpreted. Filter using many features can be found in <file>filter/test.conf</
 
 <p>Filter basically gets the route, looks at its attributes and
 modifies some of them if it wishes. At the end, it decides, whether to
-pass change route through (using <cf/accept/), or whether to <cf/reject/ given route. It looks
+pass change route through (using <cf/accept/), or whether to <cf/reject/ given route. Simple filter looks
 like this:
 
 <code>
@@ -312,16 +338,13 @@ int var;
 <p>As you can see, filter has a header, list of local variables, and body. Header consists of
 <cf/filter/ keyword, followed by (unique) name of filter. List of local variables consists of
 pairs <cf><M>type name</M>;</cf>, where each pair defines one local variable. Body consists of
-<cf> { <M>statements</M> }</cf>. Statements are terminated by <cf/;/. You can group
+<cf> { <M>statements</M> }</cf>. Each Statement is terminated by <cf/;/. You can group
 several statements into one by <cf>{ <M>statements</M> }</cf> construction, that is useful if
 you want to make bigger block of code conditional.
 
-<p>There are two special filters, <cf/all/ (which accepts all routes) and <cf/none/ (which rejects
-all routes).
-
 <p>Bird supports functions, so that you don't have to repeat same blocks of code over and
-over. Functions can have zero or more parameters, and can have local variables. Function basically
-looks like this:
+over. Functions can have zero or more parameters, and can have local variables. They
+look like this:
 
 <code>
 function name ()
@@ -344,7 +367,7 @@ syntax. Returning value exits from current function (this is similar to C).
 <p>Filters are declared in similar way to functions, except they can not have explicit
 parameters. They get route table entry as implicit parameter. Route table entry is passed implicitly
 to any functions being called. Filter must terminate with either
-accept or reject statement. If there's runtime error in filter, route
+<cf/accept/ or <cf/reject/ statement. If there's runtime error in filter, route
 is rejected. 
 
 <p>Nice trick to debug filters is using <cf>show route filter
@@ -370,12 +393,12 @@ bird>
 
 <sect1>Data types
 
-<p>Each variable and each value has certain type. Unlike C, filters distinguish between integers and
-booleans and between integers and enums (that is to prevent you from shooting in the foot).
+<p>Each variable and each value has certain type. Unlike C, booleans, integers and enums are
+incompatible with each other (that is to prevent you from shooting in the foot).
 
 <descrip>
-	<tag/bool/ this is boolean type, it can have only two values, <cf/TRUE/ and
-	  <cf/FALSE/. Boolean is not compatible with integer and is the only type you can use in if
+	<tag/bool/ this is boolean type, it can have only two values, <cf/true/ and
+	  <cf/false/. Boolean is not compatible with integer and is the only type you can use in if
 	  statements.
 
 	<tag/int/ this is common integer, you can expect it to store signed values from -2000000000
@@ -389,20 +412,20 @@ booleans and between integers and enums (that is to prevent you from shooting in
 	  such variables, but you can not concatenate two strings (for example). String constants
 	  are written as <cf/"This is a string constant"/.
 
-	<tag/ip/ this type can hold single ip address. Depending on version of BIRD you are using, it
+	<tag/ip/ this type can hold single ip address. Depending on compile-time configuration of BIRD you are using, it
 	  can be IPv4 or IPv6 address. IPv4 addresses are written (as you would expect) as
 	  <cf/1.2.3.4/. You can apply special operator <cf>.mask(<M>num</M>)</cf>
 	  on values of type ip. It masks out all but first <cf><M>num</M></cf> bits from ip
 	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true.
 
-	<tag/prefix/ this type can hold ip address, prefix len pair. Prefixes are written as
+	<tag/prefix/ this type can hold ip address and prefix length. Prefixes are written as
 	  <cf><M>ipaddress</M>/<M>pxlen</M></cf>, or
 	  <cf><m>ipaddress</m>/<m>netmask</m></cf> There are two special
 	  operators on prefix:
 	  <cf/.ip/, which separates ip address from the pair, and <cf/.len/, which separates prefix
-	  len from the pair.
+	  len from the pair. So <cf>1.2.0.0/16.pxlen = 16</cf> is true.
 
-	<tag/int|ip|prefix|pair set/
+	<tag/int|ip|prefix|pair|enum set/
 	  filters know four types of sets. Sets are similar to strings: you can pass them around
 	  but you can not modify them. Constant of type <cf>set int</cf> looks like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
@@ -414,13 +437,13 @@ booleans and between integers and enums (that is to prevent you from shooting in
 	  <tt>1.0.0.0/8 ~ [ 1.0.0.0/8- ]</tt> is false. 
 
 	<tag/enum/
-	  enumeration types are halfway-internal in the BIRD. You can not define your own
-	  variable of enumeration type, but some predefined variables are of enumeration
+	  enumeration types are halfway-internal in the BIRD. You can't define your own
+	  variable of enumeration type, but some route attributes are of enumeration
 	  type. Enumeration types are incompatible with each other, again, for your
 	  protection.
 
 	<tag/bgppath/
-	  bgp path is list of autonomous systems.
+	  bgp path is list of autonomous systems. You can't write constant of this type.
 
 	<tag/bgpmask/ 
 	  bgp mask is mask used for matching bgp paths
@@ -430,12 +453,13 @@ booleans and between integers and enums (that is to prevent you from shooting in
 	  unknown autonomous system is not supported. (We
 	  did not want to use * because then it becomes too easy to
 	  write <cf>/*</cf> which is start of comment.) For example,
-	  <tt>/ 4 3 2 1 / ~ / ? 4 3 ? 1 /</tt> is true, but 
+	  <tt>/ 4 3 2 1 / ~ / ? 4 3 ? /</tt> is true, but 
 	  <tt>/ 4 3 2 1 / ~ / ? 4 5 ? /</tt> is false.
 
 	<tag/clist/ 
 	  community list. This is similar to set of pairs,
 	  except that unlike other sets, it can be modified.
+	  You can't write constant of this type.
 
 	  
 </descrip>
@@ -447,7 +471,7 @@ booleans and between integers and enums (that is to prevent you from shooting in
 used on element and set of that elements, or on ip and prefix, or on
 prefix and prefix or on bgppath and bgpmask or on pair and clist. Its result
 is true if element is in given set or if ip address is inside given prefix. Operator <cf/=/ is used to assign value
-to variable.
+to variable. Logical operations include unary not (<cf/!/), and (<cf/&&/) and or (<cf/||/>).
 
 <sect1>Control structures
 
@@ -459,8 +483,9 @@ clause may be omitted.
 <p><cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else |
 <m/num_or_prefix [ .. num_or_prefix]/ : <m/statement/ ; [ ... ] }</cf>. Expression after
 <cf>case</cf> can be of any type that can be on the left side of &tilde; operator, and anything that could
-be member of set is allowed before :. Multiple commands are allowed without {} grouping. If argument
-matches neither of : clauses, else: clause is used. (Case is actually implemented as set matching,
+be member of set is allowed before <cf/:/. Multiple commands are allowed without <cf/{}/ grouping
+and break is implicit before each case. If argument
+matches neither of <cf/:/ clauses, <cf/else:/ clause is used. (Case is actually implemented as set matching,
 internally.)
 
 <p>Here is example that uses if and case structures:
@@ -472,7 +497,7 @@ case arg1 {
 	else: print "something else";
 	}
 
-if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
+if 1234 = i then printn "."; else { print "not 1234"; print "You need {} around multiple commands"; }
 </code>
 
 <sect1>Route attributes
@@ -484,10 +509,10 @@ defined using <cf>defined( <m>attribute</m> )</cf> syntax.
 
 <descrip>
 	<tag/<m/prefix/ net/
-	network this route is talking about.
+	network this route is talking about. (See section about routing tables)
 
 	<tag/<m/int/ preference/
-	preference of this route.
+	preference of this route. (See section about routing tables)
 
 	<tag/<m/ip/ from/
 	who told me about this route.
@@ -512,6 +537,12 @@ defined using <cf>defined( <m>attribute</m> )</cf> syntax.
 <p>There are few functions you might find convenient to use:
 
 <descrip>
+	<tag>accept</tag> accept this route
+
+	<tag>reject</tag> reject this route
+
+	<tag>return <m/expr/</tag> return given value from function, function ends at this point.
+
 	<tag>print|printn <m/expr/ [ <m/, expr .../ ]</tag>
 	prints given expressions, useful mainly while debugging
 	filters. Printn variant does not go to new line.
@@ -539,7 +570,7 @@ Boundary routers at the border of the AS communicate with their peers
 in the neighboring AS'es via exterior BGP (eBGP).
 
 <p>Each BGP router sends to its neighbors updates of the parts of its
-routing table it wishes to export along with complete path information
+routing table it wishes to export, along with complete path information
 (a list of AS'es the packet will travel through if it uses that particular
 route) in order to avoid routing loops.
 
@@ -644,7 +675,7 @@ table below) are available on internal BGP connections only, some of them (marke
 with `O') are optional.
 
 <descrip>
-	<tag>path <cf/bgp_path/</tag> Sequence of AS numbers describing the AS path
+	<tag>bgppath <cf/bgp_path/</tag> Sequence of AS numbers describing the AS path
 	the packet will travel through when forwarded according to this route. On
 	internal BGP connections it doesn't contain the number of the local AS.
 	<tag>int <cf/bgp_local_pref/ [I]</tag> Local preference value used for
@@ -654,10 +685,10 @@ with `O') are optional.
 	which is an optional attribute which is often used within the local AS to
 	reflect interior distances to various boundary routers. See the route selection
 	rules above for exact semantics.
-	<tag>enum <cf/bgp_origin/</tag> Origin of the route: either <cf/ORIGIN_IGP/
+	<tag>enum <cf/bgp_origin/</tag> Origin of the route: either <cf/ORIGIN_IGP/,
 	if the route has originated in interior routing protocol of an AS or
-	<cf/ORIGIN_EGP/ if it's been imported from the <tt>EGP</tt> protocol
-	(nowadays it seems to be obsolete) or <cf/ORIGIN_INCOMPLETE/ if the origin
+	<cf/ORIGIN_EGP/, if it's been imported from the <tt>EGP</tt> protocol
+	(nowadays it seems to be obsolete) or <cf/ORIGIN_INCOMPLETE/, if the origin
 	is unknown.
 	<tag>ip <cf/bgp_next_hop/</tag> Next hop to be used for forwarding of packets
 	to this destination. On internal BGP connections, it's an address of the
@@ -678,7 +709,7 @@ with `O') are optional.
 	the community and the second one is a per-AS identifier. There are lots
 	of uses of the community mechanism, but generally they are used to carry
 	policy information like "don't export to USA peers". As each AS can define
-	its own routing policy, it's also has a complete freedom about which community
+	its own routing policy, it also has a complete freedom about which community
 	attributes it defines and what their semantics will be.
 </descrip>
 
@@ -783,7 +814,7 @@ kernel table.
 
 <p><descrip>
 	<tag>persist <m/switch/</tag> Tell BIRD to leave all its routes in the
-	routing tables when it exits instead of cleaning them up.
+	routing tables when it exits (instead of cleaning them up).
 	<tag>scan time <m/number/</tag> Time in seconds between two scans of the
 	kernel routing table.
 	<tag>learn <m/switch/</tag> Enable learning of routes added to the kernel
@@ -795,7 +826,7 @@ kernel table.
 	only on systems supporting multiple routing tables.
 </descrip>
 
-<p>A default simple configuration can look this way:
+<p>A simple configuration can look this way:
 
 <p><code>
 protocol kernel {
@@ -837,10 +868,10 @@ and vice versa, depending on what's allowed by the filters. Export filters contr
 of routes from the primary table to the secondary one, import filters control the opposite
 direction.
 
-<p>The primary use of multiple routing tables and the pipe protocol is for policy routing
+<p>The primary use of multiple routing tables and the pipe protocol is for policy routing,
 where handling of a single packet doesn't depend only on its destination address, but also
 on its source address, source interface, protocol type and other similar parameters.
-In many OS'es (Linux 2.2 being a good example) the kernel allows to enforce routing policies
+In many systems (Linux 2.2 being a good example) the kernel allows to enforce routing policies
 by defining routing rules which choose one of several routing tables to be used for a packet
 according to its parameters. Setting of these rules is outside the scope of BIRD's work
 (you can use the <tt/ip/ command), but you can create several routing tables in BIRD,
@@ -931,15 +962,17 @@ protocol pipe {				# The Pipe
 
 <sect2>Introduction
 
-<p>Rip protocol (sometimes called Rest In Pieces) is simple protocol, where each router broadcasts
-distances to all networks he can reach. When router hears distance to other network, it increments
+<p>Rip protocol (sometimes called Rest In Pieces) is a simple protocol, where each router broadcasts
+distances to all networks it can reach. When router hears distance to other network, it increments
 it and broadcasts it back. Broadcasts are done in regular intervals. Therefore, if some network goes
 unreachable, routers keep telling each other that distance is old distance plus 1 (actually, plus
 interface metric, which is usually one). After some time, distance reaches infinity (that's 15 in
 rip) and all routers know that network is unreachable. Rip tries to minimize situations where
 counting to infinity is necessary, because it is slow. Due to infinity being 16, you can not use
 rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <HTMLURL
-URL="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4 and IPv6 versions of rip are supported by BIRD.
+URL="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4
+and IPv6 versions of rip are supported by BIRD, historical Ripv1 is
+currently not fully supported.
 
 <p>Rip is very simple protocol, and it is not too good. Slow
 convergence, big network load and inability to handle bigger networks
@@ -987,7 +1020,8 @@ other than equally misconfigured BIRD. I warned you.
 
 	<tag>period <M>number</M>
 	  </tag>specifies number of seconds between periodic updates. Default is 30 seconds. Lower
-	  number will mean faster convergence but bigger network load.
+	  number will mean faster convergence but bigger network
+	  load. Do not use values lower than 10.
 
 	<tag>timeout time <M>number</M>
 	  </tag>specifies how old route has to be to be considered unreachable. Default is 4*period.
@@ -1016,13 +1050,10 @@ other than equally misconfigured BIRD. I warned you.
 protocol rip MyRIP_test {
         debug all;
         port 1520;
-        period 7;
-        garbagetime 60;
+        period 10;
+        garbage time 60;
         interface "eth0" { metric 3; mode multicast; } "eth1" { metric 2; mode broadcast; };
-        honor neighbour;
-        passwords { password "ahoj" from 0 to 10;
-                password "nazdar" from 10;
-        }
+        honor neighbor;
         authentication none;
         import filter { print "importing"; accept; };
         export filter { print "exporting"; accept; };
@@ -1047,12 +1078,11 @@ packet.
 
 <p>When the particular destination is not available (the interface is down or
 the next hop of the route is not a neighbor at the moment), Static just
-uninstalls the route from the table its connected to and adds it again as soon
+uninstalls the route from the table it is connected to and adds it again as soon
 as the destinations becomes adjacent again.
 
 <p>The Static protocol has no configuration options. Instead, the
-definition of the protocol contains a list of static routes which
-can contain:
+definition of the protocol contains a list of static routes:
 
 <descrip>
 	<tag>route <m/prefix/ via <m/ip/</tag> Static route through
@@ -1081,10 +1111,14 @@ protocol static {
 
 <p>BIRD is relatively young system, and probably contains some
 bugs. You can report bugs at <HTML URL="fixme">, but before you do,
-please make sure you are running latest version (available at <HTML
+please make sure you have read available documenation, make sure are running latest version (available at <HTML
 URL="fixme">), and that bug was not already reported by someone else
 (mailing list archives are at <HTML URL="fixme">). (Of course, patch
-which fixes the bug along with bug report is always welcome). When
+which fixes the bug along with bug report is always welcome). If you
+want to join the development, join developer's mailing list by sending
+<tt/????/ to <HTML URL="fixme">. You can also get current sources from
+anoncvs at <HTML URL="fixme">. You can find this documentation online
+at <HTML URL="fixme">, main homepage of bird is <HTML URL="fixme">. When
 trying to understand, what is going on, Internet standards are
 relevant reading; you can get them from <HTML URL="fixme">.
 
