@@ -412,7 +412,7 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
  * @oa: current ospf_area
  *
  * This function ensures installing new LSA into LSA database. Old instance is
- * replaced. Several actions are taken to detec if new routing table
+ * replaced. Several actions are taken to detect if new routing table
  * calculation is necessary. This is described in 13.2 of RFC 2328.
  */
 struct top_hash_entry *
