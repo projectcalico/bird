@@ -327,7 +327,7 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
 {
   struct bgp_bucket *b;
   unsigned ea_size = sizeof(ea_list) + new->count * sizeof(eattr);
-  unsigned ea_size_aligned = ALIGN(ea_size, CPU_STRUCT_ALIGN);
+  unsigned ea_size_aligned = BIRD_ALIGN(ea_size, CPU_STRUCT_ALIGN);
   unsigned size = sizeof(struct bgp_bucket) + ea_size;
   unsigned i;
   byte *dest;
@@ -338,7 +338,7 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
     {
       eattr *a = &new->attrs[i];
       if (!(a->type & EAF_EMBEDDED))
-	size += ALIGN(sizeof(struct adata) + a->u.ptr->length, CPU_STRUCT_ALIGN);
+	size += BIRD_ALIGN(sizeof(struct adata) + a->u.ptr->length, CPU_STRUCT_ALIGN);
     }
 
   /* Create the bucket and hash it */
@@ -364,7 +364,7 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
 	  struct adata *na = (struct adata *) dest;
 	  memcpy(na, oa, sizeof(struct adata) + oa->length);
 	  a->u.ptr = na;
-	  dest += ALIGN(sizeof(struct adata) + na->length, CPU_STRUCT_ALIGN);
+	  dest += BIRD_ALIGN(sizeof(struct adata) + na->length, CPU_STRUCT_ALIGN);
 	}
     }
 
