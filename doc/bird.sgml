@@ -47,6 +47,16 @@ it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is consi
 configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
 "meta" information within fragment of configuration -- something in config which is not keyword.
 
+<sect1>About routing tables
+
+<p>Bird has one or more routing tables. Each routing table contains
+list of known routes. Each route has certain atributes, most important
+is prefix of network this route is for. Routing table maintains more
+than one entry for network, but at most one entry for one network and
+one protocol. The entry with biggest preference is used for
+routing. You can get list of route attributes in "Route attributes"
+section in filters.
+
 <sect>Configuration
 
 <sect1>Introduction
