@@ -625,7 +625,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   else
     oif = ~0;
 
-  DBG("Got %I/%d, type=%d, oif=%d, table=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, p->p.name);
+  DBG("Got %I/%d, type=%d, oif=%d, table=%d, prid=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, i->rtm_protocol, p->p.name);
 
   switch (i->rtm_protocol)
     {
@@ -636,6 +636,10 @@ nl_parse_route(struct nlmsghdr *h, int scan)
       DBG("Route originated in kernel, ignoring\n");
       return;
     case RTPROT_BIRD:
+#ifdef IPV6
+    case RTPROT_BOOT:
+      /* Current Linux kernels don't remember rtm_protocol for IPv6 routes and supply RTPROT_BOOT instead */
+#endif
       if (!scan)
 	{
 	  DBG("Echo of our own route, ignoring\n");
@@ -887,6 +891,8 @@ krt_scan_construct(struct krt_config *x)
 {
 #ifndef IPV6
   x->scan.table_id = RT_TABLE_MAIN;
+#else
+  x->scan.table_id = 254;
 #endif
 }
 
