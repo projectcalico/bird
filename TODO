@@ -44,7 +44,6 @@ show	<name>			# show everything you know about symbol <name>
 	static ??? [<name>]
 	symbols
 - showing of routing table as seen by given protocol
-- showing of deleted routing tables and filters
 
 Roadmap
 ~~~~~~~
