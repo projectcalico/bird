@@ -46,7 +46,7 @@ static void
 krt_ioctl(int ioc, rte *e, char *name)
 {
   net *net = e->net;
-  struct ortentry re;
+  struct rtentry re;
   rta *a = e->attrs;
 
   bzero(&re, sizeof(re));
