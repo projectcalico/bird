@@ -12,27 +12,31 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(LOG, SYSLOG, ALL, DEBUG, TRACE, INFO, REMOTE, WARNING, ERROR, AUTH, FATAL, BUG)
+CF_KEYWORDS(LOG, SYSLOG, ALL, DEBUG, TRACE, INFO, REMOTE, WARNING, ERROR, AUTH, FATAL, BUG, STDERR)
 
 %type <i> log_mask log_mask_list log_cat
+%type <g> log_file
 
 CF_GRAMMAR
 
 CF_ADDTO(conf, log_config)
 
-log_config: LOG TEXT log_mask ';' {
+log_config: LOG log_file log_mask ';' {
     struct log_config *c = cfg_allocz(sizeof(struct log_config));
-    FILE *f = rfopen(new_config->pool, $2, "a");
-    if (!f) cf_error("Unable to open log file `%s': %m", $2);
-    c->mask = $3;
-    c->fh = f;
-    add_tail(&new_config->logfiles, &c->n);
-  }
- | LOG SYSLOG log_mask ';' {
-    struct log_config *c = cfg_allocz(sizeof(struct log_config));
+    c->fh = $2;
     c->mask = $3;
     add_tail(&new_config->logfiles, &c->n);
   }
+ ;
+
+log_file:
+   TEXT {
+     FILE *f = tracked_fopen(new_config->pool, $1, "a");
+     if (!f) cf_error("Unable to open log file `%s': %m", $1);
+     $$ = f;
+   }
+ | SYSLOG { $$ = NULL; }
+ | STDERR { $$ = stderr; }
  ;
 
 log_mask:

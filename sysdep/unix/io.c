@@ -83,7 +83,7 @@ static struct resclass rf_class = {
 };
 
 void *
-rfopen(pool *p, char *name, char *mode)
+tracked_fopen(pool *p, char *name, char *mode)
 {
   FILE *f = fopen(name, mode);
 
