@@ -127,7 +127,7 @@ void
 input_start_list(void)			/* Leave the currently edited line and make space for listing */
 {
   _rl_move_vert(_rl_vis_botlin);
-  crlf();
+  rl_crlf();
 }
 
 void
@@ -155,7 +155,7 @@ input_complete(int arg, int key)
       break;
     default:
       complete_flag = 1;
-      ding();
+      rl_ding();
     }
   return 0;
 }
