@@ -504,7 +504,7 @@ ospf_top_dump(struct top_graph *f)
       struct top_hash_entry *e = f->hash_table[i];
       while (e)
 	{
-	  debug("\t%04x %08I %08I %p\n", e->lsa.type, e->lsa.id,
+	  debug("\t%01x %08I %08I %p\n", e->lsa.type, e->lsa.id,
             e->lsa.rt, e->lsa_body);
 	  e = e->next;
 	}

@@ -38,11 +38,12 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       op->length=htons(length);
       ospf_pkt_finalize(ifa, op);
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      debug("%s: DB_DES (I) sent for %I.\n", p->name, n->rid);
+      debug("%s: DB_DES (I) sent to %I.\n", p->name, n->rid);
       break;
 
     case NEIGHBOR_EXCHANGE:
       n->myimms.bit.i=0;
+
       if(((n->myimms.bit.ms) && (n->dds==n->ddr+1)) ||
          ((!(n->myimms.bit.ms)) && (n->dds==n->ddr)))
       {
@@ -57,7 +58,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
         pkt->options= ifa->options;
 	pkt->ddseq=htonl(n->dds);
 
-	j=i=(ifa->iface->mtu-sizeof(struct ospf_dbdes_packet))/
+	j=i=(ifa->iface->mtu-sizeof(struct ospf_dbdes_packet)-SIPH)/
 		sizeof(struct ospf_lsa_header);	/* Number of lsaheaders */
 	lsa=(n->ldbdes+sizeof(struct ospf_dbdes_packet));
 
@@ -73,17 +74,17 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	    en=(struct top_hash_entry *)sn;
 	    htonlsah(&(en->lsa), lsa);
 	    DBG("Working on: %d\n", i);
-            debug("\t%04x %08x %08x %p\n", en->lsa.type, en->lsa.id,
+            DBG("\tX%01x %08I %08I %p\n", en->lsa.type, en->lsa.id,
               en->lsa.rt, en->lsa_body);
 
 	    if(sn==STAIL(n->ifa->oa->lsal))
 	    {
 	      break;	/* Should set some flag? */
+	      i--;
   	    }
 	    sn=sn->next;
 	    lsa++;
 	  }
-	  i--;
 
 	  if(sn==STAIL(n->ifa->oa->lsal))
 	  {
@@ -91,8 +92,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	    DBG("M bit unset.\n");
 	    n->myimms.bit.m=0;	/* Unset more bit */
 	  }
-
-	  s_put(&(n->dbsi),sn);
+	  else s_put(&(n->dbsi),sn);
 	}
 
         pkt->imms.byte=n->myimms.byte;
@@ -102,33 +102,24 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	op->length=htons(length);
 	
         ospf_pkt_finalize(ifa, op);
+        DBG("%s: DB_DES (M) sent to %I.\n", p->name, n->rid);
       }
 
     case NEIGHBOR_LOADING:
     case NEIGHBOR_FULL:
-
       aa=ifa->ip_sk->tbuf;
       bb=n->ldbdes;
       op=n->ldbdes;
       length=ntohs(op->length);
 
-      for(i=0; i<ifa->iface->mtu; i++)
+      for(i=0; i<length; i++)
       {
         *(aa+i)=*(bb+i);	/* Copy last sent packet again */
       }
 
-      {
-        u8 ii;
-	u8 *jj=ifa->ip_sk->tbuf;
-
-	for(ii=0;ii<length;ii+=4)
-	{
-	  DBG("Out dump: %d,%d,%d,%d\n", *(jj+ii), *(jj+ii+1), *(jj+ii+2), *(jj+ii+3));
-	}
-      }
-
+      DBG("%s: DB_DES sending to %I.\n", p->name, n->rid);
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      DBG("%s: DB_DES sent to %I.\n", p->name, n->rid);
+      debug("%s: DB_DES (M) sent to %I.\n", p->name, n->rid);
       if(n->myimms.bit.ms) tm_start(n->rxmt_timer,ifa->rxmtint);
       else
       {

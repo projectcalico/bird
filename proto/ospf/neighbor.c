@@ -177,7 +177,7 @@ can_do_adj(struct ospf_neighbor *n)
           break;
         case OSPF_IS_DROTHER:
           if(((n->rid==ifa->drid) || (n->rid==ifa->bdrid))
-            && (n->state==NEIGHBOR_2WAY)) i=1;
+            && (n->state>=NEIGHBOR_2WAY)) i=1;
           break;
         case OSPF_IS_PTP:
         case OSPF_IS_BACKUP:
