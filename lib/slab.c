@@ -108,7 +108,7 @@ slab_dump(resource *r)
 
 struct slab {
   resource r;
-  unsigned obj_size, head_size, objs_per_slab, num_empty_heads;
+  unsigned obj_size, head_size, objs_per_slab, num_empty_heads, data_size;
   list empty_heads, partial_heads, full_heads;
 };
 
@@ -146,6 +146,7 @@ sl_new(pool *p, unsigned size)
   unsigned int align = sizeof(struct sl_alignment);
   if (align < sizeof(int))
     align = sizeof(int);
+  s->data_size = size;
   size += OFFSETOF(struct sl_obj, u.data);
   if (size < sizeof(struct sl_obj))
     size = sizeof(struct sl_obj);
@@ -198,6 +199,9 @@ okay:
     goto full_partial;
   h->first_free = o->u.next;
   h->num_full++;
+#ifdef POISON
+  memset(o->u.data, 0xcd, s->data_size);
+#endif
   return o->u.data;
 
 full_partial:
@@ -226,7 +230,7 @@ sl_free(slab *s, void *oo)
   struct sl_head *h = o->slab;
 
 #ifdef POISON
-  memset(o, 0xdb, s->obj_size);
+  memset(oo, 0xdb, s->data_size);
 #endif
   o->u.next = h->first_free;
   h->first_free = o;
