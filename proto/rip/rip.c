@@ -777,8 +777,11 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
 
   if (new) {
     struct rip_entry *e;
+#if 0
+    /* This can happen since feeding of protocols is asynchronous */
     if (fib_find( &P->rtable, &net->n.prefix, net->n.pxlen ))
       log( L_BUG "Inserting entry which is already there?" );
+#endif
     e = fib_get( &P->rtable, &net->n.prefix, net->n.pxlen );
 
     e->nexthop = new->attrs->gw;
