@@ -1023,12 +1023,15 @@ protocol ospf &lt;name&gt; {
 
 <sect1>Attributes
 
-<p>OSPF defines three route attributes. Each internal route has a metric. External
-routes use metric type 1 or metric type 2. A metric of type 1 is comparable
-with internal metrics, a metric of type 2 is always longer than any metric of type 1
-or any internal metric. Each external route can also carry a tag which is
-a 32-bit integer which is used when exporting routes to other protocols; otherwise,
-it doesn't affect routing inside the OSPF domain at all.
+<p>OSPF defines three route attributes. Each internal route has a <cf/metric/
+Metric is ranging from 1 to infinity (65535).
+External routes use <cf/metric type 1/ or <cf/metric type 2/.
+A <cf/metric of type 1/ is comparable with internal <cf/metric/, a
+<cf/metric of type 2/ is always longer
+than any <cf/metric of type 1/ or any <cf/internal metric/.
+Each external route can also carry a <cf/tag/ which is a 32-bit
+integer which is used when exporting routes to other protocols;
+otherwise, it doesn't affect routing inside the OSPF domain at all.
 
 <sect1>Example
 
