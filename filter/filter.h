@@ -43,6 +43,7 @@ struct f_path_mask {
   struct f_path_mask *next;
   int val;
 };
+#define PM_ANY -1
 
 struct f_val {
   int type;

@@ -313,6 +313,7 @@ switch_body: /* EMPTY */ { $$ = NULL; }
 
 bgp_one:
    NUM { $$ = $1; }
+ | '*' { $$ = PM_ANY; }
  ;
 
 bgp_path: 

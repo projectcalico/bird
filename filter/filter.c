@@ -592,7 +592,6 @@ filters_postconfig(void)
       die( "Startup function resulted in error." );
     debug( "done\n" );
   }
-  self_test();
 } 
 
 int
@@ -674,11 +673,8 @@ path_format(u8 *p, int len)
 #undef PRINTF
 #undef COMMA
 
-#define PM_END -1
-#define PM_ASTERIX -2
-
 #define MASK_PLUS do { mask = mask->next; if (!mask) return next == q; \
-		       asterix = (mask->val == PM_ASTERIX); \
+		       asterix = (mask->val == PM_ANY); \
                        if (asterix) { mask = mask->next; if (!mask) { return 1; } } \
 		       } while(0)
 
@@ -689,6 +685,9 @@ path_match(u8 *p, int len, struct f_path_mask *mask)
   int asterix = 0;
   u8 *q = p+len;
   u8 *next;
+
+  asterix = (mask->val == PM_ANY);
+  if (asterix) { mask = mask->next; if (!mask) { return 1; } }
 
   while (p<q) {
     switch (*p++) {
@@ -788,20 +787,4 @@ adata_empty(struct linpool *pool)
   struct adata *res = lp_alloc(pool, sizeof(struct adata));
   res->length = 0;
   return res;
-}
-
-void
-self_test(void)
-{
-  char path1[] = { 2, 5, 0, 5, 0, 4, 0, 3, 0, 2, 0, 1 };
-  char path2[] = { 2, 5, 0, 5, 0, 4, 0, 3, 0, 2, 0, 1, 1, 5, 0, 5, 0, 4, 0, 3, 0, 2, 0, 1 };
-  s32 match[] = { 5, PM_ASTERIX, 2, PM_ASTERIX, 1, 3, PM_END };
-
-  DBG( "Filters self-testing:\n" );
-  DBG( "%s\n", path_format(path1, sizeof(path1)) );
-  DBG( "%s\n", path_format(path2, sizeof(path2)) );
-  DBG( "5, 6 = %d, %d\n", path_getlen(path1, sizeof(path1)), path_getlen(path2, sizeof(path2)) );
-//  DBG( "%d\n", path_match(path1, sizeof(path1), match));
-//  DBG( "%d\n", path_match(path2, sizeof(path2), match));
-//  die( "okay" );
 }
