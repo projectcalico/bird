@@ -44,6 +44,10 @@
 #define MSG_TRUNC 0x20
 #endif
 
+#ifndef RTPROT_BIRD			/* FIXME: Kill after Alexey assigns as a number */
+#define RTPROT_BIRD 13
+#endif
+
 /*
  *	Synchronous Netlink interface
  */
@@ -280,9 +284,9 @@ nl_parse_addr(struct nlmsghdr *h)
     return;
   if (i->ifa_family != AF_INET)
     return;
-  if (!a[IFA_ADDRESS] || RTA_PAYLOAD(a[IFA_ADDRESS]) != 4 ||
-      !a[IFA_LOCAL] || RTA_PAYLOAD(a[IFA_LOCAL]) != 4 ||
-      (a[IFA_BROADCAST] && RTA_PAYLOAD(a[IFA_BROADCAST]) != 4))
+  if (!a[IFA_ADDRESS] || RTA_PAYLOAD(a[IFA_ADDRESS]) != sizeof(ip_addr) ||
+      !a[IFA_LOCAL] || RTA_PAYLOAD(a[IFA_LOCAL]) != sizeof(ip_addr) ||
+      (a[IFA_BROADCAST] && RTA_PAYLOAD(a[IFA_BROADCAST]) != sizeof(ip_addr)))
     {
       log(L_ERR "nl_parse_addr: Malformed message received");
       return;
@@ -364,21 +368,184 @@ krt_if_scan(struct krt_proto *p)
  *	Routes
  */
 
-int
+int					/* FIXME: Check use of this function in krt.c */
 krt_capable(rte *e)
 {
-  return 1;	/* FIXME */
+  rta *a = e->attrs;
+
+  if (a->cast != RTC_UNICAST)	/* FIXME: For IPv6, we might support anycasts as well */
+    return 0;
+  switch (a->dest)
+    {
+    case RTD_ROUTER:
+    case RTD_DEVICE:
+    case RTD_BLACKHOLE:
+    case RTD_UNREACHABLE:
+    case RTD_PROHIBIT:
+      break;
+    default:
+      return 0;
+    }
+  return 1;
 }
 
-void
-krt_set_notify(struct proto *p, net *n, rte *new, rte *old)
+static void
+krt_delete(rte *e)
+{
+  /* FIXME */
+}
+
+static void
+krt_insert(rte *e)
 {
   /* FIXME */
 }
 
 void
+krt_set_notify(struct proto *p, net *n, rte *new, rte *old)
+{
+  /* FIXME: Use route updates if possible */
+  if (old)
+    krt_delete(old);
+  if (new)
+    krt_insert(new);
+}
+
+struct iface *
+krt_temp_iface(struct krt_proto *p, unsigned index)
+{
+  struct iface *i, *j;
+
+  WALK_LIST(i, p->scan.temp_ifs)
+    if (i->index == index)
+      return i;
+  i = mb_alloc(p->p.pool, sizeof(struct iface));
+  bzero(i, sizeof(*i));
+  if (j = if_find_by_index(index))
+    strcpy(i->name, j->name);
+  else
+    strcpy(i->name, "?");
+  i->index = index;
+  add_tail(&p->scan.temp_ifs, &i->n);
+  return i;
+}
+
+static void
+nl_parse_route(struct krt_proto *p, struct nlmsghdr *h, int scan)
+{
+  struct rtmsg *i;
+  struct rtattr *a[RTA_CACHEINFO+1];
+  int new = h->nlmsg_type == RTM_NEWROUTE;
+  ip_addr dst;
+  rta ra;
+  rte *e;
+  net *net;
+  u32 oif;
+
+  if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(RTM_RTA(i), a, sizeof(a)))
+    return;
+  if (i->rtm_family != AF_INET)
+    return;
+  if ((a[RTA_DST] && RTA_PAYLOAD(a[RTA_DST]) != sizeof(ip_addr)) ||
+      (a[RTA_OIF] && RTA_PAYLOAD(a[RTA_OIF]) != 4) ||
+      (a[RTA_GATEWAY] && RTA_PAYLOAD(a[RTA_GATEWAY]) != sizeof(ip_addr)))
+    {
+      log(L_ERR "nl_parse_route: Malformed message received");
+      return;
+    }
+
+  if (i->rtm_table != RT_TABLE_MAIN)	/* FIXME: What about other tables? */
+    return;
+  if (i->rtm_tos != 0)			/* FIXME: What about TOS? */
+    return;
+  if (!new)
+    {
+      DBG("KRT: Ignoring route deletion\n");
+      return;
+    }
+
+  if (a[RTA_DST])
+    {
+      memcpy(&dst, RTA_DATA(a[RTA_DST]), sizeof(dst));
+      dst = ipa_ntoh(dst);
+    }
+  else
+    dst = IPA_NONE;
+  if (a[RTA_OIF])
+    memcpy(&oif, RTA_DATA(a[RTA_OIF]), sizeof(oif));
+  else
+    oif = ~0;
+
+  DBG("Got %I/%d, type=%d, oif=%d\n", dst, i->rtm_dst_len, i->rtm_type, oif);
+
+  net = net_get(&master_table, 0, dst, i->rtm_dst_len);
+  ra.proto = &p->p;
+  ra.source = RTS_INHERIT;
+  ra.scope = SCOPE_UNIVERSE;	/* FIXME: Use kernel scope? */
+  ra.cast = RTC_UNICAST;
+  ra.tos = ra.flags = ra.aflags = 0;
+  ra.from = IPA_NONE;
+  ra.gw = IPA_NONE;
+  ra.iface = NULL;
+  ra.attrs = NULL;
+
+  switch (i->rtm_type)
+    {
+    case RTN_UNICAST:
+      if (oif == ~0U)
+	{
+	  log(L_ERR "KRT: Mysterious route with no OIF (%I/%d)", net->n.prefix, net->n.pxlen);
+	  return;
+	}
+      if (a[RTA_GATEWAY])
+	{
+	  neighbor *ng;
+	  ra.dest = RTD_ROUTER;
+	  memcpy(&ra.gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ra.gw));
+	  ra.gw = ipa_ntoh(ra.gw);
+	  ng = neigh_find(&p->p, &ra.gw, 0);
+	  if (ng)
+	    ra.iface = ng->iface;
+	  else
+	    /* FIXME: Remove this warning? */
+	    log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", ra.gw, net->n.prefix, net->n.pxlen);
+	}
+      else
+	{
+	  ra.dest = RTD_DEVICE;
+	  ra.iface = krt_temp_iface(p, oif);
+	}
+      break;
+    case RTN_BLACKHOLE:
+      ra.dest = RTD_BLACKHOLE;
+      break;
+    case RTN_UNREACHABLE:
+      ra.dest = RTD_UNREACHABLE;
+      break;
+    case RTN_PROHIBIT:
+      ra.dest = RTD_PROHIBIT;
+      break;
+    /* FIXME: What about RTN_THROW? */
+    default:
+      DBG("KRT: Ignoring route with type=%d\n", i->rtm_type);
+      return;
+    }
+  e = rte_get_temp(&ra);
+  e->net = net;
+  krt_got_route(p, e);
+}
+
+void
 krt_scan_fire(struct krt_proto *p)
 {
+  struct nlmsghdr *h;
+
+  nl_request_dump(RTM_GETROUTE);
+  while (h = nl_get_scan())
+    if (h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE)
+      nl_parse_route(p, h, 1);
+    else
+      log(L_DEBUG "nl_scan_fire: Unknown packet received (type=%d)", h->nlmsg_type);
 }
 
 /*
@@ -429,6 +596,7 @@ krt_scan_preconfig(struct krt_config *x)
 void
 krt_scan_start(struct krt_proto *p)
 {
+  init_list(&p->scan.temp_ifs);
   nl_open();
   if (KRT_CF->scan.async)
     nl_open_async(p);
