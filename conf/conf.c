@@ -144,7 +144,7 @@ config_do_commit(struct config *c)
   return !nobs;
 }
 
-static int
+static void
 config_done(void *unused)
 {
   struct config *c;
@@ -168,7 +168,6 @@ config_done(void *unused)
       if (!config_do_commit(c))
 	break;
     }
-  return 0;
 }
 
 int

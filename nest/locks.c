@@ -111,7 +111,7 @@ olock_acquire(struct object_lock *l)
   ev_schedule(olock_event);
 }
 
-int
+static void
 olock_run_event(void *unused)
 {
   node *n;
@@ -132,7 +132,6 @@ olock_run_event(void *unused)
       add_tail(&olock_list, &q->n);
       q->hook(q);
     }
-  return 0;
 }
 
 void

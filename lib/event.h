@@ -13,7 +13,7 @@
 
 typedef struct event {
   resource r;
-  int (*hook)(void *);
+  void (*hook)(void *);
   void *data;
   node n;				/* Internal link */
 } event;
@@ -23,7 +23,7 @@ typedef list event_list;
 extern event_list global_event_list;
 
 event *ev_new(pool *);
-int ev_run(event *);
+void ev_run(event *);
 #define ev_init_list(el) init_list(el)
 void ev_enqueue(event_list *, event *);
 void ev_schedule(event *);

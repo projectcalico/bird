@@ -466,7 +466,7 @@ rt_dump_all(void)
     rt_dump(t);
 }
 
-static int
+static void
 rt_gc(void *tab)
 {
   rtable *t = tab;
@@ -474,7 +474,6 @@ rt_gc(void *tab)
   DBG("Entered routing table garbage collector for %s after %d seconds and %d deletes\n",
       t->name, (int)(now - t->gc_time), t->gc_counter);
   rt_prune(t);
-  return 0;
 }
 
 void
