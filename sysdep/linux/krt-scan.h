@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Linux Kernel Route Syncer -- Scanning Parameters
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -11,8 +11,11 @@
 
 struct krt_scan_params {
   int learn;				/* Should we learn routes from the kernel? */
-  list temp_ifs;			/* Temporary interfaces */
   int scan_time;			/* How often should we scan krt, 0=only on startup */
+};
+
+struct krt_scan_status {
+  list temp_ifs;			/* Temporary interfaces */
   int accum_time;			/* Accumulated scanning time */
 };
 

@@ -20,11 +20,11 @@ CF_ADDTO(kern_proto, kern_proto krt_scan_item ';')
 
 krt_scan_item:
    LEARN bool {
-      ((struct krt_proto *) this_proto)->scanopt.learn = $2;
+      ((struct krt_config *) this_proto)->scanopt.learn = $2;
    }
  | ROUTE SCAN TIME expr {
       /* Scan time of 0 means scan on startup only */
-      ((struct krt_proto *) this_proto)->scanopt.scan_time = $4;
+      ((struct krt_config *) this_proto)->scanopt.scan_time = $4;
    }
  ;
 

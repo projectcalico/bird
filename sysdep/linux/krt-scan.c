@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Linux Routing Table Scanning
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -23,7 +23,8 @@
 #include "lib/unix.h"
 #include "lib/krt.h"
 
-#define SCANOPT struct krt_scan_params *p = &x->scanopt
+#define SCANOPT struct krt_scan_params *p = &(((struct krt_config *)(x->p.cf))->scanopt)
+#define SCANSTAT struct krt_scan_status *s = &x->scanstat
 
 static int krt_scan_fd = -1;
 
@@ -33,15 +34,16 @@ struct iface *
 krt_temp_iface(struct krt_proto *x, char *name)
 {
   SCANOPT;
+  SCANSTAT;
   struct iface *i;
 
-  WALK_LIST(i, p->temp_ifs)
+  WALK_LIST(i, s->temp_ifs)
     if (!strcmp(i->name, name))
       return i;
   i = mb_alloc(x->p.pool, sizeof(struct iface));
   bzero(i, sizeof(*i));
   strcpy(i->name, name);
-  add_tail(&p->temp_ifs, &i->n);
+  add_tail(&s->temp_ifs, &i->n);
   return i;
 }
 
@@ -64,8 +66,9 @@ krt_uptodate(rte *k, rte *e)
 }
 
 static void
-krt_parse_entry(byte *ent, struct krt_proto *p)
+krt_parse_entry(byte *ent, struct krt_proto *x)
 {
+  SCANOPT;
   u32 dest0, gw0, mask0;
   ip_addr dest, gw, mask;
   unsigned int flags, verdict;
@@ -118,7 +121,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
       return;
     }
 
-  a.proto = &p->p;
+  a.proto = &x->p;
   a.source = RTS_INHERIT;
   a.scope = SCOPE_UNIVERSE;
   a.cast = RTC_UNICAST;
@@ -129,7 +132,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
 
   if (flags & RTF_GATEWAY)
     {
-      neighbor *ng = neigh_find(&p->p, &gw, 0);
+      neighbor *ng = neigh_find(&x->p, &gw, 0);
       if (ng)
 	a.iface = ng->iface;
       else
@@ -147,7 +150,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
     {
       a.dest = RTD_DEVICE;
       a.gw = IPA_NONE;
-      a.iface = krt_temp_iface(p, iface);
+      a.iface = krt_temp_iface(x, iface);
     }
   else
     {
@@ -167,7 +170,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
       else
 	verdict = KRF_UPDATE;
     }
-  else if (p->scanopt.learn && !net->routes)
+  else if (p->learn && !net->routes)
     verdict = KRF_LEARN;
   else
     verdict = KRF_DELETE;
@@ -305,33 +308,34 @@ void
 krt_scan_ifaces_done(struct krt_proto *x)
 {
   SCANOPT;
+  SCANSTAT;
 
-  p->accum_time += x->ifopt.scan_time;
-  if (p->scan_time && p->accum_time >= p->scan_time)
+  s->accum_time += p->scan_time;
+  if (p->scan_time && s->accum_time >= p->scan_time)
     {
-      p->accum_time %= p->scan_time;
+      s->accum_time %= p->scan_time;
       if (krt_scan_proc(x))
 	krt_prune(x);
     }
 }
 
 void
-krt_scan_preconfig(struct krt_proto *x)
+krt_scan_preconfig(struct krt_config *c)
 {
-  SCANOPT;
-
-  p->scan_time = 1;
-  p->learn = 0;
-  init_list(&p->temp_ifs);
+  c->scanopt.scan_time = 1;
+  c->scanopt.learn = 0;
 }
 
 void
 krt_scan_start(struct krt_proto *x)
 {
   SCANOPT;
+  SCANSTAT;
 
   /* Force krt scan after first interface scan */
-  p->accum_time = p->scan_time - x->ifopt.scan_time;
+  s->accum_time = p->scan_time - ((struct krt_config *) x->p.cf)->ifopt.scan_time;
+
+  init_list(&s->temp_ifs);
 }
 
 void
