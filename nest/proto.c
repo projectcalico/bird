@@ -199,15 +199,6 @@ proto_init(struct proto_config *c)
   q->core_state = FS_HUNGRY;
   proto_enqueue(&initial_proto_list, q);
   add_tail(&proto_list, &q->glob_node);
-  /*
-   *  HACK ALERT!  In case of multiple kernel routing tables,
-   *  the kernel syncer acts as multiple protocols which cooperate
-   *  with each other.  In order to speed up their initialization,
-   *  we need to know when we're initializing the last one, hence
-   *  the startup counter.
-   */
-  if (!q->disabled)
-    p->startup_counter++;
   return q;
 }
 
@@ -310,8 +301,6 @@ proto_rethink_goal(struct proto *p)
       if (p->core_state == FS_HUNGRY && p->proto_state == PS_DOWN)
 	{
 	  DBG("Kicking %s up\n", p->name);
-	  if (q->startup_counter > 0)	/* FIXME: Kill the startup counter hack! */
-	    q->startup_counter--;
 	  proto_init_instance(p);
 	  proto_notify_state(p, (q->start ? q->start(p) : PS_UP));
 	}
