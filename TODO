@@ -7,7 +7,6 @@ Core
 - prefer loopback addresses as router IDs (dummy interface?)
 
 - config: executable config files
-- config: better format for datetime then seconds
 
 - do we really need preconfig?
 

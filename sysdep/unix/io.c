@@ -217,6 +217,33 @@ tm_shot(void)
     }
 }
 
+bird_clock_t
+tm_parse_date(char *x)
+{
+  struct tm tm;
+  int n;
+  time_t t;
+
+  if (sscanf(x, "%d-%d-%d%n", &tm.tm_mday, &tm.tm_mon, &tm.tm_year, &n) != 3 || x[n])
+    return 0;
+  tm.tm_mon--;
+  tm.tm_year -= 1900;
+  tm.tm_hour = tm.tm_min = tm.tm_sec = 0;
+  t = mktime(&tm);
+  if (t == (time_t) -1)
+    return 0;
+  return t;
+}
+
+void
+tm_format_date(char *x, bird_clock_t t)
+{
+  struct tm *tm;
+
+  tm = localtime(&t);
+  sprintf(x, "%02d-%02d-%04d", tm->tm_mday, tm->tm_mon+1, tm->tm_year+1900);
+}
+
 /*
  *	Sockets
  */
