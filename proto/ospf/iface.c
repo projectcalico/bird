@@ -174,22 +174,22 @@ is_good_iface(struct proto *p, struct iface *iface)
 
 /* Of course, it's NOT true now */
 u8
-ospf_iface_clasify(struct iface *ifa)
+ospf_iface_clasify(struct iface *ifa, struct proto *p)
 {
   /* FIXME: Latter I'll use config - this is incorrect */
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
     (IF_MULTIACCESS|IF_MULTICAST))
   {
-     DBG(" OSPF: Clasifying BCAST.\n");
+     DBG("%s: Clasifying BCAST.\n", p->name);
      return OSPF_IT_BCAST;
   }
   if((ifa->flags & (IF_MULTIACCESS|IF_MULTICAST))==
     IF_MULTIACCESS)
   {
-    DBG(" OSPF: Clasifying NBMA.\n");
+    DBG("%s: Clasifying NBMA.\n", p->name);
     return OSPF_IT_NBMA;
   }
-  DBG(" OSPF: Clasifying P-T-P.\n");
+  DBG("%s: Clasifying P-T-P.\n", p->name);
   return OSPF_IT_PTP;
 }
 
@@ -244,7 +244,7 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->drid=0;
   ifa->bdrip=ipa_from_u32(0x00000000);
   ifa->bdrid=0;
-  ifa->type=ospf_iface_clasify(ifa->iface);
+  ifa->type=ospf_iface_clasify(ifa->iface, ifa->proto);
 }
 
 struct ospf_iface*
@@ -267,13 +267,13 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   struct ospf_config *c;
   c=(struct ospf_config *)(p->cf);
 
-  DBG(" OSPF: If notify called\n");
+  DBG("%s: If notify called\n", p->name);
   if (iface->flags & IF_IGNORE)
     return;
 
   if((flags & IF_CHANGE_UP) && is_good_iface(p, iface))
   {
-    debug(" OSPF: using interface %s.\n", iface->name);
+    debug("%s: using interface %s.\n", p->name, iface->name);
     /* FIXME: Latter I'll use config - this is incorrect */
     ifa=mb_alloc(p->pool, sizeof(struct ospf_iface));
     ifa->proto=(struct proto_ospf *)p;
