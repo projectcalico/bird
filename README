@@ -75,5 +75,11 @@ What do we support:
 	   protocols affected by the configuration changes.
 	o  Powerful language for route filtering (see doc/bird.conf.example).
 
+What is missing:
+
+	o  OSPF for IPv6
+	o  OSPF multiple areas and virtual links
+	o  See the TODO list
+
 Good Luck and enjoy the BIRD :)
 						The BIRD Team
