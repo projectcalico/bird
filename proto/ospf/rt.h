@@ -22,6 +22,7 @@ struct extfib {
   u16 metric;
   u16 metric2;
   ip_addr nh;
+  u32 tag;
   struct iface *nhi;
 };
 

@@ -237,14 +237,20 @@ ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs)
   {
     met='1';
     type='E';
+
   }
-  if(rte->u.ospf.metric2!=0) met='2';
+  if(rte->u.ospf.metric2!=LSINFINITY) met='2';
   if(rte->attrs->source==RTS_OSPF_IA) type='A';
   if(rte->attrs->source==RTS_OSPF) type='I';
   buf += bsprintf(buf, " %c", type);
   if(met!=' ') buf += bsprintf(buf, "%c", met);
   buf += bsprintf(buf, " (%d/%d)", rte->pref,
-    (rte->u.ospf.metric2==0) ? rte->u.ospf.metric1 : rte->u.ospf.metric2);
+    (rte->u.ospf.metric2==LSINFINITY) ? rte->u.ospf.metric1 :
+    rte->u.ospf.metric2);
+  if(rte->attrs->source==RTS_OSPF_EXT)
+  {
+    buf += bsprintf(buf, " [%d]", rte->u.ospf.tag);
+  }
 }
 
 static int

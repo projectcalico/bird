@@ -259,6 +259,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
   ip_addr ip,nnh;
   struct iface *nnhi=NULL;
   u16 met,met2;
+  u32 tag;
   neighbor *nn;
 
   debug("%s: Starting routing table calculation for external routes\n",
@@ -311,7 +312,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     absroa=NULL;
     nnhi=NULL;
 
-    met=0;met2=0;
+    met=0;met2=0;tag=0;
 
     WALK_LIST(atmp,po->area_list)
     {
@@ -338,8 +339,9 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
       else
       {
         met=absr->dist+lt->metric;
-	met2=0;
+	met2=LSINFINITY;
       }
+      tag=lt->tag;
     }
     else
     {
@@ -360,9 +362,9 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
       else
       {
         met=nf->metric+lt->metric;
-	met2=0;
+	met2=LSINFINITY;
       }
-
+      tag=lt->tag;
 
       if((nn=neigh_find(p,&lt->fwaddr,0))!=NULL)
       {
@@ -376,6 +378,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     {
       nf->metric=met;
       nf->metric2=met2;
+      nf->tag=tag;
       if(nnhi!=NULL)
       {
         nf->nh=nnh;
@@ -447,7 +450,7 @@ noch:
       e=rte_get_temp(&a0);
       e->u.ospf.metric1=nf->metric;
       e->u.ospf.metric2=nf->metric2;
-      e->u.ospf.tag=0;			/* FIXME Some config? */
+      e->u.ospf.tag=nf->tag;
       e->pflags = 0;
       e->net=ne;
       e->pref = p->preference;
