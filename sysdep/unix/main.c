@@ -179,9 +179,10 @@ cli_write(cli *c)
       struct cli_out *o = c->tx_pos;
       c->tx_pos = o->next;
       s->tbuf = o->outpos;
-      return sk_send(s, o->wpos - o->outpos);
+      if (sk_send(s, o->wpos - o->outpos) > 0)
+	ev_schedule(c->event);
     }
-  return 1;
+  return !c->tx_pos;
 }
 
 int

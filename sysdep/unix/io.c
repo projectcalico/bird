@@ -870,7 +870,7 @@ sk_write(sock *s)
     case SK_DELETED:
       return;
     default:
-      while (s->ttx != s->tbuf && sk_maybe_write(s) > 0)
+      while (s->ttx != s->tpos && sk_maybe_write(s) > 0)
 	s->tx_hook(s);
     }
 }

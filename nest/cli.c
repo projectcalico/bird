@@ -29,13 +29,13 @@ cli_alloc_out(cli *c, int size)
 	    c->tx_write->next = o;
 	  else
 	    c->tx_buf = o;
-	  o->next = NULL;
 	  o->wpos = o->outpos = o->buf;
 	  o->end = o->buf + CLI_TX_BUF_SIZE;
 	}
       c->tx_write = o;
       if (!c->tx_pos)
 	c->tx_pos = o;
+      o->next = NULL;
     }
   o->wpos += size;
   return o->wpos - size;
@@ -123,7 +123,6 @@ cli_free_out(cli *c)
 
   if (o = c->tx_buf)
     {
-      c->tx_write = c->tx_pos = NULL;
       o->wpos = o->outpos = o->buf;
       while (p = o->next)
 	{
@@ -131,6 +130,7 @@ cli_free_out(cli *c)
 	  mb_free(p);
 	}
     }
+  c->tx_write = c->tx_pos = NULL;
   c->async_msg_size = 0;
 }
 
@@ -175,7 +175,7 @@ cli_command(struct cli *c)
     cli_printf(c, 9001, f.err_msg);
 }
 
-static int
+static void
 cli_event(void *data)
 {
   cli *c = data;
@@ -193,7 +193,7 @@ cli_event(void *data)
     {
       err = cli_get_command(c);
       if (!err)
-	return 0;
+	return;
       if (err < 0)
 	cli_printf(c, 9000, "Command too long");
       else
@@ -202,9 +202,8 @@ cli_event(void *data)
   if (cli_write(c))
     {
       cli_free_out(c);
-      return 1;
+      ev_schedule(c->event);
     }
-  return 0;
 }
 
 cli *
