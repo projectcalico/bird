@@ -770,20 +770,19 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
   if (c & IF_CHANGE_UP) {
     struct iface_patt *k = iface_patt_match(&P_CF->iface_list, iface);
     struct object_lock *lock;
+    struct rip_patt *PATT = (struct rip_patt *) k;
 
     if (!k) return; /* We are not interested in this interface */
 
     lock = olock_new( p->pool );
+    if (!(PATT->mode & IM_BROADCAST) && (iface->flags & IF_MULTICAST))
 #ifndef IPV6
-    lock->addr = ipa_from_u32(0xe0000009);	/* This is okay: we
-						   may actually use
-						   other address, but
-						   we do not want two
-						   rips at one time,
-						   anyway. */
+      lock->addr = ipa_from_u32(0xe0000009);
 #else
-    ip_pton("FF02::9", &lock->addr);
+      ip_pton("FF02::9", &lock->addr);
 #endif
+    else
+      lock->addr = iface->addr->brd;
     lock->port = P_CF->port;
     lock->iface = iface;
     lock->hook = rip_real_if_add;
