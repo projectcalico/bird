@@ -2,6 +2,8 @@ Core
 ~~~~
 * router id
 
+- use -freg-struct-return ?
+
 - fake multipath?
 - config file: symbolic constants?
 - counters (according to SNMP MIB?)

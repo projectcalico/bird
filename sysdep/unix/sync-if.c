@@ -115,8 +115,9 @@ scan_ifs(struct ifreq *r, int cnt)
 
 #ifdef SIOCGIFINDEX
       if (ioctl(if_scan_sock, SIOCGIFINDEX, r) < 0)
-	{ err = "SIOCGIFINDEX"; goto faulty; }
-      i.index = r->ifr_ifindex;
+	DBG("SIOCGIFINDEX failed: %m\n");
+      else
+	i.index = r->ifr_ifindex;
 #endif
 
       if_update(&i);
@@ -128,7 +129,7 @@ static void
 scan_if(timer *t)
 {
   struct ifconf ic;
-  static int last_ifbuf_size;
+  static int last_ifbuf_size = 4*sizeof(struct ifreq);
   int res;
 
   DBG("Scanning interfaces...\n");
@@ -140,7 +141,7 @@ scan_if(timer *t)
 	  ic.ifc_ifcu.ifcu_req = r;
 	  ic.ifc_len = last_ifbuf_size;
 	  res = ioctl(if_scan_sock, SIOCGIFCONF, &ic);
-	  if (res < 0 && errno != EFAULT)	/* FIXME: I would sigsegv you if I were kernel at this point */
+	  if (res < 0 && errno != EFAULT)
 	    die("SIOCCGIFCONF: %m");
 	  if (res < last_ifbuf_size)
 	    {
@@ -148,18 +149,21 @@ scan_if(timer *t)
 	      break;
 	    }
 	}
-      ic.ifc_ifcu.ifcu_req = NULL;
+#ifdef CLEAN_WAY_WORKING_ONLY_ON_LINUX_2_1	/* FIXME */
+      ic.ifc_req = NULL;
       ic.ifc_len = 999999999;
       if (ioctl(if_scan_sock, SIOCGIFCONF, &ic) < 0)
 	die("SIOCIFCONF: %m");
-      if (ic.ifc_len > 100*1024)
-	die("Buf size MUCH too big: %d\n", ic.ifc_len);
       ic.ifc_len += sizeof(struct ifreq);
       if (last_ifbuf_size < ic.ifc_len)
 	{
 	  last_ifbuf_size = ic.ifc_len;
 	  DBG("Increased ifconf buffer size to %d\n", last_ifbuf_size);
 	}
+#else
+      last_ifbuf_size *= 2;
+      DBG("Increased ifconf buffer size to %d\n", last_ifbuf_size);
+#endif
     }
 }
 
