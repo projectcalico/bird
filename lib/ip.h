@@ -10,9 +10,9 @@
 #define _BIRD_IP_H_
 
 #ifndef IPV6
-#include <lib/ipv4.h>
+#include "ipv4.h"
 #else
-#include <lib/ipv6.h>
+#include "ipv6.h"
 #endif
 
 #endif

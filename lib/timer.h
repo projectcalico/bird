@@ -9,7 +9,7 @@
 #ifndef _BIRD_TIMER_H_
 #define _BIRD_TIMER_H_
 
-#include <lib/resource.h>
+#include "lib/resource.h"
 
 typedef struct timer {
 	resource r;

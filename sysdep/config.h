@@ -9,7 +9,7 @@
 
 /* System-dependent configuration */
 
-#include <sysdep/cf/linux-20.h>
+#include "sysdep/cf/linux-20.h"
 
 /* Include debugging code */
 

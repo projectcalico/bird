@@ -9,7 +9,7 @@
 #ifndef _BIRD_ROUTE_H_
 #define _BIRD_ROUTE_H_
 
-#include <lib/resource.h>
+#include "lib/resource.h"
 
 /*
  *	Generic data structure for storing network prefixes. Also used

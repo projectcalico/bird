@@ -6,10 +6,9 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#include <nest/bird.h>
-#include <lib/lists.h>
-
-#include <nest/resource.h>
+#include "nest/bird.h"
+#include "lib/lists.h"
+#include "lib/resource.h"
 
 int
 main(void)

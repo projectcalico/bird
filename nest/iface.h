@@ -9,7 +9,7 @@
 #ifndef _BIRD_IFACE_H_
 #define _BIRD_IFACE_H_
 
-#include <lib/lists.h>
+#include "lib/lists.h"
 
 struct iface {
   node n;

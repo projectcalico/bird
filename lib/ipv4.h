@@ -18,7 +18,7 @@ typedef struct ipv4_addr {
 #define _I(x) (x).addr
 #define _MI(x) ((struct ip_addr) { x })
 
-#define IPA_NONE(_MI(0))
+#define IPA_NONE (_MI(0))
 
 #define ipa_equal(x,y) (_I(x) == _I(y))
 #define ipa_and(x,y) _MI(_I(x) & _I(y))

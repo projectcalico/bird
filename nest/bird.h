@@ -9,9 +9,9 @@
 #ifndef _BIRD_BIRD_H_
 #define _BIRD_BIRD_H_
 
-#include <sysdep/config.h>
-#include <lib/birdlib.h>
-#include <lib/ip.h>
+#include "sysdep/config.h"
+#include "lib/birdlib.h"
+#include "lib/ip.h"
 
 extern u32 router_id;			/* Our Router ID */
 extern u16 this_as;			/* Our Autonomous System Number */

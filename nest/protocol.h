@@ -9,7 +9,7 @@
 #ifndef _BIRD_PROTOCOL_H_
 #define _BIRD_PROTOCOL_H_
 
-#include <lib/resource.h>
+#include "lib/resource.h"
 
 /*
  *	Routing Protocol

@@ -9,7 +9,7 @@
 #ifndef _BIRD_SOCKET_H_
 #define _BIRD_SOCKET_H_
 
-#include <lib/resource.h>
+#include "lib/resource.h"
 
 typedef struct birdsock socket;
 

@@ -4,9 +4,26 @@
 THISDIR=$(shell pwd)
 RELDIR=$(subst $(TOPDIR)/,,$(THISDIR))
 ANAME=$(subst /,_,$(RELDIR)).a
+SRCS=$(subst .o,.c,$(OBJS))
 
 all: $(ANAME)
 
 $(ANAME): $(OBJS)
 	rm -f $(ANAME)
 	ar rcs $(ANAME) $(OBJS)
+
+ifdef OBJS
+
+dep: $(SRCS)
+	rm -f .depend
+	for a in $(SRCS) ; do gcc $(CPPFLAGS) -MM $$a >>.depend ; done
+
+else
+
+dep:
+
+endif
+
+ifneq ($(wildcard .depend),)
+include .depend
+endif
