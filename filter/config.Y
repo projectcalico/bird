@@ -1,7 +1,7 @@
 /*
  *	BIRD - filters
  *
- *	Copyright 1998,1999 Pavel Machek
+ *	Copyright 1998--2000 Pavel Machek
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
@@ -33,7 +33,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	ADD, DELETE, CONTAINS, RESET,
 	PREPEND, MATCH,
 	EMPTY,
-	FILTER, WHERE)
+	FILTER, WHERE, EVAL)
 
 %nonassoc THEN
 %nonassoc ELSE
@@ -57,6 +57,11 @@ filter_def:
      DBG( "We have new filter defined (%s)\n", $2->name );
      cf_pop_scope();
    }
+ ;
+
+CF_ADDTO(conf, filter_eval)
+filter_eval:
+   EVAL term { f_eval_int($2); }
  ;
 
 type:
@@ -164,7 +169,7 @@ function_body:
 
 CF_ADDTO(conf, function_def)
 function_def:
-   FUNCTION SYM { DBG( "Begining of function %s\n", $2->name ); cf_push_scope($2); } function_params function_body {
+   FUNCTION SYM { DBG( "Beginning of function %s\n", $2->name ); cf_push_scope($2); } function_params function_body {
      extern struct f_inst *startup_func, *test1_func, *test2_func;
      cf_define_symbol($2, SYM_FUNCTION, $5);
      if (!strcasecmp($2->name, "__startup"))

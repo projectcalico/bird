@@ -665,6 +665,23 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   return res.val.i;
 }
 
+int
+f_eval_int(struct f_inst *expr)
+{
+  struct f_val res;
+
+  f_flags = 0;
+  f_tmp_attrs = NULL;
+  f_rte = NULL;
+  f_rte_old = NULL;
+  f_rta_copy = NULL;
+  f_pool = NULL;
+  res = interpret(expr);
+  if (res.type != T_INT)
+    cf_error("Integer expression expected");
+  return res.val.i;
+}
+
 void
 filters_postconfig(void)
 {
