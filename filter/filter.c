@@ -158,7 +158,7 @@ val_print(struct f_val v)
   printf( buf );
 }
 
-static struct rte **f_rte;
+static struct rte **f_rte, *f_rte_old;
 static struct linpool *f_pool;
 
 static struct f_val interpret(struct f_inst *what);
@@ -338,7 +338,6 @@ interpret(struct f_inst *what)
     if (v1.type != what->aux)
       runtime("Wrong type when setting dynamic attribute\n");
 
-    /* This willl only work if it is not already there! */
     {
       struct ea_list *l = lp_alloc(f_pool, sizeof(struct ea_list) + sizeof(eattr));
 
@@ -352,13 +351,17 @@ interpret(struct f_inst *what)
 	l->attrs[0].type = EAF_TYPE_INT | EAF_INLINE;
 	l->attrs[0].u.data = v1.val.i;
 	break;
+      case T_VOID:
+	l->attrs[0].type = EAF_TYPE_UNDEF | EAF_INLINE;
+	l->attrs[0].u.data = 0;
+	break;
       }
-      /* FIXME: need to do copy on write of rte + rta + insert at the beggining */
+      *f_rte = rte_do_cow(*f_rte);
+      l->next = *f_rte->attrs->eattrs;
+      *f_rte->attrs->eattrs = l;
     }
-
-  case 'eD':    /*FIXME: unset:  implement me */
-    die("Implement me!!!" );
     break;
+
   case 'cp':	/* Convert prefix to ... */
     ONEARG;
     if (v1.type != T_PREFIX)
@@ -419,6 +422,7 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   debug( "Running filter `%s'...", filter->name );
 
   f_rte = rte;
+  f_rte_old = *rte;
   f_pool = tmp_pool;
   inst = filter->root;
   res = interpret(inst);

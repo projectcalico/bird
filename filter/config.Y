@@ -364,7 +364,9 @@ cmd:
    }
  | UNSET '(' RTA '.' any_dynamic ')' ';' {
      $$ = $5;
-     $$->code = 'eD';
+     $$->aux = T_VOID;
+     $$->code = 'eS';
+     $$->a1.p = NULL;
    }
  | break_command print_list ';' { $$ = f_new_inst(); $$->code = 'p,'; $$->a1.p = $2; $$->a2.i = $1; }
  | SYM '(' var_list ')' ';' {
