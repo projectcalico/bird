@@ -446,14 +446,16 @@ interpret(struct f_inst *what)
 int
 i_same(struct f_inst *f1, struct f_inst *f2)
 {
-  if (!f1)
-    return 1;
   if ((!!f1) != (!!f2))
     return 0;
+  if (!f1)
+    return 1;
   if (f1->aux != f2->aux)
     return 0;
   if (f1->code != f2->code)
     return 0;
+  if (f1 == f2)		/* It looks strange, but it is possible with call rewriting trickery */
+    return 1;
 
   switch(f1->code) {
   case ',': /* fall through */
@@ -495,8 +497,12 @@ i_same(struct f_inst *f1, struct f_inst *f2)
 
   case 'r': ONEARG; break;
   case P('c','p'): ONEARG; break;
-  case P('c','a'): /* CALL, FIXME: exponential in some cases */
-             ONEARG; if (!i_same(f1->a2.p, f2->a2.p)) return 0; break;
+  case P('c','a'): /* Call rewriting trickery to avoid exponential behaviour */
+             ONEARG; 
+	     if (!i_same(f1->a2.p, f2->a2.p))
+	       return 0; 
+	     f2->a2.p = f1->a2.p;
+	     break;
   case P('S','W'): ONEARG; if (!same_tree(f1->a2.p, f2->a2.p)) return 0; break;
   case P('i','M'): TWOARGS; break;
   default:

@@ -8,10 +8,7 @@
 	FIXME (nonurgent): define keyword
 	FIXME (for BGP): whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
-	FIXME: '! =' should not be permitted. Ze `!=' by nemelo byt totez jako `! =' Nadefinujes si pres %token novy token a do cf-lex.l pridas nove pravidlo, ktere jej rozpoznava. Napriklad !=      return NEQ;
 	FIXME: IP addresses in ipv6
-
-	FIXME: how can functions return value?
  */
 
 CF_HDR
@@ -42,6 +39,8 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST, UNSET, RETURN,
 %nonassoc THEN
 %nonassoc ELSE
 
+%token GEQ LEQ NEQ
+
 %type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn dynamic_attr function_call
 %type <f> filter filter_body where_filter
 %type <i> type break_command pair
@@ -56,7 +55,7 @@ filter_def:
    FILTER SYM { cf_push_scope( $2 ); } filter_body {
      cf_define_symbol($2, SYM_FILTER, $4);
      $4->name = $2->name;
-     printf( "We have new filter defined (%s)\n", $2->name );
+     DBG( "We have new filter defined (%s)\n", $2->name );
      cf_pop_scope();
    }
  ;
@@ -81,7 +80,7 @@ type:
 one_decl:
    type SYM {
      cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
-     printf( "New variable %s type %x\n", $2->name, $1 );
+     DBG( "New variable %s type %x\n", $2->name, $1 );
      $2->aux = 0;
      {
        struct f_val * val; 
@@ -108,7 +107,6 @@ declsn: one_decl { $$ = $1; }
      $$->aux = (int) $3;
    }
  ;
-
 
 filter_body:
    function_body {
@@ -152,7 +150,7 @@ where_filter:
  ;
 
 function_params:
-   '(' declsn ')' { printf( "Have function parameters\n" ); $$=$2; }
+   '(' declsn ')' { DBG( "Have function parameters\n" ); $$=$2; }
  | '(' ')' { $$=NULL; }
  ;
 
@@ -164,14 +162,14 @@ function_body:
 
 CF_ADDTO(conf, function_def)
 function_def:
-   FUNCTION SYM { printf( "Begining of function %s\n", $2->name ); cf_push_scope($2); } function_params function_body {
+   FUNCTION SYM { DBG( "Begining of function %s\n", $2->name ); cf_push_scope($2); } function_params function_body {
      extern struct f_inst *startup_func;
      cf_define_symbol($2, SYM_FUNCTION, $5);
      if (!strcasecmp($2->name, "startup"))
 	startup_func = $5;
      $2->aux = (int) $4;
      $2->aux2 = $5;
-     printf("Hmm, we've got one function here - %s\n", $2->name); 
+     DBG("Hmm, we've got one function here - %s\n", $2->name); 
      cf_pop_scope();
    }
  ;
@@ -263,7 +261,7 @@ constant:
  | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PAIR;  $$->a2.i = $1; }
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
- | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
+ | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
  ;
 
@@ -283,7 +281,7 @@ function_call:
      struct f_inst *inst = $3;
      if ($1->class != SYM_FUNCTION)
        cf_error("You can not call something which is not function. Really.");
-     printf("You are calling function %s\n", $1->name);
+     DBG("You are calling function %s\n", $1->name);
      $$ = f_new_inst();
      $$->code = P('c','a');
      $$->a1.p = inst;
@@ -292,7 +290,7 @@ function_call:
      while (sym || inst) {
        if (!sym || !inst)
 	 cf_error("wrong number of arguments for function %s.", $1->name);
-       printf( "You should pass parameter called %s\n", sym->name);
+       DBG( "You should pass parameter called %s\n", sym->name);
        inst->a1.p = sym;
        sym = (void *) sym->aux;
        inst = inst->next;
@@ -300,17 +298,18 @@ function_call:
    }
  ;
 
+/* NEQ, LEQ and GEQ are responsible for 42 shift/reduce conflicts */
 
 term:
    '(' term ')'      { $$ = $2; }
- | term '+' term     { $$ = f_new_inst(); $$->code = '+';  $$->a1.p = $1; $$->a2.p = $3; }
+ | term '+' term     { $$ = f_new_inst(); $$->code = '+';        $$->a1.p = $1; $$->a2.p = $3; }
  | term '=' term     { $$ = f_new_inst(); $$->code = P('=','='); $$->a1.p = $1; $$->a2.p = $3; }
- | term '!' '=' term { $$ = f_new_inst(); $$->code = P('!','='); $$->a1.p = $1; $$->a2.p = $4; }
- | term '<' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $1; $$->a2.p = $3; }
- | term '<' '=' term { $$ = f_new_inst(); $$->code = P('<','='); $$->a1.p = $1; $$->a2.p = $4; }
- | term '>' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $3; $$->a2.p = $1; }
- | term '>' '=' term { $$ = f_new_inst(); $$->code = P('<','='); $$->a1.p = $4; $$->a2.p = $1; }
- | term '~' term     { $$ = f_new_inst(); $$->code = '~';  $$->a1.p = $1; $$->a2.p = $3; }
+ | term NEQ term { $$ = f_new_inst(); $$->code = P('!','=');     $$->a1.p = $1; $$->a2.p = $3; }
+ | term '<' term     { $$ = f_new_inst(); $$->code = '<';        $$->a1.p = $1; $$->a2.p = $3; }
+ | term LEQ term { $$ = f_new_inst(); $$->code = P('<','=');     $$->a1.p = $1; $$->a2.p = $3; }
+ | term '>' term     { $$ = f_new_inst(); $$->code = '<';        $$->a1.p = $3; $$->a2.p = $1; }
+ | term GEQ term { $$ = f_new_inst(); $$->code = P('<','=');     $$->a1.p = $3; $$->a2.p = $1; }
+ | term '~' term     { $$ = f_new_inst(); $$->code = '~';        $$->a1.p = $1; $$->a2.p = $3; }
  | DEFINED '(' term ')' { $$ = f_new_inst(); $$->code = P('d','e');  $$->a1.p = $3; }
 
  | constant { $$ = $1; }
@@ -404,7 +403,7 @@ cmd:
    }
  | SYM '=' term ';' {
      $$ = f_new_inst();
-     printf( "Ook, we'll set value\n" );
+     DBG( "Ook, we'll set value\n" );
      if (($1->class & ~T_MASK) != SYM_VARIABLE)
        cf_error( "You may only set variables, and this is %x.\n", $1->class );
      $$->code = 's';
@@ -413,7 +412,7 @@ cmd:
    }
  | RETURN term ';' {
      $$ = f_new_inst();
-     printf( "Ook, we'll return the value\n" );
+     DBG( "Ook, we'll return the value\n" );
      $$->code = 'r';
      $$->a1.p = $2;
    }
