@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -16,6 +16,15 @@ char *ospf_ism[]={ "interface up", "wait timer fired", "backup seen",
 
 char *ospf_it[]={ "broadcast", "nbma", "point-to-point", "virtual link" };
 
+/**
+ * iface_chstate - handle changes of interface state
+ * @ifa: OSPF interface
+ * @state: new state
+ *
+ * Many action must be taken acording to iterface state change. New networks
+ * LSA must be originated, flushed, new multicast socket to listen messages for
+ * %ALLDROUTERS has to be opened, etc.
+ */
 void
 iface_chstate(struct ospf_iface *ifa, u8 state)
 {
@@ -117,6 +126,14 @@ downint(struct ospf_iface *ifa)
   mb_free(ifa);
 }
 
+/**
+ * ospf_int_sm - OSPF interface state machine
+ * @ifa: OSPF interface
+ * @event: event comming to state machine
+ *
+ * This fully respect 9.3 of RFC 2328 except we don't use %LOOP state of
+ * interface.
+ */
 void
 ospf_int_sm(struct ospf_iface *ifa, int event)
 {
@@ -251,7 +268,6 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
   return(ipsk);
 }
 
-/* Of course, it's NOT true now */
 u8
 ospf_iface_clasify(struct iface *ifa, struct proto *p)
 {
@@ -458,3 +474,4 @@ ospf_ifa_add(struct object_lock *lock)
   ifa->state=OSPF_IS_DOWN;
   ospf_int_sm(ifa, ISM_UP);
 }
+

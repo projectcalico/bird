@@ -100,7 +100,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
         len=sizeof(struct ospf_lsack_packet)+i*sizeof(struct ospf_lsa_header);
 	op->length=htons(len);
 	ospf_pkt_finalize(n->ifa, op);
-	DBG("Sending and continueing! Len=%u\n",len);
+	DBG("Sending and continuing! Len=%u\n",len);
         if(ifa->type==OSPF_IT_BCAST)
 	{
           if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
@@ -150,8 +150,6 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
     sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
   }
 }
-
-
 
 void
 ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,

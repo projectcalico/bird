@@ -28,7 +28,8 @@
  * a place where routins for searching LSAs in link-state database,
  * adding and deleting them, there are also functions for originating
  * various types of LSA. (router lsa, net lsa, external lsa) |Rt.c|
- * contains routins for calculating of routing table.
+ * contains routins for calculating of routing table. |Lsalib.c| is a set
+ * of various functions for work with LSAs.
  *
  * Just one instance of protocol is able to hold LSA databases for
  * multiple OSPF areas and exhange routing information between
