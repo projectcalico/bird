@@ -44,5 +44,8 @@
 /* Path to configuration files */
 #define PATH_CONFIG_DIR ?
 
+/* Path to control socket */
+#define PATH_CONTROL_SOCKET_DIR ?
+
 /* Are we using dmalloc? */
 #undef HAVE_LIBDMALLOC

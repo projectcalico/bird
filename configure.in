@@ -122,6 +122,7 @@ BIRD_CHECK_STRUCT_IP_MREQN
 
 if test "$enable_debug" = yes ; then
 	AC_DEFINE(PATH_CONFIG_DIR, ".")
+	AC_DEFINE(PATH_CONTROL_SOCKET_DIR, ".")
 	AC_DEFINE(DEBUGGING)
 	AC_CHECK_LIB(dmalloc, dmalloc_debug)
 	if test $ac_cv_lib_dmalloc_dmalloc_debug != yes ; then
@@ -129,9 +130,11 @@ if test "$enable_debug" = yes ; then
 	fi
 else
 	AC_DEFINE_UNQUOTED(PATH_CONFIG_DIR, "$sysconfdir")
+	AC_DEFINE_UNQUOTED(PATH_CONTROL_SOCKET_DIR, "$localstatedir")
 fi
 
-AC_CONFIG_HEADER(sysdep/autoconf.h)
+mkdir -p $objdir/sysdep
+AC_CONFIG_HEADER($objdir/sysdep/autoconf.h:sysdep/autoconf.h.in)
 AC_OUTPUT_COMMANDS(,[CPP="$CPP" $srcdir/tools/mergedirs $srcdir $srcdir_rel $objdir $sysdep_dirs])
 AC_OUTPUT($makefiles)
 

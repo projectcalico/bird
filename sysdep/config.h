@@ -39,5 +39,6 @@ typedef u16 word;
 
 /* Path to configuration file */
 #define PATH_CONFIG PATH_CONFIG_DIR "/bird.conf"
+#define PATH_CONTROL_SOCKET PATH_CONTROL_SOCKET_DIR "/bird.ctl"
 
 #endif
