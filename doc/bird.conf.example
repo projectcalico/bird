@@ -19,7 +19,17 @@
 #protocol rip MyRIP_test {
 #	preference xyzzy;
 #	debug all;
-#	import filter okay;
+#	port 1520;
+#	period 7;
+#	garbagetime 60;
+#	interface "*" { mode broadcast; };
+#	honour neighbour;
+#	passwords { password "ahoj" from 0 to 10;
+#		password "nazdar" from 10;
+#	}
+#	authentication none;
+#	import filter { print "importing"; accept; };
+#	export filter { print "exporting"; accept; };
 #}
 
 protocol direct {
