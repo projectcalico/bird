@@ -58,7 +58,6 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   n->lsrqh = ospf_top_new(pool, n->ifa->proto);
   s_init_list(&(n->lsrtl));
   n->lsrth = ospf_top_new(pool, n->ifa->proto);
-  s_init(&(n->dbsi), &(n->ifa->oa->lsal));
   s_init(&(n->lsrqi), &(n->lsrql));
   s_init(&(n->lsrti), &(n->lsrtl));
   tm_start(n->rxmt_timer,n->ifa->rxmtint);
@@ -307,6 +306,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       if(n->state==NEIGHBOR_EXSTART)
       {
         neigh_chstate(n,NEIGHBOR_EXCHANGE);
+	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
         while(!EMPTY_LIST(n->ackl))
         {
           struct lsah_n *no;
