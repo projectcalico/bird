@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Network Interfaces
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -81,17 +81,7 @@ void if_feed_baby(struct proto *);
 struct iface *if_find_by_index(unsigned);
 struct iface *if_find_by_name(char *);
 
-/*
- *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen
- *	along with pointer to protocol-specific data.
- *
- *	The primary goal of this cache is to quickly validate all incoming
- *	packets if their have been sent by our neighbors and to notify
- *	protocols about lost neighbors when an interface goes down.
- *
- *	Anyway, it can also contain `sticky' entries for currently unreachable
- *	addresses which cause notification when the address becomes a neighbor.
- */
+/* The Neighbor Cache */
 
 typedef struct neighbor {
   node n;				/* Node in global neighbor list */
@@ -107,12 +97,6 @@ typedef struct neighbor {
 
 #define NEF_STICKY 1
 
-/*
- * Find neighbor or return NULL if it doesn't exist.
- * If you specify flags == NEF_STICKY, a sticky entry is created if the
- * address is not a neighbor, but NULL can still be returned if the address
- * given is invalid.
- */
 neighbor *neigh_find(struct proto *, ip_addr *, unsigned flags);
 
 static inline int neigh_connected_to(struct proto *p, ip_addr *a, struct iface *i)
