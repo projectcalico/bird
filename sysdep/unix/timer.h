@@ -30,6 +30,6 @@ void tm_start(timer *, unsigned after);
 void tm_stop(timer *);
 void tm_dump_all(void);
 
-extern bird_clock_t now;
+extern bird_clock_t now;		/* Time in seconds since unknown epoch */
 
 #endif
