@@ -354,10 +354,6 @@ rta_dump(rta *a)
   debug("p=%s uc=%d %s %s%s%s",
 	a->proto->name, a->uc, rts[a->source], ip_scope_text(a->scope), rtc[a->cast],
 	rtd[a->dest]);
-  if (a->flags & RTF_EXTERIOR)
-    debug(" EXT");
-  if (a->flags & RTF_TAGGED)
-    debug(" TAG");
   if (!(a->aflags & RTAF_CACHED))
     debug(" !CACHED");
   debug(" <-%I", a->from);

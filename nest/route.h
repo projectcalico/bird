@@ -223,7 +223,7 @@ typedef struct rta {
   byte scope;				/* Route scope (SCOPE_... -- see ip.h) */
   byte cast;				/* Casting type (RTC_...) */
   byte dest;				/* Route destination type (RTD_...) */
-  byte flags;				/* Route flags (RTF_...) */
+  byte flags;				/* Route flags (RTF_...), now unused */
   byte aflags;				/* Attribute cache flags (RTAF_...) */
   byte rfu, rfu2;			/* Padding */
   ip_addr gw;				/* Next hop */
@@ -257,9 +257,6 @@ typedef struct rta {
 #define RTD_BLACKHOLE 2			/* Silently drop packets */
 #define RTD_UNREACHABLE 3		/* Reject as unreachable */
 #define RTD_PROHIBIT 4			/* Administratively prohibited */
-
-#define RTF_EXTERIOR 1			/* Learned via exterior protocol */
-#define RTF_TAGGED 2			/* Tagged external route learned via IGP */
 
 #define RTAF_CACHED 1			/* This is a cached rta */
 
