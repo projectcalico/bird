@@ -92,7 +92,10 @@ neigh_find(struct proto *p, ip_addr *a, unsigned flags)
       add_tail(&j->neighbors, &n->if_n);
     }
   else
-    add_tail(&sticky_neigh_list, &n->n);
+    {
+      add_tail(&sticky_neigh_list, &n->n);
+      scope = 0;
+    }
   n->proto = p;
   n->data = NULL;
   n->aux = 0;
