@@ -3,12 +3,7 @@
 <!--
 	Bird documentation
 
-    This is bird documentation system. It looks like html, but it is _not_ html: nonstandard
-    extensions are in use in order to auto-generate nice tex source. Use TT tag to markup short
-    texts that should be rendered in fixed-space font, and further specify what kind of text this
-    is. Currently TT file and TT conf are being used. For multi-line texts, use PRE section, again
-    with option saying what kind of section this is. Use DL conf for definition of configuration
-    keywords.
+    Look for "about this documenation" section to learn more.
 
     (set-fill-column 100)
 
@@ -36,22 +31,21 @@ This document contains documentation for Basic Internet Routing Daemon
 
 <sect1>What is bird
 
-<p><label id="intro">
-You may wonder what 'bird' means. It is acronym of 'Basic Internet Routing Daemon', and we think
-that's cool name. Its task is similar to what firmware of Cisco routers does, or what gated
-(<HTMLURL URL="fixme">) does. However, you can not run Cisco's firmware on "normal" computer
+<p><label id="intro"> You may wonder what 'bird' means. It is acronym of 'Basic Internet Routing
+Daemon', and we think that's cool name. Its task is similar to what firmware of Cisco routers does,
+or what gated (<HTMLURL URL="http://www.gated.org/">) or GNU zebra (<HTMLURL
+URL="http://www.zebra.org/">) does. However, you can not run Cisco's firmware on "normal" computer
 and gated is really hard to configure and comes under wrong license. Bird is being developed on
 Charles University, Prague, and can be freely distributed under terms of GNU General Public
 License. Bird is designed to run on unix and unix-like systems, it is primarily developed on Linux.
 
 <sect1>About this documentation
 
-<p>This documentation can have 4 forms: extended html (this is master copy), html with stripped
-extensions, ascii text (generated from html) and dvi/postscript (generated from html using
-html2latex and latex). You should always edit master copy; if you do so be sure to read comment at
-beggining of file. If you want to view documentation, you can either launch your www browser at
-master copy (and hope that browser does not have incompatible extensions from our), or you can
-generate nice printed copy.
+<p>This documentation can have 4 forms: sgml (this is master copy), html, ascii text (generated from
+html) and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy,
+it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is considered definition of
+configuration primitives, &lt;cf&gt; is fragment of configuartion within normal text, &lt;m&gt; is
+"meta" information -- something in config which is not keyword.
 
 <sect1>Configuration
 
@@ -81,26 +75,26 @@ ignored. If there's variable number of options, it is grouped using {
 } brackets. 
 				
 <descrip>
-	<tag>log "<i/filename/"|syslog|stderr all|{ debug, trace, info,
+	<tag>log "<m/filename/"|syslog|stderr all|{ debug, trace, info,
 	remote, warning, error, auth, fatal, bug }</tag> set logging of
 	classes (either all or { error, trace } etc.) into selected destination. 
 				  
 	<tag>debug protocols all|off|{ states, routes, filters,
 	interfaces, events, packets }</tag> set debugging options.
 
-	<tag>filter <i/name/ { <i/commands/ }</tag> define filter. You can
+	<tag>filter <m/name/ { <m/commands/ }</tag> define filter. You can
 	learn more about filters in next chapter.
 
-	<tag>protocol rip|ospf|bgp <i/name/ { <i>protocol options</i> }</tag> define
+	<tag>protocol rip|ospf|bgp <m/name/ { <m>protocol options</m> }</tag> define
 	protocol instance, called name. You can learn more about
 	configuring protocols in their own chapters.
 
 	<tag>define constant = expression</tag> define constant. You can
 	use it later in every place you could use simple integer.
 
-	<tag>router id <i/ip_address/</tag> set router id.
+	<tag>router id <m/ip_address/</tag> set router id.
 
-	<tag>table <i/name/</tag> create new routing table.
+	<tag>table <m/name/</tag> create new routing table.
 </descrip>
 
 <p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
@@ -119,12 +113,12 @@ interpretted. Filter using many features can be found in <file>filter/test.conf<
 <p>There's one strange thing with filter language: it does not permit you to create loops. There's
 no equivalent of while() or for() command, and recursive functions are not permitted.
 
-<p pgm>You can find sources of filters language in
+<p>You can find sources of filters language in
 <file>filter/</file> directory. <file>filter/config.Y</file> contains
 filter gramar, and basically translates source from user into tree of
 <cf>f_inst</cf> structures. These trees are later interpreted using
 code in <file>filter/filter.c</file>. Filters internally work with
-values/variables in <TT c>struct f_val</TT>, which contains type of
+values/variables in <code>struct f_val</code>, which contains type of
 value and value.
 
 <p>Filter basically looks like this:
@@ -147,9 +141,9 @@ int var;
 </verb></cf>
 
 <p>As you can see, filter has a header, list of local variables, and body. Header consists of <cf/filter/ keyword, followed by (unique) name of filter. List of local variables consists of
-pairs <cf><I>type name</I>;</cf>, where each pair defines one local variable. Body consists of
-<cf> { <I>statments</I> }</cf>. Statements are terminated by <cf/;/. You can group
-several statments into one by <cf>{ <I>statments</I> }</cf> construction, that is usefull if
+pairs <cf><M>type name</M>;</cf>, where each pair defines one local variable. Body consists of
+<cf> { <M>statments</M> }</cf>. Statements are terminated by <cf/;/. You can group
+several statments into one by <cf>{ <M>statments</M> }</cf> construction, that is usefull if
 you want to make bigger block of code conditional.
 
 <sect1>Data types
@@ -176,13 +170,13 @@ booleans (that is to prevent you from shooting in the foot).
 
 	<tag/ip/ this type can hold single ip address. Depending on version of bird you are using, it
 	  can be ipv4 or ipv6 address. Ipv4 addresses addresses are written (as you would expect) as
-	  <cf/1.2.3.4/. You can apply special operator <cf>.mask(<I>num</I>)</cf>
-	  on values of type ip. It masks out all but first <cf><I>num</I></cf> bits from ip
+	  <cf/1.2.3.4/. You can apply special operator <cf>.mask(<M>num</M>)</cf>
+	  on values of type ip. It masks out all but first <cf><M>num</M></cf> bits from ip
 	  address. So <cf/1.2.3.4.mask(8) = 1.0.0.0/ is true.
 
 	<tag/prefix/ this type can hold ip address, prefix len
-	  pair. Prefixes are written as <cf><I>ip address</I>/<I>px
-	  len</I></cf>. There are two special operators on prefix:
+	  pair. Prefixes are written as <cf><M>ip address</M>/<M>px
+	  len</M></cf>. There are two special operators on prefix:
 	  <cf/.ip/, which separates ip address from the pair, and
 	  <cf/.len/, which separates prefix len from the pair.
 
@@ -237,21 +231,21 @@ parameters. They get route table entry as implicit parameter.
 <sect1>Control structures
 
 <p>Filters support two control structures: if/then/else and
-case. Syntax of if/then/else is <cf>if <I>expression</I> then
-<I>command</I>; else <I>command</I>;</cf> and you can use <cf>{
-<I>command_1</I>; <I>command_2</I>; <I>...</I> }</cf> instead of one
+case. Syntax of if/then/else is <cf>if <M>expression</M> then
+<M>command</M>; else <M>command</M>;</cf> and you can use <cf>{
+<M>command_1</M>; <M>command_2</M>; <M>...</M> }</cf> instead of one
 or both commands. <cf>else</cf> clause may be ommited. Case is
 used like this:
 
 <cf><verb>
-        case <I>argument</I> {
+        case <M>argument</M> {
         2: print "dva"; print "jeste jednou dva";
         3 .. 5: print "tri az pet";
         else: print "neco jineho";
         }
 </verb></cf>
 
-where <I>argument</I> is any argument that can be on the left side of ~ operator, and anything that
+where <M>argument</M> is any argument that can be on the left side of ~ operator, and anything that
 could be member of set is allowed before :. Multiple commands are allowed without {} grouping. If
 argument matches neither of : clauses, else: clause is used. (Case is actually implemented as set
 matching, internally.)
@@ -269,20 +263,19 @@ unreachable, routers keep telling each other that distance is old distance plus 
 interface metric, which is usually one). After some time, distance reaches infinity (that's 15 in
 rip) and all routers know that network is unreachable. Rip tries to minimize situations where
 counting to infinity is neccessary, because it is slow. Due to infinity being 16, you can not use
-rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <A
-HREF="fixme">rfc1234</A>.
+rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <HTMLURL
+URL="http://www.ietf.org/html.charters/rip-charter.html">.
 
 <sect2>Configuration
 
 <p>In addition to options generic to other protocols, rip supports following options:
 
 <descrip>
-	<tag/authentication none|password|md5/
-	  selects authenticaion method to use. None means that packets are not authenticated at
-	  all, password means that plaintext password is embedded into each packet, and md5 means
-	  that packets are authenticated using md5 cryptographics hash. See <A
-	  HREF="fixme">rfc1234</A>. If you set authentication to non-none, it is good idea to add
-	  <cf>passwords { }</cf> section.
+	<tag/authentication none|password|md5/ selects authenticaion method to use. None means that
+	  packets are not authenticated at all, password means that plaintext password is embedded
+	  into each packet, and md5 means that packets are authenticated using md5 cryptographics
+	  hash. If you set authentication to non-none, it is good idea to add <cf>passwords { }</cf>
+	  section.
 </descrip>
 
 <p>There are two options that can be specified per-interface. First is <cf>metric</cf>, with
@@ -298,22 +291,22 @@ options, bird will no longer be rfc-compatible, which means it will not be able 
 other than equally (mis-)configured bird. I warned you.
 
 <descrip>
-	<tag>port <I>number</I></tag>
+	<tag>port <M>number</M></tag>
 	  selects IP port to operate on, default 520. (This is usefull when testing bird, if you
 	  set this to address &gt;1024, you will not need to run bird with uid==0).
 
-	<tag>infinity <I>number</I></tag>
+	<tag>infinity <M>number</M></tag>
 	  select value of infinity, default 16. Bigger values will make protocol convergence
 	  even slower.
 
-	<tag>period <I>number</I>
+	<tag>period <M>number</M>
 	  </tag>specifies number of seconds between periodic updates. Default is 30 seconds. Lower
 	  number will mean faster convergence but bigger network load.
 
-	<tag>timeouttime <I>number</I>
+	<tag>timeouttime <M>number</M>
 	  </tag>specifies how old route has to be to be considered unreachable. Default is 4*period.
 
-	<tag>garbagetime <I>number</I>
+	<tag>garbagetime <M>number</M>
 	  </tag>specifies how old route has to be to be discarded. Default is 10*period.
 </descrip>
 

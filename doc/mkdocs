@@ -1,0 +1,3 @@
+#!/bin/bash
+./sgml2html bird.sgml
+./sgml2latex bird.sgml

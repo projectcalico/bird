@@ -1,11 +1,11 @@
 root-rel=../
 dir-name=doc
 
+include ../Rules
+
 progdocs:
 	mkdir -p prog
 	$(srcdir)/tools/progdoc $(srcdir_abs)
-
-userdocs:
 
 %.html: %.sgml
 	./sgml2html $<
@@ -21,6 +21,8 @@ userdocs:
 
 %.tex: %.sgml
 	./sgml2latex --output=tex $<
+
+userdocs: bird.html bird.dvi
 
 clean:
 	rm *.html *.tex *.dvi *.log
