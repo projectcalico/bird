@@ -71,7 +71,7 @@ type:
  | type SET { 
 	switch ($1) {
 	  default:
-		cf_error( "You can not create sets of this type" );
+		cf_error( "You can't create sets of this type." );
 	  case T_INT: case T_IP: case T_PREFIX: case T_PAIR:
 	}
 	$$ = $1 | T_SET;
@@ -120,7 +120,7 @@ filter_body:
 
 filter:
    SYM {
-     if ($1->class != SYM_FILTER) cf_error("No such filter");
+     if ($1->class != SYM_FILTER) cf_error("No such filter.");
      $$ = $1->def;
    }
  | filter_body
@@ -209,7 +209,7 @@ pair:
  */
 fprefix_s:
    IPA '/' NUM %prec '/' {
-     if (!ip_is_prefix($1, $3)) cf_error("Invalid network prefix: %I/%d", $1, $3);
+     if (!ip_is_prefix($1, $3)) cf_error("Invalid network prefix: %I/%d.", $1, $3);
      $$.type = T_PREFIX; $$.val.px.ip = $1; $$.val.px.len = $3;
    }
  ;
@@ -248,7 +248,7 @@ set_item:
 	$$ = f_new_tree(); 
 	$$->from = $1; 
 	$$->to = $4; 
-	if (($1.type == T_PREFIX) || ($4.type == T_PREFIX)) cf_error( "You can not use prefixes for range" ); 
+	if (($1.type == T_PREFIX) || ($4.type == T_PREFIX)) cf_error( "You can't use prefixes for range." ); 
    }
  ;
 
@@ -311,7 +311,7 @@ function_call:
      struct symbol *sym;
      struct f_inst *inst = $3;
      if ($1->class != SYM_FUNCTION)
-       cf_error("You can not call something which is not function. Really.");
+       cf_error("You can't call something which is not a function. Really.");
      DBG("You are calling function %s\n", $1->name);
      $$ = f_new_inst();
      $$->code = P('c','a');
@@ -320,7 +320,7 @@ function_call:
      sym = (void *) $1->aux;
      while (sym || inst) {
        if (!sym || !inst)
-	 cf_error("wrong number of arguments for function %s.", $1->name);
+	 cf_error("Wrong number of arguments for function %s.", $1->name);
        DBG( "You should pass parameter called %s\n", sym->name);
        inst->a1.p = sym;
        sym = (void *) sym->aux;
@@ -382,7 +382,7 @@ term:
 	 $$->a1.p = $1->aux2;
 	 break;
        default:
-	 cf_error("Can not use this class of symbol (%s,%x) as variable.", $1->name, $1->class );
+	 cf_error("%s: variable expected.", $1->name );
      }
    }
 
@@ -417,7 +417,7 @@ term:
      struct symbol *sym;
      struct f_inst *inst = $3;
      if ($1->class != SYM_FUNCTION)
-       cf_error("You can not call something which is not function. Really.");
+       cf_error("You can't call something which is not a function. Really.");
      DBG("You are calling function %s\n", $1->name);
      $$ = f_new_inst();
      $$->code = P('c','a');
@@ -426,7 +426,7 @@ term:
      sym = (void *) $1->aux;
      while (sym || inst) {
        if (!sym || !inst)
-	 cf_error("wrong number of arguments for function %s.", $1->name);
+	 cf_error("Wrong number of arguments for function %s.", $1->name);
        DBG( "You should pass parameter called %s\n", sym->name);
        inst->a1.p = sym;
        sym = (void *) sym->aux;
@@ -500,7 +500,7 @@ cmd:
      $$ = f_new_inst();
      DBG( "Ook, we'll set value\n" );
      if (($1->class & ~T_MASK) != SYM_VARIABLE)
-       cf_error( "You may only set variables, and this is %x.", $1->class );
+       cf_error( "You may set only variables." );
      $$->code = 's';
      $$->a1.p = $1;
      $$->a2.p = $3;
