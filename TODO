@@ -80,6 +80,7 @@ o  "About routing tables" by melo byt podstatne podrobnejsi (vysvetlit, co vlast
    ze lze prenaset routy mezi tabulkami (odkaz na protokol pipe), ze k tabulkam
    jsou pres filtry pripojeny protokoly atd.) Asi z toho udelat samostatnou kapitolu.
 o  Zminit logy a kategorie hlasek.
+o  Chybi installation requirements: tedy ze potrebujeme GCC a GNU make.
 
 Filtry:
 

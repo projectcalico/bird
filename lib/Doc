@@ -2,11 +2,13 @@ H Library
 S checksum.c md5.c
 S ip.c ipv4.c ipv6.c
 S lists.c
-S mempool.c
-S slab.c
-S socket.h
 S bitops.c
-S event.c
 S patmatch.c
 S printf.c
 S unaligned.h
+H Resource management
+S resource.c
+S mempool.c
+S slab.c
+S socket.h
+S event.c
