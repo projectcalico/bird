@@ -12,6 +12,7 @@
 #define OSPF_PROTO 89
 #ifndef IPV6
 #define OSPF_VERSION 2
+#define OSPF_IP_PRI 0xc0
 #define AllSPFRouters ipa_from_u32(0xe0000005)	/* 224.0.0.5 */
 #define AllDRouters ipa_from_u32(0xe0000006)	/* 224.0.0.6 */
 #else
