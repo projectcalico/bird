@@ -68,6 +68,7 @@ ospf_init(struct proto_config *c)
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
   p->import_control = ospf_import_control;
+  p->rt_notify = ospf_rt_notify;
 
   return p;
 }
@@ -120,13 +121,32 @@ ospf_postconfig(struct proto_config *c)
 int
 ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool *pool)
 {
-  int i;
   rte *e=*new;
   struct proto_ospf *po=(struct proto_ospf *)p;
 
   if(p==e->attrs->proto) return -1;
 
   return 0;
+}
+
+void
+ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
+{
+  struct proto_ospf *po=(struct proto_ospf *)p;
+
+  debug("%s: Got route %I/%d %s\n", p->name, n->n.prefix,
+    n->n.pxlen, new ? "up" : "down");
+
+  if(new)		/* Got some new route */
+  {
+    int i;
+    /* Originate new external LSA */
+  }
+  else
+  {
+    int i;
+    /* Flush some old external LSA */
+  }
 }
 
 struct protocol proto_ospf = {

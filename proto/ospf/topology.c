@@ -319,6 +319,66 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa);
 }
 
+void *
+originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po)
+{
+  struct proto *p=&po->proto;
+  struct ospf_lsa_ext *ext;
+  struct ospf_lsa_ext_tos *et;
+  neighbor *nn;
+
+  ext=mb_alloc(p->pool,sizeof(struct ospf_lsa_ext)+
+    sizeof(struct ospf_lsa_ext_tos));
+  ext->netmask=ipa_mkmask(n->n.pxlen);
+
+  et=(struct ospf_lsa_ext_tos *)(ext+1);
+  if(e->u.ospf.metric2!=0)
+  {
+    et->etos=0;
+    et->metric=e->u.ospf.metric1;
+  }
+  else
+  {
+    et->etos=1;
+    et->metric=e->u.ospf.metric2;
+  }
+  et->padding=0;
+  et->tag=e->u.ospf.tag;
+  if(1) et->fwaddr= ipa_from_u32(0); /* FIXME if e->attrs->iface is not in my AS*/
+  else et->fwaddr=e->attrs->gw;
+  return ext;
+}
+
+void
+originate_ext_lsa(net *n, rte *e, u16 *len, struct proto_ospf *po)
+{
+  struct ospf_lsa_header lsa;
+  u32 rtid=po->proto.cf->global->router_id;
+  struct top_hash_entry *en=NULL;
+  void *body=NULL;
+  struct ospf_iface *ifa;
+
+  debug("%s: Originating Ext lsa for %I/%d.\n", po->proto.name, n->n.prefix,
+    n->n.pxlen);
+
+  lsa.age=0;
+  lsa.id=ipa_to_u32(n->n.prefix);
+  lsa.type=LSA_T_EXT;
+  lsa.rt=rtid;
+  lsa.sn=LSA_INITSEQNO;
+  body=originate_ext_lsa_body(n, e, po);
+  lsa.length=sizeof(struct ospf_lsa_ext)+sizeof(struct ospf_lsa_ext_tos)+
+    sizeof(struct ospf_lsa_header);
+  lsasum_calculate(&lsa,body,po);
+  WALK_LIST(ifa, po->iface_list)
+  {
+    en=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
+  }
+  if(en==NULL) die("Some bug in Ext lsa generating\n");
+  flood_lsa(NULL,NULL,&en->lsa,po,NULL,ifa->oa);
+}
+
+
 static void
 ospf_top_ht_alloc(struct top_graph *f)
 {
