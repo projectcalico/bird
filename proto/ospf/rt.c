@@ -50,6 +50,8 @@ ospf_rt_spfa(struct ospf_area *oa)
   debug("%s: Starting routing table calculation for area %I\n",p->name,
     oa->areaid);
 
+  if(oa->rt==NULL) return;
+
   WALK_SLIST(SNODE en, oa->lsal)
   {
     en->color=OUTSPF;
