@@ -67,12 +67,11 @@ ipv6_classify(ip_addr *a)
 {
   u32 x = a->addr[0];
 
-  /* FIXME: Relax these requirements? */
   if ((x & 0xe0000000) == 0x20000000)		/* Aggregatable Global Unicast Address */
     return IADDR_HOST | SCOPE_UNIVERSE;
-  if ((x & 0xfc000000) == 0xe8000000)		/* Link-Local Address */
+  if ((x & 0xffc00000) == 0xfe800000)		/* Link-Local Address */
     return IADDR_HOST | SCOPE_LINK;
-  if ((x & 0xfc000000) == 0xec000000)		/* Site-Local Address */
+  if ((x & 0xffc00000) == 0xfec00000)		/* Site-Local Address */
     return IADDR_HOST | SCOPE_SITE;
   if ((x & 0xff000000) == 0xff000000)		/* Multicast Address */
     {
@@ -86,8 +85,21 @@ ipv6_classify(ip_addr *a)
 	case 14: return IADDR_MULTICAST | SCOPE_UNIVERSE;
 	}
     }
-  if (!x && !a->addr[1] && !a->addr[2] && a->addr[3] == 1)
-    return IADDR_HOST | SCOPE_HOST;		/* Loopback address */
+  if (!x && !a->addr[1] && !a->addr[2])
+    {
+      u32 y = a->addr[3];
+      if (y == 1)
+	return IADDR_HOST | SCOPE_HOST;		/* Loopback address */
+      /* IPv4 compatible addresses */
+      if (y >= 0x7f000000 && y < 0x80000000)
+	return IADDR_HOST | SCOPE_HOST;
+      if ((y & 0xff000000) == 0x0a000000 ||
+	  (y & 0xffff0000) == 0xc0a80000 ||
+	  (y & 0xfff00000) == 0xac100000)
+	return IADDR_HOST | SCOPE_SITE;
+      if (y >= 0x01000000 && y < 0xe0000000)
+	return IADDR_HOST | SCOPE_UNIVERSE;
+    }
   return IADDR_INVALID;
 }
 

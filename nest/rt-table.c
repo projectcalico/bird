@@ -232,10 +232,18 @@ rte_validate(rte *e)
       c = ipa_classify(n->n.prefix);
       if (c < 0 || !(c & IADDR_HOST))
 	{
-	  if (!ipa_nonzero(n->n.prefix) && n->n.pxlen <= 1)
-	    return 1;		/* Default route and half-default route is OK */
-	  log(L_WARN "Ignoring bogus route %I/%d received from %I via %s",
-	      n->n.prefix, n->n.pxlen, e->attrs->from, e->attrs->proto->name);
+	  if (!ipa_nonzero(n->n.prefix))
+	    {
+	      /* Various default routes */
+#ifdef IPV6
+	      if (n->n.pxlen == 96)
+#else
+	      if (n->n.pxlen <= 1)
+#endif
+		return 1;
+	    }
+	  log(L_WARN "Ignoring bogus route %I/%d received via %s",
+	      n->n.prefix, n->n.pxlen, e->attrs->proto->name);
 	  return 0;
 	}
       if ((c & IADDR_SCOPE_MASK) < e->attrs->proto->min_scope)

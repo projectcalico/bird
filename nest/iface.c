@@ -371,8 +371,10 @@ ifa_update(struct ifa *a)
 
   if (!(i->flags & IF_MULTIACCESS) && a->pxlen < BITS_PER_IP_ADDRESS - 2)
     log(L_WARN "Strange prefix length %d for point-to-point interface %s", a->pxlen, i->name);
+#ifndef IPV6
   if ((i->flags & IF_BROADCAST) && !ipa_nonzero(a->brd))
     log(L_ERR "Missing broadcast address for interface %s", i->name);
+#endif
 
   b = mb_alloc(if_pool, sizeof(struct ifa));
   memcpy(b, a, sizeof(struct ifa));
