@@ -9,6 +9,8 @@ Core
 
 - tagging of external routes?
 
+- when an identical route is received, don't trigger updates
+
 Commands
 ~~~~~~~~
 - showing of routing table as seen by given protocol

@@ -14,7 +14,8 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS)
+CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
+	MULTIHOP)
 
 CF_GRAMMAR
 
@@ -23,6 +24,9 @@ CF_ADDTO(proto, bgp_proto '}' { bgp_check(BGP_CFG); } )
 bgp_proto_start: proto_start BGP {
      this_proto = proto_config_new(&proto_bgp, sizeof(struct bgp_config));
      this_proto->preference = DEF_PREF_BGP;
+     BGP_CFG->hold_time = 240;
+     BGP_CFG->connect_retry_time = 120;
+     BGP_CFG->keepalive_time = 30;
   }
  ;
 
@@ -38,6 +42,10 @@ bgp_proto:
      BGP_CFG->remote_ip = $3;
      BGP_CFG->remote_as = $5;
    }
+ | bgp_proto HOLD TIME NUM ';' { BGP_CFG->hold_time = $4; }
+ | bgp_proto CONNECT RETRY TIME NUM ';' { BGP_CFG->connect_retry_time = $5; }
+ | bgp_proto KEEPALIVE TIME NUM ';' { BGP_CFG->connect_retry_time = $4; }
+ | bgp_proto MULTIHOP NUM ';' { BGP_CFG->multihop = $3; }
  ;
 
 CF_CODE
