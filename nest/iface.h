@@ -114,14 +114,18 @@ typedef struct neighbor {
  */
 neighbor *neigh_find(struct proto *, ip_addr *, unsigned flags);
 
+static inline int neigh_connected_to(struct proto *p, ip_addr *a, struct iface *i)
+{
+  neighbor *n = neigh_find(p, a, 0);
+  return n && n->iface == i;
+}
+
 void neigh_dump(neighbor *);
 void neigh_dump_all(void);
 void neigh_prune(void);
 void neigh_if_up(struct iface *);
 void neigh_if_down(struct iface *);
 void neigh_init(struct pool *);
-
-extern int if_connected(ip_addr *a, struct iface *i); /* -1=error, 1=match, 0=no match */
 
 /*
  *	Interface Pattern Lists
