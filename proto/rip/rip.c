@@ -6,8 +6,10 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
  	FIXME: IpV6 support: packet size
- 	FIXME: IpV6 support: use right address for broadcasts
-	FIXME: IpV6 support: receive "route using" blocks
+	FIXME: (nonurgent) IpV6 support: receive "route using" blocks
+	FIXME: (nonurgent) IpV6 support: generate "nexthop" blocks
+		next hops are only advisory, and they are pretty ugly in IpV6.
+		I suggest just forgetting about them.
 
 	FIXME (nonurgent): fold rip_connection into rip_interface?
 
@@ -127,7 +129,11 @@ rip_tx( sock *s )
     packet->heading.unused  = 0;
 
     i = !!P_CF->authtype;
+#ifndef IPV6
     maxi = ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX);
+#else
+    maxi = 5; /* We need to have at least reserve of one at end of packet */
+#endif
     
     FIB_ITERATE_START(&P->rtable, &c->iter, z) {
       struct rip_entry *e = (struct rip_entry *) z;
@@ -298,6 +304,10 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   CHK_MAGIC;
   TRACE(D_ROUTES, "block: %I tells me: %I/??? available, metric %d... ", whotoldme, network, metric );
   if ((!metric) || (metric > P_CF->infinity)) {
+#ifdef IPV6 /* Someone is sedning us nexthop and we are ignoring it */
+    if (metric == 0xff)
+      { debug( "IpV6 nexthop ignored" ); return; }
+#endif
     log( L_WARN "Got metric %d from %I", metric, whotoldme );
     return;
   }
@@ -581,8 +591,13 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
     if (new->addr->flags & IA_UNNUMBERED)
       log( L_WARN "%s: rip is not defined over unnumbered links", P_NAME );
     if (rif->multicast) {
+#ifndef IPV6
       rif->sock->daddr = ipa_from_u32(0xe0000009);
       rif->sock->saddr = ipa_from_u32(0xe0000009);
+#else
+      p_pton("FF02::9", &rif->sock->daddr);
+      p_pton("FF02::9", &rif->sock->saddr);
+#endif
     } else
       rif->sock->daddr = new->addr->brd;
   }
