@@ -31,8 +31,6 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
   u8 *aa,*bb;
 
   if((oa->rt==NULL)||(EMPTY_LIST(oa->lsal))) originate_rt_lsa(oa);
-    oa->origrt=0;
-
 
   p=(struct proto *)(ifa->proto);
 
