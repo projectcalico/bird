@@ -822,7 +822,6 @@ rip_rte_insert(net *net, rte *rte)
 static void
 rip_rte_remove(net *net, rte *rte)
 {
-  struct proto *p = rte->attrs->proto;
   rem_node( &rte->u.rip.garbage );
 }
 
