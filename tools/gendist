@@ -17,7 +17,7 @@ echo Building $REL
 rm -rf dist
 mkdir -p dist/$REL dist/$DREL/doc
 cp -a . dist/$REL
-scp -C atrey:~mj/BIRD/CVSROOT/ChangeLog dist/$REL
+scp -C atrey.karlin.mff.cuni.cz:~mj/BIRD/CVSROOT/ChangeLog dist/$REL
 mv dist/$REL/doc/*.ps dist/$DREL/doc
 rm -f dist/$REL/bird.conf
 rm -rf `find dist/$REL -name CVS -o -name tmp` dist/$REL/{dist,misc,rfc,doc/slides}
