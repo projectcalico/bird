@@ -260,6 +260,16 @@ rta_cow(void)
  *
  * Interpret given tree of filter instructions. This is core function
  * of filter system and does all the hard work.
+ *
+ * Each instruction has 4 fields: code (which is instruction code),
+ * aux (which is extension to instruction code, typically type),
+ * arg1 and arg2 - arguments. Depending on instruction, arguments
+ * are either integers, or pointers to instruction trees. Common 
+ * instructions like +, that have two expressions as arguments use
+ * TWOARGS macro to get both of them evaluated.
+ *
+ * &f_val structures are copied around, so there are no problems with
+ * memory managment.
  */
 static struct f_val
 interpret(struct f_inst *what)

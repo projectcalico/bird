@@ -10,7 +10,9 @@
 #include "conf/conf.h"
 #include "filter/filter.h"
 
-/* Finds n-th item in list linked by right. Trashes pointers in right. */
+/*
+ * find_nth - finds n-th element in linked list. Don't be confused by tree structures.
+ */
 static struct f_tree *
 find_nth(struct f_tree *from, int nth)
 {
@@ -41,7 +43,9 @@ find_nth(struct f_tree *from, int nth)
   return find_nth(left, nth);
 }
 
-/* Gets list linked by left, finds its median, trashes pointers in right */
+/*
+ * Gets list linked by left, finds its median, trashes pointers in right */
+ */
 static struct f_tree *
 find_median(struct f_tree *from)
 {
@@ -57,6 +61,15 @@ find_median(struct f_tree *from)
   return find_nth(from, cnt/2);
 }
 
+/**
+ * find_tree
+ * @t: tree to search in
+ * @val: value to find
+ *
+ * Search for given value in the tree. I relies on fact that sorted tree is populated
+ * by &f_val structures (that can be compared by val_compare()). In each node of tree, 
+ * either single value (then t->from==t->to) or range is present.
+ */
 struct f_tree *
 find_tree(struct f_tree *t, struct f_val val)
 {
@@ -71,7 +84,12 @@ find_tree(struct f_tree *t, struct f_val val)
     return find_tree(t->left, val);
 }
 
-/* Gets list linked by left */
+/**
+ * build_tree
+ * @from: degenerated tree (linked by tree->left) to be transformed into form suitable for find_tree()
+ *
+ * Transforms denerated tree into balanced tree.
+ */
 struct f_tree *
 build_tree(struct f_tree *from)
 {
