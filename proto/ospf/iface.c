@@ -54,11 +54,7 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
       }
       else
       {
-        if(ifa->dr_sk!=NULL)
-        {
-          sk_close(ifa->dr_sk);
-          rfree(ifa->dr_sk);
-        }
+        if(ifa->dr_sk!=NULL) rfree(ifa->dr_sk);
       }
     }
   }
