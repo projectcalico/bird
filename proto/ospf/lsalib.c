@@ -44,16 +44,18 @@ htonlsab(void *h, void *n, u8 type, u16 len)
     {
       struct ospf_lsa_rt *hrt, *nrt;
       struct ospf_lsa_rt_link *hrtl,*nrtl;
+      u16 links;
 
       nrt=n;
       hrt=h;
+      links=hrt->links;
 
       nrt->VEB=hrt->VEB;
       nrt->padding=0;
       nrt->links=htons(hrt->links);
       nrtl=(struct ospf_lsa_rt_link *)(nrt+1);
       hrtl=(struct ospf_lsa_rt_link *)(hrt+1);
-      for(i=0;i<hrt->links;i++)
+      for(i=0;i<links;i++)
       {
         (nrtl+i)->id=htonl((hrtl+i)->id);
         (nrtl+i)->data=htonl((hrtl+i)->data);
@@ -137,16 +139,17 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
     {
       struct ospf_lsa_rt *hrt, *nrt;
       struct ospf_lsa_rt_link *hrtl,*nrtl;
+      u16 links;
 
       nrt=n;
       hrt=h;
 
       hrt->VEB=nrt->VEB;
       hrt->padding=0;
-      hrt->links=ntohs(nrt->links);
+      links=hrt->links=ntohs(nrt->links);
       nrtl=(struct ospf_lsa_rt_link *)(nrt+1);
       hrtl=(struct ospf_lsa_rt_link *)(hrt+1);
-      for(i=0;i<hrt->links;i++)
+      for(i=0;i<links;i++)
       {
         (hrtl+i)->id=ntohl((nrtl+i)->id);
         (hrtl+i)->data=ntohl((nrtl+i)->data);
@@ -219,4 +222,64 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
     default: die("(ntoh): Unknown LSA\n");
   }
 };
+
+#define MODX 4102		/* larges signed value without overflow */
+
+/* Fletcher Checksum -- Refer to RFC1008. */
+#define MODX                 4102
+#define LSA_CHECKSUM_OFFSET    15
+
+/* FIXME This is VERY uneficient, I have huge endianity problems */
+
+void
+lsasum_calculate(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
+{
+  u8 *sp, *ep, *p, *q, *b;
+  int c0 = 0, c1 = 0;
+  int x, y;
+  u16 length;
+
+  h->checksum = 0;
+  b=body;
+  length = h->length-2;
+  sp = (char *) &h->options;
+
+  htonlsah(h,h);
+  htonlsab(b,b,h->type,length+2);
+
+  for (ep = sp + length; sp < ep; sp = q)
+    {
+      q = sp + MODX;
+      if (q > ep)
+        q = ep;
+      for (p = sp; p < q; p++)
+        {
+          if(p<(u8 *)(h+1))
+	  {
+            c0 += *p;
+	    /*DBG("XXXXXX: %u\t%u\n", p-sp, *p);*/
+	  }
+	  else
+          {
+            c0 += *(b+(p-sp)-sizeof(struct ospf_lsa_header)+2);
+	    /*DBG("YYYYYY: %u\t%u\n", p-sp,*(b+(p-sp)-sizeof(struct ospf_lsa_header)+2));*/
+          }
+          c1 += c0;
+        }
+      c0 %= 255;
+      c1 %= 255;
+    }
+
+  x = ((length - LSA_CHECKSUM_OFFSET) * c0 - c1) % 255;
+  if (x <= 0)
+    x += 255;
+  y = 510 - c0 - x;
+  if (y > 255)
+    y -= 255;
+
+  h->checksum = x + (y << 8);
+  
+  ntohlsah(h,h);
+  ntohlsab(b,b,h->type,length+2);
+}
 

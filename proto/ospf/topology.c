@@ -195,7 +195,8 @@ addifa_rtlsa(struct ospf_iface *ifa)
   }
   oa->rt->lsa.length=make_rt_lsa(oa, po)+sizeof(struct ospf_lsa_header);
   oa->rt->lsa.checksum=0;
-  oa->rt->lsa.checksum=ipsum_calculate(&(oa->rt->lsa.options),sizeof(struct ospf_lsa_header)-2,oa->rt->lsa_body,oa->rt->lsa.length-sizeof(struct ospf_lsa_header),NULL);
+  /*oa->rt->lsa.checksum=ipsum_calculate(&(oa->rt->lsa.options),sizeof(struct ospf_lsa_header)-2,oa->rt->lsa_body,oa->rt->lsa.length-sizeof(struct ospf_lsa_header),NULL);*/
+  lsasum_calculate(&(oa->rt->lsa),oa->rt->lsa_body,po);
   /*FIXME lsa_flood(oa->rt) */
 }
 
