@@ -8,8 +8,6 @@
 
 #include "ospf.h"
 
-#define LOCAL_DEBUG
-
 void
 init_infib(struct fib_node *fn)
 {
@@ -57,12 +55,16 @@ ospf_rt_spfa(struct ospf_area *oa)
     en->color=OUTSPF;
     en->dist=LSINFINITY;
     en->nhi=NULL;
+    en->nh=ipa_from_u32(0);
+    DBG("Infinitying Type: %u, Id: %I, Rt: %I\n", en->lsa.type, en->lsa.id,
+      en->lsa.rt);
   }
 
   FIB_WALK(in,nftmp)
   {
     nf=(struct infib *)nftmp;
     nf->metric=LSINFINITY;
+    nf->en=NULL;
   }
   FIB_WALK_END;
 
@@ -109,16 +111,22 @@ ospf_rt_spfa(struct ospf_area *oa)
 	     nf=fib_get(in,&ip, ipa_mklen(ipa_from_u32(rtl->data)));
 	     if(nf->metric>(met=act->dist+rtl->metric))
 	     {
+               DBG("       Adding stub route....\n");
+               if(oa->rt==act) break;
+               if(act->nhi==NULL) break;
 	       nf->metric=met;
 	       nf->en=act;
+               DBG("            Adding stub route: %I\n",ip);
+               DBG("            Next hop=%I\n",nf->en->nh);
 	     }
+             else DBG("            NOT adding stub route: %I\n",ip);
 	     break;
 	    case LSART_VLNK:
 	      DBG("Ignoring\n");
 	      continue;
 	      break;
 	    case LSART_NET:
-	      tmp=ospf_hash_find(oa->gr,rtl->id,rtl->id,LSA_T_NET);
+	      tmp=ospf_hash_find(oa->gr,rtl->data,rtl->id,LSA_T_NET);
 	      if(tmp==NULL) DBG("Fuck!\n");
 	      else DBG("Found. :-)\n");
 	      break;
@@ -130,10 +138,12 @@ ospf_rt_spfa(struct ospf_area *oa)
 	      log("Unknown link type in router lsa.");
 	      break;
 	  }
+          if(tmp) DBG("Going to add cand, Mydist: %u, Req: %u\n",
+            tmp->dist, act->dist+rtl->metric);
 	  add_cand(&oa->cand,tmp,act,act->dist+rtl->metric,oa);
 	}
         break;
-      case LSA_T_NET:	/* FIXME Add to fib */
+      case LSA_T_NET:
         ln=act->lsa_body;
 	ip=ipa_and(ipa_from_u32(act->lsa.id),ln->netmask);
         nf=fib_get(in,&ip, ipa_mklen(ln->netmask));
@@ -141,13 +151,13 @@ ospf_rt_spfa(struct ospf_area *oa)
 	{
 	  nf->metric=act->dist;
 	  nf->en=act;
+          DBG("    Adding into routing table\n");
 	}
-
 	rts=(u32 *)(ln+1);
 	for(i=0;i<(act->lsa.length-sizeof(struct ospf_lsa_header)-
 	  sizeof(struct ospf_lsa_net))/sizeof(u32);i++)
 	{
-	  DBG("     Working on router %I ",*(rts+i));
+	  DBG("     Working on router %I ", *(rts+i));
 	  tmp=ospf_hash_find(oa->gr, *(rts+i), *(rts+i), LSA_T_RT);
 	  if(tmp!=NULL) DBG("Found :-)\n");
 	  else DBG("Fuck!\n");
@@ -170,8 +180,9 @@ again:
       ln=en->lsa_body;
   
       ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
-      DBG("Deleting rt entry %I\n     (IP: %I, GW: %I, Iface: %s)\n",
-        nf->fn.prefix,ip,en->nh,en->nhi->name);
+      if((en!=NULL)&&(en->nhi!=NULL))
+        DBG("Deleting rt entry %I\n     (P: %x, GW: %I, Iface: %s)\n",
+        nf->fn.prefix, en, en->nh,en->nhi->name);
       rte_update(p->table, ne, p, NULL);
 
       /* Now delete my fib */
@@ -211,12 +222,12 @@ again:
         a0.source=RTS_OSPF;
         a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
         a0.cast=RTC_UNICAST;
-        a0.dest=RTD_ROUTER;
+        if(ipa_to_u32(en->nh)==0) a0.dest=RTD_DEVICE;
+        else a0.dest=RTD_ROUTER;
         a0.flags=0;
         a0.aflags=0;
         a0.iface=en->nhi;
         a0.gw=en->nh;
-        a0.from=en->nh;		/* FIXME Just a test */
         ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
         e=rte_get_temp(&a0);
         e->u.ospf.metric1=nf->metric;
@@ -225,8 +236,8 @@ again:
         e->pflags = 0;
         e->net=ne;
 	e->pref = p->preference;
-        DBG("Modifying rt entry %I\n     (IP: %I, GW: %I, Iface: %s)\n",
-          nf->fn.prefix,ip,en->nh,en->nhi->name);
+        DBG("Modifying rt entry %I\n     (GW: %I, Iface: %s)\n",
+          nf->fn.prefix,en->nh,en->nhi->name);
         rte_update(p->table, ne, p, e);
       }
     }
@@ -282,6 +293,9 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     le=en->lsa_body;
     lt=(struct ospf_lsa_ext_tos *)(le+1);
 
+    DBG("%s: Working on LSA. ID: %I, RT: %I, Type: %u, Mask %I\n",
+        p->name,en->lsa.id,en->lsa.rt,en->lsa.type,le->netmask);
+
     if(lt->metric==LSINFINITY) continue;
     ip=ipa_and(ipa_from_u32(en->lsa.id),le->netmask);
     mlen=ipa_mklen(le->netmask);
@@ -296,11 +310,10 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
     WALK_LIST(atmp,po->area_list)
     {
-      if((nf=fib_find(&atmp->infib,&ip, mlen))!=NULL) break;
+      if((nf=fib_find(&atmp->infib,&ip, mlen))!=NULL) continue;
+      /* Some intra area path exists */
     }
 
-    if(nf!=NULL) continue;	/* Some intra area path exists */
-    
     absr=NULL;
     absroa=NULL;
     nnhi=NULL;
@@ -320,7 +333,11 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
         }
       }
     }
-    if((absr==NULL)||(absr->dist==LSINFINITY)) continue;
+    if((absr==NULL)||(absr->dist==LSINFINITY))
+    {
+      DBG("ABSR is null or its dist=INF\n");
+      continue;
+    }
 
     if(ipa_compare(lt->fwaddr,ipa_from_u32(0))==0)
     {
@@ -346,7 +363,13 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 	  break;
 	}
       }
-      if(nf==NULL) continue;
+
+      if(nf==NULL)
+      {
+        DBG("Cannot find network route (GW=%I\n",lt->fwaddr);
+        continue;
+      }
+
       if(lt->etos>0)
       {
         met=nf->metric;
@@ -385,6 +408,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
           if((neigh=find_neigh_noifa(po,absr->lsa.rt))==NULL)
 	  {
+             DBG("Cannot find neighbor\n");
 	     continue;
 	  }
           nn=neigh_find(p,&neigh->ip,0);
@@ -438,7 +462,6 @@ noch:
       a0.aflags=0;
       a0.iface=nf->nhi;
       a0.gw=nf->nh;
-      a0.from=nf->nh;		/* FIXME Just a test */
       ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
       e=rte_get_temp(&a0);
       e->u.ospf.metric1=nf->metric;
@@ -526,22 +549,65 @@ calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
   struct ospf_neighbor *neigh;
   struct proto *p=&oa->po->proto;
   struct proto_ospf *po=oa->po;
+  struct ospf_iface *ifa;
   DBG("     Next hop called\n");
-  if(par==oa->rt) return;
-  if(par->nhi==NULL)
+  if(ipa_to_u32(par->nh)==0)
   {
     neighbor *nn;
     DBG("     Next hop calculating for id: %I rt: %I type: %u\n",en->lsa.id,en->lsa.rt,en->lsa.type);
-    if(par->lsa.type!=LSA_T_RT) return;
-    if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
-    nn=neigh_find(p,&neigh->ip,0);
-    DBG("     Next hop calculated: %I\n", nn->addr);
-    en->nh=nn->addr;
-    en->nhi=nn->iface;
-    return;
+    if(par->lsa.type!=LSA_T_RT) 
+    {
+      if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
+      nn=neigh_find(p,&neigh->ip,0);
+      DBG("     Next hop calculated: %I.\n", nn->addr);
+      en->nh=nn->addr;
+      en->nhi=nn->iface;
+      return;
+    }
+    else
+    {
+      if(par==oa->rt)
+      {
+        if(en->lsa.type==LSA_T_NET)
+        {
+          struct ospf_lsa_net *ne;
+          ne=en->lsa_body;
+  
+          DBG("I'm parent (Net=%I)\n",(en->lsa.id & ipa_to_u32(ne->netmask)));
+  
+          WALK_LIST(ifa, oa->po->iface_list)
+          {
+            if(ipa_to_u32(ipa_and(ifa->iface->addr->ip,
+              ipa_mkmask(ifa->iface->addr->pxlen))) ==
+              (en->lsa.id & ipa_to_u32(ne->netmask)))
+            {
+              en->nhi=ifa->iface;
+              en->nh=ipa_from_u32(0);
+              DBG("Ifa: %s\n",en->nhi->name);
+              return;
+            }
+          }
+        }
+        else
+        {
+          if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
+          nn=neigh_find(p,&neigh->ip,0);
+          en->nh=ipa_from_u32(0);
+          en->nhi=nn->iface;
+        }
+        return;
+      }
+           
+      if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
+      nn=neigh_find(p,&neigh->ip,0);
+      DBG("     Next hop calculated: %I\n", nn->addr);
+      en->nh=nn->addr;
+      en->nhi=nn->iface;
+      return;
+    }
   }
   en->nh=par->nh;
   en->nhi=par->nhi;
-  DBG("     Next hop calculated: %I\n", en->nh);
+  DBG("     Next hop calculated: %I..\n", en->nh);
 }
 

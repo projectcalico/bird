@@ -11,6 +11,8 @@
 void
 flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
 {
+  debug("Going to remove node: Type: %u, Id: %I, Rt: %I, Age: %u\n",
+    en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age);
   s_rem_node(SNODE en);
   ospf_hash_delete(oa->gr,en);
 }
@@ -368,7 +370,6 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
   if((l1->age==LSA_MAXAGE)&&(l2->age!=LSA_MAXAGE)) return CMP_NEWER;
   if((l2->age==LSA_MAXAGE)&&(l1->age!=LSA_MAXAGE)) return CMP_OLDER;
 
-  debug("Abs=%u\n",abs(l1->age-l2->age));
   if(abs(l1->age-l2->age)>LSA_MAXAGEDIFF)
     return l1->age<l2->age ? CMP_NEWER : CMP_OLDER;
 
@@ -383,8 +384,6 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
   int change=0;
   unsigned i;
   struct top_hash_entry *en;
-
-  if(body==NULL) die("AA");
 
   if((en=ospf_hash_find_header(oa->gr,lsa))==NULL)
   {
@@ -407,8 +406,11 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
 	}
       }
     }
-    if(change) s_rem_node(SNODE en);
+    s_rem_node(SNODE en);
   }
+
+  DBG("Inst lsa: Id: %I, Rt: %I, Type: %u, Age: %u, Sum: %u, Sn: 0x%x\n",
+    lsa->id, lsa->rt, lsa->type, lsa->age, lsa->checksum, lsa->sn);
 
   s_add_tail(&oa->lsal, SNODE en);
   en->inst_t=now;

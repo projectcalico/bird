@@ -308,12 +308,12 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       continue;
     }
     ntohlsah(lsa,&lsatmp);
-    debug("Update Type: %u ID: %I RT: %I, Sn: 0x%08x Age: %u, Sum: %u\n",
+    DBG("Update Type: %u ID: %I RT: %I, Sn: 0x%08x Age: %u, Sum: %u\n",
       lsatmp.type, lsatmp.id, lsatmp.rt, lsatmp.sn, lsatmp.age,
       lsatmp.checksum);
     lsadb=ospf_hash_find_header(oa->gr, &lsatmp);
     if(lsadb)
-      debug("I have Type: %u ID: %I RT: %I, Sn: 0x%08x Age: %u, Sum: %u\n",
+      DBG("I have Type: %u ID: %I RT: %I, Sn: 0x%08x Age: %u, Sum: %u\n",
       lsadb->lsa.type, lsadb->lsa.id, lsadb->lsa.rt, lsadb->lsa.sn,
       lsadb->lsa.age, lsadb->lsa.checksum);
 

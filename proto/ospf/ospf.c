@@ -247,12 +247,25 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
     u32 rtid=po->proto.cf->global->router_id;
     struct ospf_area *oa;
     struct top_hash_entry *en;
+    u32 pr=ipa_to_u32(n->n.prefix);
+    struct ospf_lsa_ext *ext;
+    int i;
 
     /* Flush old external LSA */
     WALK_LIST(oa, po->area_list)
     {
-      if(en=ospf_hash_find(oa->gr, ipa_to_u32(n->n.prefix), rtid, LSA_T_EXT))
-        net_flush_lsa(en,po,oa);
+      for(i=0;i<MAXNETS;i++,pr++)
+      {
+        if(en=ospf_hash_find(oa->gr, pr, rtid, LSA_T_EXT))
+        {
+          ext=en->lsa_body;
+          if(ipa_compare(ext->netmask, ipa_mkmask(n->n.pxlen))==0)
+          {
+            net_flush_lsa(en,po,oa);
+            break;
+          }
+        }
+      }
     }
   }
 }

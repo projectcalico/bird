@@ -120,8 +120,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
               if(((ifa->state==OSPF_IS_DR) && (j==1)) || (k==1))
 	      {
 	        ln->type=LSART_NET;
-		ln->id=ipa_to_u32(ifa->drip);
-		ln->data=ipa_to_u32(ifa->iface->addr->ip);
+		ln->id=ifa->drid;
+		ln->data=ipa_to_u32(ifa->drip);
 		ln->metric=ifa->cost;
 		ln->notos=0;
 	      }
@@ -227,6 +227,7 @@ originate_rt_lsa(struct ospf_area *oa)
   en=lsa_install_new(&lsa, body, oa, &po->proto);
   oa->rt=en;
   flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa,1);
+  schedule_rtcalc(oa);
 }
 
 void *
@@ -300,6 +301,8 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   body=originate_net_lsa_body(ifa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
   ifa->nlsa=lsa_install_new(&lsa, body, ifa->oa, &po->proto);
+  debug("NetLsa: Id: %I, Sum: %u Sn: 0x%x\n",ifa->nlsa->lsa.id,
+    ifa->nlsa->lsa.checksum, ifa->nlsa->lsa.sn);
   flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,1);
 }
 
@@ -350,7 +353,10 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   u32 rtid=po->proto.cf->global->router_id;
   struct top_hash_entry *en=NULL;
   void *body=NULL;
+  struct proto *p=&po->proto;
   struct ospf_area *oa;
+  struct ospf_lsa_ext *ext1,*ext2;
+  int i;
 
   debug("%s: Originating Ext lsa for %I/%d.\n", po->proto.name, n->n.prefix,
     n->n.pxlen);
@@ -363,6 +369,28 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   body=originate_ext_lsa_body(n, e, po, attrs);
   lsa.length=sizeof(struct ospf_lsa_ext)+sizeof(struct ospf_lsa_ext_tos)+
     sizeof(struct ospf_lsa_header);
+  ext1=body;
+
+  oa=HEAD(po->area_list);
+
+  for(i=0;i<MAXNETS;i++)
+  {
+    if((en=ospf_hash_find_header(oa->gr, &lsa))!=NULL)
+    {
+      ext2=en->lsa_body;
+      if(ipa_compare(ext1->netmask,ext2->netmask)!=0) lsa.id++;
+      else break;
+    }
+    else break;
+  }
+
+  if(i==MAXNETS)
+  {
+    log("%s: got more routes for one network then %d, ignoring",p->name,
+      MAXNETS);
+    mb_free(body);
+    return;
+  }
   lsasum_calculate(&lsa,body,po);
   WALK_LIST(oa, po->area_list)
   {
@@ -411,11 +439,7 @@ ospf_top_hash_u32(u32 a)
 static inline unsigned
 ospf_top_hash(struct top_graph *f, u32 lsaid, u32 rtrid, u32 type)
 {
-#if 1	/* Dirty patch to make rt table calculation work. */
-  return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32((type==2) ? lsaid : rtrid) + type) & f->hash_mask;
-#else
   return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32(rtrid) + type) & f->hash_mask;
-#endif
 }
 
 struct top_graph *
@@ -486,21 +510,8 @@ ospf_hash_find(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
 {
   struct top_hash_entry *e = f->hash_table[ospf_top_hash(f, lsa, rtr, type)];
 
-#if 1
-  if(type==2 && lsa==rtr)
-  {
-    while (e && (e->lsa.id != lsa || e->lsa.type != 2 ))
-      e = e->next;
-  }
-  else
-  {
-    while (e && (e->lsa.id != lsa || e->lsa.type != type || e->lsa.rt != rtr))
-      e = e->next;
-  }
-#else
   while (e && (e->lsa.id != lsa || e->lsa.rt != rtr || e->lsa.type != type))
     e = e->next;
-#endif
   return e;
 }
 

@@ -11,6 +11,7 @@
 
 
 #define SIPH 64		/* FIXME Size Of IP header */
+#define MAXNETS 10
 
 #include "nest/bird.h"
 
