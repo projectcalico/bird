@@ -241,13 +241,12 @@ typedef struct rta {
 #define RTS_STATIC_DEVICE 4		/* Static device route */
 #define RTS_REDIRECT 5			/* Learned via redirect */
 #define RTS_RIP 6			/* RIP route */
-#define RTS_RIP_EXT 7			/* RIP external route */
-#define RTS_OSPF 8			/* OSPF route */
-#define RTS_OSPF_EXT 9			/* OSPF external route */
-#define RTS_OSPF_IA 10			/* OSPF inter-area route */
-#define RTS_OSPF_BOUNDARY 11		/* OSPF route to boundary router (???) */
-#define RTS_BGP 12			/* BGP route */
-#define RTS_PIPE 13			/* Inter-table wormhole */
+#define RTS_OSPF 7			/* OSPF route */
+#define RTS_OSPF_EXT 8			/* OSPF external route */
+#define RTS_OSPF_IA 9			/* OSPF inter-area route */
+#define RTS_OSPF_BOUNDARY 10		/* OSPF route to boundary router */
+#define RTS_BGP 11			/* BGP route */
+#define RTS_PIPE 12			/* Inter-table wormhole */
 
 #define RTC_UNICAST 0
 #define RTC_BROADCAST 1
@@ -350,7 +349,6 @@ extern struct protocol *attr_class_to_protocol[EAP_MAX];
 #define DEF_PREF_RIP		120	/* RIP */
 #define DEF_PREF_BGP		100	/* BGP */
 #define DEF_PREF_OSPF_EXTERNAL	80	/* OSPF external routes */
-#define DEF_PREF_RIP_EXTERNAL	70	/* RIP external routes */
-#define DEF_PREF_PIPE		60	/* Routes piped from other tables */
+#define DEF_PREF_PIPE		70	/* Routes piped from other tables */
 
 #endif

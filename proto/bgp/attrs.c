@@ -561,7 +561,7 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   ea->count = 4;
 
   bgp_set_attr(ea->attrs, pool, BA_ORIGIN,
-       (rta->source == RTS_RIP_EXT || rta->source == RTS_OSPF_EXT) ? ORIGIN_INCOMPLETE : ORIGIN_IGP);
+       (rta->source == RTS_OSPF_EXT) ? ORIGIN_INCOMPLETE : ORIGIN_IGP);
 
   if (p->is_internal)
     bgp_set_attr(ea->attrs+1, pool, BA_AS_PATH, 0);
