@@ -31,7 +31,7 @@ kern_proto_start: proto_start KERNEL {
        cf_error("Kernel protocol already defined");
 #endif
      cf_krt = this_proto = proto_config_new(&proto_unix_kernel, sizeof(struct krt_config));
-     this_proto->preference = 0;
+     this_proto->preference = DEF_PREF_INHERITED;
      THIS_KRT->scan_time = 60;
      THIS_KRT->learn = THIS_KRT->persist = 0;
      krt_scan_construct(THIS_KRT);

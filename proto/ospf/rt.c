@@ -211,6 +211,7 @@ again:
         e->u.ospf.tag=0;			/* FIXME Some config? */
         e->pflags = 0;
         e->net=ne;
+	e->pref = p->preference;
         DBG("Modifying rt entry %I\n     (IP: %I, GW: %I, Iface: %s)\n",
           nf->fn.prefix,ip,en->nh,en->nhi->name);
         rte_update(p->table, ne, p, e);
