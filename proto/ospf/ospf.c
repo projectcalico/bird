@@ -286,9 +286,9 @@ ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs)
   buf += bsprintf(buf, " (%d/%d)", rte->pref,
     (rte->u.ospf.metric2==LSINFINITY) ? rte->u.ospf.metric1 :
     rte->u.ospf.metric2);
-  if(rte->attrs->source==RTS_OSPF_EXT)
+  if(rte->attrs->source==RTS_OSPF_EXT && rte->u.ospf.tag)
   {
-    buf += bsprintf(buf, " [%u]", rte->u.ospf.tag);
+    buf += bsprintf(buf, " [%x]", rte->u.ospf.tag);
   }
 }
 
