@@ -33,7 +33,8 @@ struct ospf_iface {
   node n;
   struct proto_ospf *proto;
   struct iface *iface;	/* Nest's iface */
-  sock *hello_sk;	/* List of active sockets */
+  sock *hello_sk;	/* Hello socket */
+  sock *ip_sk;		/* IP socket (for DD ...) */
   list neigh_list;	/* List of neigbours */
   u32 area;		/* OSPF Area */
   u16 cost;		/* Cost of iface */
@@ -71,7 +72,9 @@ struct ospf_iface {
 #define PRIORITY_D 1
 #define HELLOINT_D 10
 #define DEADC_D 4
-#define WAIT_DMH 2	/* Value of Wait timer - not found it in RFC - using 2*HELLO */
+#define WAIT_DMH 2	/* Value of Wait timer - not found it in RFC 
+			 * - using 2*HELLO
+			 */
 };
 
 struct ospf_patt {
@@ -106,6 +109,13 @@ struct ospf_hello_packet {
   u32 deadint;
   u32 dr;
   u32 bdr;
+};
+
+struct ospf_ddseq_packet {
+  struct ospf_packet ospf_packet;
+  u16 iface_mtu;
+  u16 options;
+  u32 ddseq_no;
 };
 
 struct ospf_neighbor

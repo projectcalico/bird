@@ -366,10 +366,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
       die("%s: Iface %s in down state?", p->name, ifa->iface->name);
       break;
     case OSPF_IS_WAITING:
-      DBG(p->name);
-      DBG(": Neighbor? on iface ");
-      DBG(ifa->iface->name);
-      DBG("\n");
+      DBG("%s: Neighbor? on iface %s\n",p->name, ifa->iface->name);
       break;
     case OSPF_IS_DROTHER:
       if(((n->rid==ifa->drid) || (n->rid==ifa->bdrid))
@@ -400,10 +397,7 @@ ospf_rx_hook(sock *sk, int size)
   ifa=(struct ospf_iface *)(sk->data);
 
   p=(struct proto *)(ifa->proto);
-  DBG(p->name);
-  DBG(": RX_Hook called on interface ");
-  DBG(sk->iface->name);
-  DBG(".\n");
+  DBG("%s: RX_Hook called on interface %s.\n",p->name, sk->iface->name);
 
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
   if(ps==NULL)
@@ -465,28 +459,30 @@ ospf_rx_hook(sock *sk, int size)
     return(1);
   }
   
-
   /* Dump packet */
   pu8=(u8 *)(sk->rbuf+5*4);
   for(i=0;i<ntohs(ps->length);i+=4)
-    debug("%s: received %u,%u,%u,%u\n",p->name, pu8[i+0], pu8[i+1], pu8[i+2],
+    DBG("%s: received %u,%u,%u,%u\n",p->name, pu8[i+0], pu8[i+1], pu8[i+2],
 		    pu8[i+3]);
   debug("%s: received size: %u\n",p->name,size);
 
   switch(ps->type)
   {
     case HELLO:
-      DBG(p->name);
-      DBG(": Hello received.\n");
+      DBG("%s: Hello received.\n", p->name);
       ospf_hello_rx((struct ospf_hello_packet *)ps, p, ifa, size);
       break;
     case DBDES:
+      DBG("%s: Database description received.\n", p->name);
       break;
     case LSREQ:
+      DBG("%s: Link state request received.\n", p->name);
       break;
     case LSUPD:
+      DBG("%s: Link state update received.\n", p->name);
       break;
     case LSACK:
+      DBG("%s: Link state ack received.\n", p->name);
       break;
     default:
       log("%s: Bad packet received: wrong type %u", p->name, ps->type);
@@ -524,11 +520,14 @@ ospf_err_hook(sock *sk, int err)
   DBG("%s: Err_Hook called on interface %s\n", p->name,sk->iface->name);
 }
 
-/* This will change ! */
 sock *
-ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
+ospf_open_mc_socket(struct ospf_iface *ifa)
 {
   sock *mcsk;
+  struct proto *p;
+
+  p=(struct proto *)(ifa->proto);
+
 
   /* FIXME: No NBMA networks now */
 
@@ -550,15 +549,43 @@ ospf_open_socket(struct proto *p, struct ospf_iface *ifa)
     mcsk->data=(void *)ifa;
     if(sk_open(mcsk)!=0)
     {
-      DBG(p->name);
-      DBG(": SK_OPEN: failed\n");
+      DBG("%s: SK_OPEN: mc open failed.\n",p->name);
       return(NULL);
     }
-    DBG(p->name);
-    DBG(": SK_OPEN: open\n");
+    DBG("%s: SK_OPEN: mc opened.\n",p->name);
     return(mcsk);
   }
   else return(NULL);
+}
+
+sock *
+ospf_open_ip_socket(struct ospf_iface *ifa)
+{
+  sock *ipsk;
+  struct proto *p;
+
+  p=(struct proto *)(ifa->proto);
+
+  ipsk=sk_new(p->pool);
+  ipsk->type=SK_IP;
+  ipsk->dport=OSPF_PROTO;
+  ipsk->saddr=ifa->iface->addr->ip;
+  ipsk->tos=IP_PREC_INTERNET_CONTROL;
+  ipsk->ttl=1;
+  ipsk->rx_hook=ospf_rx_hook;
+  ipsk->tx_hook=ospf_tx_hook;
+  ipsk->err_hook=ospf_err_hook;
+  ipsk->iface=ifa->iface;
+  ipsk->rbsize=ifa->iface->mtu;
+  ipsk->tbsize=ifa->iface->mtu;
+  ipsk->data=(void *)ifa;
+  if(sk_open(ipsk)!=0)
+  {
+    DBG("%s: SK_OPEN: ip open failed.\n",p->name);
+    return(NULL);
+  }
+  DBG("%s: SK_OPEN: ip opened.\n",p->name);
+  return(ipsk);
 }
 
 /* 
@@ -775,19 +802,24 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
     ospf_iface_default(ifa);
     if(ifa->type!=OSPF_IT_NBMA)
     {
-      if((mcsk=ospf_open_socket(p, ifa))!=NULL)
+      if((ifa->hello_sk=ospf_open_mc_socket(ifa))==NULL)
       {
-	ifa->hello_sk=mcsk;
-      }
-      else
-      {
-        log("%s: Huh? could not open socket on interface %s?", p->name,
+        log("%s: Huh? could not open mc socket on interface %s?", p->name,
           iface->name);
 	mb_free(ifa);
 	log("%s: Ignoring this interface\n", p->name);
 	return;
       }
-      /* FIXME: In fail case??? */
+
+      if((ifa->ip_sk=ospf_open_ip_socket(ifa))==NULL)
+      {
+        log("%s: Huh? could not open ip socket on interface %s?", p->name,
+          iface->name);
+	mb_free(ifa);
+	log("%s: Ignoring this interface\n", p->name);
+	return;
+      }
+
       init_list(&(ifa->neigh_list));
     }
     /* FIXME: NBMA? */
@@ -820,8 +852,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 static int
 ospf_start(struct proto *p)
 {
-  DBG(p->name);
-  DBG(": Start\n");
+  DBG("%s: Start\n",p->name);
 
   p->if_notify=ospf_if_notify;
 
