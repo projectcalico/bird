@@ -69,11 +69,6 @@ rip_tx( sock *s )
       return;
     }
 
-    if (c->done) {
-      DBG( "looks like I'm done!\n" );
-      return;
-    }
-
     DBG( "Preparing packet to send: " );
 
     packet->heading.command = RIPCMD_RESPONSE;

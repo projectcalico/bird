@@ -14,6 +14,7 @@
 #protocol rip MyRIP_test {
 #	preference xyzzy;
 #	debug all;
+#	import filter okay;
 #}
 
 protocol direct {

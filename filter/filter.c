@@ -93,6 +93,8 @@ val_print(struct f_val v)
   printf( buf );
 }
 
+static struct rte **f_rte;
+
 static struct f_val
 interpret(struct f_inst *what)
 {
@@ -218,6 +220,36 @@ interpret(struct f_inst *what)
       bug( "unknown return type: can not happen");
     }
     break;
+  case 'a':	/* rta access */
+    {
+      struct rta *rta = (*f_rte)->attrs;
+      res.type = what->a1.i;
+      switch(res.type) {
+      case T_IP:
+	res.val.ip = * (ip_addr *) ((char *) rta + what->a2.i);
+	break;
+      case T_PREFIX:	/* Warning: this works only for prefix of network */
+	{
+	  res.val.px.ip = (*f_rte)->net->n.prefix;
+	  res.val.px.len = (*f_rte)->net->n.pxlen;
+	  break;
+	}
+      default:
+	bug( "Invalid type for rta access" );
+      }
+    }
+    break;
+  case 'cp':	/* Convert prefix to ... */
+    ONEARG;
+    if (v1.type != T_PREFIX)
+      runtime( "Can not convert non-prefix this way" );
+    res.type = what->a2.i;
+    switch(res.type) {
+    case T_INT:	res.val.i = v1.val.px.len; break;
+    case T_IP: res.val.ip = v1.val.px.ip; break;
+    default: bug( "Unknown prefix to conversion\n" );
+    }
+    break;
   default:
     bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
   }
@@ -233,6 +265,7 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   struct f_val res;
   debug( "Running filter `%s'...", filter->name );
 
+  f_rte = rte;
   inst = filter->root;
   res = interpret(inst);
   if (res.type != T_RETURN)

@@ -23,6 +23,9 @@ CF_KEYWORDS(FUNCTION, PRINT, CONST,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
 	IF, THEN, ELSE,
 	TRUE, FALSE,
+	RTA, FROM, GW, NET,
+	LEN,
+	IMPOSSIBLE,
 	FILTER
 	)
 
@@ -179,6 +182,13 @@ term:
      }
    }
  | constant { $$ = $1; }
+ | RTA '.' FROM { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
+
+ | RTA '.' GW { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
+ | RTA '.' NET  { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_PREFIX; $$->a2.i = 0x12345678; }
+
+ | term '.' IP { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_IP; }
+ | term '.' LEN { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->a2.i = T_INT; }
  ;
 
 break_command:

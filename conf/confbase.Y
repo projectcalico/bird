@@ -39,7 +39,7 @@ CF_DECLS
 
 %type <i> expr bool pxlen
 
-%nonassoc '=' '<' '>' '~' ELSE IF
+%nonassoc '=' '<' '>' '~' ELSE IF '.'
 %left '+' '-'
 %left '*' '/' '%'
 %left '!'
