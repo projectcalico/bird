@@ -12,7 +12,7 @@ static struct proto *this_proto;
 
 CF_DECLS
 
-CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE)
+CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF)
 
 %type <i> idval
 
@@ -58,6 +58,10 @@ proto_item:
      if ($2 < 0 || $2 > 255) cf_error("Invalid preference");
      this_proto->preference = $2;
    }
+ | DISABLED { this_proto->disabled = 1; }
+ | DEBUG expr { this_proto->debug = $2; }
+ | DEBUG ALL { this_proto->debug = ~0; }
+ | DEBUG OFF { this_proto->debug = 0; }
  ;
 
 CF_CODE
