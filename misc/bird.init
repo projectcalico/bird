@@ -1,0 +1,66 @@
+#! /bin/sh
+#
+# bird.init    Starts the Internet Routing Daemon.
+#
+# Author:      Ondrej Feela Filip, <feela@network.cz>
+#
+# chkconfig: - 32 75
+# description: Internet routing daemon supporting IPv4 routing protocols:
+#              BGP4, RIPv2 and OSPFv2.
+#
+# processname: bird
+# config: /etc/bird.conf
+
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# Check that networking is up.
+if [ ${NETWORKING} = "no" ]
+then
+	exit 0
+fi
+
+[ -f /etc/bird.conf ] || exit 0
+
+[ -f /usr/sbin/bird ] || exit 0
+
+RETVAL=0
+
+# See how we were called.
+case "$1" in
+  start)
+	echo -n "Starting BIRD: "
+	daemon bird
+	RETVAL=$?
+
+	echo
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/bird
+	;;
+  stop)
+	echo -n "Stopping BIRD: "
+	killproc bird
+	RETVAL=$?
+
+	echo
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/bird
+	;;
+  status)
+	status bird
+	RETVAL=$?
+	;;
+  restart)
+  	$0 stop
+	$0 start
+	RETVAL=$?
+	;;
+  reload)
+	killall -HUP bird
+	RETVAL=$?
+	;;
+  *)
+	echo "Usage: bird.init {start|stop|status|restart|reload}"
+	exit 1
+esac
+
+exit $REVAL
