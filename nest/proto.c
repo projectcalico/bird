@@ -231,6 +231,8 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 		      PD(p, "Reconfigured");
 		      p->cf = nc;
 		      p->name = nc->name;
+		      p->in_filter = nc->in_filter;
+		      p->out_filter = nc->out_filter;
 		      nc->proto = p;
 		      continue;
 		    }
