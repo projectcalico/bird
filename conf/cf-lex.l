@@ -349,6 +349,8 @@ cf_symbol_class_name(struct symbol *sym)
       return "filter";
     case SYM_TABLE:
       return "routing table";
+    case SYM_IPA:
+      return "network address";
     default:
       return "unknown type";
     }
