@@ -28,20 +28,52 @@ struct fib_node {
   byte pxlen;
   byte flags;				/* ??? define them ??? */
   byte pad0, pad1;			/* ??? use ??? */
-  struct fib_node *left, *right, *up;	/* Radix Trie links */
+  struct fib_node *next;		/* Next in hash chain */
 };
 
 struct fib {
   slab fib_slab;			/* Slab holding all fib nodes */
-  struct fib_node root;
+  struct fib_node *hash_table;		/* Node hash table */
+  unsigned int hash_size;		/* Number of hash table entries (a power of two) */
+  unsigned int entries;			/* Number of entries */
+  unsigned int entries_min, entries_max;/* Entry count limits (else start rehashing) */
   void (*init)(struct fib_node *);	/* Constructor */
 };
 
-void fib_init(struct fib *, pool *, unsigned node_size, void (*init)(struct fib_node *));
+void fib_init(struct fib *, pool *, unsigned node_size, unsigned hash_size, void (*init)(struct fib_node *));
 void *fib_find(struct fib *, ip_addr *, int);	/* Find or return NULL if doesn't exist */
-void *fib_find_ip(struct fib *, ip_addr *); 	/* Longest match (always exists) */
 void *fib_get(struct fib *, ip_addr *, int); 	/* Find or create new if nonexistent */
-void fib_delete(struct fib *);
+void fib_delete(void *);		/* Remove fib entry */
+void fib_free(struct fib *);		/* Destroy the fib */
+
+#define FIB_WALK(fib, op) {					\
+	struct fib_node *f, **ff = (fib)->hash_table;		\
+	unsigned int count = (fib)->hash_size;			\
+	while (count--)						\
+	  for(f = *ff++; f; f=f->next)				\
+	    {							\
+	      op						\
+	    }							\
+	}
+
+/*
+ *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen
+ *	along with pointer to protocol-specific data.
+ *
+ *	The primary goal of this cache is to quickly validate all incoming
+ *	packets if their have been sent by our neighbors and to notify
+ *	protocols about lost neighbors when an interface goes down.
+ */
+
+typedef struct neighbor {
+  ip_addr addr;				/* Address of the neighbor */
+  struct next *next;			/* Next in hashed chain */
+  struct next *sibling;			/* Next in per-device chain */
+  struct proto *proto;			/* Protocol this belongs to */
+  void *data;				/* Protocol-specific data */
+} neighbor;
+
+neighbor *neigh_find(ip_addr *);	/* NULL if not a neighbor */
 
 /*
  *	Master Routing Table. Generally speaking, it's a FIB with each entry
@@ -105,14 +137,17 @@ struct rtattr {
   struct proto *proto;			/* Protocol instance */
   unsigned uc;				/* Use count */
   byte source;				/* Route source (RTS_...) */
-  byte scope;				/* Route scope (SCOPE_...) */
+  byte scope;				/* Route scope (SCOPE_... -- see ip.h) */
   byte cast;				/* Casting type (RTC_...) */
   byte dest;				/* Route destination type (RTD_...) */
   byte tos;				/* TOS of this route */
   byte flags;				/* Route flags (RTF_...) */
   ip_addr gw;				/* Next hop */
+  ip_addr from;				/* Advertising router */
   struct iface *iface;			/* Outgoing interface */
   struct ea_list *attrs;		/* Extended Attribute chain */
+  union {				/* Protocol-specific data */
+  } u;
 } rta;
 
 #define RTS_STATIC 1			/* Normal static route */
@@ -128,11 +163,6 @@ struct rtattr {
 #define RTS_OSPF_BOUNDARY 11		/* OSPF route to boundary router (???) */
 #define RTS_BGP 12			/* BGP route */
 
-#define SCOPE_HOST 0			/* Address scope */
-#define SCOPE_LINK 1
-#define SCOPE_SITE 2
-#define SCOPE_UNIVERSE 3
-
 #define RTC_UNICAST 0
 #define RTC_BROADCAST 1
 #define RTC_MULTICAST 2
@@ -145,7 +175,7 @@ struct rtattr {
 #define RTD_PROHIBIT 4			/* Administratively prohibited */
 
 #define RTF_EXTERIOR 1			/* Learned via exterior protocol */
-#define RTF_TAGGED 2			/* Tagged route learned via IGP */
+#define RTF_TAGGED 2			/* Tagged external route learned via IGP */
 
 /*
  *	Extended Route Attributes
@@ -155,6 +185,7 @@ typedef struct eattr {
   byte protocol;			/* Protocol ID (EAP_...) */
   byte flags;				/* Attribute flags (EAF_...) */
   byte id;				/* Protocol-dependent ID */
+  byte rfu;				/* ??? */
   union {
     u32 data;
     struct adata *ptr;			/* Attribute data elsewhere */
@@ -177,7 +208,7 @@ struct adata {
 
 typedef struct ea_list {
   struct ea_list *next;			/* In case we have an override list */
-  byte sorted;				/* `Really sorted' flag */
+  byte sorted;				/* `Really sorted' flag (???) */
   byte rfu;
   word nattrs;				/* Number of attributes */
   eattr attrs[0];			/* Attribute definitions themselves */
@@ -188,8 +219,21 @@ eattr *ea_find(ea_list *, unsigned protocol, unsigned id);
 #define EA_LIST_NEW(p, alloc, n) do {				\
 	unsigned cnt = n;				       	\
 	p = alloc(sizeof(ea_list) + cnt*sizeof(eattr));		\
-	memset(p, sizeof(ea_list));				\
+	memset(p, 0, sizeof(ea_list));				\
 	p->nattrs = cnt;					\
 } while(0)
+
+/*
+ *	Default protocol preferences
+ */
+
+#define DEF_PREF_DIRECT	    	240	/* Directly connected */
+#define DEF_PREF_STATIC		200	/* Static route */
+#define DEF_PREF_OSPF_INTERNAL	150	/* OSPF intra-area, inter-area and type 1 external routes */
+#define DEF_PREF_RIP		120	/* RIP */
+#define DEF_PREF_BGP		100	/* BGP */
+#define DEF_PREF_OSPF_EXTERNAL	80	/* OSPF external routes */
+#define DEF_PREF_RIP_EXTERNAL	70	/* RIP external routes */
+#define DEF_PREF_SINK		10	/* Sink route */
 
 #endif

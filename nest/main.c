@@ -13,10 +13,8 @@
 int
 main(void)
 {
-	ip_addr x,y;
+  log_init_debug(NULL);
+  resource_init();
 
-	x=y;
-	if (ipa_equal(x,y)) return 1;
-
-	return 0;
+  return 0;
 }

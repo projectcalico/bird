@@ -15,6 +15,7 @@ struct iface {
   node n;
   char *name;
   unsigned flags;
+  unsigned mtu;
   struct ifa *ifa;			/* First address is primary */
 };
 
@@ -33,6 +34,7 @@ struct ifa {
   ip_addr prefix;			/* Network prefix */
   unsigned pxlen;			/* Prefix length */
   ip_addr brd;				/* Broadcast address */
+  struct neighbor *neigh;		/* List of neighbors on this interface */
 };
 
 #endif
