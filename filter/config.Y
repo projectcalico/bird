@@ -26,7 +26,7 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST, UNSET, RETURN,
+CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
 	IF, THEN, ELSE, CASE,
@@ -250,9 +250,10 @@ switch_body: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
+/* CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; } */
+
 constant:
-   CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; }
- | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT;  $$->a2.i = $1; }
+   NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT;  $$->a2.i = $1; }
  | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_BOOL; $$->a2.i = 1;  }
  | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_BOOL; $$->a2.i = 0;  }
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_STRING; $$->a2.p = $1; }
