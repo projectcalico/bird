@@ -156,5 +156,4 @@ struct protocol proto_static = {
   init:		static_init,
   dump:		static_dump,
   start:	static_start,
-  /* FIXME: We'll need a shutdown function here */
 };
