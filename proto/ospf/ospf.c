@@ -267,6 +267,8 @@ schedule_rtcalc(struct ospf_area *oa)
   struct proto_ospf *po=oa->po;
   struct proto *p=&po->proto;
 
+  if(oa->calcrt) return;
+
   OSPF_TRACE(D_EVENTS, "Scheduling RT calculation for area %I.", 
     oa->areaid);
   oa->calcrt=1;
