@@ -92,9 +92,9 @@ static struct attr_desc bgp_attr_table[] = {
     NULL, NULL },
   { "local_pref", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,		/* BA_LOCAL_PREF */
     NULL, NULL },
-  { "atomic_aggr", 0, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,		/* BA_ATOMIC_AGGR */
+  { "atomic_aggr", 0, BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_ATOMIC_AGGR */
     NULL, NULL },
-  { "aggregator", 6, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,		/* BA_AGGREGATOR */
+  { "aggregator", 6, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_AGGREGATOR */
     NULL, NULL },
   { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET, 1,  /* BA_COMMUNITY */
     NULL, NULL },
