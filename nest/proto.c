@@ -111,6 +111,7 @@ proto_config_new(struct protocol *pr, unsigned size)
   c->proto = pr;
   c->debug = pr->debug;
   c->name = pr->name;
+  c->out_filter = FILTER_REJECT;
   return c;
 }
 
@@ -247,9 +248,9 @@ protos_dump_all(void)
       debug("  protocol %s (pri=%d): state %s/%s\n", p->name, p->proto->priority,
 	    p_states[p->proto_state], c_states[p->core_state]);
       if (p->in_filter)
-	debug("\tInput filter: %s\n", p->in_filter->name);
-      if (p->out_filter)
-	debug("\tOutput filter: %s\n", p->out_filter->name);
+	debug("\tInput filter: %s\n", filter_name(p->in_filter));
+      if (p->out_filter != FILTER_REJECT)
+	debug("\tOutput filter: %s\n", filter_name(p->out_filter));
       if (p->disabled)
 	debug("\tDISABLED\n");
       else if (p->proto->dump)

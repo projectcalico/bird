@@ -17,9 +17,10 @@ void rt_dev_add_iface(char *);
 CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
-CF_KEYWORDS(INTERFACE, INPUT, OUTPUT, FILTER)
+CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE)
 
 %type <i> idval
+%type <f> imexport
 
 CF_GRAMMAR
 
@@ -67,8 +68,14 @@ proto_item:
  | DEBUG expr { this_proto->debug = $2; }
  | DEBUG ALL { this_proto->debug = ~0; }
  | DEBUG OFF { this_proto->debug = 0; }
- | INPUT FILTER filter { this_proto->in_filter = $3; }
- | OUTPUT FILTER filter { this_proto->out_filter = $3; }
+ | IMPORT imexport { this_proto->in_filter = $2; }
+ | EXPORT imexport { this_proto->out_filter = $2; }
+ ;
+
+imexport:
+   FILTER filter { $$ = $2; }
+ | ALL { $$ = FILTER_ACCEPT; }
+ | NONE { $$ = FILTER_REJECT; }
  ;
 
 /* Direct device route protocol */

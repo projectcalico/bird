@@ -27,8 +27,8 @@ protocol kernel {
 	persist;		# Don't remove routes on bird shutdown
 	scan time 20;		# Scan kernel routing table every 20 seconds
 #	async off;		# Netlink: Disable asynchronous events
-#	input filter sink;
-#	output filter okay;
+#	import none;		# Default is import all
+	export all;		# Default is export none
 }
 
 protocol device {
