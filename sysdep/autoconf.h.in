@@ -40,3 +40,6 @@
 
 /* Path to configuration files */
 #define PATH_CONFIG_DIR ?
+
+/* Are we using dmalloc? */
+#undef HAVE_LIBDMALLOC

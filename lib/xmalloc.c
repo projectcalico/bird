@@ -1,7 +1,7 @@
 /*
  *	BIRD Library -- malloc() With Checking
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -11,6 +11,8 @@
 #include "nest/bird.h"
 #include "lib/resource.h"
 
+#ifndef HAVE_LIBDMALLOC
+
 void *
 xmalloc(unsigned size)
 {
@@ -19,3 +21,5 @@ xmalloc(unsigned size)
     return p;
   die("Unable to allocate %d bytes of memory", size);
 }
+
+#endif

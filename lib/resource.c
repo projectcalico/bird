@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
@@ -154,6 +155,14 @@ mb_alloc(pool *p, unsigned size)
   add_tail(&p->inside, &b->r.n);
   b->size = size;
   return b->data;
+}
+
+void *
+mb_allocz(pool *p, unsigned size)
+{
+  void *x = mb_alloc(p, size);
+  bzero(x, size);
+  return x;
 }
 
 void

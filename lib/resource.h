@@ -43,6 +43,7 @@ extern pool root_pool;
 /* Normal memory blocks */
 
 void *mb_alloc(pool *, unsigned size);
+void *mb_allocz(pool *, unsigned size);
 void mb_free(void *);
 
 /* Memory pools with linear allocation */
@@ -62,9 +63,24 @@ slab *sl_new(pool *, unsigned size);
 void *sl_alloc(slab *);
 void sl_free(slab *, void *);
 
-/* Low-level memory allocation functions, please don't use */
+/*
+ * Low-level memory allocation functions, please don't use
+ * outside resource manager and possibly sysdep code.
+ */
 
+#ifdef HAVE_LIBDMALLOC
+/*
+ * The standard dmalloc macros tend to produce lots of namespace
+ * conflicts and we use only xmalloc and xfree, so we can define
+ * the stubs ourselves.
+ */
+#define DMALLOC_DISABLE
+#include <dmalloc.h>
+#define xmalloc(size) _xmalloc_leap(__FILE__, __LINE__, size)
+#define xfree(ptr) _xfree_leap(__FILE__, __LINE__, ptr)
+#else
 void *xmalloc(unsigned);
 #define xfree(x) free(x)
+#endif
 
 #endif

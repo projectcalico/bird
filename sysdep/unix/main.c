@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/signal.h>
@@ -186,6 +187,11 @@ parse_args(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
+#ifdef HAVE_LIBDMALLOC
+  if (!getenv("DMALLOC_OPTIONS"))
+    dmalloc_debug(0x2f03d00);
+#endif
+
   log_init_debug(NULL);
   parse_args(argc, argv);
 

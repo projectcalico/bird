@@ -14,7 +14,7 @@ subdir depend:
 	set -e ; for a in $(static-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
 
 $(exedir)/bird: $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 .dir-stamp:
 	mkdir -p $(static-dirs)

@@ -18,7 +18,8 @@ dir-objs:=$(addprefix $(objdir)/,$(all-dirs))
 
 CPPFLAGS=-I$(root-rel) -I$(srcdir)
 CFLAGS=$(CPPFLAGS) @CFLAGS@
-LDFLAGS=@LIBS@
+LDFLAGS=
+LIBS=@LIBS@
 CC=@CC@
 M4=@M4@
 BISON=@BISON@
