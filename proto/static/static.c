@@ -6,6 +6,24 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Static
+ *
+ * The Static protocol is implemented in a very straightforward way. It keeps
+ * a two lists of static routes: one containing interface routes and one
+ * holding the remaining ones. Interface routes are inserted and removed according
+ * to interface events received from the core via the if_notify() hook, routes
+ * pointing to a neighboring router use a sticky node in the neighbor cache
+ * to be notified about gaining or losing the neighbor and finally special
+ * routes like black holes or rejects are inserted all the time.
+ *
+ * The only other thing worth mentioning is that when asked for reconfiguration,
+ * Static not only compares the two configurations, but it also calculates
+ * difference between the lists of static routes mentioned in the old config
+ * and the lists in the new one and it just inserts the newly added routes
+ * and removes the obsolete ones.
+ */
+
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"

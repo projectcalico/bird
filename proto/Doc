@@ -4,3 +4,4 @@ C ospf
 C pipe
 C rip
 C static
+S ../nest/rt-dev.c

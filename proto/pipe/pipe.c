@@ -6,6 +6,18 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Pipe
+ *
+ * The Pipe protocol is very simple. It just connects to two routing tables
+ * using proto_add_announce_hook() and whenever it receives a rt_notify()
+ * about a change in one of the tables, it converts it to a rte_update()
+ * in the other one.
+ *
+ * To avoid pipe loops, Pipe keeps a `being updated' flag in each routing
+ * table.
+ */
+
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
