@@ -19,7 +19,7 @@ Pavel Machek <tt/pavel@ucw.cz/
 
 <date>2000
 <abstract>
-This document contains documentation for Basic Internet Routing Daemon
+This document contains documentation for BIRD Internet Routing Daemon
 </abstract>
 
 <!-- Table of contents -->
@@ -73,31 +73,42 @@ protocol rip {
 <p>Everything on a line after # is a comment, whitespace is
 ignored. If there's variable number of options, it is grouped using {
 } brackets. 
+
+<p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
+
+<sect2>Global options
 				
 <descrip>
 	<tag>log "<m/filename/"|syslog|stderr all|{ debug, trace, info,
 	remote, warning, error, auth, fatal, bug }</tag> set logging of
-	classes (either all or { error, trace } etc.) into selected destination. 
+	classes (either all or { error, trace } etc.) into selected
+	destination. You may specify more than one <cf/log/ line to
+	log to multiple destinations.
 				  
 	<tag>debug protocols all|off|{ states, routes, filters,
 	interfaces, events, packets }</tag> set debugging options.
 
 	<tag>filter <m/name/ { <m/commands/ }</tag> define filter. You can
 	learn more about filters in next chapter.
-
-	<tag>protocol rip|ospf|bgp <m/name/ { <m>protocol options</m> }</tag> define
-	protocol instance, called name. You can learn more about
+ 
+	<tag>protocol rip|ospf|bgp <m/[name]/ { <m>protocol options</m> }</tag> define
+	protocol instance, called name (or called something like rip5
+	if you ommit name). You can learn more about
 	configuring protocols in their own chapters.
 
 	<tag>define constant = expression</tag> define constant. You can
 	use it later in every place you could use simple integer.
 
-	<tag>router id <m/ip_address/</tag> set router id.
+	<tag>router id <m/num.num.num.num/</tag> set router
+	id. Usually lowest IP address of router.
 
 	<tag>table <m/name/</tag> create new routing table.
 </descrip>
 
-<p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
+<sect2>Per-protocol options
+
+<p>FIXME - document preference, disabled, debug, import, export, table; see nest/config.Y
+
 
 <sect>Filters
 
