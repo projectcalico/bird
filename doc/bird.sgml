@@ -1073,7 +1073,8 @@ protocol rip MyRIP_test {
         port 1520;
         period 10;
         garbage time 60;
-        interface "eth0" { metric 3; mode multicast; } "eth1" { metric 2; mode broadcast; };
+        interface "eth0" { metric 3; mode multicast; }
+	          "eth1" { metric 2; mode broadcast; };
         honor neighbor;
         authentication none;
         import filter { print "importing"; accept; };
