@@ -12,11 +12,21 @@
 #include <stdarg.h>
 
 #include "nest/bird.h"
+#include "lib/string.h"
 #include "client/client.h"
 
 /* Client versions of logging functions */
 
-/* FIXME: Use bsprintf, so that %m works */
+static void
+vlog(char *msg, va_list args)
+{
+  char buf[1024];
+
+  if (bvsnprintf(buf, sizeof(buf)-1, msg, args) < 0)
+    bsprintf(buf + sizeof(buf) - 100, " ... <too long>");
+  fputs(buf, stderr);
+  fputc('\n', stderr);
+}
 
 void
 bug(char *msg, ...)
@@ -26,8 +36,8 @@ bug(char *msg, ...)
   va_start(args, msg);
   cleanup();
   fputs("Internal error: ", stderr);
+  vlog(msg, args);
   vfprintf(stderr, msg, args);
-  fputc('\n', stderr);
   exit(1);
 }
 
@@ -38,7 +48,6 @@ die(char *msg, ...)
 
   va_start(args, msg);
   cleanup();
-  vfprintf(stderr, msg, args);
-  fputc('\n', stderr);
+  vlog(msg, args);
   exit(1);
 }

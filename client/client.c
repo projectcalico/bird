@@ -79,6 +79,8 @@ extern Function *rl_last_func;
 static void
 got_line(char *cmd_buffer)
 {
+  char *cmd;
+
   if (!cmd_buffer)
     {
       cleanup();
@@ -86,12 +88,22 @@ got_line(char *cmd_buffer)
     }
   if (cmd_buffer[0])
     {
-      add_history(cmd_buffer);
-      /* FIXME: Builtin commands: exit, ... */
-      server_send(cmd_buffer);
-      input_hidden = -1;
-      io_loop(0);
-      input_hidden = 0;
+      cmd = cmd_expand(cmd_buffer);
+      if (cmd)
+	{
+	  add_history(cmd);
+	  puts(cmd);
+	  if (!strcmp(cmd, "exit") || !strcmp(cmd, "quit"))
+	    {
+	      cleanup();
+	      exit(0);
+	    }
+	  server_send(cmd);
+	  input_hidden = -1;
+	  io_loop(0);
+	  input_hidden = 0;
+	  free(cmd);
+	}
     }
   free(cmd_buffer);
 }

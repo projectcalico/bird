@@ -1,7 +1,5 @@
 Core
 ~~~~
-- IPv6: router advertisements
-- IPv6: test it!
 - IPv6: hashing functions etc.
 
 - krt-iface: check whether the interface alias hack works
@@ -36,21 +34,6 @@ Commands
 ~~~~~~~~
 - showing of routing table as seen by given protocol
 
-Roadmap
-~~~~~~~
-- Allocators and data structures
-- Client
-- Remaining bits of IPv6 support (radvd)
-- RIPv6
-- BGP?
-
-Client
-~~~~~~
-- command completion
-- online help
-- builtin command and aliases
-- access control
-
 Documentation
 ~~~~~~~~~~~~~
 - write doctool
@@ -74,6 +57,8 @@ Globals
 
 Various ideas
 ~~~~~~~~~~~~~
+- client: access control
+- IPv6 router advertisements
 - real multipath (doesn't seem to be simple at all :()
 - fake multipath (even less simple)
 - route recalculation timing and flap dampening [see RFC2439 for algorithms]

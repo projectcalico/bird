@@ -17,3 +17,4 @@ void input_stop_list(void);
 void cmd_build_tree(void);
 void cmd_help(char *cmd, int len);
 int cmd_complete(char *cmd, int len, char *buf, int again);
+char *cmd_expand(char *cmd);

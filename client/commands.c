@@ -25,8 +25,6 @@ static struct cmd_info command_table[] = {
 #include "conf/commands.h"
 };
 
-/* FIXME: There should exist some system of aliases, so that `show' can be abbreviated as `s' etc. */
-
 struct cmd_node {
   struct cmd_node *sibling, *son, **plastson;
   struct cmd_info *cmd, *help;
@@ -53,7 +51,7 @@ cmd_build_tree(void)
       while (*c)
 	{
 	  char *d = c;
-	  while (*c && *c != ' ')
+	  while (*c && !isspace(*c))
 	    c++;
 	  for(new=old->son; new; new=new->sibling)
 	    if (new->len == c-d && !memcmp(new->token, d, c-d))
@@ -70,7 +68,7 @@ cmd_build_tree(void)
 	      memcpy(new->token, d, c-d);
 	    }
 	  old = new;
-	  while (*c == ' ')
+	  while (isspace(*c))
 	    c++;
 	}
       if (cmd->is_real_cmd)
@@ -143,13 +141,13 @@ cmd_help(char *cmd, int len)
   n = &cmd_root;
   while (cmd < end)
     {
-      if (*cmd == ' ' || *cmd == '\t')
+      if (isspace(*cmd))
 	{
 	  cmd++;
 	  continue;
 	}
       z = cmd;
-      while (cmd < end && *cmd != ' ' && *cmd != '\t')
+      while (cmd < end && !isspace(*cmd))
 	cmd++;
       m = cmd_find_abbrev(n, z, cmd-z, &ambig);
       if (ambig)
@@ -213,7 +211,7 @@ cmd_complete(char *cmd, int len, char *buf, int again)
   n = &cmd_root;
   while (cmd < fin && n->son)
     {
-      if (*cmd == ' ' || *cmd == '\t')
+      if (isspace(*cmd))
 	{
 	  cmd++;
 	  continue;
@@ -261,4 +259,45 @@ cmd_complete(char *cmd, int len, char *buf, int again)
   cmd_list_ambiguous(n, fin, end-fin);
   input_stop_list();
   return 0;
+}
+
+char *
+cmd_expand(char *cmd)
+{
+  struct cmd_node *n, *m;
+  char *c, *b, *args;
+  int ambig;
+
+  args = c = cmd;
+  n = &cmd_root;
+  while (*c)
+    {
+      if (isspace(*c))
+	{
+	  c++;
+	  continue;
+	}
+      b = c;
+      while (*c && !isspace(*c))
+	c++;
+      m = cmd_find_abbrev(n, b, c-b, &ambig);
+      if (!m)
+	{
+	  if (!ambig)
+	    break;
+	  puts("Ambiguous command, possible expansions are:");
+	  cmd_list_ambiguous(n, b, c-b);
+	  return NULL;
+	}
+      args = c;
+      n = m;
+    }
+  if (!n->cmd)
+    {
+      puts("No such command.");
+      return NULL;
+    }
+  b = malloc(strlen(n->cmd->command) + strlen(args) + 1);
+  sprintf(b, "%s%s", n->cmd->command, args);
+  return b;
 }
