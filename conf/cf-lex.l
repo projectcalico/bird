@@ -29,11 +29,11 @@ static struct keyword {
   { NULL, -1 } };
 
 #define KW_HASH_SIZE 64
+static struct keyword *kw_hash[KW_HASH_SIZE];
+static int kw_hash_inited;
+
 #define SYM_HASH_SIZE 128
 #define SYM_MAX_LEN 32
-
-static struct keyword *kw_hash[KW_HASH_SIZE];
-static struct symbol **sym_hash;
 
 struct sym_scope {
   struct sym_scope *next;		/* Next on scope stack */
@@ -192,21 +192,30 @@ static struct symbol *
 cf_find_sym(byte *c, unsigned int h0)
 {
   unsigned int h = h0 & (SYM_HASH_SIZE-1);
-  struct symbol *s;
+  struct symbol *s, **ht;
   int l;
 
-  if (!sym_hash)
-    sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
-  else
-    for(s = sym_hash[h]; s; s=s->next)
+  if (ht = new_config->sym_hash)
+    {
+      for(s = ht[h]; s; s=s->next)
 	if (!strcmp(s->name, c) && s->scope->active)
 	  return s;
+    }
+  if (new_config->sym_fallback)
+    {
+      /* We know only top-level scope is active */
+      for(s = new_config->sym_fallback[h]; s; s=s->next)
+	if (!strcmp(s->name, c) && s->scope->active)
+	  return s;
+    }
+  if (!ht)
+    ht = new_config->sym_hash = cfg_allocz(SYM_HASH_SIZE * sizeof(struct keyword *));
   l = strlen(c);
   if (l > SYM_MAX_LEN)
     cf_error("Symbol too long");
   s = cfg_alloc(sizeof(struct symbol) + l);
-  s->next = sym_hash[h];
-  sym_hash[h] = s;
+  s->next = ht[h];
+  ht[h] = s;
   s->scope = conf_this_scope;
   s->class = SYM_VOID;
   s->def = NULL;
@@ -246,22 +255,8 @@ cf_define_symbol(struct symbol *sym, int type, void *def)
   sym->def = def;
 }
 
-void
-cf_lex_init(int is_cli)
-{
-  sym_hash = NULL;
-  conf_lino = 1;
-  yyrestart(NULL);
-  if (is_cli)
-    BEGIN(CLI);
-  else
-    BEGIN(INITIAL);
-  conf_this_scope = cfg_allocz(sizeof(struct sym_scope));
-  conf_this_scope->active = 1;
-}
-
-void
-cf_lex_init_tables(void)
+static void
+cf_lex_init_kh(void)
 {
   struct keyword *k;
 
@@ -271,6 +266,22 @@ cf_lex_init_tables(void)
       k->next = kw_hash[h];
       kw_hash[h] = k;
     }
+  kw_hash_inited = 1;
+}
+
+void
+cf_lex_init(int is_cli)
+{
+  if (!kw_hash_inited)
+    cf_lex_init_kh();
+  conf_lino = 1;
+  yyrestart(NULL);
+  if (is_cli)
+    BEGIN(CLI);
+  else
+    BEGIN(INITIAL);
+  conf_this_scope = cfg_allocz(sizeof(struct sym_scope));
+  conf_this_scope->active = 1;
 }
 
 void

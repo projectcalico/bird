@@ -45,7 +45,6 @@ config_parse(struct config *c)
   if (setjmp(conf_jmpbuf))
     return 0;
   cf_lex_init(0);
-  cf_lex_init_tables();
   protos_preconfig(c);
   rt_preconfig(c);
   cf_parse();
@@ -62,6 +61,7 @@ int
 cli_parse(struct config *c)
 {
   new_config = c;
+  c->sym_fallback = config->sym_hash;
   cfg_mem = c->mem;
   if (setjmp(conf_jmpbuf))
     return 0;

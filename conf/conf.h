@@ -23,6 +23,8 @@ struct config {
   char *err_msg;			/* Parser error message */
   int err_lino;				/* Line containing error */
   char *file_name;			/* Name of configuration file */
+  struct symbol **sym_hash;		/* Lexer: symbol hash table */
+  struct symbol **sym_fallback;		/* Lexer: fallback symbol hash table */
 };
 
 extern struct config *config, *new_config;
@@ -69,7 +71,6 @@ struct symbol {
 
 extern int conf_lino;
 
-void cf_lex_init_tables(void);
 int cf_lex(void);
 void cf_lex_init(int is_cli);
 struct symbol *cf_find_symbol(byte *c);
