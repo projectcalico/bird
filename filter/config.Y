@@ -407,7 +407,7 @@ term:
  | rtadot dynamic_attr { $$ = $2; $$->code = P('e','a'); }
 
  | term '.' IP { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_IP; }
- | term '.' LEN { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_INT; }
+ | term '.' LEN { $$ = f_new_inst(); $$->code = 'L'; $$->a1.p = $1; }
  | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = P('i','M'); $$->a1.p = $1; $$->a2.p = $5; }
 
 /* Communities */

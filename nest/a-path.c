@@ -81,3 +81,21 @@ as_path_format(struct adata *path, byte *buf, unsigned int size)
     }
   *buf = 0;
 }
+
+int
+as_path_getlen(struct adata *path)
+{
+  int res = 0;
+  u8 *p = path->data;
+  u8 *q = p+path->length;
+  int len;
+
+  while (p<q) {
+    switch (*p++) {
+    case 1: len = *p++; res++;    p += 2*len; break;
+    case 2: len = *p++; res+=len; p += 2*len; break;
+    default: bug("This should not be in path");
+    }
+  }
+  return res;
+}

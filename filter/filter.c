@@ -404,13 +404,22 @@ interpret(struct f_inst *what)
     }
     break;
 
+  case 'L':	/* Get length of */
+    ONEARG;
+    res.type = T_INT;
+    switch(v1.type) {
+    case T_PREFIX: res.val.i = v1.val.px.len; break;
+    case T_PATH:   res.val.i = as_path_getlen(v1.val.ad); break;
+    default: bug( "Length of what?" );
+    }
+    break;
   case P('c','p'):	/* Convert prefix to ... */
     ONEARG;
     if (v1.type != T_PREFIX)
       runtime( "Can not convert non-prefix this way" );
     res.type = what->aux;
     switch(res.type) {
-    case T_INT:	res.val.i = v1.val.px.len; break;
+      /*    case T_INT:	res.val.i = v1.val.px.len; break; Not needed any more */
     case T_IP: res.val.px.ip = v1.val.px.ip; break;
     default: bug( "Unknown prefix to conversion" );
     }
@@ -536,7 +545,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
     if (val_compare(* (struct f_val *) f1->a1.p, * (struct f_val *) f2->a2.p))
       return 0;
     break;
-  case 'p': ONEARG; break;
+  case 'p': case 'L': ONEARG; break;
   case '?': TWOARGS; break;
   case '0': case 'E': break;
   case P('p',','): ONEARG; A2_SAME; break;
@@ -611,21 +620,6 @@ filter_same(struct filter *new, struct filter *old)
  * FIXME: It should take struct adata *, not u8 * + length; but that makes it a little more difficult to test.
  * Or maybe both versions are usefull?
  */
-
-int
-path_getlen(u8 *p, int len)
-{
-  int res = 0;
-  u8 *q = p+len;
-  while (p<q) {
-    switch (*p++) {
-    case 1: len = *p++; res++;    p += 2*len; break;
-    case 2: len = *p++; res+=len; p += 2*len; break;
-    default: bug("This should not be in path");
-    }
-  }
-  return res;
-}
 
 #define MASK_PLUS do { mask = mask->next; if (!mask) return next == q; \
 		       asterix = (mask->val == PM_ANY); \
