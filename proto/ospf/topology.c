@@ -253,8 +253,8 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
  * originate_net_lsa - originates of deletes network LSA
  * @ifa: interface which is LSA originated for
  *
- * Interface counts number of adjacent neighbor. If this number is
- * lower then one or interface is not in state %OSPF_IS_DR it deletes
+ * Interface counts number of adjacent neighbors. If this number is
+ * lower than one or interface is not in state %OSPF_IS_DR it deletes
  * and premature ages instance of network LSA for specified interface.
  * In other case, new instance of network LSA is originated.
  */
@@ -355,18 +355,18 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
 }
 
 /**
- * originate_ext_lsa - new route recived from nest and filters
+ * originate_ext_lsa - new route received from nest and filters
  * @n: network prefix and mask
  * @e: rte
  * @po: current instance of OSPF
  * @attrs: list of extended attributes
  *
- * If I receive message that new route is installed, I try to originate an
- * external LSA. LSA header of such LSA does not contain information about
- * prefix lenght, so if I have to originate multiple LSAs for route with
+ * If I receive a message that new route is installed, I try to originate an
+ * external LSA. The LSA header of such LSA does not contain information about
+ * prefix length, so if I have to originate multiple LSAs for route with
  * different prefixes I try to increment prefix id to find a "free" one.
  *
- * The function also set flag ebit. If it's first time, the new router lsa
+ * The function also sets flag ebit. If it's the first time, the new router lsa
  * origination is necessary.
  */
 void
@@ -483,7 +483,7 @@ return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32((type==LSA_T_NET) ? lsaid :
  * @p: current instance of OSPF
  *
  * This dynamically hashed structure is often used for keeping LSAs. Mainly
- * its used in @ospf_area structute.
+ * its used in @ospf_area structure.
  */
 struct top_graph *
 ospf_top_new(struct proto_ospf *p)
@@ -634,11 +634,11 @@ ospf_top_dump(struct top_graph *f, struct proto *p)
     }
 }
 
-/* This is very uneficient, please don't call it often */
+/* This is very inefficient, please don't call it often */
 
 /* I should also test for every LSA if it's in some link state
- * retransmision list for every neighbor. I will not test it.
- * It can happen that I'll receive some strange ls ack's.
+ * retransmission list for every neighbor. I will not test it.
+ * It could happen that I'll receive some strange ls ack's.
  */
 
 int

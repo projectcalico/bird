@@ -67,11 +67,11 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 
 /**
  * ospf_rx_hook
- * @sk: socket we recived the packet. Its ignored.
+ * @sk: socket we received the packet. Its ignored.
  * @size: size of the packet
  *
- * This in entry point for messages from neighbors. Many checks (like
- * autnetication, checksums, size) are done before packet is passed to
+ * This is the entry point for messages from neighbors. Many checks (like
+ * authentication, checksums, size) are done before the packet is passed to
  * non generic functions.
  */
 int

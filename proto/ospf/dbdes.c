@@ -12,11 +12,11 @@
  * ospf_dbdes_tx - transmit database description packet
  * @n: neighbor
  *
- * Sending of database description packet is described in 10.6 of RFC 2328.
- * Reception of each packet is acknoledged in sequence number of another.
- * When I send a packet to neighbor I keep a copy in buffer. If neighbor
- * does not reply, I don't create new packet but I just send content
- * of buffer.
+ * Sending of a database description packet is described in 10.6 of RFC 2328.
+ * Reception of each packet is acknowledged in the sequence number of another.
+ * When I send a packet to a neighbor I keep a copy in a buffer. If the neighbor
+ * does not reply, I don't create a new packet but just send the content
+ * of the buffer.
  */
 void
 ospf_dbdes_tx(struct ospf_neighbor *n)

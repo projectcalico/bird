@@ -253,7 +253,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    OSPF_TRACE(D_PACKETS, "Received lsupd from unknown neigbor! (%I)",
+    OSPF_TRACE(D_PACKETS, "Received lsupd from unknown neighbor! (%I)",
       nrid);
     return ;
   }

@@ -22,15 +22,15 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
  * ospf_age
  * @oa: ospf area
  *
- * This function is periodicaly invoked from area_disp(). It computes new
- * age of all LSAs and old (@age is higher than %LSA_MAXAGE) are flushed
- * when ever possible. If some LSA originated by router itself is older
- * than %LSREFRESHTIME new instance is originated.
+ * This function is periodicaly invoked from area_disp(). It computes the new
+ * age of all LSAs and old (@age is higher than %LSA_MAXAGE) LSAs are flushed
+ * whenever possible. If an LSA originated by the router itself is older
+ * than %LSREFRESHTIME a new instance is originated.
  *
- * RFC says, that router should check checksum of every LSA to detect some
- * hardware problem. BIRD does not do it to minimalize CPU utilization.
+ * The RFC says that a router should check the checksum of every LSA to detect
+ * hardware problems. BIRD does not do this to minimalize CPU utilization.
  *
- * If routing table calculation is scheduled, it also invalidates old routing
+ * If routing table calculation is scheduled, it also invalidates the old routing
  * table calculation results.
  */
 void

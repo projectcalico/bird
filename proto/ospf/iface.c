@@ -21,9 +21,9 @@ char *ospf_it[]={ "broadcast", "nbma", "point-to-point", "virtual link" };
  * @ifa: OSPF interface
  * @state: new state
  *
- * Many action must be taken acording to iterface state change. New networks
- * LSA must be originated, flushed, new multicast socket to listen messages for
- * %ALLDROUTERS has to be opened, etc.
+ * Many actions must be taken according to interface state changes. New network
+ * LSAs must be originated, flushed, new multicast sockets to listen for messages for
+ * %ALLDROUTERS have to be opened, etc.
  */
 void
 iface_chstate(struct ospf_iface *ifa, u8 state)

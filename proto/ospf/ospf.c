@@ -10,60 +10,60 @@
  * DOC: Open Shortest Path First (OSPF)
  * 
  * The OSPF protocol is quite complicated and its complex implemenation is
- * split to many files. In |ospf.c|, you can find mostly interface
+ * split to many files. In |ospf.c|, you will find mainly the interface
  * for communication with the core (e.g., reconfiguration hooks, shutdown
- * and initialisation and so on). In |packet.c|, you can find various
- * functions for sending and receiving of generic OSPF packets. There are
- * also routines for autentication and checksumming. File |iface.c| contains
- * the interface state machine, allocation and deallocation of OSPF's
+ * and initialisation and so on). In |packet.c|, you will find various
+ * functions for sending and receiving generic OSPF packets. There are
+ * also routines for authentication and checksumming. File |iface.c| contains
+ * the interface state machine and functions for allocation and deallocation of OSPF's
  * interface data structures. Source |neighbor.c| includes the neighbor state
- * machine and functions for election of Designed Router and Backup
- * Designed router. In |hello.c|, there are routines for sending
+ * machine and functions for election of Designated Router and Backup
+ * Designated router. In |hello.c|, there are routines for sending
  * and receiving of hello packets as well as functions for maintaining
  * wait times and the inactivity timer. Files |lsreq.c|, |lsack.c|, |dbdes.c|
  * contain functions for sending and receiving of link-state requests,
- * link-state acknoledges and database descriptions respectively.
+ * link-state acknowledgements and database descriptions respectively.
  * In |lsupd.c|, there are functions for sending and receiving
  * of link-state updates and also the flooding algorithm. Source |topology.c| is
- * a place where routines for searching LSA's in the link-state database,
+ * a place where routines for searching LSAs in the link-state database,
  * adding and deleting them reside, there also are functions for originating
- * of various types of LSA's (router LSA, net LSA, external LSA). File |rt.c|
+ * of various types of LSAs (router LSA, net LSA, external LSA). File |rt.c|
  * contains routines for calculating the routing table. |lsalib.c| is a set
- * of various functions for working with the LSA's (endianity conversions,
+ * of various functions for working with the LSAs (endianity conversions,
  * calculation of checksum etc.).
  *
  * One instance of the protocol is able to hold LSA databases for
  * multiple OSPF areas, to exchange routing information between
  * multiple neighbors and to calculate the routing tables. The core
  * structure is &proto_ospf to which multiple &ospf_area and
- * &ospf_iface structures are connected. To &ospf_area is also connected
+ * &ospf_iface structures are connected. &ospf_area is also connected to
  * &top_hash_graph which is a dynamic hashing structure that
  * describes the link-state database. It allows fast search, addition
  * and deletion. Each LSA is kept in two pieces: header and body. Both of them are
- * kept in endianity of the CPU.
+ * kept in the endianity of the CPU.
  * 
  * Every area has its own area_disp() which is
  * responsible for late originating of router LSA, calculating
- * of the routing table and it also ages and flushes the LSA's. This
+ * of the routing table and it also ages and flushes the LSAs. This
  * function is called in regular intervals.
  * To every &ospf_iface, we connect one or more
  * &ospf_neighbor's -- a structure containing many timers and queues
  * for building adjacency and for exchange of routing messages.
  *
  * BIRD's OSPF implementation respects RFC2328 in every detail, but
- * some of internal algorithms do differ. The RFC recommends to make a snapshot
- * of the link-state database when a new adjacency is forming and send
- * the database description packets based on information of this 
+ * some of internal algorithms do differ. The RFC recommends making a snapshot
+ * of the link-state database when a new adjacency is forming and sending
+ * the database description packets based on the information in this 
  * snapshot. The database can be quite large in some networks, so
- * we rather walk through a &slist structure which allows us to
- * continue even if the actual LSA we were worked with is deleted. New
- * LSA's are added at the tail of this &slist.
+ * rather we walk through a &slist structure which allows us to
+ * continue even if the actual LSA we were working with is deleted. New
+ * LSAs are added at the tail of this &slist.
  *
  * We also don't keep a separate OSPF routing table, because the core
  * helps us by being able to recognize when a route is updated
  * to an identical one and it suppresses the update automatically.
  * Due to this, we can flush all the routes we've recalculated and
- * also those we're deleted to the core's routing table and the
+ * also those we've deleted to the core's routing table and the
  * core will take care of the rest. This simplifies the process
  * and conserves memory.
  */
@@ -270,13 +270,13 @@ schedule_rtcalc(struct ospf_area *oa)
 }
 
 /**
- * area_disp - invokes link-state database aging, originating of
+ * area_disp - invokes link-state database aging, origination of
  * router LSA and routing table calculation
  * @timer: it's called every @ospf_area->tick seconds
  *
- * It ivokes aging and when @ospf_area->origrt is set to 1, start
- * function for origination of router LSA and network LSA's.
- * It also start routing
+ * It invokes aging and when @ospf_area->origrt is set to 1, start
+ * function for origination of router LSA and network LSAs.
+ * It also starts routing
  * table calculation when @ospf_area->calcrt is set.
  */
 void
@@ -308,11 +308,11 @@ area_disp(timer *timer)
  * ospf_import_control - accept or reject new route from nest's routing table
  * @p: current instance of protocol
  * @new: the new route
- * @attrs: list of arttributes
- * @pool: pool for alloction of attributes
+ * @attrs: list of attributes
+ * @pool: pool for allocation of attributes
  *
- * Its quite simple. It does not accept our own routes and decision of
- * import leaves to the filters.
+ * Its quite simple. It does not accept our own routes and leaves the decision on
+ * import to the filters.
  */
 
 int
@@ -341,13 +341,13 @@ ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
 }
 
 /**
- * ospf_shutdown - Finnish of OSPF instance
+ * ospf_shutdown - Finish of OSPF instance
  * @p: current instance of protocol
  *
- * RFC does not define any action that should be taken befor router
+ * RFC does not define any action that should be taken before router
  * shutdown. To make my neighbors react as fast as possible, I send
  * them hello packet with empty neighbor list. They should start
- * theirs neighbor state machine with event %NEIGHBOR_1WAY.
+ * their neighbor state machine with event %NEIGHBOR_1WAY.
  */
 
 static int
@@ -374,7 +374,7 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
 {
   struct proto_ospf *po=(struct proto_ospf *)p;
 
-/* Temporarily down write anythink
+/* Temporarily down write anything
   OSPF_TRACE(D_EVENTS, "Got route %I/%d %s", p->name, n->n.prefix,
     n->n.pxlen, new ? "up" : "down");
 */
@@ -481,9 +481,9 @@ ospf_patt_compare(struct ospf_iface_patt *a, struct ospf_iface_patt *b)
  * @p: current instance of protocol (with old configuration)
  * @c: new configuration requested by user
  *
- * This hook tries to be a little bit inteligent. Instance of OSPF
+ * This hook tries to be a little bit intelligent. Instance of OSPF
  * will survive change of many constants like hello interval,
- * password change, addition of deletion of some neighbor on
+ * password change, addition or deletion of some neighbor on
  * nonbroadcast network, cost of interface, etc.
  */
 static int
@@ -629,12 +629,12 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	    ifa->iface->name);
 	}
 
-	/* AUTHETICATION */
+	/* AUTHENTICATION */
 	if(ip1->autype!=ip2->autype)
 	{
 	  ifa->autype=ip2->autype;
 	  OSPF_TRACE(D_EVENTS,
-	    "Changing autentication type on interface %s",
+	    "Changing authentication type on interface %s",
 	    ifa->iface->name);
 	}
 	if(strncmp(ip1->password,ip2->password,8)!=0)
@@ -739,7 +739,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   if(((NODE (ac1))->next)!=((NODE (ac2))->next))
     return 0;	/* One is not null */
 
-  return 1;	/* Everythink OK :-) */
+  return 1;	/* Everything OK :-) */
 }
 
 void

@@ -37,10 +37,10 @@ init_efib(struct fib_node *fn)
  * ospf_rt_spfa - calculate internal routes
  * @oa: OSPF area
  *
- * Calculation of internal paths in area is described in 16.1 of RFC 2328.
- * It's based on Dijkstra shortest path tree algorithmus.
+ * Calculation of internal paths in an area is described in 16.1 of RFC 2328.
+ * It's based on Dijkstra's shortest path tree algorithms.
  * RFC recommends to add ASBR routers into routing table. I don't do this
- * and latter parts of routing table calculation looks directly into LSA
+ * and latter parts of routing table calculation look directly into LSA
  * Database. This function is invoked from area_disp().
  */
 void
@@ -433,7 +433,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     {
       if(nf->metric!=LSINFINITY)
         OSPF_TRACE(D_EVENTS,
-          "Rewritting %I/%d met=%d, met2=%d, nmet=%d, nmet2=%d",
+          "Rewriting %I/%d met=%d, met2=%d, nmet=%d, nmet2=%d",
         ip, mlen, nf->metric, nf->metric2, met, met2);
       nf->metric=met;
       nf->metric2=met2;
@@ -530,7 +530,7 @@ let:
   FIB_ITERATE_END(nftmp);
 }
 
-/* Add LSA into list of candidates in Dijkstra alogithm */
+/* Add LSA into list of candidates in Dijkstra's algorithm */
 void
 add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par, 
   u16 dist, struct ospf_area *oa)

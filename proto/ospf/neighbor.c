@@ -27,7 +27,7 @@ const char *ospf_inm[]={ "hello received", "neighbor start", "2-way received",
  * @n: OSPF neighbor
  * @state: new state
  *
- * Many actions has to be taken acording to state change of neighbor. It
+ * Many actions have to be taken acording to a change of state of a neighbor. It
  * starts rxmt timers, call interface state machine etc.
  */
 
@@ -217,11 +217,11 @@ can_do_adj(struct ospf_neighbor *n)
  * @n: neighor
  * @event: actual event
  *
- * This part implements neighbor state machine as described in 10.3 of
- * RFC 2328. the only difference is that state %NEIGHBOR_ATTEMPT is not
- * used. We discover neighbors on nonbroadcast networks using the
- * same ways as on broadcast networks. The only difference is in
- * sending hello packets. These are send to IPs listed in
+ * This part implements the neighbor state machine as described in 10.3 of
+ * RFC 2328. The only difference is that state %NEIGHBOR_ATTEMPT is not
+ * used. We discover neighbors on nonbroadcast networks in the
+ * same way as on broadcast networks. The only difference is in
+ * sending hello packets. These are sent to IPs listed in
  * @ospf_iface->nbma_list .
  */
 void
@@ -322,9 +322,9 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
  * bdr_election - (Backup) Designed Router election
  * @ifa: actual interface
  *
- * When wait time fires, it time to elect (Backup) Designed Router.
+ * When the wait timer fires, it is time to elect (Backup) Designated Router.
  * Structure describing me is added to this list so every electing router
- * has the same list. Backup Designed Router is elected before Designed
+ * has the same list. Backup Designated Router is elected before Designated
  * Router. This process is described in 9.4 of RFC 2328.
  */
 void
