@@ -17,6 +17,8 @@
 
 <h1>Introduction</h1>
 
+<h2>What is bird</h2>
+
 <p>You may wonder what 'bird' means. It is acronym of 'Basic Internet Routing Daemon', and we think
 that's cool name. Its task is similar to what firmware of Cisco routers does, or what <A
 HREF="fixme">gated</A> does. However, you can not run Cisco's firmware on "normal" computer and
@@ -60,6 +62,8 @@ protocol rip {
 
 <h1>Filters</h1>
 
+<h2>Introduction</h2>
+
 <p>Bird contains rather simple programming language. (No, it can not yet read mail :-). There are
 two objects in this language: filters and functions. Filters are called by bird core when route is
 being passed between protocol and main routing table, and filters may call functions. Functions may
@@ -98,7 +102,7 @@ pairs <TT filt><I>type name</I>;</TT>, where each pair defines one local variabl
 several statments into one by <TT filt>{ <I>statments</I> }</TT> construction, that is usefull if
 you want to make bigger block of code conditional.
 
-<h2>Variables</h2>
+<h2>Data types</h2>
 
 <p>Each variable and each value has certain type. Unlike C, filters distinguish between integers and
 booleans (that is to prevent you from shooting in the foot).
@@ -154,30 +158,65 @@ booleans (that is to prevent you from shooting in the foot).
 
 <h2>Rip</h2>
 
+<h3>Introduction</h3>
+
 <p>Rip protocol (sometimes called Rest In Pieces) is simple protocol, where each router broadcasts
 distances to all networks he can reach. When router hears distance to other network, it increments
 it and broadcasts it back. Broadcasts are done in regular intervals. Therefore, if some network goes
-unreachable, routers keep telling each other that distance is old distance plus 1. After some time,
-distance reaches infinity (that's 15 in rip) and all routers know that network is unreachable. Rip
-tries to minimize situations where counting to infinity is neccessary, because it is slow. Due to
-infinity being 15, you can not use rip on networks where maximal distance is bigger than 15
-hosts. You can read more about rip at <A HREF="fixme">rfc1234</A>.
+unreachable, routers keep telling each other that distance is old distance plus 1 (actually, plus
+interface metric, which is usually one). After some time, distance reaches infinity (that's 15 in
+rip) and all routers know that network is unreachable. Rip tries to minimize situations where
+counting to infinity is neccessary, because it is slow. Due to infinity being 16, you can not use
+rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <A
+HREF="fixme">rfc1234</A>.
 
 <h3>Configuration</h3>
 
 <p>In addition to options generic to other protocols, rip supports following options:
 
 <DL conf>
-	<DT>port <I>number</I>
-	  <DD>selects IP port to operate on, default 520.
-
-	<DT>authentication <I>none|password|md5</I>
+	<DT>authentication none|password|md5
 	  <DD>selects authenticaion method to use. None means that packets are not authenticated at
 	  all, password means that plaintext password is embedded into each packet, and md5 means
 	  that packets are authenticated using md5 cryptographics hash. See <A
 	  HREF="fixme">rfc1234</A>. If you set authentication to non-none, it is good idea to add
-	  <TT conf>passwords { }</TT><FIXME: add reference to that section> section.
+	  <TT conf>passwords { }</TT> section.
 </DL>
+
+<p>There are two options that can be specified per-interface. First is <TT conf>metric</TT>, with
+default one.  Second is <TT conf>mode broadcast|quiet|nolisten|version1</TT>, it selects mode for
+rip to work in. If nothing is specified, rip runs in multicasts mode. <TT conf>version1</TT> is
+currently equivalent to <TT conf>broadcast</TT>, and it makes rip talk at broadcast address even
+through multicast mode is possible. <TT conf>quiet</TT> option means that rip will not transmit
+periodic messages onto this interface and <TT conf>nolisten</TT> means that rip will talk to this
+interface but not listen on it.
+
+<p>Following options generally override specified behaviour from rfc. If you use any of these
+options, bird will no longer be rfc-compatible, which means it will not be able to talk to anything
+other than equally (mis-)configured bird. I warned you.
+
+<DL conf>
+	<DT>port <I>number</I>
+	  <DD>selects IP port to operate on, default 520. (This is usefull when testing bird, if you
+	  set this to address &gt;1024, you will not need to run bird with uid==0).
+
+	<DT>infinity <I>number</I>
+	  <DD>select value of infinity, default 16. Bigger values will make protocol convergence
+	  even slower.
+
+	<DT>period <I>number</I>
+	  <DD>specifies number of seconds between periodic updates. Default is 30 seconds. Lower
+	  number will mean faster convergence but bigger network load.
+
+	<DT>timeouttime <I>number</I>
+	  <DD>specifies how old route has to be to be considered unreachable. Default is 4*period.
+
+	<DT>garbagetime <I>number</I>
+	  <DD>specifies how old route has to be to be discarded. Default is 10*period.
+</DL>
+
+<p>In addition, rip defines two filter variables, both of type it. <TT filt>rip_metric</TT> is rip
+metric of current route, <TT filt>rip_tag</TT> is tag of current route.
 
 <pre conf>
 
