@@ -780,8 +780,10 @@ because they are no good implementations of OSPFv3.
 	  hash. If you set authentication to non-none, it is good idea to add <cf>passwords { }</cf>
 	  section.
 
-	<tag>honor always|neighbor|never </tag>specifies, when should be routing table updates
-	  honored. (Always, when sent from host on directly connected network, or never.)
+	<tag>honor always|neighbor|never </tag>specifies, when should be requests for dumping routing table
+	  honored. (Always, when sent from host on directly connected
+	  network, or never.) Routing table updates are honored only from
+	  neighbors, that is not configurable.
 </descrip>
 
 <p>There are two options that can be specified per-interface. First is <cf>metric</cf>, with
