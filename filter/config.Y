@@ -412,12 +412,13 @@ term:
  | rtadot dynamic_attr '.' ADD '(' term ')' { }
  | rtadot dynamic_attr '.' DELETE '(' term ')' { }
  | rtadot dynamic_attr '.' CONTAINS '(' term ')' { }
- | rtadot dynamic_attr '.' RESET { }
+ | rtadot dynamic_attr '.' RESET{ }
 */
 
 /* Paths */
- | rtadot dynamic_attr '.' APPEND '(' term ')' { }
- | rtadot dynamic_attr '.' LEN { $$->code = P('P','l'); }
+ | term '.' APPEND '(' term ')' { }
+ | term '.' RESET { }
+/* | term '.' LEN { $$->code = P('P','l'); } */
 
 /* function_call is inlined here */
  | SYM '(' var_list ')' {
