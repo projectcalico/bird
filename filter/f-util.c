@@ -21,10 +21,10 @@ f_new_inst(void)
 }
 
 struct f_inst *
-f_new_dynamic_attr(int type, int code)
+f_new_dynamic_attr(int type, int f_type, int code)
 {
   struct f_inst *f = f_new_inst();
-  f->aux = T_PATH; /* type; HACK!!! */
+  f->aux = f_type;
   f->a2.i = code;
   return f;
 }

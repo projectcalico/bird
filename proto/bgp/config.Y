@@ -50,7 +50,7 @@ bgp_proto:
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
  ;
 
-CF_ADDTO(dynamic_attr, BGP_PATH { $$ = f_new_dynamic_attr(EAF_TYPE_AS_PATH, EA_CODE(EAP_BGP, BA_AS_PATH)); })
+CF_ADDTO(dynamic_attr, BGP_PATH { $$ = f_new_dynamic_attr(EAF_TYPE_AS_PATH, T_PATH, EA_CODE(EAP_BGP, BA_AS_PATH)); })
 
 CF_CODE
 
