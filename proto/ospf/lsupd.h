@@ -16,5 +16,8 @@ void ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 int flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   struct ospf_lsa_header *hh, struct proto_ospf *po, struct ospf_iface *iff,
   struct ospf_area *oa);
+void net_flush_lsa(struct top_hash_entry *en, struct proto_ospf *po,
+		  struct ospf_area *oa);
+
 
 #endif /* _BIRD_OSPF_LSUPD_H_ */

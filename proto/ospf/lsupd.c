@@ -434,3 +434,14 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   }
 }
 
+void
+net_flush_lsa(struct top_hash_entry *en, struct proto_ospf *po,
+  struct ospf_area *oa)
+{
+  struct ospf_lsa_header *lsa=&en->lsa;
+
+  lsa->age=LSA_MAXAGE;
+  debug("Premature aging self originated lsa.\n");
+  flood_lsa(NULL,NULL,lsa,po,NULL,oa);
+}
+

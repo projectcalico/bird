@@ -350,7 +350,7 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po)
 }
 
 void
-originate_ext_lsa(net *n, rte *e, u16 *len, struct proto_ospf *po)
+originate_ext_lsa(net *n, rte *e, struct proto_ospf *po)
 {
   struct ospf_lsa_header lsa;
   u32 rtid=po->proto.cf->global->router_id;

@@ -112,12 +112,6 @@ ospf_rte_same(struct rte *new, struct rte *old)
   return 1;
 }
 
-static void
-ospf_postconfig(struct proto_config *c)
-{
-  DBG( " OSPF: postconfig\n" );
-}
-
 int
 ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool *pool)
 {
@@ -127,6 +121,32 @@ ospf_import_control(struct proto *p, rte **new, ea_list **attrs, struct linpool 
   if(p==e->attrs->proto) return -1;
 
   return 0;
+}
+
+static int
+ospf_shutdown(struct proto *p)
+{
+  struct proto_ospf *po=(struct proto_ospf *)p;
+  struct ospf_iface *ifa;
+  struct ospf_neighbor *n;
+  struct ospf_area *oa;
+  debug("%s: Shutdown requested\n", p->name);
+  /* first of all flush my rt LSA */
+
+  WALK_LIST(oa,po->area_list)
+  {
+    net_flush_lsa(oa->rt,po,oa);
+  }
+
+
+  /* And send to all my neighbors 1WAY */
+  WALK_LIST(ifa, po->iface_list)
+  {
+    WALK_LIST(n, ifa->neigh_list) neigh_chstate(n,NEIGHBOR_DOWN);
+    hello_timer_hook(ifa->hello_timer);
+  }
+  
+  return PS_DOWN;
 }
 
 void
@@ -139,13 +159,20 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
 
   if(new)		/* Got some new route */
   {
-    int i;
-    /* Originate new external LSA */
+    originate_ext_lsa(n, old, po);
   }
   else
   {
-    int i;
-    /* Flush some old external LSA */
+    u32 rtid=po->proto.cf->global->router_id;
+    struct ospf_area *oa;
+    struct top_hash_entry *en;
+
+    /* Flush old external LSA */
+    WALK_LIST(oa, po->area_list)
+    {
+      if(en=ospf_hash_find(oa->gr, ipa_to_u32(n->n.prefix), rtid, LSA_T_EXT))
+        net_flush_lsa(en,po,oa);
+    }
   }
 }
 
@@ -155,5 +182,5 @@ struct protocol proto_ospf = {
   init:		ospf_init,
   dump:		ospf_dump,
   start:	ospf_start,
-  postconfig:	ospf_postconfig,
+  shutdown:	ospf_shutdown
 };
