@@ -37,6 +37,7 @@ scan_ifs(struct ifreq *r, int cnt)
   ip_addr netmask;
   int l;
 
+  if_start_update();
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
     {
       bzero(&i, sizeof(i));

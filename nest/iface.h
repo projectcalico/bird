@@ -53,8 +53,10 @@ void if_init(void);
 void if_dump(struct iface *);
 void if_dump_all(void);
 void if_update(struct iface *);
+void if_start_update(void);
 void if_end_update(void);
 void if_feed_baby(struct proto *);
+struct iface *if_find_by_index(unsigned);
 
 /*
  *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen

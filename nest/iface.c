@@ -231,8 +231,6 @@ if_dump_all(void)
 static inline int
 if_change_too_big_p(struct iface *i, struct iface *j)
 {
-  if ((i->flags ^ j->flags) & IF_UP)	/* Going up/down is always OK */
-    return 0;
   if (!ipa_equal(i->ip, j->ip) ||	/* Address change isn't */
       !ipa_equal(i->prefix, j->prefix) ||
       i->pxlen != j->pxlen ||
@@ -310,16 +308,19 @@ if_update(struct iface *new)
 	if (if_change_too_big_p(i, new)) /* Changed a lot, convert it to down/up */
 	  {
 	    DBG("Interface %s changed too much -- forcing down/up transition\n", i->name);
-	    i->flags &= ~IF_UP;
-	    if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, i, NULL);
+	    if (i->flags & IF_UP)
+	      {
+		i->flags &= ~IF_UP;
+		if_notify_change(IF_CHANGE_DOWN | IF_CHANGE_FLAGS, i, NULL);
+	      }
 	    rem_node(&i->n);
 	    goto newif;
 	  }
 	c = if_changed(i, new);
-	if_copy(i, new);		/* Even if c==0 as we might need to update i->index et al. */
-	i->flags |= IF_UPDATED;
 	if (c)
 	  if_notify_change(c, i, new);
+	if_copy(i, new);		/* Even if c==0 as we might need to update i->index et al. */
+	i->flags |= IF_UPDATED;
 	return;
       }
 
@@ -333,6 +334,15 @@ newif:
 }
 
 void
+if_start_update(void)
+{
+  struct iface *i;
+
+  WALK_LIST(i, iface_list)
+    i->flags &= ~IF_UPDATED;
+}
+
+void
 if_end_update(void)
 {
   struct iface *i, j;
@@ -341,9 +351,7 @@ if_end_update(void)
     auto_router_id();
 
   WALK_LIST(i, iface_list)
-    if (i->flags & IF_UPDATED)
-      i->flags &= ~IF_UPDATED;
-    else
+    if (!(i->flags & IF_UPDATED))
       {
 	memcpy(&j, i, sizeof(struct iface));
 	i->flags = (i->flags & ~(IF_LINK_UP | IF_UP)) | IF_ADMIN_DOWN;
@@ -362,6 +370,17 @@ if_feed_baby(struct proto *p)
   debug("Announcing interfaces to new protocol %s\n", p->name);
   WALK_LIST(i, iface_list)
     p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), i, NULL);
+}
+
+struct iface *
+if_find_by_index(unsigned idx)
+{
+  struct iface *i;
+
+  WALK_LIST(i, iface_list)
+    if (i->index == idx)
+      return i;
+  return NULL;
 }
 
 static void
