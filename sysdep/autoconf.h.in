@@ -1,0 +1,42 @@
+/*
+ *	This file contains all system parameters automatically
+ *	discovered by the configure script.
+ */
+
+/* System configuration file */
+#define SYSCONF_INCLUDE ?
+
+/* Include debugging code */
+#undef DEBUGGING
+
+/* 8-bit integer type */
+#define INTEGER_8 ?
+
+/* 16-bit integer type */
+#define INTEGER_16 ?
+
+/* 32-bit integer type */
+#define INTEGER_32 ?
+
+/* CPU endianity */
+#undef CPU_LITTLE_ENDIAN
+#undef CPU_BIG_ENDIAN
+
+/* Usual alignment for structures */
+#define CPU_STRUCT_ALIGN 1
+
+/* Characteristics of time_t */
+#undef TIME_T_IS_64BIT
+#undef TIME_T_IS_SIGNED
+
+/* Protocols compiled in */
+#undef CONFIG_STATIC
+#undef CONFIG_RIP
+#undef CONFIG_BGP
+#undef CONFIG_OSPF
+
+/* We have <syslog.h> and syslog() */
+#undef HAVE_SYSLOG
+
+/* Path to configuration files */
+#define PATH_CONFIG_DIR ?

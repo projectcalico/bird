@@ -41,3 +41,4 @@ clean:
 	rm -rf obj
 	rm -f `find . -name "*~" -or -name "*.[oa]" -or -name "\#*\#" -or -name TAGS -or -name core -or -name .depend -or -name .#*`
 	rm -f bird .dep
+	rm -f config.log config.cache config.status configure sysdep/autoconf.h 

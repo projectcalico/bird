@@ -1,63 +1,39 @@
 /*
- *	This is a manually generated BIRD configuration file.
- *	It will be replaced by something better when we come
- *	with an automated configuration mechanism. [mj]
+ *	This file contains all parameters dependent on the
+ *	operating system and build-time configuration.
  */
 
 #ifndef _BIRD_CONFIG_H_
 #define _BIRD_CONFIG_H_
 
-/* System-dependent configuration */
+/* Include parameters determined by configure script */
+#include "sysdep/autoconf.h"
 
-#include "sysdep/cf/linux-20.h"
-
-/* Include debugging code */
-
-#define DEBUGGING
+/* Include OS configuration file as chosen in autoconf.h */
+#include SYSCONF_INCLUDE
 
 /* Types */
-
-typedef signed char s8;
-typedef unsigned char u8;
-typedef short int s16;
-typedef unsigned short int u16;
-typedef int s32;
-typedef unsigned int u32;
-
+typedef signed INTEGER_8 s8;
+typedef unsigned INTEGER_8 u8;
+typedef INTEGER_16 s16;
+typedef unsigned INTEGER_16 u16;
+typedef INTEGER_32 s32;
+typedef unsigned INTEGER_32 u32;
 typedef u8 byte;
 typedef u16 word;
 
-/* Endianity */
+/*
+ * Required alignment for multi-byte accesses. We currently don't
+ * test these values in configure script, because several CPU's
+ * have unaligned accesses emulated by OS and they are slower
+ * than a call to memcpy() which is, in fact, often compiled
+ * as load/store by GCC on machines which don't require alignment.
+ */
 
-#define CPU_LITTLE_ENDIAN
+#define CPU_NEEDS_ALIGN_WORD 2
+#define CPU_NEEDS_ALIGN_LONG 4
 
-/* Required alignment for multi-byte accesses */
-
-#define CPU_NEEDS_ALIGN_WORD 1
-#define CPU_NEEDS_ALIGN_LONG 1
-
-/* Usual alignment for structures */
-
-#define CPU_STRUCT_ALIGN 4
-
-/* Timers */
-
-#undef TIME_T_IS_64BIT
-#define TIME_T_IS_SIGNED
-
-/* Protocol options */
-
-#define CONFIG_STATIC
-#define CONFIG_RIP
-#define CONFIG_BGP
-#define CONFIG_OSPF
-
-/* Autodetected system features */
-
-#define HAVE_SYSLOG
-
-/* Paths */
-
-#define PATH_CONFIG "bird.conf"
+/* Path to configuration file */
+#define PATH_CONFIG PATH_CONFIG_DIR "/bird.conf"
 
 #endif
