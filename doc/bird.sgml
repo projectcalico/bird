@@ -1003,7 +1003,11 @@ that each router detects all changes.
 
 <sect1>Configuration
 
-<p>
+<p>In the main part of configuration, there can be multiple definitions of
+OSPF area witch different id included. These definitions includes many other
+switches and mutliple definitions of interfaces. Definition of interface
+may contain many switches and constant definitinons and list of neighbors
+on nonbroadcast networks.
 
 <code>
 protocol ospf &lt;name&gt; {
