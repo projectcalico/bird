@@ -13,7 +13,6 @@
 #include <net/route.h>
 
 #undef LOCAL_DEBUG
-#define LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/iface.h"
@@ -37,7 +36,7 @@ krt_capable(rte *e)
     (a->dest == RTD_ROUTER
      || a->dest == RTD_DEVICE
 #ifdef RTF_REJECT
-     || a->dest == RTD_UNREACHABLE		/* FIXME Blackhole, prohibited?? */
+     || a->dest == RTD_UNREACHABLE
 #endif
      );
 }
@@ -46,12 +45,12 @@ static void
 krt_ioctl(int ioc, rte *e, char *name)
 {
   net *net = e->net;
-  struct ortentry re;
+  struct rtentry re;
   rta *a = e->attrs;
 
   bzero(&re, sizeof(re));
   fill_in_sockaddr((struct sockaddr_in *) &re.rt_dst, net->n.prefix, 0);
-  //fill_in_sockaddr((struct sockaddr_in *) &re.rt_genmask, ipa_mkmask(net->n.pxlen), 0);
+  fill_in_sockaddr((struct sockaddr_in *) &re.rt_genmask, ipa_mkmask(net->n.pxlen), 0);
   re.rt_flags = RTF_UP;
   if (net->n.pxlen == 32)
     re.rt_flags |= RTF_HOST;
@@ -62,7 +61,7 @@ krt_ioctl(int ioc, rte *e, char *name)
       re.rt_flags |= RTF_GATEWAY;
       break;
     case RTD_DEVICE:
-      //re.rt_dev = a->iface->name;
+      re.rt_dev = a->iface->name;
       break;
 #ifdef RTF_REJECT
     case RTD_UNREACHABLE:
