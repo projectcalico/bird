@@ -6,6 +6,13 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Direct
+ *
+ * The Direct protocol works by convering all ifa_notify() events it receives
+ * to rte_update() calls for the corresponding network.
+ */
+
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
