@@ -77,12 +77,11 @@ int
 ev_run_list(event_list *l)
 {
   node *n, *p;
-  int keep = 0;
 
   WALK_LIST_DELSAFE(n, p, *l)
     {
       event *e = SKIP_BACK(event, n, n);
-      keep += ev_run(e);
+      ev_run(e);
     }
-  return keep;
+  return !EMPTY_LIST(*l);
 }
