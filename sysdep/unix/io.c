@@ -35,6 +35,20 @@
 #include "lib/unix.h"
 
 /*
+ *	Random Numbers
+ */
+
+u32
+random_u32(void)
+{
+  long int rand_low, rand_high;
+
+  rand_low = random();
+  rand_high = random();
+  return (rand_low & 0xffff) | ((rand_high & 0xffff) << 16);
+}
+
+/*
  *	Timers
  */
 
@@ -823,6 +837,7 @@ io_init(void)
   init_list(&global_event_list);
   krt_io_init();
   now = time(NULL);
+  srandom((int) now);
 }
 
 void

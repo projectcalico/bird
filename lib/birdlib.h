@@ -63,4 +63,8 @@ void debug(char *msg, ...);		/* Printf to debug output */
 #define ASSERT(x) do { } while(0)
 #endif
 
+/* Pseudorandom numbers */
+
+u32 random_u32(void);
+
 #endif
