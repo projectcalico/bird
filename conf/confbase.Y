@@ -19,6 +19,8 @@ CF_HDR
 #include "nest/cli.h"
 #include "filter/filter.h"
 
+/* FIXME: Turn on YYERROR_VERBOSE and work around lots of bison bugs? */
+
 CF_DECLS
 
 %union {
