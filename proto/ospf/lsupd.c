@@ -208,9 +208,6 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
   op->length=htons(len-SIPH);
   ospf_pkt_finalize(n->ifa, op);
 
-  for(ii=0;ii<(len-SIPH);ii+=4)
-    DBG("Out dump: %d,%d,%d,%d\n", *(jj+ii), *(jj+ii+1), *(jj+ii+2), *(jj+ii+3));
-
   sk_send_to(n->ifa->ip_sk,len, n->ip, OSPF_PROTO);
   debug("%s: LS upd sent to %I\n", p->name, n->ip);
 }
