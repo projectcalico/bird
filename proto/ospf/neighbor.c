@@ -500,11 +500,11 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
    min=(exp-sec)/60;
    if(min>59)
    {
-     sprintf(etime,"-Inf-");
+     bsprintf(etime,"-Inf-");
    }
    else
    {
-     sprintf(etime,"%02u:%02u", min, sec);
+     bsprintf(etime,"%02u:%02u", min, sec);
    }
    
    if(n->rid==ifa->drid) pos="dr   ";

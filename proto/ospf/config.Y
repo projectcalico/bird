@@ -40,6 +40,9 @@ CF_ADDTO(dynamic_attr, OSPF_METRIC1 { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF
 CF_ADDTO(dynamic_attr, OSPF_METRIC2 { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_METRIC2); })
 CF_ADDTO(dynamic_attr, OSPF_TAG { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_TAG); })
 
+CF_CLI(SHOW OSPF, optsym, [<name>], [[Show information about ospf protocol]])
+{ ospf_sh(proto_get_named($3, &proto_ospf)); } ;
+
 CF_CLI(SHOW OSPF NEIGHBORS, optsym, [<name>], [[Show information about ospf neighbors]])
 { ospf_sh_neigh(proto_get_named($4, &proto_ospf)); } ;
 

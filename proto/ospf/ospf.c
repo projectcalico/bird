@@ -324,7 +324,7 @@ ospf_sh_neigh(struct proto *p)
   struct ospf_neighbor *n;
   struct proto_ospf *po=(struct proto_ospf *)p;
 
-  cli_msg(-1013,"%s:",p->name);
+  cli_msg(-1013,"%s:", p->name);
   cli_msg(-1013,"%-12s\t%3s\t%-15s\t%-5s\t%-12s\t%-10s","Router ID","Pri",
     "     State", "DTime", "Router IP", "Interface");
   WALK_LIST(ifa,po->iface_list)
@@ -332,3 +332,42 @@ ospf_sh_neigh(struct proto *p)
       ospf_sh_neigh_info(n);
   cli_msg(0,"");
 }
+
+void
+ospf_sh(struct proto *p)
+{
+  struct ospf_area *oa;
+  struct proto_ospf *po=(struct proto_ospf *)p;
+  struct ospf_iface *ifa;
+  struct ospf_neighbor *n;
+  int ifano;
+  int nno;
+  int adjno;
+
+  cli_msg(-1014,"%s:", p->name);
+  cli_msg(-1014,"Number of areas: %u", po->areano);
+  
+  WALK_LIST(oa,po->area_list)
+  {
+    cli_msg(-1014,"\tArea: %I (%u) %s", oa->areaid, oa->areaid,
+      oa->areaid==0 ? "[BACKBONE]" : "");
+    ifano=0;
+    nno=0;
+    adjno=0;
+    WALK_LIST(ifa, po->iface_list)
+    {
+      if(oa==ifa->oa) ifano++;
+      WALK_LIST(n, ifa->neigh_list)
+      {
+        nno++;
+        if(n->state==NEIGHBOR_FULL) adjno++;
+      }
+    }
+    cli_msg(-1014,"\t\tNumber of interfaces: %u", ifano);
+    cli_msg(-1014,"\t\tNumber of LSAs: %u", oa->gr->hash_entries);
+    cli_msg(-1014,"\t\tNumber of neighbors: %u", nno);
+    cli_msg(-1014,"\t\tNumber of fully adjacent neighbors: %u", adjno);
+  }
+  cli_msg(0,"");
+}
+
