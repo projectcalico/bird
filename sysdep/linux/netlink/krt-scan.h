@@ -15,6 +15,12 @@
  *  to krt-set.h, krt-iface.h and this file.
  */
 
+#ifdef IPV6
+#define NL_NUM_TABLES 1
+#else
+#define NL_NUM_TABLES 256
+#endif
+
 struct krt_scan_params {
   int async;				/* Allow asynchronous events */
   int table_id;				/* Kernel table ID we sync with */

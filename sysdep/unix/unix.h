@@ -23,9 +23,11 @@ volatile int async_shutdown_flag;
 
 #ifdef IPV6
 #define BIRD_PF PF_INET6
+#define BIRD_AF AF_INET6
 typedef struct sockaddr_in6 sockaddr;
 #else
 #define BIRD_PF PF_INET
+#define BIRD_AF AF_INET
 typedef struct sockaddr_in sockaddr;
 #endif
 

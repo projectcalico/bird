@@ -84,7 +84,7 @@ nl_request_dump(int cmd)
   req.nh.nlmsg_type = cmd;
   req.nh.nlmsg_len = sizeof(req);
   req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-  req.g.rtgen_family = PF_INET;
+  req.g.rtgen_family = BIRD_PF;
   nl_send(&req.nh);
 }
 
@@ -322,15 +322,25 @@ nl_parse_addr(struct nlmsghdr *h)
 
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(IFA_RTA(i), a, sizeof(a)))
     return;
-  if (i->ifa_family != AF_INET)
+  if (i->ifa_family != BIRD_AF)
     return;
-  if (!a[IFA_ADDRESS] || RTA_PAYLOAD(a[IFA_ADDRESS]) != sizeof(ip_addr) ||
-      !a[IFA_LOCAL] || RTA_PAYLOAD(a[IFA_LOCAL]) != sizeof(ip_addr) ||
-      (a[IFA_BROADCAST] && RTA_PAYLOAD(a[IFA_BROADCAST]) != sizeof(ip_addr)))
+  if (!a[IFA_ADDRESS] || RTA_PAYLOAD(a[IFA_ADDRESS]) != sizeof(ip_addr)
+#ifdef IPV6
+      || a[IFA_LOCAL] && RTA_PAYLOAD(a[IFA_LOCAL]) != sizeof(ip_addr)
+#else
+      || !a[IFA_LOCAL] || RTA_PAYLOAD(a[IFA_LOCAL]) != sizeof(ip_addr)
+      || (a[IFA_BROADCAST] && RTA_PAYLOAD(a[IFA_BROADCAST]) != sizeof(ip_addr))
+#endif
+      )
     {
       log(L_ERR "nl_parse_addr: Malformed message received");
       return;
     }
+
+#ifdef IPV6
+  if (i->ifa_scope == RT_SCOPE_LINK)
+    return;
+#endif
 
   ifi = if_find_by_index(i->ifa_index);
   if (!ifi)
@@ -339,18 +349,21 @@ nl_parse_addr(struct nlmsghdr *h)
       return;
     }
 
+#ifndef IPV6
   if (i->ifa_prefixlen > 32 || i->ifa_prefixlen == 31 ||
       (ifi->flags & IF_UNNUMBERED) && i->ifa_prefixlen != 32)
     {
-      log(L_ERR "KIF: Invalid prefix length for interface %s: %d\n", ifi->name, i->ifa_prefixlen);
+      log(L_ERR "KIF: Invalid prefix length for interface %s: %d", ifi->name, i->ifa_prefixlen);
       new = 0;
     }
+#endif
 
   bzero(&ifa, sizeof(ifa));
   ifa.iface = ifi;
   if (i->ifa_flags & IFA_F_SECONDARY)
     ifa.flags |= IA_SECONDARY;
-  memcpy(&ifa.ip, RTA_DATA(a[IFA_LOCAL]), sizeof(ifa.ip));
+  /* IFA_LOCAL can be unset for IPv6 interfaces */
+  memcpy(&ifa.ip, RTA_DATA(a[IFA_LOCAL] ? : a[IFA_ADDRESS]), sizeof(ifa.ip));
   ipa_ntoh(ifa.ip);
   ifa.pxlen = i->ifa_prefixlen;
   if (ifi->flags & IF_UNNUMBERED)
@@ -359,11 +372,13 @@ nl_parse_addr(struct nlmsghdr *h)
       ipa_ntoh(ifa.opposite);
       ifa.brd = ifa.opposite;
     }
+#ifndef IPV6
   else if ((ifi->flags & IF_BROADCAST) && a[IFA_BROADCAST])
     {
       memcpy(&ifa.brd, RTA_DATA(a[IFA_BROADCAST]), sizeof(ifa.brd));
       ipa_ntoh(ifa.brd);
     }
+#endif
   /* else a NBMA link */
   ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(ifa.pxlen));
 
@@ -405,7 +420,7 @@ krt_if_scan(struct kif_proto *p)
  *	Routes
  */
 
-static struct krt_proto *nl_table_map[256];
+static struct krt_proto *nl_table_map[NL_NUM_TABLES];
 
 int
 krt_capable(rte *e)
@@ -413,7 +428,7 @@ krt_capable(rte *e)
   rta *a = e->attrs;
 
   if (a->cast != RTC_UNICAST
-#ifdef IPV6
+#if 0
       && a->cast != RTC_ANYCAST
 #endif
       )
@@ -455,7 +470,7 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
   r.h.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | (new ? NLM_F_CREATE|NLM_F_REPLACE : 0);
   /* FIXME: Do we really need to process ACKs? */
 
-  r.r.rtm_family = AF_INET;
+  r.r.rtm_family = BIRD_AF;
   r.r.rtm_dst_len = net->n.pxlen;
   r.r.rtm_tos = 0;
   r.r.rtm_table = KRT_CF->scan.table_id;
@@ -546,11 +561,14 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(RTM_RTA(i), a, sizeof(a)))
     return;
-  if (i->rtm_family != AF_INET)
+  if (i->rtm_family != BIRD_AF)
     return;
   if ((a[RTA_DST] && RTA_PAYLOAD(a[RTA_DST]) != sizeof(ip_addr)) ||
       (a[RTA_OIF] && RTA_PAYLOAD(a[RTA_OIF]) != 4) ||
       (a[RTA_PRIORITY] && RTA_PAYLOAD(a[RTA_PRIORITY]) != 4) ||
+#ifdef IPV6
+      (a[RTA_IIF] && RTA_PAYLOAD(a[RTA_IIF]) != 4) ||
+#endif
       (a[RTA_GATEWAY] && RTA_PAYLOAD(a[RTA_GATEWAY]) != sizeof(ip_addr)))
     {
       log(L_ERR "nl_parse_route: Malformed message received");
@@ -561,11 +579,19 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   if (!p)
     return;
 
+#ifdef IPV6
+  if (a[RTA_IIF])
+    {
+      DBG("KRT: Ignoring route with IIF set\n");
+      return;
+    }
+#else
   if (i->rtm_tos != 0)			/* We don't support TOS */
     {
       DBG("KRT: Ignoring route with TOS %02x\n", i->rtm_tos);
       return;
     }
+#endif
 
   if (scan && !new)
     {
@@ -784,7 +810,11 @@ nl_open_async(void)
 
   bzero(&sa, sizeof(sa));
   sa.nl_family = AF_NETLINK;
+#ifdef IPV6
+  sa.nl_groups = RTMGRP_LINK | RTMGRP_IPV6_IFADDR | RTMGRP_IPV6_ROUTE;
+#else
   sa.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV4_ROUTE;
+#endif
   if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
     {
       log(L_ERR "Unable to bind asynchronous rtnetlink socket: %m");
@@ -806,7 +836,7 @@ nl_open_async(void)
  *	Interface to the UNIX krt module
  */
 
-static u8 nl_cf_table[256 / 8];
+static u8 nl_cf_table[(NL_NUM_TABLES+7) / 8];
 
 void
 krt_scan_preconfig(struct config *c)
@@ -828,7 +858,9 @@ void
 krt_scan_construct(struct krt_config *x)
 {
   x->scan.async = 1;
+#ifndef IPV6
   x->scan.table_id = RT_TABLE_MAIN;
+#endif
   /* FIXME: Use larger defaults for scanning times? */
 }
 

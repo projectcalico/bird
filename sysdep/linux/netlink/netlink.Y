@@ -19,7 +19,7 @@ CF_ADDTO(kern_proto, kern_proto nl_item ';')
 nl_item:
    ASYNC bool { THIS_KRT->scan.async = $2; }
  | KERNEL TABLE expr {
-	if ($3 <= 0 || $3 >= 255)
+	if ($3 <= 0 || $3 >= NL_NUM_TABLES)
 	  cf_error("Kernel routing table number out of range");
 	THIS_KRT->scan.table_id = $3;
    }
