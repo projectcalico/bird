@@ -16,6 +16,7 @@
 #include "lib/resource.h"
 #include "lib/socket.h"
 #include "lib/string.h"
+#include "lib/unaligned.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
@@ -133,6 +134,7 @@ val_print(struct f_val v)
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   default: PRINTF( "[unknown type %x]", v.type );
+#undef PRINTF
   }
   debug( buf );
 }
@@ -554,6 +556,7 @@ filters_postconfig(void)
       die( "Startup function resulted in error." );
     debug( "done\n" );
   }
+  self_test();
 } 
 
 int
@@ -565,4 +568,204 @@ filter_same(struct filter *new, struct filter *old)
       new == FILTER_ACCEPT || new == FILTER_REJECT)
     return 0;
   return i_same(new->root, old->root);
+}
+
+/* This should end up far away from here! */
+
+int
+path_getlen(u8 *p, int len)
+{
+  int res = 0;
+  u8 *q = p+len;
+  while (p<q) {
+    switch (*p++) {
+    case 1: len = *p++; res++;    p += 2*len; break;
+    case 2: len = *p++; res+=len; p += 2*len; break;
+    default: bug("This should not be in path");
+    }
+  }
+  return res;
+}
+
+
+#define PRINTF(a...) { int l; bsnprintf( buf, 8000, a ); s -= (l = strlen(buf)); if (s<bigbuf) return "Path was much too long"; memcpy(s, buf, l); }
+#define COMMA if (first) first = 0; else PRINTF( ", " );
+char *
+path_format(u8 *p, int len)
+{
+  char bigbuf[4096];	/* Keep it smaller than buf */
+  char *s = bigbuf+4095;
+  char buf[8000];
+  int first = 1;
+  int i;
+  u8 *q = p+len;
+  *s-- = 0;
+  while (p<q) {
+    switch (*p++) {
+    case 1:	/* This is a set */
+      len = *p++;
+      COMMA;
+      PRINTF( "}" );
+      {
+	int first = 1;
+	for (i=0; i<len; i++) {
+	  COMMA;
+	  PRINTF( "%d", get_u16(p));
+	  p+=2;
+	}
+      }
+      PRINTF( "{" );
+      break;
+
+    case 2:	/* This is a sequence */
+      len = *p++;
+      for (i=0; i<len; i++) {
+	int l;
+	COMMA;
+	PRINTF( "%d", get_u16(p));
+	p+=2;
+      }
+      break;
+
+    default:
+      bug("This should not be in path");
+    }
+  }
+  return strdup(s);
+}
+#undef PRINTF
+#undef COMMA
+
+#define PM_END -1
+#define PM_ASTERIX -2
+
+#define MASK_PLUS do { if (*++mask == PM_END) return next == q; \
+		       asterix = (*mask == PM_ASTERIX); \
+		       printf( "Asterix now %d\n", asterix ); \
+                       if (asterix) { if (*++mask == PM_END) { printf( "Quick exit\n" ); return 1; } } \
+		       } while(0)
+
+
+int
+path_match(u8 *p, int len, s32 *mask)
+{
+  int i;
+  int asterix = 0;
+  u8 *q = p+len;
+  u8 *next;
+
+  while (p<q) {
+    switch (*p++) {
+    case 1:	/* This is a set */
+      len = *p++;
+      {
+	u8 *p_save = p;
+	next = p_save + 2*len;
+      retry:
+	p = p_save;
+	for (i=0; i<len; i++) {
+	  if (asterix && (get_u16(p) == *mask)) {
+	    MASK_PLUS;
+	    goto retry;
+	  }
+	  if (!asterix && (get_u16(p) == *mask)) {
+	    p = next;
+	    MASK_PLUS;
+	    goto okay;
+	  }
+	  p+=2;
+	}
+	if (!asterix)
+	  return 0;
+      okay:
+      }
+      break;
+
+    case 2:	/* This is a sequence */
+      len = *p++;
+      for (i=0; i<len; i++) {
+	next = p+2;
+	if (asterix && (get_u16(p) == *mask))
+	  MASK_PLUS;
+	else if (!asterix) {
+	  if (get_u16(p) != *mask)
+	    return 0;
+	  MASK_PLUS;
+	}
+	p+=2;
+      }
+      break;
+
+    default:
+      bug("This should not be in path");
+    }
+  }
+  return 0;
+}
+
+struct adata *
+comlist_add(struct linpool *pool, struct adata *list, u32 val)
+{
+  struct adata *res = lp_alloc(pool, list->length + sizeof(struct adata) + 4);
+  res->length = list->length+4;
+  * (u32 *) res->data = val;
+  memcpy((char *) res->data + 4, list->data, list->length);
+  return res;
+}
+
+struct adata *
+comlist_contains(struct adata *list, u32 val)
+{
+  u32 *l = &(list->data);
+  int i;
+  for (i=0; i<list->length/4; i++)
+    if (*l++ == val)
+      return 1;
+  return 0;
+}
+
+struct adata *
+comlist_del(struct linpool *pool, struct adata *list, u32 val)
+{
+  struct adata *res;
+  u32 *l, *k;
+  int i;
+
+  if (!comlist_contains(list, val))
+    return list;
+
+  res = lp_alloc(pool, list->length + sizeof(struct adata) - 4);
+  res->length = list->length-4;
+
+  l = &(list->data);
+  k = &(res->data);
+  for (i=0; i<list->length/4; i++)
+    if (l[i] != val)
+      *k++ = l[i];
+
+  return res;
+}
+
+struct adata *
+comlist_empty(struct linpool *pool)
+{
+  struct adata *res = lp_alloc(pool, sizeof(struct adata));
+  res->length = 0;
+  return res;
+}
+
+void
+self_test(void)
+{
+  char path1[] = { 2, 5, 0, 5, 0, 4, 0, 3, 0, 2, 0, 1 };
+  char path2[] = { 2, 5, 0, 5, 0, 4, 0, 3, 0, 2, 0, 1, 1, 5, 0, 5, 0, 4, 0, 3, 0, 2, 0, 1 };
+  s32 match[] = { 5, PM_ASTERIX, 2, PM_ASTERIX, 1, 3, PM_END };
+
+  DBG( "Filters self-testing:\n" );
+  DBG( "%s\n", path_format(path1, sizeof(path1)) );
+  DBG( "%s\n", path_format(path2, sizeof(path2)) );
+  DBG( "5, 6 = %d, %d\n", path_getlen(path1, sizeof(path1)), path_getlen(path2, sizeof(path2)) );
+  DBG( "%d\n", path_match(path1, sizeof(path1), match));
+  DBG( "%d\n", path_match(path2, sizeof(path2), match));
+//  die( "okay" );
 }

@@ -11,6 +11,8 @@
 	FIXME: IP addresses in ipv6
 
 
+        FIXME: check messages for \n at the end
+
 (1) Cesty
 
    AS paths budtez interne reprezentovany stejne jako v BGP (viz RFC 1771),
@@ -22,16 +24,21 @@ mnozina cisel ASu. Na cestach nadefinuji nasledujici operace:
 
 Filtry by mely podporovat:
 
-        - operator pridani AS k ceste
+        - operator pridani AS k ceste [bgp_path_prepend]
         - matchovani na pritomnost podposloupnosti v ceste (pricemz vyskytne-li
           se tam mnozina, tak si ji lze predstavit prerovnanou v libovolnem
           poradi)
+
         - operator zjisteni delky cesty (pro vypocet metrik)
 
 Byl bych rad, kdyby se samotne matchovaci funkce objevily v proto/bgp/attrs.c.
 
+Jsou v sitove endianite. [lib/unaligned.h]
+
 
 (2) Community-listy
+
+posloupnost 32bitovych cisel s delkou.
 
 Community list budiz interne reprezentovan jako posloupnost 32-bitovych cisel.
 
@@ -40,32 +47,13 @@ cisel (prvni je cislo AS, ktery community definoval, druhe pak community ID
 v ramci AS) a melo by byt mozne definovat si konstanty typu community.
 K dispozici by mely byt nasledujici operace:
 
-        - zjisteni pritomnosti community v listu
-        - pridani community do listu
-        - odebrani community z listu
+        - zjisteni pritomnosti community v listu [linearni pruchod]
+        - pridani community do listu [s kopii]
+        - odebrani community z listu [s kopii]
         - zresetovani listu
 
 Pro operace na cestach i na community listech by se mela pouzivat `teckova'
 notace pouzita v mem puvodnim navrhu syntaxe.
-
-
-(3) Zmeny v semantice dynamickych atributu
-
-Aby se nemusely neustale kopirovat seznamy atributu, rad bych provedl jeste
-jednu zmenu v tom, jak filtry nakladaji s atributy (pevne doufam, ze posledni,
-ale uznavam, ze u te predchozi jsem to take tvrdil): Funkci f_run budiz
-pridan jeste jeden parametr, ktery prepina mezi dvema mody:
-
-        (a)  [incoming filter mode]  Jako nyni.
-
-        (b)  [outgoing filter mode]  Pokud se hleda atribut, hleda se nejdrive
-             v tmp_attrs a pokud to selze, tak v rta->attrs. Pokud se nastavuje,
-             dava se _vzdy_ do tmp_attrs.
-
-Diky tomu filtry pri exportu routes nebudou vubec muset modifikovat rta a
-protokoly, ktere v import_control potrebuji nastavovat i non-temporary
-atributy, je budou moci pridat do tmp_attrs, aniz by sahly na rta.
-
 
  */
 
@@ -83,6 +71,8 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	FROM, GW, NET, MASK, SOURCE,
 	LEN,
 	DEFINED,
+	ADD, DELETE, CONTAINS, RESET,
+	APPEND, MATCH,
 	FILTER, WHERE)
 
 %nonassoc THEN
@@ -400,6 +390,19 @@ term:
  | term '.' IP { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_IP; }
  | term '.' LEN { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_INT; }
  | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = P('i','M'); $$->a1.p = $1; $$->a2.p = $5; }
+
+/* Communities */
+
+ | term '.' ADD '(' term ')' { }
+ | term '.' DELETE '(' term ')' { }
+ | term '.' CONTAINS '(' term ')' { }
+ | term '.' RESET { }
+
+/* Paths */
+ | term '.' APPEND '(' term ')' { }
+/* | term '.' LEN { }  Hmm, this would colide with ip.len. What to do with that? */
+ | term '.' MATCH '(' term ')' { }
+
 /* function_call is inlined here */
  | SYM '(' var_list ')' {
      struct symbol *sym;
