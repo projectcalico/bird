@@ -1,4 +1,4 @@
-Version 1.0.6 (2002-04-06)
+Version 1.0.6 (2003-04-06)
 
   o  No more byte order problems in RIP authentication. Thanks to
      Eric Leblond <eleblond@init-sys.com> for a patch.
