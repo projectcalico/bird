@@ -49,7 +49,7 @@ ospf_proto:
 
 ospf_proto_item:
    proto_item
- | RFC1583COMPAT bool ';' { OSPF_CFG->rfc1583 = $2; }
+ | RFC1583COMPAT bool { OSPF_CFG->rfc1583 = $2; }
  | TICK expr { OSPF_CFG->tick = $2 ; if($2<=0) cf_error("Tick must be greater than zero"); }
  | ospf_area '}'
  ;
