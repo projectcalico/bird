@@ -194,7 +194,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   c->dport = dport;
   c->daddr = daddr;
   if (c->rif->sock->data != rif)
-    die("not enough send magic\n");
+    bug("not enough send magic\n");
 #if 0
   if (sk_open(c->send)<0) {
     log( L_ERR "Could not open socket for data send to %I:%d on %s\n", daddr, dport, rif->iface->name );
@@ -532,6 +532,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
 
   if (sk_open(rif->sock)<0)
     die( "RIP/%s: could not listen on %s\n", p->name, rif->iface->name );
+  /* FIXME: Should not be fatal, since the interface might have gone */
   
   return rif;
 }
@@ -657,7 +658,9 @@ rip_preconfig(struct protocol *x)
 static void
 rip_postconfig(struct protocol *p)
 {
+#if 0					/* Cannot do this since it crashes when RIP is unconfigured */
   new_iface(p, NULL, 0);
+#endif
 }
 
 struct protocol proto_rip = {
