@@ -36,16 +36,17 @@ struct rip_block {
 
 struct rip_entry {
   node n;
-  ip_addr whotoldme;
 
+  ip_addr whotoldme;
   ip_addr network;
   int pxlen;
   ip_addr nexthop;
-
   int metric;
   u16 tag;
 
   bird_clock_t updated, changed;
+  int flags;
+#define RIP_F_EXTERNAL 1
 };
 
 struct rip_packet {

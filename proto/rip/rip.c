@@ -1,7 +1,7 @@
 /*
  *	Rest in pieces - RIP protocol
  *
- *	(c) 1998 Pavel Machek <pavel@ucw.cz>
+ *	Copyright (c) 1998 Pavel Machek <pavel@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -24,10 +24,10 @@
 
 int infinity = 16;
 
-/* XXX should be 520 */
+/* FIXME: should be 520 */
 #define RIP_PORT 1520
 
-/* XXX should be 30 */
+/* FIXME: should be 30 */
 #define RIP_TIME 5
 
 static void
@@ -44,26 +44,62 @@ rip_reply(struct proto *p)
  */
 
 static struct rip_entry *
-find_entry( struct proto *p, ip_addr network, ip_addr netmask )
+find_entry( struct proto *p, ip_addr network, int pxlen )
 {
   struct node *e;
 
   CHK_MAGIC;
   WALK_LIST( e, P->rtable ) {
     if (ipa_equal( network, E->network ) &&
-	(ipa_mklen( netmask ) == E->pxlen)) {
+	(pxlen == E->pxlen)) {
       return E;
     }
   }
   return NULL;
 }
 
+/* Let main routing table know about our new entry */
+static void
+advertise_entry( struct proto *p, struct rip_entry *e )
+{
+  rta *a, A;
+  rte *r;
+  net *n;
+    
+  bzero(&A, sizeof(A));
+  A.proto = p;
+  A.source = RTS_RIP;
+  A.scope = SCOPE_UNIVERSE;
+  A.cast = RTC_UNICAST;
+  A.dest = RTD_ROUTER;
+  A.tos = 0;
+  A.flags = 0;
+  A.gw = e->nexthop;
+  A.from = e->whotoldme;
+  A.iface = /* FIXME: need to set somehow */ NULL;
+  /* set to: interface of nexthop */
+  a = rta_lookup(&A);
+  n = net_get( &master_table, 0, e->network, e->pxlen );
+  r = rte_get_temp(a);
+  r->pflags = 0; /* Here go my flags */
+  rte_update( n, p, r );
+}
+
 static struct rip_entry *
-new_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
+new_entry( struct proto *p )
 {
   struct rip_entry *e;
-
   e = mb_alloc(p->pool, sizeof( struct rip_entry ));
+  bzero( e, sizeof( struct rip_entry ));
+  return e;
+}
+
+/* Create new entry from data rip_block */
+static struct rip_entry *
+new_entry_from_block( struct proto *p, struct rip_block *b, ip_addr whotoldme )
+{
+  struct rip_entry *e = new_entry( p );
+
   e->whotoldme = whotoldme;
   e->network = b->network;
   e->pxlen = ipa_mklen( b->netmask );
@@ -75,50 +111,43 @@ new_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   e->tag = ntohs( b->tag );
   e->metric = ntohl( b->metric );
   e->updated = e->changed = now;
-
-  {
-    rta *a, A;
-    rte *r;
-    net *n;
-    
-    bzero(&A, sizeof(A));
-    A.proto = p;
-    A.source = RTS_RIP;
-    A.scope = SCOPE_UNIVERSE;
-    A.cast = RTC_UNICAST;
-    A.dest = RTD_ROUTER;
-    A.tos = 0;
-    A.flags = 0;
-    A.gw = e->nexthop;
-    A.from = e->whotoldme;
-    A.iface = /* fixme: need to set somehow */ NULL;
-    /* set to: interface of nexthop */
-    a = rta_lookup(&A);
-    n = net_get( &master_table, 0, e->network, e->pxlen );
-    r = rte_get_temp(a);
-    r->pflags = 0; /* Here go my flags */
-    rte_update( n, p, r );
-  }
-  
   return e;
 }
 
+/* Delete one of entries */
 static void
-kill_entry( struct proto *p, struct rip_entry *e )
+kill_entry_ourrt( struct proto *p, struct rip_entry *e )
+{
+  struct rip_connection *c;
+  net *n;
+
+  rem_node( NODE e );
+  WALK_LIST( c, P->connections ) {
+    if (c->sendptr == e) {
+      debug( "Deleting from under someone's sendptr...\n" );
+      c->sendptr = (void *) (NODE c->sendptr)->next;
+    }
+  }
+  mb_free( e );
+}
+
+/* Delete one of entries */
+static void
+kill_entry_mainrt( struct proto *p, struct rip_entry *e )
 {
   struct rip_connection *c;
   net *n;
 
   n = net_find(&master_table, 0, e->network, e->pxlen );
-  if (!n) debug( "Could not find entry to delete in main routing table.\n" );
+  if (!n) log( L_ERR "Could not find entry to delete in main routing table.\n" );
      else rte_update( n, p, NULL );
+}
 
-  rem_node( NODE e );
-  WALK_LIST( c, P->connections ) {
-    if (c->sendptr == e)
-      die( "kill_entry: one of connections has this as current, fix me!" );
-  }
-  mb_free( e );
+static void
+kill_entry( struct proto *p, struct rip_entry *e )
+{
+  kill_entry_mainrt( p, e );
+  kill_entry_ourrt( p, e );
 }
 
 /*
@@ -159,11 +188,16 @@ givemore:
       break;
     debug( "." );
     packet->block[i].family  = htons( 2 ); /* AF_INET */
-    packet->block[i].tag     = htons( 0 ); /* What should I set it to? */
+    packet->block[i].tag     = htons( 0 ); /* FIXME: What should I set it to? */
     packet->block[i].network = c->sendptr->network;
     packet->block[i].netmask = ipa_mkmask( c->sendptr->pxlen );
     packet->block[i].nexthop = IPA_NONE; /* FIXME: How should I set it? */
     packet->block[i].metric  = htonl( c->sendptr->metric );
+    if (ipa_equal(c->sendptr->whotoldme, s->daddr)) {
+      debug( "(split horizont)" );
+      /* FIXME: should we do it in all cases? */
+      packet->block[i].metric = infinity;
+    }
     ipa_hton( packet->block[i].network );
     ipa_hton( packet->block[i].netmask );
     ipa_hton( packet->block[i].nexthop );
@@ -215,7 +249,6 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport )
   rip_tx( c->send );
 }
 
-
 /*
  * Input processing
  */
@@ -223,6 +256,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport )
 static int
 process_authentication( struct proto *p, struct rip_block *block )
 {
+  /* FIXME: Should do md5 authentication */
   return 0;
 }
 
@@ -241,15 +275,15 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
     return;
   }
 
-  /* XXX Check if destination looks valid - ie not net 0 or 127 */
+  /* FIXME: Check if destination looks valid - ie not net 0 or 127 */
 
-  /* XXX Should add configurable ammount */
+  /* FIXME: Should add configurable ammount */
   if (metric < infinity)
     metric++;
 
   debug( "block: %I tells me: %I/%I available, metric %d... ", whotoldme, network, block->netmask, metric );
 
-  e = find_entry( p, network, block->netmask );
+  e = find_entry( p, network, ipa_mklen( block->netmask ));
   if (e && (e->metric > metric)) /* || if same metrics and this is much newer */ 
     DELETE( "better metrics... " );
 
@@ -264,7 +298,12 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
 
   if (!e) {
     debug( "this is new" );
-    e = new_entry( p, block, whotoldme );
+    e = new_entry_from_block( p, block, whotoldme );
+    if (!e) {
+      debug( "Something went wrong with new_entry?\n" );
+      return;
+    }
+    advertise_entry( p, e );
     add_head( &P->rtable, NODE e );
   }
 
@@ -287,10 +326,10 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
   }
 
   switch( packet->heading.command ) {
-  case 1: debug( "Asked to send my routing table\n" ); 
+  case RIPCMD_REQUEST: debug( "Asked to send my routing table\n" ); 
     	  rip_sendto( p, whotoldme, port );
           break;
-  case 2: debug( "Part of routing table came\n" ); 
+  case RIPCMD_RESPONSE: debug( "Part of routing table came\n" ); 
           if (port != RIP_PORT) {
 	    log( L_AUTH "%I send me routing info from port %d\n", whotoldme, port );
 	    return 0;
@@ -301,7 +340,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    return 0;
 	  }
 
-	  /* Should check if it is not my own packet */
+	  /* FIXME: Should check if it is not my own packet */
 
           for (i=0; i<num; i++) {
 	    struct rip_block *block = &packet->block[i];
@@ -320,8 +359,8 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    process_block( p, block, whotoldme );
 	  }
           break;
-  case 3:
-  case 4: BAD( "I was asked for traceon/traceoff\n" );
+  case RIPCMD_TRACEON:
+  case RIPCMD_TRACEOFF: BAD( "I was asked for traceon/traceoff\n" );
   case 5: BAD( "Some Sun extension around here\n" );
   default: BAD( "Unknown command" );
   }
@@ -338,7 +377,6 @@ rip_rx(sock *s, int size)
 
   CHK_MAGIC;
   debug( "RIP: message came: %d bytes\n", size );
-  if (size <= 0) BAD( "Zero sized packet" );
   size -= sizeof( struct rip_packet_heading );
   if (size < 0) BAD( "Too small packet" );
   if (size % sizeof( struct rip_block )) BAD( "Odd sized packet" );
@@ -356,8 +394,10 @@ rip_rx(sock *s, int size)
 static void
 rip_dump_entry( struct rip_entry *e )
 {
-  debug( "%I told me %d/%d ago: to %I/%d go via %I, metric %d\n", 
+  debug( "%I told me %d/%d ago: to %I/%d go via %I, metric %d ", 
   e->whotoldme, e->updated-now, e->changed-now, e->network, e->pxlen, e->nexthop, e->metric );
+  if (e->flags & RIP_F_EXTERNAL) debug( "[external]" );
+  debug( "\n" );
 }
 
 static void
@@ -370,17 +410,20 @@ rip_timer(timer *t)
   debug( "RIP: tick tock\n" );
 
   WALK_LIST_DELSAFE( e, et, P->rtable ) {
-    if ((now - E->updated) > (180+120)) {
-      debug( "RIP: entry is too old: " );
-      rip_dump_entry( E );
-      kill_entry( p, E );
-    }
+    if (!(E->flags & RIP_F_EXTERNAL))
+      if ((now - E->updated) > (180+120)) {
+	debug( "RIP: entry is too old: " );
+	rip_dump_entry( E );
+	kill_entry( p, E );
+      }
   }
 
 #if 0
   debug( "RIP: Broadcasting routing tables\n" );
   rip_sendto( p, _MI( 0x0a000001 ), RIP_PORT );
 #endif
+
+  /* FIXME: Should broadcast routing tables to all known interfaces every 30 seconds */
 
   debug( "RIP: tick tock done\n" );
 }
@@ -440,6 +483,37 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 }
 
 static void
+rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old)
+{
+  debug( "rip: new entry came\n" );
+  /* FIXME: should add/delete that entry from my routing tables, and
+     set it so that it never times out */
+
+  if (old) {
+    struct rip_entry *e = find_entry( p, net->n.prefix, net->n.pxlen );
+    if (!e)
+      log( L_ERR "Deleting nonexistent entry?!\n" );
+
+    kill_entry_ourrt( p, e );
+  }
+
+  /* FIXME: what do we do if we already know route to that target? We were not prepared to that. */
+
+  if (new) {
+    struct rip_entry *e = new_entry( p );
+
+    e->whotoldme = IPA_NONE;
+    e->network = net->n.prefix;
+    e->pxlen = net->n.pxlen;
+    e->nexthop = IPA_NONE; /* FIXME: is it correct? */
+    e->tag = 0;		   /* FIXME: how to set tag? */
+    e->metric = 1;	   /* FIXME: how to set metric? */
+    e->updated = e->changed = now;
+    e->flags = RIP_F_EXTERNAL;
+  }
+}
+
+static void
 rip_preconfig(struct protocol *x)
 {
   struct proto *p = proto_new(&proto_rip, sizeof(struct rip_data));
@@ -448,6 +522,7 @@ rip_preconfig(struct protocol *x)
   p->preference = DEF_PREF_DIRECT;
   p->start = rip_start;
   p->if_notify = rip_if_notify;
+  p->rt_notify = rip_rt_notify;
   p->dump = rip_dump;
 }
 
