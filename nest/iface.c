@@ -612,7 +612,7 @@ if_show_addr(struct ifa *a)
     opp[0] = 0;
   cli_msg(-1003, "\t%I/%d (%s%s%s, scope %s%s)",
 	  a->ip, a->pxlen,
-	  (a->flags & IA_PRIMARY) ? "Primary" : (a->flags & IA_SECONDARY) ? "Secondary" : "???",
+	  (a->flags & IA_PRIMARY) ? "Primary" : (a->flags & IA_SECONDARY) ? "Secondary" : "Unselected",
 	  broad, opp,
 	  ip_scope_text(a->scope),
 	  (a->flags & IA_UNNUMBERED) ? ", unnumbered" : "");
