@@ -33,7 +33,7 @@ init_efib(struct fib_node *fn)
 void
 ospf_rt_spfa(struct ospf_area *oa)
 {
-  struct top_hash_entry *en, *nx;
+  struct top_hash_entry *en;
   u32 i,*rts;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *rtl,*rr;
@@ -50,7 +50,7 @@ ospf_rt_spfa(struct ospf_area *oa)
   debug("%s: Starting routing table calculation for area %I\n",p->name,
     oa->areaid);
 
-  WALK_SLIST_DELSAFE(SNODE en, nx, oa->lsal)
+  WALK_SLIST(SNODE en, oa->lsal)
   {
     en->color=OUTSPF;
     en->dist=LSINFINITY;

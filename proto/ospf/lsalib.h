@@ -23,7 +23,6 @@ u16 lsasum_check(struct ospf_lsa_header *h,void *body,struct proto_ospf *po);
 int lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2);
 struct top_hash_entry *lsa_install_new(struct ospf_lsa_header *lsa, void *body,
   struct ospf_area *oa, struct proto *p);
-void ospf_age(struct top_hash_entry *en, bird_clock_t delta, int flush,
-  struct ospf_area *oa);
+void ospf_age(struct ospf_area *oa);
 
 #endif /* _BIRD_OSPF_LSALIB_H_ */

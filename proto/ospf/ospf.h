@@ -325,6 +325,7 @@ struct ospf_area {
   node n;
   u32 areaid;
   timer *disp_timer;		/* Area's dispatcher hear beat */
+  bird_clock_t lage;		/* Time of last aging */
   int calcrt;			/* Routing table calculation scheduled? */
   int origrt;			/* Rt lsa origination scheduled? */
   struct top_graph *gr;		/* LSA graph */

@@ -184,6 +184,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
     oa->disp_timer->randomize=0;
     oa->disp_timer->hook=area_disp;
     oa->disp_timer->recurrent=DISPTICK;
+    oa->lage=now;
     tm_start(oa->disp_timer,DISPTICK);
     oa->calcrt=1;
     oa->origrt=0;

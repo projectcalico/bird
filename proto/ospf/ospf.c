@@ -162,11 +162,9 @@ area_disp(timer *timer)
 {
   struct ospf_area *oa=timer->data;
   struct top_hash_entry *en,*nxt;
-  int flush=0;
 
   /* First of all try to age LSA DB */
-  flush=can_flush_lsa(oa);
-  WALK_SLIST_DELSAFE(en,nxt,oa->lsal) ospf_age(en,DISPTICK,flush,oa);
+  ospf_age(oa);
 
   /* Now try to originage rt_lsa */
   if(oa->origrt) originate_rt_lsa(oa);

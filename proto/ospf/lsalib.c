@@ -16,28 +16,35 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
 }
 
 void
-ospf_age(struct top_hash_entry *en, bird_clock_t delta, int flush,
-  struct ospf_area *oa)
+ospf_age(struct ospf_area *oa)
 {
   struct proto *p=&oa->po->proto;
   struct proto_ospf *po=(struct proto_ospf *)p;
-  if(en->lsa.age==LSA_MAXAGE)
+  struct top_hash_entry *en,*nxt;
+  int flush=can_flush_lsa(oa);
+  bird_clock_t delta=now-oa->lage;
+
+  WALK_SLIST_DELSAFE(en,nxt,oa->lsal)
   {
-    if(flush) flush_lsa(en,oa);
-    return;
+    if(en->lsa.age==LSA_MAXAGE)
+    {
+      if(flush) flush_lsa(en,oa);
+      return;
+    }
+    if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>LSREFRESHTIME))
+    {
+       en->lsa.sn++;
+       en->lsa.age=0;
+       flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
+       return;
+    }
+    if((en->lsa.age+=delta)>LSA_MAXAGE)
+    {
+      if(flush) flush_lsa(en,oa);
+      else en->lsa.age=LSA_MAXAGE;
+    }
   }
-  if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>LSREFRESHTIME))
-  {
-     en->lsa.sn++;
-     en->lsa.age=0;
-     flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
-     return;
-  }
-  if((en->lsa.age+=delta)>LSA_MAXAGE)
-  {
-    if(flush) flush_lsa(en,oa);
-    else en->lsa.age=LSA_MAXAGE;
-  }
+  oa->lage=now;
 }
 
 void
