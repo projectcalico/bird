@@ -112,7 +112,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  break;
 	}
     }
-  else
+  if (!a_size)				/* Attributes not already encoded */
     {
       put_u16(w, 0);
       w += 2;
