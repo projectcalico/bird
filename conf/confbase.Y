@@ -38,7 +38,7 @@ CF_DECLS
 }
 
 %token END CLI_MARKER
-%token <i> NUM
+%token <i> NUM ENUM
 %token <i32> RTRID
 %token <a> IPA
 %token <s> SYM

@@ -9,14 +9,14 @@
 %{
 #undef REJECT     /* Avoid name clashes */
 
-#include "filter/filter.h"
-
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 
 #include "nest/bird.h"
+#include "nest/route.h"
+#include "filter/filter.h"
 #include "conf/conf.h"
 #include "conf/cf-parse.tab.h"
 
@@ -119,7 +119,15 @@ WHITE [ \t]
   while (k)
     {
       if (!strcmp(k->name, yytext))
-	return k->value;
+	{
+	  if (k->value > 0)
+	    return k->value;
+	  else
+	    {
+	      cf_lval.i = -k->value;
+	      return ENUM;
+	    }
+	}
       k=k->next;
     }
   cf_lval.s = cf_find_sym(yytext, h);

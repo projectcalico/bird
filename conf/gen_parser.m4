@@ -44,6 +44,9 @@ m4_divert(2)CF_KEYWORDS(m4_translit($1, [[ ]], [[,]]))
 m4_divert(3)CF_ADDTO(cli_cmd, CF_cmd)
 CF_cmd: $1 ')
 
+# ENUM declarations are ignored
+m4_define(CF_ENUM, `')
+
 # After all configuration templates end, we finally generate the grammar file.
 m4_m4wrap(`
 m4_divert(0)DNL
