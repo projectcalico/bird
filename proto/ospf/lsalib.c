@@ -29,6 +29,9 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
  *
  * RFC says, that router should check checksum of every LSA to detect some
  * hardware problem. BIRD does not do it to minimalize CPU utilization.
+ *
+ * If routing table calculation is scheduled, it also invalidates old routing
+ * table calculation results.
  */
 void
 ospf_age(struct ospf_area *oa)
@@ -41,6 +44,15 @@ ospf_age(struct ospf_area *oa)
 
   WALK_SLIST_DELSAFE(en,nxt,oa->lsal)
   {
+    if(oa->calcrt)
+    {
+      en->color=OUTSPF;
+      en->dist=LSINFINITY;
+      en->nhi=NULL;
+      en->nh=ipa_from_u32(0);
+      DBG("Infinitying Type: %u, Id: %I, Rt: %I\n", en->lsa.type, en->lsa.id,
+        en->lsa.rt);
+    }
     if(en->lsa.age==LSA_MAXAGE)
     {
       if(flush) flush_lsa(en,oa);

@@ -59,16 +59,6 @@ ospf_rt_spfa(struct ospf_area *oa)
 
   if(oa->rt==NULL) return;
 
-  WALK_SLIST(SNODE en, oa->lsal)
-  {
-    en->color=OUTSPF;
-    en->dist=LSINFINITY;
-    en->nhi=NULL;
-    en->nh=ipa_from_u32(0);
-    DBG("Infinitying Type: %u, Id: %I, Rt: %I\n", en->lsa.type, en->lsa.id,
-      en->lsa.rt);
-  }
-
   FIB_WALK(in,nftmp)
   {
     nf=(struct infib *)nftmp;
@@ -85,7 +75,8 @@ ospf_rt_spfa(struct ospf_area *oa)
   oa->rt->dist=0;
   oa->rt->color=CANDIDATE;
   add_head(&oa->cand, &oa->rt->cn);
-  DBG("RT LSA: rt: %I, id: %I, type: %u\n",oa->rt->lsa.rt,oa->rt->lsa.id,oa->rt->lsa.type);
+  DBG("RT LSA: rt: %I, id: %I, type: %u\n",oa->rt->lsa.rt,
+    oa->rt->lsa.id,oa->rt->lsa.type);
 
   while(!EMPTY_LIST(oa->cand))
   {
@@ -97,7 +88,8 @@ ospf_rt_spfa(struct ospf_area *oa)
     act=SKIP_BACK(struct top_hash_entry, cn, n);
     rem_node(n);
 
-    DBG("Working on LSA: rt: %I, id: %I, type: %u\n",act->lsa.rt,act->lsa.id,act->lsa.type);
+    DBG("Working on LSA: rt: %I, id: %I, type: %u\n",act->lsa.rt,
+      act->lsa.id,act->lsa.type);
 
     act->color=INSPF;
     switch(act->lsa.type)
@@ -176,7 +168,7 @@ ospf_rt_spfa(struct ospf_area *oa)
     }
   }
   /* Now sync our fib with nest's */
-  DBG("\nNow syncing my rt table with nest's\n\n");
+  DBG("Now syncing my rt table with nest's\n");
   FIB_ITERATE_INIT(&fit,in);
 again:
   FIB_ITERATE_START(in,&fit,nftmp)
@@ -382,7 +374,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
       if(nf==NULL)
       {
-        DBG("Cannot find network route (GW=%I\n",lt->fwaddr);
+        DBG("Cannot find network route (GW=%I)\n",lt->fwaddr);
         continue;
       }
 
@@ -441,7 +433,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     }
   }
 
-  DBG("\nNow syncing my rt table with nest's\n\n");
+  DBG("Now syncing my rt table with nest's\n");
   FIB_ITERATE_INIT(&fit,ef);
 noch:
   FIB_ITERATE_START(ef,&fit,nftmp)
