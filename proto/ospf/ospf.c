@@ -58,39 +58,38 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 }
 
 void
-ospf_dbdes_tx(struct ospf_iface *ifa)
+ospf_dbdes_tx(struct ospf_neighbor *n)
 {
   struct ospf_dbdes_packet *pkt;
   struct ospf_packet *op;
-  struct ospf_neighbor *n;
+  struct ospf_iface *ifa;
   u16 length;
   struct proto *p;
 
+  ifa=n->ifa;
+
   p=(struct proto *)(ifa->proto);
 
-  WALK_LIST (n, ifa->neigh_list)	/* Try to send db_des */
+  switch(n->state)
   {
-    switch(n->state)
-    {
-      case NEIGHBOR_EXSTART:		/* Send empty packets */
-        pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
-        op=(struct ospf_packet *)pkt;
+    case NEIGHBOR_EXSTART:		/* Send empty packets */
+      pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
+      op=(struct ospf_packet *)pkt;
 
-        fill_ospf_pkt_hdr(ifa, pkt, DBDES);
-	pkt->iface_mtu= ((struct iface *)ifa)->mtu;
-	pkt->options= ifa->options;
-	pkt->imms=n->myimms;
-	pkt->ddseq=n->dds;
-        length=sizeof(struct ospf_dbdes_packet);
-        op->length=htons(length);
-	ospf_pkt_finalize(ifa, op);
-        sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-        debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
+      fill_ospf_pkt_hdr(ifa, pkt, DBDES);
+      pkt->iface_mtu= ((struct iface *)ifa)->mtu;
+      pkt->options= ifa->options;
+      pkt->imms=n->myimms;
+      pkt->ddseq=n->dds;
+      length=sizeof(struct ospf_dbdes_packet);
+      op->length=htons(length);
+      ospf_pkt_finalize(ifa, op);
+      sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
+      debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
 
-      /*case NEIGHBOR_EXCHANGE:		*/
-      default:				/* Ignore it */
-        break;
-    }
+    /*case NEIGHBOR_EXCHANGE:		*/
+    default:				/* Ignore it */
+      break;
   }
 }
 
@@ -99,12 +98,16 @@ rxmt_timer_hook(timer *timer)
 {
   struct ospf_iface *ifa;
   struct proto *p;
+  struct ospf_neighbor *n;
 
   ifa=(struct ospf_iface *)timer->data;
   p=(struct proto *)(ifa->proto);
   debug("%s: RXMT timer fired on interface %s.\n",
     p->name, ifa->iface->name);
-  ospf_dbdes_tx(ifa);
+  WALK_LIST (n, ifa->neigh_list)	/* Try to send db_des */
+  {
+    ospf_dbdes_tx(n);
+  }
 }
 
 struct ospf_neighbor *
@@ -659,15 +662,11 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
         {
           /* Duplicate packet */
           debug("%s: Received duplicate dbdes from (%u)!\n", p->name, nrid);
-	  if(IAMMASTER(n->imms))
+	  if(!IAMMASTER(n->imms))
 	  {
-            return;
+            ospf_dbdes_tx(n);
 	  }
-	  else
-	  {
-            /* FIXME: Send response! */
-            return;
-	  }
+          return;
         }
 
 	if(IAMMASTER(ps->imms)!=IAMMASTER(n->myimms)) /* M/S bit differs */
