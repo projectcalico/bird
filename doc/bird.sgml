@@ -1029,6 +1029,15 @@ protocol ospf &lt;name&gt; {
 			strict nonbroadcast &lt;switch&gt;;
 			authentication [none|simple];
 			password "&lt;text&gt;";
+			passwords {
+				password "&lt;text&gt;" {
+					id &lt;num&gt;;
+					generate from &lt;date&gt;;
+					generate to &lt;date&gt;;
+					accept from &lt;date&gt;;
+					accept to &lt;date&gt;;
+				};
+			};
 			neighbors {
 				&lt;ip&gt;;
 				&lt;ip&gt; eligible;
@@ -1143,8 +1152,30 @@ protocol ospf &lt;name&gt; {
 	 lacking this password are ignored. This authentication mechanism is
 	 very weak.
 
+	<tag>authentication cryptographic</tag>
+	 16-byte long md5 digest is appended to every packet. For the digest
+         generation 16-byte long passwords are used. Those passwords are 
+         not sent via network, so this mechanismus is quite secure.
+         Packets can still be read by an attacker.
+
 	<tag>password "<M>text</M>"</tag>
-	 An 8-byte password used for authentication.
+	 An 8-byte or 16-byte password used for authentication.
+
+	<tag>id <M>num</M></tag>
+	 ID of the password, (0-255). If it's not used, BIRD will choose
+	 some automatically.
+
+	<tag>generate from <M>date</M></tag>
+	 The start time of the usage of the password for packet signing.
+
+	<tag>generate to <M>date</M></tag>
+	 The last time of the usage of the password for packet signing.
+
+	<tag>accept from <M>date</M></tag>
+	 The start time of the usage of the password for packet verification.
+
+	<tag>accept to <M>date</M></tag>
+	 The last time of the usage of the password for packet verification.
 
 	<tag>neighbors { <m/set/ } </tag>
 	 A set of neighbors to which Hello messages on nonbroadcast networks
