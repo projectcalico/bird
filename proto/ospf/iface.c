@@ -434,8 +434,11 @@ ospf_iface_info(struct ospf_iface *ifa)
   cli_msg(-1015,"\tWait timer: %u", ifa->waitint);
   cli_msg(-1015,"\tDead timer: %u", ifa->deadc*ifa->helloint);
   cli_msg(-1015,"\tRetransmit timer: %u", ifa->rxmtint);
-  cli_msg(-1015,"\tDesigned router (ID): %I", ifa->drid);
-  cli_msg(-1015,"\tDesigned router (IP): %I", ifa->drip);
-  cli_msg(-1015,"\tBackup designed router (ID): %I", ifa->bdrid);
-  cli_msg(-1015,"\tBackup designed router (IP): %I", ifa->bdrip);
+  if((ifa->type==OSPF_IT_BCAST)||(ifa->type==OSPF_IT_NBMA))
+  {
+    cli_msg(-1015,"\tDesigned router (ID): %I", ifa->drid);
+    cli_msg(-1015,"\tDesigned router (IP): %I", ifa->drip);
+    cli_msg(-1015,"\tBackup designed router (ID): %I", ifa->bdrid);
+    cli_msg(-1015,"\tBackup designed router (IP): %I", ifa->bdrip);
+  }
 }
