@@ -225,15 +225,9 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       }
       break;
     case INM_2WAYREC:
-      if(n->state<NEIGHBOR_2WAY)
-      {
-        /* Can In build adjacency? */
-        neigh_chstate(n,NEIGHBOR_2WAY);
-	if(can_do_adj(n))
-        {
-          neigh_chstate(n,NEIGHBOR_EXSTART);
-        }
-      }
+      if(n->state<NEIGHBOR_2WAY) neigh_chstate(n,NEIGHBOR_2WAY);
+      if((n->state==NEIGHBOR_2WAY) && can_do_adj(n))
+        neigh_chstate(n,NEIGHBOR_EXSTART);
       break;
     case INM_NEGDONE:
       if(n->state==NEIGHBOR_EXSTART)
@@ -261,7 +255,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
         switch(n->state)
         {
           case NEIGHBOR_2WAY:
-        /* Can In build adjacency? */
+            /* Can In build adjacency? */
             if(can_do_adj(n))
             {
               neigh_chstate(n,NEIGHBOR_EXSTART);
