@@ -521,9 +521,10 @@ rip_dump(struct proto *p)
 }
 
 static void
-rip_get_route_info(rte *rte, char *buf)
+rip_get_route_info(rte *rte, byte *buf)
 {
-  sprintf(buf, "(%d/%d) t%04x", rte->u.rip.metric, rte->pref, rte->u.rip.tag );
+  buf += sprintf(buf, " (%d/%d)", rte->pref, rte->u.rip.metric );
+  sprintf(buf, " t%04x", rte->u.rip.tag );
 }
 
 static int
@@ -579,6 +580,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   else
     rif->sock->ttl = 30;
   rif->sock->tos = IP_PREC_INTERNET_CONTROL;
+
 
   if (flags & IF_BROADCAST)
     rif->sock->daddr = new->addr->brd;
