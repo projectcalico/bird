@@ -73,9 +73,12 @@ lp_alloc(linpool *m, unsigned size)
 	}
       else
 	{
-	  if (m->current && m->current->next)
-	    /* Still have free chunks from previous incarnation (before lp_flush()) */
-	    c = m->current->next;
+	  if (m->current)
+	    {
+	      /* Still have free chunks from previous incarnation (before lp_flush()) */
+	      c = m->current;
+	      m->current = c->next;
+	    }
 	  else
 	    {
 	      /* Need to allocate a new chunk */
@@ -85,7 +88,6 @@ lp_alloc(linpool *m, unsigned size)
 	      m->plast = &c->next;
 	      c->next = NULL;
 	    }
-	  m->current = c;
 	  m->ptr = c->data + size;
 	  m->end = c->data + m->chunk_size;
 	}
