@@ -13,40 +13,49 @@
 
 typedef struct birdsock {
   resource r;
+  pool *pool;				/* Pool for socket data */
   int type;				/* Socket type */
   void *data;				/* User data */
   ip_addr saddr, daddr;			/* IPA_NONE = unspecified */
   unsigned sport, dport;		/* 0 = unspecified (for IP: protocol type) */
   int tos;				/* TOS and priority, -1 = default */
   int ttl;				/* Time To Live, -1 = default */
-  struct iface *iface;			/* Bound to interface */
+  struct iface *iface;			/* Interface; specify this for broad/multicast sockets */
 
   byte *rbuf, *rpos;			/* NULL=allocate automatically */
   unsigned rbsize;
-  void (*rx_hook)(struct birdsock *);	/* NULL=receiving turned off */
+  int (*rx_hook)(struct birdsock *, int size); /* NULL=receiving turned off, returns 1 to clear rx buffer */
 
   byte *tbuf, *tpos;			/* NULL=allocate automatically */
   byte *ttx;				/* Internal */
   unsigned tbsize;
   void (*tx_hook)(struct birdsock *);
 
-  void (*err_hook)(struct birdsock *, int);
-} socket;
+  void (*err_hook)(struct birdsock *, int); /* errno or zero if EOF */
 
-socket *sk_get(pool *);			/* Allocate new socket */
-int sk_open(socket *);			/* Open socket */
-int sk_send(socket *);			/* Try to send queued data, > 0 if succeeded */
-int sk_send_to(socket *, ip_addr, unsigned); /* Send queued data to given destination */
+  ip_addr faddr;			/* For packet protocols: source of current packet */
+  unsigned fport;
+
+  int fd;				/* System-dependent data */
+  node n;
+} sock;
+
+sock *sk_new(pool *);			/* Allocate new socket */
+int sk_open(sock *);			/* Open socket */
+int sk_send(sock *, unsigned len);	/* Send data, <0=err, >0=ok, 0=sleep */
+int sk_send_to(sock *, unsigned len, ip_addr to, unsigned port); /* sk_send to given destination */
+void sk_dump_all(void);
 
 /*
- *	Socket types		     SA SP DA DP IF  SendTo	(?=may, -=must not, *=must)
+ *	Socket types		     SA SP DA DP IF  TTL SendTo	(?=may, -=must not, *=must)
  */
 
-#define SK_TCP_PASSIVE	0	   /* ?  *  -  -  -  -		*/
-#define SK_TCP_ACTIVE	1          /* ?  ?  *  *  -  -		*/
-#define SK_UDP		2          /* ?  ?  -  -  -  ?		*/
-#define SK_UDP_MC       3          /* ?  ?  *  *  *  -		*/
-#define SK_IP		4          /* ?  ?  -  *  -  ?		*/
-#define SK_IP_MC	5          /* ?  ?  *  *  *  -		*/
+#define SK_TCP_PASSIVE	0	   /* ?  *  -  -  -  ?   -	*/
+#define SK_TCP_ACTIVE	1          /* ?  ?  *  *  -  ?   -	*/
+#define SK_TCP		2
+#define SK_UDP		3          /* ?  ?  -  -  -  ?   ?	*/
+#define SK_UDP_MC       4          /* ?  ?  *  *  *  *   -	*/
+#define SK_IP		5          /* ?  ?  -  *  -  ?   ?	*/
+#define SK_IP_MC	6          /* ?  ?  *  *  *  *   -	*/
 
 #endif
