@@ -24,7 +24,7 @@ struct f_inst *
 f_new_dynamic_attr(int type, int f_type, int code)
 {
   struct f_inst *f = f_new_inst();
-  f->aux = f_type;
+  f->aux = type;
   f->a2.i = code;
   return f;
 }

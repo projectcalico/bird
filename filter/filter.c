@@ -353,13 +353,17 @@ interpret(struct f_inst *what)
 	res.type = T_VOID;
 	break;
       }
-      res.type = what->aux;	/* FIXME: should check type? */
-      switch (what->aux) {
-      case T_INT:
+      switch (what->aux & EAF_TYPE_MASK) {
+      case EAF_TYPE_INT:
+	res.type = T_INT;
 	res.val.i = e->u.data;
 	break;
-      case T_CLIST:
-      case T_PATH:
+      case EAF_TYPE_AS_PATH:
+        res.type = T_PATH;
+	res.val.ad = e->u.ptr;
+	break;
+      case EAF_TYPE_INT_SET:
+	res.type = T_CLIST;
 	res.val.ad = e->u.ptr;
 	break;
       default:
@@ -369,9 +373,6 @@ interpret(struct f_inst *what)
     break;
   case P('e','S'):
     ONEARG;
-    if (v1.type != what->aux)
-      runtime("Wrong type when setting dynamic attribute");
-
     {
       struct ea_list *l = lp_alloc(f_pool, sizeof(struct ea_list) + sizeof(eattr));
 
@@ -402,6 +403,7 @@ interpret(struct f_inst *what)
 	  runtime( "Setting void attribute to non-void value" );
 	l->attrs[0].u.data = 0;
 	break;
+      default: bug("Unknown type in e,S");
       }
 
       if (!(what->aux & EAF_TEMP) && (!(f_flags & FF_FORCE_TMPATTR))) {
