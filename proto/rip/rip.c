@@ -622,10 +622,10 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   rif->sock->daddr = IPA_NONE;
   rif->sock->dport = P_CF->port;
   if (new)
-    rif->sock->ttl = 1;
-  else
-    rif->sock->ttl = 30;		/* FIXME: Shouldn't we leave default TTL in this case?  [mj] */
-  rif->sock->tos = IP_PREC_INTERNET_CONTROL; /* FIXME: Interface sockets only, I guess  [mj] */
+    {
+      rif->sock->ttl = 1;
+      rif->sock->tos = IP_PREC_INTERNET_CONTROL;
+    }
 
   if (new) {
     if (new->addr->flags & IA_UNNUMBERED)
