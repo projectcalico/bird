@@ -548,8 +548,11 @@ kill_iface(struct proto *p, struct rip_interface *i)
   mb_free(i);
 }
 
-/*
- * new maybe null if we are creating initial send socket 
+/**
+ * new_iface - actually create struct interface and start listening to it
+ * @new: interface to be created or %NULL if we are creating magic
+ * socket. Magic socket is used for listening, and is also used for
+ * sending requested responses. 
  */
 static struct rip_interface *
 new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt )
@@ -655,7 +658,12 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
     if (!k) return; /* We are not interested in this interface */
     
     lock = olock_new( p->pool );
-    lock->addr = ipa_from_u32(0xe0000009);
+    lock->addr = ipa_from_u32(0xe0000009);	/* This is okay: we
+						   may actually use
+						   other address, but
+						   we do not want two
+						   rips at one time,
+						   anyway. */
     lock->port = P_CF->port;
     lock->iface = iface;
     lock->hook = rip_real_if_add;
