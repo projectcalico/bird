@@ -1,26 +1,12 @@
 H Library
-.F csum Checksums and hash functions
-..S checksum.c md5.c
-.F ip IP addresses
-..S ip.c ipv4.c ipv6.c
-.F list Linked lists
-..S lists.c
-.H Resource management
-..F gen Generic resource functions
-...S resource.c
-..F mempool Memory pools
-...S mempool.c
-..F slab Slabs
-...S slab.c
-..F sock Sockets
-...S socket.h
-.H Miscellaneous functions
-..F bit Bit operations
-...S bitops.c
-..F event Events
-...S event.c
-..F pat Pattern matching
-...S patmatch.c
-..F printf Printf
-...S printf.c
-..F unaligned Unaligned access
+S checksum.c md5.c
+S ip.c ipv4.c ipv6.c
+S lists.c
+S mempool.c
+S slab.c
+S socket.h
+S bitops.c
+S event.c
+S patmatch.c
+S printf.c
+S unaligned.h

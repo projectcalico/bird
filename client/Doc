@@ -1,2 +1,2 @@
-F client Client
-.S client.c commands.c
+H Client
+S client.c commands.c

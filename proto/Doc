@@ -1,6 +1,6 @@
 H Protocols
-.C bgp
-.C ospf
-.C pipe
-.C rip
-.C static
+C bgp
+C ospf
+C pipe
+C rip
+C static
