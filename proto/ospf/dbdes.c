@@ -28,7 +28,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
       op=(struct ospf_packet *)pkt;
       fill_ospf_pkt_hdr(ifa, pkt, DBDES_P);
-      pkt->iface_mtu=htons(ifa->iface->mtu);	/*FIXME NOT for VLINK! */
+      pkt->iface_mtu=htons(ifa->iface->mtu);	/* FIXME NOT for VLINK! */
       pkt->options= ifa->options;
       pkt->imms=n->myimms;
       pkt->ddseq=htonl(n->dds);
@@ -154,7 +154,6 @@ rxmt_timer_hook(timer *timer)
   else
   {
     tm_stop(n->rxmt_timer);
-   	/* FIXME I should dealloc ldbdes */
   }
 }
 
@@ -189,7 +188,6 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct proto *p,
         ntohlsah(plsa+i, &(sn->lsa));
         s_add_tail(&(n->lsrql), SNODE sn);
       }
-      /* FIXME and the next part of condition? */
     }
   }
 }
