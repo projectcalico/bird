@@ -372,6 +372,8 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
 	{
 	  if (!bgp_attr_table[code].allow_in_ebgp && !p->is_internal)
 	    continue;
+	  /* The flags might have been zero if the attr was added by filters */
+	  a->flags = (a->flags & BAF_PARTIAL) | bgp_attr_table[code].expected_flags;
 	}
       if (code < 32)
 	seen |= 1 << code;
