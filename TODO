@@ -1,6 +1,5 @@
 Core
 ~~~~
-* router id
 * right usage of DBG vs. debug
 
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
@@ -17,6 +16,7 @@ Core
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
 - all internal tables are in host order
 - secondary addresses -> subinterfaces
+- check if all protocols set proper packet priorities and TTL's.
 
 - filter: logging of dropped routes (?)
 - limitation of memory consumption: per-process and total (?)
@@ -27,15 +27,13 @@ Core
 
 - route recalculation timing + flap dampening (?)
 
-- reconfiguration without restart of all protocols?
-- change of interface address: ??? (down and up?)
 - "generate default route" switch for all IGP's
 
 - running protocol on an interface:
 	- interface is not required to exist
 	- can specify a wildcard pattern or an interface list
 
-- re-configuration: restart of routing protocols (shutdown mode)
+- re-configuration: restart of affected routing protocols (shutdown mode)
 
 - Check incoming packets and log errors!!
 
@@ -69,7 +67,6 @@ BGP
 ~~~
 	- in, local, out RIB
 	- maxsize=4096
-	- BGP identifier aka router id
 	- detection of loops
 	- aggregation, ATOMIC_AGGREGATE
 	- communities
