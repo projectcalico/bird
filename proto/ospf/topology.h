@@ -11,7 +11,10 @@
 
 struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
   snode n;
-  node cn;
+  node cn;				/* For adding into list of candidates
+					 * in intra-area routing table
+					 * calculation
+					 */
   struct top_hash_entry *next;		/* Next in hash chain */
   struct ospf_lsa_header lsa;
   void *lsa_body;
