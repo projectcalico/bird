@@ -1,16 +1,5 @@
 Core
 ~~~~
-- client: Ctrl-R eats one more enter
-- client: paging?
-- client: data losses on large dumps?
-- client: hidden `show ospf' commands?
-
-- filters: free old attributes in rta_cow()
-
-Documentation
-~~~~~~~~~~~~~
-- write doctool
-- write documentation :|
 
 Globals
 ~~~~~~~
@@ -21,7 +10,6 @@ Globals
 - check if all protocols set proper packet priorities and TTL's.
 - try compiling with -Wunused
 - does everybody test return value of sk_open?
-- doc: references to RFC's we did follow
 - protocols: implement CLI hooks and per-procotol CLI commands
 - protocols: implement reconfigure hook
 - protocols: use locking
@@ -30,6 +18,8 @@ Globals
 Various ideas
 ~~~~~~~~~~~~~
 - static: allow specifying a per-route filter program for setting route attributes?
+- client: paging of output
+- client: Ctrl-R eats one more enter
 - bgp: timing of updates?
 - netlink: realms
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
@@ -91,3 +81,29 @@ Jeste by to chtelo trosku podrobneji:
     protokolu, ktery muzes overridovat v konfiguraci protokolu, coz
     muzes pro konkretni routu overridovat filtrem).
 (3) popsat spojeni mezi routovacimi tabulkami, filtry a protokoly
+
+
+Last minute stuff:
+~~~~~~~~~~~~~~~~~~
+Martin:	DOC: korektury
+	DOC: typograficky doladit, vyrobit titulni stranku (ta, co ji vygeneruji SGMLtools, vypada priserne)
+	progdoc: dopsat kapitoly o resourcech a sysdepu
+	OSPF: zkontrolovat defaultni hodnoty metrik
+	Zinscenovat jeste jeden poradny test OSPF
+	Zjistit, kde se bude tisknout a vazat dokumentace
+
+Pavel:	RIP: programatorska dokumentace (finish)
+	filtry: programatorska dokumentace
+	filtry: opravit chybove hlasky !!!
+	DOC: dokoncit uzivatelskou dokumentaci (viz predchozi maily)
+	DOC: Pridat odkazy na RFC apod.
+	Zjistit, v jake forme ma byt projekt odevzdan (kolik kopii dokumentace atd.)
+
+Feela:	OSPF: locking
+	OSPF: tracing (a zkontrolovat vsechny debug()-y), u log() uvadet kategorie a jmeno instance
+	OSPF: vypnout LOCAL_DEBUG
+	OSPF: ze vsech die() udelat bug() a zkontrolovat, ze to jsou opravdu interni bugy
+	OSPF: reconfiguration hook
+	OSPF: uzivatelska dokumentace
+	OSPF: programatorska dokumentace
+	OSPF: autentikace (kdyz se nestihne, nijak to nevadi)
