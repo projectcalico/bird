@@ -106,11 +106,8 @@ rte_better(rte *new, rte *old)
     return 1;
   if (new->pref < old->pref)
     return 0;
-  if (new->attrs->proto != old->attrs->proto)
-    {
-      /* FIXME!!! */
-      bug("Different protocols, but identical preferences => oops");
-    }
+  if (new->attrs->proto->proto != old->attrs->proto->proto)
+    bug("Different protocols, but identical preferences => oops");	/* FIXME */
   if (better = new->attrs->proto->rte_better)
     return better(new, old);
   return 0;
