@@ -18,11 +18,9 @@ char *s_queue[] = { "direct", "delayed" };
 
 void
 ospf_lsack_enqueue(struct ospf_neighbor *n, struct ospf_lsa_header *h,
-		   struct proto *p, int queue)
+		   int queue)
 {
-  struct lsah_n *no;
-
-  no = mb_alloc(n->pool, sizeof(struct lsah_n));
+  struct lsah_n *no = mb_alloc(n->pool, sizeof(struct lsah_n));
   memcpy(&no->lsa, h, sizeof(struct ospf_lsa_header));
   add_tail(&n->ackl[queue], NODE no);
   DBG("Adding (%s) ack for %I, ID: %I, RT: %I, Type: %u\n", s_queue[queue],
@@ -120,7 +118,7 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 }
 
 void
-ospf_lsack_receive(struct ospf_lsack_packet *ps, struct proto *p,
+ospf_lsack_receive(struct ospf_lsack_packet *ps,
 		   struct ospf_iface *ifa, u16 size)
 {
   u32 nrid, myrid;
@@ -130,6 +128,7 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps, struct proto *p,
   u16 nolsa, i;
   struct top_hash_entry *en;
   u16 lenn = ntohs(ps->ospf_packet.length);
+  struct proto *p = (struct proto *) ifa->proto;
 
   nrid = ntohl(ps->ospf_packet.routerid);
 

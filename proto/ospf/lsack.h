@@ -16,10 +16,10 @@ struct lsah_n
   struct ospf_lsa_header lsa;
 };
 
-void ospf_lsack_receive(struct ospf_lsack_packet *ps, struct proto *p,
+void ospf_lsack_receive(struct ospf_lsack_packet *ps,
 			struct ospf_iface *ifa, u16 size);
 void ospf_lsack_send(struct ospf_neighbor *n, int queue);
 void ospf_lsack_enqueue(struct ospf_neighbor *n, struct ospf_lsa_header *h,
-			struct proto *p, int queue);
+			int queue);
 
 #endif /* _BIRD_OSPF_LSACK_H_ */

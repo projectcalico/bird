@@ -192,7 +192,7 @@ ospf_rx_hook (sock * sk, int size)
       break;
     case LSACK_P:
       DBG ("%s: Link state ack received.\n", p->name);
-      ospf_lsack_receive((struct ospf_lsack_packet *) ps, p, ifa, size);
+      ospf_lsack_receive((struct ospf_lsack_packet *) ps, ifa, size);
       break;
     default:
       log ("%s: Bad packet received: wrong type %u", p->name, ps->type);
