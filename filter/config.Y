@@ -20,7 +20,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING, BGPMASK, BGPPATH, CLIST,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE,
-	FROM, GW, NET, MASK, SOURCE, SCOPE, CAST, DEST,
+	FROM, GW, NET, MASK, SOURCE, SCOPE, CAST, DEST, PREFERENCE,
 	LEN,
 	DEFINED,
 	ADD, DELETE, CONTAINS, RESET,
@@ -325,13 +325,12 @@ function_call:
  ;
 
 static_attr:
-/* FIXME (maybe?) rta.from read/write */
-   FROM    { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, from); }
+   FROM    { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, from);   $$->a1.i = 1; }
 
- | GW      { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, gw); }    /* FIXME: want it read/write */
+ | GW      { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, gw);     $$->a1.i = 1; }
  | NET     { $$ = f_new_inst(); $$->aux = T_PREFIX;     $$->a2.i = 0x12345678; /* This is actually ok - T_PREFIX is special-cased. */ }
  | SOURCE  { $$ = f_new_inst(); $$->aux = T_ENUM_RTS;   $$->a2.i = OFFSETOF(struct rta, source); }
- | SCOPE   { $$ = f_new_inst(); $$->aux = T_ENUM_SCOPE; $$->a2.i = OFFSETOF(struct rta, scope); } /* FIXME: want it read/write */
+ | SCOPE   { $$ = f_new_inst(); $$->aux = T_ENUM_SCOPE; $$->a2.i = OFFSETOF(struct rta, scope);  $$->a1.i = 1; }
  | CAST    { $$ = f_new_inst(); $$->aux = T_ENUM_RTC;   $$->a2.i = OFFSETOF(struct rta, cast); }
  | DEST    { $$ = f_new_inst(); $$->aux = T_ENUM_RTD;   $$->a2.i = OFFSETOF(struct rta, dest); }
  ;
@@ -380,7 +379,7 @@ term:
      }
    }
 
-/* FIXME rte.Preference - read/write */
+ | PREFERENCE { $$ = f_new_inst(); $$->code = 'P'; }
 
  | rtadot static_attr { $$ = $2; $$->code = 'a'; }
 
@@ -507,9 +506,21 @@ cmd:
    }
  | rtadot dynamic_attr '=' term ';' {
      $$ = $2;
-     $$->code  = P('e','S');
+     $$->code = P('e','S');
      $$->a1.p = $4;
    }
+ | rtadot static_attr '=' term ';' {
+     $$ = $2;
+     if (!$$->a1.i)
+       cf_error( "This static attribute is read-only.");
+     $$->code = P('a','S');
+     $$->a1.p = $4;
+   }
+ | PREFERENCE '=' term ';' {
+     $$ = f_new_inst();
+     $$->code = P('P','S');
+     $$->a1.p = $3;
+   } 
  | UNSET '(' rtadot dynamic_attr ')' ';' {
      $$ = $4;
      $$->aux = EAF_TYPE_UNDEF | EAF_TEMP;

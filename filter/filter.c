@@ -412,6 +412,25 @@ interpret(struct f_inst *what)
       }
     }
     break;
+  case P('a','S'):
+    ONEARG;
+    if (what->aux != v1.type)
+      runtime( "Attempt to set static attribute to invalid type" );
+    rta_cow();
+    {
+      struct rta *rta = (*f_rte)->attrs;
+      switch (what->aux) {
+      case T_ENUM:
+	* ((char *) rta + what->a2.i) = v1.val.i;
+	break;
+      case T_IP:
+	* (ip_addr *) ((char *) rta + what->a2.i) = v1.val.px.ip;
+	break;
+      default:
+	bug( "Unknown type in set of static attribute" );
+      }
+    }
+    break;
   case P('e','a'):	/* Access to extended attributes */
     {
       eattr *e = NULL;
@@ -498,7 +517,17 @@ interpret(struct f_inst *what)
       }
     }
     break;
-
+  case 'P':
+    res.type = T_INT;
+    res.val.i = (*f_rte)->pref;
+    break;
+  case P('P','S'):
+    ONEARG;
+    if (v1.type != T_INT)
+      runtime( "Can not set preference to non-integer" );
+    *f_rte = rte_cow(*f_rte);
+    (*f_rte)->pref = v1.val.i;
+    break;
   case 'L':	/* Get length of */
     ONEARG;
     res.type = T_INT;
@@ -661,8 +690,11 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case '?': TWOARGS; break;
   case '0': case 'E': break;
   case P('p',','): ONEARG; A2_SAME; break;
+  case 'P':
   case 'a': A2_SAME; break;
   case P('e','a'): A2_SAME; break;
+  case P('P','S'):
+  case P('a','S'):
   case P('e','S'): ONEARG; A2_SAME; break;
 
   case 'r': ONEARG; break;
