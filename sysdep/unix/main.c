@@ -194,6 +194,8 @@ main(int argc, char **argv)
 #endif
 
   log_init_debug(NULL);
+  setvbuf(stdout, NULL, _IONBF, 0);	/* And yes, this does make a difference */
+  setvbuf(stderr, NULL, _IONBF, 0);
   parse_args(argc, argv);
 
   log(L_INFO "Launching BIRD 0.0.0...");
