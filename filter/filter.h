@@ -74,10 +74,9 @@ void val_print(struct f_val v);
 #define F_NOP 0
 #define F_NONL 1
 #define F_ACCEPT 2	/* Need to preserve ordering: accepts < rejects! */
-#define F_MODIFY 3	/* FIXME: Introduce modification flags instead? */
-#define F_REJECT 4
-#define F_ERROR 5
-#define F_QUITBIRD 6
+#define F_REJECT 3
+#define F_ERROR 4
+#define F_QUITBIRD 5
 
 #define FILTER_ACCEPT NULL
 #define FILTER_REJECT ((void *) 1)
