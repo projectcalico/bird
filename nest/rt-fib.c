@@ -152,6 +152,23 @@ fib_get(struct fib *f, ip_addr *a, int len)
   return e;
 }
 
+void *
+fib_route(struct fib *f, ip_addr a, int len)
+{
+  ip_addr a0;
+  void *t;
+
+  while (len >= 0)
+    {
+      a0 = ipa_and(a, ipa_mkmask(len));
+      t = fib_find(f, &a0, len);
+      if (t)
+	return t;
+      len--;
+    }
+  return NULL;
+}
+
 static inline void
 fib_merge_readers(struct fib_iterator *i, struct fib_node *to)
 {

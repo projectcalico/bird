@@ -63,6 +63,7 @@ struct fib {
 void fib_init(struct fib *, pool *, unsigned node_size, unsigned hash_order, void (*init)(struct fib_node *));
 void *fib_find(struct fib *, ip_addr *, int);	/* Find or return NULL if doesn't exist */
 void *fib_get(struct fib *, ip_addr *, int); 	/* Find or create new if nonexistent */
+void *fib_route(struct fib *, ip_addr, int);	/* Longest-match routing lookup */
 void fib_delete(struct fib *, void *);	/* Remove fib entry */
 void fib_free(struct fib *);		/* Destroy the fib */
 void fib_check(struct fib *);		/* Consistency check for debugging */
@@ -212,7 +213,7 @@ struct rt_show_data {
   int import_mode, primary_only;
   struct config *running_on_config;
   int net_counter, rt_counter, show_counter;
-  int stats;
+  int stats, show_for;
 };
 void rt_show(struct rt_show_data *);
 
