@@ -101,6 +101,14 @@ void bgp_check(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len);
 void bgp_close_conn(struct bgp_conn *c);
 
+#ifdef LOCAL_DEBUG
+#define BGP_FORCE_DEBUG 1
+#else
+#define BGP_FORCE_DEBUG 0
+#endif
+#define BGP_TRACE(flags, msg, args...) do { if ((p->p.debug & flags) || BGP_FORCE_DEBUG) \
+	log(L_TRACE "%s: " msg, p->p.name , ## args ); } while(0)
+
 /* attrs.c */
 
 struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool, int mandatory);

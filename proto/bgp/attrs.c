@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include <stdlib.h>
 
@@ -280,14 +280,14 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
   /* Copy values of non-inline attributes */
   for (i=0; i<new->count; i++)
     {
-      eattr *a = &new->attrs[i];
+      eattr *a = &b->eattrs->attrs[i];
       if (!(a->type & EAF_EMBEDDED))
 	{
 	  struct adata *oa = a->u.ptr;
 	  struct adata *na = (struct adata *) dest;
 	  memcpy(na, oa, sizeof(struct adata) + oa->length);
 	  a->u.ptr = na;
-	  dest += ALIGN(na->length, CPU_STRUCT_ALIGN);
+	  dest += ALIGN(sizeof(struct adata) + na->length, CPU_STRUCT_ALIGN);
 	}
     }
 

@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/iface.h"
@@ -21,7 +21,9 @@
 static byte *
 bgp_create_notification(struct bgp_conn *conn, byte *buf)
 {
-  DBG("BGP: Sending notification: code=%d, sub=%d\n", conn->notify_code, conn->notify_subcode);
+  struct bgp_proto *p = conn->bgp;
+
+  BGP_TRACE(D_PACKETS, "Sending NOTIFICATION(code=%d.%d)", conn->notify_code, conn->notify_subcode);
   buf[0] = conn->notify_code;
   buf[1] = conn->notify_subcode;
   memcpy(buf+2, conn->notify_data, conn->notify_size);
@@ -31,11 +33,14 @@ bgp_create_notification(struct bgp_conn *conn, byte *buf)
 static byte *
 bgp_create_open(struct bgp_conn *conn, byte *buf)
 {
-  DBG("BGP: Sending open\n");
+  struct bgp_proto *p = conn->bgp;
+
+  BGP_TRACE(D_PACKETS, "Sending OPEN(ver=%d,as=%d,hold=%d,id=%08x)",
+	    BGP_VERSION, p->local_as, p->cf->hold_time, p->local_id);
   buf[0] = BGP_VERSION;
-  put_u16(buf+1, conn->bgp->local_as);
-  put_u16(buf+3, conn->bgp->cf->hold_time);
-  put_u32(buf+5, conn->bgp->local_id);
+  put_u16(buf+1, p->local_as);
+  put_u16(buf+3, p->cf->hold_time);
+  put_u32(buf+5, p->local_id);
   buf[9] = 0;				/* No optional parameters */
   return buf+10;
 }
@@ -66,7 +71,7 @@ bgp_encode_prefixes(struct bgp_proto *p, byte *w, struct bgp_bucket *buck, unsig
 static byte *
 bgp_create_update(struct bgp_conn *conn, byte *buf)
 {
-  struct bgp_proto *bgp = conn->bgp;
+  struct bgp_proto *p = conn->bgp;
   struct bgp_bucket *buck;
   int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
   byte *w, *wold;
@@ -74,13 +79,12 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   int wd_size = 0;
   int r_size = 0;
 
-  DBG("BGP: Sending update\n");
-  /* FIXME: Better timing of updates */
+  BGP_TRACE(D_PACKETS, "Sending UPDATE");
   w = buf+2;
-  if ((buck = bgp->withdraw_bucket) && !EMPTY_LIST(buck->prefixes))
+  if ((buck = p->withdraw_bucket) && !EMPTY_LIST(buck->prefixes))
     {
       DBG("Withdrawn routes:\n");
-      wd_size = bgp_encode_prefixes(bgp, w, buck, remains);
+      wd_size = bgp_encode_prefixes(p, w, buck, remains);
       w += wd_size;
       remains -= wd_size;
     }
@@ -88,19 +92,19 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 
   if (remains >= 2048)
     {
-      while ((buck = (struct bgp_bucket *) HEAD(bgp->bucket_queue))->send_node.next)
+      while ((buck = (struct bgp_bucket *) HEAD(p->bucket_queue))->send_node.next)
 	{
 	  if (EMPTY_LIST(buck->prefixes))
 	    {
 	      DBG("Deleting empty bucket %p\n", buck);
 	      rem_node(&buck->send_node);
-	      bgp_free_bucket(bgp, buck);
+	      bgp_free_bucket(p, buck);
 	      continue;
 	    }
 	  DBG("Processing bucket %p\n", buck);
 	  w = bgp_encode_attrs(w, buck);
 	  remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - (w-buf);
-	  r_size = bgp_encode_prefixes(bgp, w, buck, remains);
+	  r_size = bgp_encode_prefixes(p, w, buck, remains);
 	  w += r_size;
 	  break;
 	}
@@ -124,6 +128,7 @@ bgp_create_header(byte *buf, unsigned int len, unsigned int type)
 static int
 bgp_fire_tx(struct bgp_conn *conn)
 {
+  struct bgp_proto *p = conn->bgp;
   unsigned int s = conn->packets_to_send;
   sock *sk = conn->sk;
   byte *buf = sk->tbuf;
@@ -147,7 +152,7 @@ bgp_fire_tx(struct bgp_conn *conn)
       s &= ~(1 << PKT_KEEPALIVE);
       type = PKT_KEEPALIVE;
       end = pkt;			/* Keepalives carry no data */
-      DBG("BGP: Sending keepalive\n");
+      BGP_TRACE(D_PACKETS, "Sending KEEPALIVE");
       bgp_start_timer(conn->keepalive_timer, conn->keepalive_time);
     }
   else if (s & (1 << PKT_OPEN))
@@ -252,7 +257,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   as = get_u16(pkt+20);
   hold = get_u16(pkt+22);
   id = get_u32(pkt+24);
-  DBG("BGP: OPEN as=%d hold=%d id=%08x\n", as, hold, id);
+  BGP_TRACE(D_PACKETS, "Got OPEN(as=%d,hold=%d,id=%08x)", as, hold, id);
   if (cf->remote_as && as != p->remote_as)
     { bgp_error(conn, 2, 2, pkt+20, -2); return; }
   if (hold > 0 && hold < 3)
@@ -272,21 +277,21 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
     case BS_CONNECT:
     case BS_ACTIVE:
     case BS_OPENSENT:
-      DBG("BGP: Collision, closing the other connection\n");
+      BGP_TRACE(D_EVENTS, "Connection collision, giving up the other connection");
       bgp_close_conn(other);
       break;
     case BS_OPENCONFIRM:
       if ((p->local_id < id) == (conn == &p->incoming_conn))
 	{
 	  /* Should close the other connection */
-	  DBG("BGP: Collision, closing the other connection\n");
+	  BGP_TRACE(D_EVENTS, "Connection collision, giving up the other connection");
 	  bgp_error(other, 6, 0, NULL, 0);
 	  break;
 	}
       /* Fall thru */
     case BS_ESTABLISHED:
       /* Should close this connection */
-      DBG("BGP: Collision, closing this connection\n");
+      BGP_TRACE(D_EVENTS, "Connection collision, giving up this connection");
       bgp_error(conn, 6, 0, NULL, 0);
       return;
     default:
@@ -330,7 +335,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 static void
 bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 {
-  struct bgp_proto *bgp = conn->bgp;
+  struct bgp_proto *p = conn->bgp;
   byte *withdrawn, *attrs, *nlri;
   ip_addr prefix;
   int withdrawn_len, attr_len, nlri_len, pxlen;
@@ -339,7 +344,7 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
   rta *a0;
   rta *a = NULL;
 
-  DBG("BGP: UPDATE\n");
+  BGP_TRACE(D_PACKETS, "Got UPDATE");
   if (conn->state != BS_ESTABLISHED)
     { bgp_error(conn, 5, 0, NULL, 0); return; }
   bgp_start_timer(conn->hold_timer, conn->hold_time);
@@ -369,8 +374,8 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
     {
       DECODE_PREFIX(withdrawn, withdrawn_len);
       DBG("Withdraw %I/%d\n", prefix, pxlen);
-      if (n = net_find(bgp->p.table, prefix, pxlen))
-	rte_update(bgp->p.table, n, &bgp->p, NULL);
+      if (n = net_find(p->p.table, prefix, pxlen))
+	rte_update(p->p.table, n, &p->p, NULL);
     }
 
   if (!attr_len && !nlri_len)		/* shortcut */
@@ -386,10 +391,10 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 	  DECODE_PREFIX(nlri, nlri_len);
 	  DBG("Add %I/%d\n", prefix, pxlen);
 	  e = rte_get_temp(rta_clone(a));
-	  n = net_get(bgp->p.table, prefix, pxlen);
+	  n = net_get(p->p.table, prefix, pxlen);
 	  e->net = n;
 	  e->pflags = 0;
-	  rte_update(bgp->p.table, n, &bgp->p, e);
+	  rte_update(p->p.table, n, &p->p, e);
 	}
       rta_free(a);
     }
@@ -487,7 +492,9 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
 static void
 bgp_rx_keepalive(struct bgp_conn *conn, byte *pkt, unsigned len)
 {
-  DBG("BGP: KEEPALIVE\n");
+  struct bgp_proto *p = conn->bgp;
+
+  BGP_TRACE(D_PACKETS, "Got KEEPALIVE");
   bgp_start_timer(conn->hold_timer, conn->hold_time);
   switch (conn->state)
     {

@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/iface.h"
@@ -135,8 +135,9 @@ static void
 bgp_connected(sock *sk)
 {
   struct bgp_conn *conn = sk->data;
+  struct bgp_proto *p = conn->bgp;
 
-  DBG("BGP: Connected\n");
+  BGP_TRACE(D_EVENTS, "Connected");
   bgp_send_open(conn);
 }
 
@@ -144,18 +145,20 @@ static void
 bgp_connect_timeout(timer *t)
 {
   struct bgp_conn *conn = t->data;
+  struct bgp_proto *p = conn->bgp;
 
-  DBG("BGP: Connect timeout, retrying\n");
+  DBG("BGP: connect_timeout\n");
   bgp_close_conn(conn);
-  bgp_connect(conn->bgp);
+  bgp_connect(p);
 }
 
 static void
 bgp_sock_err(sock *sk, int err)
 {
   struct bgp_conn *conn = sk->data;
+  struct bgp_proto *p = conn->bgp;
 
-  DBG("BGP: Socket error %d in state %d\n", err, conn->state);
+  BGP_TRACE(D_EVENTS, "Connection closed (socket error %d)", err);
   switch (conn->state)
     {
     case BS_CONNECT:
@@ -163,7 +166,7 @@ bgp_sock_err(sock *sk, int err)
       sk_close(conn->sk);
       conn->sk = NULL;
       conn->state = BS_ACTIVE;
-      bgp_start_timer(conn->connect_retry_timer, conn->bgp->cf->connect_retry_time);
+      bgp_start_timer(conn->connect_retry_timer, p->cf->connect_retry_time);
       break;
     case BS_OPENCONFIRM:
     case BS_ESTABLISHED:
@@ -242,6 +245,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
     s->saddr = p->local_addr;
   s->daddr = p->cf->remote_ip;
   s->dport = BGP_PORT;
+  BGP_TRACE(D_EVENTS, "Connecting to %I from local address %I", s->daddr, s->saddr);
   bgp_setup_conn(p, conn);
   bgp_setup_sk(p, conn, s);
   s->tx_hook = bgp_connected;
@@ -265,7 +269,7 @@ bgp_initiate(struct bgp_proto *p)
     delay = p->startup_delay;
   if (delay)
     {
-      DBG("BGP: Connect delayed by %d seconds\n", delay);
+      BGP_TRACE(D_EVENTS, "Connect delayed by %d seconds", delay);
       bgp_setup_conn(p, &p->outgoing_conn);
       bgp_start_timer(p->outgoing_conn.connect_retry_timer, delay);
     }
@@ -284,7 +288,7 @@ bgp_incoming_connection(sock *sk, int dummy)
       struct bgp_proto *p = SKIP_BACK(struct bgp_proto, bgp_node, n);
       if (ipa_equal(p->cf->remote_ip, sk->daddr))
 	{
-	  DBG("BGP: Authorized\n");
+	  BGP_TRACE(D_EVENTS, "Incoming connection from %I port %d", sk->daddr, sk->dport);
 	  if (p->incoming_conn.sk)
 	    {
 	      DBG("BGP: But one incoming connection already exists, how is that possible?\n");
@@ -296,7 +300,7 @@ bgp_incoming_connection(sock *sk, int dummy)
 	  return 0;
 	}
     }
-  DBG("BGP: Unauthorized\n");
+  log(L_AUTH "BGP: Unauthorized connect from %I port %d", sk->daddr, sk->dport);
   rfree(sk);
   return 0;
 }
@@ -340,12 +344,12 @@ bgp_neigh_notify(neighbor *n)
 
   if (n->iface)
     {
-      DBG("BGP: Neighbor is reachable\n");
+      BGP_TRACE(D_EVENTS, "Neighbor found");
       bgp_start_neighbor(p);
     }
   else
     {
-      DBG("BGP: Neighbor is unreachable\n");
+      BGP_TRACE(D_EVENTS, "Neighbor lost");
       /* Send cease packets, but don't wait for them to be delivered */
       bgp_graceful_close_conn(&p->outgoing_conn);
       bgp_graceful_close_conn(&p->incoming_conn);
@@ -372,7 +376,7 @@ bgp_start_locked(struct object_lock *lock)
   else if (p->neigh->iface)
     bgp_start_neighbor(p);
   else
-    DBG("BGP: Waiting for neighbor\n");
+    BGP_TRACE(D_EVENTS, "Waiting for %I to become my neighbor", p->next_hop);
 }
 
 static int
@@ -408,7 +412,7 @@ bgp_shutdown(struct proto *P)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
 
-  DBG("BGP: Explicit shutdown\n");
+  BGP_TRACE(D_EVENTS, "Shutdown requested");
 
   /*
    *  We want to send the Cease notification message to all connections
