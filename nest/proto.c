@@ -14,7 +14,7 @@
 #include "nest/protocol.h"
 #include "lib/resource.h"
 #include "lib/lists.h"
-#include "nest/confile.h"
+#include "conf/conf.h"
 #include "nest/route.h"
 #include "nest/iface.h"
 
