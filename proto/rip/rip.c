@@ -15,8 +15,6 @@
 
 	FIXME: (nonurgent) allow bigger frequencies than 1 regular update in 6 seconds (?)
 	FIXME: propagation of metric=infinity into main routing table may or may not be good idea.
-
-	FIXME: ea_find can return NULL
  */
 
 /**
@@ -76,7 +74,7 @@ rip_tx_err( sock *s, int err )
 {
   struct rip_connection *c = s->data;
   struct proto *p = c->proto;
-  log( L_ERR "Unexpected error at rip transmit: %M", err );
+  log( L_ERR "%s: Unexpected error at rip transmit: %M", P_NAME, err );
 }
 
 static int
@@ -191,7 +189,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
   static int num = 0;
 
   if (rif->busy) {
-    log (L_WARN "Interface %s is much too slow, dropping request", iface->name);
+    log (L_WARN "%s: Interface %s is much too slow, dropping request", P_NAME, iface->name);
     return;
   }
   c = mb_alloc( p->pool, sizeof( struct rip_connection ));
@@ -208,7 +206,7 @@ rip_sendto( struct proto *p, ip_addr daddr, int dport, struct rip_interface *rif
     bug("not enough send magic");
 #if 0
   if (sk_open(c->send)<0) {
-    log( L_ERR "Could not open socket for data send to %I:%d on %s", daddr, dport, rif->iface->name );
+    log( L_ERR "%s Could not open socket for data send to %I:%d on %s", P_NAME, daddr, dport, rif->iface->name );
     return;
   }
 #endif
@@ -280,7 +278,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
 
   neighbor = neigh_find( p, &A.gw, 0 );
   if (!neighbor) {
-    log( L_REMOTE "%I asked me to route %I/%d using not-neighbor %I.", A.from, b->network, pxlen, A.gw );
+    log( L_REMOTE "%s: %I asked me to route %I/%d using not-neighbor %I.", p->name, A.from, b->network, pxlen, A.gw );
     return;
   }
 
@@ -296,7 +294,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   /* set to: interface of nexthop */
   a = rta_lookup(&A);
   if (pxlen==-1)  {
-    log( L_REMOTE "%I gave me invalid pxlen/netmask for %I.", A.from, b->network );
+    log( L_REMOTE "%s: %I gave me invalid pxlen/netmask for %I.", p->name, A.from, b->network );
     return;
   }
   n = net_get( p->table, b->network, pxlen );
@@ -325,7 +323,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
     if (metric == 0xff)
       { debug( "IpV6 nexthop ignored" ); return; }
 #endif
-    log( L_WARN "Got metric %d from %I", metric, whotoldme );
+    log( L_WARN "%s: Got metric %d from %I", P_NAME, metric, whotoldme );
     return;
   }
 
@@ -348,24 +346,21 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 
   switch( packet->heading.command ) {
   case RIPCMD_REQUEST: DBG( "Asked to send my routing table\n" ); 
-	  if (P_CF->honor == HO_NEVER) {
-	    log( L_REMOTE "They asked me to send routing table, but I was told not to do it" );
-	    return 0;
-	  }
-	  if ((P_CF->honor == HO_NEIGHBOR) && (!neigh_find( p, &whotoldme, 0 ))) {
-	    log( L_REMOTE "They asked me to send routing table, but he is not my neighbor" );
-	    return 0;
-	  }
+	  if (P_CF->honor == HO_NEVER)
+	    BAD( "They asked me to send routing table, but I was told not to do it" );
+
+	  if ((P_CF->honor == HO_NEIGHBOR) && (!neigh_find( p, &whotoldme, 0 )))
+	    BAD( "They asked me to send routing table, but he is not my neighbor" );
     	  rip_sendto( p, whotoldme, port, HEAD(P->interfaces) ); /* no broadcast */
           break;
   case RIPCMD_RESPONSE: DBG( "*** Rtable from %I\n", whotoldme ); 
           if (port != P_CF->port) {
-	    log( L_REMOTE "%I send me routing info from port %d", whotoldme, port );
-	    return 0;
+	    log( L_REMOTE "%s: %I send me routing info from port %d", P_NAME, whotoldme, port );
+	    return 1;
 	  }
 
 	  if (!neigh_find( p, &whotoldme, 0 )) {
-	    log( L_REMOTE "%I send me routing info but he is not my neighbor", whotoldme );
+	    log( L_REMOTE "%s: %I send me routing info but he is not my neighbor", P_NAME, whotoldme );
 	    return 0;
 	  }
 
@@ -771,7 +766,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
   if (old) {
     struct rip_entry *e = fib_find( &P->rtable, &net->n.prefix, net->n.pxlen );
     if (!e)
-      log( L_BUG "Deleting nonexistent entry?!" );
+      log( L_BUG "%s: Deleting nonexistent entry?!", P_NAME );
     fib_delete( &P->rtable, e );
   }
 
@@ -780,7 +775,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
 #if 0
     /* This can happen since feeding of protocols is asynchronous */
     if (fib_find( &P->rtable, &net->n.prefix, net->n.pxlen ))
-      log( L_BUG "Inserting entry which is already there?" );
+      log( L_BUG "%s: Inserting entry which is already there?", P_NAME );
 #endif
     e = fib_get( &P->rtable, &net->n.prefix, net->n.pxlen );
 
