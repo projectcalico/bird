@@ -643,6 +643,7 @@ rip_real_if_add(struct object_lock *lock)
   DBG("adding interface %s\n", iface->name );
   rif = new_iface(p, iface, iface->flags, k);
   add_head( &P->interfaces, NODE rif );
+  DBG("Adding object lock of %p\n", lock);
   rif->lock = lock;
 }
 
@@ -662,12 +663,11 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
     }
   }
   if (c & IF_CHANGE_UP) {
-    struct rip_interface *rif;
     struct iface_patt *k = iface_patt_match(&P_CF->iface_list, iface);
     struct object_lock *lock;
 
     if (!k) return; /* We are not interested in this interface */
-    
+
     lock = olock_new( p->pool );
 #ifndef IPV6
     lock->addr = ipa_from_u32(0xe0000009);	/* This is okay: we
