@@ -17,7 +17,8 @@ ospf_lsack_direct_tx(struct ospf_neighbor *n,struct ospf_lsa_header *h)
   sock *sk=n->ifa->ip_sk;
   u16 len;
 
-  DBG("Sending direct ACK to %I\n",n->rid);
+  DBG("Sending direct ACK to %I for Type: %u, ID: %I, RT: %I\n",n->rid,
+    h->type, ntohl(h->id), ntohl(h->rt));
 
   pk=(struct ospf_lsack_packet *)sk->tbuf;
   op=(struct ospf_packet *)sk->tbuf;
