@@ -1,9 +1,9 @@
 # Makefile for in place build of BIRD
-# (c) 1999 Martin Mares <mj@ucw.cz>
+# (c) 1999--2000 Martin Mares <mj@ucw.cz>
 
 objdir=@objdir@
 
-all depend tags:
+all depend tags docs userdocs progdocs:
 	$(MAKE) -C $(objdir) $@
 
 clean:

@@ -1,28 +1,22 @@
-# Makefile for bird documentation system
+root-rel=../
+dir-name=doc
 
+include ../Rules
 
-SHELL = /bin/sh
+progdocs:
+	mkdir -p prog
+	$(srcdir)/tools/progdoc $(srcdir_abs)
 
-all: internals.html
-#	bird.html
-
-clean:
-	rm *.html *.tex *.dvi *.log
+userdocs:
 
 %.html: %.sgml
 	./sgml2html $<
 
-dnl INFO format:
-
 %.info: %.sgml
 	sgml2info $<
 
-dnl TXT format:
-
 %.txt: %.sgml
 	sgml2txt $<
-
-dnl LATEX format:
 
 %.dvi: %.sgml
 	./sgml2latex $<
@@ -30,5 +24,5 @@ dnl LATEX format:
 %.tex: %.sgml
 	./sgml2latex --output=tex $<
 
-internals.html: ../filter/filter.c ../proto/rip/rip.c
-	kernel-doc -html ../filter/filter.c ../proto/rip/rip.c > internals.html
+clean:
+	rm *.html *.tex *.dvi *.log

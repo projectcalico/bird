@@ -3,9 +3,7 @@
 
 include Rules
 
-srcdir_abs := $(shell cd $(srcdir) ; pwd)
-
-.PHONY: all daemon client subdir depend clean distclean tags
+.PHONY: all daemon client subdir depend clean distclean tags docs userdocs progdocs
 
 all: .dep-stamp subdir daemon @CLIENT@
 
@@ -24,18 +22,23 @@ $(exedir)/birdc: client/all.o lib/birdlib.a
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS) $(CLIENT_LIBS)
 
 .dir-stamp:
-	mkdir -p $(static-dirs) $(client-dirs)
+	mkdir -p $(static-dirs) $(client-dirs) $(doc-dirs)
 	touch .dir-stamp
 
 .dep-stamp:
 	$(MAKE) depend
 	touch .dep-stamp
 
+docs: userdocs progdocs
+
+userdocs progdocs: .dir-stamp
+	$(MAKE) -C doc -f $(srcdir_abs)/doc/Makefile $@
+
 tags:
 	cd $(srcdir) ; etags -lc `find $(static-dirs) $(addprefix $(objdir)/,$(dynamic-dirs)) $(client-dirs) -name *.[chY]`
 
 clean:
-	find . -name "*.[oa]" -or -name core -or -name depend | xargs rm -f
+	find . -name "*.[oa]" -o -name core -o -name depend -o -name "*.html" | xargs rm -f
 	rm -f $(exedir)/bird $(exedir)/birdc $(exedir)/bird.ctl .dep-stamp
 
 distclean: clean
