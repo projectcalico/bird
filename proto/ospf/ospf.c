@@ -35,11 +35,11 @@ ospf_dump(struct proto *p)
   {
     debug("%s: Interface: %s\n", p->name, ifa->iface->name);
     debug("%s:  state: %u\n", p->name, ifa->state);
-    debug("%s:  DR:  %u\n", p->name, ifa->drid);
-    debug("%s:  BDR: %u\n", p->name, ifa->bdrid);
+    debug("%s:  DR:  %I\n", p->name, ifa->drid);
+    debug("%s:  BDR: %I\n", p->name, ifa->bdrid);
     WALK_LIST(n, ifa->neigh_list)
     {
-      debug("%s:   neighbor %u in state %u\n", p->name, n->rid, n->state);
+      debug("%s:   neighbor %I in state %u\n", p->name, n->rid, n->state);
     }
   }
 
@@ -51,7 +51,6 @@ ospf_dump(struct proto *p)
       oa->areaid);
   }
   neigh_dump_all();
-
 }
 
 static struct proto *
