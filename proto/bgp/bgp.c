@@ -383,7 +383,7 @@ bgp_incoming_connection(sock *sk, int dummy)
 	if (ipa_equal(p->cf->remote_ip, sk->daddr))
 	  {
 	    match = 1;
-	    if (p->p.proto_state == PS_START || p->p.proto_state == PS_UP)
+	    if ((p->p.proto_state == PS_START || p->p.proto_state == PS_UP) && p->neigh && p->neigh->iface)
 	      {
 		BGP_TRACE(D_EVENTS, "Incoming connection from %I port %d", sk->daddr, sk->dport);
 		if (p->incoming_conn.sk)
@@ -488,6 +488,7 @@ bgp_start(struct proto *P)
   p->outgoing_conn.state = BS_IDLE;
   p->incoming_conn.state = BS_IDLE;
   p->startup_delay = 0;
+  p->neigh = NULL;
 
   bgp_counter++;
   bgp_setup_listen_sk();
