@@ -32,8 +32,6 @@ Core
 
 - OSPF: refuse running on non-multicast devices
 
-- lib: use better checksum function
-
 Cleanup
 ~~~~~~~
 - right usage of DBG vs. debug
