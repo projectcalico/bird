@@ -11,10 +11,12 @@ Core
 
 - when an identical route is received, don't trigger updates
 
+- configure: --enable-ipv6
+- configure: IPv6 on glibc 2.0?
+
 Commands
 ~~~~~~~~
 - showing of routing table as seen by given protocol
-- printing of dynamic attributes
 
 Documentation
 ~~~~~~~~~~~~~
