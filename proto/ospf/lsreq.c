@@ -48,6 +48,7 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
     if(sn==STAIL(n->lsrql)) break;
     sn=sn->next;
   }
+  if(i!=0) i--;
 
   length=sizeof(struct ospf_lsreq_packet)+(j-i)*sizeof(struct ospf_lsreq_header);
   op->length=htons(length);
