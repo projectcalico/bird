@@ -16,6 +16,8 @@ Core
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
 
+- *: show route hooks
+
 - rte_update: check whether all bits not covered by masklen are zero
 - rte_update: debug mode
 
