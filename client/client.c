@@ -71,6 +71,11 @@ parse_args(int argc, char **argv)
 static void server_send(char *);
 static void io_loop(int);
 
+/* HACK: libreadline internals we need to access */
+extern int _rl_vis_botlin;
+extern void _rl_move_vert(int);
+extern Function *rl_last_func;
+
 static void
 got_line(char *cmd_buffer)
 {
@@ -91,10 +96,40 @@ got_line(char *cmd_buffer)
   free(cmd_buffer);
 }
 
+void
+input_start_list(void)			/* Leave the currently edited line and make space for listing */
+{
+  _rl_move_vert(_rl_vis_botlin);
+  crlf();
+}
+
+void
+input_stop_list(void)			/* Reprint the currently edited line after listing */
+{
+  rl_on_new_line();
+  rl_redisplay();
+}
+
 static int
 input_complete(int arg, int key)
 {
-  ding();
+  static int complete_flag;
+  char buf[256];
+
+  if (rl_last_func != input_complete)
+    complete_flag = 0;
+  switch (cmd_complete(rl_line_buffer, rl_point, buf, complete_flag))
+    {
+    case 0:
+      complete_flag = 1;
+      break;
+    case 1:
+      rl_insert_text(buf);
+      break;
+    default:
+      complete_flag = 1;
+      ding();
+    }
   return 0;
 }
 
@@ -103,22 +138,26 @@ input_help(int arg, int key)
 {
   int i = 0;
 
-  if (rl_point != rl_end || arg != 1)
+  if (arg != 1)
     return rl_insert(arg, '?');
-  while (i < rl_end)
+  while (i < rl_point)
     {
       if (rl_line_buffer[i++] == '"')
 	do
 	  {
-	    if (i >= rl_end)		/* `?' inside quoted string -> insert */
+	    if (i >= rl_point)		/* `?' inside quoted string -> insert */
 	      return rl_insert(1, '?');
 	  }
         while (rl_line_buffer[i++] != '"');
     }
-  puts("?");
-  cmd_help(rl_line_buffer, rl_end);
-  rl_on_new_line();
+  rl_begin_undo_group();		/* HACK: We want to display `?' at point position */
+  rl_insert_text("?");
   rl_redisplay();
+  rl_end_undo_group();
+  input_start_list();
+  cmd_help(rl_line_buffer, rl_point);
+  rl_undo_command(1, 0);
+  input_stop_list();
   return 0;
 }
 

@@ -192,7 +192,7 @@ password_list:
 
 /* Core commands */
 
-CF_CLI_HELP(SHOW,,[[Show status information]])
+CF_CLI_HELP(SHOW, ..., [[Show status information]])
 
 CF_CLI(SHOW STATUS,,, [[Show router status]])
 { cmd_show_status(); }
@@ -255,7 +255,7 @@ r_args:
 CF_CLI(SHOW SYMBOLS, optsym, [<symbol>], [[Show all known symbolic names]])
 { cmd_show_symbols($3); } ;
 
-CF_CLI_HELP(DEBUG, <subsystem>, [[Show debugging information]])
+CF_CLI_HELP(DEBUG, ..., [[Show debugging information]])
 CF_CLI(DEBUG RESOURCES,,, [[Show all allocated resource]])
 { rdump(&root_pool); cli_msg(0, ""); } ;
 CF_CLI(DEBUG SOCKETS,,, [[Show open sockets]])

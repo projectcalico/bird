@@ -7,6 +7,8 @@
  */
 
 #include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
@@ -27,7 +29,7 @@ static struct cmd_info command_table[] = {
 
 struct cmd_node {
   struct cmd_node *sibling, *son, **plastson;
-  struct cmd_info *cmd;
+  struct cmd_info *cmd, *help;
   int len;
   char token[1];
 };
@@ -58,26 +60,28 @@ cmd_build_tree(void)
 	      break;
 	  if (!new)
 	    {
-	      new = xmalloc(sizeof(struct cmd_node) + c-d);
+	      int size = sizeof(struct cmd_node) + c-d;
+	      new = xmalloc(size);
+	      bzero(new, size);
 	      *old->plastson = new;
 	      old->plastson = &new->sibling;
-	      new->sibling = new->son = NULL;
 	      new->plastson = &new->son;
-	      new->cmd = NULL;
 	      new->len = c-d;
 	      memcpy(new->token, d, c-d);
-	      new->token[c-d] = 0;
 	    }
 	  old = new;
 	  while (*c == ' ')
 	    c++;
 	}
-      old->cmd = cmd;
+      if (cmd->is_real_cmd)
+	old->cmd = cmd;
+      else
+	old->help = cmd;
     }
 }
 
 static void
-cmd_display_help(struct cmd_info *c)
+cmd_do_display_help(struct cmd_info *c)
 {
   char buf[strlen(c->command) + strlen(c->args) + 4];
 
@@ -85,11 +89,21 @@ cmd_display_help(struct cmd_info *c)
   printf("%-45s  %s\n", buf, c->help);
 }
 
+static void
+cmd_display_help(struct cmd_info *c1, struct cmd_info *c2)
+{
+  if (c1)
+    cmd_do_display_help(c1);
+  else if (c2)
+    cmd_do_display_help(c2);
+}
+
 static struct cmd_node *
-cmd_find_abbrev(struct cmd_node *root, char *cmd, int len)
+cmd_find_abbrev(struct cmd_node *root, char *cmd, int len, int *pambiguous)
 {
   struct cmd_node *m, *best = NULL, *best2 = NULL;
 
+  *pambiguous = 0;
   for(m=root->son; m; m=m->sibling)
     {
       if (m->len == len && !memcmp(m->token, cmd, len))
@@ -100,7 +114,22 @@ cmd_find_abbrev(struct cmd_node *root, char *cmd, int len)
 	  best = m;
 	}
     }
-  return best2 ? NULL : best;
+  if (best2)
+    {
+      *pambiguous = 1;
+      return NULL;
+    }
+  return best;
+}
+
+static void
+cmd_list_ambiguous(struct cmd_node *root, char *cmd, int len)
+{
+  struct cmd_node *m;
+
+  for(m=root->son; m; m=m->sibling)
+    if (m->len > len && !memcmp(m->token, cmd, len))	
+      cmd_display_help(m->help, m->cmd);
 }
 
 void
@@ -109,6 +138,7 @@ cmd_help(char *cmd, int len)
   char *end = cmd + len;
   struct cmd_node *n, *m;
   char *z;
+  int ambig;
 
   n = &cmd_root;
   while (cmd < end)
@@ -121,13 +151,114 @@ cmd_help(char *cmd, int len)
       z = cmd;
       while (cmd < end && *cmd != ' ' && *cmd != '\t')
 	cmd++;
-      m = cmd_find_abbrev(n, z, cmd-z);
+      m = cmd_find_abbrev(n, z, cmd-z, &ambig);
+      if (ambig)
+	{
+	  cmd_list_ambiguous(n, z, cmd-z);
+	  return;
+	}
       if (!m)
 	break;
       n = m;
     }
-  if (n->cmd && n->cmd->is_real_cmd)
-    cmd_display_help(n->cmd);
+  cmd_display_help(n->cmd, NULL);
   for (m=n->son; m; m=m->sibling)
-    cmd_display_help(m->cmd);
+    cmd_display_help(m->help, m->cmd);
+}
+
+static int
+cmd_find_common_match(struct cmd_node *root, char *cmd, int len, int *pcount, char *buf)
+{
+  struct cmd_node *m;
+  int best, i;
+
+  *pcount = 0;
+  best = -1;
+  for(m=root->son; m; m=m->sibling)
+    {
+      if (m->len < len || memcmp(m->token, cmd, len))
+	continue;
+      (*pcount)++;
+      if (best < 0)
+	{
+	  strcpy(buf, m->token + len);
+	  best = m->len - len;
+	}
+      else
+	{
+	  i = 0;
+	  while (i < best && i < m->len - len && buf[i] == m->token[len+i])
+	    i++;
+	  best = i;
+	}
+    }
+  return best;
+}
+
+int
+cmd_complete(char *cmd, int len, char *buf, int again)
+{
+  char *start = cmd;
+  char *end = cmd + len;
+  char *fin;
+  struct cmd_node *n, *m;
+  char *z;
+  int ambig, cnt = 0, common;
+
+  /* Find the last word we want to complete */
+  for(fin=end; fin > start && !isspace(fin[-1]); fin--)
+    ;
+
+  /* Find the context */
+  n = &cmd_root;
+  while (cmd < fin && n->son)
+    {
+      if (*cmd == ' ' || *cmd == '\t')
+	{
+	  cmd++;
+	  continue;
+	}
+      z = cmd;
+      while (cmd < fin && !isspace(*cmd))
+	cmd++;
+      m = cmd_find_abbrev(n, z, cmd-z, &ambig);
+      if (ambig)
+	{
+	  if (!again)
+	    return -1;
+	  input_start_list();
+	  cmd_list_ambiguous(n, z, cmd-z);
+	  input_stop_list();
+	  return 0;
+	}
+      if (!m)
+	return -1;
+      n = m;
+    }
+
+  /* Completion of parameters is not yet supported */
+  if (!n->son)
+    return -1;
+
+  /* We know the context, let's try to complete */
+  common = cmd_find_common_match(n, fin, end-fin, &cnt, buf);
+  if (!cnt)
+    return -1;
+  if (cnt == 1)
+    {
+      buf[common++] = ' ';
+      buf[common] = 0;
+      return 1;
+    }
+  if (common > 0)
+    {
+      buf[common] = 0;
+      return 1;
+    }
+  if (!again)
+    return -1;
+  input_start_list();
+  cmd_list_ambiguous(n, fin, end-fin);
+  input_stop_list();
+  return 0;
 }

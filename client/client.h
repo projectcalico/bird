@@ -9,8 +9,11 @@
 /* client.c */
 
 void cleanup(void);
+void input_start_list(void);
+void input_stop_list(void);
 
 /* commands.c */
 
 void cmd_build_tree(void);
 void cmd_help(char *cmd, int len);
+int cmd_complete(char *cmd, int len, char *buf, int again);
