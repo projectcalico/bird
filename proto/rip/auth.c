@@ -25,33 +25,54 @@
 #define P ((struct rip_proto *) p)
 #define P_CF ((struct rip_proto_config *)p->cf)
 
+/* 1 == failed, 0 == ok */
 int
-rip_incoming_authentication( struct proto *p, struct rip_block *block, struct rip_packet *packet, int num )
+rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
 {
   DBG( "Incoming authentication: " );
 
-  switch (block->tag) {	/* Authentication type */
+  switch (block->authtype) {	/* Authentication type */
   case AT_PLAINTEXT:
     DBG( "Plaintext passwd" );
-    if (strncmp( (char *) (&block->network), P_CF->password, 16)) {
+    if (!P_CF->passwords) {
+      log( L_AUTH "no passwords set and password authentication came\n" );
+      return 1;
+    }
+    if (strncmp( (char *) (&block->packetlen), P_CF->passwords->password, 16)) {
       log( L_AUTH, "Passwd authentication failed!\n" );
       return 1;
     }
     return 0;
+  case AT_MD5:
+    DBG( "md5 password" );
+    {
+      struct password_item *head;
+      head = P_CF->passwords;
+      while (head) {
+	if (head->id == block->keyid)
+	  /* Perform md5 + compare */;
+	head = head->next;
+      }
+      return 1;
+    }
   }
     
   return 0;
 }
 
 void
-rip_outgoing_authentication( struct proto *p, struct rip_block *block, struct rip_packet *packet, int num )
+rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
 {
   DBG( "Outgoing authentication: " );
 
-  block->tag = P_CF->authtype;
+  block->authtype = P_CF->authtype;
   switch (P_CF->authtype) {
   case AT_PLAINTEXT:
-    strncpy( (char *) (&block->network), P_CF->password, 16);
+    if (!P_CF->passwords) {
+      log( L_ERR "no passwords set and password authentication requested\n" );
+      return;
+    }
+    strncpy( (char *) (&block->packetlen), P_CF->passwords->password, 16);
     return;
   }
 }

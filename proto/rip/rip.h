@@ -42,6 +42,17 @@ struct rip_block {
   u32 metric;
 };
 
+struct rip_block_auth {
+  u16 mustbeFFFF;
+  u16 authtype;
+  u16 packetlen;
+  u8 keyid;
+  u8 authlen;
+  u32 seq;
+  u32 zero0;
+  u32 zero1;
+};
+
 struct rip_entry {
   struct fib_node n;
 
@@ -97,7 +108,7 @@ struct rip_proto_config {
   int authtype;
 #define AT_NONE 0
 #define AT_PLAINTEXT 2
-#define AT_MD5 1234	/* FIXME: get a real number for this one */
+#define AT_MD5 3
 };
 
 struct rip_proto {
@@ -120,5 +131,5 @@ struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned lon
 
 /* Authentication functions */
 
-int rip_incoming_authentication( struct proto *p, struct rip_block *block, struct rip_packet *packet, int num );
-void rip_outgoing_authentication( struct proto *p, struct rip_block *block, struct rip_packet *packet, int num );
+int rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num );
+void rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num );
