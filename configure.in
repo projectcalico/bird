@@ -145,7 +145,10 @@ AC_SUBST(protocols)
 
 case $sysdesc in
 	*/linux-22*|*/linux-v6*)
-		AC_CHECK_HEADER(linux/rtnetlink.h,,[AC_MSG_ERROR([Appropriate version of Linux kernel headers not found.])])
+		AC_CHECK_HEADER(linux/rtnetlink.h,,[AC_MSG_ERROR([Appropriate version of Linux kernel headers not found.])],[
+#include <asm/types.h>
+#include <sys/socket.h>
+])
 		;;
 esac
 
