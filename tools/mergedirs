@@ -7,26 +7,38 @@ if [ -z "$2" ] ; then
 TOPDIR=`pwd`
 OBJDIR=$1
 LIBDIR=$OBJDIR/lib
+CONFDIR=$OBJDIR/conf
 shift
+
 echo "Merging system-dependent modules"
 MODULES=`for a in $@ ; do
 		sed <$a/Modules "s@\\(.*\\)@\\1 $a/\\1@"
 		done |
 	sort +0 -1 -u |
 	cut -d ' ' -f 2`
-rm -rf $LIBDIR
-mkdir -p $LIBDIR
+rm -rf $LIBDIR $CONFDIR
+mkdir -p $LIBDIR $CONFDIR
 for a in $MODULES ; do
 	echo $a
 	b=`basename $a`
-	ln -s $TOPDIR/$a $LIBDIR/$b
-	OBJ=`echo $b | sed '/\.c$/!d;s/\.c$/\.o/'`
-	if [ -n "$OBJ" ] ; then
-		OBJS="$OBJS $OBJ"
-		SRCS="$SRCS \\
+	case $b in
+		*.h)	ln -s $TOPDIR/$a $LIBDIR/$b
+			;;
+		*.c)	OBJ=`echo $b | sed 's/\.c$/\.o/'`
+			OBJS="$OBJS $OBJ"
+			SRCS="$SRCS \\
 	\$(TOPDIR)/$a"
-		fi
+			ln -s $TOPDIR/$a $LIBDIR/$b
+			;;
+		*.Y)	CONFS="$CONFS\$(TOPDIR)/$a "
+			ln -s $TOPDIR/$a $CONFDIR/$b
+			;;
+		*)	echo "$b: Unknown file type"
+			exit 1
+			;;
+		esac
 	done
+
 cat >$LIBDIR/Makefile <<EOF
 OBJS=$OBJS
 SRCS=$SRCS
@@ -34,3 +46,6 @@ LIB=birdlib.a
 
 include \$(TOPDIR)/Rules
 EOF
+
+sed <$TOPDIR/conf/Makefile >$CONFDIR/Makefile "s|@CONFS@|$CONFS|"
+ln -s $TOPDIR/conf/*.[chl] $CONFDIR/
