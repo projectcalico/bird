@@ -573,8 +573,8 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
   int exp, sec, min;
 
   exp = n->inactim->expires - now;
-  sec = exp - (exp / 60);
-  min = (exp - sec) / 60;
+  sec = exp % 60;
+  min = exp / 60;
   if (min > 59)
   {
     bsprintf(etime, "-Inf-");
