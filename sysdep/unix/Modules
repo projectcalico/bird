@@ -3,6 +3,7 @@ main.c
 timer.h
 io.c
 unix.h
+endian.h
 
 krt.c
 krt.h
