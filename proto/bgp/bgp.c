@@ -503,7 +503,10 @@ bgp_get_status(struct proto *P, byte *buf)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
 
-  strcpy(buf, bgp_state_names[MAX(p->incoming_conn.state, p->outgoing_conn.state)]);
+  if (P->proto_state == PS_DOWN)
+    buf[0] = 0;
+  else
+    strcpy(buf, bgp_state_names[MAX(p->incoming_conn.state, p->outgoing_conn.state)]);
 }
 
 static int

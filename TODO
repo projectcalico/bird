@@ -1,13 +1,10 @@
 Core
 ~~~~
-- config: try to unify expressions
-
-- static: check validity of route destination?
-
 - configure: default CFLAGS?
 
 - filters: deletion of mandatory attributes?
 - filters: user defined attributes?
+- filters: arithmetics and define'd symbols
 
 - kernel: persistent mode
 
@@ -22,7 +19,6 @@ Core
 
 - bgp: timing of updates?
 - bgp: dump and get_route_info
-- bgp: when protocol is down, don't print Idle state
 
 - proto: Don't show repeated `Changed state to ...' messages if only internal states change
 
