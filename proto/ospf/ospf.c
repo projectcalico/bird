@@ -24,16 +24,35 @@
 #include "ospf.h"
 
 void
+neighbor_timer_hook(timer *timer)
+{
+  struct ospf_neighbor *n;
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  n=(struct ospf_neighbor *)timer->data;
+  ifa=n->ifa;
+  p=(struct proto *)(ifa->proto);
+  debug("%s: Inactivity timer fired on interface %s for neighbor %d.\n",
+    p->name, ifa->iface->name, n->rid);
+}
+
+void
 ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   struct ospf_iface *ifa)
 {
   char sip[100]; /* FIXME: Should be smaller */
+  u32 nrid;
+  struct ospf_neighbor *neigh,*n;
+  int i;
+
+  nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
   if(ipa_mklen(ipa_ntoh(ps->netmask))!=ifa->iface->addr->pxlen)
   {
     ip_ntop(ps->netmask,sip);
     log("%s: Bad OSPF packet from %d received: bad netmask %s.",
-      p->name, ntohl(((struct ospf_packet *)ps)->routerid), sip);
+      p->name, nrid, sip);
     log("%s: Discarding",p->name);
     return;
   }
@@ -41,7 +60,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   if(ntohs(ps->helloint)!=ifa->helloint)
   {
     log("%s: Bad OSPF packet from %d received: hello interval mismatch.",
-      p->name, ntohl(((struct ospf_packet *)ps)->routerid));
+      p->name, nrid);
     log("%s: Discarding",p->name);
     return;
   }
@@ -49,18 +68,52 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   if(ntohl(ps->deadint)!=ifa->helloint*ifa->deadc)
   {
     log("%s: Bad OSPF packet from %d received: dead interval mismatch.",
-      p->name, ntohl(((struct ospf_packet *)ps)->routerid));
+      p->name, nrid);
     log("%s: Discarding",p->name);
     return;
   }
+
   
   if(ps->options!=ifa->options)
   {
     log("%s: Bad OSPF packet from %d received: options mismatch.",
-      p->name, ntohl(((struct ospf_packet *)ps)->routerid));
+      p->name, nrid);
     log("%s: Discarding",p->name);
     return;
   }
+
+  n=NULL;
+  WALK_LIST (neigh, ifa->neigh_list)
+  {
+    if(neigh->rid==nrid)
+    {
+      n=neigh;
+      break;
+    }
+  }
+
+  if(n==NULL)
+  {
+    log("%s: New neighbor found: %d.",p->name,nrid);
+    n=mb_alloc(p->pool, sizeof(struct ospf_neighbor));
+    add_tail(&ifa->neigh_list, NODE n);
+    n->inactim=tm_new(p->pool);
+    n->inactim->data=n;
+    n->inactim->randomize=0;
+    n->inactim->hook=neighbor_timer_hook;
+    n->inactim->recurrent=ifa->deadc*ifa->helloint;
+    n->inactim->expires=0;
+    tm_start(ifa->hello_timer,ifa->deadc*ifa->helloint);
+    DBG("%s: Installing inactivity timer.\n", p->name);
+    n->state=NEIGHBOR_INIT;
+    n->rid=nrid;
+    n->dr=ntohl(ps->dr);
+    n->bdr=ntohl(ps->bdr);
+    n->priority=ps->priority;
+    n->options=ps->options;
+  }
+
+  /* XXXX */
 
   switch(ifa->state)
   {
@@ -323,8 +376,7 @@ hello_timer_hook(timer *timer)
     p->name, ifa->iface->name);
   /* Now we should send a hello packet */
   /* First a common packet header */
-  //if(ifa->type!=OSPF_IT_NBMA)
-  if(ifa->hello_sk!=NULL)
+  if(ifa->type!=OSPF_IT_NBMA)
   {
     /* Now fill ospf_hello header */
     pkt=(struct ospf_hello_packet *)(ifa->hello_sk->tbuf);
@@ -359,9 +411,8 @@ hello_timer_hook(timer *timer)
     op->checksum=ipsum_calculate(op,sizeof(struct ospf_packet)-8,
       &(pkt->netmask),length-sizeof(struct ospf_packet),NULL);
 
+    /* And finally send it :-) */
     sk_send(ifa->hello_sk,length);
-
-    /* XXXX */
   }
 }
 
@@ -434,7 +485,6 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
     DBG(": Installing wait timer.\n");
   }
   else ifa->state=OSPF_IS_PTP;
-
 }
 
 void

@@ -113,9 +113,9 @@ struct ospf_neighbor
   struct ospf_iface *ifa;
   int state;
 #define NEIGHBOR_DOWN 0
-#define NEIGHBOR_INIT 1
-#define NEIGHBOR_2WAY 2
-#define NEIGHBOR_ATTEMPT 3
+#define NEIGHBOR_ATTEMPT 1
+#define NEIGHBOR_INIT 2
+#define NEIGHBOR_2WAY 3
 #define NEIGHBOR_EXSTART 4
 #define NEIGHBOR_EXCHANGE 5
 #define NEIGHBOR_LOADING 6
@@ -125,7 +125,7 @@ struct ospf_neighbor
   u32 dds;		/* DD Sequence number being sentg */
   u32 ddr;		/* last Dat Des packet */
   u32 rid;		/* Router ID */
-  byte pri;		/* Priority */
+  byte priority;	/* Priority */
   byte options;		/* Options */
   u32 dr;		/* Neigbour's idea of DR */
   u32 bdr;		/* Neigbour's idea of BDR */
