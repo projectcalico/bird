@@ -248,6 +248,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 		    {
 		      DBG("\t%s: same\n", oc->name);
 		      p->cf = nc;
+		      p->name = nc->name;
 		      nc->proto = p;
 		      continue;
 		    }
@@ -371,6 +372,9 @@ protos_build(void)
 #endif
 #ifdef CONFIG_OSPF
   add_tail(&protocol_list, &proto_ospf.n);
+#endif
+#ifdef CONFIG_PIPE
+  add_tail(&protocol_list, &proto_pipe.n);
 #endif
   proto_pool = rp_new(&root_pool, "Protocols");
   proto_flush_event = ev_new(proto_pool);
