@@ -238,7 +238,14 @@ again:
   }
 skip:
   FIB_ITERATE_END(nftmp);
+}
 
+void
+ospf_ext_spfa(struct proto_ospf *po)
+{
+  struct top_hash_entry *en;
+
+  /* FIXME Go on */
 }
 
 void

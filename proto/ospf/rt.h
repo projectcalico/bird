@@ -18,6 +18,7 @@ struct infib {
 };
 
 void ospf_rt_spfa(struct ospf_area *oa);
+void ospf_ext_spfa(struct proto_ospf *po);
 void add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
   u16 dist, struct ospf_area *oa);
 void calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
