@@ -253,7 +253,7 @@ struct mblock {
   byte data[0];
 };
 
-static void mbl_free(resource *r)
+static void mbl_free(resource *r UNUSED)
 {
 }
 
