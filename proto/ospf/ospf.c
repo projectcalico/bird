@@ -496,10 +496,7 @@ ospf_tx_hook(sock *sk)
   ifa=(struct ospf_iface *)(sk->data);
 
   p=(struct proto *)(ifa->proto);
-  DBG(p->name);
-  DBG(": TX_Hook called on interface ");
-  DBG(sk->iface->name);
-  DBG(".\n");
+  DBG("%s: TX_Hook called on interface %s\n", p->name,sk->iface->name);
 }
 
 void
@@ -511,10 +508,7 @@ ospf_err_hook(sock *sk, int err)
   ifa=(struct ospf_iface *)(sk->data);
 
   p=(struct proto *)(ifa->proto);
-  DBG(p->name);
-  DBG(": Err_Hook called on interface ");
-  DBG(sk->iface->name);
-  DBG(".\n");
+  DBG("%s: Err_Hook called on interface %s\n", p->name,sk->iface->name);
 }
 
 /* This will change ! */
@@ -606,6 +600,7 @@ fill_ospf_pkt_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
   pkt->routerid=htonl(p->cf->global->router_id);
   pkt->areaid=htonl(ifa->area);
   pkt->autype=htons(ifa->autype);
+  pkt->checksum=0;
 }
 
 void
@@ -656,8 +651,9 @@ hello_timer_hook(timer *timer)
 
     op->length=ntohs(length);
 
-    /* Do authentification */
+    /* FIXME Do authentification */
 
+    /* Count checksum */
     op->checksum=ipsum_calculate(op,sizeof(struct ospf_packet)-8,
       &(pkt->netmask),length-sizeof(struct ospf_packet),NULL);
 
