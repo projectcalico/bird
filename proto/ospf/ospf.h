@@ -53,19 +53,22 @@
 #define LSINFINITY 0xffff	/* RFC says 0xffffff ??? */
 #define DISPTICK 7
 
-struct ospf_config {
+struct ospf_config
+{
   struct proto_config c;
   int rfc1583;
   list area_list;
 };
 
-struct nbma_node {
+struct nbma_node
+{
   node n;
   ip_addr ip;
   int eligible;
 };
 
-struct area_net {
+struct area_net
+{
   node n;
   struct prefix px;
   int hidden;
@@ -73,7 +76,8 @@ struct area_net {
   int oldactive;
 };
 
-struct ospf_area_config {
+struct ospf_area_config
+{
   node n;
   u32 areaid;
   int stub;
@@ -82,47 +86,48 @@ struct ospf_area_config {
   list net_list;
 };
 
-struct ospf_iface {
+struct ospf_iface
+{
   node n;
   struct proto_ospf *proto;
-  struct iface *iface;	/* Nest's iface */
+  struct iface *iface;		/* Nest's iface */
   struct ospf_area *oa;
   struct object_lock *lock;
-  u32 an;		/* Area number */
-  sock *hello_sk;	/* Hello socket */
-  sock *dr_sk;		/* For states DR or BACKUP */
-  sock *ip_sk;		/* IP socket (for DD ...) */
-  list neigh_list;	/* List of neigbours */
-  u16 cost;		/* Cost of iface */
-  u16 rxmtint;		/* number of seconds between LSA retransmissions */
-  u16 inftransdelay;	/* The estimated number of seconds it takes to
-			   transmit a Link State Update Packet over this
-			   interface.  LSAs contained in the update */
-  u8 priority;		/* A router priority for DR election */
-  u16 helloint;		/* number of seconds between hello sending */
-  u16 waitint;		/* number of sec before changing state from wait */
-  u16 pollint;		/* Poll interval */
-  u32 deadc;		/* after "deadint" missing hellos is router dead */
+  u32 an;			/* Area number */
+  sock *hello_sk;		/* Hello socket */
+  sock *dr_sk;			/* For states DR or BACKUP */
+  sock *ip_sk;			/* IP socket (for DD ...) */
+  list neigh_list;		/* List of neigbours */
+  u16 cost;			/* Cost of iface */
+  u16 rxmtint;			/* number of seconds between LSA retransmissions */
+  u16 inftransdelay;		/* The estimated number of seconds it takes to
+				   transmit a Link State Update Packet over this
+				   interface.  LSAs contained in the update */
+  u8 priority;			/* A router priority for DR election */
+  u16 helloint;			/* number of seconds between hello sending */
+  u16 waitint;			/* number of sec before changing state from wait */
+  u16 pollint;			/* Poll interval */
+  u32 deadc;			/* after "deadint" missing hellos is router dead */
   u16 autype;
   u8 aukey[8];
   u8 options;
-  ip_addr drip;		/* Designated router */
+  ip_addr drip;			/* Designated router */
   u32 drid;
-  ip_addr bdrip;	/* Backup DR */
+  ip_addr bdrip;		/* Backup DR */
   u32 bdrid;
-  u8 type;		/* OSPF view of type */
+  u8 type;			/* OSPF view of type */
 #define OSPF_IT_BCAST 0
 #define OSPF_IT_NBMA 1
 #define OSPF_IT_PTP 2
 #define OSPF_IT_VLINK 3
 #define OSPF_IT_UNDEF 4
-  u8 strictnbma;	/* Can I talk with unknown neighbors? */
-  u8 stub;		/* Inactive interface */
+  u8 strictnbma;		/* Can I talk with unknown neighbors? */
+  u8 stub;			/* Inactive interface */
   u8 ioprob;
-#define OSPF_I_OK 0	/* Everything OK */
-#define OSPF_I_MC 1	/* I didn't open MC socket */
-#define OSPF_I_IP 2	/* I didn't open IP socet */
-  u8 state;		/* Interface state machine */
+#define OSPF_I_OK 0		/* Everything OK */
+#define OSPF_I_MC 1		/* I didn't open MC socket */
+#define OSPF_I_IP 2		/* I didn't open IP socet */
+  u8 state;			/* Interface state machine */
 #define OSPF_IS_DOWN 0		/* Not working */
 #define OSPF_IS_LOOP 1		/* Should never happen */
 #define OSPF_IS_WAITING 2	/* Waiting for Wait timer */
@@ -141,23 +146,24 @@ struct ospf_iface {
 #define HELLOINT_D 10
 #define POLLINT_D 20
 #define DEADC_D 4
-#define WAIT_DMH 4	/* Value of Wait timer - not found it in RFC 
-			 * - using 4*HELLO
-			 */
+#define WAIT_DMH 4		/* Value of Wait timer - not found it in RFC 
+				 * - using 4*HELLO
+				 */
   struct top_hash_entry *nlsa;	/* Originated net lsa */
-  int orignet;		/* Schedule network LSA origination */
-  int fadj;		/* Number of full adjacent neigh */
+  int orignet;			/* Schedule network LSA origination */
+  int fadj;			/* Number of full adjacent neigh */
   list nbma_list;
 };
 
-struct ospf_packet {
+struct ospf_packet
+{
   u8 version;
   u8 type;
-#define HELLO_P 1 /* Hello */
-#define DBDES_P 2 /* Database description */
-#define LSREQ_P 3 /* Link state request */
-#define LSUPD_P 4 /* Link state update */
-#define LSACK_P 5 /* Link state acknowledgement */
+#define HELLO_P 1		/* Hello */
+#define DBDES_P 2		/* Database description */
+#define LSREQ_P 3		/* Link state request */
+#define LSUPD_P 4		/* Link state update */
+#define LSACK_P 5		/* Link state acknowledgement */
   u16 length;
   u32 routerid;
   u32 areaid;
@@ -167,7 +173,8 @@ struct ospf_packet {
   u8 authetication[8];
 };
 
-struct ospf_hello_packet {
+struct ospf_hello_packet
+{
   struct ospf_packet ospf_packet;
   ip_addr netmask;
   u16 helloint;
@@ -178,7 +185,8 @@ struct ospf_hello_packet {
   ip_addr bdr;
 };
 
-struct immsb {
+struct immsb
+{
 #ifdef _BIG_ENDIAN
   u8 padding:5;
   u8 i:1;
@@ -192,12 +200,14 @@ struct immsb {
 #endif
 };
 
-union imms {
+union imms
+{
   u8 byte;
   struct immsb bit;
 };
 
-struct ospf_dbdes_packet {
+struct ospf_dbdes_packet
+{
   struct ospf_packet ospf_packet;
   u16 iface_mtu;
   u8 options;
@@ -209,11 +219,12 @@ struct ospf_dbdes_packet {
 };
 
 
-struct ospf_lsa_header {
-  u16 age;	/* LS Age */
-#define LSA_MAXAGE 3600                 /* 1 hour */
-#define LSA_CHECKAGE 300                /* 5 minutes */
-#define LSA_MAXAGEDIFF 900              /* 15 minutes */
+struct ospf_lsa_header
+{
+  u16 age;			/* LS Age */
+#define LSA_MAXAGE 3600		/* 1 hour */
+#define LSA_CHECKAGE 300	/* 5 minutes */
+#define LSA_MAXAGEDIFF 900	/* 15 minutes */
   u8 options;
   u8 type;
   u32 id;
@@ -222,27 +233,30 @@ struct ospf_lsa_header {
 #define LSA_T_SUM_NET 3
 #define LSA_T_SUM_RT 4
 #define LSA_T_EXT 5
-  u32 rt;		/* Advertising router */
-  s32 sn;		/* LS Sequence number */
+  u32 rt;			/* Advertising router */
+  s32 sn;			/* LS Sequence number */
 #define LSA_INITSEQNO 0x80000001
 #define LSA_MAXSEQNO 0x7fffffff
   u16 checksum;
-  u16 length;  
+  u16 length;
 };
 
-struct vebb {
+struct vebb
+{
   u8 b:1;
   u8 e:1;
   u8 v:1;
   u8 padding:5;
 };
 
-union veb {
+union veb
+{
   u8 byte;
   struct vebb bit;
 };
 
-struct ospf_lsa_rt {
+struct ospf_lsa_rt
+{
   union veb veb;
 #define LSA_RT_V 5
 #define LSA_RT_E 6
@@ -251,7 +265,8 @@ struct ospf_lsa_rt {
   u16 links;
 };
 
-struct ospf_lsa_rt_link {
+struct ospf_lsa_rt_link
+{
   u32 id;
   u32 data;
   u8 type;
@@ -263,31 +278,37 @@ struct ospf_lsa_rt_link {
   u16 metric;
 };
 
-struct ospf_lsa_rt_link_tos {	/* Actually we ignore TOS. This is useless */
+struct ospf_lsa_rt_link_tos
+{				/* Actually we ignore TOS. This is useless */
   u8 tos;
   u8 padding;
   u16 metric;
 };
 
-struct ospf_lsa_net {
+struct ospf_lsa_net
+{
   ip_addr netmask;
 };
 
-struct ospf_lsa_summ {
+struct ospf_lsa_summ
+{
   ip_addr netmask;
 };
 
-struct ospf_lsa_summ_net {
+struct ospf_lsa_summ_net
+{
   u8 tos;
   u8 padding;
   u16 metric;
 };
 
-struct ospf_lsa_ext {
+struct ospf_lsa_ext
+{
   ip_addr netmask;
 };
 
-struct ospf_lsa_ext_tos {
+struct ospf_lsa_ext_tos
+{
   u8 etos;
   u8 padding;
   u16 metric;
@@ -295,29 +316,34 @@ struct ospf_lsa_ext_tos {
   u32 tag;
 };
 
-struct ospf_lsreq_packet {
+struct ospf_lsreq_packet
+{
   struct ospf_packet ospf_packet;
 };
 
-struct ospf_lsreq_header {
+struct ospf_lsreq_header
+{
   u16 padd1;
   u8 padd2;
   u8 type;
   u32 id;
-  u32 rt;		/* Advertising router */
+  u32 rt;			/* Advertising router */
 };
 
-struct l_lsr_head {
+struct l_lsr_head
+{
   node n;
   struct ospf_lsreq_header lsh;
 };
 
-struct ospf_lsupd_packet {
+struct ospf_lsupd_packet
+{
   struct ospf_packet ospf_packet;
-  u32 lsano;		/* Number of LSA's */
+  u32 lsano;			/* Number of LSA's */
 };
 
-struct ospf_lsack_packet {
+struct ospf_lsack_packet
+{
   struct ospf_packet ospf_packet;
 };
 
@@ -336,58 +362,59 @@ struct ospf_neighbor
 #define NEIGHBOR_EXCHANGE 5
 #define NEIGHBOR_LOADING 6
 #define NEIGHBOR_FULL 7
-  timer *inactim;	/* Inactivity timer */
+  timer *inactim;		/* Inactivity timer */
   union imms imms;		/* I, M, Master/slave received */
-  u32 dds;		/* DD Sequence number being sent */
-  u32 ddr;		/* last Dat Des packet received */
+  u32 dds;			/* DD Sequence number being sent */
+  u32 ddr;			/* last Dat Des packet received */
   union imms myimms;		/* I, M Master/slave */
-  u32 rid;		/* Router ID */
-  ip_addr ip;		/* IP of it's interface */
-  u8 priority;		/* Priority */
-  u8 options;		/* Options received */
-  ip_addr dr;		/* Neigbour's idea of DR */
-  ip_addr bdr;		/* Neigbour's idea of BDR */
-  u8 adj;		/* built adjacency? */
-  siterator dbsi;	/* Database summary list iterator */
-  slist lsrql;		/* Link state request */
-  struct top_graph *lsrqh;		/* LSA graph */
+  u32 rid;			/* Router ID */
+  ip_addr ip;			/* IP of it's interface */
+  u8 priority;			/* Priority */
+  u8 options;			/* Options received */
+  ip_addr dr;			/* Neigbour's idea of DR */
+  ip_addr bdr;			/* Neigbour's idea of BDR */
+  u8 adj;			/* built adjacency? */
+  siterator dbsi;		/* Database summary list iterator */
+  slist lsrql;			/* Link state request */
+  struct top_graph *lsrqh;	/* LSA graph */
   siterator lsrqi;
-  slist lsrtl;		/* Link state retransmission list */
+  slist lsrtl;			/* Link state retransmission list */
   siterator lsrti;
   struct top_graph *lsrth;
-  void *ldbdes;		/* Last database description packet */
-  timer *rxmt_timer;	/* RXMT timer */
+  void *ldbdes;			/* Last database description packet */
+  timer *rxmt_timer;		/* RXMT timer */
   list ackl[2];
 #define ACKL_DIRECT 0
 #define ACKL_DELAY 1
-  timer *ackd_timer;	/* Delayed ack timer */
+  timer *ackd_timer;		/* Delayed ack timer */
 };
 
 /* Definitions for interface state machine */
-#define ISM_UP 0	/* Interface Up */
-#define ISM_WAITF 1	/* Wait timer fired */
-#define ISM_BACKS 2	/* Backup seen */
-#define ISM_NEICH 3	/* Neighbor change */
-#define ISM_LOOP 4	/* Loop indicated */
-#define ISM_UNLOOP 5	/* Unloop indicated */
-#define ISM_DOWN 6	/* Interface down */
+#define ISM_UP 0		/* Interface Up */
+#define ISM_WAITF 1		/* Wait timer fired */
+#define ISM_BACKS 2		/* Backup seen */
+#define ISM_NEICH 3		/* Neighbor change */
+#define ISM_LOOP 4		/* Loop indicated */
+#define ISM_UNLOOP 5		/* Unloop indicated */
+#define ISM_DOWN 6		/* Interface down */
 
 /* Definitions for neighbor state machine */
-#define INM_HELLOREC 0	/* Hello Received */
-#define INM_START 1	/* Neighbor start - for NBMA */
-#define INM_2WAYREC 2	/* 2-Way received */
-#define INM_NEGDONE 3	/* Negotiation done */
-#define INM_EXDONE 4	/* Exchange done */
-#define INM_BADLSREQ 5	/* Bad LS Request */
-#define INM_LOADDONE 6	/* Load done */
-#define INM_ADJOK 7	/* AdjOK? */
-#define INM_SEQMIS 8	/* Sequence number mismatch */
-#define INM_1WAYREC 9	/* 1-Way */
-#define INM_KILLNBR 10	/* Kill Neighbor */
-#define INM_INACTTIM 11	/* Inactivity timer */
-#define INM_LLDOWN 12	/* Line down */
+#define INM_HELLOREC 0		/* Hello Received */
+#define INM_START 1		/* Neighbor start - for NBMA */
+#define INM_2WAYREC 2		/* 2-Way received */
+#define INM_NEGDONE 3		/* Negotiation done */
+#define INM_EXDONE 4		/* Exchange done */
+#define INM_BADLSREQ 5		/* Bad LS Request */
+#define INM_LOADDONE 6		/* Load done */
+#define INM_ADJOK 7		/* AdjOK? */
+#define INM_SEQMIS 8		/* Sequence number mismatch */
+#define INM_1WAYREC 9		/* 1-Way */
+#define INM_KILLNBR 10		/* Kill Neighbor */
+#define INM_INACTTIM 11		/* Inactivity timer */
+#define INM_LLDOWN 12		/* Line down */
 
-struct ospf_area {
+struct ospf_area
+{
   node n;
   u32 areaid;
   timer *disp_timer;		/* Area's dispatcher hear beat */
@@ -405,7 +432,8 @@ struct ospf_area {
   unsigned tick;
 };
 
-struct proto_ospf {
+struct proto_ospf
+{
   struct proto proto;
   list iface_list;		/* Interfaces we really use */
   list area_list;
@@ -415,14 +443,15 @@ struct proto_ospf {
   int ebit;			/* Did I originate any ext lsa? */
 };
 
-struct ospf_iface_patt {
+struct ospf_iface_patt
+{
   struct iface_patt i;
   int cost;
   int helloint;
   int rxmtint;
   int pollint;
-  int inftransdelay; 
-  int priority; 
+  int inftransdelay;
+  int priority;
   int waitint;
   int deadc;
   int type;
@@ -437,12 +466,13 @@ struct ospf_iface_patt {
   list nbma_list;
 };
 
-int ospf_import_control(struct proto *p, rte **new, ea_list **attrs,
-  struct linpool *pool);
+int ospf_import_control(struct proto *p, rte ** new, ea_list ** attrs,
+			struct linpool *pool);
 struct ea_list *ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool);
 void ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs);
-void ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old,ea_list *attrs);
-void area_disp(timer *timer);
+void ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old,
+		    ea_list * attrs);
+void area_disp(timer * timer);
 void schedule_rt_lsa(struct ospf_area *oa);
 void schedule_rtcalc(struct ospf_area *oa);
 void schedule_net_lsa(struct ospf_iface *ifa);

@@ -150,8 +150,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 {
   struct ospf_area *oa = ifa->oa;
 
-  DBG("SM on iface %s. Event is \"%s\".",
-	     ifa->iface->name, ospf_ism[event]);
+  DBG("SM on iface %s. Event is \"%s\".", ifa->iface->name, ospf_ism[event]);
 
   switch (event)
   {
@@ -248,7 +247,7 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
 }
 
 static sock *
-ospf_open_ip_socket(struct ospf_iface * ifa)
+ospf_open_ip_socket(struct ospf_iface *ifa)
 {
   sock *ipsk;
   struct proto *p;
@@ -278,7 +277,7 @@ ospf_open_ip_socket(struct ospf_iface * ifa)
 }
 
 u8
-ospf_iface_clasify(struct iface *ifa)
+ospf_iface_clasify(struct iface * ifa)
 {
   if ((ifa->flags & (IF_MULTIACCESS | IF_MULTICAST)) ==
       (IF_MULTIACCESS | IF_MULTICAST))
@@ -386,8 +385,7 @@ ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
       ifa->options = 2;		/* FIXME what options? */
 
       if (ip->type == OSPF_IT_UNDEF)
-	ifa->type =
-	  ospf_iface_clasify(ifa->iface);
+	ifa->type = ospf_iface_clasify(ifa->iface);
       else
 	ifa->type = ip->type;
 

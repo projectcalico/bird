@@ -36,13 +36,15 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
 
   if (ntohs(ps->helloint) != ifa->helloint)
   {
-    log(L_WARN "%s%I%shello interval mismatch (%d).", beg, faddr, rec, ntohs(ps->helloint));
+    log(L_WARN "%s%I%shello interval mismatch (%d).", beg, faddr, rec,
+	ntohs(ps->helloint));
     return;
   }
 
   if (ntohl(ps->deadint) != ifa->helloint * ifa->deadc)
   {
-    log(L_ERR "%s%I%sdead interval mismatch (%d).", beg, faddr, rec, ntohl(ps->deadint));
+    log(L_ERR "%s%I%sdead interval mismatch (%d).", beg, faddr, rec,
+	ntohl(ps->deadint));
     return;
   }
 

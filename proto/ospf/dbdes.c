@@ -117,9 +117,9 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 
   case NEIGHBOR_LOADING:
   case NEIGHBOR_FULL:
-    length = ntohs(((struct ospf_packet *)n->ldbdes)->length);
+    length = ntohs(((struct ospf_packet *) n->ldbdes)->length);
 
-    if(!length)
+    if (!length)
     {
       OSPF_TRACE(D_PACKETS, "No packet in my buffer for repeating");
       ospf_neigh_sm(n, INM_KILLNBR);
@@ -127,7 +127,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     }
 
     memcpy(ifa->ip_sk->tbuf, n->ldbdes, length);
-      /* Copy last sent packet again */
+    /* Copy last sent packet again */
 
     sk_send_to(ifa->ip_sk, length, n->ip, OSPF_PROTO);
     OSPF_TRACE(D_PACKETS, "DB_DES (M) sent to %I via %s.", n->ip,

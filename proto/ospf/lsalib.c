@@ -11,13 +11,15 @@
 void
 flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
 {
-  struct proto *p=&oa->po->proto;
-  OSPF_TRACE(D_EVENTS, "Going to remove node Type: %u, Id: %I, Rt: %I, Age: %u",
-    en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age);
+  struct proto *p = &oa->po->proto;
+  OSPF_TRACE(D_EVENTS,
+	     "Going to remove node Type: %u, Id: %I, Rt: %I, Age: %u",
+	     en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age);
   s_rem_node(SNODE en);
-  if(en->lsa_body!=NULL) mb_free(en->lsa_body);
-  en->lsa_body=NULL;
-  ospf_hash_delete(oa->gr,en);
+  if (en->lsa_body != NULL)
+    mb_free(en->lsa_body);
+  en->lsa_body = NULL;
+  ospf_hash_delete(oa->gr, en);
 }
 
 /**
@@ -38,49 +40,52 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
 void
 ospf_age(struct ospf_area *oa)
 {
-  struct proto *p=&oa->po->proto;
-  struct proto_ospf *po=(struct proto_ospf *)p;
-  struct top_hash_entry *en,*nxt;
-  int flush=can_flush_lsa(oa);
+  struct proto *p = &oa->po->proto;
+  struct proto_ospf *po = (struct proto_ospf *) p;
+  struct top_hash_entry *en, *nxt;
+  int flush = can_flush_lsa(oa);
 
   OSPF_TRACE(D_EVENTS, "Running ospf_age");
 
-  WALK_SLIST_DELSAFE(en,nxt,oa->lsal)
+  WALK_SLIST_DELSAFE(en, nxt, oa->lsal)
   {
-    if(oa->calcrt)
+    if (oa->calcrt)
     {
-      en->color=OUTSPF;
-      en->dist=LSINFINITY;
-      en->nhi=NULL;
-      en->nh=ipa_from_u32(0);
+      en->color = OUTSPF;
+      en->dist = LSINFINITY;
+      en->nhi = NULL;
+      en->nh = ipa_from_u32(0);
       DBG("Infinitying Type: %u, Id: %I, Rt: %I\n", en->lsa.type, en->lsa.id,
-        en->lsa.rt);
+	  en->lsa.rt);
     }
-    if(en->lsa.age==LSA_MAXAGE)
+    if (en->lsa.age == LSA_MAXAGE)
     {
-      if(flush) flush_lsa(en,oa);
+      if (flush)
+	flush_lsa(en, oa);
       continue;
     }
-    if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>=LSREFRESHTIME))
+    if ((en->lsa.rt == p->cf->global->router_id) &&(en->lsa.age >=
+						    LSREFRESHTIME))
     {
-       OSPF_TRACE(D_EVENTS, "Refreshing my LSA: Type: %u, Id: %I, Rt: %I",
-         en->lsa.type, en->lsa.id, en->lsa.rt);
-       en->lsa.sn++;
-       en->lsa.age=0;
-       en->inst_t=now;
-       en->ini_age=0;
-       lsasum_calculate(&en->lsa,en->lsa_body,po);
-       ospf_lsupd_flood(NULL,NULL,&en->lsa,NULL,oa,1);
-       continue;
+      OSPF_TRACE(D_EVENTS, "Refreshing my LSA: Type: %u, Id: %I, Rt: %I",
+		 en->lsa.type, en->lsa.id, en->lsa.rt);
+      en->lsa.sn++;
+      en->lsa.age = 0;
+      en->inst_t = now;
+      en->ini_age = 0;
+      lsasum_calculate(&en->lsa, en->lsa_body, po);
+      ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
+      continue;
     }
-    if((en->lsa.age=(en->ini_age+(now-en->inst_t)))>=LSA_MAXAGE)
+    if ((en->lsa.age = (en->ini_age + (now - en->inst_t))) >= LSA_MAXAGE)
     {
-      if(flush)
+      if (flush)
       {
-        flush_lsa(en,oa);
-        schedule_rtcalc(oa);
+	flush_lsa(en, oa);
+	schedule_rtcalc(oa);
       }
-      else en->lsa.age=LSA_MAXAGE;
+      else
+	en->lsa.age = LSA_MAXAGE;
     }
   }
 }
@@ -88,124 +93,125 @@ ospf_age(struct ospf_area *oa)
 void
 htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
 {
-  n->age=htons(h->age);
-  n->options=h->options;
-  n->type=h->type;
-  n->id=htonl(h->id);
-  n->rt=htonl(h->rt);
-  n->sn=htonl(h->sn);
-  n->checksum=htons(h->checksum);
-  n->length=htons(h->length);
+  n->age = htons(h->age);
+  n->options = h->options;
+  n->type = h->type;
+  n->id = htonl(h->id);
+  n->rt = htonl(h->rt);
+  n->sn = htonl(h->sn);
+  n->checksum = htons(h->checksum);
+  n->length = htons(h->length);
 };
 
 void
 ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
 {
-  h->age=ntohs(n->age);
-  h->options=n->options;
-  h->type=n->type;
-  h->id=ntohl(n->id);
-  h->rt=ntohl(n->rt);
-  h->sn=ntohl(n->sn);
-  h->checksum=ntohs(n->checksum);
-  h->length=ntohs(n->length);
+  h->age = ntohs(n->age);
+  h->options = n->options;
+  h->type = n->type;
+  h->id = ntohl(n->id);
+  h->rt = ntohl(n->rt);
+  h->sn = ntohl(n->sn);
+  h->checksum = ntohs(n->checksum);
+  h->length = ntohs(n->length);
 };
 
 void
 htonlsab(void *h, void *n, u8 type, u16 len)
 {
   unsigned int i;
-  switch(type)
+  switch (type)
   {
-    case LSA_T_RT:
+  case LSA_T_RT:
     {
       struct ospf_lsa_rt *hrt, *nrt;
-      struct ospf_lsa_rt_link *hrtl,*nrtl;
+      struct ospf_lsa_rt_link *hrtl, *nrtl;
       u16 links;
 
-      nrt=n;
-      hrt=h;
-      links=hrt->links;
+      nrt = n;
+      hrt = h;
+      links = hrt->links;
 
-      nrt->veb.byte=hrt->veb.byte;
-      nrt->padding=0;
-      nrt->links=htons(hrt->links);
-      nrtl=(struct ospf_lsa_rt_link *)(nrt+1);
-      hrtl=(struct ospf_lsa_rt_link *)(hrt+1);
-      for(i=0;i<links;i++)
+      nrt->veb.byte = hrt->veb.byte;
+      nrt->padding = 0;
+      nrt->links = htons(hrt->links);
+      nrtl = (struct ospf_lsa_rt_link *) (nrt + 1);
+      hrtl = (struct ospf_lsa_rt_link *) (hrt + 1);
+      for (i = 0; i < links; i++)
       {
-        (nrtl+i)->id=htonl((hrtl+i)->id);
-        (nrtl+i)->data=htonl((hrtl+i)->data);
-        (nrtl+i)->type=(hrtl+i)->type;
-        (nrtl+i)->notos=(hrtl+i)->notos;
-        (nrtl+i)->metric=htons((hrtl+i)->metric);
+	(nrtl + i)->id = htonl((hrtl + i)->id);
+	(nrtl + i)->data = htonl((hrtl + i)->data);
+	(nrtl + i)->type = (hrtl + i)->type;
+	(nrtl + i)->notos = (hrtl + i)->notos;
+	(nrtl + i)->metric = htons((hrtl + i)->metric);
       }
       break;
     }
-    case LSA_T_NET:
+  case LSA_T_NET:
     {
-      u32 *hid,*nid;
+      u32 *hid, *nid;
 
-      nid=n;
-      hid=h;
+      nid = n;
+      hid = h;
 
-      for(i=0;i<(len/sizeof(u32));i++)
+      for (i = 0; i < (len / sizeof(u32)); i++)
       {
-        *(nid+i)=htonl(*(hid+i));
+	*(nid + i) = htonl(*(hid + i));
       }
       break;
     }
-    case LSA_T_SUM_NET:
-    case LSA_T_SUM_RT:
+  case LSA_T_SUM_NET:
+  case LSA_T_SUM_RT:
     {
       struct ospf_lsa_summ *hs, *ns;
       struct ospf_lsa_summ_net *hn, *nn;
 
-      hs=h;
-      ns=n;
+      hs = h;
+      ns = n;
 
-      ns->netmask=hs->netmask;
+      ns->netmask = hs->netmask;
       ipa_hton(ns->netmask);
 
-      hn=(struct ospf_lsa_summ_net *)(hs+1);
-      nn=(struct ospf_lsa_summ_net *)(ns+1);
+      hn = (struct ospf_lsa_summ_net *) (hs + 1);
+      nn = (struct ospf_lsa_summ_net *) (ns + 1);
 
-      for(i=0;i<((len-sizeof(struct ospf_lsa_summ))/
-        sizeof(struct ospf_lsa_summ_net));i++)
+      for (i = 0; i < ((len - sizeof(struct ospf_lsa_summ)) /
+		       sizeof(struct ospf_lsa_summ_net)); i++)
       {
-        (nn+i)->tos=(hn+i)->tos;
-	(nn+i)->metric=htons((hn+i)->metric);
-	(nn+i)->padding=0;
+	(nn + i)->tos = (hn + i)->tos;
+	(nn + i)->metric = htons((hn + i)->metric);
+	(nn + i)->padding = 0;
       }
       break;
     }
-    case LSA_T_EXT:
+  case LSA_T_EXT:
     {
       struct ospf_lsa_ext *he, *ne;
       struct ospf_lsa_ext_tos *ht, *nt;
 
-      he=h;
-      ne=n;
+      he = h;
+      ne = n;
 
-      ne->netmask=he->netmask;
+      ne->netmask = he->netmask;
       ipa_hton(ne->netmask);
 
-      ht=(struct ospf_lsa_ext_tos *)(he+1);
-      nt=(struct ospf_lsa_ext_tos *)(ne+1);
+      ht = (struct ospf_lsa_ext_tos *) (he + 1);
+      nt = (struct ospf_lsa_ext_tos *) (ne + 1);
 
-      for(i=0;i<((len-sizeof(struct ospf_lsa_ext))/
-        sizeof(struct ospf_lsa_ext_tos));i++)
+      for (i = 0; i < ((len - sizeof(struct ospf_lsa_ext)) /
+		       sizeof(struct ospf_lsa_ext_tos)); i++)
       {
-        (nt+i)->etos=(ht+i)->etos;
-        (nt+i)->padding=0;
-        (nt+i)->metric=htons((ht+i)->metric);
-        (nt+i)->fwaddr=(ht+i)->fwaddr;
-        ipa_hton((nt+i)->fwaddr);
-        (nt+i)->tag=htonl((ht+i)->tag);
+	(nt + i)->etos = (ht + i)->etos;
+	(nt + i)->padding = 0;
+	(nt + i)->metric = htons((ht + i)->metric);
+	(nt + i)->fwaddr = (ht + i)->fwaddr;
+	ipa_hton((nt + i)->fwaddr);
+	(nt + i)->tag = htonl((ht + i)->tag);
       }
       break;
     }
-    default: bug("(hton): Unknown LSA");
+  default:
+    bug("(hton): Unknown LSA");
   }
 };
 
@@ -213,96 +219,97 @@ void
 ntohlsab(void *n, void *h, u8 type, u16 len)
 {
   unsigned int i;
-  switch(type)
+  switch (type)
   {
-    case LSA_T_RT:
+  case LSA_T_RT:
     {
       struct ospf_lsa_rt *hrt, *nrt;
-      struct ospf_lsa_rt_link *hrtl,*nrtl;
+      struct ospf_lsa_rt_link *hrtl, *nrtl;
       u16 links;
 
-      nrt=n;
-      hrt=h;
+      nrt = n;
+      hrt = h;
 
-      hrt->veb.byte=nrt->veb.byte;
-      hrt->padding=0;
-      links=hrt->links=ntohs(nrt->links);
-      nrtl=(struct ospf_lsa_rt_link *)(nrt+1);
-      hrtl=(struct ospf_lsa_rt_link *)(hrt+1);
-      for(i=0;i<links;i++)
+      hrt->veb.byte = nrt->veb.byte;
+      hrt->padding = 0;
+      links = hrt->links = ntohs(nrt->links);
+      nrtl = (struct ospf_lsa_rt_link *) (nrt + 1);
+      hrtl = (struct ospf_lsa_rt_link *) (hrt + 1);
+      for (i = 0; i < links; i++)
       {
-        (hrtl+i)->id=ntohl((nrtl+i)->id);
-        (hrtl+i)->data=ntohl((nrtl+i)->data);
-        (hrtl+i)->type=(nrtl+i)->type;
-        (hrtl+i)->notos=(nrtl+i)->notos;
-        (hrtl+i)->metric=ntohs((nrtl+i)->metric);
+	(hrtl + i)->id = ntohl((nrtl + i)->id);
+	(hrtl + i)->data = ntohl((nrtl + i)->data);
+	(hrtl + i)->type = (nrtl + i)->type;
+	(hrtl + i)->notos = (nrtl + i)->notos;
+	(hrtl + i)->metric = ntohs((nrtl + i)->metric);
       }
       break;
     }
-    case LSA_T_NET:
+  case LSA_T_NET:
     {
-      u32 *hid,*nid;
+      u32 *hid, *nid;
 
-      hid=h;
-      nid=n;
+      hid = h;
+      nid = n;
 
-      for(i=0;i<(len/sizeof(u32));i++)
+      for (i = 0; i < (len / sizeof(u32)); i++)
       {
-        *(hid+i)=ntohl(*(nid+i));
+	*(hid + i) = ntohl(*(nid + i));
       }
       break;
     }
-    case LSA_T_SUM_NET:
-    case LSA_T_SUM_RT:
+  case LSA_T_SUM_NET:
+  case LSA_T_SUM_RT:
     {
       struct ospf_lsa_summ *hs, *ns;
       struct ospf_lsa_summ_net *hn, *nn;
 
-      hs=h;
-      ns=n;
+      hs = h;
+      ns = n;
 
-      hs->netmask=ns->netmask;
+      hs->netmask = ns->netmask;
       ipa_ntoh(hs->netmask);
 
-      hn=(struct ospf_lsa_summ_net *)(hs+1);
-      nn=(struct ospf_lsa_summ_net *)(ns+1);
+      hn = (struct ospf_lsa_summ_net *) (hs + 1);
+      nn = (struct ospf_lsa_summ_net *) (ns + 1);
 
-      for(i=0;i<((len-sizeof(struct ospf_lsa_summ))/
-        sizeof(struct ospf_lsa_summ_net));i++)
+      for (i = 0; i < ((len - sizeof(struct ospf_lsa_summ)) /
+		       sizeof(struct ospf_lsa_summ_net)); i++)
       {
-        (hn+i)->tos=(nn+i)->tos;
-	(hn+i)->metric=ntohs((nn+i)->metric);
-	(hn+i)->padding=0;
+	(hn + i)->tos = (nn + i)->tos;
+	(hn + i)->metric = ntohs((nn + i)->metric);
+	(hn + i)->padding = 0;
       }
       break;
     }
-    case LSA_T_EXT:
+  case LSA_T_EXT:
     {
       struct ospf_lsa_ext *he, *ne;
       struct ospf_lsa_ext_tos *ht, *nt;
 
-      he=h;
-      ne=n;
+      he = h;
+      ne = n;
 
-      he->netmask=ne->netmask;
+      he->netmask = ne->netmask;
       ipa_ntoh(he->netmask);
 
-      ht=(struct ospf_lsa_ext_tos *)(he+1);
-      nt=(struct ospf_lsa_ext_tos *)(ne+1);
+      ht = (struct ospf_lsa_ext_tos *) (he + 1);
+      nt = (struct ospf_lsa_ext_tos *) (ne + 1);
 
-      for(i=0;i<((len-sizeof(struct ospf_lsa_ext))/
-        sizeof(struct ospf_lsa_ext_tos));i++)
+      for (i = 0; i < ((len - sizeof(struct ospf_lsa_ext)) /
+		       sizeof(struct ospf_lsa_ext_tos)); i++)
       {
-        (ht+i)->etos=(nt+i)->etos;
-        (ht+i)->padding=0;
-        (ht+i)->metric=ntohs((nt+i)->metric);
-        (ht+i)->fwaddr=(nt+i)->fwaddr;
-        ipa_ntoh((ht+i)->fwaddr);
-        (ht+i)->tag=ntohl((nt+i)->tag);
+	(ht + i)->etos = (nt + i)->etos;
+	(ht + i)->padding = 0;
+	(ht + i)->metric = ntohs((nt + i)->metric);
+	(ht + i)->fwaddr = (nt + i)->fwaddr;
+	ipa_ntoh((ht + i)->fwaddr);
+	(ht + i)->tag = ntohl((nt + i)->tag);
       }
       break;
     }
-    default: bug("(ntoh): Unknown LSA");
+  default:
+    bug("(ntoh): Unknown LSA");
   }
 };
 
@@ -314,19 +321,19 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
 
 /* FIXME This is VERY uneficient, I have huge endianity problems */
 void
-lsasum_calculate(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
+lsasum_calculate(struct ospf_lsa_header *h, void *body, struct proto_ospf *po)
 {
   u16 length;
-  
-  length=h->length;
 
-  htonlsah(h,h);
-  htonlsab(body,body,h->type,length-sizeof(struct ospf_lsa_header));
+  length = h->length;
 
-  (void)lsasum_check(h,body,po);
-  
-  ntohlsah(h,h);
-  ntohlsab(body,body,h->type,length-sizeof(struct ospf_lsa_header));
+  htonlsah(h, h);
+  htonlsab(body, body, h->type, length - sizeof(struct ospf_lsa_header));
+
+  (void) lsasum_check(h, body, po);
+
+  ntohlsah(h, h);
+  ntohlsab(body, body, h->type, length - sizeof(struct ospf_lsa_header));
 }
 
 /*
@@ -334,7 +341,7 @@ lsasum_calculate(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
  * It also returns value in big endian
  */
 u16
-lsasum_check(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
+lsasum_check(struct ospf_lsa_header *h, void *body, struct proto_ospf *po)
 {
   u8 *sp, *ep, *p, *q, *b;
   int c0 = 0, c1 = 0;
@@ -343,13 +350,14 @@ lsasum_check(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
 
   b = body;
   sp = (char *) &h->options;
-  length = ntohs(h->length)-2;
+  length = ntohs(h->length) - 2;
   h->checksum = 0;
 
   for (ep = sp + length; sp < ep; sp = q)
-  {		/* Actually MODX is very large, do we need the for-cyclus? */
+  {				/* Actually MODX is very large, do we need the for-cyclus? */
     q = sp + MODX;
-    if (q > ep) q = ep;
+    if (q > ep)
+      q = ep;
     for (p = sp; p < q; p++)
     {
       /* 
@@ -358,13 +366,13 @@ lsasum_check(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
        * (probably checksum in update receiving) and I go on
        * after header
        */
-      if((b==NULL) || (p<(u8 *)(h+1)))
+      if ((b == NULL) || (p < (u8 *) (h + 1)))
       {
-	      c0 += *p;
+	c0 += *p;
       }
       else
       {
-	      c0 += *(b+(p-sp)-sizeof(struct ospf_lsa_header)+2);
+	c0 += *(b + (p - sp) - sizeof(struct ospf_lsa_header) + 2);
       }
 
       c1 += c0;
@@ -374,12 +382,14 @@ lsasum_check(struct ospf_lsa_header *h,void *body,struct proto_ospf *po)
   }
 
   x = ((length - LSA_CHECKSUM_OFFSET) * c0 - c1) % 255;
-  if (x <= 0) x += 255;
+  if (x <= 0)
+    x += 255;
   y = 510 - c0 - x;
-  if (y > 255) y -= 255;
+  if (y > 255)
+    y -= 255;
 
-  ((u8*)&h->checksum)[0] = x;
-  ((u8*)&h->checksum)[1] = y;
+  ((u8 *) & h->checksum)[0] = x;
+  ((u8 *) & h->checksum)[1] = y;
   return h->checksum;
 }
 
@@ -387,22 +397,26 @@ int
 lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
 			/* Return codes from point of view of l1 */
 {
-  u32 sn1,sn2;
+  u32 sn1, sn2;
 
-  sn1=l1->sn-LSA_INITSEQNO+1;
-  sn2=l2->sn-LSA_INITSEQNO+1;
+  sn1 = l1->sn - LSA_INITSEQNO + 1;
+  sn2 = l2->sn - LSA_INITSEQNO + 1;
 
-  if(sn1>sn2) return CMP_NEWER;
-  if(sn1<sn2) return CMP_OLDER;
+  if (sn1 > sn2)
+    return CMP_NEWER;
+  if (sn1 < sn2)
+    return CMP_OLDER;
 
-  if(l1->checksum!=l2->checksum)
-    return l1->checksum<l2->checksum ? CMP_OLDER : CMP_NEWER;
+  if (l1->checksum != l2->checksum)
+    return l1->checksum < l2->checksum ? CMP_OLDER : CMP_NEWER;
 
-  if((l1->age==LSA_MAXAGE)&&(l2->age!=LSA_MAXAGE)) return CMP_NEWER;
-  if((l2->age==LSA_MAXAGE)&&(l1->age!=LSA_MAXAGE)) return CMP_OLDER;
+  if ((l1->age == LSA_MAXAGE) && (l2->age != LSA_MAXAGE))
+    return CMP_NEWER;
+  if ((l2->age == LSA_MAXAGE) && (l1->age != LSA_MAXAGE))
+    return CMP_OLDER;
 
-  if(ABS(l1->age-l2->age)>LSA_MAXAGEDIFF)
-    return l1->age<l2->age ? CMP_NEWER : CMP_OLDER;
+  if (ABS(l1->age - l2->age) > LSA_MAXAGEDIFF)
+    return l1->age < l2->age ? CMP_NEWER : CMP_OLDER;
 
   return CMP_SAME;
 }
@@ -421,27 +435,28 @@ struct top_hash_entry *
 lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
 {
   /* LSA can be temporarrily, but body must be mb_allocated. */
-  int change=0;
+  int change = 0;
   unsigned i;
   struct top_hash_entry *en;
 
-  if((en=ospf_hash_find_header(oa->gr,lsa))==NULL)
+  if ((en = ospf_hash_find_header(oa->gr, lsa)) == NULL)
   {
-    en=ospf_hash_get_header(oa->gr,lsa);
-    change=1;
+    en = ospf_hash_get_header(oa->gr, lsa);
+    change = 1;
   }
   else
   {
-    if((en->lsa.length!=lsa->length)||(en->lsa.options!=lsa->options)||
-      ((en->lsa.age==LSA_MAXAGE)||(lsa->age==LSA_MAXAGE))) change=1;
+    if ((en->lsa.length != lsa->length) || (en->lsa.options != lsa->options)
+	|| ((en->lsa.age == LSA_MAXAGE) || (lsa->age == LSA_MAXAGE)))
+      change = 1;
     else
     {
-      u8 *k=en->lsa_body,*l=body;
-      for(i=0;i<(lsa->length-sizeof(struct ospf_lsa_header));i++)
+      u8 *k = en->lsa_body, *l = body;
+      for (i = 0; i < (lsa->length - sizeof(struct ospf_lsa_header)); i++)
       {
-        if(*(k+i)!=*(l+i))
+	if (*(k + i) != *(l + i))
 	{
-	  change=1;
+	  change = 1;
 	  break;
 	}
       }
@@ -450,19 +465,20 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
   }
 
   DBG("Inst lsa: Id: %I, Rt: %I, Type: %u, Age: %u, Sum: %u, Sn: 0x%x\n",
-    lsa->id, lsa->rt, lsa->type, lsa->age, lsa->checksum, lsa->sn);
+      lsa->id, lsa->rt, lsa->type, lsa->age, lsa->checksum, lsa->sn);
 
   s_add_tail(&oa->lsal, SNODE en);
-  en->inst_t=now;
-  if(en->lsa_body!=NULL) mb_free(en->lsa_body);
-  en->lsa_body=body;
-  memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
-  en->ini_age=en->lsa.age;
+  en->inst_t = now;
+  if (en->lsa_body != NULL)
+    mb_free(en->lsa_body);
+  en->lsa_body = body;
+  memcpy(&en->lsa, lsa, sizeof(struct ospf_lsa_header));
+  en->ini_age = en->lsa.age;
 
-  if(change)
+  if (change)
   {
     schedule_rtcalc(oa);
   }
-  
+
   return en;
 }
