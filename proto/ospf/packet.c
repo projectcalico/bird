@@ -85,6 +85,7 @@ ospf_rx_hook(sock * sk, int size)
   struct ospf_iface *ifa = (struct ospf_iface *) (sk->data);
   struct proto *p = (struct proto *) (ifa->proto);
   struct ospf_neighbor *n;
+  int osize;
   char *mesg = "Bad OSPF packet from ";
 
   if (ifa->stub)
@@ -93,6 +94,7 @@ ospf_rx_hook(sock * sk, int size)
   DBG("%s: RX_Hook called on interface %s.\n", p->name, sk->iface->name);
 
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
+  osize = ntohs(ps->length);
   if (ps == NULL)
   {
     log(L_ERR "%s%I - bad IP header", mesg, sk->faddr);
@@ -105,9 +107,9 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
-  if ((ntohs(ps->length) != size) || (size != (4 * (size / 4))))
+  if ((osize > size) || (osize != (4 * (osize / 4))))
   {
-    log(L_ERR "%s%I - size field does not match", mesg, sk->faddr);
+    log(L_ERR "%s%I - size field does not match (%d/%d)", mesg, sk->faddr, ntohs(ps->length), size );
     return 1;
   }
 
