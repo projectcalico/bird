@@ -324,7 +324,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   if ((!metric) || (metric > P_CF->infinity)) {
 #ifdef IPV6 /* Someone is sedning us nexthop and we are ignoring it */
     if (metric == 0xff)
-      { debug( "IpV6 nexthop ignored" ); return; }
+      { DBG( "IpV6 nexthop ignored" ); return; }
 #endif
     log( L_WARN "%s: Got metric %d from %I", P_NAME, metric, whotoldme );
     return;
