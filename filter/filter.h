@@ -32,13 +32,17 @@ struct filter {
 void filters_postconfig(void);
 struct f_inst *f_new_inst(void);
 
-int f_run(struct filter *filter, struct rte *rtein, struct rte **rteout);
+int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool);
+char *filter_name(struct filter *filter);
 
-#define F_ACCEPT 1
-#define F_REJECT 2
-#define F_MODIFY 3
+#define F_ACCEPT 1	/* Need to preserve ordering: accepts < rejects! */
+#define F_MODIFY 2	/* FIXME: Introduce modification flags instead? */
+#define F_REJECT 3
 #define F_ERROR 4
 #define F_QUITBIRD 5
+
+#define FILTER_ACCEPT NULL
+#define FILTER_REJECT ((void *) 1)
 
 /* Type numbers must be in 0..0xff range */
 #define T_MASK 0xff

@@ -146,7 +146,7 @@ f_new_inst(void)
 }
 
 int
-f_run(struct filter *filter, struct rte *rtein, struct rte **rteout)
+f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool)
 {
   struct f_inst *inst;
   struct f_val res;
@@ -158,6 +158,17 @@ f_run(struct filter *filter, struct rte *rtein, struct rte **rteout)
     return F_ERROR;
   debug( "done (%d)\n", res.val.i );
   return res.val.i;
+}
+
+char *
+filter_name(struct filter *filter)
+{
+  if (!filter)
+    return "ACCEPT";
+  else if (filter == FILTER_REJECT)
+    return "REJECT";
+  else
+    return filter->name;
 }
 
 void
