@@ -14,10 +14,10 @@ ospf_start(struct proto *p)
   struct proto_ospf *po=(struct proto_ospf *)p;
   DBG("%s: Start\n",p->name);
 
-  p->if_notify=ospf_if_notify;
-  p->rte_better=ospf_rte_better;
-  p->rte_same=ospf_rte_same;
   fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
+  init_list(&(po->iface_list));
+  init_list(&(po->area_list));
+  po->areano=0;
 
   return PS_UP;
 }
@@ -64,11 +64,10 @@ ospf_init(struct proto_config *c)
 
   debug("OSPF: Init requested.\n");
   p->neigh_notify = NULL;
-  p->if_notify = NULL;
-  init_list(&(po->iface_list));
-  init_list(&(po->area_list));
   p->import_control = ospf_import_control;
   p->rt_notify = ospf_rt_notify;
+  p->rte_better=ospf_rte_better;
+  p->rte_same=ospf_rte_same;
 
   return p;
 }
