@@ -180,4 +180,3 @@ scan_if_init(void)
   if_scan_timer->recurrent = if_scan_period;
   tm_start(if_scan_timer, if_scan_period);
 }
-

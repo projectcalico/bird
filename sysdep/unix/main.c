@@ -76,6 +76,8 @@ main(void)
   io_init();
   rt_init();
   if_init();
+  protos_build();
+  add_tail(&protocol_list, &proto_unix_kernel.n); /* FIXME: Must be _always_ the last one */
   protos_init();
   protos_preconfig();
   protos_postconfig();

@@ -32,6 +32,7 @@ struct protocol {
   void (*postconfig)(struct protocol *); /* After configuring */
 };
 
+void protos_build(void);
 void protos_init(void);
 void protos_preconfig(void);
 void protos_postconfig(void);
