@@ -54,21 +54,20 @@ ospf_area_start: AREA idval '{' {
  }
 ;
 
-ospf_area: /* EMPTY */
- | ospf_area_start ospf_area_opts
+ospf_area: ospf_area_start ospf_area_opts
 ;
 
 ospf_area_opts:
  | ospf_area_opts ospf_area_item
 
 ospf_area_item:
- | STUB bool ';' { this_area->stub = $2 ; }
+   STUB bool ';' { this_area->stub = $2 ; }
  | TICK NUM ';' { this_area->tick = $2 ; }
  | ospf_iface_list '}'
 ;
 
 ospf_iface_item:
- | COST NUM { OSPF_PATT->cost = $2 ; }
+   COST NUM { OSPF_PATT->cost = $2 ; }
  | HELLO NUM { OSPF_PATT->helloint = $2 ; }
  | RETRANSMIT NUM { OSPF_PATT->rxmtint = $2 ; }
  | TRANSIT DELAY NUM { OSPF_PATT->inftransdelay = $3 ; }
