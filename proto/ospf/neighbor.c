@@ -182,7 +182,7 @@ can_do_adj(struct ospf_neighbor *n)
         case OSPF_IS_PTP:
         case OSPF_IS_BACKUP:
         case OSPF_IS_DR:
-          if(n->state==NEIGHBOR_2WAY) i=1;
+          if(n->state>=NEIGHBOR_2WAY) i=1;
           break;
         default:
           die("%s: Iface %s in unknown state?",p->name, ifa->iface->name);
