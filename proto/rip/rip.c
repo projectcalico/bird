@@ -522,7 +522,7 @@ rip_timer(timer *t)
     DBG( "Garbage: (%p)", rte ); rte_dump( rte );
 #endif
 
-    if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
+    if (now - rte->lastmod > P_CF->timeout_time) {
       TRACE(D_EVENTS, "entry is too old: %I", rte->net->n.prefix );
       if (rte->u.rip.entry) {
 	rte->u.rip.entry->metric = P_CF->infinity;
@@ -530,7 +530,7 @@ rip_timer(timer *t)
       }
     }
 
-    if (now - rte->u.rip.lastmodX > P_CF->garbage_time) {
+    if (now - rte->lastmod > P_CF->garbage_time) {
       TRACE(D_EVENTS, "entry is much too old: %I", rte->net->n.prefix );
       rte_discard(p->table, rte);
     }
@@ -900,13 +900,9 @@ rip_rte_better(struct rte *new, struct rte *old)
   if (old->u.rip.metric > new->u.rip.metric)
     return 1;
 
-  if ((old->u.rip.metric < 16) && (new->u.rip.metric == P_CF->infinity)) {
-    new->u.rip.lastmodX = now - P_CF->timeout_time;	/* Check this: if new metric is 16, act as it was timed out */
-  }
-
   if (old->attrs->proto == new->attrs->proto)		/* This does not make much sense for different protocols */
     if ((old->u.rip.metric == new->u.rip.metric) &&
-	((now - old->u.rip.lastmodX) > (P_CF->timeout_time / 2)))
+	((now - old->lastmod) > (P_CF->timeout_time / 2)))
       return 1;
 
   return 0;
@@ -923,7 +919,6 @@ rip_rte_insert(net *net, rte *rte)
   struct proto *p = rte->attrs->proto;
   CHK_MAGIC;
   DBG( "rip_rte_insert: %p\n", rte );
-  rte->u.rip.lastmodX = now;
   add_head( &P->garbage, &rte->u.rip.garbage );
 }
 
