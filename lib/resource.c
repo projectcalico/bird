@@ -15,6 +15,7 @@
 struct pool {
   resource r;
   list inside;
+  char *name;
 };
 
 static void pool_dump(resource *);
@@ -32,7 +33,7 @@ pool root_pool;
 static int indent;
 
 pool *
-rp_new(pool *p)
+rp_new(pool *p, char *name)
 {
   pool *z = ralloc(p, &pool_class);
   init_list(&z->inside);
@@ -60,7 +61,7 @@ pool_dump(resource *P)
   pool *p = (pool *) P;
   resource *r;
 
-  debug("\n");
+  debug(" %s\n", p->name);
   indent += 3;
   WALK_LIST(r, p->inside)
     rdump(r);
@@ -112,6 +113,7 @@ void
 resource_init(void)
 {
   root_pool.r.class = &pool_class;
+  root_pool.name = "Root";
   init_list(&root_pool.inside);
 }
 

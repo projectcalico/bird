@@ -138,6 +138,6 @@ rta_dump_all(void)
 void
 rta_init(void)
 {
-  rta_pool = rp_new(&root_pool);
+  rta_pool = rp_new(&root_pool, "Attributes");
   rta_slab = sl_new(rta_pool, sizeof(rta));
 }
