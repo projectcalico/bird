@@ -33,7 +33,6 @@ typedef struct pool pool;
 
 void resource_init(void);
 pool *rp_new(pool *, char *);		/* Create new pool */
-void rp_free(pool *);			/* Free everything in the pool */
 void rfree(void *);			/* Free single resource */
 void rdump(void *);			/* Dump to debug output */
 
