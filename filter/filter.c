@@ -281,7 +281,7 @@ interpret(struct f_inst *what)
     break;
   case P('p',','):
     ONEARG;
-    if (what->a2.i != F_NONL)
+    if (what->a2.i == F_NOP || (what->a2.i != F_NONL && what->a1.p))
       debug( "\n" );
 
     switch (what->a2.i) {
