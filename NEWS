@@ -1,3 +1,11 @@
+Version 1.0.8 (2004-06-07)
+  o  A lot of bug fixes in RIP, OSPF and BGP (thanx to Andreas Steinmetz)
+  o  FreeBSD and NetBSD port introduced
+  o  Complete code clean up
+
+Version 1.0.7 (2003-08-20)
+  o  OSPF bug fixes
+
 Version 1.0.6 (2003-04-06)
 
   o  No more byte order problems in RIP authentication. Thanks to
