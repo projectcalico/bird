@@ -81,12 +81,12 @@ ip_pton(char *a, ip_addr *o)
       char *d, *c = strchr(a, '.');
       if (!c != !i)
 	return 0;
-      if (c)
-	*c++ = 0;
       l = strtoul(a, &d, 10);
-      if (d && *d || l > 255)
+      if (d != c && *d || l > 255)
 	return 0;
       ia = (ia << 8) | l;
+      if (c)
+	c++;
       a = c;
     }
   *o = ipa_from_u32(ia);
