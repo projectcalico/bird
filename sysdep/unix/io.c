@@ -725,7 +725,6 @@ sk_maybe_write(sock *s)
 	    {
 	      if (errno != EINTR && errno != EAGAIN)
 		{
-		  log(L_ERR "write: %m");
 		  s->err_hook(s, errno);
 		  return -1;
 		}
@@ -750,7 +749,6 @@ sk_maybe_write(sock *s)
 	  {
 	    if (errno != EINTR && errno != EAGAIN)
 	      {
-		log(L_ERR "sendto: %m");
 		s->err_hook(s, errno);
 		return -1;
 	      }
@@ -807,10 +805,7 @@ sk_read(sock *s)
 	if (c < 0)
 	  {
 	    if (errno != EINTR && errno != EAGAIN)
-	      {
-		log(L_ERR "read: %m");
-		s->err_hook(s, errno);
-	      }
+	      s->err_hook(s, errno);
 	  }
 	else if (!c)
 	  s->err_hook(s, 0);
@@ -836,10 +831,7 @@ sk_read(sock *s)
 	if (e < 0)
 	  {
 	    if (errno != EINTR && errno != EAGAIN)
-	      {
-		log(L_ERR "recvfrom: %m");
-		s->err_hook(s, errno);
-	      }
+	      s->err_hook(s, errno);
 	    return 0;
 	  }
 	s->rpos = s->rbuf + e;
@@ -862,10 +854,7 @@ sk_write(sock *s)
 	if (connect(s->fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0)
 	  sk_tcp_connected(s);
 	else if (errno != EINTR && errno != EAGAIN && errno != EINPROGRESS)
-	  {
-	    log(L_ERR "connect: %m");
-	    s->err_hook(s, errno);
-	  }
+	  s->err_hook(s, errno);
 	break;
       }
     case SK_DELETED:
