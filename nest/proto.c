@@ -549,7 +549,7 @@ proto_do_show(struct proto *p, int verbose)
   if (p->proto->get_status)
     p->proto->get_status(p, buf);
   tm_format_reltime(reltime, p->last_state_change);
-  cli_msg(-1002, "%-8s %-8s %-8s %-5s %-5s %s",
+  cli_msg(-1002, "%-8s %-8s %-8s %-5s %-5s  %s",
 	  p->name,
 	  p->proto->name,
 	  p->table->name,
@@ -572,7 +572,7 @@ proto_show(struct symbol *s, int verbose)
       cli_msg(9002, "%s is not a protocol", s->name);
       return;
     }
-  cli_msg(-2002, "name     proto    table    state since info");
+  cli_msg(-2002, "name     proto    table    state since  info");
   if (s)
     proto_do_show(((struct proto_config *)s->def)->proto, verbose);
   else
