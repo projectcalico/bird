@@ -206,12 +206,15 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
     len+=en->lsa.length;
     lsano++;
   }
-  pk->lsano=htonl(lsano);
-  op->length=htons(len-SIPH);
-  ospf_pkt_finalize(n->ifa, op);
+  if(lsano>0)
+  {
+    pk->lsano=htonl(lsano);
+    op->length=htons(len-SIPH);
+    ospf_pkt_finalize(n->ifa, op);
 
-  debug("%s: LS upd sent to %I (%d LSAs)\n", p->name, n->ip, lsano);
-  sk_send_to(n->ifa->ip_sk,len-SIPH, n->ip, OSPF_PROTO);
+    debug("%s: LS upd sent to %I (%d LSAs)\n", p->name, n->ip, lsano);
+    sk_send_to(n->ifa->ip_sk,len-SIPH, n->ip, OSPF_PROTO);
+  }
 }
 
 void
