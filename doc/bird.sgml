@@ -314,7 +314,7 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 
 <p>Filter is implicitly passed route, and it can access its attributes, just like it accesses variables.
 
-<desc>
+<descrip>
 	<tag>defined( <m>attribute</m></tag>
 	returns TRUE if given attribute is defined. Access to undefined attribute results in runtime error.
 
@@ -329,7 +329,7 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 
 	<tag/enum source/
 	what protocol told me about this route. This can have values such as <cf/RTS_RIP/ or <cf/RTS_OSPF_EXT/.
-</desc>
+</descrip>
 
 <p>Plus, there are protocol-specific attributes, which are described in protocol sections.
 
