@@ -11,18 +11,21 @@ CF_HDR
 #include "nest/rt-dev.h"
 #include "nest/password.h"
 #include "nest/cmds.h"
+#include "lib/lists.h"
 
 CF_DEFINES
 
 static struct proto_config *this_proto;
 static struct iface_patt *this_ipatt;
+static list *this_p_list;
+static struct password_item *this_p_item;
 
 CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
-CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREIMPORT)
+CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREIMPORT, GENERATE)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_IA, OSPF_EXT1, OSPF_EXT2, BGP, PIPE)
@@ -33,7 +36,7 @@ CF_ENUM(T_ENUM_RTD, RTD_, ROUTER, DEVICE, BLACKHOLE, UNREACHABLE, PROHIBIT)
 %type <i32> idval
 %type <f> imexport
 %type <r> rtable
-%type <p> password_list password_begin
+%type <p> password_list password_begin password_begin_list
 %type <s> optsym
 %type <ra> r_args
 %type <i> echo_mask echo_size debug_mask debug_list debug_flag import_or_proto
@@ -193,36 +196,71 @@ debug_flag:
 
 /* Password lists */
 
-password_begin: 
+password_items: 
+    /* empty */
+  | password_item ';' password_items
+;
+
+password_item:
+    password_item_begin '{' password_item_params '}'
+  | password_item_begin
+;
+
+password_item_begin:
    PASSWORD TEXT {
-     last_password_item = cfg_alloc(sizeof (struct password_item));
-     last_password_item->password = $2;
-     last_password_item->from = 0;
-     last_password_item->to = TIME_INFINITY;
-     last_password_item->id = 0;
-     last_password_item->next = NULL;
-     $$=last_password_item;
+     static int id = 0;
+     this_p_item = cfg_alloc(sizeof (struct password_item));
+     this_p_item->password = $2;
+     this_p_item->genfrom = 0;
+     this_p_item->gento = TIME_INFINITY;
+     this_p_item->accfrom = 0;
+     this_p_item->accto = TIME_INFINITY;
+     this_p_item->id = id++;
+     add_tail(this_p_list, &this_p_item->n);
    }
- ;
+;
 
-password_items:
+password_item_params:
    /* empty */ { } 
- | FROM datetime password_items { last_password_item->from = $2; }
- | TO datetime password_items { last_password_item->to = $2; }
- | PASSIVE datetime password_items { last_password_item->passive = $2; }
- | ID expr password_items { last_password_item->id = $2; }
+ | GENERATE FROM datetime ';' password_item_params { this_p_item->genfrom = $3; }
+ | GENERATE TO datetime ';' password_item_params { this_p_item->gento = $3; }
+ | ACCEPT FROM datetime ';' password_item_params { this_p_item->accfrom = $3; }
+ | ACCEPT TO datetime ';' password_item_params { this_p_item->accto = $3; }
+ | ID expr ';' password_item_params { this_p_item->id = $2; }
  ;
 
-password_list: 
-   /* empty */ { $$ = NULL; } 
- | password_begin password_items ';' password_list {
-     $1->next = $4;
+password_list:
+   password_begin_list '{' password_items '}' {
      $$ = $1;
    }
- ;
+ | password_begin
+;
+
+password_begin_list:
+  PASSWORDS {
+     this_p_list = cfg_alloc(sizeof(list));
+     init_list(this_p_list);
+     $$ = this_p_list;
+  }
+;
+
+password_begin:
+  PASSWORD TEXT {
+     this_p_list = cfg_alloc(sizeof(list));
+     init_list(this_p_list);
+     this_p_item = cfg_alloc(sizeof (struct password_item));
+     this_p_item->password = $2;
+     this_p_item->genfrom = 0;
+     this_p_item->gento = TIME_INFINITY;
+     this_p_item->accfrom = 0;
+     this_p_item->accto = TIME_INFINITY;
+     this_p_item->id = 0;
+     add_tail(this_p_list, &this_p_item->n);
+     $$ = this_p_list;
+  }
+;
 
 /* Core commands */
-
 CF_CLI_HELP(SHOW, ..., [[Show status information]])
 
 CF_CLI(SHOW STATUS,,, [[Show router status]])

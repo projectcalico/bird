@@ -2,6 +2,7 @@
  *	Rest in pieces - RIP protocol
  *
  *	Copyright (c) 1999 Pavel Machek <pavel@ucw.cz>
+ *	Copyright (c) 2004 Ondrej Filip <feela@network.cz>
  *
  *	Bug fixes by Eric Leblond <eleblond@init-sys.com>, April 2003
  * 
@@ -38,7 +39,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
   switch (ntohs(block->authtype)) {	/* Authentication type */
   case AT_PLAINTEXT: 
     {
-      struct password_item *passwd = get_best_password( P_CF->passwords, 0 );
+      struct password_item *passwd = password_find(P_CF->passwords);
       DBG( "Plaintext passwd" );
       if (!passwd) {
 	log( L_AUTH "No passwords set and password authentication came" );
@@ -50,12 +51,18 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 	return 1;
       }
     }
-    return 0;
+    break;
   case AT_MD5:
     DBG( "md5 password" );
     {
-      struct password_item *head;
+      struct password_item *pass = NULL, *ptmp;
       struct rip_md5_tail *tail;
+      struct MD5Context ctxt;
+      char md5sum_packet[16];
+      char md5sum_computed[16];
+      struct neighbor *neigh = neigh_find(p, &whotoldme, 0);
+      list *l = P_CF->passwords;
+
       if (ntohs(block->packetlen) != PACKETLEN(num) - sizeof(struct rip_md5_tail) ) {
 	log( L_ERR "Packet length in MD5 does not match computed value" );
 	return 1;
@@ -67,44 +74,34 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 	return 1;
       }
 
-      head = P_CF->passwords;
-      while (head) {
-	DBG( "time, " );
-	if ((head->from > now) || (head->to < now))
-	  goto skip;
-	if (block->seq) {
-	  struct neighbor *neigh = neigh_find(p, &whotoldme, 0);
-	  if (!neigh) {
-	    log( L_AUTH "Non-neighbour MD5 checksummed packet?" );
-	  } else {
-	    if (neigh->aux > block->seq) {
-	      log( L_AUTH "MD5 protected packet with lower numbers" );
-	      return 0;
-	    }
-	    neigh->aux = block->seq;
-	  }
-	}
-	DBG( "check, " );
-	if (head->id == block->keyid) {
-	  struct MD5Context ctxt;
-	  char md5sum_packet[16];
-	  char md5sum_computed[16];
-
-	  memset(md5sum_packet,0,16);
-	  memcpy(md5sum_packet, tail->md5, 16);
-	  password_strncpy(tail->md5, head->password, 16);
-
-	  MD5Init(&ctxt);
-	  MD5Update(&ctxt, (char *) packet, ntohs(block->packetlen) +  sizeof(struct rip_block_auth) );
-	  MD5Final(md5sum_computed, &ctxt);
-	  if (memcmp(md5sum_packet, md5sum_computed, 16))
-	    return 1;
-	  return 0;
-	}
-      skip:
-	head = head->next;
+      WALK_LIST(ptmp, *l)
+      {
+        if (block->keyid != pass->id) continue;
+        if ((pass->genfrom > now) || (pass->gento < now)) continue;
+        pass = ptmp;
+        break;
       }
-      return 1;
+
+      if(!pass) return 1;
+
+      if (!neigh) {
+        log( L_AUTH "Non-neighbour MD5 checksummed packet?" );
+      } else {
+	if (neigh->aux > block->seq) {
+	  log( L_AUTH "MD5 protected packet with lower numbers" );
+	  return 1;
+        }
+	neigh->aux = block->seq;
+      }
+
+      memcpy(md5sum_packet, tail->md5, 16);
+      password_cpy(tail->md5, pass->password, 16);
+
+      MD5Init(&ctxt);
+      MD5Update(&ctxt, (char *) packet, ntohs(block->packetlen) +  sizeof(struct rip_block_auth) );
+      MD5Final(md5sum_computed, &ctxt);
+      if (memcmp(md5sum_packet, md5sum_computed, 16))
+        return 1;
     }
   }
     
@@ -118,7 +115,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 int
 rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
 {
-  struct password_item *passwd = get_best_password( P_CF->passwords, 0 );
+  struct password_item *passwd = password_find( P_CF->passwords);
 
   if (!P_CF->authtype)
     return PACKETLEN(num);
@@ -134,7 +131,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
   block->mustbeFFFF = 0xffff;
   switch (P_CF->authtype) {
   case AT_PLAINTEXT:
-    password_strncpy( (char *) (&block->packetlen), passwd->password, 16);
+    password_cpy( (char *) (&block->packetlen), passwd->password, 16);
     return PACKETLEN(num);
   case AT_MD5:
     {
@@ -159,8 +156,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       tail->mustbeFFFF = 0xffff;
       tail->mustbe0001 = 0x0100;
 
-      memset(tail->md5,0,16);
-      password_strncpy( tail->md5, passwd->password, 16 );
+      password_cpy(tail->md5, passwd->password, 16);
       MD5Init(&ctxt);
       MD5Update(&ctxt, (char *) packet, PACKETLEN(num) + sizeof(struct  rip_md5_tail));
       MD5Final(tail->md5, &ctxt);

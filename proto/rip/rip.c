@@ -981,9 +981,6 @@ rip_reconfigure(struct proto *p, struct proto_config *c)
 
   if (!iface_patts_equal(&P_CF->iface_list, &new->iface_list, (void *) rip_pat_compare))
     return 0;
-  if (!password_same(P_CF->passwords, 
-		     new->passwords))
-    return 0;
   return !memcmp(((byte *) P_CF) + generic,
                  ((byte *) new) + generic,
                  sizeof(struct rip_proto_config) - generic);

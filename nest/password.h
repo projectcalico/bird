@@ -1,7 +1,8 @@
 /*
  *	BIRD -- Password handling
  *
- *	Copyright 1999 Pavel Machek <pavel@ucw.cz>
+ *	(c) 1999 Pavel Machek <pavel@ucw.cz>
+ *	(c) 2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -10,18 +11,18 @@
 #define PASSWORD_H
 #include "lib/timer.h"
 
+#define MD5_AUTH_SIZE 16
+
 struct password_item {
-  struct password_item *next;
+  node n;
   char *password;
   int id;
-  bird_clock_t from, passive, to;
+  bird_clock_t accfrom, accto, genfrom, gento;
 };
 
 extern struct password_item *last_password_item;
 
-struct password_item *get_best_password(struct password_item *head, int flags);
-extern int password_same(struct password_item *, struct password_item *);
-extern void password_strncpy(char *to, char *from, int len);
-
+struct password_item *password_find(list *);
+void password_cpy(char *dst, char *src, int size);
 
 #endif

@@ -121,7 +121,7 @@ struct rip_patt {
 struct rip_proto_config {
   struct proto_config c;
   list iface_list;	/* Patterns configured -- keep it first; see rip_reconfigure why */
-  struct password_item *passwords;	/* Passwords, keep second */
+  list *passwords;	/* Passwords, keep second */
 
   int infinity;		/* User configurable data; must be comparable with memcmp */
   int port;
