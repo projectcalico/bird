@@ -15,6 +15,7 @@ ospf_start(struct proto *p)
   DBG("%s: Start\n",p->name);
 
   p->if_notify=ospf_if_notify;
+  fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
 
   return PS_UP;
 }

@@ -8,6 +8,8 @@
 
 #include "ospf.h"
 
+#define LOCAL_DEBUG
+
 void
 init_infib(struct fib_node *fn)
 {
@@ -15,6 +17,17 @@ init_infib(struct fib_node *fn)
 
   f->metric=LSINFINITY;
   f->en=NULL;
+}
+
+void
+init_efib(struct fib_node *fn)
+{
+  struct extfib *f=(struct extfib *)fn;
+
+  f->metric=LSINFINITY;
+  f->metric2=LSINFINITY;
+  f->nh=ipa_from_u32(0);
+  f->nhi=NULL;
 }
 
 void
@@ -26,12 +39,12 @@ ospf_rt_spfa(struct ospf_area *oa)
   struct ospf_lsa_rt_link *rtl,*rr;
   struct fib *in=&oa->infib;
   struct infib *nf;
+  struct fib_iterator fit;
   bird_clock_t delta;
   int age=0,flush=0;
   struct proto *p=&oa->po->proto;
   struct proto_ospf *po=oa->po;
   ip_addr ip;
-  struct fib_iterator fit;
   struct ospf_lsa_net *ln;
 
   debug("%s: Starting routing table calculation for area %I\n",p->name,
@@ -244,11 +257,176 @@ skip:
 }
 
 void
-ospf_ext_spfa(struct proto_ospf *po)
+ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 {
-  struct top_hash_entry *en;
+  struct top_hash_entry *en,*etmp,*absr;
+  struct fib *in=&po->efib;
+  struct extfib *nf;
+  struct fib_iterator efit;
+  struct ospf_area *oa=NULL,*atmp,*absroa;
+  struct proto *p=&po->proto;
+  struct ospf_lsa_ext *le;
+  struct ospf_lsa_ext_tos *lt;
+  int mlen;
+  ip_addr ip;
+  u16 met,met2;
 
-  /* FIXME Go on */
+  debug("%s: Starting routing table calculation for external routes\n",
+    p->name);
+
+  WALK_LIST(oa,po->area_list)
+  {
+    if(!oa->stub) break;
+  }
+
+  if(oa==NULL) return;
+
+  WALK_SLIST(en,oa->lsal)
+  {
+    if(en->lsa.type!=LSA_T_EXT) continue;
+    if(en->lsa.age==LSA_MAXAGE) continue;
+    if(en->lsa.rt==p->cf->global->router_id) continue;
+
+    le=en->lsa_body;
+    lt=(struct ospf_lsa_ext_tos *)(le+1);
+
+    if(lt->metric==LSINFINITY) continue;
+    ip=ipa_and(ipa_from_u32(en->lsa.id),le->netmask);
+    mlen=ipa_mklen(le->netmask);
+
+    nf=NULL;
+
+    WALK_LIST(atmp,po->area_list)
+    {
+      if((nf=fib_get(&atmp->infib,&ip, mlen))!=NULL) break;
+    }
+
+    if(nf!=NULL) continue;	/* Some intra area path exists */
+
+    absr=NULL;
+    absroa=NULL;
+
+    met=0;met2=0;
+
+    if(1 || ipa_compare(lt->fwaddr,ipa_from_u32(0))==0)	/* FIXME add fwaddr */
+    {
+      WALK_LIST(atmp,po->area_list)
+      {
+        if((etmp=ospf_hash_find(atmp->gr,en->lsa.rt,en->lsa.rt,LSA_T_RT))!=NULL)
+	{
+	  if((absr==NULL) || (absr->dist>etmp->dist) ||
+            ((etmp->dist==absr->dist) && (absroa->areaid<atmp->areaid)))
+	  {
+	    absr=etmp;
+	    absroa=atmp;
+	  }
+	}
+      }
+      if(absr==NULL) continue;
+      if(lt->etos>0)
+      {
+        met=absr->dist;
+        met2=lt->metric;
+      }
+      else
+      {
+        met=absr->dist+lt->metric;
+	met2=0;
+      }
+    }
+    nf=fib_get(&po->efib,&ip, mlen);
+    if((nf->metric>met) || ((nf->metric==met)&&(nf->metric2>met2)))
+    {
+      nf->metric=met;
+      nf->metric2=met2;
+      if(absr->nhi==NULL)
+      {
+        struct ospf_neighbor *neigh;
+        neighbor *nn;
+
+        if((neigh=find_neigh_noifa(po,absr->lsa.rt))==NULL)
+	{
+	  goto skip2;
+	}
+        nn=neigh_find(p,&neigh->ip,0);
+        DBG("     Next hop calculated: %I\n", nn->addr);
+        nf->nh=nn->addr;
+        nf->nhi=nn->iface;
+      }
+      else
+      {
+        nf->nh=absr->nh;
+	nf->nhi=absr->nhi;
+      }
+    }
+  }
+
+  DBG("\nNow syncing my rt table with nest's\n\n");
+  FIB_ITERATE_INIT(&efit,&po->efib);
+again2:
+  FIB_ITERATE_START(&po->efib,&efit,nfptmp)
+  {
+    nf=(struct extfib *)nfptmp;
+    if(nf->metric==LSINFINITY) 
+    {
+      net *ne;
+      rta a0;
+  
+      bzero(&a0, sizeof(a0));
+  
+      a0.proto=p;
+      a0.source=RTS_OSPF_EXT;
+      a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
+      a0.cast=RTC_UNICAST;
+      a0.dest=RTD_ROUTER;
+      a0.flags=0;
+      a0.aflags=0;
+      a0.iface=nf->nhi;
+      a0.gw=nf->nh;
+      a0.from=nf->nh;		/* FIXME Just a test */
+      ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
+      DBG("Deleting rt entry %I\n     (IP: %I, GW: %I, Iface: %s)\n",
+        nf->fn.prefix,ip,nf->nh,nf->nhi->name);
+      rte_update(p->table, ne, p, NULL);
+
+      /* Now delete my fib */
+      FIB_ITERATE_PUT(&efit, nfptmp);
+      fib_delete(&po->efib, nfptmp);
+      goto again2;
+    }
+    else
+    {
+      net *ne;
+      rta a0;
+      rte *e;
+  
+      bzero(&a0, sizeof(a0));
+  
+      a0.proto=p;
+      a0.source=RTS_OSPF_EXT;
+      a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
+      a0.cast=RTC_UNICAST;
+      a0.dest=RTD_ROUTER;
+      a0.flags=0;
+      a0.aflags=0;
+      a0.iface=nf->nhi;
+      a0.gw=nf->nh;
+      a0.from=nf->nh;		/* FIXME Just a test */
+      ne=net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
+      e=rte_get_temp(&a0);
+      e->u.ospf.metric1=nf->metric;
+      e->u.ospf.metric2=nf->metric2;
+      e->u.ospf.tag=0;			/* FIXME Some config? */
+      e->pflags = 0;
+      e->net=ne;
+      e->pref = p->preference;
+      DBG("Modifying rt entry %I\n     (IP: %I, GW: %I, Iface: %s)\n",
+        nf->fn.prefix,ip,en->nh,en->nhi->name);
+      rte_update(p->table, ne, p, e);
+    }
+  }
+skip2:
+  FIB_ITERATE_END(nfptmp);
 }
 
 void

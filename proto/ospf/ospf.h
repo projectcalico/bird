@@ -341,6 +341,7 @@ struct proto_ospf {
   list iface_list;		/* Interfaces we really use */
   list area_list;
   int areano;			/* Number of area I belong to */
+  struct fib efib;		/* FIB for external routes */
 };
 
 static int ospf_start(struct proto *p);

@@ -17,6 +17,14 @@ struct infib {
   struct top_hash_entry *en;
 };
 
+struct extfib {
+  struct fib_node fn;
+  u16 metric;
+  u16 metric2;
+  ip_addr nh;
+  struct iface *nhi;
+};
+
 void ospf_rt_spfa(struct ospf_area *oa);
 void ospf_ext_spfa(struct proto_ospf *po);
 void add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
@@ -24,5 +32,6 @@ void add_cand(list *l, struct top_hash_entry *en, struct top_hash_entry *par,
 void calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
   struct ospf_area *oa);
 void init_infib(struct fib_node *fn);
+void init_efib(struct fib_node *fn);
 
 #endif /* _BIRD_OSPF_RT_H_ */
