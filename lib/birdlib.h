@@ -20,6 +20,10 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
+#ifndef NULL
+#define NULL ((void *) 0)
+#endif
+
 /* Functions which don't return */
 
 #define NORET __attribute__((noreturn))
