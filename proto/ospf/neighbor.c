@@ -316,12 +316,12 @@ bdr_election(struct ospf_iface *ifa, struct proto *p)
   nbdr=electbdr(ifa->neigh_list);
   ndr=electdr(ifa->neigh_list);
 
-  if(ndr==NULL) ndr=nbdr;
+  if(ndr==NULL) ndr=nbdr;		/* FIXME is this correct? */
 
-  if(((ifa->drid==myid) && (ndr->rid!=myid))
-    || ((ifa->drid!=myid) && (ndr->rid==myid))
-    || ((ifa->bdrid==myid) && (nbdr->rid!=myid)) 
-    || ((ifa->bdrid!=myid) && (nbdr->rid==myid)))
+  if(((ifa->drid==myid) && (ndr!=&me))
+    || ((ifa->drid!=myid) && (ndr==&me))
+    || ((ifa->bdrid==myid) && (nbdr!=&me)) 
+    || ((ifa->bdrid!=myid) && (nbdr==&me)))
   {
     if(ndr==NULL) ifa->drid=me.dr=0;
     else ifa->drid=me.dr=ndr->rid;
