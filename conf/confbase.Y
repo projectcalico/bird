@@ -35,7 +35,6 @@ CF_DECLS
 %token <t> TEXT
 
 %type <i> cexpr bool pxlen
-%type <x> expr
 
 %left '+' '-'
 %left '*' '/' '%'
