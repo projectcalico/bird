@@ -141,7 +141,7 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
       else if (ok)
 	rte_trace_out(D_FILTERS, p, new, "forced accept by protocol");
       else if (p->out_filter == FILTER_REJECT ||
-	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool) > F_ACCEPT)
+	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool, 0) > F_ACCEPT)
 	{
 	  rte_trace_out(D_FILTERS, p, new, "filtered out");
 	  new = NULL;
@@ -155,7 +155,7 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
       else
 	{
 	  ea_list *tmpb = p->make_tmp_attrs ? p->make_tmp_attrs(old, rte_update_pool) : NULL;
-	  if (f_run(p->out_filter, &old, &tmpb, rte_update_pool) > F_ACCEPT)
+	  if (f_run(p->out_filter, &old, &tmpb, rte_update_pool, 0) > F_ACCEPT)
 	    old = NULL;
 	}
     }
@@ -387,7 +387,7 @@ rte_update(rtable *table, net *net, struct proto *p, rte *new)
       if (p->in_filter)
 	{
 	  ea_list *old_tmpa = tmpa;
-	  int fr = f_run(p->in_filter, &new, &tmpa, rte_update_pool);
+	  int fr = f_run(p->in_filter, &new, &tmpa, rte_update_pool, 0);
 	  if (fr > F_ACCEPT)
 	    {
 	      rte_trace_in(D_FILTERS, p, new, "filtered out");
@@ -695,7 +695,7 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
       struct ea_list *tmpa = NULL;
       ee = e;
       rte_update_lock();		/* We use the update buffer for filtering */
-      if (d->filter == FILTER_ACCEPT || f_run(d->filter, &ee, &tmpa, rte_update_pool) <= F_ACCEPT)
+      if (d->filter == FILTER_ACCEPT || f_run(d->filter, &ee, &tmpa, rte_update_pool, 0) <= F_ACCEPT)
 	{
 	  rt_show_rte(c, ia, e, d);
 	  ia[0] = 0;

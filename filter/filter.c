@@ -145,6 +145,7 @@ val_print(struct f_val v)
 static struct rte **f_rte, *f_rte_old;
 static struct linpool *f_pool;
 static struct ea_list **f_tmp_attrs;
+static int f_flags;
 
 #define runtime(x) do { \
     log( L_ERR x ); \
@@ -329,9 +330,14 @@ interpret(struct f_inst *what)
     break;
   case P('e','a'):	/* Access to extended attributes */
     {
-      eattr *e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
+      eattr *e = NULL;
+      if (!(f_flags & FF_OUTGOING))
+	e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
       if (!e) 
 	e = ea_find( (*f_tmp_attrs), what->a2.i );
+      if ((!e) && (f_flags & FF_OUTGOING))
+	e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
+      
       if (!e) {
 	res.type = T_VOID;
 	break;
@@ -371,7 +377,7 @@ interpret(struct f_inst *what)
 	break;
       }
 
-      if (!(what->aux & EAF_TEMP)) {
+      if (!(what->aux & EAF_TEMP) && (!(f_flags & FF_OUTGOING))) {
 	*f_rte = rte_do_cow(*f_rte);
 	l->next = (*f_rte)->attrs->eattrs;
 	(*f_rte)->attrs->eattrs = l;
@@ -523,12 +529,13 @@ i_same(struct f_inst *f1, struct f_inst *f2)
 }
 
 int
-f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool)
+f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool, int flags)
 {
   struct f_inst *inst;
   struct f_val res;
   DBG( "Running filter `%s'...", filter->name );
 
+  f_flags = flags;
   f_tmp_attrs = tmp_attrs;
   f_rte = rte;
   f_rte_old = *rte;

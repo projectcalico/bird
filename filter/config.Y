@@ -9,6 +9,64 @@
 	FIXME (for BGP): whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
 	FIXME: IP addresses in ipv6
+
+
+(1) Cesty
+
+   AS paths budtez interne reprezentovany stejne jako v BGP (viz RFC 1771),
+to znamena jako posloupnost segmentu, z nichz kazdy je budto posloupnost nebo
+mnozina cisel ASu. Na cestach nadefinuji nasledujici operace:
+
+        - zformatovani do stringu
+        - append dalsiho AS k ceste
+
+Filtry by mely podporovat:
+
+        - operator pridani AS k ceste
+        - matchovani na pritomnost podposloupnosti v ceste (pricemz vyskytne-li
+          se tam mnozina, tak si ji lze predstavit prerovnanou v libovolnem
+          poradi)
+        - operator zjisteni delky cesty (pro vypocet metrik)
+
+Byl bych rad, kdyby se samotne matchovaci funkce objevily v proto/bgp/attrs.c.
+
+
+(2) Community-listy
+
+Community list budiz interne reprezentovan jako posloupnost 32-bitovych cisel.
+
+Filtry by se mely na communities divat jako na usporadane dvojice 16-bitovych
+cisel (prvni je cislo AS, ktery community definoval, druhe pak community ID
+v ramci AS) a melo by byt mozne definovat si konstanty typu community.
+K dispozici by mely byt nasledujici operace:
+
+        - zjisteni pritomnosti community v listu
+        - pridani community do listu
+        - odebrani community z listu
+        - zresetovani listu
+
+Pro operace na cestach i na community listech by se mela pouzivat `teckova'
+notace pouzita v mem puvodnim navrhu syntaxe.
+
+
+(3) Zmeny v semantice dynamickych atributu
+
+Aby se nemusely neustale kopirovat seznamy atributu, rad bych provedl jeste
+jednu zmenu v tom, jak filtry nakladaji s atributy (pevne doufam, ze posledni,
+ale uznavam, ze u te predchozi jsem to take tvrdil): Funkci f_run budiz
+pridan jeste jeden parametr, ktery prepina mezi dvema mody:
+
+        (a)  [incoming filter mode]  Jako nyni.
+
+        (b)  [outgoing filter mode]  Pokud se hleda atribut, hleda se nejdrive
+             v tmp_attrs a pokud to selze, tak v rta->attrs. Pokud se nastavuje,
+             dava se _vzdy_ do tmp_attrs.
+
+Diky tomu filtry pri exportu routes nebudou vubec muset modifikovat rta a
+protokoly, ktere v import_control potrebuji nastavovat i non-temporary
+atributy, je budou moci pridat do tmp_attrs, aniz by sahly na rta.
+
+
  */
 
 CF_HDR

@@ -67,7 +67,7 @@ int same_tree(struct f_tree *t1, struct f_tree *t2);
 struct ea_list;
 struct rte;
 
-int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool);
+int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool, int flags);
 char *filter_name(struct filter *filter);
 int filter_same(struct filter *new, struct filter *old);
 
@@ -121,5 +121,7 @@ struct f_tree {
 };
 
 #define NEW_F_VAL struct f_val * val; val = cfg_alloc(sizeof(struct f_val));
+
+#define FF_OUTGOING 1
 
 #endif
