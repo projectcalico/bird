@@ -31,7 +31,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %nonassoc THEN
 %nonassoc ELSE
 
-%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn dynamic_attr function_call
+%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn dynamic_attr static_attr function_call
 %type <f> filter filter_body where_filter
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
@@ -301,6 +301,9 @@ CF_ADDTO(dynamic_attr, INVALID_TOKEN { $$ = NULL; })
 rtadot: /* EMPTY, we are not permitted RTA. prefix */
  ;
 
+
+
+
 function_call:
    SYM '(' var_list ')' {
      struct symbol *sym;
@@ -323,6 +326,21 @@ function_call:
      }
    }
  ;
+
+static_attr:
+/* FIXME (maybe?) rta.from read/write */
+   FROM    { $$ = f_new_inst(); $$->aux = T_IP;       $$->a2.i = OFFSETOF(struct rta, from); }
+
+/* FIXME Gw read/write */
+ | GW      { $$ = f_new_inst(); $$->aux = T_IP;       $$->a2.i = OFFSETOF(struct rta, gw); }
+ | NET     { $$ = f_new_inst(); $$->aux = T_PREFIX;   $$->a2.i = 0x12345678; /* This is actually ok - T_PREFIX is special-cased. */ }
+ | SOURCE  { $$ = f_new_inst(); $$->aux = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, source); }
+ ;
+
+/* FIXME rta.Scope - read/write */
+/* FIXME rta.Cast - read */
+/* FIXME rta.Dest - read */
+
 
 term:
    '(' term ')'      { $$ = $2; }
@@ -368,18 +386,9 @@ term:
      }
    }
 
-/* FIXME (maybe?) rta.from read/write */
- | rtadot FROM    { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
-
-/* FIXME Gw read/write */
- | rtadot GW      { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
- | rtadot NET     { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_PREFIX; $$->a2.i = 0x12345678; /* This is actually ok - T_PREFIX is special-cased. */ }
- | rtadot SOURCE  { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, source); }
-
 /* FIXME rte.Preference - read/write */
-/* FIXME rta.Scope - read/write */
-/* FIXME rta.Cast - read */
-/* FIXME rta.Dest - read */
+
+ | rtadot static_attr { $$ = $2; $$->code = 'a'; }
 
  | rtadot dynamic_attr { $$ = $2; $$->code = P('e','a'); }
 
@@ -395,16 +404,11 @@ term:
  | rtadot dynamic_attr '.' RESET{ }
 */
 
-/* Paths */
- | term '.' PREPEND '(' term ')' { }
- | term '.' RESET { }
-
  | '+' EMPTY '+' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_PATH; }
  | '-' EMPTY '-' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_CLIST; }
  | PREPEND '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('A','p'); $$->a1.p = $3; $$->a2.p = $5; } 
  | ADD '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('C','a'); $$->a1.p = $3; $$->a2.p = $5; $$->aux = 'a'; } 
  | DELETE '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('C','a'); $$->a1.p = $3; $$->a2.p = $5; $$->aux = 'd'; }
- 
 
 /* | term '.' LEN { $$->code = P('P','l'); } */
 
