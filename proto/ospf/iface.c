@@ -107,6 +107,7 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
 {
   struct proto *p=(struct proto *)(ifa->proto);
   struct proto_ospf *po=ifa->proto;
+  struct ospf_area *oa=ifa->oa;
 
   debug("%s: SM on iface %s. Event is \"%s\".\n",
     p->name, ifa->iface->name, ospf_ism[event]);
@@ -156,7 +157,7 @@ ospf_int_sm(struct ospf_iface *ifa, int event)
     case ISM_DOWN:
       iface_chstate(ifa, OSPF_IS_DOWN);
       downint(ifa);
-      schedule_rt_lsa(ifa->oa);
+      schedule_rt_lsa(oa);
       break;
     case ISM_LOOP:	/* Useless? */
       iface_chstate(ifa, OSPF_IS_LOOP);
