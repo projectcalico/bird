@@ -112,7 +112,7 @@ protocol static {
 #			hello 9;
 #			retransmit 6;
 #			cost 10;
-#			transit delay 5;
+#			transmit delay 5;
 #			dead count 5;
 #			wait 50;
 #			type broadcast;
