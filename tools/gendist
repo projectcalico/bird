@@ -26,7 +26,7 @@ rm -rf `find $T/$REL -name CVS -o -name tmp` $T/$REL/{misc,rfc,doc/slides}
 ( cd $T ; tar czvvf $DREL.tar.gz $DREL )
 rm -rf $T/$REL $T/$DREL
 echo Uploading to Atrey...
-scp /tmp/$REL.tar.gz /tmp/$DREL.tar.gz atrey.karlin.mff.cuni.cz:~ftp/pub/bird/
+scp $T/$REL.tar.gz /tmp/$DREL.tar.gz atrey.karlin.mff.cuni.cz:~ftp/pub/bird/
 echo Uploading to Regina...
-scp /tmp/$REL.tar.gz /tmp/$DREL.tar.gz regina.gin.cz:~ftp/pub/bird/
+scp $T/$REL.tar.gz /tmp/$DREL.tar.gz regina.gin.cz:~ftp/pub/bird/
 echo Done.
