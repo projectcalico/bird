@@ -9,4 +9,9 @@
 #ifndef _BIRD_CONFILE_H_
 #define _BIRD_CONFILE_H_
 
+#include "lib/resource.h"
+
+extern pool *cfg_pool;
+extern mempool *cfg_mem;
+
 #endif
