@@ -408,7 +408,7 @@ main(int argc, char **argv)
   parse_args(argc, argv);
   if (debug_flag == 1)
     log_init_debug("");
-  log_init(debug_flag);
+  log_init(debug_flag, 1);
 
   DBG("Initializing.\n");
   resource_init();

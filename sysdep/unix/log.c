@@ -184,7 +184,7 @@ debug(char *msg, ...)
 }
 
 void
-log_init(int debug)
+log_init(int debug, int init)
 {
   static struct log_config lc_stderr = { mask: ~0, terminal_flag: 1 };
 
@@ -197,6 +197,8 @@ log_init(int debug)
       static struct log_config lc_syslog = { mask: ~0 };
       openlog("bird", LOG_CONS | LOG_NDELAY, LOG_DAEMON);
       add_tail(current_log_list, &lc_syslog.n);
+      if (!init)
+	return;
     }
 #endif
 
@@ -208,7 +210,7 @@ void
 log_switch(list *l)
 {
   if (EMPTY_LIST(*l))
-    current_log_list = &init_log_list;
+    log_init(0, 0);
   else
     current_log_list = l;
 }
