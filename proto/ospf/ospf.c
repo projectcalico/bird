@@ -321,18 +321,11 @@ ospf_get_attr(eattr *a, byte *buf)
     }
 }
 
-struct protocol proto_ospf = {
-  name: 		"OSPF",
-  template:		"ospf%d",
-  attr_class:		EAP_OSPF,
-  init:			ospf_init,
-  dump:			ospf_dump,
-  start:		ospf_start,
-  shutdown:		ospf_shutdown,
-  get_route_info:	ospf_get_route_info,
-  get_attr:		ospf_get_attr,
-  get_status:		ospf_get_status
-};
+static int
+ospf_reconfigure(struct proto *p, struct proto_config *c)
+{
+  return 0;	/* Alway down :-( */
+}
 
 void
 ospf_sh_neigh(struct proto *p, char *iff)
@@ -470,4 +463,18 @@ ospf_sh_iface(struct proto *p, char *iff)
   WALK_LIST(ifa, po->iface_list) ospf_iface_info(ifa);
   cli_msg(0,"");
 }
+
+struct protocol proto_ospf = {
+  name: 		"OSPF",
+  template:		"ospf%d",
+  attr_class:		EAP_OSPF,
+  init:			ospf_init,
+  dump:			ospf_dump,
+  start:		ospf_start,
+  shutdown:		ospf_shutdown,
+  get_route_info:	ospf_get_route_info,
+  get_attr:		ospf_get_attr,
+  get_status:		ospf_get_status,
+  reconfigure:		ospf_reconfigure
+};
 
