@@ -130,7 +130,7 @@ _rta_free(rta *a)
 void
 rta_dump(rta *a)
 {
-  static char *rts[] = { "?", "RTS_STATIC", "RTS_INHERIT", "RTS_DEVICE",
+  static char *rts[] = { "RTS_DUMMY", "RTS_STATIC", "RTS_INHERIT", "RTS_DEVICE",
 			 "RTS_STAT_DEV", "RTS_REDIR", "RTS_RIP", "RTS_RIP_EXT",
 			 "RTS_OSPF", "RTS_OSPF_EXT", "RTS_OSPF_IA",
 			 "RTS_OSPF_BOUNDARY", "RTS_BGP" };
