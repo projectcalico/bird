@@ -293,15 +293,15 @@ typedef struct eattr {
 #define EAF_TYPE_OPAQUE 0x02		/* Opaque byte string (not filterable) */
 #define EAF_TYPE_IP_ADDRESS 0x04	/* IP address */
 #define EAF_TYPE_ROUTER_ID 0x05		/* Router ID (IPv4 address) */
-#define EAF_TYPE_AS_PATH 0x06		/* BGP AS path (encoding per RFC 1771) */
-#define EAF_TYPE_INT_SET 0x0a		/* Set of integers (e.g., a community list) */
+#define EAF_TYPE_AS_PATH 0x06		/* BGP AS path (encoding per RFC 1771:4.3) */
+#define EAF_TYPE_INT_SET 0x0a		/* Set of u32's (e.g., a community list) */
 #define EAF_TYPE_UNDEF 0x0f		/* `force undefined' entry */
 #define EAF_EMBEDDED 0x01		/* Data stored in eattr.u.data (part of type spec) */
 #define EAF_VAR_LENGTH 0x02		/* Attribute length is variable (part of type spec) */
 #define EAF_TEMP 0x80			/* A temporary attribute (the one stored in the tmp attr list) */
 
 struct adata {
-  unsigned int length;			/* Only size of actuall data, not including length field */
+  unsigned int length;			/* Length of data */
   byte data[0];
 };
 
