@@ -144,7 +144,7 @@ struct proto {
 void proto_build(struct proto_config *);
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
-void proto_show(struct symbol *);
+void proto_show(struct symbol *, int);
 
 extern list proto_list;
 

@@ -646,7 +646,7 @@ if_show_addr(struct ifa *a)
     bsprintf(opp, ", opposite %I", a->opposite);
   else
     opp[0] = 0;
-  cli_msg(-2003, "\t%I/%d (%s%s%s, scope %s)",
+  cli_msg(-1003, "\t%I/%d (%s%s%s, scope %s)",
 	  a->ip, a->pxlen,
 	  (a->flags & IA_PRIMARY) ? "Primary" : (a->flags & IA_SECONDARY) ? "Secondary" : "???",
 	  broad, opp,
@@ -662,14 +662,14 @@ if_show(void)
 
   WALK_LIST(i, iface_list)
     {
-      cli_msg(-2001, "%s %s (index=%d)", i->name, (i->flags & IF_UP) ? "up" : "DOWN", i->index);
+      cli_msg(-1001, "%s %s (index=%d)", i->name, (i->flags & IF_UP) ? "up" : "DOWN", i->index);
       if (i->flags & IF_UNNUMBERED)
 	type = "UnNum-PtP";
       else if (!(i->flags & IF_MULTIACCESS))
 	type = "PtP";
       else
 	type = "MultiAccess";
-      cli_msg(-2004, "\t%s%s%s Admin%s Link%s%s%s MTU=%d",
+      cli_msg(-1004, "\t%s%s%s Admin%s Link%s%s%s MTU=%d",
 	      type,
 	      (i->flags & IF_BROADCAST) ? " Broadcast" : "",
 	      (i->flags & IF_MULTICAST) ? " Multicast" : "",
@@ -693,13 +693,14 @@ if_show_summary(void)
   struct iface *i;
   byte addr[STD_ADDRESS_P_LENGTH + 16];
 
+  cli_msg(-2005, "interface state address");
   WALK_LIST(i, iface_list)
     {
       if (i->addr)
 	bsprintf(addr, "%I/%d", i->addr->ip, i->addr->pxlen);
       else
 	addr[0] = 0;
-      cli_msg(-2005, "%s\t%s\t%s", i->name, (i->flags & IF_UP) ? "up" : "DOWN", addr);
+      cli_msg(-1005, "%-9s %-5s %s", i->name, (i->flags & IF_UP) ? "up" : "DOWN", addr);
     }
   cli_msg(0, "");
 }

@@ -191,12 +191,15 @@ password_list:
 CF_CLI_HELP(SHOW,,[[Show status information]])
 
 CF_CLI(SHOW STATUS,,, [[Show router status]]) {
-  cli_msg(2000, "BIRD " BIRD_VERSION);
+  cli_msg(1000, "BIRD " BIRD_VERSION);
   /* FIXME: Should include uptime, shutdown flag et cetera */
 } ;
 
 CF_CLI(SHOW PROTOCOLS, optsym, [<name>], [[Show routing protocols]])
-{ proto_show($3); } ;
+{ proto_show($3, 0); } ;
+
+CF_CLI(SHOW PROTOCOLS VERBOSE, optsym, [<name>], [[Show routing protocol details]])
+{ proto_show($4, 1); } ;
 
 CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
 { if_show(); } ;

@@ -422,10 +422,69 @@ proto_flush_all(void *unused)
   return 0;
 }
 
-void
-proto_show(struct symbol *s)
+/*
+ *  CLI Commands
+ */
+
+static char *
+proto_state_name(struct proto *p)
 {
-  cli_msg(-1002, "");
-  cli_msg(-2002, "");
+#define P(x,y) ((x << 4) | y)
+  switch (P(p->proto_state, p->core_state))
+    {
+    case P(PS_DOWN, FS_HUNGRY):		return "down";
+    case P(PS_START, FS_HUNGRY):	return "start";
+    case P(PS_UP, FS_HUNGRY):
+    case P(PS_UP, FS_FEEDING):		return "feed";
+    case P(PS_STOP, FS_HUNGRY):		return "stop";
+    case P(PS_UP, FS_HAPPY):		return "up";
+    case P(PS_STOP, FS_FLUSHING):
+    case P(PS_DOWN, FS_FLUSHING):	return "flush";
+    default:      			return "???";
+    }
+#undef P
+}
+
+static char *
+proto_goal_name(struct proto *p)
+{
+  if (p->disabled)
+    return " <disabled>";
+  if (p->core_goal == p->core_state)
+    return "";
+  if (p->core_goal == FS_HAPPY)
+    return " <starting>";
+  return " <shutting down>";
+}
+
+static void
+proto_do_show(list *l, int verbose)
+{
+  struct proto *p;
+
+  WALK_LIST(p, *l)
+    {
+      cli_msg(-1002, "%-8s %-8s %-8s %s%s",
+	      p->name,
+	      p->proto->name,
+	      p->table->name,
+	      proto_state_name(p),
+	      proto_goal_name(p));
+      if (verbose)
+	{
+	  cli_msg(-1006, "\tPreference: %d", p->preference);
+	  cli_msg(-1006, "\tInput filter: %s", filter_name(p->in_filter));
+	  cli_msg(-1006, "\tOutput filter: %s", filter_name(p->out_filter));
+	}
+    }
+}
+
+void
+proto_show(struct symbol *s, int verbose)
+{
+  cli_msg(-2002, "name     proto    table    state");
+  proto_do_show(&proto_list, verbose);
+  proto_do_show(&flush_proto_list, verbose);
+  proto_do_show(&inactive_proto_list, verbose);
   cli_msg(0, "");
 }

@@ -1,8 +1,8 @@
 Reply codes of BIRD command-line interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 0xxx	Action suceessfully completed
-1xxx	Table heading
-2xxx	Table entry
+1xxx	Table entry
+2xxx	Table heading
 8xxx	Run-time error
 9xxx	Parse-time error
 <space>	Continuation
@@ -11,14 +11,13 @@ Reply codes of BIRD command-line interface
 0000	OK
 0001	Welcome
 
+1000	BIRD version
+1001	Interface list
 1002	Protocol list
-
-2000	BIRD version
-2001	Interface list
-2002	Protocol list
-2003	Interface address
-2004	Interface flags
-2005	Interface summary
+1003	Interface address
+1004	Interface flags
+1005	Interface summary
+1006	Protocol details
 
 8000	Reply too long
 
