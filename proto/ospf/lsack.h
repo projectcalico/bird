@@ -1,7 +1,7 @@
 /*
  *      BIRD -- OSPF
  *
- *      (c) 2000 Ondrej Filip <feela@network.cz>
+ *      (c) 2000--2004 Ondrej Filip <feela@network.cz>
  *
  *      Can be freely distributed and used under the terms of the GNU GPL.
  *
@@ -14,10 +14,9 @@ struct lsah_n {
   struct ospf_lsa_header lsa;
 };
 
-void ospf_lsack_direct_tx(struct ospf_neighbor *n,struct ospf_lsa_header *h);
-void ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
+void ospf_lsack_receive(struct ospf_lsack_packet *ps, struct proto *p,
   struct ospf_iface *ifa, u16 size);
-void ospf_lsack_delay_tx(struct ospf_neighbor *n);
-void ospf_lsa_delay(struct ospf_neighbor *n,struct ospf_lsa_header *h,
-  struct proto *p);
+void ospf_lsack_send(struct ospf_neighbor *n, int queue);
+void ospf_lsack_enqueue(struct ospf_neighbor *n,struct ospf_lsa_header *h,
+  struct proto *p, int queue);
 #endif /* _BIRD_OSPF_LSACK_H_ */

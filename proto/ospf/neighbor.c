@@ -67,7 +67,8 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   n->ackd_timer->randomize = 0;
   n->ackd_timer->hook = ackd_timer_hook;
   n->ackd_timer->recurrent = ifa->rxmtint/2;
-  init_list(&n->ackl);
+  init_list(&n->ackl[ACKL_DIRECT]);
+  init_list(&n->ackl[ACKL_DELAY]);
   tm_start(n->ackd_timer,n->ifa->rxmtint/2);
   DBG("%s: Installing ackd timer.\n", p->name);
 
@@ -306,10 +307,10 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       {
         neigh_chstate(n,NEIGHBOR_EXCHANGE);
 	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
-        while(!EMPTY_LIST(n->ackl))
+        while(!EMPTY_LIST(n->ackl[ACKL_DELAY]))
         {
           struct lsah_n *no;
-          no=(struct lsah_n *)HEAD(n->ackl);
+          no=(struct lsah_n *)HEAD(n->ackl[ACKL_DELAY]);
           rem_node(NODE no);
           mb_free(no);
         }
@@ -611,6 +612,6 @@ void
 ackd_timer_hook(timer *t)
 {
   struct ospf_neighbor *n=t->data;
-  if(!EMPTY_LIST(n->ackl)) ospf_lsack_delay_tx(n);
+  ospf_lsack_send(n, ACKL_DELAY);
 }
 

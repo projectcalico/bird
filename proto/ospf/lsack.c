@@ -1,54 +1,35 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 2000-2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 #include "ospf.h"
 
-/* Note, that h is in network endianity! */
+char *s_queue[]={ "direct", "delayed" };
+
+/*
+ * =====================================
+ * Note, that h is in network endianity!
+ * =====================================
+ */
 void
-ospf_lsack_direct_tx(struct ospf_neighbor *n,struct ospf_lsa_header *h)
-{
-  struct ospf_packet *op;
-  struct ospf_lsack_packet *pk;
-  sock *sk=n->ifa->ip_sk;
-  struct proto *p=&n->ifa->proto->proto;
-  u16 len;
-
-  DBG("Sending direct ACK to %I for Type: %u, ID: %I, RT: %I\n",n->rid,
-    h->type, ntohl(h->id), ntohl(h->rt));
-
-  pk=(struct ospf_lsack_packet *)sk->tbuf;
-  op=(struct ospf_packet *)sk->tbuf;
-
-  fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
-
-  memcpy(pk+1,h,sizeof(struct ospf_lsa_header));
-  len=sizeof(struct ospf_lsack_packet)+sizeof(struct ospf_lsa_header);
-  op->length=htons(len);
-  ospf_pkt_finalize(n->ifa, op);
-  sk_send_to(sk,len, n->ip, OSPF_PROTO);
-  OSPF_TRACE(D_PACKETS, "LS ack sent to %I", n->ip);
-}
-
-void
-ospf_lsa_delay(struct ospf_neighbor *n,struct ospf_lsa_header *h,
-  struct proto *p)
+ospf_lsack_enqueue(struct ospf_neighbor *n,struct ospf_lsa_header *h,
+  struct proto *p, int queue)
 {
   struct lsah_n *no;
 
   no=mb_alloc(n->pool,sizeof(struct lsah_n));
   memcpy(&no->lsa,h,sizeof(struct ospf_lsa_header));
-  add_tail(&n->ackl, NODE no);
-  DBG("Adding delay ack for %I, ID: %I, RT: %I, Type: %u\n",n->rid,
+  add_tail(&n->ackl[queue], NODE no);
+  DBG("Adding (%s) ack for %I, ID: %I, RT: %I, Type: %u\n", s_queue[queue], n->rid,
     ntohl(h->id), ntohl(h->rt),h->type);
 }
 
 void
-ospf_lsack_delay_tx(struct ospf_neighbor *n)
+ospf_lsack_send(struct ospf_neighbor *n, int queue)
 {
   struct ospf_packet *op;
   struct ospf_lsack_packet *pk;
@@ -59,7 +40,9 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   struct ospf_iface *ifa=n->ifa;
   struct proto *p=&n->ifa->proto->proto;
 
-  OSPF_TRACE(D_PACKETS, "LS ack sent to %I (delayed)",n->ip);
+  if(EMPTY_LIST(n->ackl[queue])) return;
+
+  OSPF_TRACE(D_PACKETS, "LS ack sent to %I (%s)", n->ip, s_queue[queue]);
 
   if(ifa->type==OSPF_IT_BCAST)
   {
@@ -76,9 +59,9 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   fill_ospf_pkt_hdr(n->ifa, pk, LSACK_P);
   h=(struct ospf_lsa_header *)(pk+1);
 
-  while(!EMPTY_LIST(n->ackl))
+  while(!EMPTY_LIST(n->ackl[queue]))
   {
-    no=(struct lsah_n *)HEAD(n->ackl);
+    no=(struct lsah_n *)HEAD(n->ackl[queue]);
     memcpy(h+i,&no->lsa, sizeof(struct ospf_lsa_header));
     i++;
     DBG("Iter %u ID: %I, RT: %I, Type: %u\n",i, ntohl((h+i)->id),
@@ -88,7 +71,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
     if((i*sizeof(struct ospf_lsa_header)+sizeof(struct ospf_lsack_packet)+SIPH)>
       n->ifa->iface->mtu)
     {
-      if(!EMPTY_LIST(n->ackl))
+      if(!EMPTY_LIST(n->ackl[queue]))
       {
         len=sizeof(struct ospf_lsack_packet)+i*sizeof(struct ospf_lsa_header);
 	op->length=htons(len);
@@ -131,11 +114,11 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   {
     if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
     {
-      sk_send_to(sk ,len, AllSPFRouters, OSPF_PROTO);
+      sk_send_to(sk, len, AllSPFRouters, OSPF_PROTO);
     }
     else
     {
-      sk_send_to(sk ,len, AllDRouters, OSPF_PROTO);
+      sk_send_to(sk, len, AllDRouters, OSPF_PROTO);
     }
   }
   else
@@ -145,7 +128,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
 }
 
 void
-ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
+ospf_lsack_receive(struct ospf_lsack_packet *ps, struct proto *p,
   struct ospf_iface *ifa, u16 size)
 {
   u32 nrid, myrid;

@@ -366,7 +366,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     /* pg 143 (4) */
     if((lsatmp.age==LSA_MAXAGE)&&(lsadb==NULL)&&can_flush_lsa(oa))
     {
-      ospf_lsack_direct_tx(n,lsa);
+      ospf_lsack_enqueue(n, lsa, p, ACKL_DIRECT);
       continue;
     }
 
@@ -399,7 +399,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
         if((lsatmp.age==LSA_MAXAGE)&&(lsatmp.sn==LSA_MAXSEQNO))
         {
-          ospf_lsack_direct_tx(n,lsa);
+          ospf_lsack_enqueue(n, lsa, p, ACKL_DIRECT);
           continue;
         }
 
@@ -432,9 +432,9 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
         DBG("Wasn't flooded back\n");	/* ps 144(5e), pg 153 */
         if(ifa->state==OSPF_IS_BACKUP)
 	{
-	  if(ifa->drid==n->rid) ospf_lsa_delay(n, lsa, p);
+	  if(ifa->drid==n->rid) ospf_lsack_enqueue(n, lsa, p, ACKL_DELAY);
 	}
-	else ospf_lsa_delay(n, lsa, p);
+	else ospf_lsack_enqueue(n, lsa, p, ACKL_DELAY);
       }
 
       /* Remove old from all ret lists */
@@ -488,13 +488,13 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
         ospf_hash_delete(n->lsrth, en);
         if(ifa->state==OSPF_IS_BACKUP)
         {
-          if(n->rid==ifa->drid) ospf_lsa_delay(n, lsa, p);
+          if(n->rid==ifa->drid) ospf_lsack_enqueue(n, lsa, p, ACKL_DELAY);
         }
       }
       else
       {
         /* pg145 (7b) */
-        ospf_lsack_direct_tx(n,lsa);
+        ospf_lsack_enqueue(n, lsa, p, ACKL_DIRECT);
       }
       continue;
     }
@@ -516,6 +516,9 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       ospf_lsupd_tx_list(n, &l);
     }
   }
+
+  /* Send direct LSAs */
+  ospf_lsack_send(n, ACKL_DIRECT);
 
   if(n->state==NEIGHBOR_LOADING)
   {

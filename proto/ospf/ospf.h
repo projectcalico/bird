@@ -356,7 +356,9 @@ struct ospf_neighbor
   struct top_graph *lsrth;
   void *ldbdes;		/* Last database description packet */
   timer *rxmt_timer;	/* RXMT timer */
-  list ackl;
+  list ackl[2];
+#define ACKL_DIRECT 0
+#define ACKL_DELAY 1
   timer *ackd_timer;	/* Delayed ack timer */
 };
 
