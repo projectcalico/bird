@@ -284,10 +284,10 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
 
   if (new && rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
     {
+      rte_trace_in(D_ROUTES, p, new, "added [best]");
       rte_announce(table, net, new, old_best, tmpa);
       new->next = net->routes;
       net->routes = new;
-      rte_trace_in(D_ROUTES, p, new, "added [best]");
     }
   else
     {
@@ -659,7 +659,7 @@ rt_format_via(rte *e, byte *via)
 static void
 rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d)
 {
-  byte via[STD_ADDRESS_P_LENGTH+32], from[STD_ADDRESS_P_LENGTH];
+  byte via[STD_ADDRESS_P_LENGTH+32], from[STD_ADDRESS_P_LENGTH+6];
   byte tm[TM_RELTIME_BUFFER_SIZE], info[256];
   rta *a = e->attrs;
 
