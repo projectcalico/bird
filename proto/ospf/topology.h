@@ -19,11 +19,13 @@ struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
   ip_addr nh;				/* Next hop */
   struct iface *nhi;
   u16 dist;				/* Distance from the root */
+  u16 ini_age;
   u8 color;
 #define OUTSPF 0
 #define CANDIDATE 1
 #define INSPF 2
   u8 padding;
+  u16 padding2;
 };
 
 struct top_graph {

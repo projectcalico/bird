@@ -102,7 +102,6 @@ ospf_start(struct proto *p)
     oa->disp_timer->randomize=0;
     oa->disp_timer->hook=area_disp;
     oa->disp_timer->recurrent=oa->tick;
-    oa->lage=now;
     tm_start(oa->disp_timer,oa->tick);
     oa->calcrt=0;
     oa->origrt=0;

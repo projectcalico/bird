@@ -40,7 +40,6 @@ ospf_age(struct ospf_area *oa)
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct top_hash_entry *en,*nxt;
   int flush=can_flush_lsa(oa);
-  bird_clock_t delta=now-oa->lage;
 
   WALK_SLIST_DELSAFE(en,nxt,oa->lsal)
   {
@@ -68,7 +67,7 @@ ospf_age(struct ospf_area *oa)
        flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
        continue;
     }
-    if((en->lsa.age+=delta)>=LSA_MAXAGE)
+    if((en->lsa.age=(en->ini_age+(now-en->inst_t)))>=LSA_MAXAGE)
     {
       if(flush)
       {
@@ -78,7 +77,6 @@ ospf_age(struct ospf_area *oa)
       else en->lsa.age=LSA_MAXAGE;
     }
   }
-  oa->lage=now;
 }
 
 void
@@ -454,6 +452,7 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
   if(en->lsa_body!=NULL) mb_free(en->lsa_body);
   en->lsa_body=body;
   memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
+  en->ini_age=en->lsa.age;
 
   if(change)
   {
