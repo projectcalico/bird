@@ -5,11 +5,11 @@ include Rules
 
 srcdir_abs := $(shell cd $(srcdir) ; pwd)
 
-.PHONY: all subdir depend clean distclean
+.PHONY: all subdir depend clean distclean tags
 
-all: .dir-stamp .dep-stamp subdir $(exedir)/bird
+all: .dep-stamp subdir $(exedir)/bird
 
-subdir depend:
+subdir depend: .dir-stamp
 	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a $@ ; done
 	set -e ; for a in $(static-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
 
@@ -23,6 +23,9 @@ $(exedir)/bird: $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
 .dep-stamp:
 	$(MAKE) depend
 	touch .dep-stamp
+
+tags:
+	cd $(srcdir) ; etags -lc `find $(static-dirs) $(addprefix $(objdir)/,$(dynamic-dirs)) -name *.[chY]`
 
 clean:
 	find . -name "*.[oa]" -or -name core -or -name depend | xargs rm -f
