@@ -47,11 +47,9 @@ OSPF
 	- check incoming packets using neighbor cache
 	- RFC2328 appendix E: Use a better algorithm
 	- automatic generation of external route tags (RFC1403)
-	- RFC1587 NSSA areas
+	- RFC3101 NSSA areas
 	- RFC2370 opaque LSA's
 	- Limit export rate of external LSAs (like Gated does)
 	- Bugfix in link state retransmission list (aging)
-	- Default route origination into stub areas
 	- Rewrite the "dirty patch" in OSPF database (LSA_T_NET)
-	- Backbone cannot be configured as stub!
 	- Graceful OSPF restart - RFC3623
