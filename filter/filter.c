@@ -26,6 +26,8 @@
 #include "conf/conf.h"
 #include "filter/filter.h"
 
+#define P(a,b) ((a<<8) | b)
+
 struct f_inst *startup_func = NULL;
 
 #define CMP_ERROR 999
@@ -150,7 +152,7 @@ static struct linpool *f_pool;
 
 #define ARG(x,y) \
 	x = interpret(what->y); \
-	if (x.type == T_RETURN) \
+	if (x.type & T_RETURN) \
 		return x;
 
 #define ONEARG ARG(v1, a1.p)
@@ -208,10 +210,10 @@ interpret(struct f_inst *what)
     res.val.i = (x); \
     break;
 
-  case '!=': COMPARE(i!=0);
-  case '==': COMPARE(i==0);
+  case P('!','='): COMPARE(i!=0);
+  case P('=','='): COMPARE(i==0);
   case '<': COMPARE(i==-1);
-  case '<=': COMPARE(i!=1);
+  case P('<','='): COMPARE(i!=1);
 
   case '~':
     TWOARGS;
@@ -220,7 +222,7 @@ interpret(struct f_inst *what)
     if (res.val.i == CMP_ERROR)
       runtime( "~ applied on unknown type pair" );
     break;
-  case 'de':
+  case P('d','e'):
     ONEARG;
     res.type = T_BOOL;
     res.val.i = (v1.type != T_VOID);
@@ -270,7 +272,7 @@ interpret(struct f_inst *what)
   case '0':
     printf( "No operation\n" );
     break;
-  case 'p,':
+  case P('p',','):
     ONEARG;
     if (what->a2.i != F_NONL)
       printf( "\n" );
@@ -314,9 +316,10 @@ interpret(struct f_inst *what)
       }
     }
     break;
-  case 'ea':	/* Access to extended attributes [hmm, but we need it read/write, do we?] */
+  case P('e','a'):	/* Access to extended attributes */
     {
       eattr *e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
+      /* FIXME: should I search in tmp_attrs, too, or what ? */
       if (!e) {
 	res.type = T_VOID;
 	break;
@@ -329,7 +332,7 @@ interpret(struct f_inst *what)
       }
     }
     break;
-  case 'eS':
+  case P('e','S'):
     ONEARG;
     if (v1.type != what->aux)
       runtime("Wrong type when setting dynamic attribute\n");
@@ -358,7 +361,7 @@ interpret(struct f_inst *what)
     }
     break;
 
-  case 'cp':	/* Convert prefix to ... */
+  case P('c','p'):	/* Convert prefix to ... */
     ONEARG;
     if (v1.type != T_PREFIX)
       runtime( "Can not convert non-prefix this way" );
@@ -369,11 +372,19 @@ interpret(struct f_inst *what)
     default: bug( "Unknown prefix to conversion\n" );
     }
     break;
-  case 'ca': /* CALL */
+  case 'r':
+    ONEARG;
+    res = v1;
+    res.type |= T_RETURN;
+    break;
+  case P('c','a'): /* CALL: this is special: if T_RETURN and returning some value, mask it out  */
     ONEARG;
     res = interpret(what->a2.p);
+    if (res.type == T_RETURN)
+      return res;
+    res.type &= ~T_RETURN;    
     break;
-  case 'SW':
+  case P('S','W'):
     ONEARG;
     {
       struct f_tree *t = find_tree(what->a2.p, v1);
@@ -390,7 +401,7 @@ interpret(struct f_inst *what)
       return interpret(t->data);
     }
     break;
-  case 'iM': /* IP.MASK(val) */
+  case P('i','M'): /* IP.MASK(val) */
     TWOARGS;
     if (v2.type != T_INT)
       runtime( "Can not use this type for mask.");
@@ -410,6 +421,7 @@ interpret(struct f_inst *what)
   return res;
 }
 
+#undef ARG
 #define ARG(x,y) \
 	if (!i_same(f1->y, f2->y)) \
 		return 0;
@@ -436,13 +448,13 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case ',': /* fall through */
   case '+':
   case '/':
-  case '!=':
-  case '==':
+  case P('!','='):
+  case P('=','='):
   case '<':
-  case '<=': TWOARGS; break;
+  case P('<','='): TWOARGS; break;
 
   case '~': TWOARGS; break;
-  case 'de': ONEARG; break;
+  case P('d','e'): ONEARG; break;
 
   case 's':
     ARG(v2, a2.p);
@@ -465,23 +477,25 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case 'p': ONEARG; break;
   case '?': TWOARGS; break;
   case '0': break;
-  case 'p,': ONEARG; A2_SAME; break;
+  case P('p',','): ONEARG; A2_SAME; break;
   case 'a': A2_SAME; break;
-  case 'ea': A2_SAME; break;
-  case 'eS': ONEARG; A2_SAME; break;
+  case P('e','a'): A2_SAME; break;
+  case P('e','S'): ONEARG; A2_SAME; break;
 
-  case 'cp': ONEARG; break;
-  case 'ca': /* CALL, FIXME: exponential in some cases */
+  case 'r': ONEARG; break;
+  case P('c','p'): ONEARG; break;
+  case P('c','a'): /* CALL, FIXME: exponential in some cases */
              ONEARG; if (!i_same(f1->a2.p, f2->a2.p)) return 0; break;
-  case 'SW': ONEARG; if (!same_tree(f1->a2.p, f2->a2.p)) return 0; break;
-  case 'iM': TWOARGS; break;
+  case P('S','W'): ONEARG; if (!same_tree(f1->a2.p, f2->a2.p)) return 0; break;
+  case P('i','M'): TWOARGS; break;
   default:
     bug( "Unknown instruction %d in same (%c)", f1->code, f1->code & 0xff);
   }
   return i_same(f1->next, f2->next);
 }
 
-/* FIXME: tmp_attrs is unreferenced. That can't be right */
+/* FIXME: tmp_attrs is unreferenced. That can't be right.
+   Strange. look at eS how dynamic attrs are set. */
 int
 f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool)
 {
@@ -499,8 +513,6 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   debug( "done (%d)\n", res.val.i );
   return res.val.i;
 }
-
-
 
 void
 filters_postconfig(void)

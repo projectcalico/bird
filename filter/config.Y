@@ -6,7 +6,7 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
 	FIXME (nonurgent): define keyword
-	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
+	FIXME (for BGP): whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
 	FIXME: '! =' should not be permitted. Ze `!=' by nemelo byt totez jako `! =' Nadefinujes si pres %token novy token a do cf-lex.l pridas nove pravidlo, ktere jej rozpoznava. Napriklad !=      return NEQ;
 	FIXME: IP addresses in ipv6
@@ -25,9 +25,11 @@ CF_HDR
 #include "nest/route.h"
 #include <string.h>
 
+#define P(a,b) ((a<<8) | b)
+
 CF_DECLS
 
-CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST, UNSET,
+CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST, UNSET, RETURN,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
 	IF, THEN, ELSE, CASE,
@@ -41,7 +43,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST, UNSET,
 %nonassoc THEN
 %nonassoc ELSE
 
-%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic
+%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic function_call
 %type <f> filter filter_body where_filter
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
@@ -132,11 +134,11 @@ where_filter:
      struct filter *f = cfg_alloc(sizeof(struct filter));
      struct f_inst *i, *acc, *rej;
      acc = f_new_inst();		/* ACCEPT */
-     acc->code = 'p,';
+     acc->code = P('p',',');
      acc->a1.p = NULL;
      acc->a2.i = F_ACCEPT;
      rej = f_new_inst();		/* REJECT */
-     rej->code = 'p,';
+     rej->code = P('p',',');
      rej->a1.p = NULL;
      rej->a2.i = F_REJECT;
      i = f_new_inst();			/* IF */
@@ -274,17 +276,41 @@ any_dynamic:
 rtadot: /* EMPTY, we are not permitted RTA. prefix */
  ;
 
+function_call:
+   SYM '(' var_list ')' {
+     struct symbol *sym;
+     struct f_inst *inst = $3;
+     if ($1->class != SYM_FUNCTION)
+       cf_error("You can not call something which is not function. Really.");
+     printf("You are calling function %s\n", $1->name);
+     $$ = f_new_inst();
+     $$->code = P('c','a');
+     $$->a1.p = inst;
+     $$->a2.p = $1->aux2;
+     sym = (void *) $1->aux;
+     while (sym || inst) {
+       if (!sym || !inst)
+	 cf_error("wrong number of arguments for function %s.", $1->name);
+       printf( "You should pass parameter called %s\n", sym->name);
+       inst->a1.p = sym;
+       sym = (void *) sym->aux;
+       inst = inst->next;
+     }
+   }
+ ;
+
+
 term:
    '(' term ')'      { $$ = $2; }
  | term '+' term     { $$ = f_new_inst(); $$->code = '+';  $$->a1.p = $1; $$->a2.p = $3; }
- | term '=' term     { $$ = f_new_inst(); $$->code = '=='; $$->a1.p = $1; $$->a2.p = $3; }
- | term '!' '=' term { $$ = f_new_inst(); $$->code = '!='; $$->a1.p = $1; $$->a2.p = $4; }
+ | term '=' term     { $$ = f_new_inst(); $$->code = P('=','='); $$->a1.p = $1; $$->a2.p = $3; }
+ | term '!' '=' term { $$ = f_new_inst(); $$->code = P('!','='); $$->a1.p = $1; $$->a2.p = $4; }
  | term '<' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $1; $$->a2.p = $3; }
- | term '<' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->a1.p = $1; $$->a2.p = $4; }
+ | term '<' '=' term { $$ = f_new_inst(); $$->code = P('<','='); $$->a1.p = $1; $$->a2.p = $4; }
  | term '>' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $3; $$->a2.p = $1; }
- | term '>' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->a1.p = $4; $$->a2.p = $1; }
+ | term '>' '=' term { $$ = f_new_inst(); $$->code = P('<','='); $$->a1.p = $4; $$->a2.p = $1; }
  | term '~' term     { $$ = f_new_inst(); $$->code = '~';  $$->a1.p = $1; $$->a2.p = $3; }
- | DEFINED '(' term ')' { $$ = f_new_inst(); $$->code = 'de';  $$->a1.p = $3; }
+ | DEFINED '(' term ')' { $$ = f_new_inst(); $$->code = P('d','e');  $$->a1.p = $3; }
 
  | constant { $$ = $1; }
  | SYM {
@@ -308,11 +334,12 @@ term:
  | rtadot NET     { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_PREFIX; $$->a2.i = 0x12345678; }
  | rtadot SOURCE  { $$ = f_new_inst(); $$->code = 'a'; $$->aux = T_ENUM_RTS; $$->a2.i = OFFSETOF(struct rta, gw); }
 
- | rtadot any_dynamic { $$ = $2; $$->code = 'ea'; }
+ | rtadot any_dynamic { $$ = $2; $$->code = P('e','a'); }
 
- | term '.' IP { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->aux = T_IP; }
- | term '.' LEN { $$ = f_new_inst(); $$->code = 'cp'; $$->a1.p = $1; $$->aux = T_INT; }
- | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = 'iM'; $$->a1.p = $1; $$->a2.p = $5; }
+ | term '.' IP { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_IP; }
+ | term '.' LEN { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_INT; }
+ | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = P('i','M'); $$->a1.p = $1; $$->a2.p = $5; }
+ | function_call { $$ = $1; /* 1 shift/reduce conflict */ }
  ;
 
 break_command:
@@ -383,41 +410,28 @@ cmd:
      $$->a1.p = $1;
      $$->a2.p = $3;
    }
+ | RETURN term ';' {
+     $$ = f_new_inst();
+     printf( "Ook, we'll return the value\n" );
+     $$->code = 'r';
+     $$->a1.p = $2;
+   }
  | rtadot any_dynamic '=' term ';' {
      $$ = $2;
-     $$->code  = 'eS';
+     $$->code  = P('e','S');
      $$->a1.p = $4;
    }
  | UNSET '(' rtadot any_dynamic ')' ';' {
      $$ = $4;
      $$->aux = T_VOID;
-     $$->code = 'eS';
+     $$->code = P('e','S');
      $$->a1.p = NULL;
    }
- | break_command print_list ';' { $$ = f_new_inst(); $$->code = 'p,'; $$->a1.p = $2; $$->a2.i = $1; }
- | SYM '(' var_list ')' ';' {
-     struct symbol *sym;
-     struct f_inst *inst = $3;
-     if ($1->class != SYM_FUNCTION)
-       cf_error("You can not call something which is not function. Really.");
-     printf("You are calling function %s\n", $1->name);
-     $$ = f_new_inst();
-     $$->code = 'ca';
-     $$->a1.p = inst;
-     $$->a2.p = $1->aux2;
-     sym = (void *) $1->aux;
-     while (sym || inst) {
-       if (!sym || !inst)
-	 cf_error("wrong number of arguments for function %s.", $1->name);
-       printf( "You should pass parameter called %s\n", sym->name);
-       inst->a1.p = sym;
-       sym = (void *) sym->aux;
-       inst = inst->next;
-     }
-   }
+ | break_command print_list ';' { $$ = f_new_inst(); $$->code = P('p',','); $$->a1.p = $2; $$->a2.i = $1; }
+ | function_call ';' { $$ = $1; }
  | CASE term '{' switch_body '}' {
       $$ = f_new_inst();
-      $$->code = 'SW';
+      $$->code = P('S','W');
       $$->a1.p = $2;
       $$->a2.p = build_tree( $4 );
    }

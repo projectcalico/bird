@@ -91,16 +91,15 @@ void val_print(struct f_val v);
 /* Internal types */
 /* Do not use type of zero, that way we'll see errors easier. */
 #define T_VOID 1
-#define T_RETURN 2
 
 /* User visible types, which fit in int */
 #define T_INT 0x10
 #define T_BOOL 0x11
 #define T_PAIR 0x12
 
-/* Put enumerational types in 0x30..0x7f range */
+/* Put enumerational types in 0x30..0x3f range */
 #define T_ENUM_LO 0x30
-#define T_ENUM_HI 0x7f
+#define T_ENUM_HI 0x3f
 
 #define T_ENUM_RTS 0x30
 
@@ -111,6 +110,7 @@ void val_print(struct f_val v);
 #define T_PREFIX 0x21
 #define T_STRING 0x22
 
+#define T_RETURN 0x40
 #define T_SET 0x80
 
 struct f_tree {
@@ -120,5 +120,7 @@ struct f_tree {
 };
 
 #define NEW_F_VAL struct f_val * val; val = cfg_alloc(sizeof(struct f_val));
+
+/* Create pair from two letters */
 
 #endif
