@@ -274,9 +274,6 @@ originate_net_lsa(struct ospf_iface *ifa)
    * try to do it next tick
    */
 
-  OSPF_TRACE(D_EVENTS, "Originating Net lsa for iface \"%s\".",
-    ifa->iface->name);
-
   if((ifa->state!=OSPF_IS_DR)||(ifa->fadj==0))
   {
     if(ifa->nlsa==NULL) return;
