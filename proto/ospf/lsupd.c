@@ -318,14 +318,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       int flag=0;
       struct ospf_iface *ifatmp;
 
-      WALK_LIST(NODE ifatmp,po->iface_list)
-        WALK_LIST(NODE ntmp,ifatmp->neigh_list)
-          if((ntmp->state==NEIGHBOR_EXCHANGE)&&
-            (ntmp->state==NEIGHBOR_LOADING))
-            flag=1;
-      DBG("PG143(4): Flag=%u\n",flag);
-
-      if(flag==0)
+      if(can_flush_lsa(oa))
       {
         ospf_lsack_direct_tx(n,lsa);
 	continue;
