@@ -23,16 +23,28 @@
 
 #include "ospf.h"
 
+void
+neigh_chstate(struct ospf_neighbor *n, int state)
+{
+  struct ospf_iface *ifa;
+  struct proto *p;
+
+  ifa=n->ifa;
+  p=(struct proto *)(ifa->proto);
+  
+  debug("%s: Neigbor '%u' changes state from %u to %u.\n", p->name, n->rid,
+    n->state, state);
+  n->state=state;
+}
+
+
 /* Try to build neighbor adjacency (if does not exists) */
 void
 tryadj(struct ospf_neighbor *n, struct proto *p)
 {
-  if(n->state==NEIGHBOR_INIT)
-  {
-    DBG("%s: Going to build adjacency.\n", p->name);
-    n->state=NEIGHBOR_EXSTART;
-    /* FIXME Go on */
-  }
+  DBG("%s: Going to build adjacency.\n", p->name);
+  neigh_chstate(n,NEIGHBOR_EXSTART);
+  /* FIXME Go on */
 }
 
 /* Neighbor is inactive for a long time. Remove it. */
@@ -257,7 +269,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if(n==NULL)
   {
-    log("%s: New neighbor found: %u.",p->name,nrid);
+    log("%s: New neighbor found: %u.", p->name,nrid);
     n=mb_alloc(p->pool, sizeof(struct ospf_neighbor));
     add_tail(&ifa->neigh_list, NODE n);
     n->inactim=tm_new(p->pool);
@@ -266,12 +278,13 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->inactim->hook=neighbor_timer_hook;
     n->inactim->recurrent=0;
     DBG("%s: Installing inactivity timer.\n", p->name);
-    n->state=NEIGHBOR_INIT;
     n->rid=nrid;
     n->dr=ntohl(ps->dr);
     n->bdr=ntohl(ps->bdr);
     n->priority=ps->priority;
     n->options=ps->options;
+    n->ifa=ifa;
+    neigh_chstate(n,NEIGHBOR_INIT);
   }
   tm_start(n->inactim,ifa->deadc*ifa->helloint);
 
@@ -290,14 +303,14 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if(twoway)
   {
-    if(n->state<NEIGHBOR_2WAY) n->state=NEIGHBOR_2WAY;
+    if(n->state<NEIGHBOR_2WAY) neigh_chstate(n,NEIGHBOR_2WAY);
   }
   else
   {
     if(n->state>=NEIGHBOR_2WAY)
     {
       /* FIXME Delete all learnt */
-      n->state=NEIGHBOR_INIT;
+      neigh_chstate(n,NEIGHBOR_INIT);
     }
   }
 
@@ -352,34 +365,13 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
       DBG("\n");
       break;
     case OSPF_IS_DROTHER:
-      if(twoway)
-      {
-        if((n->rid==n->dr) || (n->rid==n->bdr)) tryadj(n,p);
-	else n->state=NEIGHBOR_2WAY;
-      }
-      else
-      {
-	if(n->state==NEIGHBOR_2WAY) n->state=NEIGHBOR_INIT;
-	if(n->state>NEIGHBOR_2WAY) 
-        {
-          /* FIXME Kill adjacency */;
-          n->state=NEIGHBOR_INIT;
-        }
-      }
+      if(((n->rid==ifa->drid) || (n->rid==ifa->bdrid))
+        && (n->state==NEIGHBOR_2WAY)) tryadj(n,p);
       break;
     case OSPF_IS_PTP:
     case OSPF_IS_BACKUP:
     case OSPF_IS_DR:
-      if(twoway) tryadj(n,p);
-      else
-      {
-	if(n->state==NEIGHBOR_2WAY) n->state=NEIGHBOR_INIT;
-	if(n->state>NEIGHBOR_2WAY) 
-        {
-          /* FIXME Kill adjacency */;
-          n->state=NEIGHBOR_INIT;
-        }
-      }
+      if(n->state==NEIGHBOR_2WAY) tryadj(n,p);
       break;
     default:
       die("%s: Iface %s in unknown state?",p->name, ifa->iface->name);
