@@ -53,6 +53,7 @@
 
 #define DEFAULT_OSPFTICK 1
 #define DEFAULT_RFC1583 0	/* compatibility with rfc1583 */
+#define DEFAULT_STUB_COST 1000
 
 
 struct ospf_config

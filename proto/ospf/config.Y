@@ -75,6 +75,7 @@ ospf_area_opts:
 
 ospf_area_item:
    STUB COST expr { this_area->stub = $3 ; if($3<=0) cf_error("Stub cost must be greater than zero"); }
+ | STUB bool {if($2) { if(!this_area->stub) this_area->stub=DEFAULT_STUB_COST;}else{ this_area->stub=0;}}
  | NETWORKS '{' pref_list '}'
  | INTERFACE ospf_iface_list
  | ospf_vlink
