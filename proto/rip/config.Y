@@ -37,7 +37,7 @@ CF_GRAMMAR
 CF_ADDTO(proto, rip_cfg '}')
 
 rip_cfg_start: proto_start RIP {
-     RIP_CFG = proto_config_new(&proto_rip, sizeof(struct rip_proto_config));
+     this_proto = proto_config_new(&proto_rip, sizeof(struct rip_proto_config));
      rip_init_config(RIP_CFG);
    }
  ;
@@ -51,7 +51,7 @@ rip_cfg:
  | rip_cfg GARBAGE TIME expr ';' { RIP_CFG->garbage_time = $4; }
  | rip_cfg TIMEOUT TIME expr ';' { RIP_CFG->timeout_time = $4; }
  | rip_cfg AUTHENTICATION rip_auth ';' {RIP_CFG->authtype = $3; }
- | rip_cfg password_list ';' {RIP_CFG->passwords = $2; }
+ | rip_cfg password_list ';' {RIP_CFG->passwords = (list *)$2; }
  | rip_cfg HONOR ALWAYS ';'    { RIP_CFG->honor = HO_ALWAYS; }
  | rip_cfg HONOR NEIGHBOR ';'    { RIP_CFG->honor = HO_NEIGHBOR; }
  | rip_cfg HONOR NEVER ';'    { RIP_CFG->honor = HO_NEVER; }
