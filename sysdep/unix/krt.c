@@ -385,7 +385,7 @@ static void
 krt_learn_init(struct krt_proto *p)
 {
   if (KRT_CF->learn)
-    rt_setup(p->p.pool, &p->krt_table, "Inherited");
+    rt_setup(p->p.pool, &p->krt_table, "Inherited", NULL);
 }
 
 static void

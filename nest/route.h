@@ -113,6 +113,8 @@ struct rtable_config {
   char *name;
   struct rtable *table;
   struct proto_config *krt_attached;	/* Kernel syncer attached to this table */
+  int gc_max_ops;			/* Maximum number of operations before GC is run */
+  int gc_min_time;			/* Minimum time between two consecutive GC runs */
 };
 
 typedef struct rtable {
@@ -122,10 +124,14 @@ typedef struct rtable {
   list hooks;				/* List of announcement hooks */
   int pipe_busy;			/* Pipe loop detection */
   int use_count;			/* Number of protocols using this table */
+  struct rtable_config *config;		/* Configuration of this table */
   struct config *deleted;		/* Table doesn't exist in current configuration,
 					 * delete as soon as use_count becomes 0 and remove
 					 * obstacle from this routing table.
 					 */
+  struct event *gc_event;		/* Garbage collector event */
+  int gc_counter;			/* Number of operations since last GC */
+  bird_clock_t gc_time;			/* Time of last GC */
 } rtable;
 
 typedef struct network {
@@ -179,7 +185,7 @@ void rt_preconfig(struct config *);
 void rt_commit(struct config *new, struct config *old);
 void rt_lock_table(rtable *);
 void rt_unlock_table(rtable *);
-void rt_setup(pool *, rtable *, char *);
+void rt_setup(pool *, rtable *, char *, struct rtable_config *);
 static inline net *net_find(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_find(&tab->fib, &addr, len); }
 static inline net *net_get(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_get(&tab->fib, &addr, len); }
 rte *rte_find(net *net, struct proto *p);
@@ -195,6 +201,7 @@ void rt_dump_all(void);
 void rt_feed_baby(struct proto *p);
 void rt_prune(rtable *tab);
 void rt_prune_all(void);
+struct rtable_config *rt_new_table(struct symbol *s);
 
 struct rt_show_data {
   ip_addr prefix;

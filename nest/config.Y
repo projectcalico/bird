@@ -61,11 +61,7 @@ idval:
 CF_ADDTO(conf, newtab)
 
 newtab: TABLE SYM {
-     struct rtable_config *c = cfg_allocz(sizeof(struct rtable_config));
-     struct symbol *s = $2;
-     cf_define_symbol(s, SYM_TABLE, c);
-     c->name = s->name;
-     add_tail(&new_config->tables, &c->n);
+   rt_new_table($2);
    }
  ;
 

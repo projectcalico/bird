@@ -24,14 +24,8 @@
 static slab *rte_slab;
 static linpool *rte_update_pool;
 
-#define RT_GC_MIN_TIME 5		/* FIXME: Make configurable */
-#define RT_GC_MIN_COUNT 100
-
 static pool *rt_table_pool;
 static list routing_tables;
-static event *rt_gc_event;
-static bird_clock_t rt_last_gc;
-static int rt_gc_counter;
 
 static void
 rte_init(struct fib_node *N)
@@ -40,15 +34,6 @@ rte_init(struct fib_node *N)
 
   N->flags = 0;
   n->routes = NULL;
-}
-
-void
-rt_setup(pool *p, rtable *t, char *name)
-{
-  bzero(t, sizeof(*t));
-  fib_init(&t->fib, p, sizeof(net), 0, rte_init);
-  t->name = name;
-  init_list(&t->hooks);
 }
 
 rte *
@@ -277,8 +262,10 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
 		}
 	      r->next = net->routes;
 	      net->routes = r;
-	      if (!r && rt_gc_counter++ >= RT_GC_MIN_COUNT && rt_last_gc + RT_GC_MIN_TIME <= now)
-		ev_schedule(rt_gc_event);
+	      if (!r &&
+		  table->gc_counter++ >= table->config->gc_max_ops &&
+		  table->gc_time + table->config->gc_min_time <= now)
+		ev_schedule(table->gc_event);
 	    }
 	}
       if (new)				/* Link in the new non-optimal route */
@@ -406,15 +393,30 @@ rt_dump_all(void)
 }
 
 static int
-rt_gc(void *unused)
+rt_gc(void *tab)
 {
-  rtable *t;
+  rtable *t = tab;
 
-  DBG("Entered routing table garbage collector after %d seconds and %d deletes\n", (int)(now - rt_last_gc), rt_gc_counter);
-  rt_prune_all();
-  rt_last_gc = now;
-  rt_gc_counter = 0;
+  DBG("Entered routing table garbage collector for %s after %d seconds and %d deletes\n",
+      t->name, (int)(now - t->gc_time), t->gc_counter);
+  rt_prune(t);
   return 0;
+}
+
+void
+rt_setup(pool *p, rtable *t, char *name, struct rtable_config *cf)
+{
+  bzero(t, sizeof(*t));
+  fib_init(&t->fib, p, sizeof(net), 0, rte_init);
+  t->name = name;
+  t->config = cf;
+  init_list(&t->hooks);
+  if (cf)
+    {
+      t->gc_event = ev_new(p);
+      t->gc_event->hook = rt_gc;
+      t->gc_event->data = t;
+    }
 }
 
 void
@@ -424,9 +426,6 @@ rt_init(void)
   rt_table_pool = rp_new(&root_pool, "Routing tables");
   rte_update_pool = lp_new(rt_table_pool, 4080);
   rte_slab = sl_new(rt_table_pool, sizeof(rte));
-  rt_last_gc = now;
-  rt_gc_event = ev_new(rt_table_pool);
-  rt_gc_event->hook = rt_gc;
   init_list(&routing_tables);
 }
 
@@ -462,6 +461,8 @@ again:
     }
   FIB_ITERATE_END(f);
   DBG("Pruned %d of %d routes and %d of %d networks\n", rcnt, rdel, ncnt, ndel);
+  tab->gc_counter = 0;
+  tab->gc_time = now;
 }
 
 void
@@ -473,17 +474,26 @@ rt_prune_all(void)
     rt_prune(t);
 }
 
+struct rtable_config *
+rt_new_table(struct symbol *s)
+{
+  struct rtable_config *c = cfg_allocz(sizeof(struct rtable_config));
+
+  cf_define_symbol(s, SYM_TABLE, c);
+  c->name = s->name;
+  add_tail(&new_config->tables, &c->n);
+  c->gc_max_ops = 100;
+  c->gc_min_time = 5;
+  return c;
+}
+
 void
 rt_preconfig(struct config *c)
 {
   struct symbol *s = cf_find_symbol("master");
-  struct rtable_config *r = cfg_allocz(sizeof(struct rtable_config));
 
-  cf_define_symbol(s, SYM_TABLE, r);
-  r->name = s->name;
   init_list(&c->tables);
-  add_tail(&c->tables, &r->n);
-  c->master_rtc = r;
+  c->master_rtc = rt_new_table(s);
 }
 
 void
@@ -526,6 +536,7 @@ rt_commit(struct config *new, struct config *old)
 		  r = sym->def;
 		  r->table = ot;
 		  ot->name = r->name;
+		  ot->config = r;
 		}
 	      else
 		{
@@ -544,7 +555,7 @@ rt_commit(struct config *new, struct config *old)
       {
 	rtable *t = mb_alloc(rt_table_pool, sizeof(struct rtable));
 	DBG("\t%s: created\n", r->name);
-	rt_setup(rt_table_pool, t, r->name);
+	rt_setup(rt_table_pool, t, r->name, r);
 	add_tail(&routing_tables, &t->n);
 	r->table = t;
       }
