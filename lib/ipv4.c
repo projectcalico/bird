@@ -6,8 +6,6 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-#ifndef IPV6
-
 #include <string.h>
 #include <stdlib.h>
 
@@ -24,6 +22,10 @@ ipv4_classify(u32 a)
     {
       if (b == 0x7f)
 	return IADDR_HOST | SCOPE_HOST;
+      else if (b == 0x0a ||
+	       (a & 0xffff0000) == 0xc0a80000 ||
+	       (a & 0xfff00000) == 0xac100000)
+	return IADDR_HOST | SCOPE_SITE;
       else
 	return IADDR_HOST | SCOPE_UNIVERSE;
     }
@@ -92,5 +94,3 @@ ip_pton(char *a, ip_addr *o)
   *o = ipa_from_u32(ia);
   return 1;
 }
-
-#endif

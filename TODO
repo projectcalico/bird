@@ -2,6 +2,8 @@ Core
 ~~~~
 * protocols: implement dumping of protocol-dependent rte attributes
 
+- io.c: refuse old-style multicasts for unnumbered interfaces?
+
 - prefer loopback addresses as router IDs (dummy interface?)
 
 - config: executable config files
