@@ -21,13 +21,10 @@ Core
 
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
 
-- socket: Use IP_RECVERR for BGP TCP sockets?
-
 - config: executable config files
 - config: when parsing prefix, check zero bits
 - config: useless rules when protocols disabled
 - config: better datetime format
-- config: long disable/enable/restart sequences hang
 
 - krt: rescan interfaces when route addition fails?
 
@@ -37,11 +34,6 @@ Core
 
 Commands
 ~~~~~~~~
-show	<name>			# show everything you know about symbol <name>
-	rip ??? [<name>]
-	ospf ??? [<name>]
-	static ??? [<name>]
-	symbols
 - showing of routing table as seen by given protocol
 
 Roadmap
@@ -51,7 +43,6 @@ Roadmap
 - Remaining bits of IPv6 support (radvd)
 - RIPv6
 - BGP?
-- Logging and debugging messages
 
 Client
 ~~~~~~
@@ -62,7 +53,7 @@ Documentation
 - write doctool
 - write documentation :|
 
-Cleanup
+Globals
 ~~~~~~~
 - right usage of DBG vs. debug
 - cleanup debugging calls
@@ -73,8 +64,8 @@ Cleanup
 - replace all NUM, IPA and expr tokens by constant filter expressions
 - try compiling with -Wunused
 - does everybody test return value of sk_open?
-- add references to RFC's we did follow
-- protocols: implement CLI hooks
+- doc: references to RFC's we did follow
+- protocols: implement CLI hooks and per-procotol CLI commands
 - protocols: implement reconfigure hook
 - protocols: use locking
 
@@ -122,3 +113,4 @@ BGP
 	- hold time
 	- idle timer after error: initial value, exponential growth, maximum value
 	- import of IGP routes (use external route tags from OSPF)
+	- Use IP_RECVERR for BGP TCP sockets?

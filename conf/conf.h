@@ -94,6 +94,8 @@ struct symbol *cf_default_name(char *template, int *counter);
 void cf_define_symbol(struct symbol *symbol, int type, void *def);
 void cf_push_scope(struct symbol *);
 void cf_pop_scope(void);
+struct symbol *cf_walk_symbols(struct config *cf, struct symbol *sym, int *pos);
+char *cf_symbol_class_name(struct symbol *sym);
 
 /* Parser */
 

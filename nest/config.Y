@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Core Configuration
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -13,6 +13,7 @@ static struct iface_patt *this_ipatt;
 
 #include "nest/rt-dev.h"
 #include "nest/password.h"
+#include "nest/cmds.h"
 
 CF_DECLS
 
@@ -193,10 +194,8 @@ password_list:
 
 CF_CLI_HELP(SHOW,,[[Show status information]])
 
-CF_CLI(SHOW STATUS,,, [[Show router status]]) {
-  cli_msg(1000, "BIRD " BIRD_VERSION);
-  /* FIXME: Should include uptime, shutdown flag et cetera */
-} ;
+CF_CLI(SHOW STATUS,,, [[Show router status]])
+{ cmd_show_status(); }
 
 CF_CLI(SHOW PROTOCOLS, optsym, [<name>], [[Show routing protocols]])
 { proto_show($3, 0); } ;
@@ -252,6 +251,9 @@ r_args:
      $$->verbose = 1;
    }
  ;
+
+CF_CLI(SHOW SYMBOLS, optsym, [<symbol>], [[Show all known symbolic names]])
+{ cmd_show_symbols($3); } ;
 
 CF_CLI_HELP(DEBUG, <subsystem>, [[Show debugging information]])
 CF_CLI(DEBUG RESOURCES,,, [[Show all allocated resource]])

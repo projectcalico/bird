@@ -308,3 +308,43 @@ cf_pop_scope(void)
   conf_this_scope = conf_this_scope->next;
   ASSERT(conf_this_scope);
 }
+
+struct symbol *
+cf_walk_symbols(struct config *cf, struct symbol *sym, int *pos)
+{
+  for(;;)
+    {
+      if (!sym)
+	{
+	  if (*pos >= SYM_HASH_SIZE)
+	    return NULL;
+	  sym = cf->sym_hash[(*pos)++];
+	}
+      else
+	sym = sym->next;
+      if (sym && sym->scope->active)
+	return sym;
+    }
+}
+
+char *
+cf_symbol_class_name(struct symbol *sym)
+{
+  switch (sym->class)
+    {
+    case SYM_VOID:
+      return "undefined";
+    case SYM_PROTO:
+      return "protocol";
+    case SYM_NUMBER:
+      return "numeric constant";
+    case SYM_FUNCTION:
+      return "function";
+    case SYM_FILTER:
+      return "filter";
+    case SYM_TABLE:
+      return "routing table";
+    default:
+      return "unknown type";
+    }
+}
