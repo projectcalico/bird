@@ -197,12 +197,24 @@ ospf_get_status(struct proto *p, byte *buf)
   }
 }
 
+static void
+ospf_get_route_info(rte *rte, byte *buf, ea_list *attrs)
+{
+  char met=' ';
+
+  if(rte->u.ospf.type=='E') met='1';
+  if(rte->u.ospf.metric2!=0) met='2';
+  buf += bsprintf(buf, " %c%c %d", rte->u.ospf.type, met, 
+    (rte->u.ospf.metric2==0) ? rte->u.ospf.metric1 : rte->u.ospf.metric2);
+}
+
 struct protocol proto_ospf = {
-  name:		"OSPF",
-  template:	"ospf%d",
-  init:		ospf_init,
-  dump:		ospf_dump,
-  start:	ospf_start,
-  shutdown:	ospf_shutdown,
-  get_status:   ospf_get_status
+  name: 		"OSPF",
+  template:		"ospf%d",
+  init:			ospf_init,
+  dump:			ospf_dump,
+  start:		ospf_start,
+  shutdown:		ospf_shutdown,
+  get_route_info:	ospf_get_route_info,
+  get_status:		ospf_get_status
 };
