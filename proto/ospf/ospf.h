@@ -434,13 +434,6 @@ struct ospf_iface_patt {
   list nbma_list;
 };
 
-static int ospf_start(struct proto *p);
-static void ospf_dump(struct proto *p);
-static struct proto *ospf_init(struct proto_config *c);
-static void ospf_preconfig(struct protocol *p, struct config *c);
-static void ospf_postconfig(struct proto_config *c);
-static int ospf_rte_better(struct rte *new, struct rte *old);
-static int ospf_rte_same(struct rte *new, struct rte *old);
 int ospf_import_control(struct proto *p, rte **new, ea_list **attrs,
   struct linpool *pool);
 struct ea_list *ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool);

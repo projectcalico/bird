@@ -70,6 +70,9 @@
 
 #include "ospf.h"
 
+static int ospf_rte_better(struct rte *new, struct rte *old);
+static int ospf_rte_same(struct rte *new, struct rte *old);
+
 static int
 ospf_start(struct proto *p)
 {
