@@ -85,6 +85,20 @@ proto_relink(struct proto *p)
   proto_enqueue(l, p);
 }
 
+/**
+ * proto_new - create a new protocol instance
+ * @c: protocol configuration
+ * @size: size of protocol data structure (each protocol instance is represented by
+ * a structure starting with generic part [struct &proto] and continued
+ * with data specific to the protocol)
+ *
+ * When a new configuration has been read in, the core code starts
+ * initializing all the protocol instandces configured by calling their
+ * init() hooks with the corresponding instance configuration. The initialization
+ * code of the protocol is expected to create a new instance according to the
+ * configuration by calling this function and then modifying the default settings
+ * to values wanted by the protocol.
+ */
 void *
 proto_new(struct proto_config *c, unsigned size)
 {
@@ -116,6 +130,20 @@ proto_init_instance(struct proto *p)
   rt_lock_table(p->table);
 }
 
+/**
+ * proto_add_announce_hook - connect protocol to a routing table
+ * @p: protocol instance
+ * @t: routing table to connect to
+ *
+ * This function creates a connection between the protocol instance @p
+ * and the routing table @t, making the protocol hear all changes in
+ * the table.
+ *
+ * Unless you want to listen to multiple routing tables (as the Pipe
+ * protocol does), you needn't to worry about this function since the
+ * connection to the protocol's primary routing table is initialized
+ * automatically by the core code.
+ */
 struct announce_hook *
 proto_add_announce_hook(struct proto *p, struct rtable *t)
 {
@@ -144,6 +172,19 @@ proto_flush_hooks(struct proto *p)
   p->ahooks = NULL;
 }
 
+/**
+ * proto_config_new - create a new protocol configuration
+ * @pr: protocol the configuration will belong to
+ * @size: size of the structure including generic data
+ *
+ * Whenever the configuration file says that a new instance
+ * of a routing protocol should be created, the parser calls
+ * proto_config_new() to create a configuration entry for this
+ * instance (a structure staring with the &proto_config header
+ * containing all the generic items followed by protocol-specific
+ * ones). Also, the configuration entry gets added to the list
+ * of protocol instances kept in the configuration.
+ */
 void *
 proto_config_new(struct protocol *pr, unsigned size)
 {
@@ -159,6 +200,14 @@ proto_config_new(struct protocol *pr, unsigned size)
   return c;
 }
 
+/**
+ * protos_preconfig - pre-configuration processing
+ * @c: new configuration
+ *
+ * This function calls the preconfig() hooks of all routing
+ * protocols available to prepare them for reading of the new
+ * configuration.
+ */
 void
 protos_preconfig(struct config *c)
 {
@@ -176,6 +225,13 @@ protos_preconfig(struct config *c)
   DBG("\n");
 }
 
+/**
+ * protos_postconfig - post-configuration processing
+ * @c: new configuration
+ *
+ * This function calls the postconfig() hooks of all protocol
+ * instances specified in configuration @c.
+ */
 void
 protos_postconfig(struct config *c)
 {
@@ -207,6 +263,31 @@ proto_init(struct proto_config *c)
   return q;
 }
 
+/**
+ * protos_commit - commit new protocol configuration
+ * @new: new configuration
+ * @old: old configuration or %NULL if it's boot time config
+ * @force_reconfig: force restart of all protocols (used for example
+ * when the router ID changes)
+ *
+ * Scan differences between @old and @new configuration and adjust all
+ * protocol instances to conform to the new configuration.
+ *
+ * When a protocol exists in the new configuration, but it doesn't in the
+ * original one, it's immediately started. When a collision with the other
+ * running protocol would arise, the new protocol will be temporarily stopped
+ * by the locking mechanism.
+ *
+ * When a protocol exists in the old configuration, but it doesn't in the
+ * new one, it's shut down and deleted after the shutdown completes.
+ *
+ * When a protocol exists in both configurations, the core decides whether
+ * it's possible to reconfigure it dynamically (it checks all the core properties
+ * of the protocol and if they match, it asks the reconfigure() hook of the
+ * protocol to see if the protocol is able to switch to the new configuration).
+ * If it isn't possible, the protocol is shut down and a new instance is started
+ * with the new configuration after the shutdown is completed.
+ */
 void
 protos_commit(struct config *new, struct config *old, int force_reconfig)
 {
@@ -332,6 +413,15 @@ proto_rethink_goal(struct proto *p)
     }
 }
 
+/**
+ * protos_dump_all - dump status of all protocols
+ *
+ * This function dumps status of all existing protocol instances to the
+ * debug output. It involves printing of general status information
+ * such as protocol states, its position on the protocol lists
+ * and also calling of a dump() hook of the protocol to print
+ * the internals.
+ */
 void
 protos_dump_all(void)
 {
@@ -360,6 +450,14 @@ protos_dump_all(void)
     debug("  flushing %s\n", p->name);
 }
 
+/**
+ * proto_build - make a single protocol available
+ * @p: the protocol
+ *
+ * After the platform specific initialization code uses protos_build()
+ * to add all the standard protocols, it should call proto_build() for
+ * all platform specific protocols to infrom the core that they exist.
+ */
 void
 proto_build(struct protocol *p)
 {
@@ -371,6 +469,15 @@ proto_build(struct protocol *p)
     }
 }
 
+/**
+ * protos_build - build a protocol list
+ *
+ * This function is called during BIRD startup to insert
+ * all standard protocols to the global protocol list. Insertion
+ * of platform specific protocols (such as the kernel syncer)
+ * is in the domain of competence of the platform dependent
+ * startup code.
+ */
 void
 protos_build(void)
 {
@@ -441,6 +548,18 @@ proto_feed(void *P)
   proto_feed_more(P);
 }
 
+/**
+ * proto_notify_state - notify core about protocol state change
+ * @p: protocol the state of which has changed
+ * @ps: the new status
+ *
+ * Whenever a state of a protocol changes due to some event internal
+ * to the protocol (i.e., not inside a start() or shutdown() hook),
+ * it should immediately notify the core about the change by calling
+ * proto_notify_state() which will write the new state to the &proto
+ * structure and take all the actions necessary to adapt to the new
+ * state.
+ */
 void
 proto_notify_state(struct proto *p, unsigned ps)
 {
