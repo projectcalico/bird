@@ -59,14 +59,14 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	      break;
 	    case CMP_SAME:
               s_rem_node(SNODE en);
-	      DBG("Removing from lsreq list for neigh %u\n", nn->rid);
+	      DBG("Removing from lsreq list for neigh %I\n", nn->rid);
 	      ospf_hash_delete(nn->lsrqh,en);
 	      if(EMPTY_SLIST(nn->lsrql)) ospf_neigh_sm(nn, INM_LOADDONE);
 	      continue;
 	      break;
 	    case CMP_NEWER:
               s_rem_node(SNODE en);
-	      DBG("Removing from lsreq list for neigh %u\n", nn->rid);
+	      DBG("Removing from lsreq list for neigh %I\n", nn->rid);
 	      ospf_hash_delete(nn->lsrqh,en);
 	      if(EMPTY_SLIST(nn->lsrql)) ospf_neigh_sm(nn, INM_LOADDONE);
 	      break;
@@ -162,7 +162,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
   WALK_LIST(llsh, *l)
   {
     en=ospf_hash_find(n->ifa->oa->gr,llsh->lsh.id,llsh->lsh.rt,llsh->lsh.type);
-    DBG("Sending ID=%u, Type=%u, RT=%u\n", llsh->lsh.id, llsh->lsh.type,
+    DBG("Sending ID=%I, Type=%u, RT=%I\n", llsh->lsh.id, llsh->lsh.type,
       llsh->lsh.rt);
     if((len+sizeof(struct ospf_lsa_header)+en->lsa.length)>n->ifa->iface->mtu)
     {
@@ -217,13 +217,13 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received lsupd from unknown neigbor! (%u)\n", p->name,
+    debug("%s: Received lsupd from unknown neigbor! (%I)\n", p->name,
       nrid);
     return ;
   }
   if(n->state<NEIGHBOR_EXCHANGE)
   {
-    debug("%s: Received lsupd in lesser state than EXCHANGE from (%u)\n",
+    debug("%s: Received lsupd in lesser state than EXCHANGE from (%I)\n",
       p->name);
     return;
   }
@@ -239,23 +239,23 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     /* pg 143 (1) */
     if(lsa->checksum!=lsasum_check(lsa,NULL,po))
     {
-      log("Received bad lsa checksum from %u\n",n->rid);
+      log("Received bad lsa checksum from %I\n",n->rid);
       continue;
     }
     /* pg 143 (2) */
     if((lsa->type<LSA_T_RT)||(lsa->type>LSA_T_EXT))
     {
-      log("Unknown LSA type from %u\n",n->rid);
+      log("Unknown LSA type from %I\n",n->rid);
       continue;
     }
     /* pg 143 (3) */
     if((lsa->type==LSA_T_EXT)&&oa->stub)
     {
-      log("Received External LSA in stub area from %u\n",n->rid);
+      log("Received External LSA in stub area from %I\n",n->rid);
       continue;
     }
     ntohlsah(lsa,&lsatmp);
-    DBG("Processing update Type: %u ID: %u RT: %u\n",lsatmp.type,
+    DBG("Processing update Type: %u ID: %I RT: %I\n",lsatmp.type,
         lsatmp.id, lsatmp.rt);
     lsadb=ospf_hash_find_header(oa->gr, &lsatmp);
 

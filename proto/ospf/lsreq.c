@@ -42,7 +42,7 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
     lsh->type=en->lsa.type;
     lsh->rt=htonl(en->lsa.rt);
     lsh->id=htonl(en->lsa.id);
-    DBG("Requesting %uth LSA: Type: %u, Id: %u, RT: %u\n",i, en->lsa.type,
+    DBG("Requesting %uth LSA: Type: %u, Id: %I, RT: %I\n",i, en->lsa.type,
 		    en->lsa.id, en->lsa.rt);
     lsh++;
     if(sn==STAIL(n->lsrql)) break;
@@ -54,7 +54,7 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
   op->length=htons(length);
   ospf_pkt_finalize(n->ifa, op);
   sk_send_to(n->ifa->ip_sk,length, n->ip, OSPF_PROTO);
-  DBG("Lsreq send to: %u\n", n->rid);
+  DBG("Lsreq send to: %I\n", n->rid);
 }
 
 void
@@ -67,7 +67,7 @@ lsrr_timer_hook(timer *timer)
   n=(struct ospf_neighbor *)timer->data;
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
-  debug("%s: LSRR timer fired on interface %s for neigh: %u.\n",
+  debug("%s: LSRR timer fired on interface %s for neigh: %I.\n",
     p->name, ifa->iface->name, n->rid);
   ospf_lsreq_tx(n);
 }
@@ -91,7 +91,7 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received lsreq from unknown neigbor! (%u)\n", p->name,
+    debug("%s: Received lsreq from unknown neigbor! (%I)\n", p->name,
       nrid);
     return ;
   }
@@ -105,7 +105,7 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
   for(i=0;i<(length-sizeof(struct ospf_lsreq_packet))/
     sizeof(struct ospf_lsreq_header);i++);
   {
-    DBG("Processing LSA: ID=%u, Type=%u, Router=%u\n", ntohl(lsh->id),
+    DBG("Processing LSA: ID=%I, Type=%u, Router=%I\n", ntohl(lsh->id),
     lsh->type, ntohl(lsh->rt));
     llsh=sl_alloc(upslab);
     llsh->lsh.id=ntohl(lsh->id);
