@@ -38,10 +38,8 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 	FILTER
 	)
 
-/* Add these to break parser and make shift/reduce conflict go away :-(
-%nonassoc ELSE
 %nonassoc THEN
-*/
+%nonassoc ELSE
 
 %type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic enums
 %type <f> filter filter_body
