@@ -12,7 +12,7 @@ static int
 ospf_start(struct proto *p)
 {
   struct proto_ospf *po=(struct proto_ospf *)p;
-  DBG("%s: Start\n",p->name);
+  debug("%s: Start\n",p->name);
 
   fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
   init_list(&(po->iface_list));
@@ -66,6 +66,7 @@ ospf_init(struct proto_config *c)
   p->neigh_notify = NULL;
   p->import_control = ospf_import_control;
   p->rt_notify = ospf_rt_notify;
+  p->if_notify = ospf_if_notify;
   p->rte_better=ospf_rte_better;
   p->rte_same=ospf_rte_same;
 
