@@ -988,7 +988,7 @@ information between routers on the boundary of the autonomous system.
 
 <p>OSPF quickly detects topological changes in the autonomous system (such
 as router interface failures) and calculates new loop-free routes after a short
-period of convergence. Only a minimal ammount of 
+period of convergence. Only a minimal amount of 
 routing traffic is involved.
 
 <p>Each router participating in OSPF routing periodically sends Hello messages
@@ -1001,8 +1001,8 @@ that each router detects all changes.
 
 <p>In the main part of configuration, there can be multiple definitions of
 OSPF area witch different id included. These definitions includes many other
-switches and mutliple definitions of interfaces. Definition of interface
-may contain many switches and constant definitinons and list of neighbors
+switches and multiple definitions of interfaces. Definition of interface
+may contain many switches and constant definitions and list of neighbors
 on nonbroadcast networks.
 
 <code>
@@ -1023,7 +1023,7 @@ protocol ospf &lt;name&gt; {
 			dead count &lt;num&gt;;
 			type [broadcast|nonbroadcast|pointopoint];
 			strict nonbroadcast &lt;switch&gt;;
-			authetication [none|simple];
+			authentication [none|simple];
 			password "&lt;text&gt;";
 			neighbors {
 				&lt;ip&gt;;
@@ -1072,7 +1072,7 @@ protocol ospf &lt;name&gt; {
 
 	<tag>poll <M>num</M></tag>
 	 Specifies interval in seconds between sending of Hello messages for
-	 some neighbors on NBMA netwok. Default value is 20.
+	 some neighbors on NBMA network. Default value is 20.
 
 	<tag>retransmit <M>num</M></tag>
 	 Specifies interval in seconds between retransmissions of unacknowledged updates.
