@@ -297,7 +297,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   }
   n = net_get( p->table, b->network, pxlen );
   r = rte_get_temp(a);
-  r->u.rip.metric = ntohl(b->metric) + rif->patt->metric;
+  r->u.rip.metric = ntohl(b->metric) + rif->metric;
   if (r->u.rip.metric > P_CF->infinity) r->u.rip.metric = P_CF->infinity;
   r->u.rip.tag = ntohl(b->tag);
   r->net = n;
@@ -468,7 +468,7 @@ rip_timer(timer *t)
       struct iface *iface = rif->iface;
 
       if (!iface) continue;
-      if (rif->patt->mode & IM_QUIET) continue;
+      if (rif->mode & IM_QUIET) continue;
       if (!(iface->flags & IF_UP)) continue;
 
       rif->triggered = (P->tx_count % 6);
@@ -577,15 +577,17 @@ static struct rip_interface *
 new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt )
 {
   struct rip_interface *rif;
+  struct rip_patt *PATT = (struct rip_patt *) patt;
 
   rif = mb_allocz(p->pool, sizeof( struct rip_interface ));
   rif->iface = new;
   rif->proto = p;
   rif->busy = NULL;
-  rif->patt = (struct rip_patt *) patt;
-
-  if (rif->patt)
-    rif->multicast = (!(rif->patt->mode & IM_BROADCAST)) && (flags & IF_MULTICAST);
+  if (PATT) {
+    rif->mode = PATT->mode;
+    rif->metric = PATT->metric;
+    rif->multicast = (!(PATT->mode & IM_BROADCAST)) && (flags & IF_MULTICAST);
+  }
   /* lookup multicasts over unnumbered links - no: rip is not defined over unnumbered links */
 
   if (rif->multicast)
@@ -627,7 +629,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   if (!ipa_nonzero(rif->sock->daddr)) {
     log( L_WARN "%s: interface %s is too strange for me", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
   } else
-    if (!(rif->patt->mode & IM_NOLISTEN))
+    if (!(rif->mode & IM_NOLISTEN))
       if (sk_open(rif->sock)<0) {
 	log( L_ERR "%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
 	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
@@ -868,8 +870,12 @@ static int
 rip_reconfigure(struct proto *p, struct proto_config *c)
 {
   struct rip_config *new = (struct rip_config *) c;
-  int generic = sizeof(struct proto_config) + sizeof(list);
+  int generic = sizeof(struct proto_config) + sizeof(list) /* + sizeof(struct password_item *) */;
 
+#if 0
+  if (!password_same())
+    return 0;
+#endif
   return !memcmp(((byte *) P_CF) + generic,
                  ((byte *) new) + generic,
                  sizeof(struct rip_proto_config) - generic);

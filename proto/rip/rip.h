@@ -101,7 +101,8 @@ struct rip_interface {
   struct iface *iface;
   sock *sock;
   struct rip_connection *busy;
-  struct rip_patt *patt;  
+  int metric;			/* You don't want to put struct rip_patt *patt here -- think about reconfigure */
+  int mode;
   int triggered;
   struct object_lock *lock;
   int multicast;
@@ -121,6 +122,7 @@ struct rip_patt {
 struct rip_proto_config {
   struct proto_config c;
   list iface_list;	/* Patterns configured -- keep it first; see rip_reconfigure why */
+  struct password_item *passwords;	/* Passwords, keep second */
 
   int infinity;		/* User configurable data */
   int port;
@@ -128,7 +130,6 @@ struct rip_proto_config {
   int garbage_time;
   int timeout_time;
 
-  struct password_item *passwords;
   int authtype;
 #define AT_NONE 0
 #define AT_PLAINTEXT 2
