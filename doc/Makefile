@@ -36,5 +36,5 @@ prog.sgml:
 userdocs: bird.html bird.dvi bird.txt
 
 clean:
-	rm -f *.html *.tex *.dvi *.log *.ps *.txt
+	rm -f *.html *.tex *.dvi *.log *.ps *.txt *.aux *.toc
 	rm -f prog.sgml
