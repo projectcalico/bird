@@ -17,6 +17,7 @@
 struct adata *as_path_prepend(struct linpool *pool, struct adata *olda, int as);
 void as_path_format(struct adata *path, byte *buf, unsigned int size);
 int as_path_getlen(struct adata *path);
+int as_path_get_first(struct adata *path);
 
 struct f_path_mask {
   struct f_path_mask *next;

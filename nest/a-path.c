@@ -103,6 +103,34 @@ as_path_getlen(struct adata *path)
   return res;
 }
 
+int
+as_path_get_first(struct adata *path)
+{
+  int res = -1;
+  u8 *p = path->data;
+  u8 *q = p+path->length;
+  int len;
+
+  while (p<q)
+    {
+      switch (*p++)
+	{
+	case AS_PATH_SET:
+	  if (len = *p++)
+	    res = get_u16(p);
+	  p += 2*len;
+	  break;
+	case AS_PATH_SEQUENCE:
+	  if (len = *p++)
+	    res = get_u16(p+2*(len-1));
+	  p += 2*len;
+	  break;
+	default: bug("as_path_get_first: Invalid path segment");
+	}
+    }
+  return res;
+}
+
 #define MASK_PLUS do { mask = mask->next; if (!mask) return next == q; \
 		       asterisk = (mask->val == PM_ANY); \
                        if (asterisk) { mask = mask->next; if (!mask) { return 1; } } \
