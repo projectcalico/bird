@@ -141,13 +141,14 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       WALK_LIST(NODE ntmp,ifa->neigh_list)
       {
         struct top_hash_entry *en;
-        if((en=ospf_hash_find_header(ntmp->lsrqh,&lsatmp))!=NULL)
-	{
-	  s_rem_node(SNODE en);
-	  DBG("Removing from lsreq list for neigh %u\n", ntmp->rid);
-	  ospf_hash_delete(ntmp->lsrqh,en);
-	  if(EMPTY_SLIST(ntmp->lsrql)) ospf_neigh_sm(ntmp, INM_LOADDONE);
-	}
+	if(ntmp->state>NEIGHBOR_EXSTART)
+          if((en=ospf_hash_find_header(ntmp->lsrqh,&lsatmp))!=NULL)
+	  {
+	    s_rem_node(SNODE en);
+	    DBG("Removing from lsreq list for neigh %u\n", ntmp->rid);
+	    ospf_hash_delete(ntmp->lsrqh,en);
+	    if(EMPTY_SLIST(ntmp->lsrql)) ospf_neigh_sm(ntmp, INM_LOADDONE);
+	  }
       }
 
     if((lsatmp.age==LSA_MAXAGE)&&(lsadb==NULL))
@@ -184,11 +185,12 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
           WALK_LIST(NODE ntmp,ifa->neigh_list)
 	  {
 	    struct top_hash_entry *en;
-	    if((en=ospf_hash_find_header(ntmp->lsrth,&lsadb->lsa))!=NULL)
-	    {
-	      s_rem_node(SNODE en);
-	      ospf_hash_delete(ntmp->lsrth,en);
-	    }
+	    if(ntmp->state>NEIGHBOR_EXSTART)
+	      if((en=ospf_hash_find_header(ntmp->lsrth,&lsadb->lsa))!=NULL)
+	      {
+	        s_rem_node(SNODE en);
+	        ospf_hash_delete(ntmp->lsrth,en);
+	      }
 	  }
 
       /* Install new */
