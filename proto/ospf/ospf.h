@@ -52,8 +52,7 @@
 #define LSINFINITY 0xffffff
 
 #define DEFAULT_OSPFTICK 1
-#define DEFAULT_AREATICK 1
-#define DEFAULT_RFC1583 1	/* compatibility with rfc1583 */
+#define DEFAULT_RFC1583 0	/* compatibility with rfc1583 */
 
 
 struct ospf_config
@@ -90,8 +89,8 @@ struct ospf_area_config
   node n;
   u32 areaid;
   int stub;
-  unsigned tick;
   list patt_list;
+  list vlink_list;
   list net_list;
 };
 
@@ -130,7 +129,6 @@ struct ospf_iface
   struct iface *iface;		/* Nest's iface */
   struct ospf_area *oa;
   struct object_lock *lock;
-  u32 an;			/* Area number */
   sock *hello_sk;		/* Hello socket */
   sock *dr_sk;			/* For states DR or BACKUP */
   sock *ip_sk;			/* IP socket (for DD ...) */
@@ -519,7 +517,6 @@ struct ospf_area
   int stub;
   int trcap;			/* Transit capability? */
   struct proto_ospf *po;
-  unsigned tick;
   struct fib rtr;		/* Routing tables for routers */
   union options opt;            /* RFC2328 - A.2 */
 };

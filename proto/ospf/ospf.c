@@ -45,7 +45,7 @@
  * Every area has its own area_disp() which is
  * responsible for late originating of router LSA, calculating
  * of the routing table and it also ages and flushes the LSAs. This
- * function is called in regular intervals.
+ * function is called in regular intervals from ospf_disp()
  * To every &ospf_iface, we connect one or more
  * &ospf_neighbor's -- a structure containing many timers and queues
  * for building adjacency and for exchange of routing messages.
@@ -72,7 +72,6 @@
 
 static int ospf_rte_better(struct rte *new, struct rte *old);
 static int ospf_rte_same(struct rte *new, struct rte *old);
-static void area_disp(timer *timer);
 static void ospf_disp(timer *timer);
 
 static void
@@ -135,18 +134,11 @@ ospf_start(struct proto *p)
     add_tail(&po->area_list, NODE oa);
     po->areano++;
     oa->stub = ac->stub;
-    oa->tick = ac->tick;
     oa->areaid = ac->areaid;
     oa->gr = ospf_top_new(p->pool);
     s_init_list(&(oa->lsal));
     oa->rt = NULL;
     oa->po = po;
-    oa->disp_timer = tm_new(p->pool);
-    oa->disp_timer->data = oa;
-    oa->disp_timer->randomize = 0;
-    oa->disp_timer->hook = area_disp;
-    oa->disp_timer->recurrent = oa->tick;
-    tm_start(oa->disp_timer, 2);
     add_area_nets(oa, ac);
     fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
     if (oa->areaid == 0) po->backbone = oa;
@@ -160,10 +152,8 @@ ospf_start(struct proto *p)
     struct ospf_iface_patt *ipatt;
     WALK_LIST(ac, c->area_list)
     {
-      WALK_LIST(ipatt, ac->patt_list)
-      {
-        if (ipatt->type == OSPF_IT_VLINK) ospf_iface_new(po, NULL, ac, ipatt);
-      }
+      WALK_LIST(ipatt, ac->vlink_list)
+        ospf_iface_new(po, NULL, ac, ipatt);
     }
   }
   return PS_UP;
@@ -181,7 +171,7 @@ ospf_dump(struct proto *p)
 
   WALK_LIST(ifa, po->iface_list)
   {
-    OSPF_TRACE(D_EVENTS, "Interface: %s", ifa->iface->name);
+    OSPF_TRACE(D_EVENTS, "Interface: %s", (ifa->iface ? ifa->iface->name : "(null)"));
     OSPF_TRACE(D_EVENTS, "state: %u", ifa->state);
     OSPF_TRACE(D_EVENTS, "DR:  %I", ifa->drid);
     OSPF_TRACE(D_EVENTS, "BDR: %I", ifa->bdrid);
@@ -311,9 +301,8 @@ schedule_rtcalc(struct proto_ospf *po)
  * function for origination of router LSA and network LSAs.
  */
 void
-area_disp(timer * timer)
+area_disp(struct ospf_area *oa)
 {
-  struct ospf_area *oa = timer->data;
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
 
@@ -324,7 +313,7 @@ area_disp(timer * timer)
   /* Now try to originate network LSA's */
   WALK_LIST(ifa, po->iface_list)
   {
-    if (ifa->orignet && (ifa->an == oa->areaid))
+    if (ifa->orignet && (ifa->oa == oa))
       originate_net_lsa(ifa);
   }
 
@@ -336,6 +325,10 @@ void
 ospf_disp(timer * timer)
 {
   struct proto_ospf *po = timer->data;
+  struct ospf_area *oa;
+
+  WALK_LIST(oa, po->area_list)
+    area_disp(oa);
 
   /* Calculate routing table */
   if (po->calcrt)
@@ -555,6 +548,13 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   struct area_net *anet, *antmp;
   int found;
 
+  /* FIXME Temporarily disabled */
+
+  return !memcmp(((byte *) old) + sizeof(struct proto_config),
+     ((byte *) new) + sizeof(struct proto_config),
+     sizeof(struct ospf_config) - sizeof(struct proto_config));
+
+
   po->rfc1583 = new->rfc1583;
   schedule_rtcalc(po);
 
@@ -575,19 +575,6 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 
     if (!oa)
       return 0;
-
-    if (ac1->tick != ac2->tick)
-    {
-      if (oa->areaid == ac2->areaid)
-      {
-	oa->tick = ac2->tick;
-	tm_start(oa->disp_timer, oa->tick);
-	OSPF_TRACE(D_EVENTS,
-		   "Changing tick interval on area %I from %d to %d",
-		   oa->areaid, ac1->tick, ac2->tick);
-	break;
-      }
-    }
 
     /* Change net_list */
     fib_free(&oa->net_fib);
@@ -840,6 +827,8 @@ ospf_sh(struct proto *p)
   }
 
   cli_msg(-1014, "%s:", p->name);
+  cli_msg(-1014, "RFC1583 compatibility: %s", (po->rfc1583 ? "enable" : "disabled"));
+  cli_msg(-1014, "RT scheduler tick: %d", po->tick);
   cli_msg(-1014, "Number of areas: %u", po->areano);
 
   WALK_LIST(oa, po->area_list)
@@ -852,16 +841,18 @@ ospf_sh(struct proto *p)
     WALK_LIST(ifa, po->iface_list)
     {
       if (oa == ifa->oa)
-	ifano++;
-      WALK_LIST(n, ifa->neigh_list)
       {
-	nno++;
-	if (n->state == NEIGHBOR_FULL)
-	  adjno++;
+	ifano++;
+        WALK_LIST(n, ifa->neigh_list)
+        {
+	  nno++;
+	  if (n->state == NEIGHBOR_FULL)
+	    adjno++;
+        }
       }
     }
     cli_msg(-1014, "\t\tStub:\t%s", oa->stub ? "Yes" : "No");
-    cli_msg(-1014, "\t\tRT scheduler tick:\t%u", oa->tick);
+    cli_msg(-1014, "\t\tTransit:\t%s", oa->trcap ? "Yes" : "No");
     cli_msg(-1014, "\t\tNumber of interfaces:\t%u", ifano);
     cli_msg(-1014, "\t\tNumber of LSAs in DB:\t%u", oa->gr->hash_entries);
     cli_msg(-1014, "\t\tNumber of neighbors:\t%u", nno);

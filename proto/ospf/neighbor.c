@@ -122,6 +122,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
     {
       ifa->fadj++;
       schedule_rt_lsa(ifa->oa);
+      if (ifa->type == OSPF_IT_VLINK) schedule_rt_lsa(ifa->voa);
       schedule_net_lsa(ifa);
     }
     if (state == NEIGHBOR_EXSTART)
@@ -422,12 +423,12 @@ bdr_election(struct ospf_iface *ifa)
       || ((ifa->bdrid != myid) && (nbdr == &me)))
   {
     if (ndr == NULL)
-      ifa->drip = me.dr = ipa_from_u32(0);
+      ifa->drip = me.dr = IPA_NONE;
     else
       ifa->drip = me.dr = ndr->ip;
 
     if (nbdr == NULL)
-      ifa->bdrip = me.bdr = ipa_from_u32(0);
+      ifa->bdrip = me.bdr = IPA_NONE;
     else
       ifa->bdrip = me.bdr = nbdr->ip;
 
@@ -436,12 +437,12 @@ bdr_election(struct ospf_iface *ifa)
   }
 
   if (ndr == NULL)
-    ndrip = ipa_from_u32(0);
+    ndrip = IPA_NONE;
   else
     ndrip = ndr->ip;
 
   if (nbdr == NULL)
-    nbdrip = ipa_from_u32(0);
+    nbdrip = IPA_NONE;
   else
     nbdrip = nbdr->ip;
 
@@ -453,7 +454,7 @@ bdr_election(struct ospf_iface *ifa)
   if (ndr == NULL)
   {
     ifa->drid = 0;
-    ifa->drip = ipa_from_u32(0);
+    ifa->drip = IPA_NONE;
   }
   else
   {
@@ -464,7 +465,7 @@ bdr_election(struct ospf_iface *ifa)
   if (nbdr == NULL)
   {
     ifa->bdrid = 0;
-    ifa->bdrip = ipa_from_u32(0);
+    ifa->bdrip = IPA_NONE;
   }
   else
   {
@@ -591,11 +592,12 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
     pos = "dr   ";
   if (n->rid == ifa->bdrid)
     pos = "bdr  ";
-  if (n->ifa->type == OSPF_IT_PTP)
+  if ((n->ifa->type == OSPF_IT_PTP) || (n->ifa->type == OSPF_IT_VLINK))
     pos = "ptp  ";
 
   cli_msg(-1013, "%-1I\t%3u\t%s/%s\t%-5s\t%-1I\t%-10s", n->rid, n->priority,
-	  ospf_ns[n->state], pos, etime, n->ip, ifa->iface->name);
+	  ospf_ns[n->state], pos, etime, n->ip,
+          (ifa->type == OSPF_IT_VLINK ? "vlink" : ifa->iface->name));
 }
 
 void

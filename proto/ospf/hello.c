@@ -19,12 +19,13 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
   struct proto *p = (struct proto *) ifa->proto;
   unsigned int size = ntohs(ps->ospf_packet.length), i, twoway, oldpriority, eligible = 0, peers;
 
-  OSPF_TRACE(D_PACKETS, "Received hello from %I via %s", faddr,
-	     ifa->iface->name);
+  OSPF_TRACE(D_PACKETS, "Received hello from %I via %s%s", faddr,
+      (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);
   mask = ps->netmask;
   ipa_ntoh(mask);
 
-  if ((unsigned) ipa_mklen(mask) != ifa->iface->addr->pxlen)
+  if ((ifa->type != OSPF_IT_VLINK) &&
+      ((unsigned) ipa_mklen(mask) != ifa->iface->addr->pxlen))
   {
     log(L_ERR "%s%I%sbad netmask %I.", beg, faddr, rec, mask);
     return;
@@ -151,7 +152,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
       ospf_iface_sm(ifa, ISM_NEICH);
   }
 
-  if (ifa->type != OSPF_IT_NBMA)
+  if (ifa->type == OSPF_IT_NBMA)
   {
     if ((ifa->priority == 0) && (n->priority > 0))
       ospf_hello_send(NULL, 0, n);
@@ -171,7 +172,6 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   u32 *pp;
   int i, send;
   struct nbma_node *nb;
-
   if (timer == NULL)
     ifa = dirn->ifa;
   else
@@ -204,6 +204,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
 
   pkt->netmask = ipa_mkmask(ifa->iface->addr->pxlen);
   ipa_hton(pkt->netmask);
+  if (ifa->type == OSPF_IT_VLINK) pkt->netmask = IPA_NONE;
   pkt->helloint = ntohs(ifa->helloint);
   pkt->options = ifa->oa->opt.byte;
   pkt->priority = ifa->priority;
@@ -280,5 +281,6 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
     default:
       ospf_send_to(ifa->hello_sk, IPA_NONE, ifa);
   }
-  OSPF_TRACE(D_PACKETS, "Hello sent via %s", ifa->iface->name);
+  OSPF_TRACE(D_PACKETS, "Hello sent via %s%s",
+      (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);
 }

@@ -103,12 +103,11 @@ protocol static {
 #	export filter { print "exporting"; accept; };
 #}
 
-# Please note, multiple areas still don't work.
 #protocol ospf MyOSPF {
+#       tick 2;
 #	rfc1583compat yes;
 #	area 0.0.0.0 {
 #		stub no;
-#		tick 1;
 #		interface "eth*" {
 #			hello 9;
 #			retransmit 6;
@@ -136,6 +135,11 @@ protocol static {
 #			hello 8;
 #			authentication none;
 #		};
+#               interface "fr*";
+#               virtual link 192.168.0.1 {
+#                       password "sdsdffsdfg";
+#                       authentication cryptographic;
+#               };
 #	};
 #}
 		

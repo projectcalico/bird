@@ -9,7 +9,7 @@
 #include "ospf.h"
 static void
 add_cand(list * l, struct top_hash_entry *en,
-	 struct top_hash_entry *par, u16 dist, struct ospf_area *oa);
+	 struct top_hash_entry *par, u16 dist, struct ospf_area *oa, int vlink);
 static void
 calc_next_hop(struct top_hash_entry *en,
 	      struct top_hash_entry *par, struct ospf_area *oa);
@@ -24,7 +24,7 @@ fill_ri(orta * orta)
   orta->oa = NULL;
   orta->metric1 = LSINFINITY;
   orta->metric2 = LSINFINITY;
-  orta->nh = ipa_from_u32(0);
+  orta->nh = IPA_NONE;
   orta->ifa = NULL;
   orta->ar = NULL;
   orta->tag = 0;
@@ -63,8 +63,7 @@ ri_better(struct proto_ospf *po, orta * new, ort *nefn, orta * old, ort *oefn, i
   {
     if(new->oa->areaid == 0) newtype = RTS_OSPF_IA;
     if(old->oa->areaid == 0) oldtype = RTS_OSPF_IA;
-  
-}
+  }
 
   if (new->type < old->type)
     return 1;
@@ -146,6 +145,7 @@ ospf_rt_spfa(struct ospf_area *oa)
   struct ospf_iface *iface;
   struct top_hash_entry *act, *tmp;
   node *n;
+  int vlink;
 
 
   if (oa->rt == NULL)
@@ -155,7 +155,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	     oa->areaid);
 
   if (oa->rt->dist != LSINFINITY)
-    ospf_age(oa);
+    bug("Aging was not processed.");
 
   init_list(&oa->cand);		/* Empty list of candidates */
   oa->trcap = 0;
@@ -202,6 +202,7 @@ ospf_rt_spfa(struct ospf_area *oa)
       DBG("  Number of links: %u\n", rt->links);
       for (i = 0; i < rt->links; i++)
       {
+        vlink = 0;
 	tmp = NULL;
 	rtl = (rr + i);
 	DBG("     Working on link: %I (type: %u)  ", rtl->id, rtl->type);
@@ -238,6 +239,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  break;
 
 	case LSART_VLNK:
+          vlink = 1;
 	case LSART_PTP:
 	  tmp = ospf_hash_find(oa->gr, rtl->id, rtl->id, LSA_T_RT);
 	  DBG("PTP found.\n");
@@ -249,7 +251,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	if (tmp)
 	  DBG("Going to add cand, Mydist: %u, Req: %u\n",
 	      tmp->dist, act->dist + rtl->metric);
-	add_cand(&oa->cand, tmp, act, act->dist + rtl->metric, oa);
+	add_cand(&oa->cand, tmp, act, act->dist + rtl->metric, oa, vlink);
       }
       break;
     case LSA_T_NET:
@@ -275,7 +277,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  DBG("Found :-)\n");
 	else
 	  DBG("Not found!\n");
-	add_cand(&oa->cand, tmp, act, act->dist, oa);
+	add_cand(&oa->cand, tmp, act, act->dist, oa, 0);
       }
       break;
     }
@@ -287,15 +289,24 @@ ospf_rt_spfa(struct ospf_area *oa)
     if ((iface->type == OSPF_IT_VLINK) && (iface->voa == oa))
     {
       if ((tmp = ospf_hash_find(oa->gr, iface->vid, iface->vid, LSA_T_RT)) &&
-        ipa_equal(tmp->lb, IPA_NONE))
+        (!ipa_equal(tmp->lb, IPA_NONE)))
       {
-        DBG("Vlink peer found\n");
-        ospf_iface_sm(iface, ISM_UP);	/* FIXME: Add slave iface! */
+        if ((iface->state != OSPF_IS_PTP) || (iface->iface != tmp->nhi) || (!ipa_equal(iface->vip, tmp->lb)))
+        {
+          OSPF_TRACE(D_EVENTS, "Vlink peer %I found", tmp->lsa.id);
+          ospf_iface_sm(iface, ISM_DOWN);
+          iface->iface = tmp->nhi;
+          iface->vip = tmp->lb;
+          ospf_iface_sm(iface, ISM_UP);
+        }
       }
       else
       {
-        DBG("Vlink peer not found\n");
-        ospf_iface_sm(iface, ISM_DOWN);
+        if (iface->state > OSPF_IS_DOWN)
+        {
+          OSPF_TRACE(D_EVENTS, "Vlink peer %I lost", iface->vid);
+          ospf_iface_sm(iface, ISM_DOWN);
+        }
       }
     }
   }
@@ -367,24 +378,13 @@ ospf_rt_sum_tr(struct ospf_area *oa)
 {
   struct proto *p = &oa->po->proto;
   struct proto_ospf *po = oa->po;
-  struct ospf_area *bb, *atmp;
+  struct ospf_area *bb = po->backbone;
   ip_addr *mask, ip, abrip;
   struct top_hash_entry *en;
   int mlen = -1, type = -1;
   union ospf_lsa_sum_tm *tm;
   ort *re = NULL, *abr;
   orta nf;
-
-  bb = NULL;
-
-  WALK_LIST(atmp, po->area_list)
-  {
-    if(atmp->areaid == 0)
-    {
-      bb = atmp;
-      break;
-    }
-  }
 
   if(!bb) return;
 
@@ -672,7 +672,7 @@ ospf_ext_spfa(struct ospf_area *oa)
     if (!(nf1->n.capa & ORTA_ASBR))
       continue;			/* It is not ASBR */
 
-    if (ipa_compare(lt->fwaddr, ipa_from_u32(0)) == 0)
+    if (ipa_equal(lt->fwaddr, IPA_NONE))
     {
       if (lt->etm.etos.ebit)
       {				/* FW address == 0 */
@@ -742,7 +742,7 @@ ospf_ext_spfa(struct ospf_area *oa)
 /* Add LSA into list of candidates in Dijkstra's algorithm */
 static void
 add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
-	 u16 dist, struct ospf_area *oa)
+	 u16 dist, struct ospf_area *oa, int vlink)
 {
   node *prev, *n;
   int added = 0;
@@ -773,6 +773,7 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   en->nh = IPA_NONE;
 
   calc_next_hop(en, par, oa);
+  //if (vlink) en->nh = IPA_NONE;
 
   if (!en->nhi)
     return;			/* We cannot find next hop, ignore it */
@@ -901,8 +902,9 @@ rt_sync(struct proto_ospf *po)
   struct fib_iterator fit;
   struct fib *fib = &po->rtf;
   ort *nf;
-  struct ospf_area *oa;
+  struct ospf_area *oa, *oaa;
   struct area_net *anet;
+  int flush;
 
   OSPF_TRACE(D_EVENTS, "Starting routing table synchronisation");
 
@@ -929,6 +931,27 @@ again1:
       a0.aflags = 0;
       a0.iface = nf->n.ifa;
       a0.gw = nf->n.nh;
+      if(!neigh_find(p, &nf->n.nh, 0))
+      {
+        int found = 0;
+        struct ospf_iface *ifa;
+        struct top_hash_entry *en;
+        DBG("Trying to find correct next hop");
+        WALK_LIST(ifa, po->iface_list)
+        {
+          if ((ifa->type == OSPF_IT_VLINK) && ipa_equal(ifa->vip, nf->n.nh))
+          {
+            if ((en = ospf_hash_find(ifa->voa->gr, ifa->vid, ifa->vid, LSA_T_RT)) &&
+              (!ipa_equal(en->nh, IPA_NONE)))
+            {
+              a0.gw = en->nh;
+              found = 1;
+            }
+            break;
+          }
+        }
+        if (!found) nf->n.metric1 = LSINFINITY; /* Delete it */
+      }
       ne = net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
       check_sum_lsa(po, nf, ORT_NET);
       if (nf->n.metric1 < LSINFINITY)
@@ -978,10 +1001,17 @@ again2:
     /* Check condensed summary LSAs */
     FIB_WALK(&oa->net_fib, nftmp)
     {
+      flush = 1;
       anet = (struct area_net *) nftmp;
       if((!anet->hidden) && anet->active && (!oa->trcap))
-        originate_sum_lsa(oa, &anet->fn, ORT_NET, 1);
-      else flush_sum_lsa(oa, &anet->fn, ORT_NET);
+        flush = 0;
+          
+      WALK_LIST(oaa, po->area_list)
+      {
+        if (oaa == oa) continue;
+        if(flush) flush_sum_lsa(oaa, &anet->fn, ORT_NET);
+        else originate_sum_lsa(oaa, &anet->fn, ORT_NET, 1);
+      }
     }
     FIB_WALK_END;
   }

@@ -36,7 +36,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 
   WALK_LIST(ifa, po->iface_list)
   {
-    if ((ifa->an == oa->areaid) && (ifa->state != OSPF_IS_DOWN))
+    if ((ifa->oa == oa) && (ifa->state != OSPF_IS_DOWN))
     {
       i++;
     }
@@ -51,7 +51,10 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 
   WALK_LIST(ifa, po->iface_list)
   {
-    if ((ifa->an != oa->areaid) || (ifa->state == OSPF_IS_DOWN))
+    if ((ifa->type == OSPF_IT_VLINK) && (ifa->voa == oa) && (ifa->state > OSPF_IS_DOWN))
+      rt->veb.bit.v = 1;
+
+    if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
 
     if (ifa->state == OSPF_IS_LOOP)
@@ -146,7 +149,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	  ln->id = neigh->rid;
 	  ln->metric = ifa->cost;
 	  ln->notos = 0;
-          rt->veb.bit.v = 1;
         }
 	else
         {
@@ -351,14 +353,14 @@ originate_ext_lsa_body(net * n, rte * e, struct proto_ospf *po,
     et->etm.etos.ebit = 1;
   }
   et->tag = tag;
-  if (ipa_compare(e->attrs->gw, ipa_from_u32(0)) != 0)
+  if (!ipa_equal(e->attrs->gw, IPA_NONE))
   {
     if (ospf_iface_find((struct proto_ospf *) p, e->attrs->iface) != NULL)
       inas = 1;
   }
 
   if (!inas)
-    et->fwaddr = ipa_from_u32(0);
+    et->fwaddr = IPA_NONE;
   else
     et->fwaddr = e->attrs->gw;
   return ext;
@@ -416,7 +418,8 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
       {
         en->lsa.age = LSA_MAXAGE;
         en->lsa.sn = LSA_MAXSEQNO;
-        OSPF_TRACE(D_EVENTS, "Flushing summary lsa.");
+        lsasum_calculate(&en->lsa, sum);
+        OSPF_TRACE(D_EVENTS, "Flushing summary lsa. (id=%I, type=%d)", en->lsa.id, en->lsa.type);
         ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
         if (can_flush_lsa(oa)) flush_lsa(en, oa);
         break;
@@ -424,9 +427,6 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
     }
   }
 }
-
-  
-
 
 void
 originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric)
@@ -436,8 +436,7 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
   struct top_hash_entry *en;
   u32 rtid = po->proto.cf->global->router_id;
   struct ospf_lsa_header lsa;
-  void *body = NULL;
-  int i, max, mlen = fn->pxlen, found = 0, free = -1;
+  int i, max, mlen = fn->pxlen, free = 0;
   struct ospf_lsa_sum *sum = NULL;
   union ospf_lsa_sum_tm *tm;
   lsa.type = LSA_T_SUM_NET;
@@ -461,7 +460,7 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
     lsa.id = ipa_to_u32(fn->prefix) + i;
     if ((en = ospf_hash_find_header(oa->gr, &lsa)) == NULL)
     {
-      if (free < 0) free = i;
+      if (!free) free = lsa.id;
     }
     else
     {
@@ -477,7 +476,7 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
     }
   }
 
-  if(free < 0)
+  if(!free)
   {
     log("%s: got more routes for one /%d network then %d, ignoring", p->name,
         fn->pxlen, max);
@@ -485,9 +484,6 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
   }
   lsa.id = free;
   
-  sum = en->lsa_body;
-  tm = (union ospf_lsa_sum_tm *) (sum + 1);
-
   OSPF_TRACE(D_EVENTS, "Originating summary (type %d) lsa for %I/%d.", lsa.type, fn->prefix,
              fn->pxlen);
 
@@ -497,8 +493,8 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
   tm->metric = metric;
   tm->tos.tos = 0;
 
-  lsasum_calculate(&lsa, body);
-  en = lsa_install_new(&lsa, body, oa);
+  lsasum_calculate(&lsa, sum);
+  en = lsa_install_new(&lsa, sum, oa);
   ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
 }
 
@@ -515,6 +511,12 @@ check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
 
   if ((nf->n.type > RTS_OSPF_IA) && (nf->o.type > RTS_OSPF_IA)) return;
 
+#ifdef LOCAL_DEBUG
+  DBG("Checking...dest = %d, %I/%d", dest, nf->fn.prefix, nf->fn.pxlen);
+  if (nf->n.oa) DBG("New: met=%d, oa=%d", nf->n.metric1, nf->n.oa->areaid);
+  if (nf->o.oa) DBG("Old: met=%d, oa=%d", nf->o.metric1, nf->o.oa->areaid);
+#endif
+
   WALK_LIST(oa, po->area_list)
   {
     flush = 0;
@@ -522,7 +524,7 @@ check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
       flush = 1;
     if ((dest == ORT_ROUTER) && (!(nf->n.capa & ORTA_ABR)))
       flush = 1;
-    if (nf->n.oa->areaid == oa->areaid)
+    if ((!nf->n.oa) || (nf->n.oa->areaid == oa->areaid))
       flush = 1;
     /* FIXME: Test next hop - is it in actual area? */
     if ((dest == ORT_ROUTER) && oa->stub)
@@ -531,7 +533,8 @@ check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
 
     mlen = nf->fn.pxlen;
     ip = ipa_and(nf->fn.prefix, ipa_mkmask(mlen));
-    if((!oa->trcap) && fib_route(&oa->net_fib, ip, mlen))	/* The route fits into some area */
+    if ((!flush) && (!nf->n.oa->trcap) &&
+        fib_route(&nf->n.oa->net_fib, ip, mlen))	/* The route fits into area networks */
       flush = 1;
 
     if(flush)		/* FIXME Go on... */
@@ -542,20 +545,6 @@ check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
     originate_sum_lsa(oa, &nf->fn, dest, nf->n.metric1);
   }
 }
-
-void
-check_sum_areas(struct proto_ospf *po)
-{
-  struct proto *p = &po->proto;
-  struct ospf_area *oa;
-  struct area_net *anet;
-
-  WALK_LIST(oa, po->area_list)
-  {
-    ;	/* FIXME */
-  }
-}
-
 
 /**
  * originate_ext_lsa - new route received from nest and filters
@@ -806,8 +795,8 @@ ospf_hash_get(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
   e->color = OUTSPF;
   e->dist = LSINFINITY;
   e->nhi = NULL;
-  e->nh = ipa_from_u32(0);
-  e->lb = ipa_from_u32(0);
+  e->nh = IPA_NONE;
+  e->lb = IPA_NONE;
   e->lsa.id = lsa;
   e->lsa.rt = rtr;
   e->lsa.type = type;
@@ -852,8 +841,8 @@ ospf_top_dump(struct top_graph *f, struct proto *p)
     struct top_hash_entry *e = f->hash_table[i];
     while (e)
     {
-      OSPF_TRACE(D_EVENTS, "\t%1x %-1I %-1I %4u 0x%08x",
-		 e->lsa.type, e->lsa.id, e->lsa.rt, e->lsa.age, e->lsa.sn);
+      OSPF_TRACE(D_EVENTS, "\t%1x %-1I %-1I %4u 0x%08x 0x%04x",
+		 e->lsa.type, e->lsa.id, e->lsa.rt, e->lsa.age, e->lsa.sn, e->lsa.checksum);
       e = e->next;
     }
   }

@@ -44,8 +44,6 @@ Various ideas
 
 OSPF
 ~~~~
-	- refuse running on non-multicast devices
-	- importing of device routes for networks where we don't run OSPF
 	- check incoming packets using neighbor cache
 	- RFC2328 appendix E: Use a better algorithm
 	- automatic generation of external route tags (RFC1403)

@@ -152,10 +152,10 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       struct ospf_packet *op;
       struct ospf_lsa_header *lh;
 
-      if (ifa->type == OSPF_IT_NBMA)
+      if ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_VLINK))
 	sk = ifa->ip_sk;
       else
-	sk = ifa->hello_sk;	/* FIXME is this true for PTP? */
+	sk = ifa->hello_sk;
 
       pk = (struct ospf_lsupd_packet *) sk->tbuf;
       op = (struct ospf_packet *) sk->tbuf;
@@ -192,16 +192,23 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 
       op->length = htons(len);
       OSPF_TRACE(D_PACKETS, "LS upd flooded via %s", ifa->iface->name);
+      DBG("ID=%I, AGE=%d, SEQ=%x", ntohl(lh->id), ntohs(lh->age),
+	  ntohl(lh->sn));
 
-      if (ifa->type == OSPF_IT_NBMA)
+      switch (ifa->type)
       {
+      case OSPF_IT_NBMA:
 	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR))
 	  ospf_send_to_agt(sk, ifa, NEIGHBOR_EXCHANGE);
 	else
 	  ospf_send_to_bdr(sk, ifa);
-      }
-      else
-      {
+	break;
+
+      case OSPF_IT_VLINK:
+	ospf_send_to(sk, ifa->vip, ifa);
+	break;
+
+      default:
 	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR) ||
 	    (ifa->type == OSPF_IT_PTP))
 	  ospf_send_to(sk, AllSPFRouters, ifa);
@@ -243,6 +250,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
     if ((en = ospf_hash_find(n->ifa->oa->gr, llsh->lsh.id, llsh->lsh.rt,
 			     llsh->lsh.type)) == NULL)
       continue;			/* Probably flushed LSA */
+    /* FIXME This is a bug! I cannot flush LSA that is in lsrt */
 
     DBG("Sending ID=%I, Type=%u, RT=%I Sn: 0x%x Age: %u\n",
 	llsh->lsh.id, llsh->lsh.type, llsh->lsh.rt, en->lsa.sn, en->lsa.age);
@@ -395,8 +403,9 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
       {
 	WALK_LIST(nifa, po->iface_list)
 	{
-	  if (ipa_compare(nifa->iface->addr->ip, ipa_from_u32(lsatmp.id)) ==
-	      0)
+	  if (!nifa->iface)
+	    continue;
+	  if (ipa_equal(nifa->iface->addr->ip, ipa_from_u32(lsatmp.id)))
 	  {
 	    self = 1;
 	    break;

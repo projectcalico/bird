@@ -55,8 +55,8 @@ ospf_age(struct ospf_area *oa)
       en->color = OUTSPF;
       en->dist = LSINFINITY;
       en->nhi = NULL;
-      en->nh = ipa_from_u32(0);
-      en->lb = ipa_from_u32(0);
+      en->nh = IPA_NONE;
+      en->lb = IPA_NONE;
       DBG("Infinitying Type: %u, Id: %I, Rt: %I\n", en->lsa.type, en->lsa.id,
 	  en->lsa.rt);
     }

@@ -25,7 +25,7 @@ ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
   pkt->type = h_type;
 
   pkt->routerid = htonl(p->cf->global->router_id);
-  pkt->areaid = htonl(ifa->an);
+  pkt->areaid = htonl(ifa->oa->areaid);
   pkt->autype = htons(ifa->autype);
   pkt->checksum = 0;
 }
@@ -219,17 +219,32 @@ ospf_rx_hook(sock * sk, int size)
 {
   struct ospf_packet *ps;
   struct ospf_iface *ifa = (struct ospf_iface *) (sk->data);
+  struct proto_ospf *po = ifa->proto;
   struct proto *p = (struct proto *) (ifa->proto);
   struct ospf_neighbor *n;
   int osize;
   char *mesg = "Bad OSPF packet from ";
+  struct ospf_iface *iff;
 
   if (ifa->stub)
     return (1);
 
+  ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
+
+  if ((ifa->oa->areaid != 0) && (ntohl(ps->areaid) == 0))
+  {
+    WALK_LIST(iff, po->iface_list)
+    {
+      if ((iff->type == OSPF_IT_VLINK) && (iff->iface == ifa->iface) &&
+          (iff->voa = ifa->oa) && ipa_equal(sk->faddr, iff->vip))
+      {
+        return 1;       /* Packet is for VLINK */
+      }
+    }
+  }
+
   DBG("%s: RX_Hook called on interface %s.\n", p->name, sk->iface->name);
 
-  ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
   osize = ntohs(ps->length);
   if (ps == NULL)
   {
@@ -263,7 +278,7 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
-  if (ntohl(ps->areaid) != ifa->an)
+  if (ntohl(ps->areaid) != ifa->oa->areaid)
   {
     log(L_ERR "%s%I - other area %ld", mesg, sk->faddr, ps->areaid);
     return 1;
@@ -374,9 +389,9 @@ ospf_send_to_agt(sock * sk, struct ospf_iface *ifa, u8 state)
 void
 ospf_send_to_bdr(sock * sk, struct ospf_iface *ifa)
 {
-  if (ipa_compare(ifa->drip, ipa_from_u32(0)) != 0)
+  if (!ipa_equal(ifa->drip, IPA_NONE))
     ospf_send_to(sk, ifa->drip, ifa);
-  if (ipa_compare(ifa->bdrip, ipa_from_u32(0)) != 0)
+  if (!ipa_equal(ifa->bdrip, IPA_NONE))
     ospf_send_to(sk, ifa->bdrip, ifa);
 }
 

@@ -58,9 +58,9 @@ ospf_area_start: AREA idval '{' {
   this_area = cfg_allocz(sizeof(struct ospf_area_config));
   add_tail(&OSPF_CFG->area_list, NODE this_area);
   this_area->areaid = $2;
-  this_area->tick = DEFAULT_AREATICK;
   this_area->stub = 0;
   init_list(&this_area->patt_list);
+  init_list(&this_area->vlink_list);
   init_list(&this_area->net_list);
  }
  ;
@@ -75,13 +75,14 @@ ospf_area_opts:
 
 ospf_area_item:
    STUB COST expr { this_area->stub = $3 ; if($3<=0) cf_error("Stub cost must be greater than zero"); }
- | TICK expr { this_area->tick = $2 ; if($2<=0) cf_error("Tick must be greater than zero"); }
  | NETWORKS '{' pref_list '}'
  | INTERFACE ospf_iface_list
- | ospf_vlink '}'
+ | ospf_vlink
  ;
 
-ospf_vlink: ospf_vlink_start ospf_vlink_opts
+ospf_vlink:
+   ospf_vlink_start '{' ospf_vlink_opts '}'
+ | ospf_vlink_start
  ;
 
 ospf_vlink_opts:
@@ -90,8 +91,7 @@ ospf_vlink_opts:
  ;
 
 ospf_vlink_item:
-   HELLO expr { OSPF_PATT->helloint = $2 ; if (($2<=0) || ($2>65535)) cf_error("Hello interval must be in range 1-65535"); }
- | POLL expr { OSPF_PATT->pollint = $2 ; if ($2<=0) cf_error("Poll int must be greater than zero"); }
+ | HELLO expr { OSPF_PATT->helloint = $2 ; if (($2<=0) || ($2>65535)) cf_error("Hello interval must be in range 1-65535"); }
  | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=0) cf_error("Retransmit int must be greater than zero"); }
  | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
  | WAIT expr { OSPF_PATT->waitint = $2 ; }
@@ -102,19 +102,21 @@ ospf_vlink_item:
  | password_list {OSPF_PATT->passwords = $1; }
  ;
 
-ospf_vlink_start: VIRTUAL LINK '{'
+ospf_vlink_start: VIRTUAL LINK idval
  {
+  log("Vlink start");
   if (this_area->areaid == 0) cf_error("Virtual link cannot be in backbone");
   this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
-  add_tail(&this_area->patt_list, NODE this_ipatt);
+  add_tail(&this_area->vlink_list, NODE this_ipatt);
+  OSPF_PATT->vid = $3;
   OSPF_PATT->cost = COST_D;
   OSPF_PATT->helloint = HELLOINT_D;
-  OSPF_PATT->pollint = POLLINT_D;
   OSPF_PATT->rxmtint = RXMTINT_D;
   OSPF_PATT->inftransdelay = INFTRANSDELAY_D;
   OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
   OSPF_PATT->type = OSPF_IT_VLINK;
+  init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype = OSPF_AUTH_NONE;
  }
 ;
@@ -198,6 +200,7 @@ ipa_ne: IPA ELIGIBLE ';'
  
 ospf_iface_start:
  {
+  log("Iface start");
   this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
   add_tail(&this_area->patt_list, NODE this_ipatt);
   OSPF_PATT->cost = COST_D;

@@ -972,13 +972,12 @@ describing the autonomous system's topology. Each participating router
 has an identical copy of the database and all routers run the same algorithm
 calculating a shortest path tree with themselves as a root.
 OSPF chooses the least cost path as the best path.
+(OSPFv3 - OSPF for IPv6 is not supported yet.)
 
 <p>In OSPF, the autonomous system can be split to several areas in order
 to reduce the amount of resources consumed for exchanging the routing
 information and to protect the other areas from incorrect routing data.
 Topology of the area is hidden to the rest of the autonomous system.
-Unfortunately, multiple OSPF areas are not yet fully supported
-by this version of BIRD and neither is the IPv6 version (OSPFv3).
 
 <p>Another very important feature of OSPF is that
 it can keep routing information from other protocols (like Static or BGP)
@@ -1011,7 +1010,6 @@ protocol ospf &lt;name&gt; {
 	tick &lt;num&gt;;
 	area &lt;id&gt; {
 		stub cost &lt;num&gt;;
-		tick &lt;num&gt;;
                 networks {
 			&lt;prefix&gt;;
 			&lt;prefix&gt; hidden;
@@ -1047,7 +1045,6 @@ protocol ospf &lt;name&gt; {
 		virtual link &lt;id&gt;
 		{
 			hello &lt;num&gt;;
-			poll &lt;num&gt;;
 			retransmit &lt;num&gt;;
 			wait &lt;num&gt;;
 			dead count &lt;num&gt;;
@@ -1077,7 +1074,7 @@ protocol ospf &lt;name&gt; {
 	 Default value is no. (Area is not stub.)
 
 	<tag>tick <M>num</M></tag>
-	 The routing table calculation of clean-up in areas' databases
+	 The routing table calculation and clean-up of areas' databases
          is not performed when a single link state
 	 change arrives. To lower the CPU utilization, it's processed later
 	 at periodical intervals of <m/num/ seconds. The default value is 1.
@@ -1090,8 +1087,9 @@ protocol ospf &lt;name&gt; {
 	 Defines that the specified interfaces belong to the area being defined.
 
 	<tag>virtual link <M>id</M></tag>
-	 Virtual link to router with the router id. This item cannot be in the
-         backbone area (ID 0).
+	 Virtual link to router with the router id. Virtual link acts as a
+         point-to-point interface belonging to backbone. The actual area is
+         used as transport area. This item cannot be in the backbone.
 
 	<tag>cost <M>num</M></tag>
 	 Specifies output cost (metric) of an interface. Default value is 10.
@@ -1205,6 +1203,8 @@ Default is <cf/metric of type 2 = 10000/ and <cf/tag = 0/.
 
 <code>
 protocol ospf MyOSPF {
+        rfc1583compatibility yes;
+        tick 2;
 	export filter {
 		if source = RTS_BGP then {
 			ospf_metric1 = 100;
@@ -1213,7 +1213,6 @@ protocol ospf MyOSPF {
 		reject;
 	};                                                                      
 	area 0.0.0.0 {
-		tick 8;
 		interface "eth*" {
 			cost 11;
 			hello 15;
@@ -1224,11 +1223,25 @@ protocol ospf MyOSPF {
 		};
 		interface "ppp*" {
 			cost 100;
+			authentication cryptographic;
+			passwords {
+				password "abc" {
+					id 1;
+					generate to 22-04-2003 11:00:06;
+					accept from 17-01-2001 12:01:05;
+				};
+				password "def" {
+					id 2;
+					generate to 22-07-2005 17:03:21;
+					accept from 22-02-2001 11:34:06;
+				};
+			};
 		};
 		interface "arc0" {
 			cost 10;
 			stub yes;
 		};
+		interface "arc1";
 	};
 	area 120 {
 		stub yes;

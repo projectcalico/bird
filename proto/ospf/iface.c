@@ -21,6 +21,7 @@ char *ospf_it[] = { "broadcast", "nbma", "point-to-point", "virtual link" };
 static void
 poll_timer_hook(timer * timer)
 {
+  log("POLL!");
   ospf_hello_send(timer, 1, NULL);
 }
 
@@ -40,6 +41,38 @@ wait_timer_hook(timer * timer)
   ospf_iface_sm(ifa, ISM_WAITF);
 }
 
+static sock *
+ospf_open_ip_socket(struct ospf_iface *ifa)
+{
+  sock *ipsk;
+  struct proto *p;
+
+  p = (struct proto *) (ifa->proto);
+
+  ipsk = sk_new(p->pool);
+  ipsk->type = SK_IP;
+  ipsk->dport = OSPF_PROTO;
+  ipsk->saddr = ifa->iface->addr->ip;
+  ipsk->tos = IP_PREC_INTERNET_CONTROL;
+  ipsk->ttl = 1;
+  if (ifa->type == OSPF_IT_VLINK)
+    ipsk->ttl = 255;
+  ipsk->rx_hook = ospf_rx_hook;
+  ipsk->tx_hook = ospf_tx_hook;
+  ipsk->err_hook = ospf_err_hook;
+  ipsk->iface = ifa->iface;
+  ipsk->rbsize = ifa->iface->mtu;
+  ipsk->tbsize = ifa->iface->mtu;
+  ipsk->data = (void *) ifa;
+  if (sk_open(ipsk) != 0)
+  {
+    DBG("%s: SK_OPEN: ip open failed.\n", p->name);
+    return (NULL);
+  }
+  DBG("%s: SK_OPEN: ip opened.\n", p->name);
+  return (ipsk);
+}
+
 
 /**
  * ospf_iface_chstate - handle changes of interface state
@@ -55,58 +88,71 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 {
   struct proto_ospf *po = ifa->proto;
   struct proto *p = &po->proto;
-  u8 oldstate;
+  u8 oldstate = ifa->state;
 
-  if (ifa->state != state)
+  if (oldstate != state)
   {
-    OSPF_TRACE(D_EVENTS,
-	       "Changing state of iface: %s from \"%s\" into \"%s\".",
-	       ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
-    oldstate = ifa->state;
     ifa->state = state;
-    if (ifa->iface->flags & IF_MULTICAST)
+
+    if (ifa->type == OSPF_IT_VLINK)
     {
-      if ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR))
+      OSPF_TRACE(D_EVENTS,
+		 "Changing state of virtual link %I from \"%s\" into \"%s\".",
+		 ifa->vid, ospf_is[oldstate], ospf_is[state]);
+      if (state == OSPF_IS_PTP)
       {
-	if ((ifa->dr_sk == NULL) && (ifa->type != OSPF_IT_NBMA))
+        ifa->ip_sk = ospf_open_ip_socket(ifa);
+      }
+    }
+    else
+    {
+      OSPF_TRACE(D_EVENTS,
+		 "Changing state of iface: %s from \"%s\" into \"%s\".",
+		 ifa->iface->name, ospf_is[oldstate], ospf_is[state]);
+      if (ifa->iface->flags & IF_MULTICAST)
+      {
+	if ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR))
 	{
-	  DBG("%s: Adding new multicast socket for (B)DR\n", p->name);
-	  ifa->dr_sk = sk_new(p->pool);
-	  ifa->dr_sk->type = SK_IP_MC;
-	  ifa->dr_sk->sport = 0;
-	  ifa->dr_sk->dport = OSPF_PROTO;
-	  ifa->dr_sk->saddr = AllDRouters;
-	  ifa->dr_sk->daddr = AllDRouters;
-	  ifa->dr_sk->tos = IP_PREC_INTERNET_CONTROL;
-	  ifa->dr_sk->ttl = 1;
-	  ifa->dr_sk->rx_hook = ospf_rx_hook;
-	  ifa->dr_sk->tx_hook = ospf_tx_hook;
-	  ifa->dr_sk->err_hook = ospf_err_hook;
-	  ifa->dr_sk->iface = ifa->iface;
-	  ifa->dr_sk->rbsize = ifa->iface->mtu;
-	  ifa->dr_sk->tbsize = ifa->iface->mtu;
-	  ifa->dr_sk->data = (void *) ifa;
-	  if (sk_open(ifa->dr_sk) != 0)
+	  if ((ifa->dr_sk == NULL) && (ifa->type != OSPF_IT_NBMA))
 	  {
-	    DBG("%s: SK_OPEN: new? mc open failed.\n", p->name);
+	    DBG("%s: Adding new multicast socket for (B)DR\n", p->name);
+	    ifa->dr_sk = sk_new(p->pool);
+	    ifa->dr_sk->type = SK_IP_MC;
+	    ifa->dr_sk->sport = 0;
+	    ifa->dr_sk->dport = OSPF_PROTO;
+	    ifa->dr_sk->saddr = AllDRouters;
+	    ifa->dr_sk->daddr = AllDRouters;
+	    ifa->dr_sk->tos = IP_PREC_INTERNET_CONTROL;
+	    ifa->dr_sk->ttl = 1;
+	    ifa->dr_sk->rx_hook = ospf_rx_hook;
+	    ifa->dr_sk->tx_hook = ospf_tx_hook;
+	    ifa->dr_sk->err_hook = ospf_err_hook;
+	    ifa->dr_sk->iface = ifa->iface;
+	    ifa->dr_sk->rbsize = ifa->iface->mtu;
+	    ifa->dr_sk->tbsize = ifa->iface->mtu;
+	    ifa->dr_sk->data = (void *) ifa;
+	    if (sk_open(ifa->dr_sk) != 0)
+	    {
+	      DBG("%s: SK_OPEN: new? mc open failed.\n", p->name);
+	    }
 	  }
 	}
-      }
-      else
-      {
-	rfree(ifa->dr_sk);
-	ifa->dr_sk = NULL;
-      }
-      if ((oldstate == OSPF_IS_DR) && (ifa->nlsa != NULL))
-      {
-	ifa->nlsa->lsa.age = LSA_MAXAGE;
-	if (state >= OSPF_IS_WAITING)
+	else
 	{
-	  ospf_lsupd_flush_nlsa(ifa->nlsa, ifa->oa);
+	  rfree(ifa->dr_sk);
+	  ifa->dr_sk = NULL;
 	}
-	if (can_flush_lsa(ifa->oa))
-	  flush_lsa(ifa->nlsa, ifa->oa);
-	ifa->nlsa = NULL;
+	if ((oldstate == OSPF_IS_DR) && (ifa->nlsa != NULL))
+	{
+	  ifa->nlsa->lsa.age = LSA_MAXAGE;
+	  if (state >= OSPF_IS_WAITING)
+	  {
+	    ospf_lsupd_flush_nlsa(ifa->nlsa, ifa->oa);
+	  }
+	  if (can_flush_lsa(ifa->oa))
+	    flush_lsa(ifa->nlsa, ifa->oa);
+	  ifa->nlsa = NULL;
+	}
       }
     }
   }
@@ -120,6 +166,16 @@ ospf_iface_down(struct ospf_iface *ifa)
   struct proto_ospf *po = ifa->proto;
   struct ospf_iface *iff;
 
+  /* First of all kill all the related vlinks */
+  if (ifa->type != OSPF_IT_VLINK)
+  {
+    WALK_LIST(iff, po->iface_list)
+    {
+      if ((iff->type == OSPF_IT_VLINK) && (iff->iface == ifa->iface))
+        ospf_iface_down(iff);
+    }
+  }
+
   WALK_LIST_DELSAFE(n, nx, ifa->neigh_list)
   {
     OSPF_TRACE(D_EVENTS, "Removing neighbor %I", n->ip);
@@ -129,7 +185,7 @@ ospf_iface_down(struct ospf_iface *ifa)
   rfree(ifa->dr_sk);
   rfree(ifa->ip_sk);
 
-  if(ifa->type == OSPF_IT_VLINK)
+  if (ifa->type == OSPF_IT_VLINK)
   {
     ifa->ip_sk = NULL;
     ifa->iface = NULL;
@@ -144,7 +200,6 @@ ospf_iface_down(struct ospf_iface *ifa)
     rem_node(NODE ifa);
     mb_free(ifa);
   }
-  /* FIXME: Should I down related VLINK also? */
 }
 
 /**
@@ -168,13 +223,10 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
     if (ifa->state == OSPF_IS_DOWN)
     {
       /* Now, nothing should be adjacent */
-      tm_start(ifa->hello_timer, ifa->helloint);
-
-      if (ifa->poll_timer)
-	tm_start(ifa->poll_timer, ifa->pollint);
-
       if ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_VLINK))
+      {
 	ospf_iface_chstate(ifa, OSPF_IS_PTP);
+      }
       else
       {
 	if (ifa->priority == 0)
@@ -185,6 +237,12 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 	  tm_start(ifa->wait_timer, ifa->waitint);
 	}
       }
+
+      tm_start(ifa->hello_timer, ifa->helloint);
+
+      if (ifa->poll_timer)
+	tm_start(ifa->poll_timer, ifa->pollint);
+
       hello_timer_hook(ifa->hello_timer);
     }
     schedule_rt_lsa(ifa->oa);
@@ -257,37 +315,6 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
   return (mcsk);
 }
 
-static sock *
-ospf_open_ip_socket(struct ospf_iface *ifa)
-{
-  sock *ipsk;
-  struct proto *p;
-
-  p = (struct proto *) (ifa->proto);
-
-  ipsk = sk_new(p->pool);
-  ipsk->type = SK_IP;
-  ipsk->dport = OSPF_PROTO;
-  ipsk->saddr = ifa->iface->addr->ip;
-  ipsk->tos = IP_PREC_INTERNET_CONTROL;
-  ipsk->ttl = 1;
-  if (ifa->type == OSPF_IT_VLINK) ipsk->ttl = 255;
-  ipsk->rx_hook = ospf_rx_hook;
-  ipsk->tx_hook = ospf_tx_hook;
-  ipsk->err_hook = ospf_err_hook;
-  ipsk->iface = ifa->iface;
-  ipsk->rbsize = ifa->iface->mtu;
-  ipsk->tbsize = ifa->iface->mtu;
-  ipsk->data = (void *) ifa;
-  if (sk_open(ipsk) != 0)
-  {
-    DBG("%s: SK_OPEN: ip open failed.\n", p->name);
-    return (NULL);
-  }
-  DBG("%s: SK_OPEN: ip opened.\n", p->name);
-  return (ipsk);
-}
-
 u8
 ospf_iface_clasify(struct iface * ifa)
 {
@@ -306,7 +333,7 @@ ospf_iface_find(struct proto_ospf *p, struct iface *what)
 {
   struct ospf_iface *i;
 
-  WALK_LIST(i, p->iface_list) if ((i)->iface == what)
+  WALK_LIST(i, p->iface_list) if ((i->iface == what) && (i->type != OSPF_IT_VLINK))
     return i;
   return NULL;
 }
@@ -350,7 +377,8 @@ ospf_iface_add(struct object_lock *lock)
 }
 
 void
-ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ospf_area_config *ac, struct ospf_iface_patt *ip)
+ospf_iface_new(struct proto_ospf *po, struct iface *iface,
+	       struct ospf_area_config *ac, struct ospf_iface_patt *ip)
 {
   struct proto *p = &po->proto;
   struct ospf_iface *ifa;
@@ -362,7 +390,6 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ospf_area_conf
   ifa->proto = po;
   ifa->iface = iface;
 
-  ifa->an = ac->areaid;
   ifa->cost = ip->cost;
   ifa->rxmtint = ip->rxmtint;
   ifa->inftransdelay = ip->inftransdelay;
@@ -383,6 +410,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ospf_area_conf
 
   init_list(&ifa->neigh_list);
   init_list(&ifa->nbma_list);
+
   WALK_LIST(nb, ip->nbma_list)
   {
     nbma = mb_alloc(p->pool, sizeof(struct nbma_node));
@@ -420,23 +448,26 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ospf_area_conf
   add_tail(&((struct proto_ospf *) p)->iface_list, NODE ifa);
   ifa->state = OSPF_IS_DOWN;
 
+  ifa->oa = NULL;
   WALK_LIST(oa, po->area_list)
   {
-    if (oa->areaid == ifa->an)
+    if (oa->areaid == ac->areaid)
+    {
+      ifa->oa = oa;
       break;
+    }
   }
 
-  if (EMPTY_LIST(po->area_list) || (oa->areaid != ifa->an))	/* New area */
+  if (!ifa->oa)
     bug("Cannot add any area to accepted Interface");
   else
-    ifa->oa = oa;
 
   if (ifa->type == OSPF_IT_VLINK)
   {
     ifa->oa = po->backbone;
     ifa->voa = oa;
     ifa->vid = ip->vid;
-    return;	/* Don't lock, don't add sockets */
+    return;			/* Don't lock, don't add sockets */
   }
 
   lock = olock_new(p->pool);
@@ -536,9 +567,19 @@ ospf_iface_info(struct ospf_iface *ifa)
 
   if ((ifa->type != OSPF_IT_NBMA) || (ifa->strictnbma == 0))
     strict = "";
-  cli_msg(-1015, "Interface \"%s\":", ifa->iface->name);
-  cli_msg(-1015, "\tArea: %I (%u)", ifa->oa->areaid, ifa->oa->areaid);
-  cli_msg(-1015, "\tType: %s %s", ospf_it[ifa->type], strict);
+  if (ifa->type == OSPF_IT_VLINK)
+  {
+    cli_msg(-1015, "Virtual link to %I:", ifa->vid);
+    cli_msg(-1015, "\tTransit area: %I (%u)", ifa->voa->areaid,
+	    ifa->voa->areaid);
+  }
+  else
+  {
+    cli_msg(-1015, "Interface \"%s\":",
+	    (ifa->iface ? ifa->iface->name : "(none)"));
+    cli_msg(-1015, "\tType: %s %s", ospf_it[ifa->type], strict);
+    cli_msg(-1015, "\tArea: %I (%u)", ifa->oa->areaid, ifa->oa->areaid);
+  }
   cli_msg(-1015, "\tState: %s %s", ospf_is[ifa->state],
 	  ifa->stub ? "(stub)" : "");
   cli_msg(-1015, "\tPriority: %u", ifa->priority);
