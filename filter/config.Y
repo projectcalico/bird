@@ -227,8 +227,22 @@ set_atom:
  ; 
 
 set_item:
-   set_atom { $$ = f_new_tree(); $$->from = $$->to = $1 }
- | set_atom '.' '.' set_atom { $$ = f_new_tree(); $$->from = $1; $$->to = $4; }
+   set_atom { 
+	$$ = f_new_tree(); 
+	$$->from = $1; 
+	if ($1.type != T_PREFIX)
+		$$->to = $1;
+	else {
+		$$->to = $1;
+		$$->to.val.px.ip = ipa_or( $$->to.val.px.ip, ipa_not( ipa_mkmask( $$->to.val.px.len ) ));
+	}
+   }
+ | set_atom '.' '.' set_atom { 
+	$$ = f_new_tree(); 
+	$$->from = $1; 
+	$$->to = $4; 
+	if (($1.type == T_PREFIX) || ($4.type == T_PREFIX)) cf_error( "You can not use prefixes for range" ); 
+   }
  ;
 
 set_items:
@@ -307,6 +321,7 @@ term:
  | term '>' term     { $$ = f_new_inst(); $$->code = '<';        $$->a1.p = $3; $$->a2.p = $1; }
  | term GEQ term { $$ = f_new_inst(); $$->code = P('<','=');     $$->a1.p = $3; $$->a2.p = $1; }
  | term '~' term     { $$ = f_new_inst(); $$->code = '~';        $$->a1.p = $1; $$->a2.p = $3; }
+ | '!' term { $$ = f_new_inst(); $$->code = '!'; $$->a1.p = $2; }
  | DEFINED '(' term ')' { $$ = f_new_inst(); $$->code = P('d','e');  $$->a1.p = $3; }
 
  | constant { $$ = $1; }
@@ -336,7 +351,27 @@ term:
  | term '.' IP { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_IP; }
  | term '.' LEN { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_INT; }
  | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = P('i','M'); $$->a1.p = $1; $$->a2.p = $5; }
- | function_call { $$ = $1; /* 1 shift/reduce conflict */ }
+/* function_call is inlined here */
+ | SYM '(' var_list ')' {
+     struct symbol *sym;
+     struct f_inst *inst = $3;
+     if ($1->class != SYM_FUNCTION)
+       cf_error("You can not call something which is not function. Really.");
+     DBG("You are calling function %s\n", $1->name);
+     $$ = f_new_inst();
+     $$->code = P('c','a');
+     $$->a1.p = inst;
+     $$->a2.p = $1->aux2;
+     sym = (void *) $1->aux;
+     while (sym || inst) {
+       if (!sym || !inst)
+	 cf_error("wrong number of arguments for function %s.", $1->name);
+       DBG( "You should pass parameter called %s\n", sym->name);
+       inst->a1.p = sym;
+       sym = (void *) sym->aux;
+       inst = inst->next;
+     }
+   }
  ;
 
 break_command:
@@ -353,12 +388,14 @@ print_one:
  ;
 
 print_list: /* EMPTY */ { $$ = NULL; }
- | print_one print_list {
+ | print_one { $$ = $1; }
+ | print_one ',' print_list {
      if ($1) {
-       $1->next = $2;
+       $1->next = $3;
        $$ = $1;
-     } else $$ = $2;
+     } else $$ = $3;
    }
+ 
  ;
 
 var_listn: term { 

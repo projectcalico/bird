@@ -216,6 +216,14 @@ interpret(struct f_inst *what)
   case '<': COMPARE(i==-1);
   case P('<','='): COMPARE(i!=1);
 
+  case '!':
+    ONEARG;
+    if (v1.type != T_BOOL)
+      runtime( "not applied to non-boolean" );
+    res = v1;
+    res.val.i = !res.val.i;
+    break;
+
   case '~':
     TWOARGS;
     res.type = T_BOOL;
@@ -466,6 +474,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case '<':
   case P('<','='): TWOARGS; break;
 
+  case '!': ONEARG; break;
   case '~': TWOARGS; break;
   case P('d','e'): ONEARG; break;
 
