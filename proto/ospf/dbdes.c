@@ -271,7 +271,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
           }
 	  else
           {
-            debug("%s: Nothing happend to %I (imms=%u)\n", p->name, nrid,
+            DBG("%s: Nothing happend to %I (imms=%u)\n", p->name, nrid,
               ps->imms.byte);
             break;
           }
