@@ -107,7 +107,7 @@ lp_alloc(linpool *m, unsigned size)
 	  c = xmalloc(sizeof(struct lp_chunk) + size);
 	  m->total_large += size;
 	  c->next = m->first_large;
-	  m->first_large = c->next;
+	  m->first_large = c;
 	  c->size = size;
 	}
       else
