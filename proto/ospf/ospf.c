@@ -61,6 +61,7 @@ ospf_init(struct proto_config *c)
 {
   struct proto *p = proto_new(c, sizeof(struct proto_ospf));
   struct proto_ospf *po=(struct proto_ospf *)p;
+  struct ospf_config *oc=(struct ospf_config *)c;
 
   debug("OSPF: Init requested.\n");
   p->import_control = ospf_import_control;
@@ -70,6 +71,8 @@ ospf_init(struct proto_config *c)
   p->if_notify = ospf_if_notify;
   p->rte_better = ospf_rte_better;
   p->rte_same = ospf_rte_same;
+
+  po->rfc1583=oc->rfc1583;
 
   return p;
 }

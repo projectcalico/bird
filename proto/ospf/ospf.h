@@ -47,6 +47,7 @@
 
 struct ospf_config {
   struct proto_config c;
+  int rfc1583;
   u32 area;		/* FIXME: Area ID  !!! This is wrong !!!
                          * Should respect interface */
 };
@@ -345,6 +346,7 @@ struct proto_ospf {
   list area_list;
   int areano;			/* Number of area I belong to */
   struct fib efib;		/* FIB for external routes */
+  int rfc1583;
 };
 
 static int ospf_start(struct proto *p);

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF Configuration
  *
- *	(c) 1999 Ondrej Filip <feela@network.cz>
+ *	(c) 1999-2000 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -10,10 +10,14 @@ CF_HDR
 
 #include "proto/ospf/ospf.h"
 
+CF_DEFINES
+
+#define OSPF_CFG ((struct ospf_config *) this_proto)
+
 CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
-CF_KEYWORDS(NEIGHBORS)
+CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT)
 
 %type <t> opttext
 
@@ -29,8 +33,9 @@ ospf_proto_start: proto_start OSPF {
 
 ospf_proto:
    ospf_proto_start proto_name '{'
-   | ospf_proto proto_item ';'
+ | ospf_proto proto_item ';'
  | ospf_proto ospf_area ';'
+ | ospf_proto RFC1583COMPAT bool ';' { OSPF_CFG->rfc1583 = $3; }
  ;
 
 ospf_area: AREA idval {
