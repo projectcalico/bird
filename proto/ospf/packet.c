@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2005 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -31,8 +31,11 @@ ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
 unsigned
 ospf_pkt_maxsize(struct ospf_iface *ifa)
 {
-  return ifa->iface->mtu - SIZE_OF_IP_HEADER -
-    ((ifa->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0);
+  unsigned mtu = (ifa->type == OSPF_IT_VLINK) ? OSPF_VLINK_MTU : ifa->iface->mtu;
+  /* Can be mtu < 576? */
+  return ((mtu <=  ifa->iface->mtu) ? mtu : ifa->iface->mtu) -
+  SIZE_OF_IP_HEADER - ((ifa->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0);
+  /* For virtual links use mtu=576 */
 }
 
 void

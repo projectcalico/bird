@@ -10,6 +10,7 @@
 #define _BIRD_OSPF_H_
 
 #define MAXNETS 10
+#define OSPF_VLINK_MTU 576	/* RFC2328 - A.1 */
 #undef OSPF_BIG_PACKETS	/*
                          * RFC 2328 says, maximum packet size is 65535
 			 * This could be too much for small systems, so I
