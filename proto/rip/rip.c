@@ -79,7 +79,7 @@ static struct rip_interface *new_iface(struct proto *p, struct iface *new, unsig
 static void
 rip_tx_err( sock *s, int err )
 {
-  struct rip_connection *c = s->data;
+  struct rip_connection *c = ((struct rip_interface *)(s->data))->busy;
   struct proto *p = c->proto;
   log( L_ERR "%s: Unexpected error at rip transmit: %M", P_NAME, err );
 }
