@@ -13,7 +13,9 @@
 
 #define OFFSETOF(s, i) ((unsigned int)&((s *)0)->i)
 #define SKIP_BACK(s, i, p) ((s *)((char *)p - OFFSETOF(s, i)))
+#ifndef ALIGN
 #define ALIGN(s, a) (((s)+a-1)&~(a-1))
+#endif
 
 /* Utility macros */
 
