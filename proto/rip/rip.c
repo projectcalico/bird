@@ -9,7 +9,7 @@
  	FIXME: IpV6 support: use right address for broadcasts
 	FIXME: IpV6 support: receive "route using" blocks
 
-	FIXME: fold rip_connection into rip_interface?
+	FIXME (nonurgent): fold rip_connection into rip_interface?
 
 	We are not going to honour requests for sending part of
 	routing table. That would need to turn split horizont off,
@@ -353,7 +353,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    if (block->family == 0xffff) {
 	      if (i)
 		continue;	/* md5 tail has this family */
-	      if (rip_incoming_authentication(p, (void *) block, packet, num))
+	      if (rip_incoming_authentication(p, (void *) block, packet, num, whotoldme))
 		BAD( "Authentication failed" );
 	      authenticated = 1;
 	      continue;
@@ -436,8 +436,6 @@ rip_timer(timer *t)
       rte_discard(p->table, rte);
     }
   }
-
-  /* FIXME: we need to do triggered updates */
 
   DBG( "RIP: Broadcasting routing tables\n" );
   {

@@ -157,5 +157,5 @@ void rip_init_config(struct rip_proto_config *c);
 
 /* Authentication functions */
 
-int rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num );
+int rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num, ip_addr whotoldme );
 int rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num );

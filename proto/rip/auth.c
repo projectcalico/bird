@@ -31,7 +31,7 @@
 
 /* 1 == failed, 0 == ok */
 int
-rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
+rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num, ip_addr whotoldme )
 {
   DBG( "Incoming authentication: " );
   switch (block->authtype) {	/* Authentication type */
@@ -73,6 +73,18 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 	DBG( "time, " );
 	if ((head->from > now) || (head->to < now))
 	  goto skip;
+	if (block->seq) {
+	  struct neighbor *neigh = neigh_find(p, &whotoldme, 0);
+	  if (!neigh) {
+	    log( L_AUTH "Non-neighbour md5 checksummed packet?\n" );
+	  } else {
+	    if (neigh->aux > block->seq) {
+	      log( L_AUTH "md5 prottected packet with lower numbers\n" );
+	      return 0;
+	    }
+	    neigh->aux = block->seq;
+	  }
+	}
 	DBG( "check, " );
 	if (head->id == block->keyid) {
 	  struct MD5Context ctxt;
