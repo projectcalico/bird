@@ -158,7 +158,10 @@ bgp_sock_err(sock *sk, int err)
   struct bgp_conn *conn = sk->data;
   struct bgp_proto *p = conn->bgp;
 
-  BGP_TRACE(D_EVENTS, "Connection closed (socket error %d)", err);
+  if (err)
+    BGP_TRACE(D_EVENTS, "Connection lost (%M)", err);
+  else
+    BGP_TRACE(D_EVENTS, "Connection closed");
   switch (conn->state)
     {
     case BS_CONNECT:

@@ -75,7 +75,7 @@ rip_tx_err( sock *s, int err )
 {
   struct rip_connection *c = s->data;
   struct proto *p = c->proto;
-  log( L_ERR "Unexpected error at rip transmit: %m" );
+  log( L_ERR "Unexpected error at rip transmit: %M", err );
 }
 
 static int

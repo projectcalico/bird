@@ -198,6 +198,9 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 		case 'm':
 			s = strerror(errno);
 			goto str;
+		case 'M':
+			s = strerror(va_arg(args, int));
+			goto str;
 		case 's':
 			s = va_arg(args, char *);
 			if (!s)
