@@ -12,6 +12,7 @@
 #include <net/if.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <errno.h>
 
 #define LOCAL_DEBUG
 
@@ -75,17 +76,15 @@ nl_open(void)
 }
 
 static void
-nl_send(void *rq, int size)
+nl_send(struct nlmsghdr *nh)
 {
-  struct nlmsghdr *nh = rq;
   struct sockaddr_nl sa;
 
   memset(&sa, 0, sizeof(sa));
   sa.nl_family = AF_NETLINK;
-  nh->nlmsg_len = size;
   nh->nlmsg_pid = 0;
   nh->nlmsg_seq = ++nl_sync_seq;
-  if (sendto(nl_sync_fd, rq, size, 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
+  if (sendto(nl_sync_fd, nh, nh->nlmsg_len, 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
     die("rtnetlink sendto: %m");
   nl_last_hdr = NULL;
 }
@@ -98,9 +97,10 @@ nl_request_dump(int cmd)
     struct rtgenmsg g;
   } req;
   req.nh.nlmsg_type = cmd;
+  req.nh.nlmsg_len = sizeof(req);
   req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
   req.g.rtgen_family = PF_INET;
-  nl_send(&req, sizeof(req));
+  nl_send(&req.nh);
 }
 
 static struct nlmsghdr *
@@ -144,14 +144,22 @@ nl_get_reply(void)
     }
 }
 
-static char *
+static int
 nl_error(struct nlmsghdr *h)
 {
-  struct nlmsgerr *e = NLMSG_DATA(h);
+  struct nlmsgerr *e;
+  int ec;
+
   if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
-    return "Error message truncated";
-  else
-    return strerror(-e->error);
+    {
+      log(L_WARN "Netlink: Truncated error message received");
+      return ENOBUFS;
+    }
+  e = (struct nlmsgerr *) NLMSG_DATA(h);
+  ec = -e->error;
+  if (ec)
+    log(L_WARN "Netlink: %s", strerror(ec)); /* FIXME: Shut up? */
+  return ec;
 }
 
 static struct nlmsghdr *
@@ -163,14 +171,30 @@ nl_get_scan(void)
     return NULL;
   if (h->nlmsg_type == NLMSG_ERROR)
     {
-      log(L_ERR "Netlink error: %s", nl_error(h));
+      nl_error(h);
       return NULL;
     }
   return h;
 }
 
+static int
+nl_exchange(struct nlmsghdr *pkt)
+{
+  struct nlmsghdr *h;
+
+  nl_send(pkt);
+  for(;;)
+    {
+      h = nl_get_reply();
+      if (h->nlmsg_type == NLMSG_ERROR)
+	break;
+      log(L_WARN "nl_exchange: Unexpected reply received");
+    }
+  return nl_error(h);
+}
+
 /*
- *	Parsing of Netlink attributes
+ *	Netlink attributes
  */
 
 static int nl_attr_len;
@@ -205,6 +229,37 @@ nl_parse_attrs(struct rtattr *a, struct rtattr **k, int ksize)
     }
   else
     return 1;
+}
+
+static void
+nl_add_attr_u32(struct nlmsghdr *h, unsigned maxsize, int code, u32 data)
+{
+  unsigned len = RTA_LENGTH(4);
+  struct rtattr *a;
+
+  if (NLMSG_ALIGN(h->nlmsg_len) + len > maxsize)
+    bug("nl_add_attr32: packet buffer overflow");
+  a = (struct rtattr *)((char *)h + NLMSG_ALIGN(h->nlmsg_len));
+  a->rta_type = code;
+  a->rta_len = len;
+  memcpy(RTA_DATA(a), &data, 4);
+  h->nlmsg_len = NLMSG_ALIGN(h->nlmsg_len) + len;
+}
+
+static void
+nl_add_attr_ipa(struct nlmsghdr *h, unsigned maxsize, int code, ip_addr ipa)
+{
+  unsigned len = RTA_LENGTH(sizeof(ipa));
+  struct rtattr *a;
+
+  if (NLMSG_ALIGN(h->nlmsg_len) + len > maxsize)
+    bug("nl_add_attr_ipa: packet buffer overflow");
+  a = (struct rtattr *)((char *)h + NLMSG_ALIGN(h->nlmsg_len));
+  a->rta_type = code;
+  a->rta_len = len;
+  ipa = ipa_hton(ipa);
+  memcpy(RTA_DATA(a), &ipa, sizeof(ipa));
+  h->nlmsg_len = NLMSG_ALIGN(h->nlmsg_len) + len;
 }
 
 /*
@@ -390,25 +445,72 @@ krt_capable(rte *e)
 }
 
 static void
-krt_delete(rte *e)
+nl_send_route(rte *e, int new)
 {
-  /* FIXME */
-}
+  net *net = e->net;
+  rta *a = e->attrs;
+  struct {
+    struct nlmsghdr h;
+    struct rtmsg r;
+    char buf[128];
+  } r;
+  struct nlmsghdr *reply;
 
-static void
-krt_insert(rte *e)
-{
-  /* FIXME */
+  bzero(&r.h, sizeof(r.h));
+  bzero(&r.r, sizeof(r.r));
+  r.h.nlmsg_type = new ? RTM_NEWROUTE : RTM_DELROUTE;
+  r.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+  r.h.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | (new ? NLM_F_CREATE|NLM_F_REPLACE : 0);
+  /* FIXME: Do we really need to process ACKs? */
+
+  r.r.rtm_family = AF_INET;
+  r.r.rtm_dst_len = net->n.pxlen;
+  r.r.rtm_tos = 0;	/* FIXME: Non-zero TOS? */
+  r.r.rtm_table = RT_TABLE_MAIN;	/* FIXME: Other tables? */
+  r.r.rtm_protocol = RTPROT_BIRD;
+  r.r.rtm_scope = RT_SCOPE_UNIVERSE;	/* FIXME: Other scopes? */
+  nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
+  switch (a->dest)
+    {
+    case RTD_ROUTER:
+      r.r.rtm_type = RTN_UNICAST;
+      nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->gw);
+      break;
+    case RTD_DEVICE:
+      r.r.rtm_type = RTN_UNICAST;
+      nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, a->iface->index);
+      break;
+    case RTD_BLACKHOLE:
+      r.r.rtm_type = RTN_BLACKHOLE;
+      break;
+    case RTD_UNREACHABLE:
+      r.r.rtm_type = RTN_UNREACHABLE;
+      break;
+    case RTD_PROHIBIT:
+      r.r.rtm_type = RTN_PROHIBIT;
+      break;
+    default:
+      bug("krt_capable inconsistent with nl_send_route");
+    }
+
+  nl_exchange(&r.h);
 }
 
 void
 krt_set_notify(struct proto *p, net *n, rte *new, rte *old)
 {
-  /* FIXME: Use route updates if possible */
-  if (old)
-    krt_delete(old);
-  if (new)
-    krt_insert(new);
+  if (old && new && old->attrs->tos == new->attrs->tos)
+    {
+      /* FIXME: Priorities should be identical as well, but we don't use them yet. */
+      nl_send_route(new, 1);
+    }
+  else
+    {
+      if (old)
+	nl_send_route(old, 0);
+      if (new)
+	nl_send_route(new, 1);
+    }
 }
 
 struct iface *
