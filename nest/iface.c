@@ -243,7 +243,7 @@ if_change_flags(struct iface *i, unsigned flags)
  * if_update() is called by the low-level platform dependent code
  * whenever it notices an interface change.
  *
- * There exist two types of interface updates: synchronous and asynchronous
+ * There exist two types of interface updates -- synchronous and asynchronous
  * ones. In the synchronous case, the low-level code calls if_start_update(),
  * scans all interfaces reported by the OS, uses if_update() and ifa_update()
  * to pass them to the core and then it finishes the update sequence by
