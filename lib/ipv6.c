@@ -112,9 +112,11 @@ ipv6_ntoh(ip_addr *a)
 }
 
 int
-ipv6_compare(ip_addr *x, ip_addr *y)
+ipv6_compare(ip_addr X, ip_addr Y)
 {
   int i;
+  ip_addr *x = &X;
+  ip_addr *y = &Y;
 
   for(i=0; i<4; i++)
     if (x->addr[i] > y->addr[i])

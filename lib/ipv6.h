@@ -54,14 +54,14 @@ typedef struct ipv6_addr {
 /* ipa_opposite and ipa_class_mask don't make sense with IPv6 */
 /* ipa_from_u32 and ipa_to_u32 replaced by ipa_build */
 #define ipa_build(a,b,c,d) _MI(a,b,c,d)
-#define ipa_compare(x,y) ipv6_compare(&x,&y)
+#define ipa_compare(x,y) ipv6_compare(x,y)
 
 ip_addr ipv6_mkmask(unsigned);
 unsigned ipv6_mklen(ip_addr *);
 int ipv6_classify(ip_addr *);
 void ipv6_hton(ip_addr *);
 void ipv6_ntoh(ip_addr *);
-int ipv6_compare(ip_addr *, ip_addr *);
+int ipv6_compare(ip_addr, ip_addr);
 int ipv4_pton_u32(char *, u32 *);
 
 /* FIXME: Is this hash function uniformly distributed over standard routing tables? */
