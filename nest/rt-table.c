@@ -102,7 +102,7 @@ rte_better(rte *new, rte *old)
 }
 
 static inline void
-do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *tmpa)
+do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *tmpa, int class)
 {
   struct proto *p = a->proto;
   rte *new0 = new;
@@ -110,8 +110,9 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
 
   if (new)
     {
-      int ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0;
-      if (ok < 0 ||
+      int ok;
+      if ((class & IADDR_SCOPE_MASK) < p->min_scope ||
+	  (ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0) < 0 ||
 	  (!ok && (p->out_filter == FILTER_REJECT ||
 		   p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool) > F_MODIFY)
 	  )
@@ -142,11 +143,12 @@ static void
 rte_announce(rtable *tab, net *net, rte *new, rte *old, ea_list *tmpa)
 {
   struct announce_hook *a;
+  int class = ipa_classify(net->n.prefix);
 
   WALK_LIST(a, tab->hooks)
     {
       ASSERT(a->proto->core_state == FS_HAPPY || a->proto->core_state == FS_FEEDING);
-      do_rte_announce(a, net, new, old, tmpa);
+      do_rte_announce(a, net, new, old, tmpa, class);
     }
 }
 
@@ -169,7 +171,7 @@ rt_feed_baby(struct proto *p)
 	    {
 	      struct proto *q = e->attrs->proto;
 	      ea_list *tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
-	      do_rte_announce(h, n, e, NULL, tmpa);
+	      do_rte_announce(h, n, e, NULL, tmpa, ipa_classify(n->n.prefix));
 	      lp_flush(rte_update_pool);
 	    }
 	}
@@ -195,15 +197,12 @@ rte_validate(rte *e)
 	      n->n.prefix, n->n.pxlen, e->attrs->from, e->attrs->proto->name);
 	  return 0;
 	}
-      if ((c & IADDR_SCOPE_MASK) == SCOPE_HOST)
+      if ((c & IADDR_SCOPE_MASK) < e->attrs->proto->min_scope)
 	{
-	  int s = e->attrs->source;
-	  if (s != RTS_STATIC && s != RTS_DEVICE && s != RTS_STATIC_DEVICE)
-	    {
-	      log(L_WARN "Ignoring host scope route %I/%d received from %I via %s",
-		  n->n.prefix, n->n.pxlen, e->attrs->from, e->attrs->proto->name);
-	      return 0;
-	    }
+	  log(L_WARN "Ignoring %s scope route %I/%d received from %I via %s",
+	      ip_scope_text(c & IADDR_SCOPE_MASK),
+	      n->n.prefix, n->n.pxlen, e->attrs->from, e->attrs->proto->name);
+	  return 0;
 	}
     }
   return 1;

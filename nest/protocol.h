@@ -98,6 +98,7 @@ struct proto {
   char *name;				/* Name of this instance (== cf->name) */
   unsigned debug;			/* Debugging flags */
   unsigned preference;			/* Default route preference */
+  int min_scope;			/* Minimal route scope accepted */
   unsigned disabled;			/* Manually disabled */
   unsigned proto_state;			/* Protocol state machine (see below) */
   unsigned core_state;			/* Core state machine (see below) */

@@ -91,6 +91,7 @@ proto_new(struct proto_config *c, unsigned size)
   p->table = c->table->table;
   p->in_filter = c->in_filter;
   p->out_filter = c->out_filter;
+  p->min_scope = SCOPE_SITE;
   c->proto = p;
   return p;
 }

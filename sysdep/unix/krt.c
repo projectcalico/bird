@@ -753,6 +753,7 @@ krt_init(struct proto_config *c)
   struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
 
   p->p.rt_notify = krt_notify;
+  p->p.min_scope = SCOPE_HOST;
   return &p->p;
 }
 
