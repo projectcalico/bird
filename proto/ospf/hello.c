@@ -44,7 +44,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
     return;
   }
 
-  if (ps->options != ifa->options)
+  if (ps->options != ifa->oa->opt.byte)
   {
     log(L_ERR "%s%I%soptions mismatch (0x%x).", beg, faddr, rec, ps->options);
     return;
@@ -207,7 +207,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
   pkt->netmask = ipa_mkmask(ifa->iface->addr->pxlen);
   ipa_hton(pkt->netmask);
   pkt->helloint = ntohs(ifa->helloint);
-  pkt->options = ifa->options;
+  pkt->options = ifa->oa->opt.byte;
   pkt->priority = ifa->priority;
   pkt->deadint = htonl(ifa->deadc * ifa->helloint);
   pkt->dr = ifa->drip;

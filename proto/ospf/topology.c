@@ -190,7 +190,7 @@ originate_rt_lsa(struct ospf_area *oa)
   lsa.id = rtid;
   lsa.type = LSA_T_RT;
   lsa.rt = rtid;
-  lsa.options = 0;
+  lsa.options = oa->opt.byte;
   if (oa->rt == NULL)
   {
     lsa.sn = LSA_INITSEQNO;
@@ -290,7 +290,7 @@ originate_net_lsa(struct ospf_iface *ifa)
   lsa.id = ipa_to_u32(ifa->iface->addr->ip);
   lsa.type = LSA_T_NET;
   lsa.rt = rtid;
-  lsa.options = 0;
+  lsa.options = ifa->oa->opt.byte;
   if (ifa->nlsa == NULL)
   {
     lsa.sn = LSA_INITSEQNO;

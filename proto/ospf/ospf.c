@@ -150,6 +150,8 @@ ospf_start(struct proto *p)
     add_area_nets(oa, ac);
     fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
     if (oa->areaid == 0) po->backbone = oa;
+    oa->opt.byte = 0;
+    if(!oa->stub) oa->opt.bit.e = 1;
   }
 
   /* Add all virtual links as interfaces */

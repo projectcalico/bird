@@ -40,7 +40,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     op = (struct ospf_packet *) pkt;
     ospf_pkt_fill_hdr(ifa, pkt, DBDES_P);
     pkt->iface_mtu = htons(ifa->iface->mtu);
-    pkt->options = ifa->options;
+    pkt->options = ifa->oa->opt.byte;
     pkt->imms = n->myimms;
     pkt->ddseq = htonl(n->dds);
     length = sizeof(struct ospf_dbdes_packet);
@@ -64,7 +64,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 
       ospf_pkt_fill_hdr(ifa, pkt, DBDES_P);
       pkt->iface_mtu = htons(ifa->iface->mtu);
-      pkt->options = ifa->options;
+      pkt->options = ifa->oa->opt.byte;
       pkt->ddseq = htonl(n->dds);
 
       j = i = (ospf_pkt_maxsize(ifa) - sizeof(struct ospf_dbdes_packet)) / sizeof(struct ospf_lsa_header);	/* Number of possible lsaheaders to send */

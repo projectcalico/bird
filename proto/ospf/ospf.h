@@ -95,6 +95,34 @@ struct ospf_area_config
   list net_list;
 };
 
+struct obits
+{
+#ifdef _BIG_ENDIAN
+  u8 unused2:2;
+  u8 dc:1;
+  u8 ea:1;
+  u8 np:1;
+  u8 mc:1;
+  u8 e:1;
+  u8 unused1:1;
+#else
+  u8 unused1:1;
+  u8 e:1;
+  u8 mc:1;
+  u8 np:1;
+  u8 ea:1;
+  u8 dc:1;
+  u8 unused2:2;
+#endif
+};
+
+union options
+{
+  u8 byte;
+  struct obits bit;
+};
+
+
 struct ospf_iface
 {
   node n;
@@ -111,8 +139,6 @@ struct ospf_iface
   u16 inftransdelay;		/* The estimated number of seconds it takes to
 				   transmit a Link State Update Packet over this
 				   interface.  LSAs contained in the update */
-  u8 priority;			/* A router priority for DR election */
-  u16 helloint;			/* number of seconds between hello sending */
   u32 waitint;			/* number of sec before changing state from wait */
   u32 rxmtint;			/* number of seconds between LSA retransmissions */
   u32 pollint;			/* Poll interval */
@@ -121,7 +147,7 @@ struct ospf_iface
   ip_addr vip;			/* IP of peer of virtual link */
   struct ospf_area *voa;	/* Area wich the vlink goes through */
   u16 autype;
-  u8 options;
+  u16 helloint;			/* number of seconds between hello sending */
   list *passwords;
   u32 csn;                      /* Crypt seq num. that will be sent net */
   ip_addr drip;			/* Designated router */
@@ -136,7 +162,6 @@ struct ospf_iface
 #define OSPF_IT_UNDEF 4
   u8 strictnbma;		/* Can I talk with unknown neighbors? */
   u8 stub;			/* Inactive interface */
-  u8 ioprob;
 #define OSPF_I_OK 0		/* Everything OK */
 #define OSPF_I_MC 1		/* I didn't open MC socket */
 #define OSPF_I_IP 2		/* I didn't open IP socet */
@@ -166,6 +191,8 @@ struct ospf_iface
   int orignet;			/* Schedule network LSA origination */
   int fadj;			/* Number of full adjacent neigh */
   list nbma_list;
+  u8 priority;			/* A router priority for DR election */
+  u8 ioprob;
 };
 
 struct ospf_md5
@@ -494,6 +521,7 @@ struct ospf_area
   struct proto_ospf *po;
   unsigned tick;
   struct fib rtr;		/* Routing tables for routers */
+  union options opt;            /* RFC2328 - A.2 */
 };
 
 struct proto_ospf

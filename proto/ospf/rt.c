@@ -243,7 +243,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  DBG("PTP found.\n");
 	  break;
 	default:
-	  log("Unknown link type in router lsa.");
+	  log("Unknown link type in router lsa. (rid = %I)", act->lsa.id);
 	  break;
 	}
 	if (tmp)
@@ -339,7 +339,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entr
           }
 	  break;
 	default:
-	  log("Unknown link type in router lsa.");
+	  log("Unknown link type in router lsa. (rid = %I)", fol->lsa.id);
 	  break;
 	}
       }
@@ -357,7 +357,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entr
       }
       break;
     default:
-      log("Unknown link type in router lsa.");
+      bug("Unknown lsa type. (id = %I)", fol->lsa.id);
   }
   return 0;
 }
