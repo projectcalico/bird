@@ -131,7 +131,7 @@ ospf_rx_hook(sock *sk, int size)
     return(1);
   }
 
-  if(ps->areaid!=ifa->an)
+  if(ntohl(ps->areaid)!=ifa->an)
   {
     log("%s: Bad OSPF packet received: other area %ld", p->name, ps->areaid);
     log("%s: Discarding",p->name);
