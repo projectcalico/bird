@@ -36,12 +36,22 @@ typedef u16 word;
 #endif
 
 /* Path to configuration file */
-#ifdef DEBUGGING
-#define PATH_CONFIG "bird.conf"
-#define PATH_CONTROL_SOCKET "bird.ctl"
+#ifdef IPV6
+#  ifdef DEBUGGING
+#    define PATH_CONFIG "bird-6.conf"
+#    define PATH_CONTROL_SOCKET "bird-6.ctl"
+#  else
+#    define PATH_CONFIG PATH_CONFIG_DIR "/bird-6.conf"
+#    define PATH_CONTROL_SOCKET PATH_CONTROL_SOCKET_DIR "/bird-6.ctl"
+#  endif
 #else
-#define PATH_CONFIG PATH_CONFIG_DIR "/bird.conf"
-#define PATH_CONTROL_SOCKET PATH_CONTROL_SOCKET_DIR "/bird.ctl"
+#  ifdef DEBUGGING
+#    define PATH_CONFIG "bird.conf"
+#    define PATH_CONTROL_SOCKET "bird.ctl"
+#  else
+#    define PATH_CONFIG PATH_CONFIG_DIR "/bird.conf"
+#    define PATH_CONTROL_SOCKET PATH_CONTROL_SOCKET_DIR "/bird.ctl"
+#  endif
 #endif
 
 #endif

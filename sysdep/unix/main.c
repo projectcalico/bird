@@ -412,6 +412,8 @@ main(int argc, char **argv)
     log_init_debug("");
   log_init(debug_flag, 1);
 
+  test_old_bird(path_control_socket);
+
   DBG("Initializing.\n");
   resource_init();
   olock_init();

@@ -1194,3 +1194,23 @@ io_loop(void)
 	}
     }
 }
+
+void
+test_old_bird(char *path)
+{
+  int fd;
+  struct sockaddr_un sa;
+
+  fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+  if (fd < 0)
+    die("Cannot create socket: %m");
+  bzero(&sa, sizeof(sa));
+  sa.sun_family = AF_UNIX;
+  strcpy(sa.sun_path, path);
+  if (connect(fd, (struct sockaddr *) &sa, SUN_LEN(&sa)) == 0)
+    die("I found another BIRD running.");
+  close(fd);
+}
+
+

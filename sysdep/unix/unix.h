@@ -46,6 +46,8 @@ void fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port);
 void get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port, int check);
 int sk_open_unix(struct birdsock *s, char *name);
 void *tracked_fopen(struct pool *, char *name, char *mode);
+void test_old_bird(char *path);
+
 
 /* krt.c bits */
 
