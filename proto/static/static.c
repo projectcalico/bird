@@ -80,8 +80,7 @@ static_start(struct proto *p)
 	  break;
 	}
       case RTD_DEVICE:
-	bug("Static device routes are not supported");
-	/* FIXME: Static device routes */
+	break;
       default:
 	static_install(p, r, NULL);
       }
@@ -134,6 +133,26 @@ static_dump(struct proto *p)
     static_dump_rt(r);
 }
 
+static void
+static_if_notify(struct proto *p, unsigned flags, struct iface *new, struct iface *old)
+{
+  struct static_route *r;
+  struct static_config *c = (void *) p->cf;
+
+  if (flags & IF_CHANGE_UP)
+    {
+      WALK_LIST(r, c->iface_routes)
+	if (!strcmp(r->if_name, new->name))
+	  static_install(p, r, new);
+    }
+  else if (flags & IF_CHANGE_DOWN)
+    {
+      WALK_LIST(r, c->iface_routes)
+	if (!strcmp(r->if_name, old->name))
+	  static_remove(p, r);
+    }
+}
+
 void
 static_init_config(struct static_config *c)
 {
@@ -148,6 +167,7 @@ static_init(struct proto_config *c)
   struct proto *p = proto_new(c, sizeof(struct proto));
 
   p->neigh_notify = static_neigh_notify;
+  p->if_notify = static_if_notify;
   return p;
 }
 
