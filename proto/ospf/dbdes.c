@@ -150,6 +150,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
       debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
+      if(n->myimms.bit.ms) tm_start(n->ifa->rxmt_timer,1);
 
     default:				/* Ignore it */
       break;
@@ -222,6 +223,7 @@ ospf_dbdes_rx(struct ospf_dbdes_packet *ps, struct proto *p,
 	  n->imms.byte=ps->imms.byte;
           debug("%s: I'm slave to %u. \n", p->name, nrid);
 	  ospf_neigh_sm(n, INM_NEGDONE);
+	  tm_stop(n->ifa->rxmt_timer);
         }
         else
         {
