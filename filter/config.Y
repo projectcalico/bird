@@ -106,7 +106,7 @@ type:
  | PREFIX { $$ = T_PREFIX; }
  | PAIR { $$ = T_PAIR; }
  | STRING { $$ = T_STRING; }
- | BGP_PATH { $$ = T_PATH; }
+ | BGP_PATH { $$ = T_PATH_MASK; }
  | type SET { 
 	switch ($1) {
 	  default:
@@ -313,8 +313,8 @@ bgp_one:
  ;
 
 bgp_path: 
-   bgp_one          { $$ = cfg_alloc(sizeof(struct f_path)); $$->next = NULL; $$->val  = $1; }
- | bgp_one bgp_path { $$ = cfg_alloc(sizeof(struct f_path)); $$->next = $2;   $$->val  = $1; }
+   bgp_one          { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = NULL; $$->val  = $1; }
+ | bgp_one bgp_path { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = $1; }
  ;
 
 constant:
@@ -327,7 +327,7 @@ constant:
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
- | '/' bgp_path '/' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PATH; $$->a2.p = $2; }
+ | '/' bgp_path '/' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PATH_MASK; $$->a2.p = $2; }
  ;
 
 /*
@@ -384,7 +384,7 @@ term:
        case SYM_VARIABLE | T_PAIR:
        case SYM_VARIABLE | T_PREFIX:
        case SYM_VARIABLE | T_IP:
-       case SYM_VARIABLE | T_PATH:
+       case SYM_VARIABLE | T_PATH_MASK:
 	 $$->code = 'C';
 	 $$->a1.p = $1->aux2;
 	 break;
@@ -413,8 +413,9 @@ term:
  | term '.' RESET { }
 
 /* Paths */
- | term '.' APPEND '(' term ')' { }
-/* | term '.' LEN { }  Hmm, this would colide with ip.len. What to do with that? */
+ | rtadot PATH '~' term { }
+ | rtadot PATH '.' APPEND '(' term ')' { }
+ | rtadot PATH '.' LEN { $$->code = P('P','l'); }
 
 /* function_call is inlined here */
  | SYM '(' var_list ')' {

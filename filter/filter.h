@@ -50,8 +50,8 @@ struct f_val {
   } val;
 };
 
-struct f_path {
-  struct f_path *next;
+struct f_path_mask {
+  struct f_path_mask *next;
   int val;
 };
 
@@ -115,7 +115,7 @@ void val_print(struct f_val v);
 #define T_IP 0x20
 #define T_PREFIX 0x21
 #define T_STRING 0x22
-#define T_PATH 0x23	/* BGP path */
+#define T_PATH_MASK 0x23	/* mask for BGP path */
 
 #define T_RETURN 0x40
 #define T_SET 0x80

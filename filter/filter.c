@@ -133,7 +133,7 @@ val_print(struct f_val v)
   case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
-  case T_PATH: debug( "(path " ); { struct f_path *p = v.val.s; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
+  case T_PATH_MASK: debug( "(path " ); { struct f_path_mask *p = v.val.s; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF
   }
@@ -249,7 +249,7 @@ interpret(struct f_inst *what)
     case T_IP: 
     case T_PREFIX: 
     case T_PAIR: 
-    case T_PATH:
+    case T_PATH_MASK:
       if (sym->class != (SYM_VARIABLE | v2.type))
 	runtime( "Variable of bad type" );
       * (struct f_val *) sym->aux2 = v2; 
@@ -643,13 +643,14 @@ path_format(u8 *p, int len)
 #define PM_END -1
 #define PM_ASTERIX -2
 
-#define MASK_PLUS do { if (*++mask == PM_END) return next == q; \
-		       asterix = (*mask == PM_ASTERIX); \
+#define MASK_PLUS do { mask = mask->next; if (mask->val == PM_END) return next == q; \
+		       asterix = (mask->val == PM_ASTERIX); \
 		       printf( "Asterix now %d\n", asterix ); \
-                       if (asterix) { if (*++mask == PM_END) { printf( "Quick exit\n" ); return 1; } } \
+                       if (asterix) { mask = mask->next; if (mask->val == PM_END) { printf( "Quick exit\n" ); return 1; } } \
 		       } while(0)
+
 int
-path_match(u8 *p, int len, s32 *mask)
+path_match(u8 *p, int len, struct f_path_mask *mask)
 {
   int i;
   int asterix = 0;
@@ -666,11 +667,11 @@ path_match(u8 *p, int len, s32 *mask)
       retry:
 	p = p_save;
 	for (i=0; i<len; i++) {
-	  if (asterix && (get_u16(p) == *mask)) {
+	  if (asterix && (get_u16(p) == mask->val)) {
 	    MASK_PLUS;
 	    goto retry;
 	  }
-	  if (!asterix && (get_u16(p) == *mask)) {
+	  if (!asterix && (get_u16(p) == mask->val)) {
 	    p = next;
 	    MASK_PLUS;
 	    goto okay;
@@ -687,10 +688,10 @@ path_match(u8 *p, int len, s32 *mask)
       len = *p++;
       for (i=0; i<len; i++) {
 	next = p+2;
-	if (asterix && (get_u16(p) == *mask))
+	if (asterix && (get_u16(p) == mask->val))
 	  MASK_PLUS;
 	else if (!asterix) {
-	  if (get_u16(p) != *mask)
+	  if (get_u16(p) != mask->val)
 	    return 0;
 	  MASK_PLUS;
 	}
@@ -767,7 +768,7 @@ self_test(void)
   DBG( "%s\n", path_format(path1, sizeof(path1)) );
   DBG( "%s\n", path_format(path2, sizeof(path2)) );
   DBG( "5, 6 = %d, %d\n", path_getlen(path1, sizeof(path1)), path_getlen(path2, sizeof(path2)) );
-  DBG( "%d\n", path_match(path1, sizeof(path1), match));
-  DBG( "%d\n", path_match(path2, sizeof(path2), match));
+//  DBG( "%d\n", path_match(path1, sizeof(path1), match));
+//  DBG( "%d\n", path_match(path2, sizeof(path2), match));
 //  die( "okay" );
 }
