@@ -43,7 +43,7 @@
 #define AllDRouters ipa_from_u32(0xe0000006)	/* 224.0.0.6 */
 #define DEFAULTDES ipa_from_u32(0)
 #else
-#error Multicast address not defined in IPv6
+#error OSPF for IPv6 is not implemented (mail to Feela <feela@network.cz>)
 #endif
 
 
@@ -51,7 +51,11 @@
 #define MINLSINTERVAL 5
 #define MINLSARRIVAL 1
 #define LSINFINITY 0xffff	/* RFC says 0xffffff ??? */
-#define DISPTICK 7
+
+#define DEFAULT_DISPTICK 4
+#define DEFAULT_OSPFTICK 5
+#define DEFAULT_RFC1583 1               /* compatibility with rfc1583 */
+
 
 struct ospf_config
 {

@@ -37,7 +37,7 @@ ospf_proto_start: proto_start OSPF {
      this_proto = proto_config_new(&proto_ospf, sizeof(struct ospf_config));
      this_proto->preference = DEF_PREF_OSPF;
      init_list(&OSPF_CFG->area_list);
-     OSPF_CFG->rfc1583=1;
+     OSPF_CFG->rfc1583 = DEFAULT_RFC1583;
   }
  ;
 
@@ -56,7 +56,7 @@ ospf_area_start: AREA idval '{' {
   this_area = cfg_allocz(sizeof(struct ospf_area_config));
   add_tail(&OSPF_CFG->area_list, NODE this_area);
   this_area->areaid = $2;
-  this_area->tick = DISPTICK;
+  this_area->tick = DEFAULT_DISPTICK;
   this_area->stub = 0;
   init_list(&this_area->patt_list);
   init_list(&this_area->net_list);
