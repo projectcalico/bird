@@ -104,7 +104,7 @@ ipv4_skip_header(byte *pkt, int *len)
   if (l < 20 || (*pkt & 0xf0) != 0x40)
     return NULL;
   q = (*pkt & 0x0f) * 4;
-  if (q < l)
+  if (q > l)
     return NULL;
   *len -= q;
   return pkt + q;
