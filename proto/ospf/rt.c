@@ -256,8 +256,10 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
   struct ospf_lsa_ext *le;
   struct ospf_lsa_ext_tos *lt;
   int mlen;
-  ip_addr ip;
+  ip_addr ip,nnh;
+  struct iface *nnhi=NULL;
   u16 met,met2;
+  neighbor *nn;
 
   debug("%s: Starting routing table calculation for external routes\n",
     p->name);
@@ -306,6 +308,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     
     absr=NULL;
     absroa=NULL;
+    nnhi=NULL;
 
     met=0;met2=0;
 
@@ -358,6 +361,13 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
         met=nf->metric+lt->metric;
 	met2=0;
       }
+
+
+      if((nn=neigh_find(p,&lt->fwaddr,0))!=NULL)
+      {
+        nnh=nn->addr;
+        nnhi=nn->iface;
+      }
     }
 
     nf=fib_get(ef,&ip, mlen);
@@ -365,24 +375,31 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     {
       nf->metric=met;
       nf->metric2=met2;
-      if(absr->nhi==NULL)
+      if(nnhi!=NULL)
       {
-        struct ospf_neighbor *neigh;
-        neighbor *nn;
-
-        if((neigh=find_neigh_noifa(po,absr->lsa.rt))==NULL)
-	{
-	  continue;
-	}
-        nn=neigh_find(p,&neigh->ip,0);
-        DBG("     Next hop calculated: %I\n", nn->addr);
-        nf->nh=nn->addr;
-        nf->nhi=nn->iface;
+        nf->nh=nnh;
+        nf->nhi=nnhi;
       }
       else
       {
-        nf->nh=absr->nh;
-	nf->nhi=absr->nhi;
+        if(absr->nhi==NULL)
+        {
+          struct ospf_neighbor *neigh;
+
+          if((neigh=find_neigh_noifa(po,absr->lsa.rt))==NULL)
+	  {
+	     continue;
+	  }
+          nn=neigh_find(p,&neigh->ip,0);
+          DBG("     Next hop calculated: %I\n", nn->addr);
+          nf->nh=nn->addr;
+          nf->nhi=nn->iface;
+        }
+        else
+        {
+          nf->nh=absr->nh;
+	  nf->nhi=absr->nhi;
+        }
       }
     }
   }
