@@ -98,7 +98,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
               }
 	    }
             break;
-	  case OSPF_IT_BCAST: /*FIXME Go on */
+	  case OSPF_IT_BCAST:
 	  case OSPF_IT_NBMA:
             if(ifa->state==OSPF_IS_WAITING)
             {
@@ -120,8 +120,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
               if(((ifa->state==OSPF_IS_DR) && (j==1)) || (k==1))
 	      {
 	        ln->type=LSART_NET;
-		ln->id=ifa->drid;
-		ln->data=ipa_to_u32(ifa->drip);
+		ln->id=ipa_to_u32(ifa->drip);
+		ln->data=ipa_to_u32(ifa->iface->addr->ip);
 		ln->metric=ifa->cost;
 		ln->notos=0;
 	      }
