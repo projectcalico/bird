@@ -31,7 +31,7 @@ ospf_lsack_direct_tx(struct ospf_neighbor *n,struct ospf_lsa_header *h)
   op->length=htons(len);
   ospf_pkt_finalize(n->ifa, op);
   sk_send_to(sk,len, n->ip, OSPF_PROTO);
-  debug("%s: LS ack sent to %I\n", p->name, n->ip);
+  OSPF_TRACE(D_PACKETS, "LS ack sent to %I", n->ip);
 }
 
 void
@@ -64,8 +64,9 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   struct ospf_lsa_header *h;
   struct lsah_n *no;
   struct ospf_iface *ifa=n->ifa;
+  struct proto *p=&n->ifa->proto->proto;
 
-  debug("%s: LS ack sent to %I (delayed)\n",n->ifa->proto->proto.name,n->ip);
+  OSPF_TRACE(D_PACKETS, "LS ack sent to %I (delayed)",n->ip);
 
   if(ifa->type==OSPF_IT_BCAST)
   {
@@ -170,12 +171,12 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    debug("%s: Received LS ack from unknown neigbor! (%I)\n", p->name,
+    OSPF_TRACE(D_PACKETS, "Received LS ack from unknown neigbor! (%I)",
       nrid);
     return ;
   }
 
-  debug("%s: Received LS ack from %I\n", p->name, n->ip);
+  OSPF_TRACE(D_PACKETS, "Received LS ack from %I", n->ip);
   ospf_neigh_sm(n, INM_HELLOREC);
 
   if(n->state<NEIGHBOR_EXCHANGE) return;
@@ -201,12 +202,13 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
     {
       if((lsa.sn==LSA_MAXSEQNO)&&(lsa.age==LSA_MAXAGE)) continue;
 
-      debug("%s: Strange LS acknoledgement from %I\n",p->name,n->ip);
-      debug("%s: Id: %I, Rt: %I, Type: %u\n",p->name,lsa.id,lsa.rt,lsa.type);
-      debug("%s: I have: Age: %4u, Seqno: 0x%08x, Sum: %u\n",
-        p->name, en->lsa.age, en->lsa.sn, en->lsa.checksum);
-      debug("%s: He has: Age: %4u, Seqno: 0x%08x, Sum: %u\n",
-        p->name,lsa.age,lsa.sn,lsa.checksum);
+      OSPF_TRACE(D_PACKETS, "Strange LS acknoledgement from %I",n->ip);
+      OSPF_TRACE(D_PACKETS, "Id: %I, Rt: %I, Type: %u",
+        lsa.id,lsa.rt,lsa.type);
+      OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seqno: 0x%08x, Sum: %u",
+        en->lsa.age, en->lsa.sn, en->lsa.checksum);
+      OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seqno: 0x%08x, Sum: %u",
+        lsa.age,lsa.sn,lsa.checksum);
       continue;
     }
 
