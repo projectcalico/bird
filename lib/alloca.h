@@ -1,7 +1,7 @@
 /*
- *	BIRD Library -- Linked Lists
+ *	BIRD Library -- Alloca.h
  *
- *	(c) 2004 Martin Mares <mj@ucw.cz>
+ *	(c) 2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -14,6 +14,5 @@
 #else
 #include <stdlib.h>
 #endif
-
 
 #endif
