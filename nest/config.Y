@@ -26,7 +26,7 @@ CF_GRAMMAR
 /* Setting of router ID */
 
 CF_ADDTO(conf, rtrid)
-rtrid: ROUTER ID idval {
+rtrid: ROUTER ID idval ';' {
    new_config->router_id = $3;
    }
  ;

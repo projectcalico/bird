@@ -54,10 +54,10 @@ config: conf_entries END {
 
 conf_entries:
    /* EMPTY */
- | conf_entries conf ';'
+ | conf_entries conf
  ;
 
-CF_ADDTO(conf, /* EMPTY */)
+CF_ADDTO(conf, ';')
 
 /* Constant expressions */
 
@@ -74,7 +74,7 @@ expr:
 
 CF_ADDTO(conf, definition)
 definition:
-   DEFINE SYM '=' expr {
+   DEFINE SYM '=' expr ';' {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined");
      $2->class = SYM_NUMBER;
      $2->aux = $4;

@@ -119,8 +119,7 @@ WHITE [ \t]
 
 {WHITE}+
 
-\\\n	conf_lino++;
-\n	{ conf_lino++; return ';'; }
+\n	conf_lino++;
 
 #	BEGIN(COMMENT);
 
@@ -131,7 +130,6 @@ WHITE [ \t]
 <COMMENT>\n {
   conf_lino++;
   BEGIN(INITIAL);
-  return ';';
 }
 
 <COMMENT>.
