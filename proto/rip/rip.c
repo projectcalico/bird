@@ -16,6 +16,7 @@
 	FIXME: (nonurgent) allow bigger frequencies than 1 regular update in 6 seconds (?)
 	FIXME: propagation of metric=infinity into main routing table may or may not be good idea.
 
+	FIXME: ea_find can return NULL
  */
 
 /**
@@ -435,7 +436,6 @@ rip_dump_entry( struct rip_entry *e )
 {
   debug( "%I told me %d/%d ago: to %I/%d go via %I, metric %d ", 
   e->whotoldme, e->updated-now, e->changed-now, e->n.prefix, e->n.pxlen, e->nexthop, e->metric );
-  if (e->flags & RIP_F_EXTERNAL) debug( "[external]" );
   debug( "\n" );
 }
 

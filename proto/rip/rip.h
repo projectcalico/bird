@@ -87,7 +87,6 @@ struct rip_entry {
 
   bird_clock_t updated, changed;
   int flags;
-#define RIP_F_EXTERNAL 1
 };
 
 struct rip_packet {
