@@ -67,7 +67,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
 	{
           case OSPF_IT_PTP:		/* rfc2328 - pg126 */
             neigh=(struct ospf_neighbor *)HEAD(ifa->neigh_list);
-	    if((neigh!=NULL) || (neigh->state==NEIGHBOR_FULL))
+	    if((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state==NEIGHBOR_FULL))
 	    {
                ln->type=LSART_PTP;
                ln->id=neigh->rid;
