@@ -319,21 +319,21 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
 
   et=(struct ospf_lsa_ext_tos *)(ext+1);
 
-  if(!m2)
-    {
-      et->etos=0;
-      et->metric=m1;
-    }
+  if(m1!=LSINFINITY)
+  {
+    et->etos=0;
+    et->metric=m1;
+  }
   else
-    {
-      et->etos=0x80;
-      et->metric=m2;
-    }
+  {
+    et->etos=0x80;
+    et->metric=m2;
+  }
   et->padding=0;
   et->tag=tag;
   if(ipa_compare(e->attrs->gw,ipa_from_u32(0))!=0)
   {
-     if(find_iface((struct proto_ospf *)p, e->attrs->iface)!=NULL) inas=1;
+    if(find_iface((struct proto_ospf *)p, e->attrs->iface)!=NULL) inas=1;
   }
     
   if(!inas) et->fwaddr= ipa_from_u32(0);
