@@ -208,7 +208,7 @@ function_def:
    FUNCTION SYM { DBG( "Begining of function %s\n", $2->name ); cf_push_scope($2); } function_params function_body {
      extern struct f_inst *startup_func;
      cf_define_symbol($2, SYM_FUNCTION, $5);
-     if (!strcasecmp($2->name, "startup"))
+     if (!strcasecmp($2->name, "__startup"))
 	startup_func = $5;
      $2->aux = (int) $4;
      $2->aux2 = $5;
