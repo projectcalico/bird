@@ -389,7 +389,7 @@ lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa,
     if(en->lsa_body!=NULL) mb_free(en->lsa_body);
     en->lsa_body=body;
     memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
-    /* FIXME decide if route calcualtion must be done and how */
+    /* FIXME decide if route calculation must be done and how */
     if(oa->rt!=NULL)
     {
       DBG("Starting routing table calculation.\n");
