@@ -557,7 +557,7 @@ calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
     DBG("     Next hop calculating for id: %I rt: %I type: %u\n",en->lsa.id,en->lsa.rt,en->lsa.type);
     if(par->lsa.type!=LSA_T_RT) 
     {
-      if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
+      if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL) return;
       nn=neigh_find(p,&neigh->ip,0);
       DBG("     Next hop calculated: %I.\n", nn->addr);
       en->nh=nn->addr;
