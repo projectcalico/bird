@@ -48,7 +48,10 @@ dev_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
       A.iface = new;
       A.attrs = NULL;
       a = rta_lookup(&A);
-      n = net_get(&master_table, 0, new->prefix, new->pxlen);
+      if (new->flags & IF_UNNUMBERED)
+	n = net_get(&master_table, 0, new->opposite, new->pxlen);
+      else
+	n = net_get(&master_table, 0, new->prefix, new->pxlen);
       e = rte_get_temp(a);
       e->pflags = 0;
       rte_update(n, p, e);
