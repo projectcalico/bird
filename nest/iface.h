@@ -54,7 +54,6 @@ void if_dump_all(void);
 void if_update(struct iface *);
 void if_end_update(void);
 void if_feed_baby(struct proto *);
-u32 auto_router_id(void);
 
 /*
  *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen

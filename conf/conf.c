@@ -50,10 +50,6 @@ config_parse(struct config *c)
   cf_lex_init_tables();
   protos_preconfig(c);
   cf_parse();
-#if 0					/* FIXME: We don't have interface list yet :( */
-  if (!c->router_id && !(c->router_id = auto_router_id()))
-    cf_error("Cannot determine router ID (no suitable network interface found), please configure it manually");
-#endif
   filters_postconfig();			/* FIXME: Do we really need this? */
   protos_postconfig(c);
   return 1;

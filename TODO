@@ -5,17 +5,14 @@ Core
 * cleanup debugging calls
 * logging and tracing; use appropriate log levels
 * check log calls for trailing newlines
-
-* Fix router ID calculation
-* debug dump: dump router ID as well
+* replace all NUM's by expr's
 
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
+- config: executable config files
 
 - fake multipath?
-- replace all NUM's by expr's
 - config file: define ipaddr constants?
 - counters (according to SNMP MIB?)
-- ifdef out some debugging code?
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
 - secondary addresses -> subinterfaces
@@ -23,7 +20,6 @@ Core
 
 - better default protocol names
 - config: comments at end of line -> explicit ';' needed?
-- remove post-config hooks?
 - command-line arguments: name of config file
 
 - static: check validity of route destination?
@@ -32,13 +28,10 @@ Core
 - device: configuration of interface patterns
 
 - filter: logging of dropped routes (?)
-- limitation of memory consumption: per-process and total (?)
 - adding of route: check whether all bits not covered by masklen are zero
-- switch: generate default route only if at least one BGP connection exists (?)
-
+- switch: generate default route only if at least one BGP connection exists (aggregate engine?)
 - route recalculation timing + flap dampening (?)
-
-- "generate default route" switch for all IGP's
+- "generate default route" switch for all IGP's (via generic aggregate engine?)
 
 - Check incoming packets and log errors!!
 

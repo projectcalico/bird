@@ -18,7 +18,6 @@ struct config {
   linpool *mem;				/* Linear pool containing configuration data */
   list protos;				/* Configured protocol instances (struct proto_config) */
   u32 router_id;			/* Our Router ID */
-  u16 this_as;				/* Our Autonomous System Number */
   char *err_msg;			/* Parser error message */
   int err_lino;				/* Line containing error */
   char *file_name;			/* Name of configuration file */

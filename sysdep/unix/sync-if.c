@@ -40,7 +40,7 @@ scan_ifs(struct ifreq *r, int cnt)
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
     {
       bzero(&i, sizeof(i));
-      debug("%s\n", r->ifr_ifrn.ifrn_name);
+      DBG("%s\n", r->ifr_ifrn.ifrn_name);
       strncpy(i.name, r->ifr_ifrn.ifrn_name, sizeof(i.name) - 1);
       i.name[sizeof(i.name) - 1] = 0;
       get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &i.ip, NULL);

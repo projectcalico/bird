@@ -13,8 +13,11 @@
 #include "nest/protocol.h"
 #include "lib/resource.h"
 #include "lib/string.h"
+#include "conf/conf.h"
 
 static pool *if_pool;
+
+static void auto_router_id(void);
 
 /*
  *	Neighbor Cache
@@ -197,6 +200,7 @@ if_dump_all(void)
   debug("Known network interfaces:\n");
   WALK_LIST(i, iface_list)
     if_dump(i);
+  debug("Router ID: %08x\n", config->router_id);
 }
 
 static inline int
@@ -301,6 +305,9 @@ if_end_update(void)
 {
   struct iface *i, j;
 
+  if (!config->router_id)
+    auto_router_id();
+
   WALK_LIST(i, iface_list)
     if (i->flags & IF_UPDATED)
       i->flags &= ~IF_UPDATED;
@@ -324,7 +331,7 @@ if_feed_baby(struct proto *p)
     p->if_notify(p, IF_CHANGE_CREATE | ((i->flags & IF_UP) ? IF_CHANGE_UP : 0), NULL, i);
 }
 
-u32
+static void
 auto_router_id(void)			/* FIXME: What if we run IPv6??? */
 {
   struct iface *i, *j;
@@ -336,9 +343,9 @@ auto_router_id(void)			/* FIXME: What if we run IPv6??? */
 	(!j || ipa_to_u32(i->ip) < ipa_to_u32(j->ip)))
       j = i;
   if (!j)
-    return 0;
+    die("Cannot determine router ID (no suitable network interface found), please configure it manually");
   debug("Guessed router ID %I (%s)\n", j->ip, j->name);
-  return ipa_to_u32(j->ip);
+  config->router_id = ipa_to_u32(j->ip);
 }
 
 void
