@@ -13,7 +13,7 @@ endif
 
 docs: progdocs userdocs
 
-progdocs: prog.html
+progdocs: prog.html prog.dvi
 
 prog.sgml:
 	$(srcdir)/tools/progdoc $(srcdir_abs)

@@ -397,7 +397,7 @@ bird> show route
 195.113.30.2/32    dev tunl1 [direct1 23:21] (240)
 127.0.0.0/8        dev lo [direct1 23:21] (240)
 bird> show route ?
-show route [<prefix>] [table <t>] [filter <f>] [all] [primary] [(import|protocol) <p>] [stats]  Show routing table
+show route [<prefix>] [table <t>] [filter <f>] [all] [primary] [(import|protocol) <p>]...
 bird> show route filter { if 127.0.0.5 ~ net then accept; }
 127.0.0.0/8        dev lo [direct1 23:21] (240)
 bird>
@@ -507,7 +507,10 @@ case arg1 {
 	else: print "something else";
 	}
 
-if 1234 = i then printn "."; else { print "not 1234"; print "You need {} around multiple commands"; }
+if 1234 = i then printn "."; else { 
+  print "not 1234"; 
+  print "You need {} around multiple commands"; 
+}
 </code>
 
 <sect>Route attributes
