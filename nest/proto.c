@@ -14,7 +14,7 @@
 list proto_list;
 
 void
-proto_init(void)
+protos_init(void)
 {
   init_list(&proto_list);
 }
