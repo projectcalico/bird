@@ -12,13 +12,44 @@ static int
 ospf_start(struct proto *p)
 {
   struct proto_ospf *po=(struct proto_ospf *)p;
+  struct ospf_config *c=(struct ospf_config *)(p->cf);
+  struct ospf_area_config *ac;
+  struct ospf_area *oa;
   debug("%s: Start\n",p->name);
 
   fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
   po->areano=0;
+  if(EMPTY_LIST(c->area_list))
+  {
+    log("%s: Cannot start, no OSPF areas configured", p->name);
+    return PS_DOWN;
+  }
 
+  WALK_LIST(ac,c->area_list)
+  {
+    oa=mb_allocz(po->proto.pool, sizeof(struct ospf_area));
+    add_tail(&po->area_list,NODE oa);
+    po->areano++;
+    oa->stub=ac->stub;
+    oa->tick=ac->tick;
+    oa->areaid=ac->areaid;
+    oa->gr=ospf_top_new(po);
+    s_init_list(&(oa->lsal));
+    oa->rt=NULL;
+    oa->po=po;
+    oa->disp_timer=tm_new(po->proto.pool);
+    oa->disp_timer->data=oa;
+    oa->disp_timer->randomize=0;
+    oa->disp_timer->hook=area_disp;
+    oa->disp_timer->recurrent=oa->tick;
+    oa->lage=now;
+    tm_start(oa->disp_timer,oa->tick);
+    oa->calcrt=0;
+    oa->origrt=0;
+    fib_init(&oa->infib,po->proto.pool,sizeof(struct infib),16,init_infib);
+  }
   return PS_UP;
 }
 

@@ -155,13 +155,6 @@ addifa_rtlsa(struct ospf_iface *ifa)
   struct ospf_area *oa;
   struct proto_ospf *po=ifa->proto;
   struct proto *p=&po->proto;
-  u32 rtid;
-  struct top_graph_rtlsa_link *li, *lih;
-  struct ospf_config *c=(struct ospf_config *)(p->cf);
-  struct ospf_area_config *ac=NULL,*a;
-
-  rtid=po->proto.cf->global->router_id;
-  oa=NULL;
 
 
   WALK_LIST(NODE oa,po->area_list)
@@ -171,47 +164,7 @@ addifa_rtlsa(struct ospf_iface *ifa)
 
   if(EMPTY_LIST(po->area_list) || (oa->areaid!=ifa->an))	/* New area */
   {
-    struct ospf_lsa_header *lsa;
-    DBG("%s: New OSPF area \"%d\" adding.\n", po->proto.name, ifa->an);
-    WALK_LIST(a,c->area_list)
-    {
-      if(a->areaid==ifa->an)
-      {
-        ac=a;
-	break;
-      }
-    }
-
-    if(ac)
-    {
-      oa=mb_allocz(po->proto.pool, sizeof(struct ospf_area));
-      add_tail(&po->area_list,NODE oa);
-      oa->areaid=ifa->an;
-      oa->stub=ac->stub;
-      oa->tick=ac->tick;
-      oa->gr=ospf_top_new(po);
-      s_init_list(&(oa->lsal));
-      oa->rt=NULL;
-      oa->po=po;
-      oa->disp_timer=tm_new(po->proto.pool);
-      oa->disp_timer->data=oa;
-      oa->disp_timer->randomize=0;
-      oa->disp_timer->hook=area_disp;
-      oa->disp_timer->recurrent=oa->tick;
-      oa->lage=now;
-      tm_start(oa->disp_timer,oa->tick);
-      oa->calcrt=1;
-      oa->origrt=0;
-      fib_init(&oa->infib,po->proto.pool,sizeof(struct infib),16,init_infib);
-      po->areano++;
-      DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
-      ifa->oa=oa;
-      schedule_rt_lsa(oa);
-    }
-    else
-    {
-      bug("I didn't find area for interface.\n");
-    }
+    bug("Cannot add any area to accepted Interface");
   }
   else ifa->oa=oa;
 }
