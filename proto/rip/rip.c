@@ -235,6 +235,16 @@ find_interface(struct proto *p, struct iface *what)
  * Input processing
  */
 
+static void
+rip_rte_update_if_better(rtable *tab, net *net, struct proto *p, rte *new)
+{
+  rte *old;
+
+  old = rte_find(net, p);
+  if (!old || rip_rte_better(new, old))
+    rte_update(tab, net, p, new);
+}
+
 /* Let main routing table know about our new entry */
 static void
 advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
@@ -292,7 +302,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   r->u.rip.tag = ntohl(b->tag);
   r->net = n;
   r->pflags = 0; /* Here go my flags */
-  rte_update( p->table, n, p, r );
+  rip_rte_update_if_better( p->table, n, p, r );
   DBG( "done\n" );
 }
 
