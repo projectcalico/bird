@@ -600,7 +600,7 @@ rxmt_timer_hook(timer *timer)
           en->lsa.id, en->lsa.rt, en->lsa.type);
         add_tail(&uplist, NODE llsh);
       }
-      ospf_lsupd_tx_list(n, &uplist);
+      ospf_lsupd_send_list(n, &uplist);
       rfree(upslab);
     }
   }

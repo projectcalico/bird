@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -70,7 +70,7 @@ ospf_age(struct ospf_area *oa)
        en->inst_t=now;
        en->ini_age=0;
        lsasum_calculate(&en->lsa,en->lsa_body,po);
-       flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
+       ospf_lsupd_flood(NULL,NULL,&en->lsa,NULL,oa,1);
        continue;
     }
     if((en->lsa.age=(en->ini_age+(now-en->inst_t)))>=LSA_MAXAGE)

@@ -2,7 +2,7 @@
  *	BIRD -- OSPF Topological Database
  *
  *	(c) 1999        Martin Mares <mj@ucw.cz>
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999 - 2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -215,7 +215,7 @@ originate_rt_lsa(struct ospf_area *oa)
   lsasum_calculate(&lsa,body,po);
   en=lsa_install_new(&lsa, body, oa);
   oa->rt=en;
-  flood_lsa(NULL,NULL,&oa->rt->lsa,po,NULL,oa,1);
+  ospf_lsupd_flood(NULL,NULL,&oa->rt->lsa,NULL,oa,1);
   schedule_rtcalc(oa);
   oa->origrt=0;
 }
@@ -282,7 +282,7 @@ originate_net_lsa(struct ospf_iface *ifa)
       ifa->iface->name);
     ifa->nlsa->lsa.sn+=1;
     ifa->nlsa->lsa.age=LSA_MAXAGE;
-    flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,0);
+    ospf_lsupd_flood(NULL,NULL,&ifa->nlsa->lsa,NULL,ifa->oa,0);
     s_rem_node(SNODE ifa->nlsa);
     if(ifa->nlsa->lsa_body!=NULL) mb_free(ifa->nlsa->lsa_body);
     ifa->nlsa->lsa_body=NULL;
@@ -312,7 +312,7 @@ originate_net_lsa(struct ospf_iface *ifa)
   body=originate_net_lsa_body(ifa, &lsa.length, po);
   lsasum_calculate(&lsa,body,po);
   ifa->nlsa=lsa_install_new(&lsa, body, ifa->oa);
-  flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,1);
+  ospf_lsupd_flood(NULL,NULL,&ifa->nlsa->lsa,NULL,ifa->oa,1);
   ifa->orignet=0;
 }
 
@@ -445,7 +445,7 @@ originate_ext_lsa(net *n, rte *e, struct proto_ospf *po, struct ea_list *attrs)
   WALK_LIST(oa, po->area_list)
   {
     en=lsa_install_new(&lsa, body, oa);
-    flood_lsa(NULL,NULL,&en->lsa,po,NULL,oa,1);
+    ospf_lsupd_flood(NULL,NULL,&en->lsa,NULL,oa,1);
     body=originate_ext_lsa_body(n, e, po, attrs);
   }
   mb_free(body);

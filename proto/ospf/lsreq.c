@@ -116,6 +116,6 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
       return;
     }
   }
-  ospf_lsupd_tx_list(n, &uplist);
+  ospf_lsupd_send_list(n, &uplist);
   rfree(upslab);
 }

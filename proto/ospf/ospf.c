@@ -405,7 +405,7 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
           ext=en->lsa_body;
           if(ipa_compare(ext->netmask, ipa_mkmask(n->n.pxlen))==0)
           {
-            net_flush_lsa(en,po,oa);
+            ospf_lsupd_flush_nlsa(en,oa);
             break;
           }
         }

@@ -102,7 +102,7 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
 	ifa->nlsa->lsa.age=LSA_MAXAGE;
         if(state>=OSPF_IS_WAITING)
 	{
-	  net_flush_lsa(ifa->nlsa,po,ifa->oa);
+	  ospf_lsupd_flush_nlsa(ifa->nlsa,ifa->oa);
 	}
         if(can_flush_lsa(ifa->oa)) flush_lsa(ifa->nlsa,ifa->oa);
         ifa->nlsa=NULL;
