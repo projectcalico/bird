@@ -112,22 +112,25 @@ struct ospf_hello_packet {
   u32 bdr;
 };
 
-/* FIXME: int is not a good idea */
 struct ospf_neighbor
 {
+  struct ospf_iface *ifa;
   int state;
 #define NEIGHBOR_DOWN 0
 #define NEIGHBOR_INIT 1
 #define NEIGHBOR_2WAY 2
 #define NEIGHBOR_ATTEMPT 3
 #define NEIGHBOR_EXSTART 4
+#define NEIGHBOR_EXCHANGE 5
+#define NEIGHBOR_LOADING 6
+#define NEIGHBOR_FULL 7
   timer *inactim;	/* Inactivity timer */
-  int ms;		/* Master/slave */
-  int dds;		/* DD Sequence number being sentg */
-  int ddr;		/* last Dat Des packet */
+  byte ms;		/* Master/slave */
+  u32 dds;		/* DD Sequence number being sentg */
+  u32 ddr;		/* last Dat Des packet */
   u32 rid;		/* Router ID */
-  int pri;		/* Priority */
-  int options;		/* Options */
+  byte pri;		/* Priority */
+  byte options;		/* Options */
   u32 dr;		/* Neigbour's idea of DR */
   u32 bdr;		/* Neigbour's idea of BDR */
 };
