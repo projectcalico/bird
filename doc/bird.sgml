@@ -1009,7 +1009,7 @@ on nonbroadcast networks.
 protocol ospf &lt;name&gt; {
 	rfc1583compat &lt;switch&gt;;
 	area &lt;id&gt; {
-		stub &lt;switch&gt;;
+		stub cost &lt;num&gt;;
 		tick &lt;num&gt;;
 		interface &lt;interface pattern&gt;
 		{
@@ -1047,8 +1047,10 @@ protocol ospf &lt;name&gt; {
 	 The most important area is
 	 the backbone (ID 0) to which every other area must be connected.
 
-	<tag>stub <M>switch</M></tag>
-	 No external routes are flooded into stub areas. Default value is no.
+	<tag>stub cost <M>num</M></tag>
+	 No external (except default) routes are flooded into stub areas.
+         Setting this value marks area stub with defined cost of default route.
+	 Default value is no. (Area is not stub.)
 
 	<tag>tick <M>num</M></tag>
 	 The routing table calculation is not performed when a single link state

@@ -70,7 +70,7 @@ ospf_area_opts:
  ;
 
 ospf_area_item:
-   STUB bool { this_area->stub = $2 ; }
+   STUB COST expr { this_area->stub = $3 ; if($3<=0) cf_error("Stub cost must be greater than zero"); }
  | TICK expr { this_area->tick = $2 ; if($2<=0) cf_error("Tick must be greater than zero"); }
  | INTERFACE ospf_iface_list
  ;
