@@ -618,11 +618,7 @@ krt_prune(struct krt_proto *p)
 }
 
 void
-krt_got_route_async(struct krt_proto *p, rte *e, int new
-#ifndef KRT_ALLOW_LEARN
-UNUSED
-#endif
-)
+krt_got_route_async(struct krt_proto *p, rte *e, int new UNUSED)
 {
   net *net = e->net;
   int src = e->u.krt.src;
