@@ -978,76 +978,76 @@ protocol pipe {				# The Pipe
 }
 </code>
 
-<sect>Rip
+<sect>RIP
 
 <sect1>Introduction
 
-<p>Rip protocol (sometimes called Rest In Pieces) is a simple protocol, where each router broadcasts
-distances to all networks it can reach. When router hears distance to other network, it increments
+<p>The RIP protocol (also sometimes called Rest In Pieces) is a simple protocol, where each router broadcasts (to all its neighbors)
+distances to all networks it can reach. When a router hears distance to another network, it increments
 it and broadcasts it back. Broadcasts are done in regular intervals. Therefore, if some network goes
-unreachable, routers keep telling each other that distance is old distance plus 1 (actually, plus
-interface metric, which is usually one). After some time, distance reaches infinity (that's 15 in
-rip) and all routers know that network is unreachable. Rip tries to minimize situations where
+unreachable, routers keep telling each other that its distance is the original distance plus 1 (actually, plus
+interface metric, which is usually one). After some time, the distance reaches infinity (that's 15 in
+RIP) and all routers know that network is unreachable. RIP tries to minimize situations where
 counting to infinity is necessary, because it is slow. Due to infinity being 16, you can't use
-rip on networks where maximal distance is bigger than 15 hosts. You can read more about rip at <HTMLURL
-URL="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4
-and IPv6 versions of rip are supported by BIRD, historical RIPv1 is
+RIP on networks where maximal distance is higher than 15 hosts. You can read more about rip at <HTMLURL
+URL="http://www.ietf.org/html.charters/rip-charter.html" TEXT="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4
+and IPv6 versions of RIP are supported by BIRD, historical RIPv1 is
 currently not fully supported.
 
-<p>Rip is very simple protocol, and it is not too good. Slow
-convergence, big network load and inability to handle bigger networks
+<p>RIP is a very simple protocol, and it has a lot of shortcomings. Slow
+convergence, big network load and inability to handle larger networks
 makes it pretty much obsolete in IPv4 world. (It is still usable on
-very small networks, through.) It is widely used in IPv6 world,
-because they are no good implementations of OSPFv3.
+very small networks.) It is widely used in IPv6 networks,
+because there are no good implementations of OSPFv3.
 
 <sect1>Configuration
 
-<p>In addition to options generic to other protocols, rip supports following options:
+<p>In addition to options common for all to other protocols, RIP supports the following ones:
 
 <descrip>
-	<tag/authentication none|password|md5/ selects authentication method to use. None means that
-	  packets are not authenticated at all, password means that plaintext password is embedded
-	  into each packet, and md5 means that packets are authenticated using md5 cryptographic
-	  hash. If you set authentication to non-none, it is good idea to add <cf>passwords { }</cf>
+	<tag/authentication none|password|md5/ selects authentication method to be used. <cf/none/ means that
+	  packets are not authenticated at all, <cf/password/ means that a plaintext password is embedded
+	  into each packet, and <cf/md5/ means that packets are authenticated using a md5 cryptographic
+	  hash. If you set authentication to not-none, it is a good idea to add <cf>passwords { }</cf>
 	  section.
 
-	<tag>honor always|neighbor|never </tag>specifies, when should be requests for dumping routing table
-	  honored. (Always, when sent from host on directly connected
-	  network, or never.) Routing table updates are honored only from
+	<tag>honor always|neighbor|never </tag>specifies when should requests for dumping routing table
+	  be honored. (Always, when sent from a  host on a directly connected
+	  network or never.) Routing table updates are honored only from
 	  neighbors, that is not configurable.
 </descrip>
 
 <p>There are two options that can be specified per-interface. First is <cf>metric</cf>, with
 default one.  Second is <cf>mode multicast|broadcast|quiet|nolisten|version1</cf>, it selects mode for
 rip to work in. If nothing is specified, rip runs in multicast mode. <cf>version1</cf> is
-currently equivalent to <cf>broadcast</cf>, and it makes rip talk at broadcast address even
-through multicast mode is possible. <cf>quiet</cf> option means that rip will not transmit
-periodic messages onto this interface and <cf>nolisten</cf> means that rip will talk to this
-interface but not listen on it.
+currently equivalent to <cf>broadcast</cf>, and it makes RIP talk to a broadcast address even
+through multicast mode is possible. <cf>quiet</cf> option means that RIP will not transmit
+any periodic messages to this interface and <cf>nolisten</cf> means that RIP will send to this
+interface but not listen to it.
 
-<p>Following options generally override specified behavior from RFC. If you use any of these
-options, BIRD will no longer be RFC-compatible, which means it will not be able to talk to anything
-other than equally misconfigured BIRD. I warned you.
+<p>The following options generally override behavior specified in RFC. If you use any of these
+options, BIRD will no longer be RFC-compliant, which means it will not be able to talk to anything
+other than equally configured BIRD. I have warned you.
 
 <descrip>
 	<tag>port <M>number</M></tag>
 	  selects IP port to operate on, default 520. (This is useful when testing BIRD, if you
-	  set this to address &gt;1024, you will not need to run bird with UID==0).
+	  set this to an address &gt;1024, you will not need to run bird with UID==0).
 
 	<tag>infinity <M>number</M></tag>
-	  select value of infinity, default 16. Bigger values will make protocol convergence
+	  selects the value of infinity, default is 16. Bigger values will make protocol convergence
 	  even slower.
 
 	<tag>period <M>number</M>
-	  </tag>specifies number of seconds between periodic updates. Default is 30 seconds. Lower
+	  </tag>specifies the number of seconds between periodic updates. Default is 30 seconds. A lower
 	  number will mean faster convergence but bigger network
 	  load. Do not use values lower than 10.
 
 	<tag>timeout time <M>number</M>
-	  </tag>specifies how old route has to be to be considered unreachable. Default is 4*period.
+	  </tag>specifies how old route has to be to be considered unreachable. Default is 4*<cf/period/.
 
 	<tag>garbage time <M>number</M>
-	  </tag>specifies how old route has to be to be discarded. Default is 10*period.
+	  </tag>specifies how old route has to be to be discarded. Default is 10*<cf/period/.
 </descrip>
 
 <sect1>Attributes
