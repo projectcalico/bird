@@ -30,6 +30,10 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
   u16 i,j;
   u8 *aa,*bb;
 
+  if((oa->rt==NULL)||(EMPTY_LIST(oa->lsal))) originate_rt_lsa(oa);
+    oa->origrt=0;
+
+
   p=(struct proto *)(ifa->proto);
 
   switch(n->state)
@@ -53,9 +57,6 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 
     case NEIGHBOR_EXCHANGE:
       n->myimms.bit.i=0;
-
-      if(oa->rt==NULL) originate_rt_lsa(oa);
-      oa->origrt=0;
 
       if(((n->myimms.bit.ms) && (n->dds==n->ddr+1)) ||
          ((!(n->myimms.bit.ms)) && (n->dds==n->ddr)))
