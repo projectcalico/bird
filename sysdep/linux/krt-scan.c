@@ -113,12 +113,14 @@ krt_parse_entry(byte *e, struct krt_proto *p)
 	case RTD_DEVICE:
 #ifdef CONFIG_AUTO_ROUTES
 	  ok = 1;
+	  /* FIXME: What about static interface routes? */
 #else
 	  ok = !(flags & RTF_GATEWAY) && !strcmp(iface, a->iface->name);
 #endif
 	  break;
 	case RTD_UNREACHABLE:
 	  ok = flags & RTF_REJECT;
+	  break;
 	default:
 	  ok = 0;
 	}
