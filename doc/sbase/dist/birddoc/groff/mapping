@@ -159,6 +159,9 @@
 <manpage>	+	".nr il -1"		+
 </manpage>	
 
+<progdoc>
+</progdoc>
+
 % Hacked up titlepag stuff to look more reasonable. Titles and author
 % names are now stored in strings, printed by the end of </titlepag>.
 % Wake up! This uses groff-like long string names. You must use groff 

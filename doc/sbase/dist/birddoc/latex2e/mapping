@@ -6,7 +6,6 @@
 			"\\usepackage{qwertz}\n"
 			"\\usepackage{url}\n"
 			"\\usepackage\[latin1\]{inputenc}\n"
-			"\\usepackage{t1enc}\n"
 			"\\usepackage{epsfig}\n"
 			"\\usepackage{[OPTS]}\n"
 			"\\pagestyle{headings}%end-preamble\n" 	+
@@ -18,6 +17,9 @@
 
 <manpage>
 </manpage>
+
+<progdoc>		"\\progdoc"
+</progdoc>
 
 <titlepag>
 </titlepag>	+	"\n\n\\begin{document}\n"

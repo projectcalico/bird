@@ -12,7 +12,13 @@ anywhere else. <pavel@ucw.cz>
      Tom Gordon.
 
      $Log$
-     Revision 1.3  2000-05-31 14:24:21  mj
+     Revision 1.4  2000-06-05 21:02:58  mj
+     Define element <progdoc> which initializes different formatting for the
+     programmer's guide (\raggedbottom etc.).
+
+     Also, omit "\usepackage{t1enc}", so that bullets work now.
+
+     Revision 1.3  2000/05/31 14:24:21  mj
      Formatting of progdoc works in both HTML and LaTeX. The LaTeX output
      still has somewhat weird spacing, but it will be hopefully easy
      to fix.
@@ -526,7 +532,7 @@ anywhere else. <pavel@ucw.cz>
         opts cdata "null">
 
 <!-- Hacked by mdw, abstract now part of titlepag -->
-<!element titlepag o o (title, author, date?, abstract?)>
+<!element titlepag o o (progdoc?, title, author, date?, abstract?)>
 <!element title - o (%inline, subtitle?) +(newline)>
 <!element subtitle - o (%inline)>
 <!usemap oneline titlepag>
@@ -542,6 +548,8 @@ anywhere else. <pavel@ucw.cz>
  
 <!element newline - o empty >
 <!entity nl "<newline>"> 
+
+<!element progdoc - o empty>
 
 <!-- Hacked by mdw -->
 <!element abstract - o (%inline)>
