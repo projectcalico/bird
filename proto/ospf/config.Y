@@ -22,7 +22,7 @@ CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
 CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
-CF_KEYWORDS(HELLO, TRANSIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
+CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
 CF_KEYWORDS(NEIGHBORS, NONE, SIMPLE, AUTHENTICATION, PASSWORD)
 
 %type <t> opttext
@@ -70,18 +70,18 @@ ospf_area_opts:
 
 ospf_area_item:
    STUB bool { this_area->stub = $2 ; }
- | TICK NUM { this_area->tick = $2 ; }
+ | TICK expr { this_area->tick = $2 ; if($2<=0) cf_error("Tick must be greater than zero"); }
  | INTERFACE ospf_iface_list
  ;
 
 ospf_iface_item:
-   COST NUM { OSPF_PATT->cost = $2 ; }
- | HELLO NUM { OSPF_PATT->helloint = $2 ; }
- | RETRANSMIT NUM { OSPF_PATT->rxmtint = $2 ; }
- | TRANSIT DELAY NUM { OSPF_PATT->inftransdelay = $3 ; }
- | PRIORITY NUM { OSPF_PATT->priority = $2 ; }
- | WAIT NUM { OSPF_PATT->waitint = $2 ; }
- | DEAD COUNT NUM { OSPF_PATT->deadc = $3 ; }
+   COST expr { OSPF_PATT->cost = $2 ; if($2<=0) cf_error("Cost must be greater than zero"); }
+ | HELLO expr { OSPF_PATT->helloint = $2 ; if($2<=0) cf_error("Hello int must be greater than zero"); }
+ | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if($2<=0) cf_error("Retransmit int must be greater than zero"); }
+ | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if($3<=0) cf_error("Transmit delay must be greater than zero"); }
+ | PRIORITY expr { OSPF_PATT->priority = $2 ; }
+ | WAIT expr { OSPF_PATT->waitint = $2 ; }
+ | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if($3<=1) cf_error("Dead count must be greater than one"); }
  | TYPE BROADCAST { OSPF_PATT->type = OSPF_IT_BCAST ; }
  | TYPE NONBROADCAST { OSPF_PATT->type = OSPF_IT_NBMA ; }
  | TYPE POINTOPOINT { OSPF_PATT->type = OSPF_IT_PTP ; }
