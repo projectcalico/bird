@@ -108,7 +108,7 @@ krt_sock_send(int cmd, rte *e, char *name)
   char *body = (char *)msg.buf;
   sockaddr gate, mask, dst;
 
-  log("KRT sock send: %I/%d via %I", net->n.prefix, net->n.pxlen, a->gw);
+  DBG("krt-sock: send %I/%d via %I", net->n.prefix, net->n.pxlen, a->gw);
 
   fill_in_sockaddr(&dst, net->n.prefix, 0);
   fill_in_sockaddr(&mask, ipa_mkmask(net->n.pxlen), 0);
@@ -240,7 +240,7 @@ krt_set_start(struct krt_proto *x, int first)
   sk_rt->fd = rt_sock;
   sk_rt->data = x;
   if (sk_open(sk_rt))
-    bug("Krt_sock: sk_open failed");
+    bug("krt-sock: sk_open failed");
 }
 
 static int
@@ -250,7 +250,7 @@ krt_set_hook(sock *sk, int size)
   int l = read(sk->fd, (char *)&msg, sizeof(msg));
 
   if(l <= 0)
-    log(L_WARN "Krt-sock: read failed");
+    log(L_ERR "krt-sock: read failed");
   else
   krt_read_msg((struct proto *)sk->data, &msg, 0);
 
