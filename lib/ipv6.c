@@ -147,7 +147,6 @@ ip_ntop(ip_addr a, char *b)
 {
   u16 words[8];
   int bestpos, bestlen, curpos, curlen, i;
-  char *c;
 
   /* First of all, preprocess the address and find the longest run of zeros */
   bestlen = bestpos = curpos = curlen = 0;
@@ -225,7 +224,7 @@ ip_ntox(ip_addr a, char *b)
 int
 ipv4_pton_u32(char *a, u32 *o)
 {
-  int i,j;
+  int i;
   unsigned long int l;
   u32 ia = 0;
 

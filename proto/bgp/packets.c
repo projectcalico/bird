@@ -557,8 +557,6 @@ bgp_do_rx_update(struct bgp_conn *conn,
 
   DO_NLRI(mp_reach)
     {
-      ea_list *e = lp_alloc(bgp_linpool, sizeof(ea_list) + sizeof(eattr));
-      struct adata *ad = lp_alloc(bgp_linpool, sizeof(struct adata) + 16);
       int i;
 
       /* Create fake NEXT_HOP attribute */
