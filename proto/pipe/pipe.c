@@ -14,6 +14,7 @@
 #include "nest/route.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
+#include "lib/string.h"
 
 #include "pipe.h"
 
@@ -133,9 +134,18 @@ pipe_postconfig(struct proto_config *C)
     cf_error("Primary table and peer table must be different");
 }
 
+static void
+pipe_get_status(struct proto *P, byte *buf)
+{
+  struct pipe_proto *p = (struct pipe_proto *) P;
+
+  bsprintf(buf, "-> %s", p->peer->name);
+}
+
 struct protocol proto_pipe = {
   name:		"Pipe",
   postconfig:	pipe_postconfig,
   init:		pipe_init,
   start:	pipe_start,
+  get_status:	pipe_get_status,
 };
