@@ -7,12 +7,15 @@
  */
 
 %{
+#undef REJECT     /* Avoid name clashes */
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "nest/bird.h"
+#include "lib/string.h"
 #include "conf/conf.h"
 #include "conf/cf-parse.tab.h"
 
@@ -221,9 +224,16 @@ cf_lex_init_tables(void)
 }
 
 void
-cf_error(char *msg)
+cf_error(char *msg, ...)
 {
-  die(PATH_CONFIG ", line %d: %s", cf_lino, msg);
+  /* FIXME */
+
+  char buf[1024];
+  va_list args;
+
+  va_start(args, msg);
+  bvsprintf(buf, msg, args);
+  die(PATH_CONFIG ", line %d: %s", cf_lino, buf);
 }
 
 void
@@ -243,3 +253,4 @@ cfg_strdup(char *c)
   memcpy(z, c, l);
   return z;
 }
+
