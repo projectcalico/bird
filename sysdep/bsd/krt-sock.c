@@ -217,6 +217,20 @@ krt_set_notify(struct krt_proto *p UNUSED, net *net UNUSED, rte *new, rte *old)
     }
 }
 
+static int
+krt_set_hook(sock *sk, int size UNUSED)
+{
+  struct ks_msg msg;
+  int l = read(sk->fd, (char *)&msg, sizeof(msg));
+
+  if(l <= 0)
+    log(L_ERR "krt-sock: read failed");
+  else
+  krt_read_msg((struct proto *)sk->data, &msg, 0);
+
+  return 0;
+}
+
 void
 krt_set_start(struct krt_proto *x, int first UNUSED)
 {
@@ -242,21 +256,7 @@ krt_set_start(struct krt_proto *x, int first UNUSED)
     bug("krt-sock: sk_open failed");
 }
 
-static int
-krt_set_hook(sock *sk, int size UNUSED)
-{
-  struct ks_msg msg;
-  int l = read(sk->fd, (char *)&msg, sizeof(msg));
-
-  if(l <= 0)
-    log(L_ERR "krt-sock: read failed");
-  else
-  krt_read_msg((struct proto *)sk->data, &msg, 0);
-
-  return 0;
-}
-
-void
+static void
 krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
 {
   sockaddr gate, mask, dst;
@@ -386,7 +386,7 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
     krt_got_route_async(p, e, new);
 }
 
-void
+static void
 krt_read_ifinfo(struct ks_msg *msg)
 {
   struct if_msghdr *ifm = (struct if_msghdr *)&msg->rtm;
@@ -452,7 +452,7 @@ krt_read_ifinfo(struct ks_msg *msg)
     if_update(&f);	/* Just if something happens */
 }
 
-void
+static void
 krt_read_addr(struct ks_msg *msg)
 {
   struct ifa_msghdr *ifam = (struct ifa_msghdr *)&msg->rtm;
@@ -573,7 +573,7 @@ krt_scan_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
 {
 }
 
-void
+static void
 krt_sysctl_scan(struct proto *p, pool *pool, byte **buf, int *bl, int cmd)
 {
   byte *next;
