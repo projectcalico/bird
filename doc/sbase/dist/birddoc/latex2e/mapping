@@ -208,11 +208,11 @@
 <funcdef>		"{\\it "
 </funcdef>		"\\/}"
 
-<function>		"\\bigbreak\\hrule\\nobreak\\bigskip\\nobreak\\leftline{\\bf Function}\\nobreak\\smallskip\\nobreak{\\parskip=0pt "
+<function>		"{\\function "
 </function>		"}\n\n"
 
-<funcsect>		"\n\\medbreak\\leftline{\\bf "
-</funcsect>		"}\\nobreak "
+<funcsect>		"\n\\funcsect{"
+</funcsect>		"}"
 
 <hrule>			"\\hrule"
 
