@@ -226,8 +226,10 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   if (hold > 0 && hold < 3)
     { bgp_error(conn, 2, 6, hold, 0); return; }
   p->remote_id = id;
+#if 0					/* FIXME */
   if (pkt[28])				/* Currently we support no optional parameters */
     { bgp_error(conn, 2, 4, pkt[28], 0); return; }
+#endif
   if (!id || id == 0xffffffff || id == p->local_id)
     { bgp_error(conn, 2, 3, id, 0); return; }
 
@@ -455,11 +457,10 @@ bgp_rx(sock *sk, int size)
 	  bgp_error(conn, 1, 2, len, 2);
 	  break;
 	}
-      if (end >= pkt_start + len)
-	{
-	  bgp_rx_packet(conn, pkt_start, len);
-	  pkt_start += len;
-	}
+      if (end < pkt_start + len)
+	break;
+      bgp_rx_packet(conn, pkt_start, len);
+      pkt_start += len;
     }
   if (pkt_start != sk->rbuf)
     {
