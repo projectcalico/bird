@@ -44,17 +44,20 @@ Core
 
 Commands
 ~~~~~~~~
-shutdown
+shutdown			# order system shutdown
 configure [<file>]
+debug	<what>			# dump debugging information to log
 show	protocols [<name>]
-	<name>
-	route [<route>] [table <name>] [filter (<name> | { <inline> })] [where <condition>]
+	<name>			# show everything you know about symbol <name>
+	route [<route>] [table <name>] [filter (<name> | { <inline> })] [where <condition>] [all]
 	status			# router id, version etc.
 	rip ??? [<name>]
 	ospf ??? [<name>]
 	static ??? [<name>]
 	interfaces [<name>]
-(disable|enable|restart) <protocol>
+	neighbors		# ???
+	filters [<name>]
+(disable|enable|restart) <protocol>	# or ALL?
 
 Cleanup
 ~~~~~~~
