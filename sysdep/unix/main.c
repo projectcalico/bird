@@ -19,7 +19,7 @@
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "conf/conf.h"
-#include "conf/filter.h"
+#include "filter/filter.h"
 
 #include "unix.h"
 #include "krt.h"

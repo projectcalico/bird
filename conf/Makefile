@@ -1,10 +1,10 @@
-source=cf-parse.tab.c cf-lex.c f-util.c
+source=cf-parse.tab.c cf-lex.c
 root-rel=../
 
 include ../Rules
 
 conf-src=$(srcdir)/conf
-conf-fragments=$(conf-src)/confbase.Y @CONFS@ $(addsuffix /config.Y,$(static-dir-paths)) $(conf-src)/filter.Y
+conf-fragments=$(conf-src)/confbase.Y @CONFS@ $(addsuffix /config.Y,$(static-dir-paths))
 
 ifdef DEBUG
 BISON_DEBUG=-t

@@ -16,7 +16,7 @@ CF_HDR
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "nest/route.h"
-#include "conf/filter.h"
+#include "filter/filter.h"
 
 CF_DECLS
 
