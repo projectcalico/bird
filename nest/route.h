@@ -320,8 +320,11 @@ typedef struct ea_list {
 eattr *ea_find(ea_list *, unsigned ea);
 void ea_dump(ea_list *);
 void ea_sort(ea_list *);		/* Sort entries in all sub-lists */
-unsigned ea_scan(ea_list *);		/* How many bytes do we need for merged ea_list (0=merge not needed) */
+unsigned ea_scan(ea_list *);		/* How many bytes do we need for merged ea_list */
 void ea_merge(ea_list *from, ea_list *to); /* Merge sub-lists to allocated buffer */
+int ea_same(ea_list *x, ea_list *y);	/* Test whether two ea_lists are identical */
+unsigned int ea_hash(ea_list *e);	/* Calculate 16-bit hash value */
+void ea_format(eattr *e, byte *buf);
 
 void rta_init(void);
 rta *rta_lookup(rta *);			/* Get rta equivalent to this one, uc++ */

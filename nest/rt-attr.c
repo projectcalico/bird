@@ -183,7 +183,7 @@ ea_merge(ea_list *e, ea_list *t)
     }
 }
 
-static inline int
+int
 ea_same(ea_list *x, ea_list *y)
 {
   int c;
@@ -327,7 +327,7 @@ ea_dump(ea_list *e)
     }
 }
 
-static inline unsigned int
+inline unsigned int
 ea_hash(ea_list *e)
 {
   u32 h = 0;
