@@ -121,7 +121,7 @@ void neigh_if_up(struct iface *);
 void neigh_if_down(struct iface *);
 void neigh_init(struct pool *);
 
-extern int if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
+extern int if_connected(ip_addr *a, struct iface *i); /* -1=error, 1=match, 0=no match */
 
 /*
  *	Interface Pattern Lists

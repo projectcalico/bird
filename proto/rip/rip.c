@@ -101,7 +101,7 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
   b->pxlen = e->n.pxlen;
 #endif
   b->metric  = htonl( e->metric );
-  if (if_connected(e->whotoldme, rif->iface)) {
+  if (if_connected(&e->whotoldme, rif->iface)) {
     DBG( "(split horizon)" );
     b->metric = htonl( P_CF->infinity );
   }
