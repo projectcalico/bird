@@ -295,7 +295,7 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
     {
       if (old->attrs->proto == p)
 	{
-	  if (rte_same(old, new))
+	  if (new && rte_same(old, new))
 	    {
 	      /* No changes, ignore the new route */
 	      rte_trace_in(D_ROUTES, p, new, "ignored");
