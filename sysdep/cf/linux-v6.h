@@ -11,6 +11,8 @@
 #define CONFIG_TOS
 #define CONFIG_MULTIPATH
 #define CONFIG_NETLINK
+#define CONFIG_AUTO_ROUTES
+#define CONFIG_ALL_MULTICAST
 
 /*
 Link: sysdep/linux

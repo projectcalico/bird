@@ -9,6 +9,8 @@
 #undef CONFIG_TOS
 #undef CONFIG_MULTIPATH
 #undef CONFIG_NETLINK
+#undef CONFIG_AUTO_ROUTES
+#define CONFIG_ALL_MULTICAST
 
 /*
 Link: sysdep/linux
