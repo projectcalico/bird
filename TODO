@@ -16,9 +16,11 @@ Core
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
 - secondary addresses -> subinterfaces
 - check if all protocols set proper packet priorities and TTL's.
+
 - better default protocol names
 - config: comments at end of line -> explicit ';' needed?
 - remove post-config hooks?
+- command-line arguments: name of config file
 
 - static: check validity of route destination?
 - static: device routes

@@ -10,9 +10,10 @@
 #define _BIRD_KRT_SCAN_H_
 
 struct krt_scan_params {
-  int recurrence;			/* How often should we scan krt, 0=only on startup */
   int learn;				/* Should we learn routes from the kernel? */
-  struct timer *timer;
+  list temp_ifs;			/* Temporary interfaces */
+  int scan_time;			/* How often should we scan krt, 0=only on startup */
+  int accum_time;			/* Accumulated scanning time */
 };
 
 #endif

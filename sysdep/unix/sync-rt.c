@@ -30,6 +30,7 @@ krt_start(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
   krt_scan_start(p);
+  krt_if_start(p);
 }
 
 void
@@ -37,6 +38,7 @@ krt_shutdown(struct proto *P, int time)
 {
   struct krt_proto *p = (struct krt_proto *) P;
   krt_scan_shutdown(p);
+  krt_if_shutdown(p);
 }
 
 void
@@ -50,6 +52,7 @@ krt_preconfig(struct protocol *x)
   p->p.shutdown = krt_shutdown;
   krt_scan_preconfig(p);
   krt_set_preconfig(p);
+  krt_if_preconfig(p);
 }
 
 struct protocol proto_unix_kernel = {

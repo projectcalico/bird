@@ -29,9 +29,7 @@ krt_capable(rte *e)
   return
     a->cast == RTC_UNICAST &&
     (a->dest == RTD_ROUTER
-#ifndef CONFIG_AUTO_ROUTES
      || a->dest == RTD_DEVICE
-#endif
 #ifdef RTF_REJECT
      || a->dest == RTD_UNREACHABLE
 #endif
@@ -39,38 +37,25 @@ krt_capable(rte *e)
     !a->tos;
 }
 
-void
-krt_remove_route(rte *old)
+static inline int
+krt_capable_op(rte *e)
 {
-  net *net = old->net;
-  struct rtentry re;
+  rta *a = e->attrs;
 
-  if (!krt_capable(old) || old->attrs->source == RTS_INHERIT)
-    {
-      DBG("krt_remove_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
-      return;
-    }
-  DBG("krt_remove_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
-  bzero(&re, sizeof(re));
-  fill_in_sockaddr((struct sockaddr_in *) &re.rt_dst, net->n.prefix, 0);
-  fill_in_sockaddr((struct sockaddr_in *) &re.rt_genmask, ipa_mkmask(net->n.pxlen), 0);
-  if (ioctl(if_scan_sock, SIOCDELRT, &re) < 0)
-    log(L_ERR "SIOCDELRT(%I/%d): %m", net->n.prefix, net->n.pxlen);
+#ifdef CONFIG_AUTO_ROUTES
+  if (a->dest == RTD_ROUTER && a->source == RTS_DEVICE)
+    return 0;
+#endif
+  return krt_capable(e);
 }
 
-void
-krt_add_route(rte *new)
+static void
+krt_ioctl(int ioc, rte *e, char *name)
 {
-  net *net = new->net;
+  net *net = e->net;
   struct rtentry re;
-  rta *a = new->attrs;
+  rta *a = e->attrs;
 
-  if (!krt_capable(new) || new->attrs->source == RTS_INHERIT)
-    {
-      DBG("krt_add_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
-      return;
-    }
-  DBG("krt_add_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
   bzero(&re, sizeof(re));
   fill_in_sockaddr((struct sockaddr_in *) &re.rt_dst, net->n.prefix, 0);
   fill_in_sockaddr((struct sockaddr_in *) &re.rt_genmask, ipa_mkmask(net->n.pxlen), 0);
@@ -83,11 +68,9 @@ krt_add_route(rte *new)
       fill_in_sockaddr((struct sockaddr_in *) &re.rt_gateway, a->gw, 0);
       re.rt_flags |= RTF_GATEWAY;
       break;
-#ifndef CONFIG_AUTO_ROUTES
     case RTD_DEVICE:
       re.rt_dev = a->iface->name;
       break;
-#endif
 #ifdef RTF_REJECT
     case RTD_UNREACHABLE:
       re.rt_flags |= RTF_REJECT;
@@ -97,8 +80,36 @@ krt_add_route(rte *new)
       die("krt set: unknown flags, but not filtered");
     }
 
-  if (ioctl(if_scan_sock, SIOCADDRT, &re) < 0)
-    log(L_ERR "SIOCADDRT(%I/%d): %m", net->n.prefix, net->n.pxlen);
+  if (ioctl(if_scan_sock, ioc, &re) < 0)
+    log(L_ERR "%s(%I/%d): %m", name, net->n.prefix, net->n.pxlen);
+}
+
+void
+krt_remove_route(rte *old)
+{
+  net *net = old->net;
+
+  if (!krt_capable_op(old))
+    {
+      DBG("krt_remove_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
+      return;
+    }
+  DBG("krt_remove_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
+  krt_ioctl(SIOCDELRT, old, "SIOCDELRT");
+}
+
+void
+krt_add_route(rte *new)
+{
+  net *net = new->net;
+
+  if (!krt_capable_op(new))
+    {
+      DBG("krt_add_route(ignored %I/%d)\n", net->n.prefix, net->n.pxlen);
+      return;
+    }
+  DBG("krt_add_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
+  krt_ioctl(SIOCADDRT, new, "SIOCADDRT");
 }
 
 void
@@ -119,4 +130,3 @@ krt_set_preconfig(struct krt_proto *x)
     die("krt set: missing socket");
   x->p.rt_notify = krt_set_notify;
 }
-

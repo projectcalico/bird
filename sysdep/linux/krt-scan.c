@@ -8,6 +8,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <net/route.h>
@@ -28,6 +29,22 @@ static int krt_scan_fd = -1;
 
 /* FIXME: Filtering */
 
+struct iface *
+krt_temp_iface(struct krt_proto *x, char *name)
+{
+  SCANOPT;
+  struct iface *i;
+
+  WALK_LIST(i, p->temp_ifs)
+    if (!strcmp(i->name, name))
+      return i;
+  i = mb_alloc(x->p.pool, sizeof(struct iface));
+  bzero(i, sizeof(*i));
+  strcpy(i->name, name);
+  add_tail(&p->temp_ifs, &i->n);
+  return i;
+}
+
 static int
 krt_uptodate(rte *k, rte *e)
 {
@@ -35,10 +52,15 @@ krt_uptodate(rte *k, rte *e)
 
   if (ka->dest != ea->dest)
     return 0;
-  if (ka->dest == RTD_ROUTER && !ipa_equal(ka->gw, ea->gw))
-    return 0;
-  /* FIXME: Device routes */
-  return 1;
+  switch (ka->dest)
+    {
+    case RTD_ROUTER:
+      return ipa_equal(ka->gw, ea->gw);
+    case RTD_DEVICE:
+      return !strcmp(ka->iface->name, ea->iface->name);
+    default:
+      return 1;
+    }
 }
 
 static void
@@ -76,7 +98,10 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
   DBG("Got %I/%d via %I flags %x\n", dest, masklen, gw, flags);
 
   if (!(flags & RTF_UP))
-    return;
+    {
+      DBG("Down.\n");
+      return;
+    }
   if (flags & RTF_HOST)
     masklen = 32;
   if (flags & (RTF_DYNAMIC | RTF_MODIFIED)) /* Redirect route */
@@ -86,6 +111,13 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
     }
 
   net = net_get(&master_table, 0, dest, masklen);
+  if (net->n.flags)
+    {
+      /* Route to this destination was already seen. Strange, but it happens... */
+      DBG("Already seen.\n");
+      return;
+    }
+
   a.proto = &p->p;
   a.source = RTS_INHERIT;
   a.scope = SCOPE_UNIVERSE;
@@ -102,7 +134,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
 	a.iface = ng->iface;
       else
 	/* FIXME: Remove this warning? */
-	log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d\n", gw, net->n.prefix, net->n.pxlen);
+	log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", gw, net->n.prefix, net->n.pxlen);
       a.dest = RTD_ROUTER;
       a.gw = gw;
     }
@@ -111,10 +143,15 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
       a.dest = RTD_UNREACHABLE;
       a.gw = IPA_NONE;
     }
+  else if (isalpha(iface[0]))
+    {
+      a.dest = RTD_DEVICE;
+      a.gw = IPA_NONE;
+      a.iface = krt_temp_iface(p, iface);
+    }
   else
     {
-      /* FIXME: Should support interface routes? */
-      /* FIXME: What about systems not generating their own if routes? (see CONFIG_AUTO_ROUTES) */
+      log(L_WARN "Kernel reporting unknown route type to %I/%d", net->n.prefix, net->n.pxlen);
       return;
     }
 
@@ -135,13 +172,14 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
   else
     verdict = KRF_DELETE;
 
-  DBG("krt_parse_entry: verdict %d\n", verdict);
+  DBG("krt_parse_entry: verdict=%s\n", ((char *[]) { "CREATE", "SEEN", "UPDATE", "DELETE", "LEARN" }) [verdict]);
 
   net->n.flags = verdict;
   if (verdict != KRF_SEEN)
     {
       /* Get a cached copy of attributes and link the route */
-      e->attrs = rta_lookup(e->attrs);
+      a.source = RTS_DUMMY;
+      e->attrs = rta_lookup(&a);
       e->next = net->routes;
       net->routes = e;
     }
@@ -155,7 +193,7 @@ krt_scan_proc(struct krt_proto *p)
   byte buf[32768];
   int l, seen_hdr;
 
-  DBG("Scanning kernel table...\n");
+  DBG("Scanning kernel routing table...\n");
   if (krt_scan_fd < 0)
     {
       krt_scan_fd = open("/proc/net/route", O_RDONLY);
@@ -263,13 +301,18 @@ krt_prune(struct krt_proto *p)
   FIB_WALK_END;
 }
 
-static void
-krt_scan_fire(timer *t)
+void
+krt_scan_ifaces_done(struct krt_proto *x)
 {
-  struct krt_proto *p = t->data;
+  SCANOPT;
 
-  if (krt_scan_proc(p))
-    krt_prune(p);
+  p->accum_time += x->ifopt.scan_time;
+  if (p->scan_time && p->accum_time >= p->scan_time)
+    {
+      p->accum_time %= p->scan_time;
+      if (krt_scan_proc(x))
+	krt_prune(x);
+    }
 }
 
 void
@@ -277,30 +320,21 @@ krt_scan_preconfig(struct krt_proto *x)
 {
   SCANOPT;
 
-  p->recurrence = 60;
+  p->scan_time = 1;
   p->learn = 0;
+  init_list(&p->temp_ifs);
 }
 
 void
 krt_scan_start(struct krt_proto *x)
 {
   SCANOPT;
-  timer *t = tm_new(x->p.pool);
 
-  p->timer = t;
-  t->hook = krt_scan_fire;
-  t->data = x;
-  t->recurrent = p->recurrence;
-  krt_scan_fire(t);
-  if (t->recurrent)
-    tm_start(t, t->recurrent);
+  /* Force krt scan after first interface scan */
+  p->accum_time = p->scan_time - x->ifopt.scan_time;
 }
 
 void
 krt_scan_shutdown(struct krt_proto *x)
 {
-  SCANOPT;
-
-  tm_stop(p->timer);
-  /* FIXME: Remove all krt's? */
 }

@@ -17,12 +17,14 @@
 
 #include "nest/bird.h"
 #include "nest/iface.h"
+#include "nest/route.h"
+#include "nest/protocol.h"
 #include "lib/timer.h"
+#include "lib/krt.h"
 
 #include "unix.h"
 
 int if_scan_sock;
-int if_scan_period = 60;
 
 static timer *if_scan_timer;
 
@@ -131,8 +133,9 @@ scan_if(timer *t)
   struct ifconf ic;
   static int last_ifbuf_size = 4*sizeof(struct ifreq);
   int res;
+  struct krt_proto *p = t->data;
 
-  DBG("Scanning interfaces...\n");
+  DBG("It's interface scan time...\n");
   for(;;)
     {
       if (last_ifbuf_size)
@@ -165,6 +168,32 @@ scan_if(timer *t)
       DBG("Increased ifconf buffer size to %d\n", last_ifbuf_size);
 #endif
     }
+  krt_scan_ifaces_done(p);
+}
+
+void
+krt_if_start(struct krt_proto *p)
+{
+  if_scan_timer = tm_new(&root_pool);
+  if_scan_timer->hook = scan_if;
+  if_scan_timer->data = p;
+  if_scan_timer->recurrent = p->ifopt.scan_time;
+  scan_if(if_scan_timer);
+  tm_start(if_scan_timer, p->ifopt.scan_time);
+}
+
+void
+krt_if_preconfig(struct krt_proto *p)
+{
+  p->ifopt.scan_time = 60;
+}
+
+void
+krt_if_shutdown(struct krt_proto *p)
+{
+  tm_stop(if_scan_timer);
+  rfree(if_scan_timer);
+  /* FIXME: What should we do with interfaces? */
 }
 
 void
@@ -174,9 +203,4 @@ scan_if_init(void)
   DBG("Using socket %d for interface and route scanning\n", if_scan_sock);
   if (if_scan_sock < 0)
     die("Cannot create scanning socket: %m");
-  scan_if(NULL);
-  if_scan_timer = tm_new(&root_pool);
-  if_scan_timer->hook = scan_if;
-  if_scan_timer->recurrent = if_scan_period;
-  tm_start(if_scan_timer, if_scan_period);
 }

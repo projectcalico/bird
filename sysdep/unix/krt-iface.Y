@@ -1,5 +1,5 @@
 /*
- *	BIRD -- Linux Kernel Syncer Configuration
+ *	BIRD -- UNIX Interface Syncer Configuration
  *
  *	(c) 1998 Martin Mares <mj@ucw.cz>
  *
@@ -16,15 +16,12 @@ CF_KEYWORDS(LEARN, ROUTE, SCAN, TIME)
 
 CF_GRAMMAR
 
-CF_ADDTO(kern_proto, kern_proto krt_scan_item ';')
+CF_ADDTO(kern_proto, kern_proto krt_if_item ';')
 
-krt_scan_item:
-   LEARN bool {
-      ((struct krt_proto *) this_proto)->scanopt.learn = $2;
-   }
- | ROUTE SCAN TIME expr {
+krt_if_item:
+   SCAN TIME expr {
       /* Scan time of 0 means scan on startup only */
-      ((struct krt_proto *) this_proto)->scanopt.scan_time = $4;
+      ((struct krt_proto *) this_proto)->ifopt.scan_time = $3;
    }
  ;
 
