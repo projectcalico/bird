@@ -284,6 +284,8 @@ originate_net_lsa(struct ospf_iface *ifa)
     ifa->nlsa->lsa.age=LSA_MAXAGE;
     flood_lsa(NULL,NULL,&ifa->nlsa->lsa,po,NULL,ifa->oa,0);
     s_rem_node(SNODE ifa->nlsa);
+    if(ifa->nlsa->lsa_body!=NULL) mb_free(ifa->nlsa->lsa_body);
+    ifa->nlsa->lsa_body=NULL;
     ospf_hash_delete(ifa->oa->gr, ifa->nlsa);
     schedule_rtcalc(ifa->oa);
     ifa->nlsa=NULL;
@@ -511,12 +513,12 @@ return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32((type==LSA_T_NET) ? lsaid :
  * its used in @ospf_area structure.
  */
 struct top_graph *
-ospf_top_new(struct proto_ospf *p)
+ospf_top_new(pool *pool, struct proto_ospf *p)
 {
   struct top_graph *f;
 
-  f = mb_allocz(p->proto.pool, sizeof(struct top_graph));
-  f->pool = p->proto.pool;
+  f = mb_allocz(pool, sizeof(struct top_graph));
+  f->pool = pool;
   f->hash_slab = sl_new(f->pool, sizeof(struct top_hash_entry));
   f->hash_order = HASH_DEF_ORDER;
   ospf_top_ht_alloc(f);

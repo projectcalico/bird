@@ -100,7 +100,7 @@ ospf_start(struct proto *p)
     oa->stub=ac->stub;
     oa->tick=ac->tick;
     oa->areaid=ac->areaid;
-    oa->gr=ospf_top_new(po);
+    oa->gr=ospf_top_new(po->proto.pool, po);
     s_init_list(&(oa->lsal));
     oa->rt=NULL;
     oa->po=po;

@@ -19,7 +19,7 @@ install_inactim(struct ospf_neighbor *n)
 
   if(n->inactim==NULL)
   {
-    n->inactim=tm_new(p->pool);
+    n->inactim=tm_new(n->pool);
     n->inactim->data=n;
     n->inactim->randomize=0;
     n->inactim->hook=neighbor_timer_hook;
@@ -64,6 +64,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   ip_addr mask;
   char *beg=": Bad OSPF hello packet from ", *rec=" received: ";
   int eligible=0;
+  pool *pool;
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
 
@@ -130,7 +131,9 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     }
     OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s.", faddr,
       ifa->iface->name);
-    n=mb_allocz(p->pool, sizeof(struct ospf_neighbor));
+    pool=rp_new(p->pool, "OSPF Neighbor");
+    n=mb_allocz(pool, sizeof(struct ospf_neighbor));
+    n->pool=pool;
     add_tail(&ifa->neigh_list, NODE n);
     n->rid=nrid;
     n->ip=faddr;
@@ -142,23 +145,23 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->options=ps->options;
     n->ifa=ifa;
     n->adj=0;
-    n->ldbdes=mb_alloc(p->pool, ifa->iface->mtu);
+    n->ldbdes=mb_alloc(pool, ifa->iface->mtu);
     n->state=NEIGHBOR_DOWN;
     install_inactim(n);
-    n->rxmt_timer=tm_new(p->pool);
+    n->rxmt_timer=tm_new(pool);
     n->rxmt_timer->data=n;
     n->rxmt_timer->randomize=0;
     n->rxmt_timer->hook=rxmt_timer_hook;
     n->rxmt_timer->recurrent=ifa->rxmtint;
     DBG("%s: Installing rxmt timer.\n", p->name);
-    n->lsrr_timer=tm_new(p->pool);
+    n->lsrr_timer=tm_new(pool);
     n->lsrr_timer->data=n;
     n->lsrr_timer->randomize=0;
     n->lsrr_timer->hook=lsrr_timer_hook;
     n->lsrr_timer->recurrent=ifa->rxmtint;
     DBG("%s: Installing lsrr timer.\n", p->name);
     init_list(&n->ackl);
-    n->ackd_timer=tm_new(p->pool);
+    n->ackd_timer=tm_new(pool);
     n->ackd_timer->data=n;
     n->ackd_timer->randomize=0;
     n->ackd_timer->hook=ackd_timer_hook;

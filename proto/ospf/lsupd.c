@@ -55,6 +55,8 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	      break;
 	    case CMP_SAME:
               s_rem_node(SNODE en);
+              if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+              en->lsa_body=NULL;
 	      DBG("Removing from lsreq list for neigh %I\n", nn->rid);
 	      ospf_hash_delete(nn->lsrqh,en);
 	      if(EMPTY_SLIST(nn->lsrql)) ospf_neigh_sm(nn, INM_LOADDONE);
@@ -62,6 +64,8 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	      break;
 	    case CMP_NEWER:
               s_rem_node(SNODE en);
+              if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+              en->lsa_body=NULL;
 	      DBG("Removing from lsreq list for neigh %I\n", nn->rid);
 	      ospf_hash_delete(nn->lsrqh,en);
 	      if(EMPTY_SLIST(nn->lsrql)) ospf_neigh_sm(nn, INM_LOADDONE);
@@ -91,6 +95,8 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
         if((en=ospf_hash_find_header(nn->lsrth, hh))!=NULL)
         {
           s_rem_node(SNODE en);
+          if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+          en->lsa_body=NULL;
           ospf_hash_delete(nn->lsrth, en);
         }
       }
@@ -416,6 +422,8 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
               if((en=ospf_hash_find_header(ntmp->lsrth,&lsadb->lsa))!=NULL)
               {
                 s_rem_node(SNODE en);
+                if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+                en->lsa_body=NULL;
                 ospf_hash_delete(ntmp->lsrth,en);
               }
           }
@@ -448,6 +456,8 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       if((en=ospf_hash_find_header(n->lsrth,&lsadb->lsa))!=NULL)
       {
         s_rem_node(SNODE en);
+        if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+        en->lsa_body=NULL;
         ospf_hash_delete(n->lsrth, en);
         if(ifa->state==OSPF_IS_BACKUP)
         {

@@ -40,7 +40,7 @@ ospf_lsa_delay(struct ospf_neighbor *n,struct ospf_lsa_header *h,
 {
   struct lsah_n *no;
 
-  no=mb_alloc(p->pool,sizeof(struct lsah_n));
+  no=mb_alloc(n->pool,sizeof(struct lsah_n));
   memcpy(&no->lsa,h,sizeof(struct ospf_lsa_header));
   add_tail(&n->ackl, NODE no);
   DBG("Adding delay ack for %I, ID: %I, RT: %I, Type: %u\n",n->rid,
@@ -213,6 +213,8 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
     DBG("Deleting LS Id: %I RT: %I Type: %u from LS Retl for neighbor %I\n",
       lsa.id,lsa.rt,lsa.type,n->rid);
     s_rem_node(SNODE en);
+    if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+    en->lsa_body=NULL;
     ospf_hash_delete(n->lsrth,en);
   }  
 }

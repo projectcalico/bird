@@ -15,6 +15,8 @@ flush_lsa(struct top_hash_entry *en, struct ospf_area *oa)
   OSPF_TRACE(D_EVENTS, "Going to remove node Type: %u, Id: %I, Rt: %I, Age: %u",
     en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age);
   s_rem_node(SNODE en);
+  if(en->lsa_body!=NULL) mb_free(en->lsa_body);
+  en->lsa_body=NULL;
   ospf_hash_delete(oa->gr,en);
 }
 

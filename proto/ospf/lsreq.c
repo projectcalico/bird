@@ -82,7 +82,7 @@ lsrr_timer_hook(timer *timer)
       struct l_lsr_head *llsh;
 
       init_list(&uplist);
-      upslab=sl_new(p->pool,sizeof(struct l_lsr_head));
+      upslab=sl_new(n->pool,sizeof(struct l_lsr_head));
 
       WALK_SLIST(SNODE en,n->lsrtl)
       {
@@ -132,7 +132,7 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
   length=ntohs(ps->ospf_packet.length);
   lsh=(void *)(ps+1);
   init_list(&uplist);
-  upslab=sl_new(p->pool,sizeof(struct l_lsr_head));
+  upslab=sl_new(n->pool,sizeof(struct l_lsr_head));
 
   lsano=(length-sizeof(struct ospf_lsreq_packet))/
     sizeof(struct ospf_lsreq_header);

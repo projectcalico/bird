@@ -261,10 +261,19 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       if(n->state==NEIGHBOR_EXSTART)
       {
         neigh_chstate(n,NEIGHBOR_EXCHANGE);
+        while(!EMPTY_LIST(n->ackl))
+        {
+          struct lsah_n *no;
+          no=(struct lsah_n *)HEAD(n->ackl);
+          rem_node(NODE no);
+          mb_free(no);
+        }
         s_init_list(&(n->lsrql));
-	n->lsrqh=ospf_top_new(n->ifa->proto);
+	if(n->lsrqh) ospf_top_free(n->lsrqh);
+	n->lsrqh=ospf_top_new(n->pool, n->ifa->proto);
         s_init_list(&(n->lsrtl));
-	n->lsrth=ospf_top_new(n->ifa->proto);
+	if(n->lsrth) ospf_top_free(n->lsrth);
+	n->lsrth=ospf_top_new(n->pool, n->ifa->proto);
 	s_init(&(n->dbsi), &(n->ifa->oa->lsal));
 	s_init(&(n->lsrqi), &(n->lsrql));
 	s_init(&(n->lsrti), &(n->lsrtl));
@@ -490,37 +499,8 @@ ospf_neigh_remove(struct ospf_neighbor *n)
   ifa=n->ifa;
   p=(struct proto *)(ifa->proto);
   neigh_chstate(n, NEIGHBOR_DOWN);
-  tm_stop(n->inactim);
-  rfree(n->inactim);
-  if(n->rxmt_timer!=NULL)
-  {
-    tm_stop(n->rxmt_timer);
-    rfree(n->rxmt_timer);
-  }
-  if(n->lsrr_timer!=NULL)
-  {
-    tm_stop(n->lsrr_timer);
-    rfree(n->lsrr_timer);
-  }
-  if(n->ackd_timer!=NULL)
-  {
-    tm_stop(n->ackd_timer);
-    rfree(n->ackd_timer);
-  }
-  if(n->ldbdes!=NULL)
-  {
-    mb_free(n->ldbdes);
-  }
-  if(n->lsrqh!=NULL)
-  {
-    ospf_top_free(n->lsrqh);
-  }
-  if(n->lsrth!=NULL)
-  {
-    ospf_top_free(n->lsrth);
-  }
   rem_node(NODE n);
-  mb_free(n);
+  rfree(n->pool);
   OSPF_TRACE(D_EVENTS, "Deleting neigbor.");
 }
 

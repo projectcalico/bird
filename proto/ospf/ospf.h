@@ -324,6 +324,7 @@ struct ospf_lsack_packet {
 struct ospf_neighbor
 {
   node n;
+  pool *pool;
   struct ospf_iface *ifa;
   u8 state;
 #define NEIGHBOR_DOWN 0
