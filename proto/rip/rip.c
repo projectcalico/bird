@@ -503,6 +503,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags)
 
   if (!ipa_nonzero(rif->sock->daddr))
     log( L_WARN "RIP: interface %s is too strange for me", rif->iface ? rif->iface->name : "(dummy)" );
+  /* FIXME: Should ignore the interface instead of blindly trying to bind on it */
 
   if (sk_open(rif->sock)<0)
     die( "RIP/%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
