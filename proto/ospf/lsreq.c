@@ -91,7 +91,8 @@ lsrr_timer_hook(timer *timer)
         llsh->lsh.id=en->lsa.id;
         llsh->lsh.rt=en->lsa.rt;
         llsh->lsh.type=en->lsa.type;
-	DBG("Working on ID: %I, RT: %I, Type: %u\n",en->lsa.id,en->lsa.rt,en->lsa.type);
+	DBG("Working on ID: %I, RT: %I, Type: %u\n",
+          en->lsa.id, en->lsa.rt, en->lsa.type);
         add_tail(&uplist, NODE llsh);
       }
       ospf_lsupd_tx_list(n, &uplist);
@@ -111,7 +112,7 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
   list uplist;
   slab *upslab;
   int length;
-  u8 i;
+  int i,lsano;
 
   nrid=ntohl(ps->ospf_packet.routerid);
 
@@ -127,13 +128,14 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
 
   debug("%s: Received LS req from neighbor: %I\n",p->name, n->ip);
 
-  length=htons(ps->ospf_packet.length);
+  length=ntohs(ps->ospf_packet.length);
   lsh=(void *)(ps+1);
   init_list(&uplist);
   upslab=sl_new(p->pool,sizeof(struct l_lsr_head));
 
-  for(i=0;i<(length-sizeof(struct ospf_lsreq_packet))/
-    sizeof(struct ospf_lsreq_header);i++);
+  lsano=(length-sizeof(struct ospf_lsreq_packet))/
+    sizeof(struct ospf_lsreq_header);
+  for(i=0;i<lsano;lsh++,i++)
   {
     DBG("Processing LSA: ID=%I, Type=%u, Router=%I\n", ntohl(lsh->id),
     lsh->type, ntohl(lsh->rt));
@@ -145,7 +147,7 @@ ospf_lsreq_rx(struct ospf_lsreq_packet *ps, struct proto *p,
     if(ospf_hash_find(n->ifa->oa->gr, llsh->lsh.id, llsh->lsh.rt,
       llsh->lsh.type)==NULL)
     {
-      debug("Received bad LS req from: %I looking: RT: %I, ID: %I, Type: %u",
+      log("Received bad LS req from: %I looking: RT: %I, ID: %I, Type: %u",
         n->ip, lsh->rt, lsh->id, lsh->type);
       ospf_neigh_sm(n,INM_BADLSREQ);
       rfree(upslab);
