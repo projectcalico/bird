@@ -86,7 +86,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       if(iff->state==OSPF_IS_BACKUP) continue;
       retval=1;
     }
-    /* FIXME directly flood */
+
     {
       sock *sk;
       ip_addr to;
@@ -289,10 +289,12 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
        DBG("PG143(5): Received LSA is newer\n");
 
       /* pg 144 (5a) */
-      if(lsadb && ((lsadb->inst_t-now)<MINLSARRIVAL)) continue;
+      if(lsadb && ((now-lsadb->inst_t)<MINLSARRIVAL)) continue;
+        
 
       if(flood_lsa(n,lsa,&lsatmp,po,ifa,ifa->oa)==0)
       {
+        DGB("Wasn't flooded back\n");
         if(ifa->state==OSPF_IS_BACKUP)
 	{
 	  if(ifa->drid==n->rid) ospf_lsa_delay(n, lsa, p);
