@@ -19,6 +19,7 @@ void static_init_instance(struct static_proto *);
 
 struct static_route {
   node n;
+  struct static_route *chain;		/* Next for the same neighbor */
   ip_addr net;				/* Network we route */
   int masklen;				/* Mask length */
   int dest;				/* Destination type (RTD_*) */

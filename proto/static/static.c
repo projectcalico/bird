@@ -65,30 +65,42 @@ static_start(struct proto *P)
 
   DBG("Static: take off!\n");
   WALK_LIST(r, p->other_routes)
-    if (r->dest == RTD_ROUTER)
+    switch (r->dest)
       {
-	struct neighbor *n = neigh_find(P, &r->via, NEF_STICKY);
-	if (n)
-	  {
-	    n->data = r;
-	    r->neigh = n;
-	    static_install(p, r, n->iface);
-	  }
-	else
-	  log(L_ERR "Static route destination %I is invalid. Ignoring.\n", r->via);
+      case RTD_ROUTER:
+	{
+	  struct neighbor *n = neigh_find(P, &r->via, NEF_STICKY);
+	  if (n)
+	    {
+	      r->chain = n->data;
+	      n->data = r;
+	      r->neigh = n;
+	      static_install(p, r, n->iface);
+	    }
+	  else
+	    log(L_ERR "Static route destination %I is invalid. Ignoring.\n", r->via);
+	  break;
+	}
+      case RTD_DEVICE:
+	die("Static device routes are not supported");
+	/* FIXME: Static device routes */
+      default:
+	static_install(p, r, NULL);
       }
-    else
-      static_install(p, r, NULL);
 }
 
 static void
 static_neigh_notify(struct neighbor *n)
 {
+  struct static_proto *p = (struct static_proto *) n->proto;
+  struct static_route *r;
+
   DBG("Static: neighbor notify for %I: iface %p\n", n->addr, n->iface);
-  if (n->iface)
-    static_install((struct static_proto *) n->proto, n->data, n->iface);
-  else
-    static_remove((struct static_proto *) n->proto, n->data);
+  for(r=n->data; r; r=r->chain)
+    if (n->iface)
+      static_install(p, r, n->iface);
+    else
+      static_remove(p, r);
 }
 
 static void
