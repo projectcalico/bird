@@ -18,6 +18,14 @@ struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
   u8 pad2;
 };
 
+struct top_vertex {	/* LSA without type,rtid and lsid */
+  u16 lsage;
+  u8 options;
+  u32 lsseqno;
+  void *data;
+};
+
+
 struct top_graph {
   pool *pool;				/* Pool we allocate from */
   slab *hash_slab;			/* Slab for hash entries */
