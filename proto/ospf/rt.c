@@ -325,6 +325,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
     absr=NULL;
     absroa=NULL;
     nnhi=NULL;
+    nnh=IPA_NONE;
 
     met=0;met2=0;tag=0;
 
