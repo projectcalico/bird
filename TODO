@@ -87,22 +87,12 @@ Last minute stuff:
 ~~~~~~~~~~~~~~~~~~
 Martin:	DOC: korektury
 	DOC: typograficky doladit, vyrobit titulni stranku (ta, co ji vygeneruji SGMLtools, vypada priserne)
-	Zinscenovat jeste jeden poradny test OSPF
-	Zjistit, kde se bude tisknout a vazat dokumentace
-	DOC: Linux 2.2 je ten, kdo podporuje vice routing tables
 
 Pavel:	RIP: programatorska dokumentace (finish)
 	filtry: programatorska dokumentace
 	filtry: opravit chybove hlasky !!!
 	DOC: dokoncit uzivatelskou dokumentaci (viz predchozi maily)
 	DOC: Pridat odkazy na RFC apod.
-	Zjistit, v jake forme ma byt projekt odevzdan (kolik kopii dokumentace atd.)
 
-Feela:	OSPF: locking
-	OSPF: tracing (a zkontrolovat vsechny debug()-y), u log() uvadet kategorie a jmeno instance
-	OSPF: vypnout LOCAL_DEBUG
-	OSPF: ze vsech die() udelat bug() a zkontrolovat, ze to jsou opravdu interni bugy
-	OSPF: reconfiguration hook
-	OSPF: uzivatelska dokumentace
+Feela:	OSPF: uzivatelska dokumentace
 	OSPF: programatorska dokumentace
-	OSPF: autentikace (kdyz se nestihne, nijak to nevadi)
