@@ -138,13 +138,13 @@ rip_tx( sock *s )
     FIB_ITERATE_START(&P->rtable, &c->iter, z) {
       struct rip_entry *e = (struct rip_entry *) z;
 
-      if (rif->triggered && (!(e->updated < now-5)))
-	continue;
+      if (!rif->triggered || (!(e->updated < now-5))) {
 
-      rip_tx_prepare( p, s->daddr, packet->block + i, e );
-      if (i++ == ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX)) {
-	FIB_ITERATE_PUT(&c->iter, z);
-	goto break_loop;
+	rip_tx_prepare( p, s->daddr, packet->block + i, e );
+	if (i++ == ((P_CF->authtype == AT_MD5) ? PACKET_MD5_MAX : PACKET_MAX)) {
+	  FIB_ITERATE_PUT(&c->iter, z);
+	  goto break_loop;
+	}
       }
     } FIB_ITERATE_END(z);
     c->done = 1;
