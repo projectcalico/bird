@@ -24,6 +24,8 @@ Core
 - kernel: RTM_F_NOTIFY seems to be unimplemented
 - kernel: RTM_DELROUTE not announced for device routes
 
+- netlink: import Linux route attributes to our rta's, so that they can be filtered?
+
 Cleanup
 ~~~~~~~
 - right usage of DBG vs. debug
