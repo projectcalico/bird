@@ -3,15 +3,15 @@
 $srcdir = $ARGV[0];
 
 open(OUT, ">prog.sgml") || die "Cannot create output file";
-include("prog-head.sgml");
+include("doc/prog-head.sgml");
 process("");
-include("prog-foot.sgml");
+include("doc/prog-foot.sgml");
 close OUT;
 exit 0;
 
 sub include {
   my $f = shift @_;
-  open(IN, "$srcdir/doc/$f") || die "Unable to find $f";
+  open(IN, "$srcdir/$f") || die "Unable to find $f";
   while (<IN>) {
     print OUT;
   }
@@ -41,7 +41,7 @@ sub process {
       close DOC;
     } elsif ($cmd eq "D") {
       print "    $arg\n";
-      include($arg);
+      include("$dir/$arg");
     } else { die "Unknown command: $cmd"; }
   }
 }

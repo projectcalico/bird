@@ -91,6 +91,7 @@ Martin:	DOC: korektury
 	OSPF: zkontrolovat defaultni hodnoty metrik
 	Zinscenovat jeste jeden poradny test OSPF
 	Zjistit, kde se bude tisknout a vazat dokumentace
+	DOC: Linux 2.2 je ten, kdo podporuje vice routing tables
 
 Pavel:	RIP: programatorska dokumentace (finish)
 	filtry: programatorska dokumentace
