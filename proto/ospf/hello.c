@@ -84,8 +84,8 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if((n=find_neigh(ifa, nrid))==NULL)
   {
-    log("%s: New neighbor found: %I.", p->name,nrid);
-    n=mb_alloc(p->pool, sizeof(struct ospf_neighbor));
+    debug("%s: New neighbor found: %I.\n", p->name,nrid);
+    n=mb_allocz(p->pool, sizeof(struct ospf_neighbor));
     add_tail(&ifa->neigh_list, NODE n);
     n->rid=nrid;
     n->ip=faddr;
@@ -96,7 +96,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->ifa=ifa;
     n->adj=0;
     n->ldbdes=mb_alloc(p->pool, ifa->iface->mtu);
-    neigh_chstate(n,NEIGHBOR_DOWN);
+    n->state=NEIGHBOR_DOWN;
     install_inactim(n);
     n->rxmt_timer=tm_new(p->pool);
     n->rxmt_timer->data=n;
