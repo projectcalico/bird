@@ -185,8 +185,8 @@ if test "$enable_client" = yes ; then
 			AC_CHECK_LIB(termcap, tgetent, USE_TERMCAP_LIB=-ltermcap)))
 	AC_CHECK_LIB(readline, rl_callback_read_char, CLIENT_LIBS="-lreadline $CLIENT_LIBS $USE_TERMCAP_LIB",
 		AC_MSG_ERROR([[The client requires GNU readline library 2.1 or newer. Either install the library or use --disable-client to compile without the client.]]), $USE_TERMCAP_LIB)
-	AC_CHECK_FUNCS(rl_crlf)
-	AC_CHECK_FUNCS(rl_ding)
+	AC_CHECK_LIB(readline, rl_crlf, AC_DEFINE(HAVE_RL_CRLF),,$USE_TERMCAP_LIB)
+	AC_CHECK_LIB(readline, rl_ding, AC_DEFINE(HAVE_RL_DING),,$USE_TERMCAP_LIB)
 fi
 AC_SUBST(CLIENT)
 AC_SUBST(CLIENT_LIBS)
