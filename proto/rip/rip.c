@@ -819,7 +819,6 @@ rip_rte_remove(net *net, rte *rte)
 void
 rip_init_instance(struct proto *p)
 {
-  p->preference = DEF_PREF_RIP;
   p->if_notify = rip_if_notify;
   p->rt_notify = rip_rt_notify;
   p->import_control = rip_import_control;
@@ -834,6 +833,7 @@ void
 rip_init_config(struct rip_proto_config *c)
 {
   init_list(&c->iface_list);
+  c->c.preference = DEF_PREF_RIP;
   c->infinity	= 16;
   c->port	= 520;
   c->period	= 30;
