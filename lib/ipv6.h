@@ -9,6 +9,7 @@
 #ifndef _BIRD_IPV6_H_
 #define _BIRD_IPV6_H_
 
+#include <sys/types.h>
 #include <netinet/in.h>
 #include "lib/string.h"
 
