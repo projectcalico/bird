@@ -131,18 +131,11 @@ ospf_shutdown(struct proto *p)
   struct ospf_neighbor *n;
   struct ospf_area *oa;
   debug("%s: Shutdown requested\n", p->name);
-  /* first of all flush my rt LSA */
-
-  WALK_LIST(oa,po->area_list)
-  {
-    net_flush_lsa(oa->rt,po,oa);
-  }
-
 
   /* And send to all my neighbors 1WAY */
   WALK_LIST(ifa, po->iface_list)
   {
-    WALK_LIST(n, ifa->neigh_list) neigh_chstate(n,NEIGHBOR_DOWN);
+    init_list(&ifa->neigh_list);
     hello_timer_hook(ifa->hello_timer);
   }
   
