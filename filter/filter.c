@@ -142,6 +142,7 @@ val_print(struct f_val v)
 
 static struct rte **f_rte, *f_rte_old;
 static struct linpool *f_pool;
+static struct ea_list **f_tmp_attrs;
 
 #define runtime(x) do { \
     log( L_ERR x ); \
@@ -319,7 +320,8 @@ interpret(struct f_inst *what)
   case P('e','a'):	/* Access to extended attributes */
     {
       eattr *e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
-      /* FIXME: should I search in tmp_attrs, too, or what ? */
+      if (!e) 
+	e = ea_find( (*f_tmp_attrs), what->a2.i );
       if (!e) {
 	res.type = T_VOID;
 	break;
@@ -345,19 +347,28 @@ interpret(struct f_inst *what)
       l->count = 1;
       l->attrs[0].id = what->a2.i;
       l->attrs[0].flags = 0;
-      switch (what->aux) {
-      case T_INT:
-	l->attrs[0].type = EAF_TYPE_INT | EAF_INLINE;
+      l->attrs[0].type = what->aux;
+      switch (what->aux & EAF_TYPE_MASK) {
+      case EAF_TYPE_INT:
+	if (v1.type != T_INT)
+	  runtime( "Setting int attribute to non-int value" );
 	l->attrs[0].u.data = v1.val.i;
 	break;
-      case T_VOID:
-	l->attrs[0].type = EAF_TYPE_UNDEF | EAF_INLINE;
+      case EAF_TYPE_UNDEF:
+	if (v1.type != T_VOID)
+	  runtime( "Setting void attribute to non-void value" );
 	l->attrs[0].u.data = 0;
 	break;
       }
-      *f_rte = rte_do_cow(*f_rte);
-      l->next = (*f_rte)->attrs->eattrs;
-      (*f_rte)->attrs->eattrs = l;
+
+      if (what->aux & EAF_INLINE) {
+	*f_rte = rte_do_cow(*f_rte);
+	l->next = (*f_rte)->attrs->eattrs;
+	(*f_rte)->attrs->eattrs = l;
+      } else {
+	l->next = (*f_tmp_attrs);
+	(*f_tmp_attrs) = l;
+      }
     }
     break;
 
@@ -494,8 +505,6 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   return i_same(f1->next, f2->next);
 }
 
-/* FIXME: tmp_attrs is unreferenced. That can't be right.
-   Strange. look at eS how dynamic attrs are set. */
 int
 f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool)
 {
@@ -503,6 +512,7 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   struct f_val res;
   debug( "Running filter `%s'...", filter->name );
 
+  f_tmp_attrs = tmp_attrs;
   f_rte = rte;
   f_rte_old = *rte;
   f_pool = tmp_pool;

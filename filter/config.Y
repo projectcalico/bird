@@ -424,7 +424,7 @@ cmd:
    }
  | UNSET '(' rtadot dynamic_attr ')' ';' {
      $$ = $4;
-     $$->aux = T_VOID;
+     $$->aux = EAF_TYPE_UNDEF | EAF_INLINE;
      $$->code = P('e','S');
      $$->a1.p = NULL;
    }
