@@ -44,6 +44,7 @@ struct ospf_iface {
 			   interface.  LSAs contained in the update */
   u8 priority;		/* A router priority for DR election */
   u16 helloint;		/* number of seconds between hello sending */
+  u16 waitint;		/* number of sec before changing state from wait */
   u32 deadc;		/* after "deadint" missing hellos is router dead */
   u16 autype;
   u8 aukey[8];
@@ -53,16 +54,18 @@ struct ospf_iface {
   ip_addr bdrip;	/* Backup DR */
   u32 bdrid;
   u8 type;		/* OSPF view of type */
-#define OSPF_IT_BROADCAST 0
+#define OSPF_IT_BCAST 0
 #define OSPF_IT_NBMA 1
 #define OSPF_IT_PTP 2
+#define OSPF_IT_VLINK 3
   u8 state;		/* Interface state machine */
-#define OSPF_IS_DOWN 0		/* Should never happen */
-#define OSPF_IS_WAITING 1	/* Waiting for Wait timer */
-#define OSPF_IS_PTP 2		/* PTP operational */
-#define OSPF_IS_DROTHER 3	/* I'm on BCAST or NBMA and I'm not DR */
-#define OSPF_IS_BACKUP 4	/* I'm BDR */
-#define OSPF_IS_DR 5		/* I'm DR */
+#define OSPF_IS_DOWN 0		/* Not working */
+#define OSPF_IS_LOOP 1		/* Should never happen */
+#define OSPF_IS_WAITING 2	/* Waiting for Wait timer */
+#define OSPF_IS_PTP 3		/* PTP operational */
+#define OSPF_IS_DROTHER 4	/* I'm on BCAST or NBMA and I'm not DR */
+#define OSPF_IS_BACKUP 5	/* I'm BDR */
+#define OSPF_IS_DR 6		/* I'm DR */
   timer *wait_timer;		/* WAIT timer */
   timer *hello_timer;		/* HELLOINT timer */
   timer *rxmt_timer;		/* RXMT timer */
@@ -73,8 +76,8 @@ struct ospf_iface {
 #define PRIORITY_D 1
 #define HELLOINT_D 10
 #define DEADC_D 4
-#define WAIT_DMH 2	/* Value of Wait timer - not found it in RFC 
-			 * - using 2*HELLO
+#define WAIT_DMH 3	/* Value of Wait timer - not found it in RFC 
+			 * - using 3*HELLO
 			 */
 };
 
@@ -160,5 +163,29 @@ struct ospf_neighbor
   u32 bdr;		/* Neigbour's idea of BDR */
   u8 adj;		/* built adjacency? */
 };
+
+/* Definitions for interface state machine */
+#define ISM_UP 0	/* Interface Up */
+#define ISM_WAITF 1	/* Wait timer fired */
+#define ISM_BACKS 2	/* Backup seen */
+#define ISM_NEICH 3	/* Neighbor change */
+#define ISM_LOOP 4	/* Loop indicated */
+#define ISM_UNLOOP 5	/* Unloop indicated */
+#define ISM_DOWN 6	/* Interface down */
+
+/* Definitions for neighbor state machine */
+#define INM_HELLOREC 0	/* Hello Received */
+#define INM_START 1	/* Neighbor start - for NBMA */
+#define INM_2WAYREC 2	/* 2-Way received */
+#define INM_NEGDONE 3	/* Negotiation done */
+#define INM_EXDONE 4	/* Exchange done */
+#define INM_BADLSREQ 5	/* Bad LS Request */
+#define INM_LOADDONE 6	/* Load done */
+#define INM_ADJOK 7	/* AdjOK? */
+#define INM_SEQMIS 8	/* Sequence number mismatch */
+#define INM_1WAYREC 9	/* 1-Way */
+#define INM_KILLNBR 10	/* Kill Neigbor */
+#define INM_INACTTIM 11	/* Inactivity timer */
+#define INM_LLDOWN 12	/* Line down */
 
 #endif /* _BIRD_OSPF_H_ */
