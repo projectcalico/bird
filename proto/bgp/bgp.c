@@ -531,8 +531,5 @@ struct protocol proto_bgp = {
   get_status:		bgp_get_status,
   get_attr:		bgp_get_attr,
   reconfigure:		bgp_reconfigure,
-#if 0
-  dump:			bgp_dump,
   get_route_info:	bgp_get_route_info,
-#endif
 };

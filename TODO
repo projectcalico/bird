@@ -6,8 +6,6 @@ Core
 
 - table: ocassional core dumps in rt_prune()
 
-- bgp: get_route_info
-
 Documentation
 ~~~~~~~~~~~~~
 - write doctool

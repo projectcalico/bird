@@ -911,3 +911,18 @@ bgp_attr_init(struct bgp_proto *p)
   p->withdraw_bucket = NULL;
   fib_init(&p->prefix_fib, p->p.pool, sizeof(struct bgp_prefix), 0, bgp_init_prefix);
 }
+
+void
+bgp_get_route_info(rte *e, byte *buf, ea_list *attrs)
+{
+  eattr *p = ea_find(attrs, EA_CODE(EAP_BGP, BA_AS_PATH));
+  eattr *o = ea_find(attrs, EA_CODE(EAP_BGP, BA_ORIGIN));
+  int origas;
+
+  buf += bsprintf(buf, " (%d) [", e->pref);
+  if (p && (origas = as_path_get_first(p->u.ptr)) >= 0)
+    buf += bsprintf(buf, "AS%d", origas);
+  if (o)
+    buf += bsprintf(buf, "%c", "ie?"[o->u.data]);
+  strcpy(buf, "]");
+}

@@ -123,6 +123,7 @@ int bgp_import_control(struct proto *, struct rte **, struct ea_list **, struct 
 void bgp_attr_init(struct bgp_proto *);
 unsigned int bgp_encode_attrs(byte *w, struct ea_list *attrs, int remains);
 void bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck);
+void bgp_get_route_info(struct rte *, byte *buf, struct ea_list *attrs);
 
 /* packets.c */
 
