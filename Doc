@@ -1,8 +1,8 @@
 D prog-intro.sgml
-C lib
 C nest
 C conf
 C filter
 C proto
 C sysdep
 C client
+C lib

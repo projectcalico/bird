@@ -35,7 +35,7 @@
  * on the current state of command processing.
  *
  * The CLI commands are declared as a part of the configuration grammar
- * by using the CF_CLI() macro. When a command is received, it's processed
+ * by using the |CF_CLI| macro. When a command is received, it's processed
  * by the same lexical analyser and parser as used for the configuration, but
  * it's switched to a special mode by prepending a fake token to the text,
  * so that it uses only the CLI command rules. Then the parser invokes
