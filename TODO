@@ -1,7 +1,5 @@
 Core
 ~~~~
-- better memory allocators
-
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
 
