@@ -63,6 +63,7 @@
 #include "conf/conf.h"
 #include "lib/socket.h"
 #include "lib/resource.h"
+#include "lib/string.h"
 
 #include "bgp.h"
 

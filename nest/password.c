@@ -8,6 +8,7 @@
 
 #include "nest/bird.h"
 #include "nest/password.h"
+#include "lib/string.h"
 
 struct password_item *last_password_item = NULL;
 

@@ -48,6 +48,7 @@
 #include "nest/protocol.h"
 #include "lib/timer.h"
 #include "conf/conf.h"
+#include "lib/string.h"
 
 #include "unix.h"
 #include "krt.h"

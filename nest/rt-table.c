@@ -42,6 +42,8 @@
 #include "filter/filter.h"
 #include "lib/string.h"
 
+#include <alloca.h>
+
 static slab *rte_slab;
 static linpool *rte_update_pool;
 
