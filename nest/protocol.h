@@ -61,11 +61,9 @@ extern list protocol_list;
  *	Known protocols
  */
 
-extern struct protocol proto_device;
-extern struct protocol proto_rip;
-extern struct protocol proto_static;
-extern struct protocol proto_ospf;
-extern struct protocol proto_pipe;
+extern struct protocol
+  proto_device, proto_rip, proto_static,
+  proto_ospf, proto_pipe, proto_bgp;
 
 /*
  *	Routing Protocol Instance

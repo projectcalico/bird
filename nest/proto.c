@@ -367,6 +367,9 @@ protos_build(void)
 #ifdef CONFIG_PIPE
   add_tail(&protocol_list, &proto_pipe.n);
 #endif
+#ifdef CONFIG_BGP
+  add_tail(&protocol_list, &proto_bgp.n);
+#endif
   proto_pool = rp_new(&root_pool, "Protocols");
   proto_flush_event = ev_new(proto_pool);
   proto_flush_event->hook = proto_flush_all;
