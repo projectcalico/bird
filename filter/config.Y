@@ -9,7 +9,6 @@
 CF_HDR
 
 #include "nest/bird.h"
-#include "filter/filter.h"
 #include "lib/resource.h"
 #include "lib/socket.h"
 #include "lib/timer.h"
@@ -25,6 +24,7 @@ CF_KEYWORDS(FUNCTION, FILTER, PRINTDEBUG, INT, PRINT, CONST, VAR, PUTS, IF,
 %type <x> term
 %type <x> block
 %type <x> cmds
+%type <f> filter filter_body
 
 CF_GRAMMAR
 
@@ -41,14 +41,32 @@ function:
    }
  ;
 
-CF_ADDTO(conf, filter)
-filter:
-   FILTER SYM '{' cmds '}' {
+CF_ADDTO(conf, filter_def)
+filter_def:
+   FILTER SYM filter_body {
      if ($2->class != SYM_VOID) cf_error("Symbol already defined" );
      $2->class = SYM_FILTER;
-     $2->def = $4;
+     $2->def = $3;
+     $3->name = $2->name;
      printf( "We have new filter defined (%s)\n", $2->name )
    }
+ ;
+
+filter_body:
+   '{' cmds '}' {
+     struct filter *f = cfg_alloc(sizeof(struct filter));
+     f->name = NULL;
+     f->root = $2;
+     $$ = f;
+   }
+ ;
+
+filter:
+   SYM {
+     if ($1->class != SYM_FILTER) cf_error("No such filter");
+     $$ = $1->def;
+   }
+ | filter_body
  ;
 
 /* Programs */

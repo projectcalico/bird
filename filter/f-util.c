@@ -146,13 +146,13 @@ f_new_inst(void)
 }
 
 int
-f_run(struct symbol *filter, struct rte *rtein, struct rte **rteout)
+f_run(struct filter *filter, struct rte *rtein, struct rte **rteout)
 {
   struct f_inst *inst;
   struct f_val res;
   debug( "Running filter `%s'...", filter->name );
 
-  inst = filter->def;
+  inst = filter->root;
   res = interpret(inst);
   if (res.type != T_RETURN)
     return F_ERROR;

@@ -1,7 +1,7 @@
 /*
- *	BIRD Internet Routing Daemon -- Configuration File Handling
+ *	BIRD Internet Routing Daemon -- Filters
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1999 Pavel Machek <pavel@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -24,8 +24,15 @@ struct f_val {
   } val;
 };
 
+struct filter {
+  char *name;
+  struct f_inst *root;
+};
+
 void filters_postconfig(void);
 struct f_inst *f_new_inst(void);
+
+int f_run(struct filter *filter, struct rte *rtein, struct rte **rteout);
 
 #define F_ACCEPT 1
 #define F_REJECT 2
@@ -38,6 +45,5 @@ struct f_inst *f_new_inst(void);
 #define T_INT 10
 #define T_PX 11		/* prefix */
 #define T_INTLIST 12
-
 
 #endif
