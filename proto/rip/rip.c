@@ -223,7 +223,8 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   rta *a, A;
   rte *r;
   net *n;
-    
+
+  debug( "rip: Advertising entry..." );
   bzero(&A, sizeof(A));
   A.proto = p;
   A.source = RTS_RIP;
@@ -243,6 +244,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme )
   r->u.rip.tag = ntohl(b->tag);
   r->pflags = 0; /* Here go my flags */
   rte_update( n, p, r );
+  debug( "done\n" );
 }
 
 static void
@@ -464,12 +466,12 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
     struct rip_entry *e = new_entry( p );
 
     debug( "inserting new\n" );
-    e->whotoldme = IPA_NONE;
     e->network = net->n.prefix;
     e->pxlen = net->n.pxlen;
-    e->nexthop = IPA_NONE; /* FIXME: is it correct? */
+    e->nexthop = new->attrs->gw;
     e->tag = new->u.rip.tag;
     e->metric = new->u.rip.metric;
+    e->whotoldme = new->attrs->from;
     e->updated = e->changed = now;
     e->flags = 0;
 
