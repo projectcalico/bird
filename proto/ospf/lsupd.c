@@ -358,11 +358,16 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
        {
          struct top_hash_entry *en;
 
-         lsa->age=(htons(LSA_MAXAGE));
 	 lsatmp.age=LSA_MAXAGE;
+	 lsatmp.sn=LSA_MAXSEQNO;
 	 debug("%s: Premature aging self originated lsa.\n",p->name);
          debug("%s: Type: %d, Id: %I, Rt: %I\n", p->name, lsatmp.type,
            lsatmp.id, lsatmp.rt);
+         body=mb_alloc(p->pool,lsatmp.length-sizeof(struct ospf_lsa_header));
+         ntohlsab(lsa+1,body,lsatmp.type,
+           lsatmp.length-sizeof(struct ospf_lsa_header));
+	 lsasum_check(lsa,(lsa+1),po);
+	 lsatmp.checksum=ntohs(lsa->checksum);
          flood_lsa(NULL,lsa,&lsatmp,po,NULL,oa,0);
 	 if(en=ospf_hash_find_header(oa->gr,&lsatmp))
 	 {
@@ -465,6 +470,8 @@ net_flush_lsa(struct top_hash_entry *en, struct proto_ospf *po,
   struct ospf_lsa_header *lsa=&en->lsa;
 
   lsa->age=LSA_MAXAGE;
+  lsa->sn=LSA_MAXSEQNO;
+  lsasum_calculate(lsa,en->lsa_body,po);
   debug("%s: Premature aging self originated lsa!\n",po->proto.name);
   debug("%s: Type: %d, Id: %I, Rt: %I\n", po->proto.name, lsa->type,
     lsa->id, lsa->rt);
