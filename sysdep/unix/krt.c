@@ -209,6 +209,7 @@ krt_learn_announce_update(struct krt_proto *p, rte *e)
   net *nn = net_get(p->p.table, n->n.prefix, n->n.pxlen);
   ee->net = nn;
   ee->pflags = 0;
+  ee->pref = p->p.preference;
   ee->u.krt = e->u.krt;
   rte_update(p->p.table, nn, &p->p, ee);
 }
@@ -580,7 +581,7 @@ krt_prune(struct krt_proto *p)
 	  krt_set_notify(p, n, new, old);
 	  break;
 	case KRF_DELETE:
-	  krt_trace_in(p, new, "deleting");
+	  krt_trace_in(p, old, "deleting");
 	  krt_set_notify(p, n, NULL, old);
 	  break;
 	default:
