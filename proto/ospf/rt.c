@@ -8,13 +8,19 @@
 
 #include "ospf.h"
 
+/* FIXME next hop calculation
+ * FIXME sync with BIRD's routing table
+ */
+
 void
 ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 {
-  struct top_hash_entry *en;
+  struct top_hash_entry *en, *nx;
   slab *sl;
   struct spf_n *cn;
   u32 i,*rts;
+  struct ospf_lsa_rt *rt;
+  struct ospf_lsa_rt_link *rtl;
 
   /*
    * First of all, mark all vertices as they are not in SPF
@@ -42,8 +48,6 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
   {
     struct top_hash_entry *act,*tmp;
     node *n;
-    struct ospf_lsa_rt *rt;
-    struct ospf_lsa_rt_link *rtl;
     struct ospf_lsa_net *net;
 
     n=HEAD(oa->cand);
@@ -92,6 +96,35 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
         break;
     }
   }
+
+  /* Now calculate routes to stub networks */
+
+  WALK_SLIST_DELSAFE(SNODE en, SNODE nx, oa->lsal)
+  {
+    if((en->lsa.type==LSA_T_RT)||(en->lsa.type==LSA_T_NET))
+    {
+      if(en->dist==LSINFINITY)
+      {
+        s_rem_node(SNODE en);
+	/* FIXME Remove from routing table! */
+	mb_free(en->lsa_body);
+	ospf_hash_delete(oa->gr, en);
+      }
+      if(en->lsa.type==LSA_T_NET)
+      {
+        rt=(struct ospf_lsa_rt *)en->lsa_body;
+	if((rt->VEB)&(1>>LSA_RT_V)) oa->trcap=1;
+	rtl=(struct ospf_lsa_rt_link *)(rt+1);
+	for(i=0;rt->links;i++)
+	{
+	  if((rtl+i)->type==LSART_STUB)
+	  {
+	    /* Check destination and so on (pg 166) */
+	  }
+	}
+      }
+    }
+  }
 }
 
 void
@@ -110,7 +143,8 @@ add_cand(list *l, struct top_hash_entry *en, u16 dist, slab *s)
   
   if(dist==en->dist)
   {
-    //Next hop calc
+    //Add Next hop
+    //And add it to routing table (Multiple path?)
   }
   else
   {
@@ -150,5 +184,7 @@ add_cand(list *l, struct top_hash_entry *en, u16 dist, slab *s)
         break;
       }
     }
+    /* FIXME Some VLINK staff should be here */
+    /* Routing table add?*/
   }
 }
