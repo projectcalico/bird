@@ -46,7 +46,7 @@ CF_GRAMMAR
 CF_ADDTO(conf, filter_def)
 filter_def:
    FILTER SYM { cf_push_scope( $2 ); } filter_body {
-     cf_define_symbol($2, SYM_FILTER, $4);
+     $2 = cf_define_symbol($2, SYM_FILTER, $4);
      $4->name = $2->name;
      DBG( "We have new filter defined (%s)\n", $2->name );
      cf_pop_scope();
@@ -80,7 +80,7 @@ type:
 
 one_decl:
    type SYM {
-     cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
+     $2 = cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
      DBG( "New variable %s type %x\n", $2->name, $1 );
      $2->aux = 0;
      {
@@ -163,8 +163,11 @@ function_body:
 
 CF_ADDTO(conf, function_def)
 function_def:
-   FUNCTION SYM { DBG( "Beginning of function %s\n", $2->name ); cf_push_scope($2); } function_params function_body {
-     cf_define_symbol($2, SYM_FUNCTION, $5);
+   FUNCTION SYM { DBG( "Beginning of function %s\n", $2->name );
+     $2 = cf_define_symbol($2, SYM_FUNCTION, NULL);
+     cf_push_scope($2);
+   } function_params function_body {
+     $2->def = $5;
      $2->aux = (int) $4;
      $2->aux2 = $5;
      DBG("Hmm, we've got one function here - %s\n", $2->name); 
