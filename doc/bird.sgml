@@ -41,7 +41,7 @@ License. Bird is designed to run on Unix and unix-like systems, it is primarily 
 
 <sect1>About this documentation
 
-<p>This documentation can have 4 forms: sgml (this is master copy), html, ascii text (generated from
+<p>This documentation can have 4 forms: sgml (this is master copy), html, ASCII text (generated from
 html) and dvi/postscript (generated from sgml using sgmltools). You should always edit master copy,
 it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is considered definition of
 configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
@@ -52,8 +52,7 @@ configuration primitives, &lt;cf&gt; is fragment of configuration within normal 
 <p>Bird is configured using text configuration file. At startup, bird reads <file/bird.conf/
 (unless -c command line parameter is given). Really simple configuration file might look like this:
 
-<cf><verb>
-
+<code>
 protocol kernel {
 	persist;		# Don't remove routes on bird shutdown
 	scan time 20;		# Scan kernel routing table every 20 seconds
@@ -68,7 +67,7 @@ protocol rip {
 	export all;
 	import all;
 }
-</verb></cf>
+</code>
 
 <p>Everything on a line after # is a comment, whitespace is
 ignored. If there's variable number of options, it is grouped using {
@@ -77,8 +76,8 @@ ignored. If there's variable number of options, it is grouped using {
 <p>You can find example of more complicated configuration file in <file>doc/bird.conf.example</file>.
 
 <sect2>Global options
-				
-<descrip>
+	
+<p><descrip>
 	<tag>log "<m/filename/"|syslog|stderr all|{ debug, trace, info, remote, warning, error,
 	auth, fatal, bug }</tag> set logging of classes (either all or { error, trace } etc.) into
 	selected destination. You may specify more than one <cf/log/ line to log to multiple
@@ -106,7 +105,7 @@ ignored. If there's variable number of options, it is grouped using {
 
 <sect2>Per-protocol options
 
-<descrip>
+<p><descrip>
 	<tag>preference <m/expr/</tag> sets preference of this protocol.
 
 	<tag>disabled</tag> disables given protocol.
@@ -153,12 +152,12 @@ no equivalent of while() or for() command, and recursive functions are not permi
 <p>You can find sources of filters language in <file>filter/</file>
 directory. <file>filter/config.Y</file> contains filter grammar, and basically translates source from
 user into tree of <cf>f_inst</cf> structures. These trees are later interpreted using code in
-<file>filter/filter.c</file>. Filters internally work with values/variables in <code>struct
-f_val</code>, which contains type of value and value.
+<file>filter/filter.c</file>. Filters internally work with values/variables in <tt>struct
+f_val</tt>, which contains type of value and value.
 
 <p>Filter basically looks like this:
 
-<cf><verb>
+<code>
 filter not_too_far
 int var;
 {
@@ -173,7 +172,7 @@ int var;
 	else
 		accept "ok";
 }
-</verb></cf>
+</code>
 
 <p>As you can see, filter has a header, list of local variables, and body. Header consists of <cf/filter/ keyword, followed by (unique) name of filter. List of local variables consists of
 pairs <cf><M>type name</M>;</cf>, where each pair defines one local variable. Body consists of
@@ -224,7 +223,7 @@ booleans (that is to prevent you from shooting in the foot).
 
 	<tag/enum/
 	  enumerational types are halfway-internal in the bird. You can not define your own
-	  variable of enumerational type, but some pre-defined variables are of enumerational
+	  variable of enumerational type, but some predefined variables are of enumerational
 	  type. Enumerational types are incompatible with each other, again, its for your
 	  protection.
 </descrip>
@@ -242,7 +241,7 @@ is true if element is in given set or if ip address is inside given prefix.
 over. Functions can have zero or more parameters, and can have local variables. Function basically
 looks like this:
 
-<cf><verb>
+<code>
 function name ()
 int local_variable;
 {
@@ -253,7 +252,7 @@ function with_parameters (int parameter)
 {
 	print parameter;
 }
-</verb></cf>
+</code>
 
 <p>Unlike C, variables are declared after function line but before first {. You can not declare
 variables in nested blocks. Functions are called like in C: <cf>name();
@@ -317,7 +316,7 @@ through multicast mode is possible. <cf>quiet</cf> option means that rip will no
 periodic messages onto this interface and <cf>nolisten</cf> means that rip will talk to this
 interface but not listen on it.
 
-<p>Following options generally override specified behaviour from rfc. If you use any of these
+<p>Following options generally override specified behavior from rfc. If you use any of these
 options, bird will no longer be rfc-compatible, which means it will not be able to talk to anything
 other than equally (mis-)configured bird. I warned you.
 
@@ -344,8 +343,7 @@ other than equally (mis-)configured bird. I warned you.
 <p>In addition, rip defines two filter variables, both of type it. <cf>rip_metric</cf> is rip
 metric of current route, <cf>rip_tag</cf> is tag of current route.
 
-<cf><verb>
-
+<code>
 protocol rip MyRIP_test {
         debug all;
         port 1520;
@@ -360,8 +358,10 @@ protocol rip MyRIP_test {
         import filter { print "importing"; accept; };
         export filter { print "exporting"; accept; };
 }
-</verb></cf>
+</code>
 
 </article>
 
-# LocalWords: IPv4 IPv6 doctype verb
+<!--
+# LocalWords: IPv doctype verb GPL Cisco sgml html Cisco's unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md rfc doc
+-->
