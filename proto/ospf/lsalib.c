@@ -46,7 +46,7 @@ ospf_age(struct ospf_area *oa)
   int flush = can_flush_lsa(oa);
   int cleanup = (oa->rt && (oa->rt->dist != LSINFINITY));
 
-  OSPF_TRACE(D_EVENTS, "Running ospf_age");
+  if (cleanup) OSPF_TRACE(D_EVENTS, "Running ospf_age cleanup");
 
   WALK_SLIST_DELSAFE(en, nxt, oa->lsal)
   {
