@@ -47,6 +47,8 @@ struct protocol {
   int (*start)(struct proto *);			/* Start the instance */
   int (*shutdown)(struct proto *);		/* Stop the instance */
   void (*get_status)(struct proto *, byte *buf); /* Get instance status (for `show protocols' command) */
+  void (*get_route_info)(struct rte *, byte *buf); /* Get route information (for `show route' command) */
+  void (*show_route_data)(struct rte *);	/* Print verbose route information (`show route' again) */
 };
 
 void protos_build(void);
