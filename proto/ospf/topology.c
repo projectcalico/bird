@@ -284,10 +284,10 @@ originate_net_lsa(struct ospf_iface *ifa, struct proto_ospf *po)
   struct top_hash_entry *en;
   void *body;
 
-  DBG("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name, ifa->iface->name);
-  DBG("%s: State is:\"%u\" Fadj=%u.\n", po->proto.name, ifa->state,ifa->fadj);
 
   if(ifa->state!=OSPF_IS_DR) return;
+
+  DBG("%s: Originating Net lsa for iface \"%s\".\n", po->proto.name, ifa->iface->name);
 
   if(ifa->fadj==0)
   {

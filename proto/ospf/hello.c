@@ -52,7 +52,8 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 {
   u32 nrid, *pnrid;
   struct ospf_neighbor *neigh,*n;
-  u8 i,twoway;
+  u8 i,twoway,oldpriority;
+  u32 olddr,oldbdr;
   char *beg=": Bad OSPF hello packet from ", *rec=" received: ";
 
   nrid=ntohl(((struct ospf_packet *)ps)->routerid);
@@ -136,42 +137,34 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
 
   if(!twoway) ospf_neigh_sm(n, INM_1WAYREC);
 
+  olddr = n->dr;
+  n->dr = ntohl(ps->dr);
+  oldbdr = n->bdr;
+  n->bdr = ntohl(ps->bdr);
+  oldpriority = n->priority;
+  n->priority = ps->priority;
+
   /* Check priority change */
-  if(n->priority!=(n->priority=ps->priority))
+  if(n->state>=NEIGHBOR_2WAY)
   {
-    ospf_int_sm(ifa, ISM_NEICH);
-  }
+    if(n->priority!=oldpriority) ospf_int_sm(ifa, ISM_NEICH);
 
-  /* Check neighbor's designed router idea */
-  if((n->rid!=ntohl(ps->dr)) && (ntohl(ps->bdr)==0) &&
-    (n->state>=NEIGHBOR_2WAY))
-  {
-    ospf_int_sm(ifa, ISM_BACKS);
-  }
-  if((n->rid==ntohl(ps->dr)) && (n->dr!=ntohl(ps->dr)))
-  {
-    ospf_int_sm(ifa, ISM_NEICH);
-  }
-  if((n->rid==n->dr) && (n->dr!=ntohl(ps->dr)))
-  {
-    ospf_int_sm(ifa, ISM_NEICH);
-  }
-  n->dr=ntohl(ps->dr);	/* And update it */
+    /* Router is declaring itself ad DR and there is no BDR */
+    if((n->rid==n->dr) && (n->bdr==0)) ospf_int_sm(ifa, ISM_BACKS);
 
-  /* Check neighbor's backup designed router idea */
-  if((n->rid==ntohl(ps->bdr)) && (n->state>=NEIGHBOR_2WAY))
-  {
-    ospf_int_sm(ifa, ISM_BACKS);
+    /* Neighbor is declaring itself as BDR */
+    if(n->rid==n->bdr) ospf_int_sm(ifa, ISM_BACKS);
+
+    /* Neighbor is newly declaring itself as DR or BDR */
+    if(((n->rid==n->dr) && (n->dr!=olddr)) || ((n->rid==n->bdr) &&
+      (n->bdr!=oldbdr)))
+      ospf_int_sm(ifa, ISM_NEICH);
+
+    /* Neighbor is no more declaring itself as DR or BDR */
+    if(((n->rid==olddr) && (n->dr!=olddr)) || ((n->rid==olbddr) &&
+      (n->dr!=oldbdr)))
+      ospf_int_sm(ifa, ISM_NEICH);
   }
-  if((n->rid==ntohl(ps->bdr)) && (n->bdr!=ntohl(ps->bdr)))
-  {
-    ospf_int_sm(ifa, ISM_NEICH);
-  }
-  if((n->rid==n->bdr) && (n->bdr!=ntohl(ps->bdr)))
-  {
-    ospf_int_sm(ifa, ISM_NEICH);
-  }
-  n->bdr=ntohl(ps->bdr);	/* And update it */
 
   ospf_neigh_sm(n, INM_HELLOREC);
 }

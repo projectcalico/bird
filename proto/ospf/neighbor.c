@@ -29,6 +29,8 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
   {
     ifa=n->ifa;
     n->state=state;
+    if(state==2WAY && oldstate<2WAY) ospf_int_sm(n->ifa, ISM_NEICH);
+    if(state<2WAY && oldstate>=2WAY) ospf_int_sm(n->ifa, ISM_NEICH);
     if(oldstate==NEIGHBOR_FULL)	/* Decrease number of adjacencies */
     {
       ifa->fadj--;
@@ -227,7 +229,6 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
         {
           neigh_chstate(n,NEIGHBOR_EXSTART);
         }
-	ospf_int_sm(n->ifa, ISM_NEICH);
       }
       break;
     case INM_NEGDONE:
@@ -283,14 +284,9 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
     case INM_LLDOWN:
     case INM_INACTTIM:
       neigh_chstate(n,NEIGHBOR_DOWN);
-      ospf_int_sm(n->ifa, ISM_NEICH);
       break;
     case INM_1WAYREC:
-      if(n->state>=NEIGHBOR_2WAY)
-      {
-        neigh_chstate(n,NEIGHBOR_INIT);
-	ospf_int_sm(n->ifa, ISM_NEICH);
-      }
+      neigh_chstate(n,NEIGHBOR_INIT);
       break;
     default:
       die("%s: INM - Unknown event?",p->name);
