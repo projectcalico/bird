@@ -1,7 +1,7 @@
 /*
  *	BIRD -- OSPF
  *
- *	(c) 1999 - 2000 Ondrej Filip <feela@network.cz>
+ *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -28,7 +28,6 @@ ospf_dbdes_send(struct ospf_neighbor *n)
   u16 length;
   struct proto *p = (struct proto *) (ifa->proto);
   u16 i, j;
-  u8 *aa, *bb;
 
   if ((oa->rt == NULL) || (EMPTY_LIST(oa->lsal)))
     originate_rt_lsa(oa);
@@ -118,15 +117,10 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 
   case NEIGHBOR_LOADING:
   case NEIGHBOR_FULL:
-    aa = ifa->ip_sk->tbuf;
-    bb = n->ldbdes;
-    op = n->ldbdes;
-    length = ntohs(op->length);
+    length = ntohs(((struct ospf_packet *)n)->length);
 
-    for (i = 0; i < length; i++)
-    {
-      *(aa + i) = *(bb + i);	/* Copy last sent packet again */
-    }
+    memcpy(ifa->ip_sk->tbuf, n->ldbdes, length);
+      /* Copy last sent packet again */
 
     sk_send_to(ifa->ip_sk, length, n->ip, OSPF_PROTO);
     OSPF_TRACE(D_PACKETS, "DB_DES (M) sent to %I via %s.", n->ip,
