@@ -194,11 +194,10 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 	  }
 
       /* Install new */
-      DBG("Allocatin body, size: %u\n",lsatmp.length-sizeof(struct ospf_lsa_header));
       body=mb_alloc(p->pool,lsatmp.length-sizeof(struct ospf_lsa_header));
       ntohlsab(lsa+1,body,lsatmp.type,lsatmp.length-sizeof(struct ospf_lsa_header));
       lsadb=lsa_install_new(&lsatmp,body, oa);
-      DBG("New installed\n");
+      DBG("New LSA installed in DB\n");
 
       continue;
     }

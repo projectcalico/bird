@@ -40,13 +40,8 @@
 #define LSREFRESHTIME 1800	/* 30 minutes */
 #define MINLSINTERVAL 5
 #define MINLSARRIVAL 1
-#define MAXAGE 3600		/* 1 hour */
-#define CHECKAGE 300		/* 5 minutes */
-#define MAXAGEDIFF 900		/* 15 minutes */
 #define LSINFINITY 0xffffff
 /*#define DEFAULTDES 0.0.0.0 FIXME: How to define it? */
-#define INITSEQNUM 0x80000001	/* Initial Sequence Number */
-#define MAXSEQNUM 0x7fffffff	/* Maximal Sequence Number */
 
 struct ospf_config {
   struct proto_config c;
