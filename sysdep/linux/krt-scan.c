@@ -29,7 +29,37 @@ static int krt_scan_fd = -1;
 /* FIXME: Filtering */
 
 static void
-krt_parse_entry(byte *e)
+krt_magic_route(struct krt_proto *p, net *net, ip_addr gw)
+{
+  neighbor *ng;
+  rta a, *t;
+  rte *e;
+
+  ng = neigh_find(&p->p, &gw, 0);
+  if (!ng)
+    {
+      log(L_ERR "Kernel told us to use non-neighbor %I for %I/%d\n", gw, net->n.prefix, net->n.pxlen);
+      return;
+    }
+  a.proto = &p->p;
+  a.source = RTS_INHERIT;
+  a.scope = SCOPE_UNIVERSE;
+  a.cast = RTC_UNICAST;
+  a.dest = RTD_ROUTER;
+  a.tos = 0;
+  a.flags = 0;
+  a.gw = gw;
+  a.from = IPA_NONE;
+  a.iface = ng->iface;
+  a.attrs = NULL;
+  t = rta_lookup(&a);
+  e = rte_get_temp(t);
+  e->net = net;
+  rte_update(net, &p->p, e);
+}
+
+static void
+krt_parse_entry(byte *e, struct krt_proto *p)
 {
   u32 dest0, gw0, mask0;
   ip_addr dest, gw, mask;
@@ -101,13 +131,17 @@ krt_parse_entry(byte *e)
 	return;
 #endif
       DBG("krt_parse_entry: kernel reporting unknown route %I/%d\n", dest, masklen);
-      /* FIXME: should be able to learn kernel routes */
+#if 1
+      /* FIXME: should be configurable */
+      if (flags & RTF_GATEWAY)
+	krt_magic_route(p, net, gw);
+#endif
       net->n.flags |= KRF_UPDATE;
     }
 }
 
 static int
-krt_scan_proc(void)
+krt_scan_proc(struct krt_proto *p)
 {
   byte buf[32768];
   int l, seen_hdr;
@@ -136,7 +170,7 @@ krt_scan_proc(void)
       while (l >= 128)
 	{
 	  if (seen_hdr++)
-	    krt_parse_entry(z);
+	    krt_parse_entry(z, p);
 	  z += 128;
 	  l -= 128;
 	}
@@ -190,7 +224,9 @@ krt_prune(void)
 static void
 krt_scan_fire(timer *t)
 {
-  if (krt_scan_proc())
+  struct krt_proto *p = t->data;
+
+  if (krt_scan_proc(p))
     krt_prune();
 }
 
