@@ -26,6 +26,8 @@
 
 static int krt_scan_fd = -1;
 
+/* FIXME: Filtering */
+
 static void
 krt_parse_entry(byte *e)
 {
@@ -98,6 +100,8 @@ krt_parse_entry(byte *e)
       if (!(flags & RTF_GATEWAY))	/* It's a device route */
 	return;
 #endif
+      DBG("krt_parse_entry: kernel reporting unknown route %I/%d\n", dest, masklen);
+      /* FIXME: should be able to learn kernel routes */
       net->n.flags |= KRF_UPDATE;
     }
 }
@@ -108,6 +112,7 @@ krt_scan_proc(void)
   byte buf[32768];
   int l, seen_hdr;
 
+  DBG("Scanning kernel table...\n");
   if (krt_scan_fd < 0)
     {
       krt_scan_fd = open("/proc/net/route", O_RDONLY);
@@ -146,14 +151,47 @@ krt_scan_proc(void)
 }
 
 static void
+krt_prune(void)
+{
+  struct rtable *t = &master_table;
+  struct fib_node *f;
+
+  DBG("Pruning routes...\n");
+  while (t && t->tos)
+    t = t->sibling;
+  if (!t)
+    return;
+  FIB_WALK(&t->fib, f)
+    {
+      net *n = (net *) f;
+      switch (f->flags)
+	{
+	case KRF_UPDATE:
+	  DBG("krt_prune: removing %I/%d\n", n->n.prefix, n->n.pxlen);
+	  krt_remove_route(n, NULL);
+	  /* Fall-thru */
+	case 0:
+	  if (n->routes)
+	    {
+	      DBG("krt_prune: reinstalling %I/%d\n", n->n.prefix, n->n.pxlen);
+	      krt_add_route(n, n->routes);
+	    }
+	  break;
+	case KRF_SEEN:
+	  break;
+	default:
+	  die("krt_prune: invalid route status");
+	}
+      f->flags = 0;
+    }
+  FIB_WALK_END;
+}
+
+static void
 krt_scan_fire(timer *t)
 {
-  struct krt_proto *x = t->data;
-  SCANOPT;
-
-  DBG("Scanning kernel table...\n");
-  if (!krt_scan_proc())
-    return;
+  if (krt_scan_proc())
+    krt_prune();
 }
 
 void
@@ -185,4 +223,5 @@ krt_scan_shutdown(struct krt_proto *x)
   SCANOPT;
 
   tm_stop(p->timer);
+  /* FIXME: Remove all krt's? */
 }
