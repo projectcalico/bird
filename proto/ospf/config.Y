@@ -16,12 +16,14 @@ CF_DEFINES
 static struct ospf_area_config *this_area;
 static struct iface_patt *this_ipatt;
 #define OSPF_PATT ((struct ospf_iface_patt *) this_ipatt)
+static struct nbma_node *this_nbma;
 
 CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
 CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
 CF_KEYWORDS(HELLO, TRANSIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
+CF_KEYWORDS(NEIGHBORS)
 
 %type <t> opttext
 
@@ -83,8 +85,23 @@ ospf_iface_item:
  | TYPE BROADCAST { OSPF_PATT->type = OSPF_IT_BCAST ; }
  | TYPE NONBROADCAST { OSPF_PATT->type = OSPF_IT_NBMA ; }
  | TYPE POINTOPOINT { OSPF_PATT->type = OSPF_IT_PTP ; }
- | 
+ | NEIGHBORS '{' ipa_list '}'
+ |
  ;
+
+ipa_list:
+ /* empty */
+ | ipa_list ipa_item
+ ;
+ 
+ipa_item: IPA ';'
+ {
+   this_nbma = cfg_allocz(sizeof(struct nbma_node));
+   add_tail(&OSPF_PATT->nbma_list, NODE this_nbma);
+   this_nbma->ip=$1;
+ }
+;
+
  
 ospf_iface_start:
  {
@@ -98,6 +115,7 @@ ospf_iface_start:
   OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
   OSPF_PATT->type = OSPF_IT_UNDEF;
+  init_list(&OSPF_PATT->nbma_list);
  }
 ;
 

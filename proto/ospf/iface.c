@@ -33,7 +33,7 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
     {
       if((state==OSPF_IS_BACKUP)||(state==OSPF_IS_DR))
       {
-        if(ifa->dr_sk==NULL)
+        if((ifa->dr_sk==NULL)&&(ifa->type!=OSPF_IT_NBMA))
         {
           DBG("%s: Adding new multicast socket for (B)DR\n", p->name);
           ifa->dr_sk=sk_new(p->pool);
@@ -290,6 +290,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   struct ospf_config *c=(struct ospf_config *)(p->cf);
   struct ospf_area_config *ac;
   struct ospf_iface_patt *ip=NULL;
+  struct nbma_node *nbma,*nb;
   u8 i;
 
   DBG("%s: If notify called\n", p->name);
@@ -323,7 +324,7 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
       for(i=0;i<8;i++) ifa->aukey[i]=0;
       ifa->options=2;	/* FIXME what options? */
 
-      if(ip->type=OSPF_IT_UNDEF)
+      if(ip->type==OSPF_IT_UNDEF)
         ifa->type=ospf_iface_clasify(ifa->iface, (struct proto *)ifa->proto);
       else ifa->type=ip->type;
 
@@ -338,18 +339,26 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
               return;
         }
         ifa->dr_sk=NULL;
- 
-        if((ifa->ip_sk=ospf_open_ip_socket(ifa))==NULL)
-        {
-          log("%s: Huh? could not open ip socket on interface %s?", p->name,
-            iface->name);
-              mb_free(ifa);
-              log("%s: Ignoring this interface", p->name);
-              return;
-        }
- 
-        init_list(&(ifa->neigh_list));
       }
+ 
+      if((ifa->ip_sk=ospf_open_ip_socket(ifa))==NULL)
+      {
+        log("%s: Huh? could not open ip socket on interface %s?", p->name,
+          iface->name);
+            mb_free(ifa);
+            log("%s: Ignoring this interface", p->name);
+            return;
+      }
+ 
+      init_list(&ifa->neigh_list);
+      init_list(&ifa->nbma_list);
+      WALK_LIST(nb,ip->nbma_list)
+      {
+        nbma=mb_alloc(p->pool,sizeof(struct nbma_node));
+	nbma->ip=nb->ip;
+	add_tail(&ifa->nbma_list, NODE nbma);
+      }
+      
       /* Add hello timer */
       ifa->hello_timer=tm_new(p->pool);
       ifa->hello_timer->data=ifa;

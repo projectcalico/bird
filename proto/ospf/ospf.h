@@ -52,6 +52,11 @@ struct ospf_config {
   list area_list;
 };
 
+struct nbma_node {
+  node n;
+  ip_addr ip;
+};
+
 struct ospf_area_config {
   node n;
   u32 areaid;
@@ -114,6 +119,7 @@ struct ospf_iface {
 			 */
   struct top_hash_entry *nlsa;	/* Originated net lsa */
   int fadj;		/* Number of full adjacent neigh */
+  list nbma_list;
 };
 
 struct ospf_packet {
@@ -369,6 +375,7 @@ struct ospf_iface_patt {
   int waitint;
   int deadc;
   int type;
+  list nbma_list;
 };
 
 static int ospf_start(struct proto *p);

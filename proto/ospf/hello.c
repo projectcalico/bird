@@ -194,39 +194,69 @@ hello_timer_hook(timer *timer)
   /* First a common packet header */
   if(ifa->type!=OSPF_IT_NBMA)
   {
-    /* Now fill ospf_hello header */
     pkt=(struct ospf_hello_packet *)(ifa->hello_sk->tbuf);
-    op=(struct ospf_packet *)pkt;
-
-    fill_ospf_pkt_hdr(ifa, pkt, HELLO_P);
-
-    pkt->netmask=ipa_mkmask(ifa->iface->addr->pxlen);
-    ipa_hton(pkt->netmask);
-    pkt->helloint=ntohs(ifa->helloint);
-    pkt->options=ifa->options;
-    pkt->priority=ifa->priority;
-    pkt->deadint=htonl(ifa->deadc*ifa->helloint);
-    pkt->dr=htonl(ifa->drid);
-    pkt->bdr=htonl(ifa->bdrid);
-
-    /* Fill all neighbors */
-    i=0;
-    pp=(u32 *)(((u8 *)pkt)+sizeof(struct ospf_hello_packet));
-    WALK_LIST (neigh, ifa->neigh_list)
-    {
-      *(pp+i)=htonl(neigh->rid);
-      i++;
-    }
-
-    length=sizeof(struct ospf_hello_packet)+i*sizeof(u32);
-    op->length=htons(length);
-
-    ospf_pkt_finalize(ifa, op);
-
-    /* And finally send it :-) */
-    sk_send(ifa->hello_sk,length);
+  }
+  else 
+  {
+    pkt=(struct ospf_hello_packet *)(ifa->ip_sk->tbuf);
   }
 
+  /* Now fill ospf_hello header */
+  op=(struct ospf_packet *)pkt;
+
+  fill_ospf_pkt_hdr(ifa, pkt, HELLO_P);
+
+  pkt->netmask=ipa_mkmask(ifa->iface->addr->pxlen);
+  ipa_hton(pkt->netmask);
+  pkt->helloint=ntohs(ifa->helloint);
+  pkt->options=ifa->options;
+  pkt->priority=ifa->priority;
+  pkt->deadint=htonl(ifa->deadc*ifa->helloint);
+  pkt->dr=htonl(ifa->drid);
+  pkt->bdr=htonl(ifa->bdrid);
+
+  /* Fill all neighbors */
+  i=0;
+  pp=(u32 *)(((u8 *)pkt)+sizeof(struct ospf_hello_packet));
+  WALK_LIST (neigh, ifa->neigh_list)
+  {
+    *(pp+i)=htonl(neigh->rid);
+    i++;
+  }
+
+  length=sizeof(struct ospf_hello_packet)+i*sizeof(u32);
+  op->length=htons(length);
+
+  ospf_pkt_finalize(ifa, op);
+
+    /* And finally send it :-) */
+  if(ifa->type!=OSPF_IT_NBMA)
+  {
+    sk_send(ifa->hello_sk,length);
+  }
+  else	/* NBMA */
+  {
+    list n_list;
+    struct ospf_neighbor *n1;
+    struct nbma_node *nb;
+    int send;
+
+    init_list(&n_list);
+    WALK_LIST(nb,ifa->nbma_list)
+    {
+      send=1;
+      WALK_LIST(n1, ifa->neigh_list)
+      {
+        if(ipa_compare(nb->ip,n1->ip)==0)
+	{
+	  send=0;
+	  break;
+	}
+      }
+      if(send) sk_send_to(ifa->ip_sk, length, nb->ip, OSPF_PROTO);
+    }
+    sk_send_to_agt(ifa->ip_sk, length, ifa, NEIGHBOR_DOWN);
+  }
   debug("%s: Hello sent via %s\n",p->name,ifa->iface->name);
 }
 
