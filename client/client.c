@@ -22,6 +22,7 @@
 #include "lib/resource.h"
 #include "lib/string.h"
 #include "client/client.h"
+#include "sysdep/unix/unix.h"
 
 static char *opt_list = "s:v";
 static int verbose;
@@ -69,7 +70,7 @@ parse_args(int argc, char **argv)
 /*** Input ***/
 
 static void server_send(char *);
-static void io_loop(int);
+static void select_loop(int);
 
 /* HACK: libreadline internals we need to access */
 extern int _rl_vis_botlin;
@@ -112,7 +113,7 @@ got_line(char *cmd_buffer)
 	    {
 	      server_send(cmd);
 	      input_hidden = -1;
-	      io_loop(0);
+	      select_loop(0);
 	      input_hidden = 0;
 	    }
 	  free(cmd);
@@ -316,7 +317,7 @@ server_read(void)
 static fd_set select_fds;
 
 static void
-io_loop(int mode)
+select_loop(int mode)
 {
   server_reply = -1;
   while (mode || server_reply < 0)
@@ -384,10 +385,10 @@ main(int argc, char **argv)
   parse_args(argc, argv);
   cmd_build_tree();
   server_connect();
-  io_loop(0);
+  select_loop(0);
 
   input_init();
 
-  io_loop(1);
+  select_loop(1);
   return 0;
 }

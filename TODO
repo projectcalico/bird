@@ -1,5 +1,9 @@
 Core
 ~~~~
+- socket open failure should not be fatal
+- &&,||: priorities
+- client: `?' in BGP masks
+- filters: function for BGP path length
 
 Globals
 ~~~~~~~
