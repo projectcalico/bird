@@ -328,11 +328,13 @@ rt_prune(rtable *tab)
 	  net *n = (net *) f;
 	  rte *e;
 	  ncnt++;
+	rescan:
 	  for (e=n->routes; e; e=e->next, rcnt++)
 	    if (e->attrs->proto->core_state != FS_HAPPY)
 	      {
 		rte_discard(e);
 		rdel++;
+		goto rescan;
 	      }
 	  if (!n->routes)		/* Orphaned FIB entry? */
 	    {
