@@ -104,14 +104,14 @@ struct ospf_iface
   sock *ip_sk;			/* IP socket (for DD ...) */
   list neigh_list;		/* List of neigbours */
   u16 cost;			/* Cost of iface */
-  u16 rxmtint;			/* number of seconds between LSA retransmissions */
   u16 inftransdelay;		/* The estimated number of seconds it takes to
 				   transmit a Link State Update Packet over this
 				   interface.  LSAs contained in the update */
   u8 priority;			/* A router priority for DR election */
   u16 helloint;			/* number of seconds between hello sending */
-  u16 waitint;			/* number of sec before changing state from wait */
-  u16 pollint;			/* Poll interval */
+  u32 waitint;			/* number of sec before changing state from wait */
+  u32 rxmtint;			/* number of seconds between LSA retransmissions */
+  u32 pollint;			/* Poll interval */
   u32 deadc;			/* after "deadint" missing hellos is router dead */
   u16 autype;
   u8 aukey[8];
@@ -453,18 +453,18 @@ struct proto_ospf
 struct ospf_iface_patt
 {
   struct iface_patt i;
-  int cost;
-  int helloint;
-  int rxmtint;
-  int pollint;
-  int inftransdelay;
-  int priority;
-  int waitint;
-  int deadc;
-  int type;
-  int autype;
-  int strictnbma;
-  int stub;
+  u32 cost;
+  u32 helloint;
+  u32 rxmtint;
+  u32 pollint;
+  u32 inftransdelay;
+  u32 priority;
+  u32 waitint;
+  u32 deadc;
+  u32 type;
+  u32 autype;
+  u32 strictnbma;
+  u32 stub;
 /* must be in network byte order */
 #define AU_NONE htons(0)
 #define AU_SIMPLE htons(1)
