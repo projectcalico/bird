@@ -252,11 +252,10 @@ typedef struct rta {
 #define RTS_REDIRECT 5			/* Learned via redirect */
 #define RTS_RIP 6			/* RIP route */
 #define RTS_OSPF 7			/* OSPF route */
-#define RTS_OSPF_EXT 8			/* OSPF external route */
-#define RTS_OSPF_IA 9			/* OSPF inter-area route */
-#define RTS_OSPF_BOUNDARY 10		/* OSPF route to boundary router */
-#define RTS_BGP 11			/* BGP route */
-#define RTS_PIPE 12			/* Inter-table wormhole */
+#define RTS_OSPF_IA 8			/* OSPF inter-area route */
+#define RTS_OSPF_EXT 9			/* OSPF external route */
+#define RTS_BGP 10			/* BGP route */
+#define RTS_PIPE 11			/* Inter-table wormhole */
 
 #define RTC_UNICAST 0
 #define RTC_BROADCAST 1
