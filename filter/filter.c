@@ -570,7 +570,11 @@ filter_same(struct filter *new, struct filter *old)
   return i_same(new->root, old->root);
 }
 
-/* This should end up far away from here! */
+/* This should end up far away from here!
+ *
+ * FIXME: It should take struct adata *, not u8 * + length; but that makes it a little more difficult to test.
+ * Or maybe both versions are usefull?
+ */
 
 int
 path_getlen(u8 *p, int len)
@@ -644,8 +648,6 @@ path_format(u8 *p, int len)
 		       printf( "Asterix now %d\n", asterix ); \
                        if (asterix) { if (*++mask == PM_END) { printf( "Quick exit\n" ); return 1; } } \
 		       } while(0)
-
-
 int
 path_match(u8 *p, int len, s32 *mask)
 {
