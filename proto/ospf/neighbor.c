@@ -215,6 +215,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 	s_init(&(n->lsrqi), &(n->lsrql));
 	s_init(&(n->lsrti), &(n->lsrtl));
 	tm_start(n->lsrr_timer,n->ifa->rxmtint);
+	tm_start(n->ackd_timer,n->ifa->rxmtint/2);
       }
       else die("NEGDONE and I'm not in EXSTART?\n");
       break;

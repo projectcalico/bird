@@ -16,5 +16,6 @@ void ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt);
 int  ospf_rx_hook(sock *sk, int size);
 void ospf_tx_hook(sock *sk);
 void ospf_err_hook(sock *sk, int err);
+void sk_send_to_agt(sock *sk, u16 len, struct ospf_iface *ifa, u8 state);
 
 #endif /* _BIRD_OSPF_PACKET_H_ */

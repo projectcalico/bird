@@ -8,11 +8,130 @@
 
 #include "ospf.h"
 
+/* Note, that h is in network endianity! */
 void
-ospf_lsack_tx(struct ospf_neighbor *n)
+ospf_lsack_direct_tx(struct ospf_neighbor *n,struct ospf_lsa_header *h)
 {
-  /* FIXME Go on! */
+  struct ospf_packet *op;
+  struct ospf_lsack_packet *pk;
+  sock *sk=n->ifa->ip_sk;
+  u16 len;
+
+  pk=(struct ospf_lsack_packet *)sk->tbuf;
+  op=(struct ospf_packet *)sk->tbuf;
+
+  fill_ospf_pkt_hdr(n->ifa, pk, LSUPD);
+
+  memcpy(pk+1,h,sizeof(struct ospf_lsa_header));
+  len=sizeof(struct ospf_lsack_packet)+sizeof(struct ospf_lsa_header);
+  op->length=htons(len);
+  ospf_pkt_finalize(n->ifa, op);
+  sk_send_to(sk,len, n->ip, OSPF_PROTO);
 }
+
+void
+ospf_lsa_delay(struct ospf_neighbor *n,struct ospf_lsa_header *h,
+  struct proto *p)
+{
+  struct lsah_n *no;
+
+  no=mb_alloc(p->pool,sizeof(struct lsah_n));
+  memcpy(&no->lsa,h,sizeof(struct ospf_lsa_header));
+  add_tail(&n->ackl, NODE no);
+
+}
+
+void
+ackd_timer_hook(timer *t)
+{
+  struct ospf_neighbor *n=t->data;
+  if(!EMPTY_LIST(n->ackl)) ospf_lsack_delay_tx(n);
+}
+
+void
+ospf_lsack_delay_tx(struct ospf_neighbor *n)
+{
+  struct ospf_packet *op;
+  struct ospf_lsack_packet *pk;
+  sock *sk;
+  u16 len,i=0;
+  struct ospf_lsa_header *h;
+  struct lsah_n *no;
+  struct ospf_iface *ifa=n->ifa;
+
+  if(ifa->type==OSPF_IT_BCAST)
+  {
+    sk=ifa->hello_sk;
+  }
+  else
+  {
+    sk=ifa->ip_sk;
+  }
+
+  pk=(struct ospf_lsack_packet *)sk->tbuf;
+  op=(struct ospf_packet *)sk->tbuf;
+
+  fill_ospf_pkt_hdr(n->ifa, pk, LSUPD);
+  h=(struct ospf_lsa_header *)(pk+1);
+
+  while(!EMPTY_LIST(n->ackl))
+  {
+    no=(struct lsah_n *)HEAD(n->ackl);
+    memcpy(h+i,&no->lsa, sizeof(struct ospf_lsa_header));
+    i++;
+    rem_node(NODE n);
+    if((i*sizeof(struct ospf_lsa_header)+sizeof(struct ospf_lsack_packet)-SIPH)>
+      n->ifa->iface->mtu)
+    {
+      if(!EMPTY_LIST(n->ackl))
+      {
+        len=sizeof(struct ospf_lsack_packet)+i*sizeof(struct ospf_lsa_header);
+	op->length=htons(len);
+	ospf_pkt_finalize(n->ifa, op);
+        if(ifa->type==OSPF_IT_BCAST)
+	{
+          if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
+	  {
+	    sk_send_to(sk ,len, AllSPFRouters, OSPF_PROTO);
+	  }
+	  else
+	  {
+	    sk_send_to(sk ,len, AllDRouters, OSPF_PROTO);
+	  }
+	}
+	else
+	{
+          sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+	}
+
+	fill_ospf_pkt_hdr(n->ifa, pk, LSUPD);
+	h=(struct ospf_lsa_header *)(pk+1);
+	i=0;
+      }
+    }
+  }
+
+  len=sizeof(struct ospf_lsack_packet)+i*sizeof(struct ospf_lsa_header);
+  op->length=htons(len);
+  ospf_pkt_finalize(n->ifa, op);
+  if(ifa->type==OSPF_IT_BCAST)
+  {
+    if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
+    {
+      sk_send_to(sk ,len, AllSPFRouters, OSPF_PROTO);
+    }
+    else
+    {
+      sk_send_to(sk ,len, AllDRouters, OSPF_PROTO);
+    }
+  }
+  else
+  {
+    sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
+  }
+}
+
+
 
 void
 ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
@@ -60,10 +179,3 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
     ospf_hash_delete(n->lsrth,en);
   }  
 }
-
-void
-add_ack_list(struct ospf_neighbor *n,struct ospf_lsa_header *lsa)
-{
-  /* FIXME Go on */
-}
-

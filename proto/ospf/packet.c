@@ -187,3 +187,12 @@ ospf_err_hook(sock *sk, int err)
   DBG("%s: Err_Hook called on interface %s\n", p->name,sk->iface->name);
 }
 
+void
+sk_send_to_agt(sock *sk, u16 len, struct ospf_iface *ifa, u8 state)
+{
+  struct ospf_neighbor *n;
+
+  WALK_LIST(NODE n,ifa->neigh_list)
+    if(n->state>=state)
+      sk_send_to(sk, len, n->ip, OSPF_PROTO);
+}                                                                       

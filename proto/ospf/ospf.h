@@ -286,6 +286,8 @@ struct ospf_neighbor
   void *ldbdes;		/* Last database description packet */
   timer *rxmt_timer;	/* RXMT timer */
   timer *lsrr_timer;	/* Link state requiest retransmition timer */
+  list ackl;
+  timer *ackd_timer;	/* Delayed ack timer */
 };
 
 /* Definitions for interface state machine */

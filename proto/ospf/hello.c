@@ -118,6 +118,13 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     n->lsrr_timer->hook=lsrr_timer_hook;
     n->lsrr_timer->recurrent=ifa->rxmtint;
     DBG("%s: Installing lsrr timer.\n", p->name);
+    init_list(&n->ackl);
+    n->ackd_timer=tm_new(p->pool);
+    n->ackd_timer->data=n;
+    n->ackd_timer->randomize=0;
+    n->ackd_timer->hook=ackd_timer_hook;
+    n->ackd_timer->recurrent=ifa->rxmtint/2;	/* FIXME use some config? */
+    DBG("%s: Installing ackd timer.\n", p->name);
   }
   ospf_neigh_sm(n, INM_HELLOREC);
 

@@ -122,12 +122,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 
       if(ifa->type==OSPF_IT_NBMA)
       {
-	struct ospf_neighbor *nnn;
-        WALK_LIST(NODE nnn,ifa->neigh_list)
-	{
-          if(nnn->state>NEIGHBOR_EXSTART)
-            sk_send_to(sk,len, nnn->ip, OSPF_PROTO);
-	}
+        sk_send_to_agt(sk ,len, ifa, NEIGHBOR_EXCHANGE);
       }
       else
       {
@@ -267,19 +262,19 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     /* pg 143 (4) */
     if((lsatmp.age==LSA_MAXAGE)&&(lsadb==NULL))
     {
-      struct ospf_neighbor *n=NULL;
-      struct ospf_iface *ifa=NULL;
       int flag=0;
+      struct ospf_iface *ifatmp;
 
-      WALK_LIST(NODE ifa,po->iface_list)
-        WALK_LIST(NODE ntmp,ifa->neigh_list)
+      WALK_LIST(NODE ifatmp,po->iface_list)
+        WALK_LIST(NODE ntmp,ifatmp->neigh_list)
           if((ntmp->state==NEIGHBOR_EXCHANGE)&&
             (ntmp->state==NEIGHBOR_LOADING))
             flag=1;
 
       if(flag==0)
       {
-        add_ack_list(n,lsa);
+        ospf_lsack_direct_tx(n,lsa);
+
 	continue;
       }
     }
@@ -317,7 +312,11 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       lsadb=lsa_install_new(&lsatmp,body, oa);
       DBG("New LSA installed in DB\n");
 
-      /* FIXME 144 (5e) ack */
+      if(ifa->state==OSPF_IS_BACKUP)
+      {
+        if(ifa->drid==n->rid) ospf_lsa_delay(n, lsa, p);
+      }
+      else if(ifa->drid==n->rid) ospf_lsa_delay(n, lsa, p);
       /* FIXME 145 (5f) self originated? */
 
       continue;
@@ -330,13 +329,25 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     {
 	struct top_hash_entry *en;
 	if((en=ospf_hash_find_header(n->lsrth,&lsadb->lsa))!=NULL)
+	{
 	  s_rem_node(SNODE en);
-        /* FIXME ack_lsa() */
+	  if(ifa->state==OSPF_IS_BACKUP)
+	  {
+	    if(n->rid==ifa->drid) ospf_lsa_delay(n, lsa, p);
+	  }
+	}
+	else
+	{
+	  ospf_lsack_direct_tx(n,lsa);
+	}
 	continue;
     }
 
     /* pg145 (8) */
-    if((lsadb->lsa.age==LSA_MAXAGE)&&(lsadb->lsa.sn==LSA_MAXSEQNO)) continue;
+    if((lsadb->lsa.age==LSA_MAXAGE)&&(lsadb->lsa.sn==LSA_MAXSEQNO))
+    {
+      continue;
+    }
 
     {
       list l;
