@@ -58,11 +58,12 @@ rip_auth:
  | NONE { $$=AT_NONE; }
  ;
 
+/* FIXME FIXME this corrupts memory */
 rip_mode: 
-    BROADCAST { $$|=IM_BROADCAST; }
-  | QUIET     { $$|=IM_QUIET; }
-  | NOLISTEN  { $$|=IM_NOLISTEN; }
-  | VERSION1  { $$|=IM_VERSION1 | IM_BROADCAST; }
+    BROADCAST { $$=IM_BROADCAST; }
+  | QUIET     { $$=IM_QUIET; }
+  | NOLISTEN  { $$=IM_NOLISTEN; }
+  | VERSION1  { $$=IM_VERSION1 | IM_BROADCAST; }
  ;
 
 rip_iface_item:
@@ -72,7 +73,7 @@ rip_iface_item:
  }
  | MODE rip_mode {
    struct rip_patt *k = rip_get_iface();
-   k->mode = $2;
+   k->mode |= $2;
  }
  ;
 

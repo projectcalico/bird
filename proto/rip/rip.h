@@ -133,7 +133,6 @@ struct rip_proto {
 
 void rip_init_instance(struct proto *p);
 void rip_init_config(struct rip_proto_config *c);
-struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt);
 
 /* Authentication functions */
 

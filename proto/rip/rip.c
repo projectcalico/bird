@@ -26,6 +26,8 @@
 #define P_CF ((struct rip_proto_config *)p->cf)
 #define E ((struct rip_entry *) e)
 
+static struct rip_interface *new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt);
+
 static void
 rip_reply(struct proto *p)
 {
@@ -104,7 +106,7 @@ rip_tx( sock *s )
   break_loop:
 
     if (P_CF->authtype)
-      rip_outgoing_authentication(p, &packet->block[0], packet, i);
+      rip_outgoing_authentication(p, (void *) &packet->block[0], packet, i);
 
     DBG( ", sending %d blocks, ", i );
 
@@ -285,7 +287,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    struct rip_block *block = &packet->block[i];
 	    if (block->family == 0xffff)
 	      if (!i) {
-		if (rip_incoming_authentication(p, block, packet, num))
+		if (rip_incoming_authentication(p, (void *) block, packet, num))
 		  BAD( "Authentication failed" );
 	      } else BAD( "Authentication is not the first!" );
 	    ipa_ntoh( block->network );
@@ -454,7 +456,7 @@ kill_iface(struct proto *p, struct rip_interface *i)
 /*
  * new maybe null if we are creating initial send socket 
  */
-struct rip_interface *
+static struct rip_interface *
 new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_patt *patt )
 {
   struct rip_interface *rif;
@@ -470,6 +472,9 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
     want_multicast = (!(rif->patt->mode & IM_BROADCAST)) && (flags & IF_MULTICAST);
   /* lookup multicasts over unnumbered links - no: rip is not defined over unnumbered links */
 
+  if (want_multicast)
+    DBG( "Doing multicasts!\n" );
+
   rif->sock = sk_new( p->pool );
   rif->sock->type = want_multicast?SK_UDP_MC:SK_UDP;
   rif->sock->sport = P_CF->port;
@@ -484,8 +489,10 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   rif->sock->dport = P_CF->port;
   rif->sock->ttl = 1; /* FIXME: care must be taken not to send requested responses from this socket */
 
-  if (want_multicast)
+  if (want_multicast) {
     rif->sock->daddr = ipa_from_u32(0xe0000009);
+    rif->sock->saddr = ipa_from_u32(0xe0000009);
+  }
   if (flags & IF_BROADCAST)
     rif->sock->daddr = new->addr->brd;
   if (flags & IF_UNNUMBERED)	/* Hmm, rip is not defined over unnumbered links */
@@ -495,8 +502,12 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
     log( L_WARN "RIP/%s: interface %s is too strange for me", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
   } else
     if (!(rif->patt->mode & IM_NOLISTEN))
-      if (sk_open(rif->sock)<0)
+      if (sk_open(rif->sock)<0) {
 	log( L_WARN "RIP/%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
+	/* FIXME: Don't try to transmit into this one */
+      }
+
+  log( L_DEBUG "RIP/%s: listening on %s, port %d, mode %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)", P_CF->port, want_multicast ? "multicast" : "broadcast" );
   
   return rif;
 }
@@ -644,6 +655,8 @@ rip_init_instance(struct proto *p)
   p->if_notify = rip_if_notify;
   p->rt_notify = rip_rt_notify;
   p->import_control = rip_import_control;
+  p->make_tmp_attrs = rip_make_tmp_attrs;
+  p->store_tmp_attrs = rip_store_tmp_attrs;
   p->rte_better = rip_rte_better;
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
