@@ -98,7 +98,7 @@ AC_PROG_INSTALL
 AC_PROG_RANLIB
 AC_CHECK_PROG(FLEX, flex, flex)
 AC_CHECK_PROG(BISON, bison, bison)
-AC_CHECK_PROG(M4, m4, m4)
+AC_CHECK_PROGS(M4, gm4 m4, m4)
 if test -z "$FLEX" -o -z "$BISON" -o -z "$M4" ; then
 	AC_MSG_ERROR([Some tools required for building BIRD are missing.])
 	fi
