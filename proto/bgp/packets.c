@@ -372,8 +372,8 @@ bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
       switch (opt[0])
 	{
 	case 2:
-	  /* Defined in draft-ietf-idr-bgp4-cap-neg-06 */
-	  /* We can safely ignore all capabilities */
+	  /* Capatibility negotiation as per RFC 2842 */
+	  /* We can safely ignore all capabilities announced */
 	  break;
 	default:
 	  /*
