@@ -1025,7 +1025,7 @@ sk_write(sock *s)
       {
 	sockaddr sa;
 	fill_in_sockaddr(&sa, s->daddr, s->dport);
-	if (connect(s->fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0)
+	if (connect(s->fd, (struct sockaddr *) &sa, sizeof(sa)) >= 0 || errno == EISCONN)
 	  sk_tcp_connected(s);
 	else if (errno != EINTR && errno != EAGAIN && errno != EINPROGRESS)
 	  s->err_hook(s, errno);
