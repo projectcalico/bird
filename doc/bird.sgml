@@ -966,7 +966,8 @@ protocol kernel {		# Secondary routing table
 <sect1>Introduction
 
 <p>Open Shortest Path First (OSPF) is a quite complex interior gateway
-protocol. The current IPv4 version (OSPFv2) is defined in RFC 2328<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2328.txt">. It's a link
+protocol. The current IPv4 version (OSPFv2) is defined
+in RFC 2328<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2328.txt">. It's a link
 state (a.k.a. shortest path first) protocol -- each router maintains a database
 describing the autonomous system's topology. Each participating router
 has an identical copy of the database and all routers run the same algorithm
@@ -1032,10 +1033,10 @@ protocol ospf &lt;name&gt; {
 			passwords {
 				password "&lt;text&gt;" {
 					id &lt;num&gt;;
-					generate from &lt;date&gt;;
-					generate to &lt;date&gt;;
-					accept from &lt;date&gt;;
-					accept to &lt;date&gt;;
+					generate from "&lt;date&gt;";
+					generate to "&lt;date&gt;";
+					accept from "&lt;date&gt;";
+					accept to "&lt;date&gt;";
 				};
 			};
 			neighbors {
@@ -1234,13 +1235,13 @@ protocol ospf MyOSPF {
 			passwords {
 				password "abc" {
 					id 1;
-					generate to 22-04-2003 11:00:06;
-					accept from 17-01-2001 12:01:05;
+					generate to "22-04-2003 11:00:06";
+					accept from "17-01-2001 12:01:05";
 				};
 				password "def" {
 					id 2;
-					generate to 22-07-2005 17:03:21;
-					accept from 22-02-2001 11:34:06;
+					generate to "22-07-2005 17:03:21";
+					accept from "22-02-2001 11:34:06";
 				};
 			};
 		};
