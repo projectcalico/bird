@@ -263,6 +263,7 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
   struct top_hash_entry *en,*etmp,*absr;
   struct fib *ef=&po->efib;
   struct extfib *nf;
+  struct infib *inf;
   struct fib_iterator fit;
   struct ospf_area *oa=NULL,*atmp,*absroa;
   struct proto *p=&po->proto;
@@ -366,18 +367,18 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
       }
       tag=lt->tag;
     }
-    else
+    else		/* FW address !=0 */
     {
-      nf=NULL;		/* FW address !=0 */
+      inf=NULL;
       WALK_LIST(atmp,po->area_list)
       {
-        if((nf=fib_route(&atmp->infib,lt->fwaddr,32))!=NULL)
+        if((inf=fib_route(&atmp->infib,lt->fwaddr,32))!=NULL)
 	{
 	  break;
 	}
       }
 
-      if(nf==NULL)
+      if(inf==NULL)
       {
         DBG("Cannot find network route (GW=%I)\n",lt->fwaddr);
         continue;
@@ -385,42 +386,46 @@ ospf_ext_spfa(struct proto_ospf *po)	/* FIXME looking into inter-area */
 
       if(lt->etos>0)
       {
-        met=nf->metric;
+        met=inf->metric;
         met2=lt->metric;
       }
       else
       {
-        met=nf->metric+lt->metric;
+        met=inf->metric+lt->metric;
 	met2=LSINFINITY;
       }
       tag=lt->tag;
 
       if((nn=neigh_find(p,&lt->fwaddr,0))!=NULL)
       {
-        nnh=nn->addr;
+        nnh=IPA_NONE;
         nnhi=nn->iface;
       }
       else
       {
-        nnh=nf->nh;
-        nnhi=nf->nhi;
+        nnh=inf->en->nh;
+	nnhi=inf->en->nhi;
       }
-
     }
 
     nf=fib_get(ef,&ip, mlen);
-    if(((nf->metric>met)&&(nf->metric2==met2)) || /* both E1 or E2
+    if((nf->metric==LSINFINITY) ||	/* nf is new */
+       ((met<nf->metric)&&(nf->metric2==met2)) || /* both E1 or E2
 						   * with same metric */
-      ((nf->metric2>met2)&&(nf->metric2!=LSINFINITY)) || /* E2 smaller and
+      ((met2<nf->metric2)&&(nf->metric2!=LSINFINITY)) || /* E2 smaller and
 							  * 1st is not E1 */
       ((nf->metric2!=LSINFINITY)&&(met2==LSINFINITY)))	/* 2nd is E1 and
 							 * 1st is E2 */
     {
+      if(nf->metric!=LSINFINITY)
+        OSPF_TRACE(D_EVENTS,
+          "Rewritting %I/%d met=%d, met2=%d, nmet=%d, nmet2=%d",
+        ip, mlen, nf->metric, nf->metric2, met, met2);
       nf->metric=met;
       nf->metric2=met2;
       nf->tag=tag;
 
-      if(ipa_compare(nnh,ipa_from_u32(0))!=0)
+      if(nnhi!=NULL)
       {
         nf->nh=nnh;
         nf->nhi=nnhi;
