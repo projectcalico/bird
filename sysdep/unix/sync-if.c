@@ -170,7 +170,7 @@ scan_if(timer *t)
 void
 scan_if_init(void)
 {
-  if_scan_sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if_scan_sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
   DBG("Using socket %d for interface and route scanning\n", if_scan_sock);
   if (if_scan_sock < 0)
     die("Cannot create scanning socket: %m");
