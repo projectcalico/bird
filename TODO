@@ -22,6 +22,8 @@ Core
 - client: paging?
 - client: data losses on large dumps?
 
+- table: ocassional core dumps in rt_prune()
+
 - bgp: timing of updates?
 - bgp: dump and get_route_info
 

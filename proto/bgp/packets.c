@@ -62,7 +62,7 @@ bgp_encode_prefixes(struct bgp_proto *p, byte *w, struct bgp_bucket *buck, unsig
       ipa_hton(a);
       memcpy(w, &a, bytes);
       w += bytes;
-      remains -= bytes;
+      remains -= bytes + 1;
       rem_node(&px->bucket_node);
       fib_delete(&p->prefix_fib, px);
     }
@@ -232,10 +232,16 @@ bgp_fire_tx(struct bgp_conn *conn)
   struct bgp_proto *p = conn->bgp;
   unsigned int s = conn->packets_to_send;
   sock *sk = conn->sk;
-  byte *buf = sk->tbuf;
-  byte *pkt = buf + BGP_HEADER_LENGTH;
-  byte *end;
+  byte *buf, *pkt, *end;
   int type;
+
+  if (!sk)
+    {
+      conn->packets_to_send = 0;
+      return 0;
+    }
+  buf = sk->tbuf;
+  pkt = buf + BGP_HEADER_LENGTH;
 
   if (s & (1 << PKT_SCHEDULE_CLOSE))
     {
@@ -284,7 +290,7 @@ bgp_schedule_packet(struct bgp_conn *conn, int type)
 {
   DBG("BGP: Scheduling packet type %d\n", type);
   conn->packets_to_send |= 1 << type;
-  if (conn->sk->tpos == conn->sk->tbuf)
+  if (conn->sk && conn->sk->tpos == conn->sk->tbuf)
     while (bgp_fire_tx(conn))
       ;
 }
