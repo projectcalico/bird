@@ -117,6 +117,7 @@ typedef struct rtable {
   struct fib fib;
   char *name;				/* Name of this table */
   list hooks;				/* List of announcement hooks */
+  int pipe_busy;			/* Pipe loop detection */
 } rtable;
 
 typedef struct network {
@@ -223,6 +224,7 @@ typedef struct rta {
 #define RTS_OSPF_IA 10			/* OSPF inter-area route */
 #define RTS_OSPF_BOUNDARY 11		/* OSPF route to boundary router (???) */
 #define RTS_BGP 12			/* BGP route */
+#define RTS_PIPE 13			/* Inter-table wormhole */
 
 #define RTC_UNICAST 0
 #define RTC_BROADCAST 1
@@ -316,6 +318,7 @@ static inline eattr * rta_find(rta *a, unsigned ea) { return ea_find(a->attrs, e
 #define DEF_PREF_BGP		100	/* BGP */
 #define DEF_PREF_OSPF_EXTERNAL	80	/* OSPF external routes */
 #define DEF_PREF_RIP_EXTERNAL	70	/* RIP external routes */
+#define DEF_PREF_PIPE		60	/* Routes piped from other tables */
 #define DEF_PREF_UKR		50	/* Unidentified Kernel Route */
 #define DEF_PREF_SINK		10	/* Sink route */
 

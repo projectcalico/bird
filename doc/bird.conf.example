@@ -50,3 +50,9 @@ protocol static {
 #	route 10.1.3.0:255.255.255.0 via 62.168.0.4;
 #	route 10.2.0.0/24 via "arc0";
 }
+
+#protocol pipe {
+#	peer table testable;
+#	import all;
+#	export all;
+#}
