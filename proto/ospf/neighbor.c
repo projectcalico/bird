@@ -290,8 +290,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
   struct proto_ospf *po = n->ifa->proto;
   struct proto *p = (struct proto *) po;
 
-  OSPF_TRACE(D_EVENTS,
-	     "Neighbor state machine for neighbor %I, event \"%s\".", n->ip,
+  DBG("Neighbor state machine for neighbor %I, event \"%s\".", n->ip,
 	     ospf_inm[event]);
 
   switch (event)
