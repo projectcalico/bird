@@ -489,14 +489,14 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   rif->sock->dport = P_CF->port;
   rif->sock->ttl = 1; /* FIXME: care must be taken not to send requested responses from this socket */
 
-  if (want_multicast) {
-    rif->sock->daddr = ipa_from_u32(0xe0000009);
-    rif->sock->saddr = ipa_from_u32(0xe0000009);
-  }
   if (flags & IF_BROADCAST)
     rif->sock->daddr = new->addr->brd;
   if (flags & IF_UNNUMBERED)	/* Hmm, rip is not defined over unnumbered links */
     rif->sock->daddr = new->addr->opposite;
+  if (want_multicast) {
+    rif->sock->daddr = ipa_from_u32(0xe0000009);
+    rif->sock->saddr = ipa_from_u32(0xe0000009);
+  }
 
   if (!ipa_nonzero(rif->sock->daddr)) {
     log( L_WARN "RIP/%s: interface %s is too strange for me", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
