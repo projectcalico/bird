@@ -104,6 +104,14 @@ else
 					*)		sysdesc=linux-v6 ;;
 					esac
 				;;
+		ipv6:netbsd*)	sysdesc=bsd-v6
+				;;
+		ipv4:netbsd*)	sysdesc=bsd
+				;;
+		ipv6:freebsd*)	sysdesc=bsd-v6
+				;;
+		ipv4:freebsd*)	sysdesc=bsd
+				;;
 		*)		AC_MSG_ERROR([Cannot determine correct system configuration. Please use --with-sysconfig to set it manually.])
 				;;
 		esac
@@ -142,6 +150,14 @@ case $sysdesc in
 esac
 
 AC_CHECK_HEADER(syslog.h, [AC_DEFINE(HAVE_SYSLOG)])
+AC_CHECK_HEADER(alloca.h, [AC_DEFINE(HAVE_ALLOCA_H)])
+AC_MSG_CHECKING(whether 'struct sockaddr' has sa_len)
+AC_TRY_COMPILE([#include <sys/types.h>
+  #include <sys/socket.h>
+  ], [static struct sockaddr sa; int i = sizeof(sa.sa_len);],
+  [AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_SIN_LEN,,sin_len)],
+  AC_MSG_RESULT(no))
 
 BIRD_CHECK_INTEGERS
 BIRD_CHECK_ENDIAN
@@ -169,12 +185,15 @@ if test "$enable_client" = yes ; then
 			AC_CHECK_LIB(termcap, tgetent, USE_TERMCAP_LIB=-ltermcap)))
 	AC_CHECK_LIB(readline, rl_callback_read_char, CLIENT_LIBS="-lreadline $CLIENT_LIBS $USE_TERMCAP_LIB",
 		AC_MSG_ERROR([[The client requires GNU readline library 2.1 or newer. Either install the library or use --disable-client to compile without the client.]]), $USE_TERMCAP_LIB)
+	AC_CHECK_FUNCS(rl_crlf)
+	AC_CHECK_FUNCS(rl_ding)
 fi
 AC_SUBST(CLIENT)
 AC_SUBST(CLIENT_LIBS)
 
 mkdir -p $objdir/sysdep
-AC_CONFIG_HEADER($objdir/sysdep/autoconf.h:sysdep/autoconf.h.in)
+AC_CONFIG_HEADERS([$objdir/sysdep/autoconf.h:sysdep/autoconf.h.in])
+AC_OUTPUT()
 AC_OUTPUT_COMMANDS(,[CPP="$CPP" $srcdir/tools/mergedirs $srcdir $srcdir_rel $objdir $sysdep_dirs])
 AC_OUTPUT($makefiles)
 
