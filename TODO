@@ -5,9 +5,9 @@ Core
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
 
-- krt: rescan interfaces when route addition fails?
+- configure: default CFLAGS?
 
-- Makefile: install target?
+- daemonization
 
 - netlink: realms
 
@@ -15,6 +15,18 @@ Core
 - filters: user defined attributes?
 
 - cli: show tables?
+- cli: show route count (like stats, but doesn't print the routes)
+- cli: show where is routed given IP address?
+
+- client: Ctrl-R eats one more enter
+- client: paging?
+- client: data losses on large dumps?
+
+- bgp: timing of updates?
+- bgp: dump and get_route_info
+- bgp: packet size limit in sending of withdrawals?
+
+- proto: `Changed state to ...' message -> show internal states
 
 Documentation
 ~~~~~~~~~~~~~
