@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# bird.init    Starts the Internet Routing Daemon.
+# bird         Starts the Internet Routing Daemon.
 #
 # Author:      Ondrej Feela Filip, <feela@network.cz>
 #

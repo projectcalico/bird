@@ -1,7 +1,7 @@
 Summary: BIRD Internet Routing Daemon
 Name: bird
 Version: 1.0.4
-Release: 1
+Release: 2
 Copyright: GPL
 Group: Networking/Daemons
 Source: ftp://bird.network.cz/pub/bird/bird-%{version}.tar.gz
@@ -27,19 +27,19 @@ make install prefix=$RPM_BUILD_ROOT/usr sysconfdir=$RPM_BUILD_ROOT/etc localstat
 
 cd $RPM_BUILD_ROOT
 install -c -d etc/rc.d/init.d
-install -c $RPM_SOURCE_DIR/bird.init etc/rc.d/init.d/
+install -c $RPM_SOURCE_DIR/bird.init etc/rc.d/init.d/bird
 
 %post
 /sbin/ldconfig
-/sbin/chkconfig --add bird.init
+/sbin/chkconfig --add bird
  
 %preun
 if [ $1 = 0 ] ; then
-        /sbin/chkconfig --del bird.init
+        /sbin/chkconfig --del bird
 fi                                                                              
 
 %files
 %attr(755,root,root) /usr/sbin/bird
 %attr(755,root,root) /usr/sbin/birdc
-%attr(755,root,root) /etc/rc.d/init.d/bird.init
+%attr(755,root,root) /etc/rc.d/init.d/bird
 %config /etc/bird.conf
