@@ -119,6 +119,12 @@ ospf_dbdes_send(struct ospf_neighbor *n)
   case NEIGHBOR_FULL:
     length = ntohs(((struct ospf_packet *)n)->length);
 
+    if(!length)
+    {
+      OSPF_TRACE(D_PACKETS, "No packet in my buffer for repeating");
+      ospf_neigh_sm(n, INM_KILLNBR);
+    }
+
     memcpy(ifa->ip_sk->tbuf, n->ldbdes, length);
       /* Copy last sent packet again */
 

@@ -599,6 +599,20 @@ sk_alloc_bufs(sock *s)
   s->tpos = s->ttx = s->tbuf;
 }
 
+void
+sk_reallocate(sock *s)
+{
+  if(!s) return;
+
+  if (s->rbuf_alloc)
+    xfree(s->rbuf_alloc);
+  s->rbuf = NULL;
+  if (s->tbuf_alloc)
+    xfree(s->tbuf_alloc);
+  s->tbuf = NULL;
+  sk_alloc_bufs(s);
+}
+
 static void
 sk_tcp_connected(sock *s)
 {

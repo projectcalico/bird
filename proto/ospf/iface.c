@@ -430,8 +430,23 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
   {
     if((ifa=find_iface((struct proto_ospf *)p, iface))!=NULL)
     {
+      struct ospf_packet *op;
+      struct ospf_neighbor *n;
       OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", iface->name);
-      /* FIXME: change MTU */
+      sk_reallocate(ifa->hello_sk);
+      sk_reallocate(ifa->dr_sk);
+      sk_reallocate(ifa->ip_sk);
+
+      WALK_LIST(n,ifa->neigh_list)
+      {
+        op = (struct ospf_packet *)n->ldbdes;
+        n->ldbdes = mb_allocz(n->pool, iface->mtu);
+
+        if(ntohs(op->length) <= iface->mtu)	/* If the packet in old buffer is bigger, let it filled by zeros */
+          memcpy(n->ldbdes, op, iface->mtu);	/* If the packet is old is same or smaller, copy it */
+
+        rfree(op);
+      }
     }
   }
 }
