@@ -1,7 +1,7 @@
 /*
  *	BIRD Internet Routing Daemon -- Routing Table
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -150,6 +150,8 @@ typedef struct rte {
   } u;
 } rte;
 
+#define REF_COW 1			/* Copy this rte on write */
+
 extern rtable master_table;
 
 void rt_init(void);
@@ -162,6 +164,8 @@ void rte_update(net *net, struct proto *p, rte *new);
 void rte_discard(rte *old);
 void rte_dump(rte *);
 void rte_free(rte *);
+rte *rte_do_cow(rte *);
+static inline rte * rte_cow(rte *r) { return (r->flags & REF_COW) ? rte_do_cow(r) : r; }
 void rt_dump(rtable *);
 void rt_dump_all(void);
 void rt_feed_baby(struct proto *p);

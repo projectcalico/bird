@@ -19,6 +19,7 @@
 
 rtable master_table;
 static slab *rte_slab;
+static linpool *rte_update_pool;
 
 #define RT_GC_MIN_TIME 5		/* FIXME: Make configurable */
 #define RT_GC_MIN_COUNT 100
@@ -95,6 +96,17 @@ rte_get_temp(rta *a)
   return e;
 }
 
+rte *
+rte_do_cow(rte *r)
+{
+  rte *e = sl_alloc(rte_slab);
+
+  memcpy(e, r, sizeof(rte));
+  e->attrs = rta_clone(r->attrs);
+  e->flags = 0;
+  return e;
+}
+
 static int				/* Actually better or at least as good as */
 rte_better(rte *new, rte *old)
 {
@@ -114,21 +126,42 @@ rte_better(rte *new, rte *old)
 }
 
 static inline void
-do_rte_announce(struct proto *p, net *net, rte *new, rte *old)
+do_rte_announce(struct proto *p, net *net, rte *new, rte *old, ea_list *tmpa)
 {
-  if (p->out_filter)
+  rte *new0 = new;
+  rte *old0 = old;
+  if (new)
     {
-      if (old && f_run(p->out_filter, old, NULL) != F_ACCEPT)
-	old = NULL;
-      if (new && f_run(p->out_filter, new, NULL) != F_ACCEPT)
+      int ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0;
+      if (ok < 0 ||
+	  (!ok && (p->out_filter == FILTER_REJECT ||
+		   p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool) > F_MODIFY)
+	  )
+	 )
 	new = NULL;
+    }
+  if (old && p->out_filter)
+    {
+      /* FIXME: Do we really need to filter old routes? */
+      if (p->out_filter == FILTER_REJECT)
+	old = NULL;
+      else
+	{
+	  ea_list *tmpb = p->make_tmp_attrs ? p->make_tmp_attrs(old, rte_update_pool) : NULL;
+	  if (f_run(p->out_filter, &old, &tmpb, rte_update_pool) > F_MODIFY)
+	    old = NULL;
+	}
     }
   if (new || old)
     p->rt_notify(p, net, new, old);
+  if (new && new != new0)	/* Discard temporary rte's */
+    rte_free(new);
+  if (old && old != old0)
+    rte_free(old);
 }
 
-void
-rte_announce(net *net, rte *new, rte *old)
+static void
+rte_announce(net *net, rte *new, rte *old, ea_list *tmpa)
 {
   struct proto *p;
 
@@ -136,7 +169,7 @@ rte_announce(net *net, rte *new, rte *old)
     {
       ASSERT(p->core_state == FS_HAPPY);
       if (p->rt_notify)
-	do_rte_announce(p, net, new, old);
+	do_rte_announce(p, net, new, old, tmpa);
     }
 }
 
@@ -155,7 +188,12 @@ rt_feed_baby(struct proto *p)
 	  net *n = (net *) fn;
 	  rte *e;
 	  for(e=n->routes; e; e=e->next)
-	    do_rte_announce(p, n, e, NULL);
+	    {
+	      struct proto *q = e->attrs->proto;
+	      ea_list *tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
+	      do_rte_announce(p, n, e, NULL, tmpa);
+	      lp_flush(rte_update_pool);
+	    }
 	}
       FIB_WALK_END;
       t = t->sibling;
@@ -209,23 +247,12 @@ rte_free_quick(rte *e)
   sl_free(rte_slab, e);
 }
 
-void
-rte_update(net *net, struct proto *p, rte *new)
+static void
+rte_recalculate(net *net, struct proto *p, rte *new, ea_list *tmpa)
 {
   rte *old_best = net->routes;
   rte *old = NULL;
   rte **k, *r, *s;
-
-  if (new)
-    {
-      if (!rte_validate(new) || p->in_filter && f_run(p->in_filter, new, NULL) != F_ACCEPT)
-	{
-	  rte_free(new);
-	  return;
-	}
-      if (!(new->attrs->aflags & RTAF_CACHED)) /* Need to copy attributes */
-	new->attrs = rta_lookup(new->attrs);
-    }
 
   k = &net->routes;			/* Find and remove original route from the same protocol */
   while (old = *k)
@@ -240,7 +267,7 @@ rte_update(net *net, struct proto *p, rte *new)
 
   if (new && rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
     {
-      rte_announce(net, new, old_best);
+      rte_announce(net, new, old_best, tmpa);
       new->next = net->routes;
       net->routes = new;
     }
@@ -252,7 +279,7 @@ rte_update(net *net, struct proto *p, rte *new)
 	  for(s=net->routes; s; s=s->next)
 	    if (rte_better(s, r))
 	      r = s;
-	  rte_announce(net, r, old_best);
+	  rte_announce(net, r, old_best, tmpa);
 	  if (r)			/* Re-link the new optimal route */
 	    {
 	      k = &net->routes;
@@ -291,10 +318,60 @@ rte_update(net *net, struct proto *p, rte *new)
     }
 }
 
+static int rte_update_nest_cnt;		/* Nesting counter to allow recursive updates */
+
+static inline void
+rte_update_lock(void)
+{
+  rte_update_nest_cnt++;
+}
+
+static inline void
+rte_update_unlock(void)
+{
+  if (!--rte_update_nest_cnt)
+    lp_flush(rte_update_pool);
+}
+
+void
+rte_update(net *net, struct proto *p, rte *new)
+{
+  ea_list *tmpa = NULL;
+
+  rte_update_lock();
+  if (new)
+    {
+      if (!rte_validate(new) || p->in_filter == FILTER_REJECT)
+	goto drop;
+      if (p->make_tmp_attrs)
+	tmpa = p->make_tmp_attrs(new, rte_update_pool);
+      if (p->in_filter)
+	{
+	  int fr = f_run(p->in_filter, &new, &tmpa, rte_update_pool);
+	  if (fr > F_MODIFY)
+	    goto drop;
+	  if (fr == F_MODIFY && p->store_tmp_attrs)
+	    p->store_tmp_attrs(new, tmpa);
+	}
+      if (!(new->attrs->aflags & RTAF_CACHED)) /* Need to copy attributes */
+	new->attrs = rta_lookup(new->attrs);
+      new->flags |= REF_COW;
+    }
+  rte_recalculate(net, p, new, tmpa);
+  rte_update_unlock();
+  return;
+
+drop:
+  rte_free(new);
+  rte_update_unlock();
+}
+
 void
 rte_discard(rte *old)			/* Non-filtered route deletion, used during garbage collection */
 {
-  rte_update(old->net, old->attrs->proto, NULL);
+  rte_update_lock();
+  rte_recalculate(old->net, old->attrs->proto, NULL, NULL);
+  rte_update_unlock();
 }
 
 void
@@ -357,6 +434,7 @@ rt_init(void)
 {
   rta_init();
   rt_table_pool = rp_new(&root_pool, "Routing tables");
+  rte_update_pool = lp_new(rt_table_pool, 4080);
   rt_setup(rt_table_pool, &master_table, "master");
   rte_slab = sl_new(rt_table_pool, sizeof(rte));
   rt_last_gc = now;
