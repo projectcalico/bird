@@ -9,12 +9,23 @@
 #include "ospf.h"
 
 void
+init_stub_fib(struct fib_node *fn)
+{
+  struct stub_fib *sf=(struct stub_fib *)fn;
+
+  sf->metric=LSINFINITY;
+  sf->nhi=NULL;
+}
+
+void
 ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 {
   struct top_hash_entry *en, *nx;
   u32 i,*rts;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *rtl,*rr;
+  struct fib fib;
+  struct stub_fib *sf;
 
   /*
    * First of all, mark all vertices as they are not in SPF
@@ -147,6 +158,8 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
   DBG("Now calculating routes for stub networks.\n");
 
   /* Now calculate routes to stub networks */
+  fib_init(&fib,p->pool,sizeof(struct stub_fib),16,init_stub_fib);
+    /*FIXME 16? */
 
   WALK_SLIST_DELSAFE(SNODE en, SNODE nx, oa->lsal)
   {
@@ -162,6 +175,8 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
       }
       if(en->lsa.type==LSA_T_RT)
       {
+        ip_addr ip;
+
         DBG("Working on LSA: rt: %I, id: %I, type: %u\n",en->lsa.rt,en->lsa.id,en->lsa.type);
         rt=(struct ospf_lsa_rt *)en->lsa_body;
 	if((rt->VEB)&(1>>LSA_RT_V)) oa->trcap=1;
@@ -172,7 +187,46 @@ ospf_rt_spfa(struct ospf_area *oa, struct proto *p)
 	  if(rtl->type==LSART_STUB)
 	  {
 	    DBG("       Working on stub network: %I\n",rtl->id);
+	    ip=ipa_from_u32(rtl->id);
 	    /* Check destination and so on (pg 166) */
+	    sf=fib_get(&fib,&ip,
+	      ipa_mklen(ipa_from_u32(rtl->data)));
+
+	    if(sf->metric>(en->dist+rtl->metric))
+	    {
+	      sf->metric=en->dist+rtl->metric;
+	      calc_next_hop_fib(en,sf,p,oa);
+	      if(sf->nhi!=NULL)
+	      {
+                net *ne;
+                rta a0;
+                rte *e;
+
+                bzero(&a0, sizeof(a0));
+           
+                a0.proto=p;
+                a0.source=RTS_OSPF;
+                a0.scope=SCOPE_UNIVERSE;	/* What's this good for? */
+                a0.cast=RTC_UNICAST;
+                a0.dest=RTD_ROUTER;
+                a0.flags=0;
+                a0.aflags=0;
+                a0.iface=sf->nhi;
+                a0.gw=sf->nh;
+                a0.from=sf->nh;		/* FIXME Just a test */
+                ip=ipa_from_u32(rtl->id);
+                ne=net_get(p->table, ip, ipa_mklen(ipa_from_u32(rtl->data)));
+                e=rte_get_temp(&a0);
+                e->u.ospf.metric1=sf->metric;
+                e->u.ospf.metric2=0;
+                e->u.ospf.tag=0;			/* FIXME Some config? */
+                e->pflags = 0;
+                e->net=ne;
+                DBG("Modifying stub rt entry %I mask %I\n     (GW: %I, Iface: %s)\n",
+                  ip,rtl->data,sf->nh,sf->nhi->name);
+                rte_update(p->table, ne, p, e);
+	      }
+	    }
 	  }
 	}
       }
@@ -256,6 +310,31 @@ calc_next_hop(struct top_hash_entry *par, struct top_hash_entry *en,
     DBG("     Next hop calculating for id: %I rt: %I type: %u\n",en->lsa.id,en->lsa.rt,en->lsa.type);
     if(par->lsa.type!=LSA_T_RT) return;
     if((neigh=find_neigh_noifa(po,en->lsa.rt))==NULL) return;
+    nn=neigh_find(p,&neigh->ip,0);
+    DBG("     Next hop calculated: %I\n", nn->addr);
+    en->nh=nn->addr;
+    en->nhi=nn->iface;
+    return;
+  }
+  en->nh=par->nh;
+  en->nhi=par->nhi;
+  DBG("     Next hop calculated: %I\n", en->nh);
+}
+
+void
+calc_next_hop_fib(struct top_hash_entry *par, struct stub_fib *en,
+  struct proto *p, struct ospf_area *oa)
+{
+  struct ospf_neighbor *neigh;
+  struct proto_ospf *po=(struct proto_ospf *)p;
+  DBG("     Next hop called\n");
+  if(par==oa->rt) return;
+  if(par->nhi==NULL)
+  {
+    neighbor *nn;
+    DBG("     Next hop calculating for Fib\n");
+    if(par->lsa.type!=LSA_T_RT) return;
+    if((neigh=find_neigh_noifa(po,par->lsa.rt))==NULL) return;
     nn=neigh_find(p,&neigh->ip,0);
     DBG("     Next hop calculated: %I\n", nn->addr);
     en->nh=nn->addr;
