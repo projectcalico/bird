@@ -8,14 +8,18 @@
 
 #include "ospf.h"
 
+char *ospf_is[]={ "down", "loop", "waiting", "point-to-point", "drother",
+  "backup", "dr" };
+
+
 void
 iface_chstate(struct ospf_iface *ifa, u8 state)
 {
   struct proto *p;
 
   p=(struct proto *)(ifa->proto);
-  debug("%s: Changing state of iface: %s from %u into %u.\n",
-    p->name, ifa->iface->name, ifa->state, state);
+  debug("%s: Changing state of iface: %s from \"%s\" into \"%s\".\n",
+    p->name, ifa->iface->name, ospf_is[ifa->state], ospf_is[state]);
   ifa->state=state;
   if(ifa->iface->flags & IF_MULTICAST)
   {
