@@ -16,6 +16,8 @@ void htonlsab(void *h, void *n, u8 type, u16 len);
 void ntohlsab(void *n, void *h, u8 type, u16 len);
 void lsasum_calculate(struct ospf_lsa_header *header, void *body,
   struct proto_ospf *p);
+u16 lsasum_check(struct ospf_lsa_header *h,void *body,struct proto_ospf *po);
+
 #define CMP_NEWER 1
 #define CMP_SAME 0
 #define CMP_OLDER -1

@@ -189,11 +189,10 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct proto *p,
   for(i=0;i<j;i++)
   {
     ntohlsah(plsa+i, &lsa);
-    /* FIXME Test Checksum */
     if(((he=ospf_hash_find(gr,lsa.id,lsa.rt,lsa.type))==NULL)||
       (lsa_comp(&lsa, &(he->lsa))==1))
     {
-      /* Is this confition necessary? */
+      /* Is this condition necessary? */
       if(ospf_hash_find(n->lsrqh,lsa.id,lsa.rt,lsa.type)==NULL)
       {
         sn=ospf_hash_get(n->lsrqh,lsa.id,lsa.rt,lsa.type);

@@ -83,10 +83,10 @@ void
 ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   struct ospf_iface *ifa, u16 size)
 {
-  u32 nrid, myrid;
+  u32 area,nrid,myrid;
   struct ospf_neighbor *n;
-  struct ospf_lsreq_header *lsh;
-  int length;
+  struct ospf_lsa_header *lsa;
+  u16 length;
   u8 i;
 
   nrid=ntohl(ps->ospf_packet.routerid);
@@ -99,6 +99,24 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       nrid);
     return ;
   }
-  /* FIXME Go on! */
+  if(n->state<NEIGHBOR_EXCHANGE)
+  {
+    debug("%s: Received lsupd in lesser state than EXCHANGE from (%u)\n",
+      p->name);
+    return;
+  }
+
+  lsa=(struct ospf_lsa_header *)(ps+1);
+  area=htonl(ps->ospf_packet.areaid);
+  for(i=0;i<ntohl(ps->lsano);i++)
+  {
+    if(lsa->checksum==lsasum_check(lsa,NULL,(struct proto_ospf *)p))
+    {
+      DBG("Processing update Type: %u ID: %u RT: %u\n",lsa->type,
+        ntohl(lsa->id), ntohl(lsa->rt));
+      /* FIXME Go on */
+    }
+    lsa=(struct ospf_lsa_header *)(((u8 *)lsa)+ntohs(lsa->length));
+  }
 }
 
