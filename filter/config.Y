@@ -39,8 +39,6 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST, UNSET, RETURN,
 %nonassoc THEN
 %nonassoc ELSE
 
-%token GEQ LEQ NEQ
-
 %type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn dynamic_attr function_call
 %type <f> filter filter_body where_filter
 %type <i> type break_command pair
@@ -297,8 +295,6 @@ function_call:
      }
    }
  ;
-
-/* NEQ, LEQ and GEQ are responsible for 42 shift/reduce conflicts */
 
 term:
    '(' term ')'      { $$ = $2; }

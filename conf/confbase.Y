@@ -41,6 +41,7 @@ CF_DECLS
 }
 
 %token END CLI_MARKER INVALID_TOKEN
+%token GEQ LEQ NEQ
 %token <i> NUM ENUM
 %token <i32> RTRID
 %token <a> IPA
@@ -50,7 +51,7 @@ CF_DECLS
 %type <i> expr bool pxlen
 %type <time> datetime
 
-%nonassoc '=' '<' '>' '~' '.'
+%nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ
 %left '+' '-'
 %left '*' '/' '%'
 %left '!'
