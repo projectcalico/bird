@@ -439,7 +439,11 @@ ospf_top_hash_u32(u32 a)
 static inline unsigned
 ospf_top_hash(struct top_graph *f, u32 lsaid, u32 rtrid, u32 type)
 {
+#if 1	/* Dirty patch to make rt table calculation work. */
+return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32((type==LSA_T_NET) ? lsaid : rtrid) + type) & f->hash_mask;
+#else
   return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32(rtrid) + type) & f->hash_mask;
+#endif
 }
 
 struct top_graph *
@@ -510,8 +514,21 @@ ospf_hash_find(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
 {
   struct top_hash_entry *e = f->hash_table[ospf_top_hash(f, lsa, rtr, type)];
 
+#if 1	/* Dirty patch to make rt table calculation work. */
+  if(type==LSA_T_NET)
+  {
+    while (e && (e->lsa.id != lsa || e->lsa.type != LSA_T_NET ))
+       e = e->next;
+  }
+  else
+  {
+     while (e && (e->lsa.id != lsa || e->lsa.type != type || e->lsa.rt != rtr))
+       e = e->next;
+  }
+#else
   while (e && (e->lsa.id != lsa || e->lsa.rt != rtr || e->lsa.type != type))
     e = e->next;
+#endif
   return e;
 }
 

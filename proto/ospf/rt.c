@@ -126,7 +126,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	      continue;
 	      break;
 	    case LSART_NET:
-	      tmp=ospf_hash_find(oa->gr,rtl->data,rtl->id,LSA_T_NET);
+	      tmp=ospf_hash_find(oa->gr,rtl->id,rtl->id,LSA_T_NET);
 	      if(tmp==NULL) DBG("Fuck!\n");
 	      else DBG("Found. :-)\n");
 	      break;
