@@ -128,7 +128,8 @@ neigh_dump_all(void)
   WALK_LIST(n, sticky_neigh_list)
     neigh_dump(n);
   for(i=0; i<NEIGH_HASH_SIZE; i++)
-    WALK_LIST(n, neigh_hash_table[i]);
+    WALK_LIST(n, neigh_hash_table[i])
+      neigh_dump(n);
   debug("\n");
 }
 
@@ -171,6 +172,17 @@ neigh_if_down(struct iface *i)
     }
 }
 
+static inline void
+neigh_prune_one(neighbor *n)
+{
+  if (n->proto->core_state != FS_FLUSHING)
+    return;
+  rem_node(&n->n);
+  if (n->iface)
+    rem_node(&n->if_n);
+  sl_free(neigh_slab, n);
+}
+
 void
 neigh_prune(void)
 {
@@ -181,13 +193,9 @@ neigh_prune(void)
   DBG("Pruning neighbors\n");
   for(i=0; i<NEIGH_HASH_SIZE; i++)
     WALK_LIST_DELSAFE(n, m, neigh_hash_table[i])
-      if (n->proto->core_state == FS_FLUSHING)
-	{
-	  rem_node(&n->n);
-	  if (n->iface)
-	    rem_node(&n->if_n);
-	  sl_free(neigh_slab, n);
-	}
+      neigh_prune_one(n);
+  WALK_LIST_DELSAFE(n, m, sticky_neigh_list)
+    neigh_prune_one(n);
 }
 
 void
