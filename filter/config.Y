@@ -8,7 +8,6 @@
 	FIXME (nonurgent): define keyword
 	FIXME: whole system of paths, path ~ string, path.prepend(), path.originate
 	FIXME: create community lists
-	FIXME: enumerational types
 	FIXME: write access to dynamic attributes.
  */
 
@@ -41,9 +40,9 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, CONST,
 %nonassoc THEN
 %nonassoc ELSE
 
-%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic enums
+%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn any_dynamic
 %type <f> filter filter_body
-%type <i> type break_command pair enum_rts
+%type <i> type break_command pair
 %type <e> set_item set_items switch_body
 %type <v> set_atom prefix prefix_s ipa
 %type <s> decls declsn one_decl function_params 
@@ -103,8 +102,8 @@ decls: /* EMPTY */ { $$ = NULL; }
 /* Declarations that have no ';' at the end. */
 declsn: one_decl { $$ = $1; }
  | declsn ';' one_decl {
-     $$ = $3;
-     $$->aux = (int) $1;
+     $$ = $1;
+     $$->aux = (int) $3;
    }
  ;
 
@@ -229,27 +228,6 @@ switch_body: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
-enum_rts:
-   RTSDUMMY { $$ = 0; }
- | RTSSTATIC { $$ = 1; }
- | RTSINHERIT { $$ = 2; }
- | RTSDEVICE { $$ = 3; }
- | RTSSTATIC_DEVICE { $$ = 4; }
- | RTSREDIRECT { $$ = 5; }
- | RTSRIP { $$ = 6; }
- | RTSRIP_EXT { $$ = 7; }
- | RTSOSPF { $$ = 8; }
- | RTSOSPF_EXT { $$ = 9; }
- | RTSOSPF_IA { $$ = 10; }
- | RTSOSPF_BOUNDARY { $$ = 11; }
- | RTSBGP { $$ = 12; }
- | RTSPIPE { $$ = 13; }
- ;
-
-enums:
-   enum_rts { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_ENUM_RTS; $$->a2.i = $1; } 
- ;
-
 constant:
    CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT; $$->a2.i = $3; }
  | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT;  $$->a2.i = $1; }
@@ -260,7 +238,6 @@ constant:
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | prefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
- | enums { $$ = $1; }
  ;
 
 any_dynamic:
@@ -285,6 +262,13 @@ term:
  | SYM {
      $$ = f_new_inst();
      switch ($1->class) {
+	case 0:		/* This should better be an enum */
+	  $$->code = 'c';
+	  $$->a1.i = $1->aux;
+	  if (($$->a1.i < T_ENUM_LO) || ($$->a1.i > T_ENUM_HI))
+	    cf_error("You used symbol and it was not enum.\n");
+	  $$->a2.i = (int) $1->aux2;
+	  break;
        case SYM_VARIABLE | T_INT:
        case SYM_VARIABLE | T_PAIR:
        case SYM_VARIABLE | T_PREFIX:
@@ -296,6 +280,7 @@ term:
 	 cf_error("Can not use this class of symbol (%s,%x) as variable.", $1->name, $1->class );
      }
    }
+
  | RTA '.' FROM { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, from); }
 
  | RTA '.' GW { $$ = f_new_inst(); $$->code = 'a'; $$->a1.i = T_IP; $$->a2.i = OFFSETOF(struct rta, gw); }
