@@ -1,13 +1,17 @@
 Core
 ~~~~
-- IPv6 support
+- IPv6: router advertisements
+- IPv6: test it!
+- IPv6: hashing functions etc.
 
-- counters (according to SNMP MIB?)
+- krt-iface: check whether the interface alias hack works
+- krt-iface and netlink: unnumberedness of tunnels
+
 - better memory allocators
 - real attribute cache
 - real neighbor cache
 
-- default preferences of protocols: prefer BGP over OSPF/RIP external routes?
+- preferences of protocols
 
 - static: check validity of route destination?
 - static: allow specifying a per-route filter program for setting route attributes?
@@ -23,11 +27,15 @@ Core
 - config: when parsing prefix, check zero bits
 - config: reconfiguration
 - config: useless rules when protocols disabled
+- config: remove protocol startup priority hacks?
+- config: better datetime format
 
 - krt: rescan interfaces when route addition fails?
 - krt: does PERSIST mode have any sense if kernel syncer is shut down as last?
 
 - tagging of external routes?
+
+- io: use poll if available
 
 - port to FreeBSD
 
@@ -41,6 +49,16 @@ show	<name>			# show everything you know about symbol <name>
 	static ??? [<name>]
 	symbols
 (disable|enable|restart) <protocol>	# or ALL?
+- showing of routing table as seen by given protocol
+
+Client
+~~~~~~
+- write it!
+
+Documentation
+~~~~~~~~~~~~~
+- write doctool
+- write documentation :|
 
 Cleanup
 ~~~~~~~

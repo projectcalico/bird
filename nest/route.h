@@ -270,7 +270,6 @@ typedef struct eattr {
   } u;
 } eattr;
 
-/* FIXME: Introduce real protocol numbers? */
 #define EAP_GENERIC 0			/* Generic attributes */
 #define EAP_BGP 1			/* BGP attributes */
 #define EAP_RIP 2			/* RIP */

@@ -30,7 +30,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
-#ifndef MSG_TRUNC			/* FIXME: Hack to circumvent omissions in glibc includes */
+#ifndef MSG_TRUNC			/* Hack: Several versions of glibc miss this one :( */
 #define MSG_TRUNC 0x20
 #endif
 
@@ -143,7 +143,7 @@ nl_error(struct nlmsghdr *h)
   e = (struct nlmsgerr *) NLMSG_DATA(h);
   ec = -e->error;
   if (ec)
-    log(L_WARN "Netlink: %s", strerror(ec)); /* FIXME: Shut up? */
+    log(L_WARN "Netlink: %s", strerror(ec));
   return ec;
 }
 
@@ -472,7 +472,6 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
   r.h.nlmsg_type = new ? RTM_NEWROUTE : RTM_DELROUTE;
   r.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
   r.h.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | (new ? NLM_F_CREATE|NLM_F_REPLACE : 0);
-  /* FIXME: Do we really need to process ACKs? */
 
   r.r.rtm_family = BIRD_AF;
   r.r.rtm_dst_len = net->n.pxlen;
@@ -666,7 +665,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 	  if (ng)
 	    ra.iface = ng->iface;
 	  else
-	    /* FIXME: Remove this warning? */
+	    /* FIXME: Remove this warning? Handle it somehow... */
 	    log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", ra.gw, net->n.prefix, net->n.pxlen);
 	}
       else

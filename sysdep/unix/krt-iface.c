@@ -191,7 +191,11 @@ krt_if_scan(struct kif_proto *p)
 	      break;
 	    }
 	}
-#ifdef CLEAN_WAY_WORKING_ONLY_ON_LINUX_2_1	/* FIXME */
+#if 0
+      /*
+       *  Linux 2.1 and higher supports this, but it's not needed since
+       *  we prefer to use Netlink there anyway.
+       */
       ic.ifc_req = NULL;
       ic.ifc_len = 999999999;
       if (ioctl(if_scan_sock, SIOCGIFCONF, &ic) < 0)

@@ -224,8 +224,6 @@ if_dump(struct iface *i)
     debug(" BC");
   if (i->flags & IF_MULTICAST)
     debug(" MC");
-  if (i->flags & IF_TUNNEL)
-    debug(" TUNL");
   if (i->flags & IF_LOOPBACK)
     debug(" LOOP");
   if (i->flags & IF_IGNORE)

@@ -43,7 +43,6 @@ struct iface {
 #define IF_UNNUMBERED 4
 #define IF_BROADCAST 8
 #define IF_MULTICAST 0x10
-#define IF_TUNNEL 0x20			/* FIXME: Remove? */
 #define IF_ADMIN_DOWN 0x40
 #define IF_LOOPBACK 0x80
 #define IF_IGNORE 0x100			/* Not to be used by routing protocols (loopbacks etc.) */
