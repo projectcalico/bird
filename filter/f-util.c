@@ -121,7 +121,7 @@ interpret(struct f_inst *what)
     case F_ERROR:
     case F_REJECT:
       res.type = T_RETURN;
-      res.val = (int) what->arg1;
+      res.val.i = (int) what->arg1;
       break;
     default:
       bug( "unknown return type: can not happen");
