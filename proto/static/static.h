@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Static Route Generator
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */

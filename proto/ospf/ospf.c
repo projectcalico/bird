@@ -90,6 +90,7 @@ ospf_postconfig(struct proto_config *c)
 
 struct protocol proto_ospf = {
   name:		"OSPF",
+  template:	"ospf%d",
   init:		ospf_init,
   dump:		ospf_dump,
   start:	ospf_start,

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Configuration Lexer
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -19,6 +19,7 @@
 #include "filter/filter.h"
 #include "conf/conf.h"
 #include "conf/cf-parse.tab.h"
+#include "lib/string.h"
 
 static struct keyword {
   byte *name;
@@ -231,19 +232,24 @@ cf_find_symbol(byte *c)
 }
 
 struct symbol *
-cf_default_name(char *prefix, int *counter)
+cf_default_name(char *template, int *counter)
 {
   char buf[32];
   struct symbol *s;
+  char *perc = strchr(template, '%');
 
-  do
+  for(;;)
     {
-      sprintf(buf, "%s%d", prefix, ++(*counter));
+      bsprintf(buf, template, ++(*counter));
       s = cf_find_sym(buf, cf_hash(buf));
-      if (!s) cf_error("Unable to generate default name");
+      if (!s)
+	break;
+      if (s->class == SYM_VOID)
+	return s;
+      if (!perc)
+	break;
     }
-  while (s->class != SYM_VOID);
-  return s;
+  cf_error("Unable to generate default name");
 }
 
 void

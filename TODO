@@ -26,9 +26,7 @@ Core
 - config: executable config files
 - config: when parsing prefix, check zero bits
 - config: useless rules when protocols disabled
-- config: remove protocol startup priority hacks?
 - config: better datetime format
-- config: avoid upper case in default protocol names
 
 - krt: rescan interfaces when route addition fails?
 - krt: does PERSIST mode have any sense if kernel syncer is shut down as last?
@@ -79,6 +77,7 @@ Cleanup
 - does everybody test return value of sk_open?
 - add references to RFC's we did follow
 - protocols: implement CLI hooks
+- protocols: implement reconfigure hook
 - protocols: use locking
 
 Various ideas

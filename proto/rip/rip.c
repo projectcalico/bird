@@ -789,6 +789,7 @@ rip_postconfig(struct proto_config *c)
 
 struct protocol proto_rip = {
   name: "RIP",
+  template: "rip%d",
   preconfig: rip_preconfig,
   postconfig: rip_postconfig,
   get_route_info: rip_get_route_info,

@@ -1,7 +1,7 @@
 /*
  *	BIRD -- Static Route Generator
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -175,11 +175,19 @@ static_init(struct proto_config *c)
   return p;
 }
 
+static int
+static_reconfigure(struct proto *p, struct proto_config *new)
+{
+  return 0;
+}
+
 struct protocol proto_static = {
   name:		"Static",
+  template:	"static%d",
   init:		static_init,
   dump:		static_dump,
   start:	static_start,
+  reconfigure:	static_reconfigure,
 };
 
 static void

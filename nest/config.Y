@@ -76,7 +76,7 @@ proto_start: PROTOCOL
 
 proto_name:
    /* EMPTY */ {
-     struct symbol *s = cf_default_name(this_proto->protocol->name, &this_proto->protocol->name_counter);
+     struct symbol *s = cf_default_name(this_proto->protocol->template, &this_proto->protocol->name_counter);
      s->class = SYM_PROTO;
      s->def = this_proto;
      this_proto->name = s->name;

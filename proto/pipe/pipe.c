@@ -163,6 +163,7 @@ pipe_reconfigure(struct proto *p, struct proto_config *new)
 
 struct protocol proto_pipe = {
   name:		"Pipe",
+  template:	"pipe%d",
   postconfig:	pipe_postconfig,
   init:		pipe_init,
   start:	pipe_start,

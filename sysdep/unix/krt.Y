@@ -1,7 +1,7 @@
 /*
  *	BIRD -- UNIX Kernel Syncer Configuration
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -70,7 +70,7 @@ kif_proto_start: proto_start DEVICE {
    }
  ;
 
-CF_ADDTO(kif_proto, kif_proto_start '{')
+CF_ADDTO(kif_proto, kif_proto_start proto_name '{')
 CF_ADDTO(kif_proto, kif_proto proto_item ';')
 CF_ADDTO(kif_proto, kif_proto kif_item ';')
 
