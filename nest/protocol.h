@@ -92,9 +92,34 @@ struct proto {
   unsigned core_state;			/* Core state machine (see below) */
   unsigned core_goal;			/* State we want to reach (see below) */
 
+  /*
+   *	General protocol hooks:
+   *
+   *	   if_notify	Notify protocol about interface state changes.
+   *	   rt_notify	Notify protocol about routing table updates.
+   *	   neigh_notify	Notify protocol about neighbor cache events.
+   *	   make_tmp_attrs  Construct ea_list from private attrs stored in rte.
+   *	   store_tmp_attrs Store private attrs back to the rte.
+   *	   import_control  Called as the first step of the route importing process.
+   *			It can construct a new rte, add private attributes and
+   *			decide whether the route shall be imported: 1=yes, -1=no,
+   *			0=process it through the import filter set by the user.
+   */
+
   void (*if_notify)(struct proto *, unsigned flags, struct iface *new, struct iface *old);
   void (*rt_notify)(struct proto *, struct network *net, struct rte *new, struct rte *old);
   void (*neigh_notify)(struct neighbor *neigh);
+  struct ea_list *(*make_tmp_attrs)(struct rte *rt, struct linpool *pool);
+  void (*store_tmp_attrs)(struct rte *rt, struct ea_list *attrs);
+  int (*import_control)(struct proto *, struct rte **rt, struct ea_list **attrs, struct linpool *pool);
+
+  /*
+   *	Routing entry hooks (called only for rte's belonging to this protocol):
+   *
+   *	   rte_better	Compare two rte's and decide which one is better (1=first, 0=second).
+   *	   rte_insert	Called whenever a rte is inserted to a routing table.
+   *	   rte_remove	Called whenever a rte is removed from the routing table.
+   */
 
   int (*rte_better)(struct rte *, struct rte *);
   void (*rte_insert)(struct network *, struct rte *);
