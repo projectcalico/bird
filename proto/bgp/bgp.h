@@ -53,7 +53,6 @@ struct bgp_conn {
 struct bgp_proto {
   struct proto p;
   struct bgp_config *cf;		/* Shortcut to BGP configuration */
-  node bgp_node;			/* Node in global BGP protocol list */
   unsigned local_as, remote_as;
   int is_internal;			/* Internal BGP connection (local_as == remote_as) */
   u32 local_id;				/* BGP identifier of this router */

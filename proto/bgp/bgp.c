@@ -22,7 +22,6 @@
 struct linpool *bgp_linpool;		/* Global temporary pool */
 static sock *bgp_listen_sk;		/* Global listening socket */
 static int bgp_counter;			/* Number of protocol instances using the listening socket */
-static list bgp_list;			/* List of active BGP instances */
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established" };
 
 static void bgp_connect(struct bgp_proto *p);
@@ -32,7 +31,6 @@ static void bgp_setup_listen_sk(void);
 void
 bgp_close(struct bgp_proto *p)
 {
-  rem_node(&p->bgp_node);
   ASSERT(bgp_counter);
   bgp_counter--;
   if (!bgp_counter)
@@ -284,28 +282,35 @@ bgp_initiate(struct bgp_proto *p)
 static int
 bgp_incoming_connection(sock *sk, int dummy)
 {
+  struct proto_config *pc;
   node *n;
+  int match = 0;
 
   DBG("BGP: Incoming connection from %I port %d\n", sk->daddr, sk->dport);
-  WALK_LIST(n, bgp_list)
-    {
-      struct bgp_proto *p = SKIP_BACK(struct bgp_proto, bgp_node, n);
-      if (ipa_equal(p->cf->remote_ip, sk->daddr) &&
-	  (p->p.proto_state == PS_START || p->p.proto_state == PS_UP))
-	{
-	  BGP_TRACE(D_EVENTS, "Incoming connection from %I port %d", sk->daddr, sk->dport);
-	  if (p->incoming_conn.sk)
-	    {
-	      DBG("BGP: But one incoming connection already exists, how is that possible?\n");
-	      break;
-	    }
-	  bgp_setup_conn(p, &p->incoming_conn);
-	  bgp_setup_sk(p, &p->incoming_conn, sk);
-	  bgp_send_open(&p->incoming_conn);
-	  return 0;
-	}
-    }
-  log(L_AUTH "BGP: Unauthorized connect from %I port %d", sk->daddr, sk->dport);
+  WALK_LIST(pc, config->protos)
+    if (pc->protocol == &proto_bgp && pc->proto)
+      {
+	struct bgp_proto *p = (struct bgp_proto *) pc->proto;
+	if (ipa_equal(p->cf->remote_ip, sk->daddr))
+	  {
+	    match = 1;
+	    if (p->p.proto_state == PS_START || p->p.proto_state == PS_UP)
+	      {
+		BGP_TRACE(D_EVENTS, "Incoming connection from %I port %d", sk->daddr, sk->dport);
+		if (p->incoming_conn.sk)
+		  {
+		    DBG("BGP: But one incoming connection already exists, how is that possible?\n");
+		    break;
+		  }
+		bgp_setup_conn(p, &p->incoming_conn);
+		bgp_setup_sk(p, &p->incoming_conn, sk);
+		bgp_send_open(&p->incoming_conn);
+		return 0;
+	      }
+	  }
+      }
+  if (!match)
+    log(L_AUTH "BGP: Unauthorized connect from %I port %d", sk->daddr, sk->dport);
   rfree(sk);
   return 0;
 }
@@ -395,12 +400,10 @@ bgp_start(struct proto *P)
   p->incoming_conn.state = BS_IDLE;
   p->startup_delay = 0;
 
-  if (!bgp_counter++)
-    init_list(&bgp_list);
+  bgp_counter++;
   bgp_setup_listen_sk();
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);
-  add_tail(&bgp_list, &p->bgp_node);
 
   /*
    *  Before attempting to create the connection, we need to lock the
