@@ -329,6 +329,7 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
   u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, 0);
   u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 0);
   u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
+  int inas=0;
 
   ext=mb_alloc(p->pool,sizeof(struct ospf_lsa_ext)+
     sizeof(struct ospf_lsa_ext_tos));
@@ -348,7 +349,12 @@ originate_ext_lsa_body(net *n, rte *e, struct proto_ospf *po, struct ea_list *at
     }
   et->padding=0;
   et->tag=tag;
-  if(1) et->fwaddr= ipa_from_u32(0); /* FIXME if e->attrs->iface is not in my AS*/
+  if(ipa_compare(e->attrs->gw,ipa_from_u32(0))!=0)
+  {
+     if(find_iface((struct proto_ospf *)p, e->attrs->iface)!=NULL) inas=1;
+  }
+    
+  if(!inas) et->fwaddr= ipa_from_u32(0);
   else et->fwaddr=e->attrs->gw;
   return ext;
 }
