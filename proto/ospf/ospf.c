@@ -82,7 +82,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   if(ps->options!=ifa->options)
   {
     log("%s: Bad OSPF packet from %d received: options mismatch.",
-      p->name, nrid);
+      p->name, nrid);	/* FIXME: This not good */
     log("%s: Discarding",p->name);
     return;
   }
@@ -115,9 +115,7 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
   n->bdr=ntohl(ps->bdr);
   n->priority=ps->priority;
   n->options=ps->options;
-  tm_start(ifa->hello_timer,ifa->deadc*ifa->helloint);
-
-  /* XXXX */
+  tm_start(n->inactim,ifa->deadc*ifa->helloint);
 
   switch(ifa->state)
   {
@@ -467,12 +465,12 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
   /* Add hello timer */
   ifa->hello_timer=tm_new(pool);
   ifa->hello_timer->data=ifa;
-  ifa->hello_timer->randomize=1;
+  ifa->hello_timer->randomize=0;
   if(ifa->helloint==0) ifa->helloint=HELLOINT_D;
   ifa->hello_timer->hook=hello_timer_hook;
   ifa->hello_timer->recurrent=ifa->helloint;
   tm_start(ifa->hello_timer,ifa->helloint);
-  DBG("%s: Installing hello timer.\n", p->name);
+  DBG("%s: Installing hello timer. (%d)\n", p->name, ifa->helloint);
   if((ifa->type!=OSPF_IT_PTP))
   {
     /* Install wait timer on NOT-PtP interfaces */
@@ -483,8 +481,7 @@ ospf_add_timers(struct ospf_iface *ifa, pool *pool, int wait)
     ifa->wait_timer->recurrent=0;
     ifa->state=OSPF_IS_WAITING;
     tm_start(ifa->wait_timer,(wait!=0 ? wait : WAIT_DMH*ifa->helloint));
-    DBG(p->name);
-    DBG(": Installing wait timer.\n");
+    DBG("%s: Installing wait timer. (%d)\n", p->name, (wait!=0 ? wait : WAIT_DMH*ifa->helloint));
   }
   else ifa->state=OSPF_IS_PTP;
 }
