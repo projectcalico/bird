@@ -106,6 +106,8 @@ configuration primitives, &lt;cf&gt; is fragment of configuration within normal 
         vi /usr/local/etc/bird.conf
 </code>
 
+<p>You can use <tt>./configure --help</tt> to get list of configure options.
+
 <sect1>About routing tables
 
 <p>Bird has one or more routing tables. Each routing table contains
@@ -231,6 +233,18 @@ protocol rip {
 						  
 </descrip>
 
+<sect1>Client
+
+<p>You can use command-line client <file>birdc</file> to talk with
+running BIRD. Communications is done using <file/bird.ctl/ unix domain
+socket (unless changed with <tt/-s/ option given to both server and
+client). Client can do simple actions such as enabling/disabling
+protocols, telling BIRD to show various information, telling it to
+show routing table filtered by any filter, or telling bird to
+reconfigure. Press <tt/?/ at any time to get online help. Option
+<tt/-v/ can be passed to client, telling it to dump numeric return
+codes.
+
 <sect>Filters
 
 <sect1>Introduction
@@ -306,7 +320,7 @@ is rejected.
 <sect1>Data types
 
 <p>Each variable and each value has certain type. Unlike C, filters distinguish between integers and
-booleans (that is to prevent you from shooting in the foot).
+booleans and between integers and enums (that is to prevent you from shooting in the foot).
 
 <descrip>
 	<tag/bool/ this is boolean type, it can have only two values, <cf/TRUE/ and
@@ -314,7 +328,7 @@ booleans (that is to prevent you from shooting in the foot).
 	  statements.
 
 	<tag/int/ this is common integer, you can expect it to store signed values from -2000000000
-	  to +2000000000.
+	  to +2000000000. Overflows are not checked.
 
 	<tag/pair/ this is pair of two short integers. Each component can have values from 0 to
 	  65535. Constant of this type is written as <cf/(1234,5678)/.
@@ -406,12 +420,13 @@ if 1234 = i then printn "."; else { print "*** FAIL: if 1 else"; }
 
 <sect1>Route attributes
 
-<p>Filter is implicitly passed route, and it can access its attributes, just like it accesses variables.
+<p>Filter is implicitly passed route, and it can access its
+attributes, just like it accesses variables. Access to undefined
+attribute results in runtime error; you can check if attribute is
+defined using <cf>defined( <m>attribute</m> )</cf> syntax.
+
 
 <descrip>
-	<tag>defined( <m>attribute</m> )</tag>
-	returns TRUE if given attribute is defined. Access to undefined attribute results in runtime error.
-
 	<tag/<m/prefix/ network/
 	network this route is talking about.
 

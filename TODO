@@ -89,11 +89,6 @@ o  Napsat neco o tom, jak filtry debugovat -- ze existuje trasovani filtru
 o  `filters internally work ...' patri do progdoc.
 o  Vysvetlit nesting a zastinovani.
 o  Nadefinovat, co se stane, kdyz funkce nevrati hodnotu, i kdyz ma.
-o  Typy: tez rici, ze integery se lisi nejen od booleanu, ale take od enumu.
-o  Boolean: TRUE nebo true? U kazdeho typu zminit, jak vypadaji literaly
-   tohoto typu a psat je vzdycky tt fontem.
-o  int: Nadefinovat rozsah a rici, ze preteceni se nekontroluje. Zminit
-   hexadecimalni konstanty.
 o  ip: IPv4/IPv6 nezavisi na verzi BIRDa, nybrz na compile-time konfiguraci.
 o  ip: .mask zminit zvlast mezi specialnimi operatory.
 o  set: lepe vysvetlit matchovani prefixu, ukazat na prikladu.
@@ -102,11 +97,6 @@ o  bgpmask: vysvetlit matchovani.
 o  operations: prejmenovat na `operators', mela by to asi byt tabulka
    operatoru, u kazdeho receno, na jakych typech je definovan a jakeho
    typu je vysledek.
-o  operations: ~ pracuje i na clistech, neni-liz pravda?
-o  Examply by mohly byt krapet smysluplnejsi.
-o  defined(): To, ze undefined attribute cannot be accessed, by melo byt
-   rozhodne receno nekde jinde (v uvodu sekce) -- vzdyt u defined samotneho
-   to mozne je.
 o  attributes: nemyslim, ze jsou vsechny -- co treba scope a preference?
 o  print: a coz takhle printn apod.?
 o  Mezi prikazy nikde neni zminen napriklad accept a reject.
