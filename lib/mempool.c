@@ -150,13 +150,17 @@ lp_dump(resource *r)
 {
   linpool *m = (linpool *) r;
   struct lp_chunk *c;
-  int cnt;
+  int cnt, cntl;
 
   for(cnt=0, c=m->first; c; c=c->next, cnt++)
     ;
-  debug("(chunk=%d threshold=%d count=%d total=%d)\n",
+  for(cntl=0, c=m->first_large; c; c=c->next, cntl++)
+    ;
+  debug("(chunk=%d threshold=%d count=%d+%d total=%d+%d)\n",
 	m->chunk_size,
 	m->threshold,
 	cnt,
-	m->total);
+	cntl,
+	m->total,
+	m->total_large);
 }

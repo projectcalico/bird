@@ -95,9 +95,8 @@ proto_new(struct proto_config *c, unsigned size)
 static void
 proto_init_instance(struct proto *p)
 {
-  struct proto_config *c = p->cf;
-
-  p->pool = rp_new(proto_pool, c->name);
+  /* Here we cannot use p->cf->name since it won't survive reconfiguration */
+  p->pool = rp_new(proto_pool, p->proto->name);
   p->attn = ev_new(p->pool);
   p->attn->data = p;
 }

@@ -37,6 +37,7 @@ pool *
 rp_new(pool *p, char *name)
 {
   pool *z = ralloc(p, &pool_class);
+  z->name = name;
   init_list(&z->inside);
   return z;
 }
@@ -62,7 +63,7 @@ pool_dump(resource *P)
   pool *p = (pool *) P;
   resource *r;
 
-  debug(" %s\n", p->name);
+  debug("%s\n", p->name);
   indent += 3;
   WALK_LIST(r, p->inside)
     rdump(r);
@@ -93,7 +94,7 @@ rdump(void *res)
   debug(x, "", (int) r);
   if (r)
     {
-      debug("%-6s", r->class->name);
+      debug("%s ", r->class->name);
       r->class->dump(r);
     }
   else
