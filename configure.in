@@ -9,7 +9,7 @@ AC_CONFIG_AUX_DIR(tools)
 AC_ARG_ENABLE(debug,[  --enable-debug          enable internal debugging routines (default: enabled)],,enable_debug=yes)
 AC_ARG_ENABLE(client,[  --enable-client         enable building of BIRD client (default: enabled)],,enable_client=yes)
 AC_ARG_WITH(sysconfig,[  --with-sysconfig=FILE   use specified BIRD system configuration file])
-AC_ARG_WITH(protocols,[  --with-protocols=LIST   include specified routing protocols (default: rip,static,pipe)],,[with_protocols="rip,static,pipe"])
+AC_ARG_WITH(protocols,[  --with-protocols=LIST   include specified routing protocols (default: rip,static,pipe,bgp)],,[with_protocols="rip,static,pipe,bgp"])
 AC_ARG_WITH(sysinclude,[  --with-sysinclude=PATH  search for system includes on specified place])
 
 if test "$srcdir" = . ; then
