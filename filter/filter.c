@@ -203,10 +203,11 @@ void
 filters_postconfig(void)
 {
   struct f_val res;
-  printf( "Launching startup function...\n" );
-  if (startup_func)
+  if (startup_func) {
+    printf( "Launching startup function...\n" );
     res = interpret(startup_func);
-  if (res.type = F_ERROR)
-    die( "Startup function resulted in error." );
-  printf( "done\n" );
+    if (res.type = F_ERROR)
+      die( "Startup function resulted in error." );
+    printf( "done\n" );
+  }
 } 
