@@ -241,7 +241,7 @@ password_begin_list:
   PASSWORDS {
      this_p_list = cfg_alloc(sizeof(list));
      init_list(this_p_list);
-     $$ = this_p_list;
+     $$ = (void *) this_p_list;
   }
 ;
 
@@ -257,7 +257,7 @@ password_begin:
      this_p_item->accto = TIME_INFINITY;
      this_p_item->id = 1;
      add_tail(this_p_list, &this_p_item->n);
-     $$ = this_p_list;
+     $$ = (void *) this_p_list;
   }
 ;
 

@@ -33,6 +33,7 @@ void tm_dump_all(void);
 extern bird_clock_t now;		/* Time in seconds since unknown epoch */
 
 bird_clock_t tm_parse_date(char *);	/* Convert date to bird_clock_t */
+bird_clock_t tm_parse_datetime(char *);	/* Convert date to bird_clock_t */
 void tm_format_date(char *, bird_clock_t);	/* Convert bird_clock_t to date */
 #define TM_DATE_BUFFER_SIZE 12		/* Buffer size required by tm_format_date */
 void tm_format_datetime(char *, bird_clock_t);	/* Convert bird_clock_t to date + time */
