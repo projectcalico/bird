@@ -102,13 +102,17 @@ struct ospf_iface {
   ip_addr bdrip;	/* Backup DR */
   u32 bdrid;
   u8 type;		/* OSPF view of type */
-  u8 strictnbma;	/* Can I talk with unknown neighbors? */
-  u8 stub;		/* Inactive interface */
 #define OSPF_IT_BCAST 0
 #define OSPF_IT_NBMA 1
 #define OSPF_IT_PTP 2
 #define OSPF_IT_VLINK 3
 #define OSPF_IT_UNDEF 4
+  u8 strictnbma;	/* Can I talk with unknown neighbors? */
+  u8 stub;		/* Inactive interface */
+  u8 ioprob;
+#define OSPF_I_OK 0	/* Everything OK */
+#define OSPF_I_MC 1	/* I didn't open MC socket */
+#define OSPF_I_IP 2	/* I didn't open IP socet */
   u8 state;		/* Interface state machine */
 #define OSPF_IS_DOWN 0		/* Not working */
 #define OSPF_IS_LOOP 1		/* Should never happen */

@@ -578,7 +578,10 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	    "Interface %s is now stub.",
 	    ifa->iface->name);
 	}
-	if((ip1->stub!=0)&&(ip2->stub==0))
+	if((ip1->stub!=0)&&(ip2->stub==0)&&
+	  ((ifa->ioprob & OSPF_I_IP)==0)&&
+	  (((ifa->ioprob & OSPF_I_MC)==0)||
+	  (ifa->type==OSPF_IT_NBMA)))
 	{
 	  ifa->stub=ip2->stub;
 	  OSPF_TRACE(D_EVENTS,
