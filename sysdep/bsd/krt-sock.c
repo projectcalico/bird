@@ -107,7 +107,6 @@ krt_sock_send(int cmd, rte *e, char *name)
   struct ks_msg msg;
   char *body = (char *)msg.buf;
   sockaddr gate, mask, dst;
-  static struct iface *loop = NULL;
 
   DBG("krt-sock: send %I/%d via %I", net->n.prefix, net->n.pxlen, a->gw);
 
@@ -146,20 +145,16 @@ krt_sock_send(int cmd, rte *e, char *name)
    */
   if(!i)
   {
-    if(!loop)
-    {
-      i = HEAD(iface_list);
+    i = HEAD(iface_list);
 
-      WALK_LIST(j, iface_list)
+    WALK_LIST(j, iface_list)
+    {
+      if (j->flags & IF_LOOPBACK)
       {
-        if (j->flags & IF_LOOPBACK)
-        {
-          i = j;
-          break;
-        }
+        i = j;
+        break;
       }
     }
-    i = loop;
   }
 
   switch (a->dest)
