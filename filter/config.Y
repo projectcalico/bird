@@ -95,8 +95,7 @@ decls: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
-/* Declarations that have no ';' at the end.
-   Ouch, this is responsible for 13 or so shift/reduce conflicts. */
+/* Declarations that have no ';' at the end. */
 declsn: one_decl { $$ = $1; }
  | declsn ';' one_decl {
      $$ = $3;
@@ -234,7 +233,6 @@ constant:
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; }
  | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_PAIR;  $$->a2.i = $1; }
  | ipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
-	   /* Replace with prefix_s to get rid of shift/reduce conflicts. */
  | prefix  {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
  ;
