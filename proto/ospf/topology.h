@@ -37,5 +37,21 @@ struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr, u32 
 struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr, u32 type);
 void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
 
+struct top_graph_rtlsa {
+  u8 Vbit;
+  u8 Ebit;
+  u8 Bbit;
+  int links;		/* Number of links */
+  struct top_graph_rtlsa_link *flink;
+};
+
+struct top_graph_rtlsa_link {	/* FIXME Completely ignoring TOS */
+  u32 id;
+  u32 data;
+  u8 type;
+  u16 metric;
+  struct top_graph_rtlsa_link *next;
+};
+
 
 #endif /* _BIRD_OSPF_TOPOLOGY_H_ */
