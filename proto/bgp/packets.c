@@ -373,6 +373,9 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 	rte_update(bgp->p.table, n, &bgp->p, NULL);
     }
 
+  if (!attr_len && !nlri_len)		/* shortcut */
+    return;
+
   a0 = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool, nlri_len);
   if (a0 && nlri_len)
     {
