@@ -412,6 +412,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
         &&lsadb&&can_flush_lsa(oa))
       {
         flush_lsa(lsadb,oa);
+        schedule_rtcalc(oa);
         continue;
       }
 
