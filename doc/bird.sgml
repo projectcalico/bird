@@ -31,23 +31,64 @@ This document contains documentation for BIRD Internet Routing Daemon
 
 <sect1>What is BIRD
 
-<p><label id="intro"> You may wonder what 'BIRD' means. It is acronym of 'BIRD Internet Routing
-Daemon', and we think that's cool name. 
+<p><label id="intro">
+The name `BIRD' is actually an acronym standing for `BIRD Internet Routing Daemon'.
+Let's take a closer look at the meaning of the name:
 
-<p>Routers are devices for connecting networks. Router has several
-network interfaces, listens for packets on them, and forwards packets
-closer to their destination. For simple situations, such as tree,
-static routing is enough and your kernel can do routing for you. For
-more complicated topologies, you need routers to talk to eachother (in
-order to discover alternate ways to deliver packets after network
-failure). Routing deamon is the beast that accomplishes this
-communication. It does not forward packets itself, but it tells kernel
-where to forward them. Its task is similar to what firmware of Cisco routers does,
-or what gated <HTMLURL URL="http://www.gated.org/"> or GNU zebra <HTMLURL
-URL="http://www.zebra.org/"> does. However, you can not run Cisco's firmware on "normal" computer
-and gated is really hard to configure and comes under wrong license. BIRD is being developed on
-Charles University, Prague, and can be freely distributed under terms of GNU General Public
-License. BIRD is designed to be portable; it is primarily developed on Linux.
+<p><em/BIRD/: Well, we think we have already explained that. It's an acronym standing
+for `BIRD Internet Routing Daemon', you remember, don't you? :-)
+
+<p><em/Internet Routing/: It's a program (well, a daemon, as you are going to discover in a moment)
+which works as a dynamic router in an Internet type network (that is, in a network running either
+the IPv4 or the IPv6 protocol). Routers are devices which forward packets between interconnected
+networks in order to allow hosts not connected directly to the same local area network to
+communicate with each other. They also communicate with other routers in the Internet to discover
+the topology of the network which allows them to find optimal (in terms of some metric) rules for
+forwarding of packets (which will be called routes in the rest of this document) and to adapt to the
+changing conditions such as outages of network links, building of new connections and so on. Most of
+these routers are costly dedicated devices running obscure firmware which is hard to configure and
+not open to any changes.  Fortunately, most operating systems of the UNIX family allow an ordinary
+computer to act as a router and forward packets belonging to the other hosts, but only according to
+a statically configured table.
+
+<p>A <em/Routing Daemon/ is in UNIX terminology a non-interactive program running on
+background which does the dynamic part of Internet routing, that is it communicates
+with the other routers, calculates routing tables and sends them to the OS kernel
+which does the actual packet forwarding.
+
+<p>There already exist some such routing daemons (routed, GateD <HTMLURL URL="http://www.gated.org/">
+and Zebra <HTMLURL URL="http://www.zebra.org">), but their capabilities are very limited and
+they are very hard to configure and maintain.
+
+<p>BIRD is an Internet Routing Daemon designed to avoid all of these shortcomings,
+to support all the routing technology used in today's Internet or planned to be
+used in near future and to have a clean extensible architecture allowing new routing
+protocols to be incorporated easily. Among other features, BIRD supports:
+
+<itemize>
+	<item>both IPv4 and IPv6 protocols
+	<item>multiple routing tables
+	<item>the Border Gateway Protocol (BGPv4)
+	<item>the Routing Interchange Protocol (RIPv2)
+	<item>the Open Shortest Path First protocol (OSPFv2)
+	<item>a virtual protocol for exchange of routes between internal routing tables
+	<item>a command-line interface allowing on-line control and inspection
+		of status of the daemon
+	<item>soft reconfiguration (no need to use complex online commands
+		to change the configuration, just edit the configuration file
+		and notify BIRD to re-read it and it will smoothly switch
+		to the new configuration, not disturbing routing protocols
+		unless they are affected by the configuration changes)
+	<item>powerful language for route filtering
+</itemize>
+
+<p>BIRD has been developed at the Faculty of Math and Physics, Charles University, Prague,
+Czech Republic as a student project. It's distributed under the terms of the GNU General
+Public License.
+
+<p>BIRD has been designed to work on all UNIX-like systems. It has been developed and
+tested under Linux 2.0 to 2.3, but porting to other systems (even non-UNIX ones) should
+be relatively easy due to its highly modular architecture).
 
 <sect1>About this documentation
 
@@ -635,5 +676,5 @@ programmers documentation, web pages mailing lists and similar stuff.
 
 
 <!--
-# LocalWords: IPv doctype verb GPL Cisco sgml html Cisco's unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md eval ipaddress pxlen netmask bgppath bgpmask clist gw RTS EXT quitbird nolisten UID timeouttime garbagetime RFC doc 
+# LocalWords: IPv doctype verb GPL sgml html unix dvi sgmltools linuxdoc dtd descrip config conf syslog stderr auth ospf bgp router's IP expr num inst bool int ip px len enum cf md eval ipaddress pxlen netmask bgppath bgpmask clist gw RTS EXT quitbird nolisten UID timeouttime garbagetime RFC doc 
 -->
