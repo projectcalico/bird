@@ -412,7 +412,7 @@ sk_open(sock *s)
 	if (has_src)
 	  set_inaddr(&mreq, s->saddr);
 	else
-	  set_inaddr(&mreq, s->iface->ifa->ip);
+	  set_inaddr(&mreq, s->iface->ip);
 	memcpy(&mreq_add.imr_interface, &mreq, sizeof(struct in_addr));
 #endif
 	set_inaddr(&mreq_add.imr_multiaddr, s->daddr);

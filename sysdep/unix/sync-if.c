@@ -30,7 +30,6 @@ static void
 scan_ifs(struct ifreq *r, int cnt)
 {
   struct iface i;
-  struct ifa a;
   char *err;
   unsigned fl;
   ip_addr netmask;
@@ -39,13 +38,11 @@ scan_ifs(struct ifreq *r, int cnt)
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
     {
       bzero(&i, sizeof(i));
-      bzero(&a, sizeof(a));
       debug("%s\n", r->ifr_ifrn.ifrn_name);
       strncpy(i.name, r->ifr_ifrn.ifrn_name, sizeof(i.name) - 1);
       i.name[sizeof(i.name) - 1] = 0;
-      i.ifa = &a;
-      get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.ip, NULL);
-      l = ipa_classify(a.ip);
+      get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &i.ip, NULL);
+      l = ipa_classify(i.ip);
       if (l < 0 || !(l & IADDR_HOST))
 	{
 	  log(L_ERR "%s: Invalid interface address", i.name);
@@ -76,15 +73,15 @@ scan_ifs(struct ifreq *r, int cnt)
 	  log(L_ERR "%s: Invalid netmask", i.name);
 	  goto bad;
 	}
-      a.pxlen = l;
+      i.pxlen = l;
 
       if (fl & IFF_POINTOPOINT)
 	{
 	  i.flags |= IF_UNNUMBERED;
-	  a.pxlen = BITS_PER_IP_ADDRESS;
+	  i.pxlen = BITS_PER_IP_ADDRESS;
 	  if (ioctl(if_scan_sock, SIOCGIFDSTADDR, r) < 0)
 	    { err = "SIOCGIFDSTADDR"; goto faulty; }
-	  get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.opposite, NULL);
+	  get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &i.opposite, NULL);
 	}
       if (fl & IFF_LOOPBACK)
 	i.flags |= IF_LOOPBACK | IF_IGNORE;
@@ -93,24 +90,24 @@ scan_ifs(struct ifreq *r, int cnt)
 #endif
 	i.flags |= IF_MULTICAST;
 
-      a.prefix = ipa_and(a.ip, ipa_mkmask(a.pxlen));
-      if (a.pxlen < 32)
+      i.prefix = ipa_and(i.ip, ipa_mkmask(i.pxlen));
+      if (i.pxlen < 32)
 	{
-	  a.brd = ipa_or(a.prefix, ipa_not(ipa_mkmask(a.pxlen)));
-	  if (ipa_equal(a.ip, a.prefix) || ipa_equal(a.ip, a.brd))
+	  i.brd = ipa_or(i.prefix, ipa_not(ipa_mkmask(i.pxlen)));
+	  if (ipa_equal(i.ip, i.prefix) || ipa_equal(i.ip, i.brd))
 	    {
 	      log(L_ERR "%s: Using network or broadcast address for interface", i.name);
 	      goto bad;
 	    }
 	  if (fl & IFF_BROADCAST)
 	    i.flags |= IF_BROADCAST;
-	  if (a.pxlen < 30)
+	  if (i.pxlen < 30)
 	    i.flags |= IF_MULTIACCESS;
 	  else
-	    a.opposite = ipa_opposite(a.ip);
+	    i.opposite = ipa_opposite(i.ip);
 	}
       else
-	a.brd = a.opposite;
+	i.brd = i.opposite;
 
       if (ioctl(if_scan_sock, SIOCGIFMTU, r) < 0)
 	{ err = "SIOCGIFMTU"; goto faulty; }
@@ -124,6 +121,7 @@ scan_ifs(struct ifreq *r, int cnt)
 
       if_update(&i);
     }
+  if_end_update();
 }
 
 static void

@@ -31,6 +31,7 @@ handle_sigusr(int sig)
   sk_dump_all();
   tm_dump_all();
   if_dump_all();
+  neigh_dump_all();
   rta_dump_all();
   rt_dump_all();
 
