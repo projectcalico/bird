@@ -642,8 +642,12 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
     if (!(rif->mode & IM_NOLISTEN))
       if (sk_open(rif->sock)<0) {
 	log( L_ERR "%s: could not listen on %s", P_NAME, rif->iface ? rif->iface->name : "(dummy)" );
-	/* Don't try to transmit into this one? Well, why not? This should not happen, anyway :-) */
-	/* FIXME: This is *wrong*! Try it. */
+	if (rif->iface) {
+	  rfree(rif->sock);
+	  mb_free(rif);
+	  return NULL;
+	}
+	/* On dummy, we just return non-working socket, so that user gets error every time anyone requests table */
       }
 
   TRACE(D_EVENTS, "Listening on %s, port %d, mode %s (%I)", rif->iface ? rif->iface->name : "(dummy)", P_CF->port, rif->multicast ? "multicast" : "broadcast", rif->sock->daddr );
@@ -663,9 +667,11 @@ rip_real_if_add(struct object_lock *lock)
     bug("This can not happen! It existed few seconds ago!" );
   DBG("adding interface %s\n", iface->name );
   rif = new_iface(p, iface, iface->flags, k);
-  add_head( &P->interfaces, NODE rif );
-  DBG("Adding object lock of %p for %p\n", lock, rif);
-  rif->lock = lock;
+  if (rif) {
+    add_head( &P->interfaces, NODE rif );
+    DBG("Adding object lock of %p for %p\n", lock, rif);
+    rif->lock = lock;
+  } else { rfree(rif->lock); }
 }
 
 static void
