@@ -6,6 +6,24 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Lexical analyser
+ *
+ * The lexical analyser used for configuration files and CLI commands
+ * is generated using the |flex| tool accompanied with a couple of
+ * functions maintaining the hash tables containing information about
+ * symbols and keywords.
+ *
+ * Each symbol is represented by a &symbol structure containing name
+ * of the symbol, its scope, symbol class (%SYM_PROTO for a name of a protocol,
+ * %SYM_NUMBER for a numeric constant etc.) and class dependent data.
+ * When an unknown symbol is encountered, it's automatically added to the
+ * symbol table with class %SYM_VOID.
+ *
+ * The keyword tables are generated from the grammar templates
+ * using the |gen_keywords.m4| script.
+ */
+
 %{
 #undef REJECT     /* Avoid name clashes */
 
@@ -230,6 +248,16 @@ cf_find_sym(byte *c, unsigned int h0)
   return s;
 }
 
+/**
+ * cf_find_symbol - find a symbol by name
+ * @c: symbol name
+ *
+ * This functions searches the symbol table for a symbol of given
+ * name. First it examines the current scope, then the second recent
+ * one and so on until it either finds the symbol and returns a pointer
+ * to its &symbol structure or reaches the end of the scope chain
+ * and returns %NULL to signify no match.
+ */
 struct symbol *
 cf_find_symbol(byte *c)
 {
@@ -257,6 +285,16 @@ cf_default_name(char *template, int *counter)
   cf_error("Unable to generate default name");
 }
 
+/**
+ * cf_define_symbol - define meaning of a symbol
+ * @sym: symbol to be defined
+ * @type: symbol class to assign
+ * @def: class dependent data
+ *
+ * This function takes a symbol, checks whether it's really
+ * an undefined one (else it raises an error) and assigns the
+ * given class and definition to it.
+ */
 void
 cf_define_symbol(struct symbol *sym, int type, void *def)
 {
@@ -280,6 +318,13 @@ cf_lex_init_kh(void)
   kw_hash_inited = 1;
 }
 
+/**
+ * cf_lex_init - initialize the lexer
+ * @is_cli: true if we're going to parse CLI command, false for configuration
+ *
+ * cf_lex_init() initializes the lexical analyser and prepares it for
+ * parsing of a new input.
+ */
 void
 cf_lex_init(int is_cli)
 {
@@ -295,6 +340,16 @@ cf_lex_init(int is_cli)
   conf_this_scope->active = 1;
 }
 
+/**
+ * cf_push_scope - enter new scope
+ * @sym: symbol representing scope name
+ *
+ * If we want to enter a new scope to process declarations inside
+ * a nested block, we can just call cf_push_scope() to push a new
+ * scope onto the scope stack which will cause all new symbols to be
+ * defined in this scope and all existing symbols to be sought for
+ * in all scopes stored on the stack.
+ */
 void
 cf_push_scope(struct symbol *sym)
 {
@@ -306,6 +361,13 @@ cf_push_scope(struct symbol *sym)
   s->name = sym;
 }
 
+/**
+ * cf_pop_scope - leave a scope
+ *
+ * cf_pop_scope() pops the topmost scope from the scope stack,
+ * leaving all its symbols in the symbol table, but making them
+ * invisible to the rest of the config.
+ */
 void
 cf_pop_scope(void)
 {
@@ -332,6 +394,13 @@ cf_walk_symbols(struct config *cf, struct symbol *sym, int *pos)
     }
 }
 
+/**
+ * cf_symbol_class_name - get name of a symbol class
+ * @sym: symbol
+ *
+ * This function returns a string representing the class
+ * of the given symbol.
+ */
 char *
 cf_symbol_class_name(struct symbol *sym)
 {
