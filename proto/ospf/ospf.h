@@ -38,6 +38,18 @@
 #error Multicast address not defined in IPv6
 #endif
 
+
+#define LSREFRESHTIME 1800	/* 30 minut */
+#define MINLSINTERVAL 5
+#define MINLSARRIVAL 1
+#define MAXAGE 3600		/* 1 hour */
+#define CHECKAGE 300		/* 5 min */
+#define MAXAGEDIFF 900		/* 15 min */
+#define LSINFINITY 0xffffff
+/*#define DEFAULTDES 0.0.0.0 FIXME: How to define it? */
+#define INITSEQNUM 0x80000001	/* Initial Sequence Number */
+#define MAXSEQNUM 0x7fffffff	/* Maximal Sequence Number */
+
 struct ospf_config {
   struct proto_config c;
   u32 area;		/* FIXME: Area ID  !!! This is wrong !!!
@@ -197,10 +209,17 @@ struct ospf_neighbor
 #define INM_INACTTIM 11	/* Inactivity timer */
 #define INM_LLDOWN 12	/* Line down */
 
+struct ospf_area {
+  struct ospf_area *next;
+  u32 areaid;
+  struct top_graph *gr;		/* LSA graph */
+};
+
 struct proto_ospf {
   struct proto proto;
   list iface_list;		/* Interfaces we really use */
-  struct top_graph *gr;		/* LSA graph */
+  int areano;			/* Number of area I belong to */
+  struct ospf_area *firstarea;
 };
 
 static int ospf_start(struct proto *p);

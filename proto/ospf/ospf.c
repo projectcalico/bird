@@ -17,7 +17,11 @@ ospf_start(struct proto *p)
   p->if_notify=ospf_if_notify;
 
   /* Create graph of LSA's */
-  po->gr=ospf_top_new(po);
+  po->areano=1;		/* FIXME should respect config! */
+  po->firstarea=(struct ospf_area *)malloc(sizeof(struct ospf_area));
+  po->firstarea->gr=ospf_top_new(po);
+  po->firstarea->next=NULL;
+  po->firstarea->areaid=0;
   
   return PS_UP;
 }
@@ -30,6 +34,7 @@ ospf_dump(struct proto *p)
   struct ospf_neighbor *n;
   struct ospf_config *c = (void *) p->cf;
   struct proto_ospf *po=(struct proto_ospf *)p;
+  struct ospf_area *oa;
 
   debug("%s: AreaID: %u\n", p->name, c->area );
 
@@ -45,9 +50,15 @@ ospf_dump(struct proto *p)
     }
   }
 
-  debug("\n%s: LSA graph dump start:\n", p->name);
-  ospf_top_dump(po->gr);
-  debug("%s: LSA graph dump finished\n\n", p->name);
+  oa=po->firstarea;
+  while(oa!=NULL)
+  {
+    debug("\n%s: LSA graph dump for area \"%d\" start:\n", p->name,oa->areaid);
+    ospf_top_dump(oa->gr);
+    debug("%s: LSA graph dump for area \"%d\" finished\n\n", p->name,
+      oa->areaid);
+    oa=oa->next;
+  }
 
 }
 
