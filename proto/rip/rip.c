@@ -74,34 +74,17 @@ rip_tx_prepare(struct proto *p, ip_addr daddr, struct rip_block *b, struct rip_e
 #ifndef IPV6
   b->netmask = ipa_mkmask( e->n.pxlen );
   ipa_hton( b->netmask );
-  b->nexthop = IPA_NONE;	
-  {
-    /*
-     *  FIXME:  This DOESN'T work. The s->daddr will be typically
-     *  a broadcast or multicast address which will be of course
-     *  rejected by the neighbor cache. I've #ifdef'd out the whole
-     *  test to avoid dereferencing NULL pointer.  --mj
-     */
-#if 0
-    /* IS this really neccessary?
-       If nexthop and destination of this packet are on same interface, split horizont applies and *nothing* should be sent....
-     */
 
-    neighbor *n1, *n2;
-    n1 = neigh_find( p, &daddr, 0 );	/* FIXME, mj: this is neccessary for responses, still it is too complicated for common case */
-    n2 = neigh_find( p, &e->nexthop, 0 );
-    if (n1->iface == n2->iface)
-      b->nexthop = e->nexthop;
-    else
-#endif
-      b->nexthop = IPA_NONE;
-  }
+  if (neigh_connected_to(p, &e->nexthop, rif->iface))
+    b->nexthop = e->nexthop;
+  else
+    b->nexthop = IPA_NONE;
   ipa_hton( b->nexthop );
 #else
   b->pxlen = e->n.pxlen;
 #endif
   b->metric  = htonl( e->metric );
-  if (if_connected(&e->whotoldme, rif->iface)) {
+  if (neigh_connected_to(p, &e->whotoldme, rif->iface)) {
     DBG( "(split horizon)" );
     b->metric = htonl( P_CF->infinity );
   }
@@ -719,13 +702,18 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
     e = fib_get( &P->rtable, &net->n.prefix, net->n.pxlen );
 
     e->nexthop = new->attrs->gw;
-    e->tag = ea_find(attrs, EA_RIP_TAG)->u.data;
-    e->metric = ea_find(attrs, EA_RIP_METRIC)->u.data;
-    if (e->metric > P_CF->infinity)
-      e->metric = P_CF->infinity;
+    e->metric = 0;
+    e->whotoldme = IPA_NONE;
+    if (new->attrs->proto == p) {
+      e->tag = ea_find(attrs, EA_RIP_TAG)->u.data;
+      e->metric = ea_find(attrs, EA_RIP_METRIC)->u.data;
+      if (e->metric > P_CF->infinity)
+	e->metric = P_CF->infinity;
+      e->whotoldme = new->attrs->from;
+    }
+
     if (!e->metric)	/* FIXME: this is metric for external routes. Should it be configurable? */
       e->metric = 5;
-    e->whotoldme = new->attrs->from;
     e->updated = e->changed = now;
     e->flags = 0;
   }
