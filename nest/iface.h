@@ -91,4 +91,18 @@ neighbor *neigh_find(struct proto *, ip_addr *, unsigned flags);
 void neigh_dump(neighbor *);
 void neigh_dump_all(void);
 
+/*
+ *	Interface Pattern Lists
+ */
+
+struct iface_patt {
+  node n;
+  byte *pattern;			/* Interface name pattern */
+
+  /* Protocol-specific data follow */
+};
+
+struct iface_patt *iface_patt_match(list *, struct iface *);
+int iface_patts_equal(list *, list *, int (*)(struct iface_patt *, struct iface_patt *));
+
 #endif

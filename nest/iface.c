@@ -12,6 +12,7 @@
 #include "nest/iface.h"
 #include "nest/protocol.h"
 #include "lib/resource.h"
+#include "lib/string.h"
 
 static pool *if_pool;
 
@@ -352,4 +353,45 @@ if_init(void)
   init_list(&iface_list);
   neigh_slab = sl_new(if_pool, sizeof(neighbor));
   init_list(&neigh_list);
+}
+
+/*
+ *	Interface Pattern Lists
+ */
+
+struct iface_patt *
+iface_patt_match(list *l, struct iface *i)
+{
+  struct iface_patt *p;
+
+  WALK_LIST(p, *l)
+    {
+      char *t = p->pattern;
+      int ok = 1;
+      if (*t == '-')
+	{
+	  t++;
+	  ok = 0;
+	}
+      if (patmatch(t, i->name))
+	return ok ? p : NULL;
+    }
+  return NULL;
+}
+
+int
+iface_patts_equal(list *a, list *b, int (*comp)(struct iface_patt *, struct iface_patt *))
+{
+  struct iface_patt *x, *y;
+
+  x = HEAD(*a);
+  y = HEAD(*b);
+  while (x->n.next && y->n.next)
+    {
+      if (strcmp(x->pattern, y->pattern) || comp && !comp(x, y))
+	return 0;
+      x = (void *) x->n.next;
+      y = (void *) y->n.next;
+    }
+  return (!x->n.next && !y->n.next);
 }
