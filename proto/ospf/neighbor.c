@@ -577,7 +577,7 @@ rxmt_timer_hook(timer *timer)
 
   DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",
     p->name, ifa->iface->name, n->ip);
-  if (n->state < NEIGHBOR_LOADING) ospf_dbdes_tx(n);
+  if (n->state < NEIGHBOR_LOADING) ospf_dbdes_send(n);
 
   if(n->state < NEIGHBOR_FULL) ospf_lsreq_send(n);
   else

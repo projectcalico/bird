@@ -80,7 +80,7 @@ ospf_pkt_finalize (struct ospf_iface *ifa, struct ospf_packet *pkt)
  * non generic functions.
  */
 int
-ospf_rx_hook (sock * sk, int size)
+ospf_rx_hook (sock *sk, int size)
 {
 #ifndef IPV6
   struct ospf_packet *ps;
@@ -180,7 +180,7 @@ ospf_rx_hook (sock * sk, int size)
       break;
     case DBDES_P:
       DBG ("%s: Database description received.\n", p->name);
-      ospf_dbdes_rx ((struct ospf_dbdes_packet *) ps, p, ifa, size);
+      ospf_dbdes_receive ((struct ospf_dbdes_packet *) ps, ifa, size);
       break;
     case LSREQ_P:
       DBG ("%s: Link state request received.\n", p->name);
