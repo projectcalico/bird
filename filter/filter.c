@@ -286,7 +286,7 @@ interpret(struct f_inst *what)
     case F_REJECT:	/* FIXME (noncritical) Should print compele route along with reason to reject route */
       res.type = T_RETURN;
       res.val.i = what->a1.i;
-      break;
+      return res;	/* We have to return now, no more processing. */
     case F_NONL:
     case F_NOP:
       break;
@@ -412,6 +412,7 @@ interpret(struct f_inst *what)
   return res;
 }
 
+/* FIXME: tmp_attrs is unreferenced. That can't be right */
 int
 f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool)
 {
