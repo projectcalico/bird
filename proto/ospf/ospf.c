@@ -351,7 +351,7 @@ ospf_get_attr(eattr *a, byte *buf)
 static int
 ospf_patt_compare(struct ospf_iface_patt *a, struct ospf_iface_patt *b)
 {
-  return ((a->cost==b->cost)&&(a->type==b->type)&&(a->priority==b->priority));
+  return ((a->type==b->type)&&(a->priority==b->priority));
 }
 
 static int
@@ -416,6 +416,16 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	  OSPF_TRACE(D_EVENTS,
 	    "Changing hello interval on interface %s from %d to %d",
 	    ifa->iface->name,ip1->helloint,ip2->helloint);
+	}
+
+	/* COST */
+	if(ip1->cost!=ip2->cost)
+	{
+	  ifa->cost=ip2->cost;
+	  OSPF_TRACE(D_EVENTS,
+	    "Changing cost interface %s from %d to %d",
+	    ifa->iface->name,ip1->cost,ip2->cost);
+	  schedule_rt_lsa(ifa->oa);
 	}
 
 	/* AUTHETICATION */
