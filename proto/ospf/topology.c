@@ -441,6 +441,7 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
   u32 rtid = po->proto.cf->global->router_id;
   struct ospf_lsa_header lsa;
   int i, max, mlen = fn->pxlen, free = 0;
+  u32 freeid = 0xFFFF;
   struct ospf_lsa_sum *sum = NULL;
   union ospf_lsa_sum_tm *tm;
   lsa.type = LSA_T_SUM_NET;
@@ -464,7 +465,11 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
     lsa.id = ipa_to_u32(fn->prefix) + i;
     if ((en = ospf_hash_find_header(po->gr, oa->areaid, &lsa)) == NULL)
     {
-      if (!free) free = lsa.id;
+      if (!free)
+      {
+        freeid = lsa.id;
+	free = 1;
+      }
     }
     else
     {
@@ -472,9 +477,10 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
       if (mlen == ipa_mklen(sum->netmask))
       {
         tm = (union ospf_lsa_sum_tm *) (sum + 1);
-        if (tm->metric == (unsigned)metric) return;	/* No reason for origination */
+        if (tm->metric == (unsigned) metric) return;	/* No reason for origination */
         lsa.sn = en->lsa.sn + 1;
-        free = en->lsa.id;
+        freeid = en->lsa.id;
+	free = 1;
         break;
       }
     }
@@ -486,7 +492,7 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
         fn->pxlen, max);
     return;
   }
-  lsa.id = free;
+  lsa.id = freeid;
   
   OSPF_TRACE(D_EVENTS, "Originating summary (type %d) lsa for %I/%d (met %d).", lsa.type, fn->prefix,
              fn->pxlen, metric);
@@ -537,10 +543,11 @@ check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
       }
     else flush = 1;
 
-    if ((dest == ORT_ROUTER) && oa->stub)
+    /* Don't send summary into stub areas
+     * We send just default route (and later) */
+    if (oa->stub)
       flush = 1;
-    /* FIXME stub for networks? */
-
+    
     mlen = nf->fn.pxlen;
     ip = ipa_and(nf->fn.prefix, ipa_mkmask(mlen));
 

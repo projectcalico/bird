@@ -1049,10 +1049,24 @@ again2:
 
 	if ((oa == po->backbone) && oaa->trcap) fl = 1;
 
+	if (oaa->stub) fl = 1;
+
         if(fl) flush_sum_lsa(oaa, &anet->fn, ORT_NET);
         else originate_sum_lsa(oaa, &anet->fn, ORT_NET, anet->metric);
       }
     }
     FIB_WALK_END;
+
+    /* Check default summary LSA for stub areas
+     * just for router connected to backbone */
+    if (po->backbone)
+    {
+      struct fib_node fnn;
+
+      fnn.prefix = IPA_NONE;
+      fnn.pxlen = 0;
+      if(oa->stub) originate_sum_lsa(oa, &fnn, ORT_NET, oa->stub);
+      else flush_sum_lsa(oa, &fnn, ORT_NET);
+    }
   }
 }
