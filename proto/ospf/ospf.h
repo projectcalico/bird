@@ -83,6 +83,7 @@ struct area_net
   struct fib_node fn;
   int hidden;
   int active;
+  u32 metric;
 };
 
 struct ospf_area_config

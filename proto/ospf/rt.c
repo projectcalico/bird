@@ -119,7 +119,10 @@ ri_install(struct proto_ospf *po, ip_addr prefix, int pxlen, int dest,
       old->efn = ipath;
     }
     if ((new->type == RTS_OSPF) && (anet = (struct area_net *)fib_route(&oa->net_fib, prefix, pxlen)))
+    {
        anet->active = 1;
+       if (new->metric1 < anet->metric) anet->metric = new->metric1;
+    }
   }
   else
   {
@@ -585,6 +588,7 @@ ospf_rt_spf(struct proto_ospf *po)
     {
       anet = (struct area_net *) nftmp;
       anet->active = 0;
+      anet->metric = LSINFINITY;
     }
     FIB_WALK_END;
     ospf_rt_spfa(oa);
@@ -1046,7 +1050,7 @@ again2:
 	if ((oa == po->backbone) && oaa->trcap) fl = 1;
 
         if(fl) flush_sum_lsa(oaa, &anet->fn, ORT_NET);
-        else originate_sum_lsa(oaa, &anet->fn, ORT_NET, 1);
+        else originate_sum_lsa(oaa, &anet->fn, ORT_NET, anet->metric);
       }
     }
     FIB_WALK_END;

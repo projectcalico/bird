@@ -21,8 +21,8 @@ typedef struct orta
 #define ORTA_ASBR 1
 #define ORTA_ABR 2
   struct ospf_area *oa;
-  int metric1;
-  int metric2;
+  u32 metric1;
+  u32 metric2;
   ip_addr nh;			/* Next hop */
   struct ospf_iface *ifa;	/* Outgoing interface */
   struct top_hash_entry *ar;	/* Advertising router */
