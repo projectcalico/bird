@@ -26,14 +26,11 @@ bgp_create_notification(struct bgp_conn *conn, byte *buf)
   buf[1] = conn->notify_subcode;
   switch (conn->notify_arg_size)
     {
-    case 1:
-      buf[2] = conn->notify_arg; return buf+3;
-    case 2:
-      put_u16(buf+2, conn->notify_arg); return buf+4;
-    case 4:
-      put_u32(buf+2, conn->notify_arg); return buf+6;
-    default:
-      bug("bgp_create_notification: unknown error code size");
+    case 0:	return buf + 1;
+    case 1:	buf[2] = conn->notify_arg; return buf+3;
+    case 2:	put_u16(buf+2, conn->notify_arg); return buf+4;
+    case 4:	put_u32(buf+2, conn->notify_arg); return buf+6;
+    default:	bug("bgp_create_notification: unknown error code size");
     }
 }
 
@@ -140,6 +137,7 @@ bgp_tx(sock *sk)
 static void
 bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 {
+  struct bgp_conn *other;
   struct bgp_proto *p = conn->bgp;
   struct bgp_config *cf = p->cf;
   unsigned as, hold;
@@ -168,8 +166,39 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   if (!id || id == 0xffffffff || id == p->local_id)
     { bgp_error(conn, 2, 3, id, 0); return; }
 
-  /* FIXME: What to do with the other connection??? */
-  ASSERT(conn == &p->conn);
+  /* Check the other connection */
+  other = (conn == &p->outgoing_conn) ? &p->incoming_conn : &p->outgoing_conn;
+  switch (other->state)
+    {
+    case BS_IDLE:
+      break;
+    case BS_CONNECT:
+    case BS_ACTIVE:
+    case BS_OPENSENT:
+      DBG("BGP: Collision, closing the other connection\n");
+      bgp_close_conn(other);
+      break;
+    case BS_OPENCONFIRM:
+      if ((p->local_id < id) == (conn == &p->incoming_conn))
+	{
+	  /* Should close the other connection */
+	  DBG("BGP: Collision, closing the other connection\n");
+	  bgp_error(other, 6, 0, 0, 0);
+	  break;
+	}
+      /* Fall thru */
+    case BS_ESTABLISHED:
+      /* Should close this connection */
+      DBG("BGP: Collision, closing this connection\n");
+      bgp_error(conn, 6, 0, 0, 0);
+      return;
+    default:
+      bug("bgp_rx_open: Unknown state");
+    }
+
+  /* Make this connection primary */
+  conn->primary = 1;
+  p->conn = conn;
 
   /* Update our local variables */
   if (hold < p->cf->hold_time)
@@ -216,7 +245,8 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
     }
   DBG("BGP: NOTIFICATION %d.%d %08x\n", pkt[19], pkt[20], arg);	/* FIXME: Better reporting */
   conn->error_flag = 1;
-  proto_notify_state(&conn->bgp->p, PS_STOP);
+  if (conn->primary)
+    proto_notify_state(&conn->bgp->p, PS_STOP);
   bgp_schedule_packet(conn, PKT_SCHEDULE_CLOSE);
 }
 

@@ -42,13 +42,11 @@ bgp_init(struct proto_config *C)
   p->local_as = c->local_as;
   p->remote_as = c->remote_as;
   p->is_internal = (c->local_as == c->remote_as);
-  p->conn.state = BS_IDLE;
-  p->incoming_conn.state = BS_IDLE;
   p->local_id = C->global->router_id;
   return P;
 }
 
-static void
+void
 bgp_close(struct bgp_proto *p)
 {
   rem_node(&p->bgp_node);
@@ -62,13 +60,6 @@ bgp_close(struct bgp_proto *p)
   /* FIXME: Automatic restart after errors? */
 }
 
-static void				/* FIXME: Nobody uses */
-bgp_reset(struct bgp_proto *p)
-{
-  bgp_close(p);
-  proto_notify_state(&p->p, PS_DOWN);
-}
-
 void
 bgp_start_timer(timer *t, int value)
 {
@@ -76,6 +67,32 @@ bgp_start_timer(timer *t, int value)
   /* FIXME: Check if anybody uses tm_start directly */
   if (value)
     tm_start(t, value);
+  else
+    tm_stop(t);
+}
+
+void
+bgp_close_conn(struct bgp_conn *conn)
+{
+  struct bgp_proto *p = conn->bgp;
+
+  DBG("BGP: Closing connection\n");
+  conn->packets_to_send = 0;
+  rfree(conn->connect_retry_timer);
+  conn->connect_retry_timer = NULL;
+  rfree(conn->keepalive_timer);
+  conn->keepalive_timer = NULL;
+  rfree(conn->hold_timer);
+  conn->hold_timer = NULL;
+  sk_close(conn->sk);
+  conn->sk = NULL;
+  conn->state = BS_IDLE;
+  if (conn->primary)
+    {
+      bgp_close(p);
+      p->conn = NULL;
+      proto_notify_state(&p->p, PS_DOWN);
+    }
 }
 
 static void
@@ -83,6 +100,7 @@ bgp_send_open(struct bgp_conn *conn)
 {
   DBG("BGP: Sending open\n");
   conn->sk->rx_hook = bgp_rx;
+  conn->sk->tx_hook = bgp_tx;
   tm_stop(conn->connect_retry_timer);
   bgp_schedule_packet(conn, PKT_OPEN);
   conn->state = BS_OPENSENT;
@@ -123,7 +141,7 @@ bgp_sock_err(sock *sk, int err)
       break;
     case BS_OPENCONFIRM:
     case BS_ESTABLISHED:
-      /* FIXME */
+      break;
     default:
       bug("bgp_sock_err called in invalid state %d", conn->state);
     }
@@ -162,7 +180,7 @@ bgp_hold_timeout(timer *t)
 {
   struct bgp_conn *conn = t->data;
 
-  DBG("BGP: Hold timeout, closing connection\n"); /* FIXME: Check states? */
+  DBG("BGP: Hold timeout, closing connection\n");
   bgp_error(conn, 4, 0, 0, 0);
 }
 
@@ -184,13 +202,14 @@ bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
   s->ttl = p->cf->multihop ? : 1;
   s->rbsize = BGP_RX_BUFFER_SIZE;
   s->tbsize = BGP_TX_BUFFER_SIZE;
-  s->tx_hook = bgp_tx;
   s->err_hook = bgp_sock_err;
   s->tos = IP_PREC_INTERNET_CONTROL;
 
   conn->bgp = p;
   conn->sk = s;
   conn->packets_to_send = 0;
+  conn->error_flag = 0;
+  conn->primary = 0;
 
   t = conn->connect_retry_timer = tm_new(p->p.pool);
   t->hook = bgp_connect_timeout;
@@ -203,27 +222,11 @@ bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
   t->data = conn;
 }
 
-void
-bgp_close_conn(struct bgp_conn *conn)
-{
-  DBG("BGP: Closing connection\n");
-  conn->packets_to_send = 0;
-  rfree(conn->connect_retry_timer);
-  conn->connect_retry_timer = NULL;
-  rfree(conn->keepalive_timer);
-  conn->keepalive_timer = NULL;
-  rfree(conn->hold_timer);
-  conn->hold_timer = NULL;
-  sk_close(conn->sk);
-  conn->sk = NULL;
-  conn->state = BS_IDLE;
-}
-
 static void
 bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing connection */
 {
   sock *s;
-  struct bgp_conn *conn = &p->conn;
+  struct bgp_conn *conn = &p->outgoing_conn;
 
   DBG("BGP: Connecting\n");
   s = sk_new(p->p.pool);
@@ -282,13 +285,16 @@ bgp_start(struct proto *P)
   struct bgp_proto *p = (struct bgp_proto *) P;
   struct object_lock *lock;
 
+  DBG("BGP: Startup.\n");
+  p->outgoing_conn.state = BS_IDLE;
+  p->incoming_conn.state = BS_IDLE;
+
   /*
    *  Before attempting to create the connection, we need to lock the
    *  port, so that are sure we're the only instance attempting to talk
    *  with that neighbor.
    */
 
-  DBG("BGP: Startup. Acquiring lock.\n");
   lock = p->lock = olock_new(P->pool);
   lock->addr = p->cf->remote_ip;
   lock->type = OBJLOCK_TCP;
@@ -301,14 +307,57 @@ bgp_start(struct proto *P)
 }
 
 static int
+bgp_graceful_close(struct bgp_conn *c)
+{
+  switch (c->state)
+    {
+    case BS_IDLE:
+      return 0;
+    case BS_CONNECT:
+    case BS_ACTIVE:
+      bgp_close_conn(c);
+      return 1;
+    case BS_OPENSENT:
+    case BS_OPENCONFIRM:
+    case BS_ESTABLISHED:
+      bgp_error(c, 6, 0, 0, 0);
+      return 1;
+    default:
+      bug("bgp_graceful_close: Unknown state %d", c->state);
+    }
+}
+
+static int
 bgp_shutdown(struct proto *P)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
 
   DBG("BGP: Explicit shutdown\n");
 
-  bgp_close(p);
-  return PS_DOWN;
+  /*
+   *  We want to send the Cease notification message to all connections
+   *  we have open, but we don't want to wait for all of them to complete.
+   *  We are willing to handle the primary connection carefully, but for
+   *  the others we just try to send the packet and if there is no buffer
+   *  space free, we'll gracefully finish.
+   */
+
+  proto_notify_state(&p->p, PS_STOP);
+  if (!p->conn)
+    {
+      if (p->outgoing_conn.state != BS_IDLE)
+	p->outgoing_conn.primary = 1;	/* Shuts protocol down after connection close */
+      else if (p->incoming_conn.state != BS_IDLE)
+	p->incoming_conn.primary = 1;
+    }
+  if (bgp_graceful_close(&p->outgoing_conn) || bgp_graceful_close(&p->incoming_conn))
+    return p->p.proto_state;
+  else
+    {
+      /* No connections open, shutdown automatically */
+      bgp_close(p);
+      return PS_DOWN;
+    }
 }
 
 void
@@ -322,7 +371,8 @@ bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, unsigned data, un
   c->notify_subcode = subcode;
   c->notify_arg = data;
   c->notify_arg_size = len;
-  proto_notify_state(&c->bgp->p, PS_STOP);
+  if (c->primary)
+    proto_notify_state(&c->bgp->p, PS_STOP);
   bgp_schedule_packet(c, PKT_NOTIFICATION);
 }
 

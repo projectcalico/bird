@@ -26,7 +26,7 @@ bgp_proto_start: proto_start BGP {
      this_proto->preference = DEF_PREF_BGP;
      BGP_CFG->hold_time = 240;
      BGP_CFG->connect_retry_time = 120;
-     BGP_CFG->initial_hold_time = 300;
+     BGP_CFG->initial_hold_time = 240;
   }
  ;
 

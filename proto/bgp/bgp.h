@@ -29,6 +29,7 @@ struct bgp_conn {
   int packets_to_send;			/* Bitmap of packet types to be sent */
   int notify_code, notify_subcode, notify_arg, notify_arg_size;
   int error_flag;			/* Error state, ignore all input */
+  int primary;				/* This connection is primary */
   unsigned hold_time, keepalive_time;	/* Times calculated from my and neighbor's requirements */
 };
 
@@ -40,7 +41,8 @@ struct bgp_proto {
   int is_internal;			/* Internal BGP connection (local_as == remote_as) */
   u32 local_id;				/* BGP identifier of this router */
   u32 remote_id;			/* BGP identifier of the neighbor */
-  struct bgp_conn conn;			/* Our primary connection */
+  struct bgp_conn *conn;		/* Connection we have established */
+  struct bgp_conn outgoing_conn;	/* Outgoing connection we're working with */
   struct bgp_conn incoming_conn;	/* Incoming connection we have neither accepted nor rejected yet */
   struct object_lock *lock;		/* Lock for neighbor connection */
 };
@@ -55,7 +57,7 @@ struct bgp_proto {
 void bgp_start_timer(struct timer *t, int value);
 void bgp_check(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, unsigned data, unsigned len);
-void bgp_close_conn(struct bgp_conn *conn);
+void bgp_close_conn(struct bgp_conn *c);
 
 /* attrs.c */
 
