@@ -142,7 +142,8 @@ add_cand(list *l, struct top_hash_entry *en, u16 dist, slab *s)
 
     WALK_LIST(tmp,*l)
     {
-      if(tmp->en->dist>dist)
+      if((tmp->en->dist>dist)||
+        ((tmp->en->dist==dist)&&(tmp->en->lsa.type==LSA_T_NET)))
       {
         if(prev==NULL) add_head(l,NODE tmp);
 	else insert_node(NODE tmp,prev);
