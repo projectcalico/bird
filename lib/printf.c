@@ -9,6 +9,9 @@
 #include "nest/bird.h"
 #include "string.h"
 
+#include <errno.h>
+#include <string.h>
+
 /* we use this so that we can do without the ctype library */
 #define is_digit(c)	((c) >= '0' && (c) <= '9')
 
@@ -184,11 +187,15 @@ int bvsprintf(char *buf, const char *fmt, va_list args)
 				*str++ = ' ';
 			continue;
 
+		case 'm':
+			s = strerror(errno);
+			goto str;
 		case 's':
 			s = va_arg(args, char *);
 			if (!s)
 				s = "<NULL>";
 
+		str:
 			len = strlen(s);
 			if (precision >= 0 && len > precision)
 				len = precision;
