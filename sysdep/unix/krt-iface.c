@@ -35,7 +35,7 @@ scan_ifs(struct ifreq *r, int cnt)
   char *err, *colon;
   unsigned fl;
   ip_addr netmask;
-  int l;
+  int l, scope;
 
   if_start_update();
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
@@ -115,6 +115,14 @@ scan_ifs(struct ifreq *r, int cnt)
 	 )
 	i.flags |= IF_MULTICAST;
 
+      scope = ipa_classify(a.ip);
+      if (scope < 0)
+	{
+	  log(L_ERR "%s: Invalid address", i.name);
+	  goto bad;
+	}
+      a.scope = scope & IADDR_SCOPE_MASK;
+
       if (a.pxlen < 32)
 	{
 	  a.brd = ipa_or(a.prefix, ipa_not(ipa_mkmask(a.pxlen)));
@@ -132,6 +140,7 @@ scan_ifs(struct ifreq *r, int cnt)
 	}
       else
 	a.brd = a.opposite;
+      a.scope = SCOPE_UNIVERSE;
 
       if (ioctl(if_scan_sock, SIOCGIFMTU, r) < 0)
 	{ err = "SIOCGIFMTU"; goto faulty; }

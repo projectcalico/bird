@@ -100,7 +100,7 @@ krt_parse_entry(byte *ent, struct krt_proto *p)
   if (flags & RTF_GATEWAY)
     {
       neighbor *ng = neigh_find(&p->p, &gw, 0);
-      if (ng)
+      if (ng && ng->scope)
 	a.iface = ng->iface;
       else
 	/* FIXME: Remove this warning? Handle it somehow... */

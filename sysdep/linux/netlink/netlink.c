@@ -321,6 +321,7 @@ nl_parse_addr(struct nlmsghdr *h)
   int new = h->nlmsg_type == RTM_NEWADDR;
   struct ifa ifa;
   struct iface *ifi;
+  int scope;
 
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(IFA_RTA(i), a, sizeof(a)))
     return;
@@ -355,6 +356,7 @@ nl_parse_addr(struct nlmsghdr *h)
   ifa.iface = ifi;
   if (i->ifa_flags & IFA_F_SECONDARY)
     ifa.flags |= IA_SECONDARY;
+
   /* IFA_LOCAL can be unset for IPv6 interfaces */
   memcpy(&ifa.ip, RTA_DATA(a[IFA_LOCAL] ? : a[IFA_ADDRESS]), sizeof(ifa.ip));
   ipa_ntoh(ifa.ip);
@@ -388,6 +390,14 @@ nl_parse_addr(struct nlmsghdr *h)
 #endif
       ifa.prefix = ipa_and(ifa.ip, netmask);
     }
+
+  scope = ipa_classify(ifa.ip);
+  if (scope < 0)
+    {
+      log(L_ERR "KIF: Invalid interface address %I", ifa.ip);
+      return;
+    }
+  ifa.scope = scope & IADDR_SCOPE_MASK;
 
   DBG("KIF: IF%d(%s): %s IPA %I, flg %x, net %I/%d, brd %I, opp %I\n",
       ifi->index, ifi->name,
@@ -664,7 +674,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 	  memcpy(&ra.gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ra.gw));
 	  ipa_ntoh(ra.gw);
 	  ng = neigh_find(&p->p, &ra.gw, 0);
-	  if (ng)
+	  if (ng && ng->scope)
 	    ra.iface = ng->iface;
 	  else
 	    /* FIXME: Remove this warning? Handle it somehow... */
