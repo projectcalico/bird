@@ -1,12 +1,14 @@
 Core
 ~~~~
 * right usage of DBG vs. debug
+* cleanup debugging calls!
 
 - TOS not supported by kernel -> automatically drop routes with TOS<>0
 
 - use -freg-struct-return ?
 
 - fake multipath?
+- replace all NUM's by expr's
 - config file: symbolic constants?
 - counters (according to SNMP MIB?)
 - generation of subnet mask ICMP's for v6?
@@ -14,7 +16,6 @@ Core
 - ifdef out some debugging code?
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
-- all internal tables are in host order
 - secondary addresses -> subinterfaces
 - check if all protocols set proper packet priorities and TTL's.
 
@@ -37,8 +38,6 @@ Core
 
 - Check incoming packets and log errors!!
 
-- implement snprintf etc. and clean up debugging and logging functions
-
 
 RIP
 ~~~
@@ -51,7 +50,6 @@ RIP
 
 OSPF
 ~~~~
-	- Dijkstra: use Fibonacci heaps?
 	- point-to-point interface with address: advertise as stub network
 	- static routes: stub networks?
 	- modes: PtP, PtP-unnumbered, Broadcast, NBMA, point-to-multipoint

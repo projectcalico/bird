@@ -21,12 +21,14 @@ extern int (*cf_read_hook)(byte *buf, unsigned int max);
 struct symbol {
   struct symbol *next;
   int class;
+  int aux;
   void *def;
   char name[1];
 };
 
 #define SYM_VOID 0
 #define SYM_PROTO 1
+#define SYM_NUMBER 2
 
 void cf_lex_init_tables(void);
 int cf_lex(void);

@@ -101,7 +101,7 @@ WHITE [ \t]
   return SYM;
 }
 
-[{}:;,] {
+[={}:;,()+*/%-] {
   return yytext[0];
 }
 
@@ -177,6 +177,7 @@ cf_find_sym(byte *c, unsigned int h0)
   sym_hash[h] = s;
   s->class = SYM_VOID;
   s->def = NULL;
+  s->aux = 0;
   strcpy(s->name, c);
   return s;
 }

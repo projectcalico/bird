@@ -30,7 +30,16 @@ CF_DECLS
 %token <s> SYM
 %token <t> TEXT
 
+%type <i> expr
+
+%left '+' '-'
+%left '*' '/' '%'
+
+CF_KEYWORDS(DEFINE)
+
 CF_GRAMMAR
+
+/* Basic config file structure */
 
 config: conf_entries END {
 	return 0;
@@ -43,6 +52,28 @@ conf_entries:
  ;
 
 CF_ADDTO(conf, /* EMPTY */)
+
+/* Expressions */
+
+expr:
+   NUM
+ | expr '+' expr { $$ = $1 + $3; }
+ | expr '-' expr { $$ = $1 - $3; }
+ | expr '*' expr { $$ = $1 * $3; }
+ | expr '/' expr { if ($3) $$ = $1 / $3; else cf_error("Division by zero"); }
+ | expr '%' expr { if ($3) $$ = $1 % $3; else cf_error("Division by zero"); }
+ | '(' expr ')' { $$ = $2; }
+ | SYM { if ($1->class != SYM_NUMBER) cf_error("Number expected"); else $$ = $1->aux; }
+ ;
+
+CF_ADDTO(conf, definition)
+definition:
+   DEFINE SYM '=' expr {
+     if ($2->class != SYM_VOID) cf_error("Symbol already defined");
+     $2->class = SYM_NUMBER;
+     $2->aux = $4;
+   }
+ ;
 
 CF_CODE
 
