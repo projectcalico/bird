@@ -69,7 +69,11 @@ lsrr_timer_hook(timer *timer)
   p=(struct proto *)(ifa->proto);
   debug("%s: LSRR timer fired on interface %s for neigh: %I.\n",
     p->name, ifa->iface->name, n->rid);
-  ospf_lsreq_tx(n);
+  if(n->state<NEIGHBOR_FULL) ospf_lsreq_tx(n);
+  else
+  {
+    int i;	/* FIXME Retransmit lsupd again */
+  }
 }
 
 void

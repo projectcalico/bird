@@ -45,7 +45,6 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       ifa->fadj++;
       originate_rt_lsa(n->ifa->oa,n->ifa->oa->po);
       originate_net_lsa(ifa,ifa->oa->po);
-      tm_stop(n->lsrr_timer);
     }
     if(oldstate>=NEIGHBOR_EXSTART && state<NEIGHBOR_EXSTART)
     {
@@ -65,6 +64,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
       n->myimms.bit.i=1;
       tm_start(n->rxmt_timer,1);	/* Or some other number ? */
     }
+    if(state<NEIGHBOR_EXCHANGE) tm_stop(n->lsrr_timer);
   }
 }
 
