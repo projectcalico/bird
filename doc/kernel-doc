@@ -84,7 +84,7 @@
 $type_constant = "\\\%(\\w+)";
 $type_func = "(\\w+\\(\\))";
 $type_param = "\\\@(\\w+)";
-$type_struct = "\\\&(\\w+)";
+$type_struct = "\\\\\\\\\\\\amp;(\\w+)";
 $type_env = "(\\\$\\w+)";
 
 
@@ -901,6 +901,9 @@ foreach $file (@ARGV) {
 	} elsif ($state == 4) {
 		# Documentation block
 	        if (/$doc_block/) {
+		        $contents =~ s/\&/\\\\\\amp;/g;
+		        $contents =~ s/\</\\\\\\lt;/g;
+		        $contents =~ s/\>/\\\\\\gt;/g;
 			dump_section($section, $contents);
 			output_intro({'sectionlist' => \@sectionlist,
 				      'sections' => \%sections });
@@ -921,6 +924,9 @@ foreach $file (@ARGV) {
                 }
 		elsif (/$doc_end/)
 		{
+		        $contents =~ s/\&/\\\\\\amp;/g;
+		        $contents =~ s/\</\\\\\\lt;/g;
+		        $contents =~ s/\>/\\\\\\gt;/g;
 			dump_section($section, $contents);
 			output_intro({'sectionlist' => \@sectionlist,
 				      'sections' => \%sections });
@@ -939,7 +945,7 @@ foreach $file (@ARGV) {
 		{
 			if ( $1 eq "" )
 			{
-				$contents .= $blankline;
+				$contents .= "\n";
 			}
 			else
 			{
