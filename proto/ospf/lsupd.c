@@ -14,7 +14,7 @@ ospf_lsupd_tx(struct ospf_neighbor *n)
   /* FIXME Go on! */
 }
 
-void
+int
 flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   struct ospf_lsa_header *hh, struct proto_ospf *po, struct ospf_iface *iff,
   struct ospf_area *oa)
@@ -22,7 +22,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
   struct ospf_iface *ifa;
   struct ospf_neighbor *nn;
   struct top_hash_entry *en;
-  int ret;
+  int ret,retval=0;
 
   /* pg 148 */
   WALK_LIST(NODE ifa,po->iface_list)
@@ -83,7 +83,8 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
     if(ifa==iff)
     {
       if((n->rid==iff->drid)||n->rid==iff->bdrid) continue;
-      if(iff->state=OSPF_IS_BACKUP) continue;
+      if(iff->state==OSPF_IS_BACKUP) continue;
+      retval=1;
     }
     /* FIXME directly flood */
     {
@@ -132,6 +133,7 @@ flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       }
     }
   }
+  return retval;
 }
 
 void		/* I send all I received in LSREQ */
@@ -270,11 +272,11 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
           if((ntmp->state==NEIGHBOR_EXCHANGE)&&
             (ntmp->state==NEIGHBOR_LOADING))
             flag=1;
+      DBG("PG143(4): Flag=%u\n",flag);
 
       if(flag==0)
       {
         ospf_lsack_direct_tx(n,lsa);
-
 	continue;
       }
     }
@@ -284,11 +286,19 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
        struct ospf_iface *ift=NULL;
        void *body;
 
+       DBG("PG143(5): Received LSA is newer\n");
 
       /* pg 144 (5a) */
       if(lsadb && ((lsadb->inst_t-now)<MINLSARRIVAL)) continue;
 
-      flood_lsa(n,lsa,&lsatmp,po,ifa,ifa->oa);
+      if(flood_lsa(n,lsa,&lsatmp,po,ifa,ifa->oa)==0)
+      {
+        if(ifa->state==OSPF_IS_BACKUP)
+	{
+	  if(ifa->drid==n->rid) ospf_lsa_delay(n, lsa, p);
+	}
+	else ospf_lsa_delay(n, lsa, p);
+      }
 
       /* Remove old from all ret lists */
       /* pg 144 (5c) */
@@ -312,11 +322,6 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       lsadb=lsa_install_new(&lsatmp,body, oa);
       DBG("New LSA installed in DB\n");
 
-      if(ifa->state==OSPF_IS_BACKUP)
-      {
-        if(ifa->drid==n->rid) ospf_lsa_delay(n, lsa, p);
-      }
-      else if(ifa->drid==n->rid) ospf_lsa_delay(n, lsa, p);
       /* FIXME 145 (5f) self originated? */
 
       continue;
@@ -327,20 +332,22 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     /* pg145 (7) */
     if(lsa_comp(&lsatmp,&lsadb->lsa)==CMP_SAME)
     {
-	struct top_hash_entry *en;
-	if((en=ospf_hash_find_header(n->lsrth,&lsadb->lsa))!=NULL)
-	{
-	  s_rem_node(SNODE en);
-	  if(ifa->state==OSPF_IS_BACKUP)
-	  {
-	    if(n->rid==ifa->drid) ospf_lsa_delay(n, lsa, p);
-	  }
-	}
-	else
-	{
-	  ospf_lsack_direct_tx(n,lsa);
-	}
-	continue;
+      struct top_hash_entry *en;
+      DBG("PG145(6) Got the same LSA\n");
+      if((en=ospf_hash_find_header(n->lsrth,&lsadb->lsa))!=NULL)
+      {
+        s_rem_node(SNODE en);
+        ospf_hash_delete(n->lsrth, en);
+        if(ifa->state==OSPF_IS_BACKUP)
+        {
+          if(n->rid==ifa->drid) ospf_lsa_delay(n, lsa, p);
+        }
+      }
+      else
+      {
+        ospf_lsack_direct_tx(n,lsa);
+      }
+      continue;
     }
 
     /* pg145 (8) */
