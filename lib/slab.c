@@ -8,6 +8,23 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Slabs
+ *
+ * Slabs are collections of memory blocks of a fixed size.
+ * They support very fast allocation and freeing of such blocks, prevent memory
+ * fragmentation and optimize L2 cache usage. Slabs have been invented by Jeff Bonwick
+ * and published in USENIX proceedings as `The Slab Allocator: An Object-Caching Kernel
+ * Memory Allocator'. Our implementation follows this article except that we don't use
+ * constructors and destructors.
+ *
+ * When the |DEBUGGING| switch is turned on, we automatically fill all
+ * newly allocated and freed blocks with a special patterns to make detection
+ * of use of uninitialized or already freed memory easier.
+ *
+ * Example: Nodes of a FIB are allocated from a Slab.
+ */
+
 #include <stdlib.h>
 
 #include "nest/bird.h"
@@ -139,6 +156,14 @@ struct sl_alignment {			/* Magic structure for testing of alignment */
   int x[0];
 };
 
+/**
+ * sl_new - create a new Slab
+ * @p: resource pool
+ * @size: block size
+ *
+ * This function creates a new Slab resource from which
+ * objects of size @size can be allocated.
+ */
 slab *
 sl_new(pool *p, unsigned size)
 {
@@ -183,6 +208,13 @@ sl_new_head(slab *s)
   return h;
 }
 
+/**
+ * sl_alloc - allocate an object from Slab
+ * @s: slab
+ *
+ * sl_alloc() allocates space for a single object from the
+ * Slab and returns a pointer to the object.
+ */
 void *
 sl_alloc(slab *s)
 {
@@ -223,6 +255,14 @@ no_partial:
   goto okay;
 }
 
+/**
+ * sl_free - return a free object back to a Slab
+ * @s: slab
+ * @oo: object returned by sl_alloc()
+ *
+ * This function frees memory associated with the object @oo
+ * and returns it back to the Slab @s.
+ */
 void
 sl_free(slab *s, void *oo)
 {

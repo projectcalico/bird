@@ -1,9 +1,21 @@
 /*
  *	BIRD Resource Manager -- Memory Pools
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+/**
+ * DOC: Linear memory pools
+ *
+ * Linear memory pools are collections of memory blocks which
+ * support very fast allocation of new blocks, but are able to free only
+ * the whole collection at once.
+ *
+ * Example: Each configuration is described by a complex system of structures,
+ * linked lists and function trees which are all allocated from a single linear
+ * pool, thus they can be freed at once when the configuration is no longer used.
  */
 
 #include <stdlib.h>
@@ -38,6 +50,15 @@ static struct resclass lp_class = {
   lp_lookup
 };
 
+/**
+ * lp_new - create a new linear memory pool
+ * @p: pool
+ * @blk: block size
+ *
+ * lp_new() creates a new linear memory pool resource inside the pool @p.
+ * The linear pool consists of a list of memory chunks of size at least
+ * @blk.
+ */
 linpool
 *lp_new(pool *p, unsigned blk)
 {
@@ -52,6 +73,20 @@ linpool
   return m;
 }
 
+/**
+ * lp_alloc - allocate memory from a &linpool
+ * @m: linear memory pool
+ * @size: amount of memory
+ *
+ * lp_alloc() allocates @size bytes of memory from a &linpool @m
+ * and it returns a pointer to the allocated memory.
+ *
+ * It works by trying to find free space in the last memory chunk
+ * associated with the &linpool and creating a new chunk of the standard
+ * size (as specified during lp_new()) if the free space is too small
+ * to satisfy the allocation. If @size is too large to fit in a standard
+ * size chunk, an "overflow" chunk is created for it instead.
+ */
 void *
 lp_alloc(linpool *m, unsigned size)
 {
@@ -100,6 +135,16 @@ lp_alloc(linpool *m, unsigned size)
     }
 }
 
+/**
+ * lp_allocu - allocate unaligned memory from a &linpool
+ * @m: linear memory pool
+ * @size: amount of memory
+ *
+ * lp_allocu() allocates @size bytes of memory from a &linpool @m
+ * and it returns a pointer to the allocated memory. It doesn't
+ * attempt to align the memory block, giving a very efficient way
+ * how to allocate strings without any space overhead.
+ */
 void *
 lp_allocu(linpool *m, unsigned size)
 {
@@ -114,6 +159,14 @@ lp_allocu(linpool *m, unsigned size)
   return lp_alloc(m, size);
 }
 
+/**
+ * lp_allocz - allocate cleared memory from a &linpool
+ * @m: linear memory pool
+ * @size: amount of memory
+ *
+ * This function is identical to lp_alloc() except that it
+ * clears the allocated memory block.
+ */
 void *
 lp_allocz(linpool *m, unsigned size)
 {
@@ -123,6 +176,13 @@ lp_allocz(linpool *m, unsigned size)
   return z;
 }
 
+/**
+ * lp_flush - flush a linear memory pool
+ * @m: linear memory pool
+ *
+ * This function frees the whole contents of the given &linpool @m,
+ * but leaves the pool itself.
+ */
 void
 lp_flush(linpool *m)
 {

@@ -1,7 +1,7 @@
 /*
  *	BIRD Resource Manager
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -12,6 +12,20 @@
 #include "nest/bird.h"
 #include "lib/resource.h"
 #include "lib/string.h"
+
+/**
+ * DOC: Resource pools
+ *
+ * Resource pools (&pool) are just containers holding a list of
+ * other resources. Freeing a pool causes all the listed resources
+ * to be freed as well. Each existing &resource is linked to some pool
+ * except for a root pool which isn't linked anywhere, so all the
+ * resources form a tree structure with internal nodes corresponding
+ * to pools and leaves being the other resources.
+ *
+ * Example: Almost all modules of BIRD have their private pool which
+ * is freed upon shutdown of the module.
+ */
 
 struct pool {
   resource r;
@@ -35,6 +49,14 @@ pool root_pool;
 
 static int indent;
 
+/**
+ * rp_new - create a resource pool
+ * @p: parent pool
+ * @name: pool name (to be included in debugging dumps)
+ *
+ * rp_new() creates a new resource pool inside the specified
+ * parent pool.
+ */
 pool *
 rp_new(pool *p, char *name)
 {
@@ -84,6 +106,16 @@ pool_lookup(resource *P, unsigned long a)
   return NULL;
 }
 
+/**
+ * rfree - free a resource
+ * @res: resource
+ *
+ * rfree() frees the given resource and all information associated
+ * with it. In case it's a resource pool, it also frees all the objects
+ * living inside the pool.
+ *
+ * It works by calling a class-specific freeing function.
+ */
 void
 rfree(void *res)
 {
@@ -98,6 +130,15 @@ rfree(void *res)
     }
 }
 
+/**
+ * rdump - dump a resource
+ * @res: resource
+ *
+ * This function prints out all available information about the given
+ * resource to the debugging output.
+ *
+ * It works by calling a class-specific dump function.
+ */
 void
 rdump(void *res)
 {
@@ -115,6 +156,16 @@ rdump(void *res)
     debug("NULL\n");
 }
 
+/**
+ * ralloc - create a resource
+ * @p: pool to create the resource in
+ * @c: class of the new resource
+ *
+ * This function is called by the resource classes to create a new
+ * resource of the specified class and link it to the given pool.
+ * Size of the resource structure is taken from the @size field
+ * of the &resclass.
+ */
 void *
 ralloc(pool *p, struct resclass *c)
 {
@@ -125,6 +176,17 @@ ralloc(pool *p, struct resclass *c)
   return r;
 }
 
+/**
+ * rlookup - look up a memory location
+ * @a: memory address
+ *
+ * This function examines all existing resources to see whether
+ * the address @a is inside any resource. It's used for debugging
+ * purposes only.
+ *
+ * It works by calling a class-specific lookup function for each
+ * resource.
+ */
 void
 rlookup(unsigned long a)
 {
@@ -137,6 +199,13 @@ rlookup(unsigned long a)
     debug("Not found.\n");
 }
 
+/**
+ * resource_init - initialize the resource manager
+ *
+ * This function is called during BIRD startup. It initializes
+ * all data structures of the resource manager and creates the
+ * root pool.
+ */
 void
 resource_init(void)
 {
@@ -145,8 +214,17 @@ resource_init(void)
   init_list(&root_pool.inside);
 }
 
-/*
- *	Memory blocks.
+/**
+ * DOC: Memory blocks
+ *
+ * Memory blocks are pieces of contiguous allocated memory.
+ * They are a bit non-standard since they are represented not by a pointer
+ * to &resource, but by a void pointer to the start of data of the
+ * memory block. All memory block functions know how to locate the header
+ * given the data pointer.
+ *
+ * Example: All "unique" data structures such as hash tables are allocated
+ * as memory blocks.
  */
 
 struct mblock {
@@ -184,6 +262,19 @@ static struct resclass mb_class = {
   mbl_lookup
 };
 
+/**
+ * mb_alloc - allocate a memory block
+ * @p: pool
+ * @size: size of the block
+ *
+ * mb_alloc() allocates memory of a given size and creates
+ * a memory block resource representing this memory chunk
+ * in the pool @p.
+ *
+ * Please note that mb_alloc() returns a pointer to the memory
+ * chunk, not to the resource, hence you have to free it using
+ * mb_free(), not rfree().
+ */
 void *
 mb_alloc(pool *p, unsigned size)
 {
@@ -195,6 +286,19 @@ mb_alloc(pool *p, unsigned size)
   return b->data;
 }
 
+/**
+ * mb_allocz - allocate and clear a memory block
+ * @p: pool
+ * @size: size of the block
+ *
+ * mb_allocz() allocates memory of a given size, initializes it to
+ * zeroes and creates a memory block resource representing this memory
+ * chunk in the pool @p.
+ *
+ * Please note that mb_alloc() returns a pointer to the memory
+ * chunk, not to the resource, hence you have to free it using
+ * mb_free(), not rfree().
+ */
 void *
 mb_allocz(pool *p, unsigned size)
 {
@@ -203,6 +307,12 @@ mb_allocz(pool *p, unsigned size)
   return x;
 }
 
+/**
+ * mb_free - free a memory block
+ * @m: memory block
+ *
+ * mb_free() frees all memory associated with the block @m.
+ */
 void
 mb_free(void *m)
 {
