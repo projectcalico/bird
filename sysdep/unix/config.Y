@@ -68,7 +68,7 @@ CF_CLI(CONFIGURE, cfg_name, [<file>], [[Reload configuration]])
 { cmd_reconfig($2); } ;
 
 CF_CLI(SHUTDOWN,,, [[Shut the daemon down]])
-{ cli_msg(7, "Shutdown ordered"); order_shutdown(); } ;
+{ cli_msg(7, "Shutdown requested"); order_shutdown(); } ;
 
 cfg_name:
    /* empty */ { $$ = NULL; }
