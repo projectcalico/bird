@@ -80,16 +80,15 @@ ospf_rx_hook(sock *sk, int size)
   DBG(sk->iface->name);
   DBG(".\n");
 
-  ps=(struct ospf_packet *)(sk->rbuf+5*4);
-
-  if(size<=(20+sizeof(struct ospf_packet)))
+  ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
+  if(!ps || size < sizeof(struct ospf_packet))
   {
     log("%s: Bad packet received: too short", p->name);
     log("%s: Discarding",p->name);
     return(1);
   }
 
-  if((ntohs(ps->length))!=(size-20))
+  if(ntohs(ps->length) != size)
   {
     log("%s: Bad packet received: size fields does not match", p->name);
     log("%s: Discarding",p->name);

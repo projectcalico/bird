@@ -58,8 +58,11 @@ typedef u32 ip_addr;
 #define ipa_to_u32(x) _I(x)
 #define ipa_compare(x,y) ipv4_compare(_I(x),_I(y))
 
+#define ip_skip_header(x, y) ipv4_skip_header(x, y)
+
 int ipv4_classify(u32);
 u32 ipv4_class_mask(u32);
+byte *ipv4_skip_header(byte *, int *);
 
 static inline unsigned ipv4_hash(u32 a)
 {

@@ -30,6 +30,8 @@ Core
 
 - socket: Use IP_RECVERR for BGP TCP sockets?
 
+- lib: use better checksum function
+
 Cleanup
 ~~~~~~~
 - right usage of DBG vs. debug

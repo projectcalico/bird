@@ -94,3 +94,18 @@ ip_pton(char *a, ip_addr *o)
   *o = ipa_from_u32(ia);
   return 1;
 }
+
+byte *
+ipv4_skip_header(byte *pkt, int *len)
+{
+  int l = *len;
+  int q;
+
+  if (l < 20 || (*pkt & 0xf0) != 0x40)
+    return NULL;
+  q = (*pkt & 0x0f) * 4;
+  if (q < l)
+    return NULL;
+  *len -= q;
+  return pkt + q;
+}
