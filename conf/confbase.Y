@@ -36,6 +36,7 @@ CF_DECLS
 
 %type <i> expr bool pxlen
 
+%left '='
 %left '+' '-'
 %left '*' '/' '%'
 
