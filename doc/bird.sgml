@@ -282,7 +282,7 @@ protocol rip {
 <descrip>
 	<tag>passwords { password "<m/password/" from <m/time/ to <m/time/ passive <m/time/ id
 	<m/num/ [...] }</tag> Specifies passwords to be used with this protocol. <cf>Passive <m/time/</cf> is
-	time from which the password is not used for sending, but it is recognized on reception. <cf/id/ is password id, as needed by
+	time from which the password is not used for sending, but it is recognized on reception. <cf/id/ is password ID, as needed by
 	certain protocols.
 
 	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [ ... ] } ]</tag> Specifies which
@@ -480,19 +480,16 @@ prefix and prefix (returning true if first prefix is more specific than second) 
 
 <p>Filters support two control structures: conditions and case switches. 
 
-<!-- fixme: say explicitly what if and case does -->
-
 <p>Syntax of condition is <cf>if
-<M>boolean expression</M> then <M>command</M>; else <M>command</M>;</cf> and you can use <cf>{
+<M>boolean expression</M> then <M>command1</M>; else <M>command2</M>;</cf> and you can use <cf>{
 <M>command_1</M>; <M>command_2</M>; <M>...</M> }</cf> instead of one or both commands. <cf>else</cf>
-clause may be omitted.
+clause may be omitted. If <cf><m>boolean expression</m></cf> is true, <cf><m>command1</m></cf> is executed, otherwise <cf><m>command2</m></cf> is executed.
 
 <p><cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else |
 <m/num_or_prefix [ .. num_or_prefix]/: <m/statement/ ; [ ... ] }</cf>. Expression after
 <cf>case</cf> can be of any type that can be on the left side of the &tilde; operator, and anything that could
 be a member of a set is allowed before <cf/:/. Multiple commands are allowed without <cf/{}/ grouping
-and break is implicit before each case. If argument
-matches neither of <cf/:/ clauses, <cf/else:/ clause is used.
+and break is implicit before each case. If <cf><m/expr/</cf> matches one of <cf/:/ clauses, statements between it and next <cf/:/ statement are executed. If <cf><m/expr/</cf> matches neither of <cf/:/ clauses, <cf/else:/ statements after <cf/else:/ are executed.
 
 <p>Here is example that uses <cf/if/ and <cf/case/ structures:
 
@@ -1190,9 +1187,10 @@ interface metric, which is usually one). After some time, the distance reaches i
 RIP) and all routers know that network is unreachable. RIP tries to minimize situations where
 counting to infinity is necessary, because it is slow. Due to infinity being 16, you can't use
 RIP on networks where maximal distance is higher than 15 hosts. You can read more about rip at <HTMLURL
-URL="http://www.ietf.org/html.charters/rip-charter.html" name="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4
-and IPv6 versions of RIP are supported by BIRD, historical RIPv1 is
-currently not fully supported.
+URL="http://www.ietf.org/html.charters/rip-charter.html" name="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4  
+(RFC ????<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc????.txt">)
+and IPv6 (RFC 2080<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2080.txt">) versions of RIP are supported by BIRD, historical RIPv1 (RFC 1058<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1058.txt">)is
+not currently supported. RIPv4 md5 authentication (RFC 2082<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2082.txt">) is supported.
 
 <p>RIP is a very simple protocol, and it has a lot of shortcomings. Slow
 convergence, big network load and inability to handle larger networks
