@@ -20,3 +20,5 @@ xmalloc.c
 printf.c
 string.h
 patmatch.c
+slists.c
+slists.h
