@@ -12,6 +12,7 @@
 #include "nest/iface.h"
 #include "nest/protocol.h"
 #include "nest/route.h"
+#include "nest/attrs.h"
 #include "conf/conf.h"
 #include "lib/resource.h"
 #include "lib/string.h"
@@ -276,31 +277,6 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
     *(ip_addr *)a->u.ptr->data = e->attrs->gw;
 
   return 0;				/* Leave decision to the filters */
-}
-
-struct adata *
-as_path_prepend(struct linpool *pool, struct adata *olda, int as)
-{
-  struct adata *newa;
-
-  if (olda->length && olda->data[0] == 2 && olda->data[1] < 255) /* Starting with sequence => just prepend the AS number */
-    {
-      newa = lp_alloc(pool, sizeof(struct adata) + olda->length + 2);
-      newa->length = olda->length + 2;
-      newa->data[0] = 2;
-      newa->data[1] = olda->data[1] + 1;
-      memcpy(newa->data+4, olda->data+2, olda->length-2);
-    }
-  else					/* Create new path segment */
-    {
-      newa = lp_alloc(pool, sizeof(struct adata) + olda->length + 4);
-      newa->length = olda->length + 4;
-      newa->data[0] = 2;
-      newa->data[1] = 1;
-      memcpy(newa->data+4, olda->data, olda->length);
-    }
-  put_u16(newa->data+2, as);
-  return newa;
 }
 
 static ea_list *
