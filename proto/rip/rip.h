@@ -52,7 +52,7 @@ struct rip_block {	/* 20 bytes */
   u32 metric;
 };
 #else
-struct rip_block { /* IPv6 version! */
+struct rip_block { /* IPv6 version!, 20 bytes, too */
   ip_addr network;
   u16 tag;
   u8 pxlen;
