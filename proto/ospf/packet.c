@@ -51,15 +51,11 @@ ospf_rx_hook(sock *sk, int size)
 {
 #ifndef IPV6
   struct ospf_packet *ps;
-  struct ospf_iface *ifa;
-  struct proto *p;
+  struct ospf_iface *ifa=(struct ospf_iface *)(sk->data);
+  struct proto *p=(struct proto *)(ifa->proto);
   int i;
   u8 *pu8;
 
-
-  ifa=(struct ospf_iface *)(sk->data);
-
-  p=(struct proto *)(ifa->proto);
   DBG("%s: RX_Hook called on interface %s.\n",p->name, sk->iface->name);
 
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
@@ -77,7 +73,7 @@ ospf_rx_hook(sock *sk, int size)
     return(1);
   }
 
-  if(ntohs(ps->length) != size)
+  if((ntohs(ps->length)!=size)||(size!=(4*(size/4))))
   {
     log("%s: Bad OSPF packet received: size field does not match", p->name);
     log("%s: Discarding",p->name);
