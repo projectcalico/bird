@@ -99,7 +99,7 @@ rip_tx( sock *s )
 	FIB_ITERATE_PUT(&c->iter, z);
 	goto break_loop;
       }
-    } FIB_ITERATE_END;
+    } FIB_ITERATE_END(z);
     c->done = 1;
 
   break_loop:
