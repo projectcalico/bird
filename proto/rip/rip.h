@@ -74,6 +74,8 @@ struct rip_data {
   list garbage;
   list interfaces;
   int magic;
+
+  int infinity;		/* How much is infinity? Should be 16 */
 };
 
 #define P ((struct rip_data *) p)

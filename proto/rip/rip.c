@@ -22,8 +22,6 @@
 
 #include "rip.h"
 
-int infinity = 16;
-
 /* FIXME: should be 520 */
 #define RIP_PORT 1520
 
@@ -160,7 +158,7 @@ givemore:
     if (ipa_equal(c->sendptr->whotoldme, s->daddr)) {
       debug( "(split horizont)" );
       /* FIXME: should we do it in all cases? */
-      packet->block[i].metric = infinity;
+      packet->block[i].metric = P->infinity;
     }
     ipa_hton( packet->block[i].network );
     ipa_hton( packet->block[i].netmask );
@@ -278,7 +276,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   ip_addr network = block->network;
 
   CHK_MAGIC;
-  if ((!metric) || (metric > infinity)) {
+  if ((!metric) || (metric > P->infinity)) {
     log( L_WARN "Got metric %d from %I\n", metric, whotoldme );
     return;
   }
@@ -286,7 +284,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme )
   /* FIXME: Check if destination looks valid - ie not net 0 or 127 */
 
   /* FIXME: Should add configurable ammount */
-  if (metric < infinity)
+  if (metric < P->infinity)
     metric++;
 
   debug( "block: %I tells me: %I/%I available, metric %d... ", whotoldme, network, block->netmask, metric );
@@ -622,6 +620,7 @@ rip_init_instance(struct proto *p)
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
   p->dump = rip_dump;
+  P->infinity = 16;
 }
 
 static void

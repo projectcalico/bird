@@ -10,7 +10,7 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(RIP)
+CF_KEYWORDS(RIP, INFINITY)
 
 CF_GRAMMAR
 
@@ -25,6 +25,10 @@ rip_proto_start: proto_start RIP {
 rip_proto:
    rip_proto_start proto_name '{'
  | rip_proto proto_item ';'
+ | rip_proto INFINITY expr ';' {
+		if ($3 < 0 || $3 > 64) cf_error("Invalid infinity");
+		((struct rip_data *) this_proto)->infinity = $3;
+	}
  ;
 
 CF_CODE
