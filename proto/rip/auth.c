@@ -69,7 +69,6 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 
       head = P_CF->passwords;
       while (head) {
-	/* FIXME: should check serial numbers, somehow */
 	DBG( "time, " );
 	if ((head->from > now) || (head->to < now))
 	  goto skip;
