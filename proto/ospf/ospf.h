@@ -112,6 +112,7 @@ struct ospf_packet {
   u16 length;
   u32 routerid;
   u32 areaid;
+#define BACKBONE 0
   u16 checksum;
   u16 autype;
   u8 authetication[8];

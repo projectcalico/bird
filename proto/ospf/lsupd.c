@@ -14,6 +14,116 @@ ospf_lsupd_tx(struct ospf_neighbor *n)
   /* FIXME Go on! */
 }
 
+void
+flood_lsa(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
+  struct ospf_lsa_header *hh, struct proto_ospf *po, struct ospf_iface *iff)
+{
+  struct ospf_iface *ifa;
+  struct ospf_neighbor *nn;
+  struct top_hash_entry *en;
+  int ret;
+
+  /* pg 148 */
+  WALK_LIST(NODE ifa,po->iface_list)
+  {
+    if(hh->type==LSA_T_EXT)
+    {
+      if(ifa->type==OSPF_IT_VLINK) continue;
+      if(ifa->oa->stub) continue;
+    }
+    else
+    {
+      if(iff->oa->areaid==BACKBONE)
+      {
+        if((ifa->type!=OSPF_IT_VLINK)&&(ifa->oa!=iff->oa)) continue;
+      }
+      else
+      {
+        if(ifa->oa!=iff->oa) continue;
+      }
+    }
+    ret=0;
+    WALK_LIST(NODE nn, ifa->neigh_list)
+    {
+      if(nn->state<NEIGHBOR_EXCHANGE) continue;
+      if(nn->state<NEIGHBOR_FULL)
+      {
+
+        if((en=ospf_hash_find_header(nn->lsrqh,hh))!=NULL)
+	{
+	  switch(lsa_comp(hh,&en->lsa))
+	  {
+            case CMP_OLDER:
+              continue;
+	      break;
+	    case CMP_SAME:
+              s_rem_node(SNODE en);
+	      DBG("Removing from lsreq list for neigh %u\n", nn->rid);
+	      ospf_hash_delete(nn->lsrqh,en);
+	      if(EMPTY_SLIST(nn->lsrql)) ospf_neigh_sm(nn, INM_LOADDONE);
+	      continue;
+	      break;
+	    case CMP_NEWER:
+              s_rem_node(SNODE en);
+	      DBG("Removing from lsreq list for neigh %u\n", nn->rid);
+	      ospf_hash_delete(nn->lsrqh,en);
+	      if(EMPTY_SLIST(nn->lsrql)) ospf_neigh_sm(nn, INM_LOADDONE);
+	      break;
+	    default: bug("Bug in lsa_comp?\n");
+	  }
+	}
+      }
+      if(nn==n) continue;
+      en=ospf_hash_get_header(nn->lsrth, hh);
+      s_add_tail(&nn->lsrtl, SNODE en);
+      ret=1;
+    }
+    if(ret==0) continue;
+    if(ifa==iff)
+    {
+      if((n->rid==iff->drid)||n->rid==iff->bdrid) continue;
+      if(iff->state=OSPF_IS_BACKUP) continue;
+    }
+    /* FIXME directly flood */
+    {
+      sock *sk;
+      ip_addr to;
+      u16 len;
+      struct ospf_lsupd_packet *pk;
+      struct ospf_packet *op;
+
+      if(ifa->type==OSPF_IT_NBMA)  sk=iff->ip_sk;
+      else sk=iff->hello_sk;	/* FIXME is this tru for PTP? */
+
+      pk=(struct ospf_lsupd_packet *)sk->tbuf;
+      op=(struct ospf_packet *)sk->tbuf;
+
+      fill_ospf_pkt_hdr(ifa, pk, LSUPD);
+      pk->lsano=htonl(1);
+      memcpy(pk+1,hn,ntohs(hn->length));
+      len=sizeof(struct ospf_lsupd_packet)+ntohs(hn->length);
+      op->length=htons(len);
+      ospf_pkt_finalize(ifa, op);
+
+      if(ifa->type==OSPF_IT_NBMA)
+      {
+	struct ospf_neighbor *nnn;
+        WALK_LIST(NODE nnn,ifa->neigh_list)
+	{
+          if(nnn->state>NEIGHBOR_EXSTART)
+            sk_send_to(sk,len, nnn->ip, OSPF_PROTO);
+	}
+      }
+      else
+      {
+        if((ifa->state==OSPF_IS_BACKUP)||(ifa->state==OSPF_IS_DR))
+          sk_send_to(sk,len, AllSPFRouters, OSPF_PROTO);
+	else sk_send_to(sk,len, AllDRouters, OSPF_PROTO);
+      }
+    }
+  }
+}
+
 void		/* I send all I received in LSREQ */
 ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
 {
@@ -116,16 +226,19 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   {
     struct ospf_lsa_header lsatmp;
     struct top_hash_entry *lsadb;
+    /* pg 143 (1) */
     if(lsa->checksum!=lsasum_check(lsa,NULL,po))
     {
       log("Received bad lsa checksum from %u\n",n->rid);
       continue;
     }
+    /* pg 143 (2) */
     if((lsa->type<LSA_T_RT)||(lsa->type>LSA_T_EXT))
     {
       log("Unknown LSA type from %u\n",n->rid);
       continue;
     }
+    /* pg 143 (3) */
     if((lsa->type==LSA_T_EXT)&&oa->stub)
     {
       log("Received External LSA in stub area from %u\n",n->rid);
@@ -136,21 +249,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
         lsatmp.id, lsatmp.rt);
     lsadb=ospf_hash_find_header(oa->gr, &lsatmp);
 
-    /* Remove it from link state request list */
-    WALK_LIST(NODE ifa,po->iface_list)
-      WALK_LIST(NODE ntmp,ifa->neigh_list)
-      {
-        struct top_hash_entry *en;
-	if(ntmp->state>NEIGHBOR_EXSTART)
-          if((en=ospf_hash_find_header(ntmp->lsrqh,&lsatmp))!=NULL)
-	  {
-	    s_rem_node(SNODE en);
-	    DBG("Removing from lsreq list for neigh %u\n", ntmp->rid);
-	    ospf_hash_delete(ntmp->lsrqh,en);
-	    if(EMPTY_SLIST(ntmp->lsrql)) ospf_neigh_sm(ntmp, INM_LOADDONE);
-	  }
-      }
-
+    /* pg 143 (4) */
     if((lsatmp.age==LSA_MAXAGE)&&(lsadb==NULL))
     {
       struct ospf_neighbor *n=NULL;
@@ -169,20 +268,23 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 	continue;
       }
     }
+    /* pg 144 (5) */
     if((lsadb==NULL)||(lsa_comp(&lsatmp,&lsadb->lsa)==CMP_NEWER))
     {
-       struct ospf_neighbor *n=NULL;
-       struct ospf_iface *ifa=NULL;
+       struct ospf_iface *ift=NULL;
        void *body;
 
-       /* FIXME self originated? */
 
+      /* pg 144 (5a) */
       if(lsadb && ((lsadb->inst_t-now)<MINLSARRIVAL)) continue;
 
+      flood_lsa(n,lsa,&lsatmp,po,ifa);
+
       /* Remove old from all ret lists */
+      /* pg 144 (5c) */
       if(lsadb)
-        WALK_LIST(NODE ifa,po->iface_list)
-          WALK_LIST(NODE ntmp,ifa->neigh_list)
+        WALK_LIST(NODE ift,po->iface_list)
+          WALK_LIST(NODE ntmp,ift->neigh_list)
 	  {
 	    struct top_hash_entry *en;
 	    if(ntmp->state>NEIGHBOR_EXSTART)
@@ -193,17 +295,22 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 	      }
 	  }
 
-      /* Install new */
+      /* pg 144 (5d) */
       body=mb_alloc(p->pool,lsatmp.length-sizeof(struct ospf_lsa_header));
-      ntohlsab(lsa+1,body,lsatmp.type,lsatmp.length-sizeof(struct ospf_lsa_header));
+      ntohlsab(lsa+1,body,lsatmp.type,
+        lsatmp.length-sizeof(struct ospf_lsa_header));
       lsadb=lsa_install_new(&lsatmp,body, oa);
       DBG("New LSA installed in DB\n");
+
+      /* FIXME 144 (5e) ack */
+      /* FIXME 145 (5f) self originated? */
 
       continue;
     }
 
-    /* FIXME pg144 (6)?? */
+    /* FIXME pg145 (6)?? */
 
+    /* pg145 (7) */
     if(lsa_comp(&lsatmp,&lsadb->lsa)==CMP_SAME)
     {
 	struct top_hash_entry *en;
@@ -213,9 +320,17 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
 	continue;
     }
 
+    /* pg145 (8) */
     if((lsadb->lsa.age==LSA_MAXAGE)&&(lsadb->lsa.sn==LSA_MAXSEQNO)) continue;
 
-    /* FIXME lsa_send(n,lsa) */
+    {
+      list l;
+      struct l_lsr_head llsh;
+      init_list(&l);
+      memcpy(&llsh.lsh,&lsadb->lsa,sizeof(struct ospf_lsa_header));
+      add_tail(&l, NODE &llsh);
+      ospf_lsupd_tx_list(n, &l);
+    }
   }
 }
 
