@@ -432,8 +432,8 @@ sk_open(sock *s)
 	}
 #else
 #error Multicasts not supported on PtP devices		/* FIXME: Solve it somehow? */
-	mreq_add.imr_interface = mreq;
 #endif
+	mreq_add.imr_interface = mreq;
 #endif
 	set_inaddr(&mreq_add.imr_multiaddr, s->daddr);
 	if (has_dest)
