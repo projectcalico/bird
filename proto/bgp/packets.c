@@ -337,6 +337,7 @@ bgp_rx_keepalive(struct bgp_conn *conn, byte *pkt, unsigned len)
     case BS_OPENCONFIRM:
       DBG("BGP: UP!!!\n");
       conn->state = BS_ESTABLISHED;
+      bgp_attr_init(conn->bgp);
       proto_notify_state(&conn->bgp->p, PS_UP);
       break;
     case BS_ESTABLISHED:

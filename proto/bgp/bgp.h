@@ -53,6 +53,8 @@ struct bgp_proto {
   ip_addr next_hop;			/* Either the peer or multihop_via */
   struct neighbor *neigh;		/* Neighbor entry corresponding to next_hop */
   ip_addr local_addr;			/* Address of the local end of the link to next_hop */
+  struct bgp_bucket **bucket_table;	/* Hash table of attribute buckets */
+  unsigned int hash_size, hash_count, hash_limit;
 };
 
 #define BGP_PORT		179
@@ -77,6 +79,7 @@ int bgp_rte_better(struct rte *, struct rte *);
 void bgp_rt_notify(struct proto *, struct network *, struct rte *, struct rte *, struct ea_list *);
 int bgp_import_control(struct proto *, struct rte **, struct ea_list **, struct linpool *);
 struct ea_list *bgp_path_prepend(struct linpool *pool, struct eattr *a, struct ea_list *old, int as);
+void bgp_attr_init(struct bgp_proto *);
 
 /* packets.c */
 

@@ -19,13 +19,201 @@
 
 #include "bgp.h"
 
+static int bgp_mandatory_attrs[] = { BA_ORIGIN, BA_AS_PATH, BA_NEXT_HOP };
+
+struct bgp_bucket {
+  struct bgp_bucket *next;
+  unsigned hash;
+  ea_list eattrs[0];
+};
+
+struct attr_desc {
+  char *name;				/* FIXME: Use the same names as in filters */
+  int expected_length;
+  int expected_flags;
+  int type;
+  int (*validate)(struct bgp_proto *p, byte *attr, int len);
+  void (*format)(eattr *ea, byte *buf);
+};
+
+extern struct attr_desc bgp_attr_table[];
+
+static void
+bgp_normalize_set(u32 *dest, u32 *src, unsigned cnt)
+{
+  memcpy(dest, src, sizeof(u32) * cnt);
+  /* FIXME */
+}
+
+static void
+bgp_rehash_buckets(struct bgp_proto *p)
+{
+  struct bgp_bucket **old = p->bucket_table;
+  struct bgp_bucket **new;
+  unsigned oldn = p->hash_size;
+  unsigned i, e, mask;
+  struct bgp_bucket *b;
+
+  p->hash_size = p->hash_limit;
+  DBG("BGP: Rehashing bucket table from %d to %d\n", oldn, p->hash_size);
+  p->hash_limit *= 4;
+  if (p->hash_limit >= 65536)
+    p->hash_limit = ~0;
+  new = p->bucket_table = mb_allocz(p->p.pool, p->hash_size * sizeof(struct bgp_bucket *));
+  mask = p->hash_size - 1;
+  for (i=0; i<oldn; i++)
+    while (b = old[i])
+      {
+	old[i] = b->next;
+	e = b->hash & mask;
+	b->next = new[e];
+	new[e] = b;
+      }
+  mb_free(old);
+}
+
+static struct bgp_bucket *
+bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
+{
+  struct bgp_bucket *b;
+  unsigned ea_size = sizeof(ea_list) + new->count * sizeof(eattr);
+  unsigned ea_size_aligned = ALIGN(ea_size, CPU_STRUCT_ALIGN);
+  unsigned size = sizeof(struct bgp_bucket) + ea_size;
+  unsigned i;
+  byte *dest;
+  unsigned index = hash & (p->hash_size - 1);
+
+  /* Gather total size of non-inline attributes */
+  for (i=0; i<new->count; i++)
+    {
+      eattr *a = &new->attrs[i];
+      if (!(a->type & EAF_EMBEDDED))
+	size += ALIGN(sizeof(struct adata) + a->u.ptr->length, CPU_STRUCT_ALIGN);
+    }
+
+  /* Create the bucket and hash it */
+  b = mb_alloc(p->p.pool, size);
+  b->next = p->bucket_table[index];
+  p->bucket_table[index] = b;
+  b->hash = hash;
+  memcpy(b->eattrs, new, ea_size);
+  dest = ((byte *)b->eattrs) + ea_size_aligned;
+
+  /* Copy values of non-inline attributes */
+  for (i=0; i<new->count; i++)
+    {
+      eattr *a = &new->attrs[i];
+      if (!(a->type & EAF_EMBEDDED))
+	{
+	  struct adata *oa = a->u.ptr;
+	  struct adata *na = (struct adata *) dest;
+	  memcpy(na, oa, sizeof(struct adata) + oa->length);
+	  a->u.ptr = na;
+	  dest += ALIGN(na->length, CPU_STRUCT_ALIGN);
+	}
+    }
+
+  /* If needed, rehash */
+  p->hash_count++;
+  if (p->hash_count > p->hash_limit)
+    bgp_rehash_buckets(p);
+
+  return b;
+}
+
+static struct bgp_bucket *
+bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp)
+{
+  ea_list *t, *new;
+  unsigned i, cnt;
+  eattr *a, *d;
+  u32 seen = 0;
+  unsigned hash;
+  struct bgp_bucket *b;
+
+  /* Merge the attribute lists */
+  for(t=tmp; t->next; t=t->next)
+    ;
+  t->next = old;
+  new = alloca(ea_scan(tmp));
+  ea_merge(tmp, new);
+  t->next = NULL;
+  ea_sort(tmp);
+
+  /* Normalize attributes */
+  d = new->attrs;
+  cnt = new->count;
+  new->count = 0;
+  for(i=0; i<cnt; i++)
+    {
+      a = &new->attrs[i];
+#ifdef LOCAL_DEBUG
+      {
+	byte buf[256];
+	ea_format(a, buf);
+	DBG("\t%s\n", buf);
+      }
+#endif
+      if (EA_PROTO(a->id) != EAP_BGP)
+	continue;
+      if (EA_ID(a->id) < 32)
+	seen |= 1 << EA_ID(a->id);
+      *d = *a;
+      switch (d->type & EAF_TYPE_MASK)
+	{
+	case EAF_TYPE_INT_SET:
+	  {
+	    struct adata *z = alloca(sizeof(struct adata) + d->u.ptr->length);
+	    z->length = d->u.ptr->length;
+	    bgp_normalize_set((u32 *) z->data, (u32 *) d->u.ptr->data, z->length / 4);
+	    d->u.ptr = z;
+	    break;
+	  }
+	default:
+	}
+      d++;
+      new->count++;
+    }
+
+  /* Hash */
+  hash = ea_hash(new);
+  for(b=p->bucket_table[hash & (p->hash_size - 1)]; b; b=b->next)
+    if (b->hash == hash && ea_same(b->eattrs, new))
+      {
+	DBG("Found bucket.\n");
+	return b;
+      }
+
+  /* Ensure that there are all mandatory attributes */
+  /* FIXME: Introduce array size macro */
+  for(i=0; i<sizeof(bgp_mandatory_attrs)/sizeof(bgp_mandatory_attrs[0]); i++)
+    if (!(seen & (1 << bgp_mandatory_attrs[i])))
+      {
+	log(L_ERR "%s: Mandatory attribute %s missing", p->p.name, bgp_attr_table[bgp_mandatory_attrs[i]].name);
+	return NULL;
+      }
+
+  /* Create new bucket */
+  DBG("Creating bucket.\n");
+  return bgp_new_bucket(p, new, hash);
+}
+
 void
 bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *tmpa)
 {
+  struct bgp_proto *p = (struct bgp_proto *) P;
+
   DBG("BGP: Got route %I/%d\n", n->n.prefix, n->n.pxlen);
+
+  if (new)
+    {
+      struct bgp_bucket *buck = bgp_get_bucket(p, new->attrs->eattrs, tmpa);
+      if (!buck)			/* Inconsistent attribute list */
+	return;
+    }
+
   /* FIXME: Normalize attributes */
   /* FIXME: Check next hop */
-  /* FIXME: Someone might have undefined the mandatory attributes */
 }
 
 static int
@@ -47,6 +235,7 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
     a->u.data = 2;			/* Incomplete */
   else
     a->u.data = 0;			/* IGP */
+  a++;
 
   a->id = EA_CODE(EAP_BGP, BA_AS_PATH);
   a->flags = BAF_TRANSITIVE;
@@ -66,6 +255,7 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
       z[1] = 1;				/* 1 AS */
       put_u16(z+2, p->local_as);
     }
+  a++;
 
   a->id = EA_CODE(EAP_BGP, BA_NEXT_HOP);
   a->flags = BAF_TRANSITIVE;
@@ -277,15 +467,6 @@ bgp_check_local_pref(struct bgp_proto *p, byte *a, int len)
   return 0;
 }
 
-struct attr_desc {
-  char *name;				/* FIXME: Use the same names as in filters */
-  int expected_length;
-  int expected_flags;
-  int type;
-  int (*validate)(struct bgp_proto *p, byte *attr, int len);
-  void (*format)(eattr *ea, byte *buf);
-};
-
 static struct attr_desc bgp_attr_table[] = {
   { NULL, -1, 0, 0,						/* Undefined */
     NULL, NULL },
@@ -310,8 +491,6 @@ static struct attr_desc bgp_attr_table[] = {
   { 0, 0 },									/* BA_CLUSTER_LIST */
 #endif
 };
-
-static int bgp_mandatory_attrs[] = { BA_ORIGIN, BA_AS_PATH, BA_NEXT_HOP };
 
 struct rta *
 bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct linpool *pool)
@@ -503,4 +682,12 @@ bgp_get_attr(eattr *a, byte *buf)
     }
   bsprintf(buf, "%02x%s", i, (a->flags & BAF_TRANSITIVE) ? "[t]" : "");
   return GA_NAME;
+}
+
+void
+bgp_attr_init(struct bgp_proto *p)
+{
+  p->hash_size = 256;
+  p->hash_limit = p->hash_size * 4;
+  p->bucket_table = mb_allocz(p->p.pool, p->hash_size * sizeof(struct bgp_bucket *));
 }
