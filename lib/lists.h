@@ -24,6 +24,10 @@ typedef struct list {			/* In fact two overlayed nodes */
 				n=(void *)((NODE (n))->next))
 #define WALK_LIST_DELSAFE(n,nxt,list) \
      for(n=HEAD(list); nxt=(void *)((NODE (n))->next); n=(void *) nxt)
+#define WALK_LIST_BACKWARDS(n,list) for(n=TAIL(list);(NODE (n))->prev; \
+				n=(void *)((NODE (n))->prev))
+#define WALK_LIST_BACKWARDS_DELSAFE(n,prv,list) \
+     for(n=TAIL(list); prv=(void *)((NODE (n))->prev); n=(void *) prv)
 
 #define EMPTY_LIST(list) (!(list).head->next)
 
