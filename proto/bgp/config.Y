@@ -59,14 +59,14 @@ bgp_proto:
  | bgp_proto KEEPALIVE TIME expr ';' { BGP_CFG->keepalive_time = $4; }
  | bgp_proto MULTIHOP expr VIA ipa ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
- | bgp_proto PATH METRIC expr ';' { BGP_CFG->compare_path_lengths = $4; }
+ | bgp_proto PATH METRIC bool ';' { BGP_CFG->compare_path_lengths = $4; }
  | bgp_proto DEFAULT BGP_MED expr ';' { BGP_CFG->default_med = $4; }
  | bgp_proto DEFAULT BGP_LOCAL_PREF expr ';' { BGP_CFG->default_local_pref = $4; }
  | bgp_proto SOURCE ADDRESS ipa ';' { BGP_CFG->source_addr = $4; }
  | bgp_proto START DELAY TIME expr ';' { BGP_CFG->start_delay_time = $5; }
  | bgp_proto ERROR FORGET TIME expr ';' { BGP_CFG->error_amnesia_time = $5; } 
  | bgp_proto ERROR WAIT TIME expr ',' expr ';' { BGP_CFG->error_delay_time_min = $5; BGP_CFG->error_delay_time_max = $7; }
- | bgp_proto DISABLE AFTER ERROR ';' { BGP_CFG->disable_after_error = 1; }
+ | bgp_proto DISABLE AFTER ERROR bool ';' { BGP_CFG->disable_after_error = $5; }
  ;
 
 CF_ADDTO(dynamic_attr, BGP_PATH
