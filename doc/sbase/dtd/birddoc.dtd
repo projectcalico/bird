@@ -12,7 +12,12 @@ anywhere else. <pavel@ucw.cz>
      Tom Gordon.
 
      $Log$
-     Revision 1.1  2000-05-11 12:00:36  pavel
+     Revision 1.1  2000-05-29 12:05:21  mj
+     Renamed the DTD from linuxdoc to birddoc.
+
+     Pavel, please check whether it builds in your environment as well.
+
+     Revision 1.1  2000/05/11 12:00:36  pavel
      Critical files from linuxdoc1 distribution checked in.
 
      Revision 1.8  1998/06/26 19:41:11  cg
@@ -101,7 +106,7 @@ anywhere else. <pavel@ucw.cz>
 <!entity % sectpar 
         " %par; | figure | tabular | table | %mathpar; | 
 	  %thrm; | %litprog; ">
-<!element linuxdoc o o 
+<!element birddoc o o 
         (sect | chapt | article | report | 
 	 book | letter | telefax | slides | notes | manpage ) >
 
@@ -446,7 +451,7 @@ anywhere else. <pavel@ucw.cz>
       "}" rcub
       "|" verbar>
 
-<!usemap global linuxdoc>
+<!usemap global birddoc>
 <!element label - o empty>
 <!attlist label id cdata #required>
 
@@ -557,7 +562,7 @@ anywhere else. <pavel@ucw.cz>
 
 <!element biblio - o empty>
 <!attlist biblio
-	style cdata "linuxdoc"
+	style cdata "birddoc"
         files cdata "">
 <!element slides - - (slide*) >
 
