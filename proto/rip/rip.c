@@ -733,8 +733,8 @@ rip_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
 {
   struct proto *p = rt->attrs->proto;
 
-  rt->u.rip.tag = ea_find(attrs, EA_RIP_TAG)->u.data;
-  rt->u.rip.metric = ea_find(attrs, EA_RIP_METRIC)->u.data;
+  rt->u.rip.tag = ea_get_int(attrs, EA_RIP_TAG, 0);
+  rt->u.rip.metric = ea_get_int(attrs, EA_RIP_METRIC, 1);
 }
 
 static void
