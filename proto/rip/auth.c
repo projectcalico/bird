@@ -26,6 +26,8 @@
 #define P ((struct rip_proto *) p)
 #define P_CF ((struct rip_proto_config *)p->cf)
 
+#define PACKETLEN(num) (num * sizeof(struct rip_block) + sizeof(struct rip_packet_heading))
+
 /* 1 == failed, 0 == ok */
 int
 rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
@@ -39,7 +41,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       return 1;
     }
     if (strncmp( (char *) (&block->packetlen), P_CF->passwords->password, 16)) {
-      log( L_AUTH, "Passwd authentication failed!\n" );
+      log( L_AUTH "Passwd authentication failed!\n" );
       return 1;
     }
     return 0;
@@ -49,13 +51,18 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       struct password_item *head;
       struct rip_md5_tail *tail;
 
-      /* FIXME: check that block->packetlen looks valid */
+      if (block->packetlen != PACKETLEN(num)) {
+	log( L_ERR "packetlen in md5 does not match computed value\n" );
+	return 1;
+      }
 
       tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
 
       head = P_CF->passwords;
-      while (head) {	/* FIXME: should not we check that password is not expired? */
+      while (head) {
 	/* FIXME: should check serial numbers, somehow */
+	if ((head->from > now) || (head->to < now))
+	  continue;
 	if (head->id == block->keyid) {
 	  struct MD5Context ctxt;
 	  char md5sum_packet[16];
@@ -111,7 +118,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       block->seq = sequence++;
       block->zero0 = 0;
       block->zero1 = 1;
-      block->packetlen = 0 /* FIXME */;
+      block->packetlen = PACKETLEN(num);
 
       tail = (struct rip_md5_tail *) ((char *) packet + (block->packetlen - sizeof(struct rip_block_auth)));
       tail->mustbeFFFF = 0xffff;

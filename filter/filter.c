@@ -4,6 +4,9 @@
  *	Copyright 1998 Pavel Machek <pavel@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ *
+ *	FIXME: local namespace for functions
+ *	FIXME: switch (or how did we call it in final release?)
  */
 
 #include <stdio.h>
@@ -148,6 +151,7 @@ interpret(struct f_inst *what)
   case '<': COMPARE(i==-1);
   case '<=': COMPARE(i!=1);
 
+    /* FIXME: Should be able to work with prefixes of limited sizes */
   case '~':
     TWOARGS;
     res.type = T_BOOL;
