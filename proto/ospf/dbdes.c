@@ -145,7 +145,6 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       break;
 
     default:				/* Ignore it */
-      bug("Bug in dbdes sending");
       break;
   }
 }
