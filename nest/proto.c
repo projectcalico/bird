@@ -160,11 +160,6 @@ protos_preconfig(struct config *c)
 {
   struct protocol *p;
 
-  init_list(&proto_list);
-  init_list(&active_proto_list);
-  init_list(&inactive_proto_list);
-  init_list(&initial_proto_list);
-  init_list(&flush_proto_list);
   init_list(&c->protos);
   debug("Protocol preconfig:");
   WALK_LIST(p, protocol_list)
@@ -363,6 +358,11 @@ void
 protos_build(void)
 {
   init_list(&protocol_list);
+  init_list(&proto_list);
+  init_list(&active_proto_list);
+  init_list(&inactive_proto_list);
+  init_list(&initial_proto_list);
+  init_list(&flush_proto_list);
   add_tail(&protocol_list, &proto_device.n);
 #ifdef CONFIG_RIP
   add_tail(&protocol_list, &proto_rip.n);
