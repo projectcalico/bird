@@ -27,3 +27,5 @@ slists.c
 slists.h
 event.c
 event.h
+checksum.c
+checksum.h
