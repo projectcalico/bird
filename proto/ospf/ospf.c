@@ -15,7 +15,8 @@ ospf_start(struct proto *p)
   struct ospf_config *c=(struct ospf_config *)(p->cf);
   struct ospf_area_config *ac;
   struct ospf_area *oa;
-  debug("%s: Start\n",p->name);
+
+  OSPF_TRACE(D_EVENTS, "Start");
 
   fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
   init_list(&(po->iface_list));
@@ -63,26 +64,25 @@ ospf_dump(struct proto *p)
   struct proto_ospf *po=(struct proto_ospf *)p;
   struct ospf_area *oa;
 
-  debug("%s: Area number: %d\n", p->name, po->areano);
+  OSPF_TRACE(D_EVENTS, "Area number: %d\n", po->areano);
 
   WALK_LIST(ifa, po->iface_list)
   {
-    debug("%s: Interface: %s\n", p->name, ifa->iface->name);
-    debug("%s:  state: %u\n", p->name, ifa->state);
-    debug("%s:  DR:  %I\n", p->name, ifa->drid);
-    debug("%s:  BDR: %I\n", p->name, ifa->bdrid);
+    OSPF_TRACE(D_EVENTS, "Interface: %s", ifa->iface->name);
+    OSPF_TRACE(D_EVENTS, "state: %u", ifa->state);
+    OSPF_TRACE(D_EVENTS, "DR:  %I", ifa->drid);
+    OSPF_TRACE(D_EVENTS, "BDR: %I", ifa->bdrid);
     WALK_LIST(n, ifa->neigh_list)
     {
-      debug("%s:   neighbor %I in state %u\n", p->name, n->rid, n->state);
+      OSPF_TRACE(D_EVENTS, "  neighbor %I in state %u\n", n->rid, n->state);
     }
   }
 
   WALK_LIST(NODE oa,po->area_list)
   {
-    debug("\n%s: LSA graph dump for area \"%I\" start:\n", p->name,oa->areaid);
+    OSPF_TRACE(D_EVENTS, "LSA graph dump for area \"%I\" start:", oa->areaid);
     ospf_top_dump(oa->gr);
-    debug("%s: LSA graph dump for area \"%I\" finished\n\n", p->name,
-      oa->areaid);
+    OSPF_TRACE(D_EVENTS, "LSA graph dump for area \"%I\" finished", oa->areaid);
   }
   neigh_dump_all();
 }
@@ -96,7 +96,6 @@ ospf_init(struct proto_config *c)
   struct ospf_area_config *ac;
   struct ospf_iface_patt *patt;
 
-  debug("OSPF: Init requested.\n");
   p->import_control = ospf_import_control;
   p->make_tmp_attrs = ospf_make_tmp_attrs;
   p->store_tmp_attrs = ospf_store_tmp_attrs;
@@ -176,7 +175,7 @@ schedule_rt_lsa(struct ospf_area *oa)
   struct proto_ospf *po=oa->po;
   struct proto *p=&po->proto;
 
-  debug("%s: Scheduling RT lsa origination for area %I.\n", p->name,
+  OSPF_TRACE(D_EVENTS, "Scheduling RT lsa origination for area %I.",
     oa->areaid);
   oa->origrt=1;
 }
@@ -187,7 +186,7 @@ schedule_rtcalc(struct ospf_area *oa)
   struct proto_ospf *po=oa->po;
   struct proto *p=&po->proto;
 
-  debug("%s: Scheduling RT calculation for area %I.\n", p->name,
+  OSPF_TRACE(D_EVENTS, "Scheduling RT calculation for area %I.", 
     oa->areaid);
   oa->calcrt=1;
 }
@@ -241,7 +240,7 @@ ospf_shutdown(struct proto *p)
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
   struct ospf_area *oa;
-  debug("%s: Shutdown requested\n", p->name);
+  OSPF_TRACE(D_EVENTS, "Shutdown requested\n");
 
   /* And send to all my neighbors 1WAY */
   WALK_LIST(ifa, po->iface_list)
@@ -258,7 +257,7 @@ ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old, ea_list *attrs)
 {
   struct proto_ospf *po=(struct proto_ospf *)p;
 
-  debug("%s: Got route %I/%d %s\n", p->name, n->n.prefix,
+  OSPF_TRACE(D_EVENTS, "Got route %I/%d %s\n", p->name, n->n.prefix,
     n->n.pxlen, new ? "up" : "down");
 
   if(new)		/* Got some new route */

@@ -9,9 +9,15 @@
 #ifndef _BIRD_OSPF_H_
 #define _BIRD_OSPF_H_
 
-
 #define SIPH 64		/* FIXME Size Of IP header */
 #define MAXNETS 10
+#ifdef LOCAL_DEBUG
+#define OSPF_FORCE_DEBUG 1
+#else
+#define OSPF_FORCE_DEBUG 0
+#endif
+#define OSPF_TRACE(flags, msg, args...) do { if ((p->debug & flags) || OSPF_FORCE_DEBUG) \
+  log(L_TRACE "%s: " msg, p->name , ## args ); } while(0)
 
 #include "nest/bird.h"
 
