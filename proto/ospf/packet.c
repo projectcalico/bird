@@ -31,8 +31,27 @@ fill_ospf_pkt_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
 void
 ospf_tx_authenticate(struct ospf_iface *ifa, struct ospf_packet *pkt)
 {
-  /* FIXME */
+  int i;
+  pkt->autype=ifa->autype;
+  memcpy(pkt->authetication, ifa->aukey, 8);
   return;
+}
+
+int
+ospf_rx_authenticate(struct ospf_iface *ifa, struct ospf_packet *pkt)
+{
+  int i;
+  if(pkt->autype!=ifa->autype) return 0;
+  if(ifa->autype==AU_NONE) return 1;
+  if(ifa->autype==AU_SIMPLE)
+  {
+    for(i=0;i<8;i++)
+    {
+      if(pkt->authetication[i]!=ifa->aukey[i]) return 0;
+    }
+    return 1;
+  }
+  return 0;
 }
 
 void
@@ -95,7 +114,12 @@ ospf_rx_hook(sock *sk, int size)
     return(1);
   }
 
-  /* FIXME: Do authetification */
+  if(!ospf_rx_authenticate(ifa,ps))
+  {
+    log("%s: Bad OSPF packet received: bad password", p->name);
+    return(1);
+  }
+
 
   if(ps->areaid!=ifa->an)
   {

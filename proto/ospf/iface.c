@@ -398,8 +398,8 @@ ospf_ifa_add(struct object_lock *lock)
   ifa->helloint=ip->helloint;
   ifa->waitint=ip->waitint;
   ifa->deadc=ip->deadc;
-  ifa->autype=0;	/* FIXME add authentification */
-  for(i=0;i<8;i++) ifa->aukey[i]=0;
+  ifa->autype=ip->autype;
+  memcpy(ifa->aukey,ip->password,8);
   ifa->options=2;	/* FIXME what options? */
 
   if(ip->type==OSPF_IT_UNDEF)

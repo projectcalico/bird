@@ -117,6 +117,8 @@ protocol static {
 #			dead count 5;
 #			wait 50;
 #			type broadcast;
+#			authentication simple;
+#			password "pass";
 #		};
 #		interface "arc0" {
 #			type nonbroadcast;
@@ -130,6 +132,7 @@ protocol static {
 #		stub 1;
 #		interface "ppp1" {
 #			hello 8;
+#			authentication none;
 #		};
 #	};
 #}

@@ -377,6 +377,11 @@ struct ospf_iface_patt {
   int waitint;
   int deadc;
   int type;
+  int autype;
+#define AU_NONE 0
+#define AU_SIMPLE 1
+#define AU_CRYPT 2
+  u8 password[8];
   list nbma_list;
 };
 
