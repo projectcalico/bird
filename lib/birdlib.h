@@ -1,7 +1,7 @@
 /*
  *	BIRD Library
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
@@ -48,7 +48,7 @@ void debug(char *msg, ...);		/* Printf to debug output */
 
 /* Debugging */
 
-#ifdef LOCAL_DEBUG
+#if defined(LOCAL_DEBUG) || defined(GLOBAL_DEBUG)
 #define DBG(x, y...) debug(x, ##y)
 #else
 #define DBG(x, y...)
