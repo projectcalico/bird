@@ -55,7 +55,7 @@ struct proto {
 
   void (*if_notify)(struct proto *, struct iface *new, struct iface *old);
   void (*rt_notify)(struct proto *, struct rte *new, struct rte *old);
-  void (*neigh_lost_notify)(struct proto *, struct neighbor *neigh);
+  void (*neigh_notify)(struct neighbor *neigh);
   void (*dump)(struct proto *);			/* Debugging dump */
   void (*start)(struct proto *);		/* Start the instance */
   void (*shutdown)(struct proto *, int time);	/* Stop the instance */

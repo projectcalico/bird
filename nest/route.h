@@ -13,6 +13,7 @@
 #include "lib/timer.h"
 
 struct protocol;
+struct proto;
 
 /*
  *	Generic data structure for storing network prefixes. Also used
@@ -59,25 +60,6 @@ void fib_free(struct fib *);		/* Destroy the fib */
 	      op;						\
 	    }							\
 	} while (0)
-
-/*
- *	Neighbor Cache. We hold (direct neighbor, protocol) pairs we've seen
- *	along with pointer to protocol-specific data.
- *
- *	The primary goal of this cache is to quickly validate all incoming
- *	packets if their have been sent by our neighbors and to notify
- *	protocols about lost neighbors when an interface goes down.
- */
-
-typedef struct neighbor {
-  ip_addr addr;				/* Address of the neighbor */
-  struct next *next;			/* Next in hashed chain */
-  struct next *sibling;			/* Next in per-device chain */
-  struct proto *proto;			/* Protocol this belongs to */
-  void *data;				/* Protocol-specific data */
-} neighbor;
-
-neighbor *neigh_find(ip_addr *);	/* NULL if not a neighbor */
 
 /*
  *	Master Routing Tables. Generally speaking, each of them is a list

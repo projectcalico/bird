@@ -1,15 +1,17 @@
 Core
 ~~~~
+* router id
+
 - fake multipath?
 - config file: symbolic constants?
 - counters (according to SNMP MIB?)
 - generation of subnet mask ICMP's for v6?
-- neighbor cache: local broadcast address?
 - ipv4: recognize site scope addresses?
 - ifdef out some debugging code?
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
 - all internal tables are in host order
+- secondary addresses -> subinterfaces
 
 - filter: logging of dropped routes (?)
 - limitation of memory consumption: per-process and total (?)
