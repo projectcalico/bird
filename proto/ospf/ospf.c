@@ -37,6 +37,30 @@ ospf_hello_rx(struct ospf_hello_packet *ps, struct proto *p,
     log("%s: Discarding",p->name);
     return;
   }
+  
+  if(ntohs(ps->helloint)!=ifa->helloint)
+  {
+    log("%s: Bad OSPF packet from %d received: hello interval mismatch.",
+      p->name, ntohl(((struct ospf_packet *)ps)->routerid));
+    log("%s: Discarding",p->name);
+    return;
+  }
+
+  if(ntohl(ps->deadint)!=ifa->helloint*ifa->deadc)
+  {
+    log("%s: Bad OSPF packet from %d received: dead interval mismatch.",
+      p->name, ntohl(((struct ospf_packet *)ps)->routerid));
+    log("%s: Discarding",p->name);
+    return;
+  }
+  
+  if(ps->options!=ifa->options)
+  {
+    log("%s: Bad OSPF packet from %d received: options mismatch.",
+      p->name, ntohl(((struct ospf_packet *)ps)->routerid));
+    log("%s: Discarding",p->name);
+    return;
+  }
 
   switch(ifa->state)
   {
@@ -309,10 +333,10 @@ hello_timer_hook(timer *timer)
 
     pkt->netmask=ipa_mkmask(ifa->iface->addr->pxlen);
     ipa_hton(pkt->netmask);
-    pkt->hello_int=ntohs(ifa->helloint);
+    pkt->helloint=ntohs(ifa->helloint);
     pkt->options=ifa->options;
     pkt->priority=ifa->priority;
-    pkt->deadint=htonl(ifa->deadint*ifa->helloint);
+    pkt->deadint=htonl(ifa->deadc*ifa->helloint);
     pkt->dr=ifa->drid;
     pkt->bdr=ifa->bdrid;
 
@@ -423,7 +447,7 @@ ospf_iface_default(struct ospf_iface *ifa)
   ifa->iftransdelay=IFTRANSDELAY_D;
   ifa->priority=PRIORITY_D;
   ifa->helloint=HELLOINT_D;
-  ifa->deadint=DEADINT_D;
+  ifa->deadc=DEADC_D;
   ifa->autype=0;
   for(i=0;i<8;i++) ifa->aukey[i]=0;
   ifa->options=2;

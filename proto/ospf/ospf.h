@@ -43,7 +43,7 @@ struct ospf_iface {
 			   interface.  LSAs contained in the update */
   u8 priority;		/* A router priority for DR election */
   u16 helloint;		/* number of seconds between hello sending */
-  u32 deadint;		/* after "deadint" missing hellos is router dead */
+  u32 deadc;		/* after "deadint" missing hellos is router dead */
   u16 autype;
   u8 aukey[8];
   u8 options;
@@ -70,7 +70,7 @@ struct ospf_iface {
 #define IFTRANSDELAY_D 1
 #define PRIORITY_D 1
 #define HELLOINT_D 10
-#define DEADINT_D 4
+#define DEADC_D 4
 #define WAIT_DMH 2	/* Value of Wait timer - not found it in RFC - using 2*HELLO */
 };
 
@@ -100,7 +100,7 @@ struct ospf_packet {
 struct ospf_hello_packet {
   struct ospf_packet ospf_packet;
   ip_addr netmask;
-  u16 hello_int;
+  u16 helloint;
   u8 options;
   u8 priority;
   u32 deadint;
