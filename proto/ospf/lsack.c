@@ -40,7 +40,8 @@ ospf_lsa_delay(struct ospf_neighbor *n,struct ospf_lsa_header *h,
   no=mb_alloc(p->pool,sizeof(struct lsah_n));
   memcpy(&no->lsa,h,sizeof(struct ospf_lsa_header));
   add_tail(&n->ackl, NODE no);
-  DBG("Adding delay ack for %I\n",n->rid);
+  DBG("Adding delay ack for %I, ID: %I, RT: %I, Type: %u\n",n->rid,
+    ntohl(h->id), ntohl(h->rt),h->type);
 }
 
 void
@@ -86,6 +87,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
     DBG("Iter %u ID: %I, RT: %I, Type: %u\n",i, ntohl((h+i)->id),
       ntohl((h+i)->rt),(h+i)->type);
     rem_node(NODE no);
+    mb_free(no);
     if((i*sizeof(struct ospf_lsa_header)+sizeof(struct ospf_lsack_packet)+SIPH)>
       n->ifa->iface->mtu)
     {
@@ -94,7 +96,8 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
         len=sizeof(struct ospf_lsack_packet)+i*sizeof(struct ospf_lsa_header);
 	op->length=htons(len);
 	ospf_pkt_finalize(n->ifa, op);
-	DBG("Sending! Len=%u\n",len);
+	DBG("Sending and continueing! Len=%u\n",len);
+	/*
         if(ifa->type==OSPF_IT_BCAST)
 	{
           if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
@@ -110,6 +113,8 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
 	{
           sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
 	}
+	*/
+
 	fill_ospf_pkt_hdr(n->ifa, pk, LSUPD);
 	i=0;
       }
@@ -120,6 +125,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   op->length=htons(len);
   ospf_pkt_finalize(n->ifa, op);
   DBG("Sending! Len=%u\n",len);
+  /*
   if(ifa->type==OSPF_IT_BCAST)
   {
     if((ifa->state==OSPF_IS_DR)||(ifa->state==OSPF_IS_BACKUP))
@@ -135,6 +141,7 @@ ospf_lsack_delay_tx(struct ospf_neighbor *n)
   {
     sk_send_to_agt(sk, len, ifa, NEIGHBOR_EXCHANGE);
   }
+  */
 }
 
 
