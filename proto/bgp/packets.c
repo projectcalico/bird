@@ -46,12 +46,76 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
   return buf+10;
 }
 
+static unsigned int
+bgp_encode_prefixes(struct bgp_proto *p, byte *w, struct bgp_bucket *buck, unsigned int remains)
+{
+  byte *start = w;
+  ip_addr a;
+  int bytes;
+
+  while (!EMPTY_LIST(buck->prefixes) && remains >= 5)
+    {
+      struct bgp_prefix *px = SKIP_BACK(struct bgp_prefix, bucket_node, HEAD(buck->prefixes));
+      DBG("\tDequeued route %I/%d\n", px->n.prefix, px->n.pxlen);
+      *w++ = px->n.pxlen;
+      bytes = (px->n.pxlen + 7) / 8;
+      a = px->n.prefix;
+      ipa_hton(a);
+      memcpy(w, &a, bytes);
+      w += bytes;
+      rem_node(&px->bucket_node);
+      fib_delete(&p->prefix_fib, px);
+    }
+  return w - start;
+}
+
 static byte *
 bgp_create_update(struct bgp_conn *conn, byte *buf)
 {
-  DBG("BGP: Sending update\n");
+  struct bgp_proto *bgp = conn->bgp;
+  struct bgp_bucket *buck;
+  int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
+  byte *w, *wold;
+  ip_addr ip;
+  int wd_size = 0;
+  int r_size = 0;
 
-  bug("Don't know how to create updates");
+  DBG("BGP: Sending update\n");
+  w = buf+2;
+  if ((buck = bgp->withdraw_bucket) && !EMPTY_LIST(buck->prefixes))
+    {
+      DBG("Withdrawn routes:\n");
+      wd_size = bgp_encode_prefixes(bgp, w, buck, remains);
+      w += wd_size;
+      remains -= wd_size;
+    }
+  put_u16(buf, wd_size);
+
+  if (remains >= 2048)
+    {
+      while ((buck = (struct bgp_bucket *) HEAD(bgp->bucket_queue))->send_node.next)
+	{
+	  if (EMPTY_LIST(buck->prefixes))
+	    {
+	      DBG("Deleting empty bucket %p\n", buck);
+	      rem_node(&buck->send_node);
+	      bgp_free_bucket(bgp, buck);
+	      continue;
+	    }
+	  DBG("Processing bucket %p\n", buck);
+	  w = bgp_encode_attrs(w, buck);
+	  remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - (w-buf);
+	  r_size = bgp_encode_prefixes(bgp, w, buck, remains);
+	  w += r_size;
+	  break;
+	}
+    }
+  else
+    {
+      put_u16(w, 0);
+      w += 2;
+    }
+  return (wd_size || r_size) ? w : NULL;
 }
 
 static void
@@ -225,7 +289,8 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   memcpy(&prefix, pp, q);			\
   pp += q;					\
   ll -= q;					\
-  prefix = ipa_and(ipa_ntoh(prefix), ipa_mkmask(b)); \
+  ipa_ntoh(prefix);				\
+  prefix = ipa_and(prefix, ipa_mkmask(b));	\
   pxlen = b;					\
 } while (0)
 /* FIXME: Check validity of prefixes */

@@ -68,8 +68,8 @@ struct bgp_prefix {
 };
 
 struct bgp_bucket {
-  struct bgp_bucket *hash_next, *hash_prev;	/* Node in bucket hash table */
   node send_node;			/* Node in send queue */
+  struct bgp_bucket *hash_next, *hash_prev;	/* Node in bucket hash table */
   unsigned hash;			/* Hash over extended attributes */
   list prefixes;			/* Prefixes in this buckets */
   ea_list eattrs[0];			/* Per-bucket extended attributes */
@@ -97,6 +97,8 @@ int bgp_rte_better(struct rte *, struct rte *);
 void bgp_rt_notify(struct proto *, struct network *, struct rte *, struct rte *, struct ea_list *);
 int bgp_import_control(struct proto *, struct rte **, struct ea_list **, struct linpool *);
 void bgp_attr_init(struct bgp_proto *);
+byte *bgp_encode_attrs(byte *w, struct bgp_bucket *buck);
+void bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck);
 
 /* packets.c */
 
