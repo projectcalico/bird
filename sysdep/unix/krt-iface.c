@@ -147,7 +147,7 @@ krt_if_scan(struct kif_proto *p)
 	  res = ioctl(if_scan_sock, SIOCGIFCONF, &ic);
 	  if (res < 0 && errno != EFAULT)
 	    die("SIOCCGIFCONF: %m");
-	  if (res < last_ifbuf_size)
+	  if (res >= 0 && ic.ifc_len < last_ifbuf_size)
 	    {
 	      scan_ifs(r, ic.ifc_len);
 	      break;
