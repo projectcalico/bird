@@ -151,7 +151,7 @@ ospf_lsupd_tx_list(struct ospf_neighbor *n, list *l)
   u8 ii;
   u8 *jj=n->ifa->ip_sk->tbuf;
 
-  if(HEAD(*l)==NULL) return;
+  if(EMPTY_LIST(*l)) return;
 
   pk=(struct ospf_lsupd_packet *)n->ifa->ip_sk->tbuf;
   op=(struct ospf_packet *)n->ifa->ip_sk->tbuf;
