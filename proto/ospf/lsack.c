@@ -48,13 +48,6 @@ ospf_lsa_delay(struct ospf_neighbor *n,struct ospf_lsa_header *h,
 }
 
 void
-ackd_timer_hook(timer *t)
-{
-  struct ospf_neighbor *n=t->data;
-  if(!EMPTY_LIST(n->ackl)) ospf_lsack_delay_tx(n);
-}
-
-void
 ospf_lsack_delay_tx(struct ospf_neighbor *n)
 {
   struct ospf_packet *op;

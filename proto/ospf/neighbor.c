@@ -25,8 +25,7 @@ const char *ospf_inm[]={ "hello received", "neighbor start", "2-way received",
 
 void neighbor_timer_hook(timer *timer);
 void rxmt_timer_hook(timer *timer);
-
-
+void ackd_timer_hook(timer *t);
 
 struct ospf_neighbor *
 ospf_neighbor_new(struct ospf_iface *ifa)
@@ -606,5 +605,12 @@ rxmt_timer_hook(timer *timer)
       rfree(upslab);
     }
   }
+}
+
+void
+ackd_timer_hook(timer *t)
+{
+  struct ospf_neighbor *n=t->data;
+  if(!EMPTY_LIST(n->ackl)) ospf_lsack_delay_tx(n);
 }
 
