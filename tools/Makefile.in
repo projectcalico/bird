@@ -7,17 +7,20 @@ srcdir_abs := $(shell cd $(srcdir) ; pwd)
 
 .PHONY: all subdir depend clean distclean tags
 
-all: .dep-stamp subdir $(exedir)/bird
+all: .dep-stamp subdir $(exedir)/bird $(exedir)/birdc
 
 subdir depend: .dir-stamp
 	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a $@ ; done
-	set -e ; for a in $(static-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
+	set -e ; for a in $(static-dirs) $(client-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
 
 $(exedir)/bird: $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
+$(exedir)/birdc: client/all.o lib/birdlib.a
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+
 .dir-stamp:
-	mkdir -p $(static-dirs)
+	mkdir -p $(static-dirs) $(client-dirs)
 	touch .dir-stamp
 
 .dep-stamp:
@@ -25,11 +28,11 @@ $(exedir)/bird: $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
 	touch .dep-stamp
 
 tags:
-	cd $(srcdir) ; etags -lc `find $(static-dirs) $(addprefix $(objdir)/,$(dynamic-dirs)) -name *.[chY]`
+	cd $(srcdir) ; etags -lc `find $(static-dirs) $(addprefix $(objdir)/,$(dynamic-dirs)) $(client-dirs) -name *.[chY]`
 
 clean:
 	find . -name "*.[oa]" -or -name core -or -name depend | xargs rm -f
-	rm -f $(exedir)/bird .dep-stamp
+	rm -f $(exedir)/bird $(exedir)/birdc .dep-stamp
 
 distclean: clean
 	rm -f config.* configure sysdep/autoconf.h Makefile Rules
