@@ -7,23 +7,153 @@
  */
 
 #include <string.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <net/route.h>
 
 #define LOCAL_DEBUG
 
 #include "nest/bird.h"
-#include "nest/iface.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
+#include "nest/iface.h"
 #include "lib/timer.h"
 #include "lib/unix.h"
 #include "lib/krt.h"
 
 #define SCANOPT struct krt_scan_params *p = &x->scanopt
 
+static int krt_scan_fd = -1;
+
+static void
+krt_parse_entry(byte *e)
+{
+  u32 dest0, gw0, mask0;
+  ip_addr dest, gw, mask;
+  unsigned int flags;
+  int masklen;
+  net *net;
+  byte *iface = e;
+
+  if (sscanf(e, "%*s\t%x\t%x\t%x\t%*d\t%*d\t%*d\t%x\t", &dest0, &gw0, &flags, &mask0) != 4)
+    {
+      log(L_ERR "krt read: unable to parse `%s'", e);
+      return;
+    }
+  while (*e != '\t')
+    e++;
+  *e = 0;
+
+  dest = ipa_from_u32(dest0);
+  ipa_ntoh(dest);
+  gw = ipa_from_u32(gw0);
+  ipa_ntoh(gw);
+  mask = ipa_from_u32(mask0);
+  ipa_ntoh(mask);
+  if ((masklen = ipa_mklen(mask)) < 0)
+    {
+      log(L_ERR "krt read: invalid netmask %08x", mask0);
+      return;
+    }
+  DBG("Got %I/%d via %I flags %x\n", dest, masklen, gw, flags);
+
+  if (!(flags & RTF_UP))
+    return;
+  if (flags & RTF_HOST)
+    masklen = 32;
+  if (flags & (RTF_DYNAMIC | RTF_MODIFIED)) /* Redirect route */
+    {
+      log(L_WARN "krt: Ignoring redirect to %I/%d via %I", dest, masklen, gw);
+      return;
+    }
+  net = net_get(&master_table, 0, dest, masklen);
+  if (net->routes)
+    {
+      rte *e = net->routes;
+      rta *a = e->attrs;
+      int ok;
+      switch (a->dest)
+	{
+	case RTD_ROUTER:
+	  ok = (flags & RTF_GATEWAY) && ipa_equal(gw, a->gw);
+	  break;
+	case RTD_DEVICE:
+#ifdef CONFIG_AUTO_ROUTES
+	  ok = 1;
+#else
+	  ok = !(flags & RTF_GATEWAY) && !strcmp(iface, a->iface->name);
+#endif
+	  break;
+	case RTD_UNREACHABLE:
+	  ok = flags & RTF_REJECT;
+	default:
+	  ok = 0;
+	}
+      net->n.flags |= ok ? KRF_SEEN : KRF_UPDATE;
+    }
+  else
+    {
+#ifdef CONFIG_AUTO_ROUTES
+      if (!(flags & RTF_GATEWAY))	/* It's a device route */
+	return;
+#endif
+      net->n.flags |= KRF_UPDATE;
+    }
+}
+
+static int
+krt_scan_proc(void)
+{
+  byte buf[32768];
+  int l, seen_hdr;
+
+  if (krt_scan_fd < 0)
+    {
+      krt_scan_fd = open("/proc/net/route", O_RDONLY);
+      if (krt_scan_fd < 0)
+	die("/proc/net/route: %m");
+    }
+  else if (lseek(krt_scan_fd, 0, SEEK_SET) < 0)
+    {
+      log(L_ERR "krt seek: %m");
+      return 0;
+    }
+  seen_hdr = 0;
+  while ((l = read(krt_scan_fd, buf, sizeof(buf))) > 0)
+    {
+      byte *z = buf;
+      if (l & 127)
+	{
+	  log(L_ERR "krt read: misaligned entry: l=%d", l);
+	  return 0;
+	}
+      while (l >= 128)
+	{
+	  if (seen_hdr++)
+	    krt_parse_entry(z);
+	  z += 128;
+	  l -= 128;
+	}
+    }
+  if (l < 0)
+    {
+      log(L_ERR "krt read: %m");
+      return 0;
+    }
+  DBG("KRT scan done, seen %d lines\n", seen_hdr);
+  return 1;
+}
+
 static void
 krt_scan_fire(timer *t)
 {
+  struct krt_proto *x = t->data;
+  SCANOPT;
+
   DBG("Scanning kernel table...\n");
+  if (!krt_scan_proc())
+    return;
 }
 
 void

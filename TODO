@@ -3,6 +3,8 @@ Core
 * router id
 * right usage of DBG vs. debug
 
+- TOS not supported by kernel -> automatically drop routes with TOS<>0
+
 - use -freg-struct-return ?
 
 - fake multipath?
