@@ -68,11 +68,8 @@ iface_chstate(struct ospf_iface *ifa, u8 state)
       }
       else
       {
-        if(ifa->dr_sk!=NULL)
-	{
-	  rfree(ifa->dr_sk);
-	  ifa->dr_sk=NULL;
-	}
+	rfree(ifa->dr_sk);
+	ifa->dr_sk=NULL;
       }
       if((oldstate==OSPF_IS_DR)&&(ifa->nlsa!=NULL))
       {
@@ -101,30 +98,15 @@ downint(struct ospf_iface *ifa)
     ospf_neigh_remove(n);
   }
   rem_node(NODE ifa);
-  if(ifa->hello_sk!=NULL)
-    rfree(ifa->hello_sk);
 
-  if(ifa->dr_sk!=NULL)
-    rfree(ifa->dr_sk);
+  rfree(ifa->hello_sk);
+  rfree(ifa->dr_sk);
+  rfree(ifa->ip_sk);
 
-  if(ifa->ip_sk!=NULL)
-    rfree(ifa->ip_sk);
+  rfree(ifa->wait_timer);
+  rfree(ifa->hello_timer);
+  rfree(ifa->poll_timer);
 
-  if(ifa->wait_timer!=NULL)
-  {
-    tm_stop(ifa->wait_timer);
-    rfree(ifa->wait_timer);
-  }
-  if(ifa->hello_timer!=NULL)
-  {
-    tm_stop(ifa->hello_timer);
-    rfree(ifa->hello_timer);
-  }
-  if(ifa->poll_timer!=NULL)
-  {
-    tm_stop(ifa->poll_timer);
-    rfree(ifa->poll_timer);
-  }
   rfree(ifa->lock);
   mb_free(ifa);
 }
