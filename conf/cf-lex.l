@@ -134,7 +134,7 @@ WHITE [ \t]
   return SYM;
 }
 
-<CLI>! {
+<CLI>(.|\n) {
   BEGIN(INITIAL);
   return CLI_MARKER;
 }
