@@ -11,7 +11,7 @@
 #include "filter/filter.h"
 
 /*
- * find_nth - finds n-th element in linked list. Don't be confused by tree structures.
+ * find_nth - finds n-th element in linked list. Don't be confused by types, it is really a linked list.
  */
 static struct f_tree *
 find_nth(struct f_tree *from, int nth)
@@ -44,7 +44,7 @@ find_nth(struct f_tree *from, int nth)
 }
 
 /*
- * find_median - Gets list linked by left, finds its median, trashes pointers in right
+ * find_median - Gets list linked by @left, finds its median, trashes pointers in @right.
  */
 static struct f_tree *
 find_median(struct f_tree *from)
@@ -69,6 +69,9 @@ find_median(struct f_tree *from)
  * Search for given value in the tree. I relies on fact that sorted tree is populated
  * by &f_val structures (that can be compared by val_compare()). In each node of tree, 
  * either single value (then t->from==t->to) or range is present.
+ *
+ * Both set matching and switch() { } construction is implemented using this function,
+ * thus both are as fast as they can be.
  */
 struct f_tree *
 find_tree(struct f_tree *t, struct f_val val)
@@ -86,7 +89,7 @@ find_tree(struct f_tree *t, struct f_val val)
 
 /**
  * build_tree
- * @from: degenerated tree (linked by tree->left) to be transformed into form suitable for find_tree()
+ * @from: degenerated tree (linked by @tree->left) to be transformed into form suitable for find_tree()
  *
  * Transforms denerated tree into balanced tree.
  */
@@ -130,6 +133,13 @@ f_new_tree(void)
   return ret;
 }
 
+/**
+ * same_tree
+ * @t1: first tree to be compared
+ * @t2: second one
+ *
+ * Compares two trees and returns 1 if they are same
+ */
 int
 same_tree(struct f_tree *t1, struct f_tree *t2)
 {

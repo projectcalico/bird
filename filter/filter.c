@@ -25,7 +25,7 @@
  *
  * Filters use structure &f_val for its variables. Each &f_val
  * contains type and value. Types are constants prefixed with %T_. Few
- * of types are special; %T_RETURN can be or-ed with type to indicate
+ * of types are special; %T_RETURN can be or--ed with type to indicate
  * that return from function/from whole filter should be
  * forced. Important thing about &f_val s is that they may be copied
  * with simple =. That's fine for all currently defined types: strings
@@ -71,8 +71,14 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
   }
 }
 
-/*
- * val_compare - compare two values, returns -1, 0, 1 on <, =, > and 999 on error
+/**
+ * val_compare
+ * @v1: first value
+ * @v2: second value
+ *
+ * Compares two values and returns -1, 0, 1 on <, =, > or 999 on error.
+ * Tree module relies on this giving consistent results so that it can
+ * build balanced trees.
  */
 int
 val_compare(struct f_val v1, struct f_val v2)
@@ -140,8 +146,13 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
   return CMP_ERROR;
 }
 
-/*
- * val_in_range - check if @v1 ~ @v2
+/**
+ * val_in_range
+ * @v1: element
+ * @v2: set
+ *
+ * Checks if @v1 is element (|~| operator) of @v2. Sets are internally represented as balanced trees, see
+ * tree.c module (this is not limited to sets, but for non-set cases, val_simple_in_range() is called early).
  */
 int
 val_in_range(struct f_val v1, struct f_val v2)
