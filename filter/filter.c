@@ -263,7 +263,7 @@ rta_cow(void)
 		ARG(v2, a2.p)
 #define TWOARGS_C TWOARGS \
                   if (v1.type != v2.type) \
-		    runtime( "Can not operate with values of incompatible types" );
+		    runtime( "Can't operate with values of incompatible types" );
 
 /**
  * interpret
@@ -302,7 +302,7 @@ interpret(struct f_inst *what)
   case '+':
     TWOARGS_C;
     switch (res.type = v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
+    case T_VOID: runtime( "Can't operate with values of type void" );
     case T_INT: res.val.i = v1.val.i + v2.val.i; break;
     default: runtime( "Usage of unknown type" );
     }
@@ -310,7 +310,7 @@ interpret(struct f_inst *what)
   case '-':
     TWOARGS_C;
     switch (res.type = v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
+    case T_VOID: runtime( "Can't operate with values of type void" );
     case T_INT: res.val.i = v1.val.i - v2.val.i; break;
     default: runtime( "Usage of unknown type" );
     }
@@ -318,7 +318,7 @@ interpret(struct f_inst *what)
   case '*':
     TWOARGS_C;
     switch (res.type = v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
+    case T_VOID: runtime( "Can't operate with values of type void" );
     case T_INT: res.val.i = v1.val.i * v2.val.i; break;
     default: runtime( "Usage of unknown type" );
     }
@@ -326,11 +326,11 @@ interpret(struct f_inst *what)
   case '/':
     TWOARGS_C;
     switch (res.type = v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
+    case T_VOID: runtime( "Can't operate with values of type void" );
     case T_INT: if (v2.val.i == 0) runtime( "Mother told me not to divide by 0" );
       	        res.val.i = v1.val.i / v2.val.i; break;
     case T_IP: if (v2.type != T_INT)
-                 runtime( "Operator / is <ip>/<int>" );
+                 runtime( "Incompatible types in / operator" );
                break;
     default: runtime( "Usage of unknown type" );
     }
@@ -339,13 +339,13 @@ interpret(struct f_inst *what)
   case '&':
     TWOARGS_C;
     res.type = v1.type;
-    if (res.type != T_BOOL) runtime( "Can not do boolean operation on non-booleans" );
+    if (res.type != T_BOOL) runtime( "Can't do boolean operation on non-booleans" );
     res.val.i = v1.val.i && v2.val.i;
     break;
   case '|':
     TWOARGS_C;
     res.type = v1.type;
-    if (res.type != T_BOOL) runtime( "Can not do boolean operation on non-booleans" );
+    if (res.type != T_BOOL) runtime( "Can't do boolean operation on non-booleans" );
     res.val.i = v1.val.i || v2.val.i;
     break;
 
@@ -356,7 +356,7 @@ interpret(struct f_inst *what)
     res.type = T_BOOL; \
     i = val_compare(v1, v2); \
     if (i==CMP_ERROR) \
-      runtime( "Error in comparation" ); \
+      runtime( "Error in comparison" ); \
     res.val.i = (x); \
     break;
 
@@ -368,7 +368,7 @@ interpret(struct f_inst *what)
   case '!':
     ONEARG;
     if (v1.type != T_BOOL)
-      runtime( "not applied to non-boolean" );
+      runtime( "Not applied to non-boolean" );
     res = v1;
     res.val.i = !res.val.i;
     break;
@@ -391,7 +391,7 @@ interpret(struct f_inst *what)
     ARG(v2, a2.p);
     sym = what->a1.p;
     switch (res.type = v2.type) {
-    case T_VOID: runtime( "Can not assign void values" );
+    case T_VOID: runtime( "Can't assign void values" );
     case T_ENUM:
     case T_INT: 
     case T_IP: 
@@ -452,7 +452,7 @@ interpret(struct f_inst *what)
     case F_NOP:
       break;
     default:
-      bug( "unknown return type: can not happen");
+      bug( "unknown return type: Can't happen");
     }
     break;
   case 'a':	/* rta access */
@@ -561,7 +561,7 @@ interpret(struct f_inst *what)
 	break;
       case EAF_TYPE_INT_SET:
 	if (v1.type != T_CLIST)
-	  runtime( "Setting int set  attribute to non-clist value" );
+	  runtime( "Setting int set attribute to non-clist value" );
 	l->attrs[0].u.ptr = v1.val.ad;
 	break;
       case EAF_TYPE_UNDEF:
@@ -589,7 +589,7 @@ interpret(struct f_inst *what)
   case P('P','S'):
     ONEARG;
     if (v1.type != T_INT)
-      runtime( "Can not set preference to non-integer" );
+      runtime( "Can't set preference to non-integer" );
     *f_rte = rte_cow(*f_rte);
     (*f_rte)->pref = v1.val.i;
     break;
@@ -605,7 +605,7 @@ interpret(struct f_inst *what)
   case P('c','p'):	/* Convert prefix to ... */
     ONEARG;
     if (v1.type != T_PREFIX)
-      runtime( "Can not convert non-prefix this way" );
+      runtime( "Prefix expected" );
     res.type = what->aux;
     switch(res.type) {
       /*    case T_INT:	res.val.i = v1.val.px.len; break; Not needed any more */
@@ -644,9 +644,9 @@ interpret(struct f_inst *what)
   case P('i','M'): /* IP.MASK(val) */
     TWOARGS;
     if (v2.type != T_INT)
-      runtime( "Can not use non-integer for mask.");
+      runtime( "Integer expected");
     if (v1.type != T_IP)
-      runtime( "You can mask only IP addresses." );
+      runtime( "You can mask only IP addresses" );
     {
       ip_addr mask = ipa_mkmask(v2.val.i);
       res.type = T_IP;
