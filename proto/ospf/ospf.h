@@ -9,6 +9,14 @@
 #ifndef _BIRD_OSPF_H_
 #define _BIRD_OSPF_H_
 
+#include "lib/ip.h"
+#include "lib/lists.h"
+#include "lib/socket.h"
+#include "lib/timer.h"
+#include "lib/resource.h"
+#include "nest/protocol.h"
+#include "nest/iface.h"
+
 #define OSPF_PROTO 89
 #ifndef IPV6
 #define OSPF_VERSION 2
@@ -185,8 +193,36 @@ struct ospf_neighbor
 #define INM_ADJOK 7	/* AdjOK? */
 #define INM_SEQMIS 8	/* Sequence number mismatch */
 #define INM_1WAYREC 9	/* 1-Way */
-#define INM_KILLNBR 10	/* Kill Neigbor */
+#define INM_KILLNBR 10	/* Kill Neighbor */
 #define INM_INACTTIM 11	/* Inactivity timer */
 #define INM_LLDOWN 12	/* Line down */
+
+/* topology.c: Representation of network topology (LS graph) */
+
+struct top_hash_entry {  /* Index for fast mapping (type,rtrid,LSid)->vertex */
+  struct top_hash_entry *next;		/* Next in hash chain */
+  struct top_vertex *vertex;
+  u32 lsa_id, rtr_id;
+  u16 lsa_type;
+  u16 pad;
+};
+
+struct top_graph {
+  pool *pool;				/* Pool we allocate from */
+  slab *hash_slab;			/* Slab for hash entries */
+  struct top_hash_entry **hash_table;	/* Hashing (modelled a`la fib) */
+  unsigned int hash_size;
+  unsigned int hash_order;
+  unsigned int hash_mask;
+  unsigned int hash_entries;
+  unsigned int hash_entries_min, hash_entries_max;
+};
+
+struct top_graph *ospf_top_new(struct proto_ospf *);
+void ospf_top_free(struct top_graph *);
+void ospf_top_dump(struct top_graph *);
+struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr, u32 type);
+struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr, u32 type);
+void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
 
 #endif /* _BIRD_OSPF_H_ */

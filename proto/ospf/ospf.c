@@ -11,14 +11,8 @@
 #include <string.h>
 
 #include "nest/bird.h"
-#include "nest/iface.h"
-#include "nest/protocol.h"
 #include "nest/route.h"
 #include "conf/conf.h"
-#include "lib/ip.h"
-#include "lib/socket.h"
-#include "lib/lists.h"
-#include "lib/timer.h"
 #include "lib/checksum.h"
 
 #include "ospf.h"
