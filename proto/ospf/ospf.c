@@ -16,8 +16,6 @@ ospf_start(struct proto *p)
   struct ospf_area_config *ac;
   struct ospf_area *oa;
 
-  OSPF_TRACE(D_EVENTS, "Start");
-
   fib_init(&po->efib,p->pool,sizeof(struct extfib),16,init_efib);
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
