@@ -1,13 +1,16 @@
 /*
- *	BIRD -- Unix Kernel Route Syncer
+ *	BIRD -- UNIX Kernel Route Syncer
  *
- *	(c) 1998 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 #ifndef _BIRD_KRT_H_
 #define _BIRD_KRT_H_
+
+struct krt_config;
+struct krt_proto;
 
 #include "lib/krt-scan.h"
 #include "lib/krt-set.h"
@@ -21,32 +24,42 @@
 #define KRF_DELETE 3			/* Should be deleted */
 #define KRF_LEARN 4			/* We should learn this route */
 
-/* sync-rt.c */
+/* krt.c */
 
 extern struct protocol proto_unix_kernel;
 
 struct krt_config {
   struct proto_config c;
-  struct krt_set_params setopt;
-  struct krt_scan_params scanopt;
-  struct krt_if_params ifopt;
+  struct krt_set_params set;
+  struct krt_scan_params scan;
+  struct krt_if_params iface;
+  int persist;			/* Keep routes when we exit */
+  int scan_time;		/* How often we re-scan interfaces */
+  int route_scan_time;		/* How often we re-scan routes */
+  int learn;			/* Learn routes from other sources */
 };
 
 struct krt_proto {
   struct proto p;
-  struct krt_set_status setstat;
-  struct krt_scan_status scanstat;
-  struct krt_if_status ifstat;
+  struct krt_set_status set;
+  struct krt_scan_status scan;
+  struct krt_if_status iface;
+  int accum_time;	        /* Accumulated route scanning time */
 };
 
 extern struct proto_config *cf_krt;
+
+#define KRT_CF ((struct krt_config *)p->p.cf)
+
+void krt_got_route(struct krt_proto *p, struct rte *e);
 
 /* krt-scan.c */
 
 void krt_scan_preconfig(struct krt_config *);
 void krt_scan_start(struct krt_proto *);
 void krt_scan_shutdown(struct krt_proto *);
-void krt_scan_ifaces_done(struct krt_proto *);
+
+void krt_scan_fire(struct krt_proto *);
 
 /* krt-set.c */
 
@@ -54,15 +67,15 @@ void krt_set_preconfig(struct krt_config *);
 void krt_set_start(struct krt_proto *);
 void krt_set_shutdown(struct krt_proto *);
 
-/* sync-if.c */
+int krt_capable(rte *e);
+void krt_set_notify(struct proto *x, net *net, rte *new, rte *old);
 
-extern int if_scan_sock;
-extern int if_scan_period;
-
-void scan_if_init(void);
+/* krt-iface.c */
 
 void krt_if_preconfig(struct krt_config *);
 void krt_if_start(struct krt_proto *);
 void krt_if_shutdown(struct krt_proto *);
+
+void krt_if_scan(struct krt_proto *);
 
 #endif

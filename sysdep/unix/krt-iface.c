@@ -24,9 +24,7 @@
 
 #include "unix.h"
 
-int if_scan_sock;
-
-static timer *if_scan_timer;
+int if_scan_sock = -1;
 
 static void
 scan_ifs(struct ifreq *r, int cnt)
@@ -132,15 +130,13 @@ scan_ifs(struct ifreq *r, int cnt)
   if_end_update();
 }
 
-static void
-scan_if(timer *t)
+void
+krt_if_scan(struct krt_proto *p)
 {
   struct ifconf ic;
   static int last_ifbuf_size = 4*sizeof(struct ifreq);
   int res;
-  struct krt_proto *p = t->data;
 
-  DBG("It's interface scan time...\n");
   for(;;)
     {
       if (last_ifbuf_size)
@@ -173,40 +169,26 @@ scan_if(timer *t)
       DBG("Increased ifconf buffer size to %d\n", last_ifbuf_size);
 #endif
     }
-  krt_scan_ifaces_done(p);
-}
-
-void
-krt_if_start(struct krt_proto *p)
-{
-  struct krt_config *c = (struct krt_config *) p->p.cf;
-
-  if_scan_timer = tm_new(p->p.pool);
-  if_scan_timer->hook = scan_if;
-  if_scan_timer->data = p;
-  if_scan_timer->recurrent = c->ifopt.scan_time;
-  scan_if(if_scan_timer);
-  tm_start(if_scan_timer, c->ifopt.scan_time);
 }
 
 void
 krt_if_preconfig(struct krt_config *c)
 {
-  c->ifopt.scan_time = 60;
+}
+
+void
+krt_if_start(struct krt_proto *p)
+{
+  if (if_scan_sock < 0)
+    {
+      if_scan_sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+      DBG("Using socket %d for interface and route scanning\n", if_scan_sock);
+      if (if_scan_sock < 0)
+	die("Cannot create scanning socket: %m");
+    }
 }
 
 void
 krt_if_shutdown(struct krt_proto *p)
 {
-  tm_stop(if_scan_timer);
-  /* FIXME: What should we do with interfaces? */
-}
-
-void
-scan_if_init(void)
-{
-  if_scan_sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
-  DBG("Using socket %d for interface and route scanning\n", if_scan_sock);
-  if (if_scan_sock < 0)
-    die("Cannot create scanning socket: %m");
 }

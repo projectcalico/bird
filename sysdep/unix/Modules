@@ -4,14 +4,16 @@ timer.h
 io.c
 unix.h
 
-#ifndef CONFIG_NETLINK
-sync-if.c
-sync-rt.c
-krt.Y
+krt.c
 krt.h
+krt.Y
+
+#ifdef CONFIG_UNIX_IFACE
+krt-iface.c
+krt-iface.h
+#endif
+
+#ifdef CONFIG_UNIX_SET
 krt-set.c
 krt-set.h
-krt-set.Y
-krt-iface.h
-krt-iface.Y
 #endif

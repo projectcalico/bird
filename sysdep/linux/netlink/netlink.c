@@ -15,8 +15,6 @@
 
 #define LOCAL_DEBUG
 
-#undef ASYNC_NETLINK			/* Define if async notifications should be used (debug) */
-
 #include "nest/bird.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
@@ -46,13 +44,11 @@
 #define MSG_TRUNC 0x20
 #endif
 
-struct proto_config *cf_krt;
-
 /*
  *	Synchronous Netlink interface
  */
 
-static int nl_sync_fd;			/* Unix socket for synchronous netlink actions */
+static int nl_sync_fd = -1;		/* Unix socket for synchronous netlink actions */
 static u32 nl_sync_seq;			/* Sequence number of last request sent */
 
 static byte *nl_rx_buffer;		/* Receive buffer */
@@ -60,6 +56,19 @@ static int nl_rx_size = 8192;
 
 static struct nlmsghdr *nl_last_hdr;	/* Recently received packet */
 static unsigned int nl_last_size;
+
+static void
+nl_open(void)
+{
+  if (nl_sync_fd < 0)
+    {
+      nl_sync_fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+      if (nl_sync_fd < 0)
+	die("Unable to open rtnetlink socket: %m");
+      nl_sync_seq = now;
+      nl_rx_buffer = xmalloc(nl_rx_size);
+    }
+}
 
 static void
 nl_send(void *rq, int size)
@@ -327,8 +336,8 @@ nl_parse_addr(struct nlmsghdr *h)
   if_update(&f);
 }
 
-static void
-nl_scan_ifaces(void)
+void
+krt_if_scan(struct krt_proto *p)
 {
   struct nlmsghdr *h;
 
@@ -352,6 +361,27 @@ nl_scan_ifaces(void)
 }
 
 /*
+ *	Routes
+ */
+
+int
+krt_capable(rte *e)
+{
+  return 1;	/* FIXME */
+}
+
+void
+krt_set_notify(struct proto *p, net *n, rte *new, rte *old)
+{
+  /* FIXME */
+}
+
+void
+krt_scan_fire(struct krt_proto *p)
+{
+}
+
+/*
  *	Asynchronous Netlink interface
  */
 
@@ -364,34 +394,15 @@ nl_async_hook(sock *sk, int size)
   return 0;
 }
 
-/*
- *	Protocol core
- */
-
 static void
-krt_preconfig(struct protocol *x, struct config *c)
-{
-  struct krt_config *z = proto_config_new(&proto_unix_kernel, sizeof(struct krt_config));
-
-  cf_krt = &z->c;
-  z->c.preference = DEF_PREF_UKR;
-}
-
-static struct proto *
-krt_init(struct proto_config *c)
-{
-  struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
-
-  return &p->p;
-}
-
-static void
-nl_open_async(struct proto *p)
+nl_open_async(struct krt_proto *p)
 {
   sock *sk;
   struct sockaddr_nl sa;
 
-  sk = nl_async_sk = sk_new(p->pool);
+  DBG("KRT: Opening async netlink socket\n");
+
+  sk = nl_async_sk = sk_new(p->p.pool);
   sk->type = SK_MAGIC;
   sk->rx_hook = nl_async_hook;
   sk->fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
@@ -405,43 +416,25 @@ nl_open_async(struct proto *p)
     die("Unable to bind secondary rtnetlink socket: %m");
 }
 
-static int
-krt_start(struct proto *p)
+/*
+ *	Interface to the UNIX krt module
+ */
+
+void
+krt_scan_preconfig(struct krt_config *x)
 {
-#ifdef ASYNC_NETLINK
-  nl_open_async(p);
-#endif
-
-  /* FIXME: Filter kernel routing table etc. */
-
-  return PS_UP;
-}
-
-static int
-krt_shutdown(struct proto *p)
-{
-  /* FIXME: Remove all our routes from the kernel */
-
-  return PS_DOWN;
+  x->scan.async = 1;
 }
 
 void
-scan_if_init(void)
+krt_scan_start(struct krt_proto *p)
 {
-  nl_sync_fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-  if (nl_sync_fd < 0)
-    die("Unable to open rtnetlink socket: %m");
-  nl_sync_seq = now;
-  nl_rx_buffer = xmalloc(nl_rx_size);
-  /* FIXME: Should we fetch our local address and compare it with addresses of all incoming messages? */
-
-  nl_scan_ifaces();
+  nl_open();
+  if (KRT_CF->scan.async)
+    nl_open_async(p);
 }
 
-struct protocol proto_unix_kernel = {
-  name:		"Kernel",
-  preconfig:	krt_preconfig,
-  init:		krt_init,
-  start:	krt_start,
-  shutdown:	krt_shutdown
-};
+void
+krt_scan_shutdown(struct krt_proto *p)
+{
+}

@@ -10,9 +10,11 @@ CF_HDR
 
 #include "lib/krt.h"
 
+#define THIS_KRT ((struct krt_config *) this_proto)
+
 CF_DECLS
 
-CF_KEYWORDS(KERNEL)
+CF_KEYWORDS(KERNEL, PERSIST, SCAN, TIME, ROUTE, LEARN)
 
 CF_GRAMMAR
 
@@ -28,6 +30,17 @@ kern_proto_start: proto_start KERNEL {
 
 CF_ADDTO(kern_proto, kern_proto_start '{')
 CF_ADDTO(kern_proto, kern_proto proto_item ';')
+CF_ADDTO(kern_proto, kern_proto kern_item ';')
+
+kern_item:
+   PERSIST bool { THIS_KRT->persist = $2; }
+ | SCAN TIME expr {
+      /* Scan time of 0 means scan on startup only */
+      THIS_KRT->scan_time = $3;
+   }
+ | ROUTE SCAN TIME expr { THIS_KRT->route_scan_time = $4; }
+ | LEARN bool { THIS_KRT->learn = $2; }
+ ;
 
 CF_CODE
 

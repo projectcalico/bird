@@ -204,8 +204,6 @@ main(int argc, char **argv)
 
   signal_init();
 
-  scan_if_init();
-
   protos_start();
 
   ev_run_list(&global_event_list);

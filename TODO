@@ -14,6 +14,7 @@ Core
 - static: check validity of route destination?
 
 - device: configuration of interface patterns
+- device: what to do if we need to shut down this protocol?
 
 - adding of route: check whether all bits not covered by masklen are zero
 

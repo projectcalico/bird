@@ -24,6 +24,7 @@ protocol kernel {
 	persist			# Don't remove routes on bird shutdown
 	scan time 10		# Scan kernel tables every 10 seconds
 	route scan time 20	# But routes only every 20 seconds
+#	async off		# Netlink: Disable asynchronous events
 }
 
 protocol static {

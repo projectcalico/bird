@@ -1,5 +1,5 @@
 /*
- *	BIRD -- Unix Kernel Route Syncer -- Setting Parameters
+ *	BIRD -- Unix Kernel Route Syncer -- Setting
  *
  *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
@@ -10,15 +10,9 @@
 #define _BIRD_KRT_SET_H_
 
 struct krt_set_params {
-  int persist;
 };
 
 struct krt_set_status {
 };
-
-void krt_remove_route(rte *old);
-void krt_add_route(rte *new);
-int krt_capable(rte *e);
-void krt_set_notify(struct proto *x, net *net, rte *new, rte *old);
 
 #endif

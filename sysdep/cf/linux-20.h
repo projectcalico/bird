@@ -12,6 +12,10 @@
 #undef CONFIG_AUTO_ROUTES
 #define CONFIG_ALL_MULTICAST
 
+#define CONFIG_UNIX_IFACE
+#define CONFIG_UNIX_SET
+#define CONFIG_LINUX_SCAN
+
 /*
 Link: sysdep/linux
 Link: sysdep/unix

@@ -23,60 +23,34 @@
 #include "lib/unix.h"
 #include "lib/krt.h"
 
-#define SCANOPT struct krt_scan_params *p = &(((struct krt_config *)(x->p.cf))->scanopt)
-#define SCANSTAT struct krt_scan_status *s = &x->scanstat
-
 static int krt_scan_fd = -1;
 
-/* FIXME: Filtering */
-
 struct iface *
-krt_temp_iface(struct krt_proto *x, char *name)
+krt_temp_iface(struct krt_proto *p, char *name)
 {
-  SCANOPT;
-  SCANSTAT;
   struct iface *i;
 
-  WALK_LIST(i, s->temp_ifs)
+  WALK_LIST(i, p->scan.temp_ifs)
     if (!strcmp(i->name, name))
       return i;
-  i = mb_alloc(x->p.pool, sizeof(struct iface));
+  i = mb_alloc(p->p.pool, sizeof(struct iface));
   bzero(i, sizeof(*i));
   strcpy(i->name, name);
-  add_tail(&s->temp_ifs, &i->n);
+  add_tail(&p->scan.temp_ifs, &i->n);
   return i;
 }
 
-static int
-krt_uptodate(rte *k, rte *e)
-{
-  rta *ka = k->attrs, *ea = e->attrs;
-
-  if (ka->dest != ea->dest)
-    return 0;
-  switch (ka->dest)
-    {
-    case RTD_ROUTER:
-      return ipa_equal(ka->gw, ea->gw);
-    case RTD_DEVICE:
-      return !strcmp(ka->iface->name, ea->iface->name);
-    default:
-      return 1;
-    }
-}
-
 static void
-krt_parse_entry(byte *ent, struct krt_proto *x)
+krt_parse_entry(byte *ent, struct krt_proto *p)
 {
-  SCANOPT;
   u32 dest0, gw0, mask0;
   ip_addr dest, gw, mask;
-  unsigned int flags, verdict;
+  unsigned int flags;
   int masklen;
   net *net;
   byte *iface = ent;
   rta a;
-  rte *e, *old;
+  rte *e;
 
   if (sscanf(ent, "%*s\t%x\t%x\t%x\t%*d\t%*d\t%*d\t%x\t", &dest0, &gw0, &flags, &mask0) != 4)
     {
@@ -114,14 +88,8 @@ krt_parse_entry(byte *ent, struct krt_proto *x)
     }
 
   net = net_get(&master_table, 0, dest, masklen);
-  if (net->n.flags)
-    {
-      /* Route to this destination was already seen. Strange, but it happens... */
-      DBG("Already seen.\n");
-      return;
-    }
 
-  a.proto = &x->p;
+  a.proto = &p->p;
   a.source = RTS_INHERIT;
   a.scope = SCOPE_UNIVERSE;
   a.cast = RTC_UNICAST;
@@ -132,7 +100,7 @@ krt_parse_entry(byte *ent, struct krt_proto *x)
 
   if (flags & RTF_GATEWAY)
     {
-      neighbor *ng = neigh_find(&x->p, &gw, 0);
+      neighbor *ng = neigh_find(&p->p, &gw, 0);
       if (ng)
 	a.iface = ng->iface;
       else
@@ -150,7 +118,7 @@ krt_parse_entry(byte *ent, struct krt_proto *x)
     {
       a.dest = RTD_DEVICE;
       a.gw = IPA_NONE;
-      a.iface = krt_temp_iface(x, iface);
+      a.iface = krt_temp_iface(p, iface);
     }
   else
     {
@@ -160,43 +128,15 @@ krt_parse_entry(byte *ent, struct krt_proto *x)
 
   e = rte_get_temp(&a);
   e->net = net;
-  old = net->routes;
-  if (old && !krt_capable(old))
-    old = NULL;
-  if (old)
-    {
-      if (krt_uptodate(e, net->routes))
-	verdict = KRF_SEEN;
-      else
-	verdict = KRF_UPDATE;
-    }
-  else if (p->learn && !net->routes)
-    verdict = KRF_LEARN;
-  else
-    verdict = KRF_DELETE;
-
-  DBG("krt_parse_entry: verdict=%s\n", ((char *[]) { "CREATE", "SEEN", "UPDATE", "DELETE", "LEARN" }) [verdict]);
-
-  net->n.flags = verdict;
-  if (verdict != KRF_SEEN)
-    {
-      /* Get a cached copy of attributes and link the route */
-      a.source = RTS_DUMMY;
-      e->attrs = rta_lookup(&a);
-      e->next = net->routes;
-      net->routes = e;
-    }
-  else
-    rte_free(e);
+  krt_got_route(p, e);
 }
 
-static int
-krt_scan_proc(struct krt_proto *p)
+void
+krt_scan_fire(struct krt_proto *p)
 {
   byte buf[32768];
   int l, seen_hdr;
 
-  DBG("Scanning kernel routing table...\n");
   if (krt_scan_fd < 0)
     {
       krt_scan_fd = open("/proc/net/route", O_RDONLY);
@@ -206,7 +146,7 @@ krt_scan_proc(struct krt_proto *p)
   else if (lseek(krt_scan_fd, 0, SEEK_SET) < 0)
     {
       log(L_ERR "krt seek: %m");
-      return 0;
+      return;
     }
   seen_hdr = 0;
   while ((l = read(krt_scan_fd, buf, sizeof(buf))) > 0)
@@ -215,7 +155,7 @@ krt_scan_proc(struct krt_proto *p)
       if (l & 127)
 	{
 	  log(L_ERR "krt read: misaligned entry: l=%d", l);
-	  return 0;
+	  return;
 	}
       while (l >= 128)
 	{
@@ -228,114 +168,20 @@ krt_scan_proc(struct krt_proto *p)
   if (l < 0)
     {
       log(L_ERR "krt read: %m");
-      return 0;
+      return;
     }
   DBG("KRT scan done, seen %d lines\n", seen_hdr);
-  return 1;
-}
-
-static void
-krt_prune(struct krt_proto *p)
-{
-  struct rtable *t = &master_table;
-  struct fib_node *f;
-
-  DBG("Pruning routes...\n");
-  while (t && t->tos)
-    t = t->sibling;
-  if (!t)
-    return;
-  FIB_WALK(&t->fib, f)
-    {
-      net *n = (net *) f;
-      int verdict = f->flags;
-      rte *new, *old;
-
-      if (verdict != KRF_CREATE && verdict != KRF_SEEN)
-	{
-	  old = n->routes;
-	  n->routes = old->next;
-	}
-      else
-	old = NULL;
-      new = n->routes;
-
-      switch (verdict)
-	{
-	case KRF_CREATE:
-	  if (new)
-	    {
-	      if (new->attrs->source == RTS_INHERIT)
-		{
-		  DBG("krt_prune: removing inherited %I/%d\n", n->n.prefix, n->n.pxlen);
-		  rte_update(n, &p->p, NULL);
-		}
-	      else
-		{
-		  DBG("krt_prune: reinstalling %I/%d\n", n->n.prefix, n->n.pxlen);
-		  krt_add_route(new);
-		}
-	    }
-	  break;
-	case KRF_SEEN:
-	  /* Nothing happens */
-	  break;
-	case KRF_UPDATE:
-	  DBG("krt_prune: updating %I/%d\n", n->n.prefix, n->n.pxlen);
-	  krt_remove_route(old);
-	  krt_add_route(new);
-	  break;
-	case KRF_DELETE:
-	  DBG("krt_prune: deleting %I/%d\n", n->n.prefix, n->n.pxlen);
-	  krt_remove_route(old);
-	  break;
-	case KRF_LEARN:
-	  DBG("krt_prune: learning %I/%d\n", n->n.prefix, n->n.pxlen);
-	  rte_update(n, &p->p, new);
-	  break;
-	default:
-	  bug("krt_prune: invalid route status");
-	}
-
-      if (old)
-	rte_free(old);
-      f->flags = 0;
-    }
-  FIB_WALK_END;
-}
-
-void
-krt_scan_ifaces_done(struct krt_proto *x)
-{
-  SCANOPT;
-  SCANSTAT;
-
-  s->accum_time += ((struct krt_config *) x->p.cf)->ifopt.scan_time;
-  if (p->scan_time && s->accum_time >= p->scan_time)
-    {
-      s->accum_time %= p->scan_time;
-      if (krt_scan_proc(x))
-	krt_prune(x);
-    }
 }
 
 void
 krt_scan_preconfig(struct krt_config *c)
 {
-  c->scanopt.scan_time = 60;
-  c->scanopt.learn = 0;
 }
 
 void
 krt_scan_start(struct krt_proto *x)
 {
-  SCANOPT;
-  SCANSTAT;
-
-  /* Force krt scan after first interface scan */
-  s->accum_time = p->scan_time - ((struct krt_config *) x->p.cf)->ifopt.scan_time;
-
-  init_list(&s->temp_ifs);
+  init_list(&x->scan.temp_ifs);
 }
 
 void

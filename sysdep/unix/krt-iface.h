@@ -1,5 +1,5 @@
 /*
- *	BIRD -- Unix Kernel Interface Syncer -- Setting Parameters
+ *	BIRD -- Unix Kernel Interface Syncer
  *
  *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
@@ -10,10 +10,11 @@
 #define _BIRD_KRT_IFACE_H_
 
 struct krt_if_params {
-  int scan_time;
 };
 
 struct krt_if_status {
 };
+
+extern int if_scan_sock;
 
 #endif

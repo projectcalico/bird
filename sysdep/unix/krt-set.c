@@ -84,7 +84,7 @@ krt_ioctl(int ioc, rte *e, char *name)
     log(L_ERR "%s(%I/%d): %m", name, net->n.prefix, net->n.pxlen);
 }
 
-void
+static void
 krt_remove_route(rte *old)
 {
   net *net = old->net;
@@ -98,7 +98,7 @@ krt_remove_route(rte *old)
   krt_ioctl(SIOCDELRT, old, "SIOCDELRT");
 }
 
-void
+static void
 krt_add_route(rte *new)
 {
   net *net = new->net;
@@ -126,7 +126,6 @@ krt_set_start(struct krt_proto *x)
 {
   if (if_scan_sock < 0)
     bug("krt set: missing socket");
-  x->p.rt_notify = krt_set_notify;
 }
 
 void
@@ -137,25 +136,4 @@ krt_set_preconfig(struct krt_config *c)
 void
 krt_set_shutdown(struct krt_proto *x)
 {
-  struct rtable *t = &master_table;
-
-  if (((struct krt_config *) x->p.cf)->setopt.persist)
-    return;
-  DBG("Flushing kernel routes...\n");
-  while (t && t->tos)
-    t = t->sibling;
-  if (!t)
-    return;
-  FIB_WALK(&t->fib, f)
-    {
-      net *n = (net *) f;
-      rte *e = n->routes;
-      if (e)
-	{
-	  rta *a = e->attrs;
-	  if (a->source != RTS_DEVICE && a->source != RTS_INHERIT)
-	    krt_remove_route(e);
-	}
-    }
-  FIB_WALK_END;
 } 
