@@ -768,7 +768,16 @@ nl_async_hook(sock *sk, int size)
   x = recvmsg(sk->fd, &m, 0);
   if (x < 0)
     {
-      if (errno != EWOULDBLOCK)
+      if (errno == ENOBUFS)
+	{
+	  /*
+	   *  Netlink reports some packets have been thrown away.
+	   *  One day we might react to it by asking for route table
+	   *  scan in near future.
+	   */
+	  return 1;	/* More data are likely to be ready */
+	}
+      else if (errno != EWOULDBLOCK)
 	log(L_ERR "Netlink recvmsg: %m");
       return 0;
     }
@@ -800,6 +809,11 @@ nl_open_async(void)
   sock *sk;
   struct sockaddr_nl sa;
   int fd;
+  static int nl_open_tried = 0;
+
+  if (nl_open_tried)
+    return;
+  nl_open_tried = 1;
 
   DBG("KRT: Opening async netlink socket\n");
 
@@ -859,11 +873,9 @@ krt_scan_postconfig(struct krt_config *x)
 void
 krt_scan_construct(struct krt_config *x)
 {
-  x->scan.async = 1;
 #ifndef IPV6
   x->scan.table_id = RT_TABLE_MAIN;
 #endif
-  /* FIXME: Use larger defaults for scanning times? */
 }
 
 void
@@ -874,8 +886,7 @@ krt_scan_start(struct krt_proto *p, int first)
   if (first)
     {
       nl_open();
-      if (KRT_CF->scan.async)	/* FIXME: Async is for debugging only. Get rid of it some day. */
-	nl_open_async();
+      nl_open_async();
     }
 }
 
@@ -888,5 +899,5 @@ void
 krt_if_start(struct kif_proto *p)
 {
   nl_open();
-  /* FIXME: nl_open_async() after scan.async is gone */
+  nl_open_async();
 }

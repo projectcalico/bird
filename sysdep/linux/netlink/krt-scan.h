@@ -22,7 +22,6 @@
 #endif
 
 struct krt_scan_params {
-  int async;				/* Allow asynchronous events */
   int table_id;				/* Kernel table ID we sync with */
 };
 
@@ -32,7 +31,7 @@ struct krt_scan_status {
 
 static inline int krt_scan_params_same(struct krt_scan_params *o, struct krt_scan_params *n)
 {
-  return o->async == n->async && o->table_id == n->table_id;
+  return o->table_id == n->table_id;
 }
 
 #endif
