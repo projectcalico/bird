@@ -98,9 +98,9 @@ it is slightly modified linuxdoc dtd.  Anything in &lt;descrip&gt; tags is consi
 configuration primitives, &lt;cf&gt; is fragment of configuration within normal text, &lt;m&gt; is
 "meta" information within fragment of configuration -- something in config which is not keyword.
 
-<sect1>Installing bird
+<sect1>Installing BIRD
 
-<p>On unix system, installing bird should be as easy as:
+<p>On UNIX system, installing BIRD should be as easy as:
 
 <code>
         ./configure
