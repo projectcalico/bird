@@ -516,6 +516,63 @@ protocol direct {
 
 <sect1>Kernel
 
+<p>The Kernel protocol is not a real routing protocol. Instead of communicating
+with other routers in the network, it performs synchronization of BIRD's routing
+tables with OS kernel. Basically, it sends all routing table updates to the kernel
+and from time to time it scans the kernel tables to see whether some routes have
+disappeared (for example due to unnoticed up/down transition of an interface)
+or whether an `alien' route has been added by someone else.
+
+<p>If your OS supports only a single routing table, you can configure only one
+instance of the Kernel protocol. If it supports multiple tables (in order to
+allow policy routing), you can run as many instances as you want, but each of
+them must be connected to a different BIRD routing table and to a different
+kernel table.
+
+<sect2>Configuration
+
+<p><descrip>
+	<tag>persist <m/switch/</tag> Tell BIRD to leave all its routes in the
+	routing tables when it exits instead of cleaning them up.
+	<tag>scan time <m/number/</tag> Time in seconds between two scans of the
+	kernel routing table.
+	<tag>learn <m/switch/</tag> Enable learning of routes added to the kernel
+	routing tables by other routing daemons or by the system administrator.
+	This is possible only on systems which support identification of route
+	authorship.
+	<tag>kernel table <m/number/</tag> Select which kernel table should
+	this particular instance of the Kernel protocol work with. Available
+	only on systems supporting multiple routing tables.
+</descrip>
+
+<p>A default simple configuration can look this way:
+
+<p><code>
+protocol kernel {
+	import all;
+	export all;
+}
+</code>
+
+<p>Or for a system with two routing tables:
+
+<p><code>
+protocol kernel {		# Primary routing table
+	learn;			# Learn alien routes from the kernel
+	persist;		# Don't remove routes on bird shutdown
+	scan time 10;		# Scan kernel routing table every 10 seconds
+	import all;
+	export all;
+}
+
+protocol kernel {		# Secondary routing table
+	table auxtable;
+	kernel table 100;
+	export all;
+</code>
+
+<p>The Kernel protocol doesn't define any route attributes.
+
 <sect1>OSPF
 
 <sect1>Pipe
@@ -622,7 +679,7 @@ protocol rip MyRIP_test {
 
 <sect1>Static
 
-<p>The static protocol doesn't communicate with other routers in the network,
+<p>The Static protocol doesn't communicate with other routers in the network,
 but instead it allows you to define routes manually which is often used for
 specifying how to forward packets to parts of the network which don't use
 dynamic routing at all and also for defining sink routes (i.e., those
