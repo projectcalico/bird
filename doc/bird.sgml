@@ -52,7 +52,7 @@ the IPv4 or the IPv6 protocol). Routers are devices which forward packets betwee
 networks in order to allow hosts not connected directly to the same local area network to
 communicate with each other. They also communicate with the other routers in the Internet to discover
 the topology of the network which allows them to find optimal (in terms of some metric) rules for
-forwarding of packets (which will be called routes in the rest of this document) and to adapt themselves to the
+forwarding of packets (which are called routing tables) and to adapt themselves to the
 changing conditions such as outages of network links, building of new connections and so on. Most of
 these routers are costly dedicated devices running obscure firmware which is hard to configure and
 not open to any changes (on the other hand, their special hardware design allows them to keep up with lots of high-speed network interfaces, better than general-purpose computer does). Fortunately, most operating systems of the UNIX family allow an ordinary 
@@ -62,8 +62,8 @@ a statically configured table.
 <p>A <em/Routing Daemon/ is in UNIX terminology a non-interactive program running on
 background which does the dynamic part of Internet routing, that is it communicates
 with the other routers, calculates routing tables and sends them to the OS kernel
-which does the actual packet forwarding. There already exist other such routing daemons: routed (rip only), GateD<HTMLURL URL="http://www.gated.org/">
- (non free), Zebra<HTMLURL URL="http://www.zebra.org"> and MRTD<HTMLURL URL="http://www.zcu.cz/ftp/mirrors/mmrz/mrtd">, but their capabilities are limited and
+which does the actual packet forwarding. There already exist other such routing daemons: routed (RIP only), GateD<HTMLURL URL="http://www.gated.org/">
+ (non-free), Zebra<HTMLURL URL="http://www.zebra.org"> and MRTD<HTMLURL URL="http://www.zcu.cz/ftp/mirrors/mmrz/mrtd">, but their capabilities are limited and
 they are relatively hard to configure and maintain.
 
 <p>BIRD is an Internet Routing Daemon designed to avoid all of these shortcomings,
@@ -75,7 +75,7 @@ protocols to be incorporated easily. Among other features, BIRD supports:
 	<item>both IPv4 and IPv6 protocols
 	<item>multiple routing tables
 	<item>the Border Gateway Protocol (BGPv4)
-	<item>the Routing Interchange Protocol (RIPv2)
+	<item>the Routing Information Protocol (RIPv2)
 	<item>the Open Shortest Path First protocol (OSPFv2)
 	<item>a virtual protocol for exchange of routes between different routing tables on a single host
 	<item>a command-line interface allowing on-line control and inspection
@@ -137,16 +137,15 @@ options. The most important ones are:
 
 <chapt>About routing tables
 
-<p>BIRD has one or more routing tables, which may or may not be
-synchronized with kernel and which may or may not be synchronized with
-each other (see the Pipe protocol). Each routing table contains list of
+<p>BIRD has one or more routing tables which may or may not be
+synchronized with OS kernel and which may or may not be synchronized with
+each other (see the Pipe protocol). Each routing table contains a list of
 known routes. Each route consists of:
 
 <itemize>
-	<item>network prefix this route is for (consists of network address and number of bits forming the network part of the address)
-	<item>preference of this route (taken from preference of
-	protocol and possibly altered by filters)
-	<item>IP address of router who told us about this route
+	<item>network prefix this route is for (network address and prefix length -- the number of bits forming the network part of the address; also known as a netmask)
+	<item>preference of this route
+	<item>IP address of router which told us about this route
 	<item>IP address of router we should forward the packets to
 	using this route
 	<item>other attributes common to all routes
@@ -154,23 +153,23 @@ known routes. Each route consists of:
 	may not be present (typically protocol metrics)
 </itemize>
 
-Routing table maintains more than
-one entry for a network, but at most one entry for one network and one
-protocol. The entry with biggest preference is used for routing. If
+Routing table maintains multiple entries
+for a network, but at most one entry for one network and one
+protocol. The entry with the highest preference is used for routing (we
+will call such an entry the <it/selected route/). If
 there are more entries with the same preference and they are from the same
-protocol, protocol decides (typically according to metrics). If not,
-internal ordering is used to decide. You can
-get list of route attributes in "Route attributes" section in
-filters. 
+protocol, the protocol decides (typically according to metrics). If they aren't,
+an internal ordering is used to break the tie. You can
+get the list of route attributes in the Route attributes section.
 
-<p>Protocols are connected to routing tables through filters. Routes
-that come from other routers go to the protocol, it then passes them to
-filters, if import filter accepts route, it gets to main routing
-table. It is then broadcasted to all other protocols (filtered through
-their export filters), which typically send it to other routers.
-
-Filters can alter routes passed between routing tables and
-protocols.
+<p>Each protocol is connected to a routing table through two filters
+which can accept, reject and modify the routes. An <it/export/
+filter checks routes passed from the routing table to the protocol,
+an <it/import/ filter checks routes in the opposite direction.
+When the routing table gets a route from a protocol, it recalculates
+the selected route and broadcasts it to all protocols connected to
+the table. The protocols typically send the update to other routers
+in the network.
 
 <chapt>Configuration
 
@@ -235,7 +234,7 @@ protocol rip {
 	<tag>filter <m/name local variables/{ <m/commands/ }</tag> Define a filter. You can learn more about filters
 	in the following chapter. 
 
-	<tag>function <m/name (parameters) local variables/ { <m/commands/ }</tag> Define a function. You can learn more
+	<tag>function <m/name/ (<m/parameters/) <m/local variables/ { <m/commands/ }</tag> Define a function. You can learn more
 	about functions in the following chapter.
  
 	<tag>protocol rip|ospf|bgp|... <m/[name]/ { <m>protocol options</m> }</tag> Define a protocol
@@ -303,7 +302,7 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	time from which the password is not used for sending, but it is recognized on reception. <cf/id/ is password ID as needed by
 	certain protocols. Format of <cf><m/time/</cf> is <tt>dd-mm-yyyy HH:MM:SS</tt>.
 
-	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [ ... ] } ]</tag> Specifies which
+	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [...] } ]</tag> Specifies which
 	interfaces is this protocol active on and allows you to set options on a
 	per-interface basis. Mask is specified as in shell-like patterns, thus <cf>interface
 	"*" { mode broadcast; };</cf> will start the protocol on all interfaces with <cf>mode
@@ -351,7 +350,7 @@ BIRD and <file/birdc/ is stable (see the programmer's documentation).
 	<tag>show symbols</tag>
 	Show the list of symbols defined in the configuration (names of protocols, routing tables etc.).
 
-	<tag>show route [<m/prefix/|for <m/prefix or IP/] [primary] [table <m/sym/] [all] [stats|count] [filter <m/name/|where <m/condition/] [(import|proto) <m/sym/]</tag>
+	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(import|proto) <m/p/] [<m/options/]</tag>
 	Show contents of a routing table (by default of the main one),
 	that is routes, their metrics and (in case the <cf/all/ switch is given)
 	all their attributes.
@@ -602,10 +601,10 @@ defined by using the <cf>defined( <m>attribute</m> )</cf> operator.
 	Next hop packets routed using this route should be forwarded to.
 
 	<tag><m/enum/ source</tag>
-	what protocol has told me about this route. Possible values: <cf/RTS_DUMMY, RTS_STATIC, RTS_INHERIT, RTS_DEVICE, RTS_STATIC_DEVICE, RTS_REDIRECT, RTS_RIP, RTS_OSPF, RTS_OSPF_EXT, RTS_OSPF_IA, RTS_OSPF_BOUNDARY, RTS_BGP, RTS_PIPE/.
+	what protocol has told me about this route. Possible values: <cf/RTS_DUMMY/, <cf/RTS_STATIC/, <cf/RTS_INHERIT/, <cf/RTS_DEVICE/, <cf/RTS_STATIC_DEVICE/, <cf/RTS_REDIRECT/, <cf/RTS_RIP/, <cf/RTS_OSPF/, <cf/RTS_OSPF_EXT/, <cf/RTS_OSPF_IA/, <cf/RTS_OSPF_BOUNDARY/, <cf/RTS_BGP/, <cf/RTS_PIPE/.
 
 	<tag><m/enum/ cast</tag>
-	Route type (<cf/RTC_UNICAST/ for normal routes, <cf/RTC_BROADCAST, RTC_MULTICAST, RTC_ANYCAST/ for broadcast, multicast and anycast routes). Read-only.
+	Route type (<cf/RTC_UNICAST/ for normal routes, <cf/RTC_BROADCAST/, <cf/RTC_MULTICAST/, <cf/RTC_ANYCAST/ for broadcast, multicast and anycast routes). Read-only.
 
 	<tag><m/enum/ dest</tag>
 	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_NETWORK/ for routing to a directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silently discarded, <cf/RTD_UNREACHABLE/, <cf/RTD_PROHIBIT/ for packets that should be returned with ICMP host unreachable / ICMP administratively prohibited messages). Read-only.
@@ -820,11 +819,11 @@ with `<tt/O/') are optional.
 
 <p><code>
 protocol bgp {
-	local as 65000;				# Use a private AS number
-	neighbor 62.168.0.130 as 5588;		# Our neighbor...
-	multihop 20 via 62.168.0.13;		# ... which is connected indirectly
-	export filter {				# We use non-trivial export rules
-		if source = RTS_STATIC then {	# Export only static routes
+	local as 65000;			     # Use a private AS number
+	neighbor 62.168.0.130 as 5588;	     # Our neighbor ...
+	multihop 20 via 62.168.0.13;	     # ... which is connected indirectly
+	export filter {			     # We use non-trivial export rules
+		if source = RTS_STATIC then { # Export only static routes
 		        # Assign our community
 			bgp_community.add((65000,5678));
 			# Artificially increase path length
@@ -836,7 +835,7 @@ protocol bgp {
 		reject;
 	};
 	import all;
-	source address 62.168.0.1;		# Use a non-standard source address
+	source address 62.168.0.1;	# Use a non-standard source address
 }
 </code>
 
@@ -1413,24 +1412,50 @@ definition of the protocol contains a list of static routes:
 
 <p><code>
 protocol static {
-	table testable;				# Connect to a non-default routing table
-	route 0.0.0.0/0 via 62.168.0.13;	# Default route
-	route 62.168.0.0/25 reject;		# Sink route
-	route 10.2.0.0/24 via "arc0";		# Secondary network
+	table testable;			 # Connect to a non-default routing table
+	route 0.0.0.0/0 via 62.168.0.13; # Default route
+	route 62.168.0.0/25 reject;	 # Sink route
+	route 10.2.0.0/24 via "arc0";	 # Secondary network
 }
 </code>
 
-<chapt>Problems
+<chapt>Conclusions
 
-<p>BIRD is relatively young system, and probably contains some
-bugs. You can report bugs at bird-users mailing list (<HTMLURL URL="mailto:bird-users@bird.network.cz" name="bird-users@bird.network.cz">), but before you do,
-please make sure you have read available documentation, make sure are running latest version (available at <HTMLURL
-URL="ftp://bird.network.cz/pub/bird" name="bird.network.cz:/pub/bird">). (Of course, patch
-which fixes the bug along with bug report is always welcome). If you
-want to use BIRD, join mailing list by sending
-<tt/subscribe bird-users/ to <HTMLURL URL="mailto:majordomo@bird.network.cz" name="majordomo@bird.network.cz">. Main home page of bird is <HTMLURL URL="http://bird.network.cz/" name="http://bird.network.cz/">. When
-trying to understand, what is going on, Internet standards are
-relevant reading; you can get them from <HTMLURL URL="ftp://ftp.rfc-editor.org/" name="ftp.rfc-editor.org"> (or nicely sorted version from <HTMLURL URL="ftp://atrey.karlin.mff.cuni.cz/pub/rfc" name="atrey.karlin.mff.cuni.cz:/pub/rfc">).
+<sect>Future work
+
+<p>Although BIRD supports all the commonly used routing protocols,
+there are still some features which would surely deserve to be
+implemented in future versions of BIRD:
+
+<itemize>
+<item>OSPF for IPv6 networks
+<item>OSPF NSSA areas and opaque LSA's
+<item>Route aggregation and flap dampening
+<item>Generation of IPv6 router advertisements
+<item>Multipath routes
+<item>Multicast routing protocols
+<item>Ports to other systems
+</itemize>
+
+<sect>Getting more help
+
+<p>If you use BIRD, you're welcome to join the bird-users mailing list
+(<HTMLURL URL="mailto:bird-users@bird.network.cz" name="bird-users@bird.network.cz">)
+where you can share your experiences with the other users and consult
+your problems with the authors. To subscribe to the list, just send a
+<tt/subscribe bird-users/ command in a body of a mail to
+(<HTMLURL URL="mailto:majordomo@bird.network.cz" name="majordomo@bird.network.cz">).
+The home page of BIRD can be found at <HTMLURL URL="http://bird.network.cz/" name="http://bird.network.cz/">.
+
+<p>BIRD is a relatively young system and it probably contains some
+bugs. You can report any problems to the bird-users list and the authors
+will be glad to solve them, but before you do so,
+please make sure you have read the available documentation and that you are running the latest version (available at <HTMLURL
+URL="ftp://bird.network.cz/pub/bird" name="bird.network.cz:/pub/bird">). (Of course, a patch
+which fixes the bug is always welcome as an attachment.)
+
+<p>If you want to understand what is going inside, Internet standards are
+a good and interesting reading. You can get them from <HTMLURL URL="ftp://ftp.rfc-editor.org/" name="ftp.rfc-editor.org"> (or a nicely sorted version from <HTMLURL URL="ftp://atrey.karlin.mff.cuni.cz/pub/rfc" name="atrey.karlin.mff.cuni.cz:/pub/rfc">).
 
 <p><it/Good luck!/
 
