@@ -39,7 +39,7 @@ CF_DECLS
   void *g;
 }
 
-%token END CLI_MARKER
+%token END CLI_MARKER INVALID_TOKEN
 %token <i> NUM ENUM
 %token <i32> RTRID
 %token <a> IPA
