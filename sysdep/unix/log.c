@@ -12,6 +12,7 @@
 #include <sys/time.h>
 
 #include "nest/bird.h"
+#include "lib/string.h"
 
 static int log_inited;
 static FILE *logf = NULL;
@@ -41,6 +42,28 @@ static char *class_names[] = {
   "FATAL"
 };
 
+/* FIXME: Use better buffering */
+
+static void
+bvfprintf(FILE *f, char *fmt, va_list args)
+{
+  char buf[4096];
+  int n;
+
+  n = bvsprintf(buf, fmt, args);
+  fwrite(buf, n, sizeof(char), f);
+}
+
+static void
+bfprintf(FILE *f, char *fmt, ...)
+{
+  va_list args;
+
+  va_start(args, fmt);
+  bvfprintf(f, fmt, args);
+  va_end(args);
+}
+
 static void
 vlog(int class, char *msg, va_list args)
 {
@@ -49,15 +72,15 @@ vlog(int class, char *msg, va_list args)
       time_t now = time(NULL);
       struct tm *tm = localtime(&now);
 
-      fprintf(logf, "%02d-%02d-%04d %02d:%02d:%02d <%s> ",
-	      tm->tm_mday,
-	      tm->tm_mon+1,
-	      tm->tm_year+1900,
-	      tm->tm_hour,
-	      tm->tm_min,
-	      tm->tm_sec,
-	      class_names[class]);
-      vfprintf(logf, msg, args);
+      bfprintf(logf, "%02d-%02d-%04d %02d:%02d:%02d <%s> ",
+	       tm->tm_mday,
+	       tm->tm_mon+1,
+	       tm->tm_year+1900,
+	       tm->tm_hour,
+	       tm->tm_min,
+	       tm->tm_sec,
+	       class_names[class]);
+      bvfprintf(logf, msg, args);
       fputc('\n', logf);
       fflush(logf);
     }
@@ -68,7 +91,7 @@ vlog(int class, char *msg, va_list args)
   else
     {
       fputs("bird: ", stderr);
-      vfprintf(stderr, msg, args);
+      bvfprintf(stderr, msg, args);
       fputc('\n', stderr);
       fflush(stderr);
     }
@@ -104,7 +127,7 @@ debug(char *msg, ...)
 
   va_start(args, msg);
   if (dbgf)
-    vfprintf(dbgf, msg, args);
+    bvfprintf(dbgf, msg, args);
   va_end(args);
 }
 
