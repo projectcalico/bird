@@ -348,6 +348,15 @@ term:
  | SYM {
      $$ = f_new_inst();
      switch ($1->class) {
+       case SYM_NUMBER:
+	$$ = f_new_inst();
+	$$->code = 'c'; 
+	$$->aux = T_INT; 
+	$$->a2.i = $1->aux;
+	break;
+       case SYM_IPA:
+	{ NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_IP; val->val.px.ip = * (ip_addr *) ($1->def); }
+	break;
        case SYM_VARIABLE | T_INT:
        case SYM_VARIABLE | T_PAIR:
        case SYM_VARIABLE | T_PREFIX:
