@@ -139,7 +139,7 @@ givemore:
     c->rif->busy = NULL;
     rem_node(NODE c);
     mb_free(c);
-    debug( "done\n" );
+    debug( " done\n" );
     return;
   }
 
@@ -428,7 +428,7 @@ rip_timer(timer *t)
 static void
 rip_start(struct proto *p)
 {
-  debug( "RIP: initializing instance...\n" );
+  debug( "RIP: starting instance...\n" );
 
   P->magic = RIP_MAGIC;
   init_list( &P->rtable );
@@ -516,7 +516,7 @@ new_iface(struct proto *p, struct iface *new)
     i->sock->daddr = new->opposite;
 
   if (!ipa_nonzero(i->sock->daddr))
-    log( L_WARN "RIP: interface %s is too strange for me\n", i->iface->name );
+    log( L_WARN "RIP: interface %s is too strange for me", i->iface->name );
 
   if (sk_open(i->sock)<0)
     die( "RIP/%s: could not listen on %s\n", p->name, i->iface->name );
@@ -610,12 +610,9 @@ rip_rte_remove(net *net, rte *rte)
   rem_node( &rte->u.rip.garbage );
 }
 
-static void
-rip_preconfig(struct protocol *x)
+void
+rip_init_instance(struct proto *p)
 {
-  struct proto *p = proto_new(&proto_rip, sizeof(struct rip_data));
-
-  debug( "RIP: preconfig\n" );
   p->preference = DEF_PREF_RIP;
   p->start = rip_start;
   p->if_notify = rip_if_notify;
@@ -625,6 +622,12 @@ rip_preconfig(struct protocol *x)
   p->rte_insert = rip_rte_insert;
   p->rte_remove = rip_rte_remove;
   p->dump = rip_dump;
+}
+
+static void
+rip_preconfig(struct protocol *x)
+{
+  debug( "RIP: preconfig\n" );
 }
 
 static void
@@ -640,4 +643,3 @@ struct protocol proto_rip = {
   rip_preconfig,
   rip_postconfig
 };
-
