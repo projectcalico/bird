@@ -356,6 +356,16 @@ parse_args(int argc, char **argv)
 {
   int c;
 
+  if (argc == 2)
+    {
+      if (!strcmp(argv[1], "--version"))
+	{
+	  fprintf(stderr, "BIRD version " BIRD_VERSION "\n");
+	  exit(0);
+	}
+      if (!strcmp(argv[1], "--help"))
+	usage();
+    }
   while ((c = getopt(argc, argv, opt_list)) >= 0)
     switch (c)
       {
