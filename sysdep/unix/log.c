@@ -1,9 +1,16 @@
 /*
  *	BIRD Library -- Logging Functions
  *
- *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
+ *	(c) 1998--2000 Martin Mares <mj@ucw.cz>
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+/**
+ * DOC: Logging
+ *
+ * The Logging module offers a simple set of functions for writing
+ * messages to system logs and to the debug output.
  */
 
 #include <stdio.h>
@@ -94,6 +101,16 @@ vlog(int class, char *msg, va_list args)
   cli_echo(class, buf);
 }
 
+/**
+ * log - log a message
+ * @msg: printf-like formatting string with message class information
+ * prepended (%L_DEBUG to %L_BUG, see |lib/birdlib.h|)
+ *
+ * This function formats a message according to the format string @msg
+ * and writes it to the corresponding logfile (as specified in the
+ * configuration). Please note that the message is automatically
+ * formatted as a full line, no need to include |\n| inside.
+ */
 void
 log(char *msg, ...)
 {
@@ -107,6 +124,13 @@ log(char *msg, ...)
   va_end(args);
 }
 
+/**
+ * bug - report an internal error
+ * @msg: a printf-like error message
+ *
+ * This function logs an internal error and aborts execution
+ * of the program.
+ */
 void
 bug(char *msg, ...)
 {
@@ -117,6 +141,13 @@ bug(char *msg, ...)
   abort();
 }
 
+/**
+ * bug - report a fatal error
+ * @msg: a printf-like error message
+ *
+ * This function logs a fatal error and aborts execution
+ * of the program.
+ */
 void
 die(char *msg, ...)
 {
@@ -127,6 +158,13 @@ die(char *msg, ...)
   exit(1);
 }
 
+/**
+ * debug - write to debug output
+ * @msg: a printf-like message
+ *
+ * This function formats the message @msg and prints it out
+ * to the debugging output. No newline character is appended.
+ */
 void
 debug(char *msg, ...)
 {

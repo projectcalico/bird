@@ -6,6 +6,39 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Kernel synchronization
+ *
+ * This system dependent module implements the Kernel and Device protocol,
+ * that is synchronization of interface lists and routing tables with the
+ * OS kernel.
+ *
+ * The whole kernel synchronization is a bit messy and touches some internals
+ * of the routing table engine, because routing table maintenance is a typical
+ * example of the proverbial compatibility between different Unices and we want
+ * to keep the overhead of our krt business as low as possible and avoid maintaining
+ * a local routing table copy.
+ *
+ * The kernel syncer can work in three different modes (according to system config header):
+ * Either with a single routing table and single KRT protocol [traditional Unix]
+ * or with many routing tables and separate krt protocols for all of them
+ * or with many routing tables, but every scan including all tables, so we start
+ * separate krt protocols which cooperate with each other  [Linux 2.2].
+ * In this case, we keep only a single scan timer.
+ *
+ * We use FIB node flags to keep track of route synchronization status. We also
+ * attach temporary &rte's to the routing tables, but it cannot harm the rest of
+ * BIRD since table synchronization is an atomic process.
+ *
+ * When starting up, we cheat by looking if there is another
+ * KRT instance to be initialized later and performing table scan
+ * only once for all the instances.
+ */
+
+/*
+ *  If you are brave enough, continue now.  You cannot say you haven't been warned.
+ */
+
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -17,30 +50,6 @@
 
 #include "unix.h"
 #include "krt.h"
-
-/*
- *  The whole kernel synchronization is a bit messy and touches some internals
- *  of the routing table engine, because routing table maintenance is a typical
- *  example of the proverbial compatibility between different Unices and we want
- *  to keep the overhead of our krt business as low as possible and avoid maintaining
- *  a local routing table copy.
- *
- *  The kernel syncer can work in three different modes (according to system config header):
- *	o  Single routing table, single krt protocol.  [traditional Unix]
- *	o  Many routing tables, separate krt protocols for all of them.
- *	o  Many routing tables, but every scan includes all tables, so we start
- *	   separate krt protocols which cooperate with each other.  [Linux 2.2]
- *	   In this case, we keep only a single scan timer.
- *
- *  The hacky bits:
- *	o  We use FIB node flags to keep track of route synchronization status.
- *	o  When starting up, we cheat by looking if there is another kernel
- *	   krt instance to be initialized later and performing table scan
- *	   only once for all the instances.
- *	o  We attach temporary rte's to routing tables.
- *
- *  If you are brave enough, continue now.  You cannot say you haven't been warned.
- */
 
 static int krt_uptodate(rte *k, rte *e);
 
