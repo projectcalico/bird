@@ -51,15 +51,13 @@ void *fib_get(struct fib *, ip_addr *, int); 	/* Find or create new if nonexiste
 void fib_delete(struct fib *, void *);	/* Remove fib entry */
 void fib_free(struct fib *);		/* Destroy the fib */
 
-#define FIB_WALK(fib, z, op) do {				\
+#define FIB_WALK(fib, z) do {					\
 	struct fib_node *z, **ff = (fib)->hash_table;		\
 	unsigned int count = (fib)->hash_size;			\
 	while (count--)						\
-	  for(z = *ff++; z; z=z->next)				\
-	    {							\
-	      op;						\
-	    }							\
-	} while (0)
+	  for(z = *ff++; z; z=z->next)
+
+#define FIB_WALK_END } while (0)
 
 /*
  *	Master Routing Tables. Generally speaking, each of them is a list
@@ -120,12 +118,12 @@ extern rtable master_table;
 
 void rt_init(void);
 void rt_setup(rtable *, char *);
-net *net_find(rtable *tab, unsigned tos, ip_addr mask, unsigned len);
-net *net_get(rtable *tab, unsigned tos, ip_addr mask, unsigned len);
+net *net_find(rtable *tab, unsigned tos, ip_addr addr, unsigned len);
+net *net_get(rtable *tab, unsigned tos, ip_addr addr, unsigned len);
 rte *rte_find(net *net, struct proto *p);
 rte *rte_get_temp(struct rtattr *);
-void rte_update(net *net, rte *new);
-void rte_dump(rte *);
+void rte_update(net *net, struct proto *p, rte *new);
+void rte_dump(net *, rte *);
 void rt_dump(rtable *);
 void rt_dump_all(void);
 
