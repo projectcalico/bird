@@ -297,7 +297,7 @@ cmd_expand(char *cmd)
       puts("No such command.");
       return NULL;
     }
-  b = malloc(strlen(n->cmd->command) + strlen(args) + 1);
+  b = xmalloc(strlen(n->cmd->command) + strlen(args) + 1);
   sprintf(b, "%s%s", n->cmd->command, args);
   return b;
 }
