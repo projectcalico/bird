@@ -48,6 +48,8 @@ struct fib_iterator {			/* See lib/slists.h for an explanation */
   unsigned int hash;
 };
 
+typedef void (*fib_init_func)(struct fib_node *);
+
 struct fib {
   pool *fib_pool;			/* Pool holding all our data */
   slab *fib_slab;			/* Slab holding all fib nodes */
@@ -57,10 +59,10 @@ struct fib {
   unsigned int hash_shift;		/* 16 - hash_log */
   unsigned int entries;			/* Number of entries */
   unsigned int entries_min, entries_max;/* Entry count limits (else start rehashing) */
-  void (*init)(struct fib_node *);	/* Constructor */
+  fib_init_func init;			/* Constructor */
 };
 
-void fib_init(struct fib *, pool *, unsigned node_size, unsigned hash_order, void (*init)(struct fib_node *));
+void fib_init(struct fib *, pool *, unsigned node_size, unsigned hash_order, fib_init_func init);
 void *fib_find(struct fib *, ip_addr *, int);	/* Find or return NULL if doesn't exist */
 void *fib_get(struct fib *, ip_addr *, int); 	/* Find or create new if nonexistent */
 void *fib_route(struct fib *, ip_addr, int);	/* Longest-match routing lookup */

@@ -6,6 +6,34 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/**
+ * DOC: Forwarding Information Base
+ *
+ * FIB is a data structure designed for storage of routes indexed by their
+ * network prefixes. It supports insertion, deletion, searching by prefix,
+ * `routing' (in CIDR sense, that is searching for a longest prefix matching
+ * a given IP address) and (which makes the structure very tricky to implement)
+ * asynchronous reading, that is enumerating the contents of a FIB while other
+ * modules add, modify or remove entries.
+ *
+ * Internally, each FIB is represented as a collection of nodes of type &fib_node
+ * indexed using a sophisticated hashing mechanism.
+ * We use two-stage hashing where we calculate a 16-bit primary hash key independent
+ * on hash table size and then we just divide the primary keys modulo table size
+ * to get a real hash key used for determining the bucket containing the node.
+ * The lists of nodes in each buckets are sorted according to the primary hash
+ * key, hence if we keep the total number of buckets to be a power of two,
+ * re-hashing of the structure keeps the relative order of the nodes.
+ *
+ * To get the asynchronous reading consistent over node deletions, we need to
+ * keep a list of readers for each node. When a node gets deleted, its readers
+ * are automatically moved to the next node in the table.
+ *
+ * Basic FIB operations are performed by functions defined by this module,
+ * enumerating of FIB contents is accomplished by using the FIB_WALK() macro
+ * or FIB_ITERATE_START() if you want to do it asynchronously.
+ */
+
 #undef LOCAL_DEBUG
 
 #include "nest/bird.h"
@@ -55,8 +83,20 @@ fib_dummy_init(struct fib_node *dummy)
 {
 }
 
+/**
+ * fib_init - initialize a new FIB
+ * @f: the FIB to be initialized (the structure itself being allocated by the caller)
+ * @p: pool to allocate the nodes in
+ * @node_size: node size to be used (each node consists of a standard header &fib_node
+ * followed by user data)
+ * @hash_order: initial hash order (a binary logarithm of hash table size), 0 to use default order
+ * (recommended)
+ * @init: pointer a function to be called to initialize a newly created node
+ *
+ * This function initializes a newly allocated FIB and prepares it for use.
+ */
 void
-fib_init(struct fib *f, pool *p, unsigned node_size, unsigned hash_order, void (*init)(struct fib_node *))
+fib_init(struct fib *f, pool *p, unsigned node_size, unsigned hash_order, fib_init_func init)
 {
   if (!hash_order)
     hash_order = HASH_DEF_ORDER;
@@ -113,6 +153,15 @@ fib_rehash(struct fib *f, int step)
   fib_ht_free(m);
 }
 
+/**
+ * fib_find - search for FIB node by prefix
+ * @f: FIB to search in
+ * @a: pointer to IP address of the prefix
+ * @len: prefix length
+ *
+ * Search for a FIB node corresponding to the given prefix, return
+ * a pointer to it or %NULL if no such node exists.
+ */
 void *
 fib_find(struct fib *f, ip_addr *a, int len)
 {
@@ -123,6 +172,15 @@ fib_find(struct fib *f, ip_addr *a, int len)
   return e;
 }
 
+/**
+ * fib_get - find or create a FIB node
+ * @f: FIB to work with
+ * @a: pointer to IP address of the prefix
+ * @len: prefix length
+ *
+ * Search for a FIB node corresponding to the given prefix and
+ * return a pointer to it. If no such node exists, create it.
+ */
 void *
 fib_get(struct fib *f, ip_addr *a, int len)
 {
@@ -152,6 +210,16 @@ fib_get(struct fib *f, ip_addr *a, int len)
   return e;
 }
 
+/**
+ * fib_route - CIDR routing lookup
+ * @f: FIB to search in
+ * @a: pointer to IP address of the prefix
+ * @len: prefix length
+ *
+ * Search for a FIB node with longest prefix matching the given
+ * network, that is a node which a CIDR router would use for routing
+ * that network.
+ */
 void *
 fib_route(struct fib *f, ip_addr a, int len)
 {
@@ -203,6 +271,15 @@ fib_merge_readers(struct fib_iterator *i, struct fib_node *to)
       }
 }
 
+/**
+ * fib_delete - delete a FIB node
+ * @f: FIB to delete from
+ * @E: entry to delete
+ *
+ * This function removes the given entry from the FIB,
+ * taking care of all the asynchronous readers by shifting
+ * them to the next node in the canonical reading order.
+ */
 void
 fib_delete(struct fib *f, void *E)
 {
@@ -239,6 +316,13 @@ fib_delete(struct fib *f, void *E)
   bug("fib_delete() called for invalid node");
 }
 
+/**
+ * fib_free - delete a FIB
+ * @f: FIB to be deleted
+ *
+ * This function deletes a FIB -- it frees all memory associated
+ * with it and all its entries.
+ */
 void
 fib_free(struct fib *f)
 {
@@ -311,6 +395,13 @@ fit_put(struct fib_iterator *i, struct fib_node *n)
 
 #ifdef DEBUGGING
 
+/**
+ * fib_check - audit a FIB
+ * @f: FIB to be checked
+ *
+ * This debugging function audits a FIB by checking its internal consistency.
+ * Use when you suspect somebody from corrupting innocent data structures.
+ */
 void
 fib_check(struct fib *f)
 {
