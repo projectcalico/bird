@@ -369,7 +369,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
          lsa->age=htons(LSA_MAXAGE);
          lsa->sn=htonl(LSA_MAXSEQNO);
 	 OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa.");
-         OSPF_TRACE(D_EVENTS, "%s: Type: %d, Id: %I, Rt: %I",lsatmp.type,
+         OSPF_TRACE(D_EVENTS, "Type: %d, Id: %I, Rt: %I",lsatmp.type,
            lsatmp.id, lsatmp.rt);
 	 lsasum_check(lsa,(lsa+1),po);
 	 lsatmp.checksum=ntohs(lsa->checksum);
