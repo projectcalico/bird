@@ -163,31 +163,31 @@
 <lq>		+	"\\begin{quotation}\n"	+
 </lq>		+	"\n\\end{quotation}\n\n"	+
 
-<em>		 	"{\\itshape "
+<em>		 	"{\\it "
 </em>			"\\/}"
 
-<m>		 	"{\\itshape "
+<m>		 	"{\\it "
 </m>			"\\/}"
 
-<bf>			"{\\bfseries "
+<bf>			"{\\bf "
 </bf>			"}"
 
-<it>			"{\\itshape "
+<it>			"{\\it "
 </it>			"\\/}"
 
-<sf>			"{\\sffamily "
+<sf>			"{\\sf "
 </sf>			"}"
 
-<sl>			"{\\slshape "
+<sl>			"{\\sl "
 </sl>			"}"
 
-<rm>                    "{\\rmfamily "
+<rm>                    "{\\rm "
 </rm>                   "}"
 
-<tt>			"{\\ttfamily "
+<tt>			"{\\tt "
 </tt>			"}"
 
-<cf>			"{\\ttfamily "
+<cf>			"{\\tt "
 </cf>			"}"
 
 <const>			"{\\tt "
