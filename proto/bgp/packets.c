@@ -41,8 +41,22 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
   put_u16(buf+1, p->local_as);
   put_u16(buf+3, p->cf->hold_time);
   put_u32(buf+5, p->local_id);
+#ifndef IPV6
   buf[9] = 0;				/* No optional parameters */
   return buf+10;
+#else
+  buf += 9;
+  *buf++ = 8;		/* Optional params len */
+  *buf++ = 2;		/* Option: Capability list */
+  *buf++ = 6;		/* Option length */
+  *buf++ = 1;		/* Capability 1: Multiprotocol extensions */
+  *buf++ = 4;		/* Capability data length */
+  *buf++ = 0;		/* We support AF IPv6 */
+  *buf++ = BGP_AF_IPV6;
+  *buf++ = 0;		/* RFU */
+  *buf++ = 1;		/* and SAFI 1 */
+  return buf;
+#endif
 }
 
 static unsigned int
