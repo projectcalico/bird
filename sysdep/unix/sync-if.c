@@ -140,7 +140,7 @@ scan_if(timer *t)
 	  ic.ifc_ifcu.ifcu_req = r;
 	  ic.ifc_len = last_ifbuf_size;
 	  res = ioctl(if_scan_sock, SIOCGIFCONF, &ic);
-	  if (res < 0 && errno != EFAULT)
+	  if (res < 0 && errno != EFAULT)	/* FIXME: I would sigsegv you if I were kernel at this point */
 	    die("SIOCCGIFCONF: %m");
 	  if (res < last_ifbuf_size)
 	    {
@@ -149,8 +149,11 @@ scan_if(timer *t)
 	    }
 	}
       ic.ifc_ifcu.ifcu_req = NULL;
+      ic.ifc_len = 999999999;
       if (ioctl(if_scan_sock, SIOCGIFCONF, &ic) < 0)
 	die("SIOCIFCONF: %m");
+      if (ic.ifc_len > 100*1024)
+	die("Buf size MUCH too big: %d\n", ic.ifc_len);
       ic.ifc_len += sizeof(struct ifreq);
       if (last_ifbuf_size < ic.ifc_len)
 	{
