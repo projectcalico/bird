@@ -4,6 +4,9 @@
 
 # Yet another comment
 
+#log syslog { error };
+#log "tmp" all;
+
 #router id 62.168.0.1;
 
 #define xyzzy = 120+10;

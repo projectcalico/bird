@@ -9,6 +9,8 @@
 #ifndef _BIRD_UNIX_H_
 #define _BIRD_UNIX_H_
 
+struct pool;
+
 /* main.c */
 
 void async_config(void);
@@ -38,9 +40,23 @@ void io_loop(void);
 void fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port);
 void get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port);
 int sk_open_unix(struct birdsock *s, char *name);
+void *tracked_fopen(struct pool *, char *name, char *mode);
 
 /* krt.c bits */
 
 void krt_io_init(void);
+
+/* log.c */
+
+void log_init(int debug);
+void log_init_debug(char *);		/* Initialize debug dump to given file (NULL=stderr, ""=off) */
+void log_switch(struct list *);
+
+struct log_config {
+  node n;
+  unsigned int mask;			/* Classes to log */
+  void *fh;				/* FILE to log to, NULL=syslog */
+  int terminal_flag;
+};
 
 #endif

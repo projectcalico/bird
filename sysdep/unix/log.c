@@ -14,21 +14,26 @@
 #include "nest/bird.h"
 #include "nest/cli.h"
 #include "lib/string.h"
+#include "lib/lists.h"
+#include "lib/unix.h"
 
-static int log_inited;
-static FILE *logf = NULL;
 static FILE *dbgf = NULL;
+static list *current_log_list;
+static list init_log_list;
 
 #ifdef HAVE_SYSLOG
 #include <sys/syslog.h>
 
 static int syslog_priorities[] = {
-  LOG_INFO,
+  LOG_DEBUG,
+  LOG_DEBUG,
   LOG_DEBUG,
   LOG_INFO,
+  LOG_ERR,
   LOG_WARNING,
   LOG_ERR,
-  LOG_NOTICE,
+  LOG_ERR,
+  LOG_CRIT,
   LOG_CRIT
 };
 #endif
@@ -36,50 +41,55 @@ static int syslog_priorities[] = {
 static char *class_names[] = {
   "???",
   "DBG",
+  "TRACE",
   "INFO",
+  "RMT",
   "WARN",
   "ERR",
   "AUTH",
-  "FATAL"
+  "FATAL",
+  "BUG"
 };
 
 static void
 vlog(int class, char *msg, va_list args)
 {
   char buf[1024];
-  char date[32];
+  struct log_config *l;
 
   if (bvsnprintf(buf, sizeof(buf)-1, msg, args) < 0)
     bsprintf(buf + sizeof(buf) - 100, " ... <too long>");
 
-  if (logf)
+  WALK_LIST(l, *current_log_list)
     {
-      time_t now = time(NULL);
-      struct tm *tm = localtime(&now);
+      if (!(l->mask & (1 << class)))
+	continue;
+      if (l->fh)
+	{
+	  time_t now = time(NULL);
+	  struct tm *tm = localtime(&now);
 
-      bsprintf(date, "%02d-%02d-%04d %02d:%02d:%02d <%s> ",
-	       tm->tm_mday,
-	       tm->tm_mon+1,
-	       tm->tm_year+1900,
-	       tm->tm_hour,
-	       tm->tm_min,
-	       tm->tm_sec,
-	       class_names[class]);
-      fputs(date, logf);
-      fputs(buf, logf);
-      fputc('\n', logf);
-      fflush(logf);
-    }
+	  if (l->terminal_flag)
+	    fputs("bird: ", l->fh);
+	  else
+	    {
+	      fprintf(l->fh, "%02d-%02d-%04d %02d:%02d:%02d <%s> ",
+		       tm->tm_mday,
+		       tm->tm_mon+1,
+		       tm->tm_year+1900,
+		       tm->tm_hour,
+		       tm->tm_min,
+		       tm->tm_sec,
+		       class_names[class]);
+	    }
+	  fputs(buf, l->fh);
+	  fputc('\n', l->fh);
+	  fflush(l->fh);
+	}
 #ifdef HAVE_SYSLOG
-  else if (log_inited)
-    syslog(syslog_priorities[class], "%s", buf);
+      else
+	syslog(syslog_priorities[class], "%s", buf);
 #endif
-  else
-    {
-      fputs("bird: ", stderr);
-      fputs(buf, stderr);
-      fputc('\n', stderr);
-      fflush(stderr);
     }
   cli_echo(class, buf);
 }
@@ -124,36 +134,40 @@ debug(char *msg, ...)
   char buf[1024];
 
   va_start(args, msg);
-  if (bvsnprintf(buf, sizeof(buf), msg, args) < 0)
-    bsprintf(buf + sizeof(buf) - 100, " ... <too long>\n");
   if (dbgf)
-    fputs(buf, dbgf);
+    {
+      if (bvsnprintf(buf, sizeof(buf), msg, args) < 0)
+	bsprintf(buf + sizeof(buf) - 100, " ... <too long>\n");
+      fputs(buf, dbgf);
+    }
   va_end(args);
 }
 
 void
-log_init(char *f)
+log_init(int debug)
 {
-  FILE *new;
+  static struct log_config lc_stderr = { mask: ~0, terminal_flag: 1 };
 
-  if (!f)
-    new = stderr;
-  else if (!*f)
-    {
-      new = NULL;
+  init_list(&init_log_list);
+  current_log_list = &init_log_list;
+
 #ifdef HAVE_SYSLOG
-      openlog("bird", LOG_CONS | LOG_NDELAY, LOG_DAEMON);
-#endif
-    }
-  else if (!(new = fopen(f, "a")))
+  if (!debug)
     {
-      log(L_ERR "Unable to open log file `%s': %m", f);
-      return;
+      static struct log_config lc_syslog = { mask: ~0 };
+      openlog("bird", LOG_CONS | LOG_NDELAY, LOG_DAEMON);
+      add_tail(current_log_list, &lc_syslog.n);
     }
-  if (logf && logf != stderr)
-    fclose(logf);
-  logf = new;
-  log_inited = 1;
+#endif
+
+  lc_stderr.fh = stderr;
+  add_tail(current_log_list, &lc_stderr.n);
+}
+
+void
+log_switch(list *l)
+{
+  current_log_list = l;
 }
 
 void
@@ -162,9 +176,9 @@ log_init_debug(char *f)
   if (dbgf && dbgf != stderr)
     fclose(dbgf);
   if (!f)
-    dbgf = stderr;
-  else if (!*f)
     dbgf = NULL;
+  else if (!*f)
+    dbgf = stderr;
   else if (!(dbgf = fopen(f, "a")))
     log(L_ERR "Error opening debug file `%s': %m", f);
 }

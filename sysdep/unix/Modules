@@ -4,6 +4,7 @@ timer.h
 io.c
 unix.h
 endian.h
+config.Y
 
 krt.c
 krt.h

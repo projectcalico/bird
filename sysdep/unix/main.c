@@ -67,6 +67,18 @@ cf_read(byte *dest, unsigned int len)
   return l;
 }
 
+void
+sysdep_preconfig(struct config *c)
+{
+  init_list(&c->logfiles);
+}
+
+void
+sysdep_commit(struct config *c)
+{
+  log_switch(&c->logfiles);
+}
+
 static void
 read_config(void)
 {
@@ -258,12 +270,13 @@ signal_init(void)
  *	Parsing of command-line arguments
  */
 
-static char *opt_list = "c:d:";
+static char *opt_list = "c:dD:";
+static int debug_flag = 1;		/* FIXME: Turn off for production use */
 
 static void
 usage(void)
 {
-  fprintf(stderr, "Usage: bird [-c <config-file>] [-d <debug-file>]\n");
+  fprintf(stderr, "Usage: bird [-c <config-file>] [-d] [-D <debug-file>]\n");
   exit(1);
 }
 
@@ -279,7 +292,11 @@ parse_args(int argc, char **argv)
 	config_name = optarg;
 	break;
       case 'd':
+	debug_flag |= 1;
+	break;
+      case 'D':
 	log_init_debug(optarg);
+	debug_flag |= 2;
 	break;
       default:
 	usage();
@@ -300,10 +317,12 @@ main(int argc, char **argv)
     dmalloc_debug(0x2f03d00);
 #endif
 
-  log_init_debug(NULL);
   setvbuf(stdout, NULL, _IONBF, 0);	/* FIXME: Kill some day. */
   setvbuf(stderr, NULL, _IONBF, 0);
   parse_args(argc, argv);
+  if (debug_flag == 1)
+    log_init_debug("");
+  log_init(debug_flag);
 
   log(L_INFO "Launching BIRD " BIRD_VERSION "...");
 

@@ -44,9 +44,6 @@ void bug(char *msg, ...) NORET;
 #define L_FATAL "\007"			/* Fatal errors */
 #define L_BUG "\010"			/* BIRD bugs */
 
-void log_init(char *);			/* Initialize logging to given file (NULL=stderr, ""=syslog) */
-void log_init_debug(char *);		/* Initialize debug dump to given file (NULL=stderr, ""=off) */
-
 void debug(char *msg, ...);		/* Printf to debug output */
 
 /* Debugging */
