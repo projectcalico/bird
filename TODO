@@ -42,6 +42,20 @@ Core
 
 - port to FreeBSD
 
+Commands
+~~~~~~~~
+shutdown
+configure [<file>]
+show	protocols [<name>]
+	<name>
+	route [<route>] [table <name>] [filter (<name> | { <inline> })] [where <condition>]
+	status			# router id, version etc.
+	rip ??? [<name>]
+	ospf ??? [<name>]
+	static ??? [<name>]
+	interfaces [<name>]
+(disable|enable|restart) <protocol>
+
 Cleanup
 ~~~~~~~
 - right usage of DBG vs. debug
