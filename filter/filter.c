@@ -557,5 +557,10 @@ filters_postconfig(void)
 int
 filter_same(struct filter *new, struct filter *old)
 {
+  if (old == new)	/* Handle FILTER_ACCEPT and FILTER_REJECT */
+    return 1;
+  if (old == FILTER_ACCEPT || old == FILTER_REJECT ||
+      new == FILTER_ACCEPT || new == FILTER_REJECT)
+    return 0;
   return i_same(new->root, old->root);
 }
