@@ -289,12 +289,16 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
        DBG("PG143(5): Received LSA is newer\n");
 
       /* pg 144 (5a) */
-      if(lsadb && ((now-lsadb->inst_t)<MINLSARRIVAL)) continue;
+      if(lsadb && ((now-lsadb->inst_t)<MINLSARRIVAL))
+      {
+        DBG("I got it in less that MINLSARRIVAL\n");
+	continue;
+      }
         
 
       if(flood_lsa(n,lsa,&lsatmp,po,ifa,ifa->oa)==0)
       {
-        DGB("Wasn't flooded back\n");
+        DBG("Wasn't flooded back\n");
         if(ifa->state==OSPF_IS_BACKUP)
 	{
 	  if(ifa->drid==n->rid) ospf_lsa_delay(n, lsa, p);
