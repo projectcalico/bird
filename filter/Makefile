@@ -1,4 +1,4 @@
-source=f-util.c filter.c
+source=f-util.c filter.c tree.c
 root-rel=../
 dir-name=filter
 

@@ -18,7 +18,7 @@ CF_HDR
 
 CF_DECLS
 
-CF_KEYWORDS(FUNCTION, PRINTDEBUG, PRINT, CONST, PUTS, 
+CF_KEYWORDS(FUNCTION, PRINT, CONST,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
 	INT, BOOL, IP, PREFIX, PAIR, SET, STRING,
 	IF, THEN, ELSE,
@@ -29,6 +29,8 @@ CF_KEYWORDS(FUNCTION, PRINTDEBUG, PRINT, CONST, PUTS,
 %type <x> term block cmds cmd function_body ifthen constant print_one print_list
 %type <f> filter filter_body
 %type <i> type break_command
+%type <e> set_item set_items
+%type <v> set_atom
 
 CF_GRAMMAR
 
@@ -128,12 +130,29 @@ block:
    }
  ;
 
+set_atom:
+   NUM { $$.type = T_INT; $$.val.i = $1; }
+ | IPA { $$.type = T_IP; $$.val.ip = $1; }
+ ; 
+
+set_item:
+   set_atom { $$ = f_new_tree(); $$->from = $$->to = $1 }
+ | set_atom '.' '.' set_atom { $$ = f_new_tree(); $$->from = $1; $$->to = $4; }
+ ;
+
+set_items:
+   set_item { $$ = $1; }
+ | set_items ',' set_item { $$ = $3; $$->left = $1; }
+ ;
+
 constant:
    CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT; $$->a2.i = $3; }
  | NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_INT;  $$->a2.i = $1; }
  | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 1;  }
  | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_BOOL; $$->a2.i = 0;  }
- | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; } 
+ | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_STRING; $$->a2.p = $1; }
+ | IPA	  { struct f_val * val; val = cfg_alloc(sizeof(struct f_val)); $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_IP; val->val.ip = $1; }
+ | '[' set_items ']' { printf( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->a1.i = T_SET; $$->a2.p = build_tree($2); printf( "ook\n" ); }
  ;
 
 term:
@@ -145,6 +164,7 @@ term:
  | term '<' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->a1.p = $1; $$->a2.p = $4; }
  | term '>' term     { $$ = f_new_inst(); $$->code = '<';  $$->a1.p = $3; $$->a2.p = $1; }
  | term '>' '=' term { $$ = f_new_inst(); $$->code = '<='; $$->a1.p = $4; $$->a2.p = $1; }
+ | term '~' term     { $$ = f_new_inst(); $$->code = '~';  $$->a1.p = $1; $$->a2.p = $3; }
 
  | SYM {
      $$ = f_new_inst();

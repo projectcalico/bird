@@ -9,6 +9,8 @@
 %{
 #undef REJECT     /* Avoid name clashes */
 
+#include "filter/filter.h"
+
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -103,7 +105,7 @@ WHITE [ \t]
   return SYM;
 }
 
-[={}:;,()+*/%-<>~] {
+[={}:;,()+*/%-<>~\[\]] {
   return yytext[0];
 }
 

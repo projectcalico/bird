@@ -40,6 +40,7 @@ struct f_val {
     ip_addr ip;
     struct prefix px;
     char *s;
+    struct f_tree *t;
   } val;
 };
 
@@ -50,10 +51,16 @@ struct filter {
 
 void filters_postconfig(void);
 struct f_inst *f_new_inst(void);
+struct f_tree *f_new_tree(void);
+
+struct f_tree *build_tree(struct f_tree *);
+struct f_tree *find_tree(struct f_tree *t, struct f_val val);
 
 int f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struct linpool *tmp_pool);
 char *filter_name(struct filter *filter);
 
+int val_compare(struct f_val v1, struct f_val v2);
+void val_print(struct f_val v);
 
 #define F_NOP 0
 #define F_ACCEPT 1	/* Need to preserve ordering: accepts < rejects! */
@@ -84,5 +91,11 @@ char *filter_name(struct filter *filter);
 #define T_STRING 0x22
 
 #define T_SET 0x80
+
+struct f_tree {
+  struct f_tree *left, *right;
+  struct f_val from, to;
+  void *data;
+};
 
 #endif

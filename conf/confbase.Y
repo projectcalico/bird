@@ -27,6 +27,8 @@ CF_DECLS
   char *t;
   struct f_inst *x;
   struct filter *f;
+  struct f_tree *e;
+  struct f_val v;
 }
 
 %token END
@@ -37,7 +39,7 @@ CF_DECLS
 
 %type <i> expr bool pxlen
 
-%nonassoc '=' '<' '>'
+%nonassoc '=' '<' '>' '~' ELSE IF
 %left '+' '-'
 %left '*' '/' '%'
 %left '!'

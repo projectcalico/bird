@@ -16,6 +16,7 @@
 #include "lib/lists.h"
 #include "lib/resource.h"
 #include "lib/socket.h"
+#include "lib/string.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
@@ -43,11 +44,59 @@ struct f_inst *startup_func = NULL;
                   if (v1.type != v2.type) \
 		    runtime( "Can not operate with values of incompatible types" );
 
+#define CMP_ERROR 999
+
+/* Compare two values, returns -1, 0, 1 compared, ERROR 999 */
+int
+val_compare(struct f_val v1, struct f_val v2)
+{
+  switch (v1.type) {
+  case T_INT: 
+    if (v1.val.i == v2.val.i) return 0;
+    if (v1.val.i < v2.val.i) return -1;
+    return 1;
+  default: return CMP_ERROR;
+  }
+}
+
+static void
+tree_print(struct f_tree *t)
+{
+  if (!t) {
+    printf( "() " );
+    return;
+  }
+  printf( "[ " );
+  tree_print( t->left );
+  printf( ", " ); val_print( t->from ); printf( ".." ); val_print( t->to ); printf( ", " );
+  tree_print( t->right );
+  printf( "] " );
+}
+
+void
+val_print(struct f_val v)
+{
+  char buf[2048];
+#define PRINTF(a...) bsnprintf( buf, 2040, a )
+  buf[0] = 0;
+  switch (v.type) {
+  case T_VOID: PRINTF( "(void)" ); break;
+  case T_BOOL: PRINTF( v.val.i ? "TRUE" : "FALSE" ); break;
+  case T_INT: PRINTF( "%d ", v.val.i ); break;
+  case T_STRING: PRINTF( "%s", v.val.s ); break;
+  case T_IP: PRINTF( "%I", v.val.ip ); break;
+  case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
+  default: PRINTF( "[unknown type %x]", v.type );
+  }
+  printf( buf );
+}
+
 static struct f_val
 interpret(struct f_inst *what)
 {
   struct symbol *sym;
   struct f_val v1, v2, res;
+  int i,j,k;
 
   res.type = T_VOID;
   if (!what)
@@ -80,38 +129,32 @@ interpret(struct f_inst *what)
     break;
 
 /* Relational operators */
-  case '!=':
-  case '==':
-    TWOARGS_C;
-    res.type = T_BOOL;
-    switch (v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
-    case T_INT: res.val.i = (v1.val.i == v2.val.i); break;
-    default: runtime( "Usage of unknown type" );
-    }
-    if (what->code == '!=')
-      res.val.i = !(res.val.i);
-    break;
-  case '<':
-    TWOARGS_C;
-    res.type = T_BOOL;
-    switch (v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
-    case T_INT: res.val.i = (v1.val.i < v2.val.i); break;
-    default: runtime( "Usage of unknown type" );
-    }
-    break;
-  case '<=':
-    TWOARGS_C;
-    res.type = T_BOOL;
-    switch (v1.type) {
-    case T_VOID: runtime( "Can not operate with values of type void" );
-    case T_INT: res.val.i = (v1.val.i <= v2.val.i); break;
-    default: runtime( "Usage of unknown type" );
-    }
+
+#define COMPARE(x) \
+    TWOARGS_C; \
+    res.type = T_BOOL; \
+    i = val_compare(v1, v2); \
+    if (i==CMP_ERROR) \
+      runtime( "Error in comparation" ); \
+    res.val.i = (x); \
     break;
 
-/* Set */
+  case '!=': COMPARE(i!=0);
+  case '==': COMPARE(i==0);
+  case '<': COMPARE(i==-1);
+  case '<=': COMPARE(i!=1);
+
+  case '~':
+    TWOARGS;
+    res.type = T_BOOL;
+    if (((v1.type == T_INT) || (v1.type == T_IP)) && (v2.type == T_SET)) {
+      res.val.i = !! find_tree(v2.val.t, v1);
+      break;
+    }
+    runtime( "~ applied on unknown type pair" );
+    break;
+
+  /* Set to consant, a1 = type, a2 = value */
   case 's':
     ARG(v2, a2.p);
     sym = what->a1.p;
@@ -129,18 +172,16 @@ interpret(struct f_inst *what)
     res.type = what->a1.i;
     res.val.i = (int) what->a2.p;
     break;
+  case 'C':
+    res = * ((struct f_val *) what->a1.p);
+    break;
   case 'i':
     res.type = what->a1.i;
     res.val.i = * ((int *) what->a2.p);
     break;
   case 'p':
     ONEARG;
-    switch (v1.type) {
-    case T_VOID: printf( "(void)" ); break;
-    case T_INT: printf( "%d ", v1.val.i ); break;
-    case T_STRING: printf( "%s", v1.val.i ); break;
-    default: runtime( "Print of variable of unknown type" );
-    }
+    val_print(v1);
     break;
   case '?':	/* ? has really strange error value, so we can implement if ... else nicely :-) */
     ONEARG;
