@@ -22,8 +22,8 @@
 #define HASH_LO_STEP 2
 #define HASH_LO_MIN 8
 
-unsigned int
-make_rt_lsa(struct ospf_area *oa, struct proto_ospf *p)
+void *
+originate_rt_lsa_body(struct ospf_area *oa, u16 *length, struct proto_ospf *p)
 {
   struct ospf_iface *ifa;
   int j=0,k=0,v=0,e=0,b=0;
@@ -32,8 +32,9 @@ make_rt_lsa(struct ospf_area *oa, struct proto_ospf *p)
   struct ospf_lsa_rt_link *ln;
   struct ospf_neighbor *neigh;
   struct top_hash_entry *old;
+  struct proto_ospf *po=(struct proto_ospf *)p;
 
-  old=oa->rt;
+  DBG("%s: Originating RT_lsa body for area \"%d\".\n", po->proto.name, oa->areaid);
 
   WALK_LIST (ifa, p->iface_list) i++;
   {
@@ -145,9 +146,9 @@ make_rt_lsa(struct ospf_area *oa, struct proto_ospf *p)
     ln=(ln+1);
   }
   rt->links=i;
-  if(old->lsa_body!=NULL) mb_free(old->lsa_body);
-  old->lsa_body=rt;
-  return i*sizeof(struct ospf_lsa_rt_link)+sizeof(struct ospf_lsa_rt);
+  *length=i*sizeof(struct ospf_lsa_rt_link)+sizeof(struct ospf_lsa_rt)+
+    sizeof(struct ospf_lsa_header);
+  return rt;
 }
 	
 
@@ -179,23 +180,42 @@ addifa_rtlsa(struct ospf_iface *ifa)
     oa->areaid=ifa->an;
     oa->gr=ospf_top_new(po);
     s_init_list(&(oa->lsal));
-    oa->rt=ospf_hash_get(oa->gr, rtid, rtid, LSA_T_RT);
-    s_add_head(&(oa->lsal), (snode *)oa->rt);
-    ((snode *)oa->rt)->next=NULL;
-    lsa=&(oa->rt->lsa);
-    oa->rt->lsa_body=NULL;
-    lsa->age=0;
-    lsa->sn=LSA_INITSEQNO;	/* FIXME Check it latter */
+    oa->rt=NULL;
     po->areano++;
     DBG("%s: New OSPF area \"%d\" added.\n", po->proto.name, ifa->an);
   }
 
   ifa->oa=oa;
- 
-  oa->rt->lsa.length=make_rt_lsa(oa, po)+sizeof(struct ospf_lsa_header);
-  oa->rt->lsa.checksum=0;
-  lsasum_calculate(&(oa->rt->lsa),oa->rt->lsa_body,po);
-  /*FIXME lsa_flood(oa->rt) */
+
+  oa->rt=originate_rt_lsa(oa,po);
+}
+
+struct top_hash_entry *
+originate_rt_lsa(struct ospf_area *oa, struct proto_ospf *po)
+{
+  struct ospf_lsa_header lsa;
+  u32 rtid=po->proto.cf->global->router_id;
+  struct top_hash_entry *en;
+  void *body;
+
+  DBG("%s: Originating RT_lsa for area \"%d\".\n", po->proto.name, oa->areaid);
+
+  lsa.age=0;
+  lsa.id=rtid;
+  lsa.type=LSA_T_RT;
+  lsa.rt=rtid;
+  if(oa->rt==NULL)
+  {
+    lsa.sn=LSA_INITSEQNO;
+  }
+  else
+  {
+    lsa.sn=oa->rt->lsa.sn+1;
+  }
+  body=originate_rt_lsa_body(oa, &lsa.length, po);
+  lsasum_calculate(&lsa,body,po);
+  en=lsa_install_new(&lsa, body, oa);
+  return en;
 }
 
   
@@ -296,6 +316,13 @@ ospf_hash_find_header(struct top_graph *f, struct ospf_lsa_header *h)
 {
   return ospf_hash_find(f,h->id,h->rt,h->type);
 }
+
+struct top_hash_entry *
+ospf_hash_get_header(struct top_graph *f, struct ospf_lsa_header *h)
+{
+  return ospf_hash_get(f,h->id,h->rt,h->type);
+}
+
 struct top_hash_entry *
 ospf_hash_find(struct top_graph *f, u32 lsa, u32 rtr, u32 type)
 {

@@ -45,7 +45,8 @@ ospf_lsreq_tx(struct ospf_neighbor *n)
     DBG("Requesting %uth LSA: Type: %u, Id: %u, RT: %u\n",i, en->lsa.type,
 		    en->lsa.id, en->lsa.rt);
     lsh++;
-    if((sn=sn->next)==NULL) break;
+    if(sn==STAIL(n->lsrql)) break;
+    sn=sn->next;
   }
 
   length=sizeof(struct ospf_lsreq_packet)+(j-i)*sizeof(struct ospf_lsreq_header);

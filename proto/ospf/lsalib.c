@@ -309,11 +309,52 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
     {
       if(l1->checksum=!l2->checksum)
         return l1->checksum<l2->checksum ? CMP_OLDER : CMP_NEWER;
-      if(l1->age==MAXAGE) return CMP_NEWER;
-      if(l2->age==MAXAGE) return CMP_OLDER;
-      if(abs(l1->age-l2->age)>MAXAGEDIFF)
+      if(l1->age==LSA_MAXAGE) return CMP_NEWER;
+      if(l2->age==LSA_MAXAGE) return CMP_OLDER;
+      if(abs(l1->age-l2->age)>LSA_MAXAGEDIFF)
         return l1->age<l2->age ? CMP_NEWER : CMP_OLDER;
     }
     return CMP_SAME;
 }
 
+/* LSA can be temporarrily, but body must be mb_alloced. */
+struct top_hash_entry *
+lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
+{
+  int change=0,i;
+  struct top_hash_entry *en;
+
+  if((en=ospf_hash_find_header(oa->gr,lsa))==NULL)
+  {
+    en=ospf_hash_get_header(oa->gr,lsa);
+    change=1;
+    s_add_tail(&oa->lsal, SNODE en);
+  }
+  else
+  {
+    if(en->lsa.options!=lsa->options) change=1;
+    if((en->lsa.age==LSA_MAXAGE)||(lsa->age==LSA_MAXAGE)) change=1;
+    if(en->lsa.length!=lsa->length) change=1;
+    else
+    {
+      u8 *k=en->lsa_body,*l=body;
+      for(i=0;i<lsa->length;i++)
+      {
+        if(*(k+i)!=*(l+i))
+	{
+	  change=1;
+	  break;
+	}
+      }
+      s_rem_node(SNODE en);
+      s_add_tail(&oa->lsal, SNODE en);
+    }
+  }
+  en->inst_t=now;
+  if(en->lsa_body!=NULL)mb_free(en->lsa_body);
+  en->lsa_body=body;
+  memcpy(&en->lsa,lsa,sizeof(struct ospf_lsa_header));
+  
+  /* FIXME decide if route calcualtion must be done and how */
+  return en;
+}

@@ -76,7 +76,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
             debug("\t%04x %08x %08x %p\n", en->lsa.type, en->lsa.id,
               en->lsa.rt, en->lsa_body);
 
-	    if(sn->next==NULL)
+	    if(sn==STAIL(n->ifa->oa->lsal))
 	    {
 	      break;	/* Should set some flag? */
   	    }
@@ -85,7 +85,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
 	  }
 	  i--;
 
-	  if(sn->next==NULL)
+	  if(sn==STAIL(n->ifa->oa->lsal))
 	  {
 	    DBG("Number of LSA NOT sent: %d\n", i);
 	    DBG("M bit unset.\n");
@@ -128,7 +128,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       }
 
       sk_send_to(ifa->ip_sk,length, n->ip, OSPF_PROTO);
-      debug("%s: DB_DES sent for %u.\n", p->name, n->rid);
+      debug("%s: DB_DES sent to %u.\n", p->name, n->rid);
       if(n->myimms.bit.ms) tm_start(n->rxmt_timer,ifa->rxmtint);
       else
       {
@@ -199,6 +199,7 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct proto *p,
         ntohlsah(plsa+i, &(sn->lsa));
         s_add_tail(&(n->lsrql), SNODE sn);
       }
+      /* FIXME and the next part of condition? */
     }
   }
 }

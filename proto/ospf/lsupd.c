@@ -84,7 +84,7 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
   struct ospf_iface *ifa, u16 size)
 {
   u32 area,nrid,myrid;
-  struct ospf_neighbor *n;
+  struct ospf_neighbor *n,*ntmp;
   struct ospf_lsa_header *lsa;
   struct ospf_area *oa;
   struct proto_ospf *po=(struct proto_ospf *)p;
@@ -132,9 +132,24 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       continue;
     }
     ntohlsah(lsa,&lsatmp);
-    DBG("Processing update Type: %u ID: %u RT: %u\n",lsa->type,
-        ntohl(lsa->id), ntohl(lsa->rt));
+    DBG("Processing update Type: %u ID: %u RT: %u\n",lsatmp.type,
+        lsatmp.id, lsatmp.rt);
     lsadb=ospf_hash_find_header(oa->gr, &lsatmp);
+
+    /* Remove it from link state request list */
+    WALK_LIST(NODE ifa,po->iface_list)
+      WALK_LIST(NODE ntmp,ifa->neigh_list)
+      {
+        struct top_hash_entry *en;
+        if((en=ospf_hash_find_header(ntmp->lsrqh,&lsatmp))!=NULL)
+	{
+	  s_rem_node(SNODE en);
+	  DBG("Removing from lsreq list for neigh %u\n", ntmp->rid);
+	  ospf_hash_delete(ntmp->lsrqh,en);
+	  if(EMPTY_SLIST(ntmp->lsrql)) ospf_neigh_sm(ntmp, INM_LOADDONE);
+	}
+      }
+
     if((lsatmp.age==LSA_MAXAGE)&&(lsadb==NULL))
     {
       struct ospf_neighbor *n=NULL;
@@ -142,8 +157,9 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
       int flag=0;
 
       WALK_LIST(NODE ifa,po->iface_list)
-        WALK_LIST(NODE n,ifa->neigh_list)
-          if((n->state==NEIGHBOR_EXCHANGE)&&(n->state==NEIGHBOR_LOADING))
+        WALK_LIST(NODE ntmp,ifa->neigh_list)
+          if((ntmp->state==NEIGHBOR_EXCHANGE)&&
+            (ntmp->state==NEIGHBOR_LOADING))
             flag=1;
 
       if(flag==0)
@@ -156,30 +172,32 @@ ospf_lsupd_rx(struct ospf_lsupd_packet *ps, struct proto *p,
     {
        struct ospf_neighbor *n=NULL;
        struct ospf_iface *ifa=NULL;
+       void *body;
 
        /* FIXME self originated? */
 
       if(lsadb && ((lsadb->inst_t-now)<MINLSARRIVAL)) continue;
 
       /* Remove old from all ret lists */
-      WALK_LIST(NODE ifa,po->iface_list)
-        WALK_LIST(NODE n,ifa->neigh_list)
-	{
-	  struct top_hash_entry *en;
-	  if((en=ospf_hash_find_header(n->lsrth,&lsadb->lsa))!=NULL)
-	    s_rem_node(SNODE en);
-	}
+      if(lsadb)
+        WALK_LIST(NODE ifa,po->iface_list)
+          WALK_LIST(NODE ntmp,ifa->neigh_list)
+	  {
+	    struct top_hash_entry *en;
+	    if((en=ospf_hash_find_header(ntmp->lsrth,&lsadb->lsa))!=NULL)
+	    {
+	      s_rem_node(SNODE en);
+	      ospf_hash_delete(ntmp->lsrth,en);
+	    }
+	  }
 
       /* Install new */
-      memcpy(&lsadb->lsa,&lsatmp,sizeof(struct ospf_lsa_header));
-      lsadb->inst_t=now;
-      if(lsadb->lsa_body!=NULL) mb_free(lsadb->lsa_body);
-      lsadb->lsa_body=mb_alloc(p->pool,lsadb->lsa.length-
-        sizeof(struct ospf_lsa_header));
-      ntohlsab(lsa+1,lsadb->lsa_body,lsadb->lsa.type,lsadb->lsa.length);
+      DBG("Allocatin body, size: %u\n",lsatmp.length-sizeof(struct ospf_lsa_header));
+      body=mb_alloc(p->pool,lsatmp.length-sizeof(struct ospf_lsa_header));
+      ntohlsab(lsa+1,body,lsatmp.type,lsatmp.length-sizeof(struct ospf_lsa_header));
+      lsadb=lsa_install_new(&lsatmp,body, oa);
+      DBG("New installed\n");
 
-      /* FIXME lsa_flood(n,lsadb) */
-      /* FIXME ack_lsa() */
       continue;
     }
 

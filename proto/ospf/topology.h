@@ -32,9 +32,12 @@ struct top_graph *ospf_top_new(struct proto_ospf *);
 void ospf_top_free(struct top_graph *);
 void ospf_top_dump(struct top_graph *);
 struct top_hash_entry *ospf_hash_find_header(struct top_graph *f, struct ospf_lsa_header *h);
+struct top_hash_entry *ospf_hash_get_header(struct top_graph *f, struct ospf_lsa_header *h);
 struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 lsa, u32 rtr, u32 type);
 struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 lsa, u32 rtr, u32 type);
 void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
 void addifa_rtlsa(struct ospf_iface *ifa);
+struct top_hash_entry *originate_rt_lsa(struct ospf_area *oa,
+  struct proto_ospf *po);
 
 #endif /* _BIRD_OSPF_TOPOLOGY_H_ */
