@@ -84,6 +84,8 @@ ospf_rx_hook(sock *sk, int size)
   int i;
   u8 *pu8;
 
+  if(ifa->stub) return(1);
+
   DBG("%s: RX_Hook called on interface %s.\n",p->name, sk->iface->name);
 
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);

@@ -88,6 +88,7 @@ ospf_iface_item:
  | TYPE NONBROADCAST { OSPF_PATT->type = OSPF_IT_NBMA ; }
  | TYPE POINTOPOINT { OSPF_PATT->type = OSPF_IT_PTP ; }
  | STRICT NONBROADCAST bool { OSPF_PATT->strictnbma = $3 ; }
+ | STUB bool { OSPF_PATT->stub = $2 ; }
  | NEIGHBORS '{' ipa_list '}'
  | AUTHENTICATION NONE { OSPF_PATT->autype=AU_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype=AU_SIMPLE ; }
@@ -137,6 +138,7 @@ ospf_iface_start:
   OSPF_PATT->deadc = DEADC_D;
   OSPF_PATT->type = OSPF_IT_UNDEF;
   OSPF_PATT->strictnbma = 0;
+  OSPF_PATT->stub = 0;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype=AU_NONE;
  }

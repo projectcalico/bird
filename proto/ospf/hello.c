@@ -249,6 +249,8 @@ hello_send(timer *timer,int poll, struct ospf_neighbor *dirn)
   if(timer==NULL) ifa=dirn->ifa;
   else ifa=(struct ospf_iface *)timer->data;
 
+  if(ifa->stub) return;		/* Don't send any packet on stub iface */
+
   p=(struct proto *)(ifa->proto);
   DBG("%s: Hello/Poll timer fired on interface %s.\n",
     p->name, ifa->iface->name);

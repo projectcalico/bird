@@ -558,14 +558,30 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	{
 	  ifa->strictnbma=ip2->strictnbma;
 	  OSPF_TRACE(D_EVENTS,
-	    "Interface %s is now strict NBMA",
+	    "Interface %s is now strict NBMA.",
 	    ifa->iface->name);
 	}
 	if((ip1->strictnbma!=0)&&(ip2->strictnbma==0))
 	{
 	  ifa->strictnbma=ip2->strictnbma;
 	  OSPF_TRACE(D_EVENTS,
-	    "Interface %s is no longer strict NBMA",
+	    "Interface %s is no longer strict NBMA.",
+	    ifa->iface->name);
+	}
+
+	/* stub */
+	if((ip1->stub==0)&&(ip2->stub!=0))
+	{
+	  ifa->stub=ip2->stub;
+	  OSPF_TRACE(D_EVENTS,
+	    "Interface %s is now stub.",
+	    ifa->iface->name);
+	}
+	if((ip1->stub!=0)&&(ip2->stub==0))
+	{
+	  ifa->stub=ip2->stub;
+	  OSPF_TRACE(D_EVENTS,
+	    "Interface %s is no longer stub.",
 	    ifa->iface->name);
 	}
 

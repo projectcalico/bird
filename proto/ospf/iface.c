@@ -370,7 +370,8 @@ ospf_iface_info(struct ospf_iface *ifa)
   cli_msg(-1015,"Interface \"%s\":", ifa->iface->name);
   cli_msg(-1015,"\tArea: %I (%u)", ifa->oa->areaid, ifa->oa->areaid);
   cli_msg(-1015,"\tType: %s %s", ospf_it[ifa->type], strict);
-  cli_msg(-1015,"\tState: %s", ospf_is[ifa->state]);
+  cli_msg(-1015,"\tState: %s %s", ospf_is[ifa->state],
+    ifa->stub ? "(stub)" : "");
   cli_msg(-1015,"\tPriority: %u", ifa->priority);
   cli_msg(-1015,"\tCost: %u", ifa->cost);
   cli_msg(-1015,"\tHello timer: %u", ifa->helloint);
@@ -429,6 +430,7 @@ ospf_ifa_add(struct object_lock *lock)
   ifa->strictnbma=ip->strictnbma;
   ifa->waitint=ip->waitint;
   ifa->deadc=ip->deadc;
+  ifa->stub=ip->stub;
   ifa->autype=ip->autype;
   memcpy(ifa->aukey,ip->password,8);
   ifa->options=2;	/* FIXME what options? */
