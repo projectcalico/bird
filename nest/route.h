@@ -29,7 +29,7 @@ struct proto;
 struct fib_node {
   ip_addr prefix;			/* In host order */
   byte pxlen;
-  byte flags;				/* ??? define them ??? */
+  byte flags;				/* User-defined */
   byte pad0, pad1;			/* ??? use ??? */
   struct fib_node *next;		/* Next in hash chain */
 };
@@ -65,6 +65,7 @@ void fib_free(struct fib *);		/* Destroy the fib */
  *	representing routes to given network.
  *	Each of the RTE's contains variable data (the preference and protocol-dependent
  *	metrics) and a pointer to a route attribute block common for many routes).
+ *	It's guaranteed that there is at most one RTE for every (prefix,proto,source) triplet.
  */
 
 typedef struct rtable {
@@ -72,14 +73,15 @@ typedef struct rtable {
   byte tos;				/* TOS for this table */
   struct fib fib;
   char *name;				/* Name of this table */
-  /* FIXME: Data for kernel synchronization */
 } rtable;
 
 typedef struct network {
-  struct fib_node n;
+  struct fib_node n;			/* FIB flags hold kernel sync info (KRF_...) */
   struct rte *routes;			/* Available routes for this network */
-  struct network *next;			/* Next in Recalc Chain */
 } net;
+
+#define KRF_SEEN 1			/* Seen in kernel table during last scan */
+#define KRF_UPDATE 2			/* Need to update this entry */
 
 typedef struct rte {
   struct rte *next;

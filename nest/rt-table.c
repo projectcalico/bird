@@ -21,7 +21,7 @@ rte_init(struct fib_node *N)
 {
   net *n = (net *) N;
 
-  n->next = NULL;
+  N->flags = 0;
   n->routes = NULL;
 }
 

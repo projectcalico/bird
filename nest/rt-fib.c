@@ -112,7 +112,6 @@ fib_get(struct fib *f, ip_addr *a, int len)
   e = sl_alloc(f->fib_slab);
   e->prefix = *a;
   e->pxlen = len;
-  e->flags = 0;
   e->next = *ee;
   *ee = e;
   f->init(e);
