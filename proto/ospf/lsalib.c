@@ -29,7 +29,7 @@ ospf_age(struct ospf_area *oa)
     if(en->lsa.age==LSA_MAXAGE)
     {
       if(flush) flush_lsa(en,oa);
-      return;
+      continue;
     }
     if((en->lsa.rt==p->cf->global->router_id)&&(en->lsa.age>LSREFRESHTIME))
     {
