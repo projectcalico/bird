@@ -28,12 +28,6 @@ static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "Ope
 static void bgp_connect(struct bgp_proto *p);
 static void bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s);
 
-static void
-bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old, ea_list *tmpa)
-{
-  DBG("BGP: Got route %I/%d\n", n->n.prefix, n->n.pxlen);
-}
-
 static struct proto *
 bgp_init(struct proto_config *C)
 {
@@ -42,6 +36,8 @@ bgp_init(struct proto_config *C)
   struct bgp_proto *p = (struct bgp_proto *) P;
 
   P->rt_notify = bgp_rt_notify;
+  P->rte_better = bgp_rte_better;
+  P->import_control = bgp_import_control;
   p->cf = c;
   p->local_as = c->local_as;
   p->remote_as = c->remote_as;

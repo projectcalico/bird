@@ -69,6 +69,10 @@ void bgp_close_conn(struct bgp_conn *c);
 
 struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool);
 int bgp_get_attr(struct eattr *e, byte *buf);
+int bgp_rte_better(struct rte *, struct rte *);
+void bgp_rt_notify(struct proto *, struct network *, struct rte *, struct rte *, struct ea_list *);
+int bgp_import_control(struct proto *, struct rte **, struct ea_list **, struct linpool *);
+struct ea_list *bgp_path_prepend(struct linpool *pool, struct eattr *a, struct ea_list *old, int as);
 
 /* packets.c */
 
