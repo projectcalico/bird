@@ -15,6 +15,10 @@
 #define SKIP_BACK(s, i, p) ((s *)((char *)p - OFFSETOF(s, i)))
 #define ALIGN(s, a) (((s)+a-1)&~(a-1))
 
+/* Utility-Macros */
+#define MIN(a,b) ((a<b)?a:b)
+#define MAX(a,b) ((a>b)?a:b)
+
 /* Functions which don't return */
 
 #define NORET __attribute__((noreturn))
