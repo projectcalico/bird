@@ -8,7 +8,7 @@
  	FIXME: IpV6 support: packet size
  	FIXME: IpV6 support: use right address for broadcasts
 	FIXME: IpV6 support: receive "route using" blocks
-	FIXME: Do we send "triggered updates" correctly?
+	FIXME: Do we send "triggered updates" correctly? No.
 	FIXME: When route's metric changes to 16, start garbage collection immediately? Do _not_ restart on new updates with metric == 16.
 	FIXME: When route's 60 seconds old and we get same metric, use that!
 	FIXME: Triggered updates. When triggered update was sent, don't send new one for something between 1 and 5 seconds (and send one after that).
@@ -408,12 +408,12 @@ rip_timer(timer *t)
     rte = SKIP_BACK( struct rte, u.rip.garbage, e );
     DBG( "Garbage: " ); rte_dump( rte );
 
-    if (now - rte->lastmod > P_CF->timeout_time) {
+    if (now - rte->u.rip.lastmodX > P_CF->timeout_time) {
       debug( "RIP: entry is too old: " ); rte_dump( rte );
       e->metric = P_CF->infinity;
     }
 
-    if (now - rte->lastmod > P_CF->garbage_time) {
+    if (now - rte->u.rip.lastmodX > P_CF->garbage_time) {
       debug( "RIP: entry is much too old: " ); rte_dump( rte );
       rte_discard(p->table, rte);
     }
@@ -694,8 +694,13 @@ rip_rte_better(struct rte *new, struct rte *old)
   if (old->u.rip.metric > new->u.rip.metric)
     return 1;
 
+  if (new->u.rip.metric == 16) {
+    struct proto *p = new->attrs->proto;
+    new->u.rip.lastmodX = now - P_CF->timeout_time;	/* Check this: if new metric is 16, act as it was timed out */
+  }
+
   if ((old->u.rip.metric == new->u.rip.metric) &&
-      ((now - old->lastmod) > 60))	/* FIXME (nonurgent): this probably should be P_CF->timeout_time / 2 if old->attrs->proto == new->attrs->proto, else don't do this check */
+      ((now - old->u.rip.lastmodX) > 60))	/* FIXME (nonurgent): this probably should be P_CF->timeout_time / 2 if old->attrs->proto == new->attrs->proto, else don't do this check */
     return 1;
 
   return 0;
@@ -705,6 +710,7 @@ static void
 rip_rte_insert(net *net, rte *rte)
 {
   struct proto *p = rte->attrs->proto;
+  rte->u.rip.lastmodX = now;
   add_head( &P->garbage, &rte->u.rip.garbage );
 }
 

@@ -139,6 +139,7 @@ typedef struct rte {
       node garbage;			/* List for garbage collection */
       byte metric;			/* RIP metric */
       u16 tag;				/* External route tag */
+      bird_clock_t lastmodX;		/* Strange kind of last modification time */
     } rip;
 #endif
 #ifdef CONFIG_OSPF
