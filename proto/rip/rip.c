@@ -869,13 +869,12 @@ rip_get_attr(eattr *a, byte *buf)
 static int
 rip_reconfigure(struct proto *p, struct proto_config *c)
 {
-  struct rip_config *new = (struct rip_config *) c;
+  struct rip_proto_config *new = (struct rip_proto_config *) c;
   int generic = sizeof(struct proto_config) + sizeof(list) /* + sizeof(struct password_item *) */;
 
-#if 0
-  if (!password_same())
+  if (!password_same(P_CF->passwords, 
+		     new->passwords))
     return 0;
-#endif
   return !memcmp(((byte *) P_CF) + generic,
                  ((byte *) new) + generic,
                  sizeof(struct rip_proto_config) - generic);
