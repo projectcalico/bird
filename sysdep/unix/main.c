@@ -21,6 +21,7 @@
 #include "nest/route.h"
 #include "nest/protocol.h"
 #include "nest/iface.h"
+#include "nest/cli.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
 
@@ -87,6 +88,119 @@ async_config(void)
 }
 
 /*
+ *	Command-Line Interface
+ */
+
+static sock *cli_sk;
+
+void
+cli_disconnect(cli *c)
+{
+  bug("CLI DISCONNECT: Not implemented"); /* FIXME */
+}
+
+int
+cli_write(cli *c)
+{
+  sock *s = c->priv;
+
+  if (c->tx_pos)
+    {
+      struct cli_out *o = c->tx_pos;
+      c->tx_pos = o->next;
+      s->tbuf = o->outpos;
+      return sk_send(s, o->wpos - o->outpos);
+    }
+  return 1;
+}
+
+int
+cli_get_command(cli *c)
+{
+  sock *s = c->priv;
+  byte *t = c->rx_aux ? : s->rbuf;
+  byte *tend = s->rpos;
+  byte *d = c->rx_pos;
+  byte *dend = c->rx_buf + CLI_RX_BUF_SIZE - 2;
+
+  while (t < tend)
+    {
+      if (*t == '\r')
+	t++;
+      else if (*t == '\n')
+	{
+	  t++;
+	  c->rx_pos = c->rx_buf;
+	  c->rx_aux = t;
+	  *d = 0;
+	  return (d < dend) ? 1 : -1;
+	}
+      else if (d < dend)
+	*d++ = *t++;
+    }
+  c->rx_aux = s->rpos = s->rbuf;
+  c->rx_pos = d;
+  return 0;
+}
+
+static int
+cli_rx(sock *s, int size)
+{
+  debug("CLI RX\n");
+  cli_kick(s->data);
+  return 0;
+}
+
+static void
+cli_tx(sock *s)
+{
+  cli *c = s->data;
+
+  debug("CLI TX\n");
+  if (cli_write(c))
+    cli_written(c);
+}
+
+static void
+cli_err(sock *s, int err)
+{
+  if (err)
+    log(L_INFO "CLI connection dropped: %s", strerror(err));
+  else
+    log(L_INFO "CLI connection closed");
+  s->type = SK_DELETED;
+  cli_free(s->data);
+}
+
+static int
+cli_connect(sock *s, int size)
+{
+  cli *c;
+
+  log(L_INFO "CLI connect");
+  s->rx_hook = cli_rx;
+  s->tx_hook = cli_tx;
+  s->err_hook = cli_err;
+  s->rbsize = 1024;
+  s->data = c = cli_new(s);
+  c->rx_pos = c->rx_buf;
+  c->rx_aux = NULL;
+  return 1;
+}
+
+static void
+cli_init_unix(void)
+{
+  sock *s;
+
+  cli_init();
+  s = cli_sk = sk_new(cli_pool);
+  s->type = SK_UNIX_PASSIVE;
+  s->rx_hook = cli_connect;
+  sk_open_unix(s, PATH_CONTROL_SOCKET);
+}
+
+/*
  *	Shutdown
  */
 
@@ -101,6 +215,7 @@ async_shutdown(void)
 void
 protos_shutdown_notify(void)
 {
+  unlink(PATH_CONTROL_SOCKET);
   die("System shutdown completed");
 }
 
@@ -194,7 +309,7 @@ main(int argc, char **argv)
 #endif
 
   log_init_debug(NULL);
-  setvbuf(stdout, NULL, _IONBF, 0);	/* And yes, this does make a difference */
+  setvbuf(stdout, NULL, _IONBF, 0);	/* FIXME: Kill some day. */
   setvbuf(stderr, NULL, _IONBF, 0);
   parse_args(argc, argv);
 
@@ -213,6 +328,8 @@ main(int argc, char **argv)
   read_config();
 
   signal_init();
+
+  cli_init_unix();
 
   protos_start();
 

@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "nest/bird.h"
+#include "lib/resource.h"	/* For dmalloc */
 #include "client/client.h"
 
 #include "unix.h"
