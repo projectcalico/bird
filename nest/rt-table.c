@@ -538,6 +538,9 @@ rt_prune(rtable *tab)
   int rcnt = 0, rdel = 0, ncnt = 0, ndel = 0;
 
   DBG("Pruning route table %s\n", tab->name);
+#ifdef DEBUGGING
+  fib_check(&tab->fib);
+#endif
   FIB_ITERATE_INIT(&fit, &tab->fib);
 again:
   FIB_ITERATE_START(&tab->fib, &fit, f)
@@ -547,7 +550,8 @@ again:
       ncnt++;
     rescan:
       for (e=n->routes; e; e=e->next, rcnt++)
-	if (e->attrs->proto->core_state != FS_HAPPY)
+	if (e->attrs->proto->core_state != FS_HAPPY &&
+	    e->attrs->proto->core_state != FS_FEEDING)
 	  {
 	    rte_discard(tab, e);
 	    rdel++;
@@ -563,6 +567,9 @@ again:
     }
   FIB_ITERATE_END(f);
   DBG("Pruned %d of %d routes and %d of %d networks\n", rcnt, rdel, ncnt, ndel);
+#ifdef DEBUGGING
+  fib_check(&tab->fib);
+#endif
   tab->gc_counter = 0;
   tab->gc_time = now;
 }
