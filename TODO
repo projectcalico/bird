@@ -4,8 +4,6 @@ Core
 
 - io.c: refuse old-style multicasts for unnumbered interfaces?
 
-- prefer loopback addresses as router IDs (dummy interface?)
-
 - config: executable config files
 
 - do we really need preconfig?
@@ -13,7 +11,6 @@ Core
 - counters (according to SNMP MIB?)
 - better memory allocators
 - default preferences of protocols: prefer BGP over OSPF/RIP external routes?
-- secondary addresses -> subinterfaces or ignore
 
 - static: check validity of route destination?
 
@@ -23,8 +20,6 @@ Core
 
 - netlink: import Linux route attributes to our rta's, so that they can be filtered?
 
-- iface: when seen an invalid broadcast, fix it up or at least report
-- iface: we always need ifindex at least for PtP links (OSPF)
 - iface: interface filters should support filtering by IP address as well
 - iface: SIOCGIFINDEX exists on glibc systems, but it doesn't work on 2.0.x kernels!
 

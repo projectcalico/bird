@@ -32,10 +32,11 @@ scan_ifs(struct ifreq *r, int cnt)
 {
   struct iface i, *pi;
   struct ifa a;
-  char *err;
+  char *err, *colon;
   unsigned fl;
   ip_addr netmask;
   int l;
+  int sec = 0;
 
   if_start_update();
   for (cnt /= sizeof(struct ifreq); cnt; cnt--, r++)
@@ -43,11 +44,11 @@ scan_ifs(struct ifreq *r, int cnt)
       bzero(&i, sizeof(i));
       bzero(&a, sizeof(a));
       DBG("%s\n", r->ifr_name);
-      if (strchr(r->ifr_name, ':'))
+      if (colon = strchr(r->ifr_name, ':'))
 	{
-	  /* FIXME: Honour aliases as secondary addresses? */
-	  DBG("Alias, ignored.\n");
-	  continue;
+	  /* It's an alias -- let's interpret it as a secondary interface address */
+	  sec = 1;
+	  *colon = 0;
 	}
       strncpy(i.name, r->ifr_name, sizeof(i.name) - 1);
       get_sockaddr((struct sockaddr_in *) &r->ifr_addr, &a.ip, NULL);
@@ -135,10 +136,27 @@ scan_ifs(struct ifreq *r, int cnt)
       else
 	i.index = r->ifr_ifindex;
 #else
-      /* FIXME: What else? Guess ifindex (we need it at least for OSPF on unnumbered links)? */
+      /*
+       *  The kernel doesn't give us real ifindices, but we still need them
+       *  at least for OSPF unnumbered links. So let's make them up ourselves.
+       */
+      if (pi = if_find_by_name(i.name))
+	i.index = pi->index;
+      else
+	{
+	  static int if_index_counter = 1;
+	  i.index = if_index_counter++;
+	}
 #endif
 
-      pi = if_update(&i);
+      pi = NULL;
+      if (sec)
+	{
+	  a.flags |= IA_SECONDARY;
+	  pi = if_find_by_index(i.index);
+	}
+      if (!pi)
+	pi = if_update(&i);
       a.iface = pi;
       ifa_update(&a);
     }
