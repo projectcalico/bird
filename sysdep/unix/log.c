@@ -50,8 +50,11 @@ bvfprintf(FILE *f, char *fmt, va_list args)
   char buf[4096];
   int n;
 
-  n = bvsprintf(buf, fmt, args);
-  fwrite(buf, n, sizeof(char), f);
+  n = bvsnprintf(buf, sizeof(buf), fmt, args);
+  if (n >= 0)
+    fwrite(buf, n, sizeof(char), f);
+  else
+    fprintf(stderr, "BIRD: warning: logging buffer overflow!\n");
 }
 
 static void
