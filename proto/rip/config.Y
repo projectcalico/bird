@@ -24,7 +24,7 @@ struct rip_patt *rip_get_iface(void);
 
 CF_DECLS
 
-CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, PASSWORD,
+CF_KEYWORDS(RIP, INFINITY, METRIC, PORT, PERIOD, GARBAGETIME, PASSWORDS,
 	    MODE, BROADCAST, QUIET, NOLISTEN, VERSION1, 
 	    AUTHENTICATION, NONE, PLAINTEXT, MD5)
 
@@ -47,8 +47,8 @@ RIP_CFG:
  | RIP_CFG PORT expr ';'	{ RIP_CFG->port = $3; }
  | RIP_CFG PERIOD expr ';'	{ RIP_CFG->period = $3; }
  | RIP_CFG GARBAGETIME expr ';' { RIP_CFG->garbage_time = $3; }
- | RIP_CFG PASSWORD TEXT ';'	{ RIP_CFG->password = $3; }
  | RIP_CFG AUTHENTICATION rip_auth ';' {RIP_CFG->authtype = $3; }
+ | RIP_CFG PASSWORDS '{' password_list '}' {RIP_CFG->passwords = $4; }
  | RIP_CFG rip_iface_list ';'
  ;
 

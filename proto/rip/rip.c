@@ -603,7 +603,7 @@ rip_init_config(struct rip_proto_config *c)
   c->port	= 520;
   c->period	= 30;
   c->garbage_time = 120+180;
-  c->password	= "PASSWORD";
+  c->passwords	= NULL;
   c->authtype	= AT_NONE;
 }
 

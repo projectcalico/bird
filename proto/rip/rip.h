@@ -3,6 +3,7 @@
  */
 
 #include "nest/route.h"
+#include "nest/password.h"
 
 struct rip_connection {
   node n;
@@ -92,7 +93,7 @@ struct rip_proto_config {
   int period;
   int garbage_time;
 
-  char *password;
+  struct password_item *passwords;
   int authtype;
 #define AT_NONE 0
 #define AT_PLAINTEXT 2
