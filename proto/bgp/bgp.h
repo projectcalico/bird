@@ -14,9 +14,9 @@ struct bgp_config {
   unsigned int local_as, remote_as;
   ip_addr remote_ip;
   int multihop;				/* Number of hops if multihop */
-  int connect_retry_time;
-  int hold_time;
-  int keepalive_time;
+  unsigned connect_retry_time;
+  unsigned hold_time, initial_hold_time;
+  unsigned keepalive_time;
 };
 
 struct bgp_conn {
@@ -26,20 +26,20 @@ struct bgp_conn {
   struct timer *connect_retry_timer;
   struct timer *hold_timer;
   struct timer *keepalive_timer;
-  unsigned int packets_to_send;		/* Bitmap of packet types to be sent */
-  unsigned int notify_code, notify_subcode, notify_arg, notify_arg_size;
-  unsigned int error_flag;		/* Error state, ignore all input */
+  int packets_to_send;			/* Bitmap of packet types to be sent */
+  int notify_code, notify_subcode, notify_arg, notify_arg_size;
+  int error_flag;			/* Error state, ignore all input */
+  unsigned hold_time, keepalive_time;	/* Times calculated from my and neighbor's requirements */
 };
 
 struct bgp_proto {
   struct proto p;
   struct bgp_config *cf;		/* Shortcut to BGP configuration */
   node bgp_node;			/* Node in global BGP protocol list */
-  int local_as, remote_as;
+  unsigned local_as, remote_as;
   int is_internal;			/* Internal BGP connection (local_as == remote_as) */
   u32 local_id;				/* BGP identifier of this router */
   u32 remote_id;			/* BGP identifier of the neighbor */
-  int hold_time;			/* Hold time calculated from my and neighbor's requirements */
   struct bgp_conn conn;			/* Our primary connection */
   struct bgp_conn incoming_conn;	/* Incoming connection we have neither accepted nor rejected yet */
   struct object_lock *lock;		/* Lock for neighbor connection */
@@ -52,7 +52,10 @@ struct bgp_proto {
 #define BGP_RX_BUFFER_SIZE	4096
 #define BGP_TX_BUFFER_SIZE	BGP_MAX_PACKET_LENGTH
 
+void bgp_start_timer(struct timer *t, int value);
 void bgp_check(struct bgp_config *c);
+void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, unsigned data, unsigned len);
+void bgp_close_conn(struct bgp_conn *conn);
 
 /* attrs.c */
 

@@ -53,6 +53,7 @@ static byte *
 bgp_create_update(struct bgp_conn *conn, byte *buf)
 {
   DBG("BGP: Sending update\n");
+
   bug("Don't know how to create updates");
 }
 
@@ -64,7 +65,7 @@ bgp_create_header(byte *buf, unsigned int len, unsigned int type)
   buf[18] = type;
 }
 
-static void
+static int
 bgp_fire_tx(struct bgp_conn *conn)
 {
   unsigned int s = conn->packets_to_send;
@@ -76,8 +77,8 @@ bgp_fire_tx(struct bgp_conn *conn)
 
   if (s & (1 << PKT_SCHEDULE_CLOSE))
     {
-      conn->packets_to_send = 0;
-      bug("Scheduled close");		/* FIXME */
+      bgp_close_conn(conn);
+      return 0;
     }
   if (s & (1 << PKT_NOTIFICATION))
     {
@@ -91,6 +92,7 @@ bgp_fire_tx(struct bgp_conn *conn)
       type = PKT_KEEPALIVE;
       end = pkt;			/* Keepalives carry no data */
       DBG("BGP: Sending keepalive\n");
+      bgp_start_timer(conn->keepalive_timer, conn->keepalive_time);
     }
   else if (s & (1 << PKT_OPEN))
     {
@@ -105,14 +107,14 @@ bgp_fire_tx(struct bgp_conn *conn)
       if (!end)
 	{
 	  conn->packets_to_send = 0;
-	  return;
+	  return 0;
 	}
     }
   else
-    return;
+    return 0;
   conn->packets_to_send = s;
   bgp_create_header(buf, end - buf, type);
-  sk_send(sk, end - buf);
+  return sk_send(sk, end - buf);
 }
 
 void
@@ -120,8 +122,9 @@ bgp_schedule_packet(struct bgp_conn *conn, int type)
 {
   DBG("BGP: Scheduling packet type %d\n", type);
   conn->packets_to_send |= 1 << type;
-  if (conn->sk->tpos != conn->sk->tbuf)
-    bgp_fire_tx(conn);
+  if (conn->sk->tpos == conn->sk->tbuf)
+    while (bgp_fire_tx(conn))
+      ;
 }
 
 void
@@ -130,7 +133,124 @@ bgp_tx(sock *sk)
   struct bgp_conn *conn = sk->data;
 
   DBG("BGP: TX hook\n");
-  bgp_fire_tx(conn);
+  while (bgp_fire_tx(conn))
+    ;
+}
+
+static void
+bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
+{
+  struct bgp_proto *p = conn->bgp;
+  struct bgp_config *cf = p->cf;
+  unsigned as, hold;
+  u32 id;
+
+  /* Check state */
+  if (conn->state != BS_OPENSENT)
+    { bgp_error(conn, 5, 0, conn->state, 0); }
+
+  /* Check message contents */
+  if (len < 29 || len != 29 + pkt[28])
+    { bgp_error(conn, 1, 2, len, 2); return; }
+  if (pkt[19] != BGP_VERSION)
+    { bgp_error(conn, 2, 1, pkt[19], 2); return; }
+  as = get_u16(pkt+20);
+  hold = get_u16(pkt+22);
+  id = get_u32(pkt+24);
+  DBG("BGP: OPEN as=%d hold=%d id=%08x\n", as, hold, id);
+  if (cf->remote_as && as != p->remote_as)
+    { bgp_error(conn, 2, 2, as, 0); return; }
+  if (hold > 0 && hold < 3)
+    { bgp_error(conn, 2, 6, hold, 0); return; }
+  p->remote_id = id;
+  if (pkt[28])				/* Currently we support no optional parameters */
+    { bgp_error(conn, 2, 4, pkt[28], 0); return; }
+  if (!id || id == 0xffffffff || id == p->local_id)
+    { bgp_error(conn, 2, 3, id, 0); return; }
+
+  /* FIXME: What to do with the other connection??? */
+  ASSERT(conn == &p->conn);
+
+  /* Update our local variables */
+  if (hold < p->cf->hold_time)
+    conn->hold_time = hold;
+  else
+    conn->hold_time = p->cf->hold_time;
+  conn->keepalive_time = p->cf->keepalive_time ? : conn->hold_time / 3;
+  p->remote_as = as;
+  p->remote_id = id;
+  DBG("BGP: Hold timer set to %d, keepalive to %d, AS to %d, ID to %x\n", conn->hold_time, conn->keepalive_time, p->remote_as, p->remote_id);
+
+  bgp_schedule_packet(conn, PKT_KEEPALIVE);
+  bgp_start_timer(conn->hold_timer, conn->hold_time);
+  conn->state = BS_OPENCONFIRM;
+}
+
+static void
+bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
+{
+  if (conn->state != BS_ESTABLISHED)
+    { bgp_error(conn, 5, 0, conn->state, 0); return; }
+  bgp_start_timer(conn->hold_timer, conn->hold_time);
+
+  DBG("BGP: UPDATE (ignored)\n");
+}
+
+static void
+bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
+{
+  unsigned arg;
+
+  if (len < 21)
+    {
+      bgp_error(conn, 1, 2, len, 2);
+      return;
+    }
+  switch (len)
+    {
+    case 21: arg = 0; break;
+    case 22: arg = pkt[21]; break;
+    case 23: arg = get_u16(pkt+21); break;
+    case 25: arg = get_u32(pkt+23); break;
+    default: DBG("BGP: NOTIFICATION with too much data\n"); /* FIXME */ arg = 0;
+    }
+  DBG("BGP: NOTIFICATION %d.%d %08x\n", pkt[19], pkt[20], arg);	/* FIXME: Better reporting */
+  conn->error_flag = 1;
+  proto_notify_state(&conn->bgp->p, PS_STOP);
+  bgp_schedule_packet(conn, PKT_SCHEDULE_CLOSE);
+}
+
+static void
+bgp_rx_keepalive(struct bgp_conn *conn, byte *pkt, unsigned len)
+{
+  DBG("BGP: KEEPALIVE\n");
+  bgp_start_timer(conn->hold_timer, conn->hold_time);
+  switch (conn->state)
+    {
+    case BS_OPENCONFIRM:
+      DBG("BGP: UP!!!\n");
+      conn->state = BS_ESTABLISHED;
+      proto_notify_state(&conn->bgp->p, PS_UP);
+      break;
+    case BS_ESTABLISHED:
+      break;
+    default:
+      bgp_error(conn, 5, 0, conn->state, 0);
+    }
+}
+
+static void
+bgp_rx_packet(struct bgp_conn *conn, byte *pkt, unsigned len)
+{
+  DBG("BGP: Got packet %02x (%d bytes)\n", pkt[18], len);
+  switch (pkt[18])
+    {
+    case PKT_OPEN:		return bgp_rx_open(conn, pkt, len);
+    case PKT_UPDATE:		return bgp_rx_update(conn, pkt, len);
+    case PKT_NOTIFICATION:      return bgp_rx_notification(conn, pkt, len);
+    case PKT_KEEPALIVE:		return bgp_rx_keepalive(conn, pkt, len);
+    default:			bgp_error(conn, 1, 3, pkt[18], 1);
+    }
 }
 
 int
@@ -139,13 +259,33 @@ bgp_rx(sock *sk, int size)
   struct bgp_conn *conn = sk->data;
   byte *pkt_start = sk->rbuf;
   byte *end = pkt_start + size;
+  unsigned i, len;
 
   DBG("BGP: RX hook: Got %d bytes\n", size);
   while (end >= pkt_start + BGP_HEADER_LENGTH)
     {
       if (conn->error_flag)
-	return 1;
-      bug("Incoming packets not handled"); /* FIXME */
+	{
+	  DBG("BGP: Error, dropping input\n");
+	  return 1;
+	}
+      for(i=0; i<16; i++)
+	if (pkt_start[i] != 0xff)
+	  {
+	    bgp_error(conn, 1, 1, 0, 0);
+	    break;
+	  }
+      len = get_u16(pkt_start+16);
+      if (len < BGP_HEADER_LENGTH || len > BGP_MAX_PACKET_LENGTH)
+	{
+	  bgp_error(conn, 1, 2, len, 2);
+	  break;
+	}
+      if (end >= pkt_start + len)
+	{
+	  bgp_rx_packet(conn, pkt_start, len);
+	  pkt_start += len;
+	}
     }
   if (pkt_start != sk->rbuf)
     {

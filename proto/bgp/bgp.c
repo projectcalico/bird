@@ -22,7 +22,6 @@ static sock *bgp_listen_sk;		/* Global listening socket */
 static int bgp_counter;			/* Number of protocol instances using the listening socket */
 static list bgp_list;			/* List of active BGP instances */
 
-static void bgp_close_conn(struct bgp_conn *conn);
 static void bgp_connect(struct bgp_proto *p);
 static void bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s);
 
@@ -63,19 +62,20 @@ bgp_close(struct bgp_proto *p)
   /* FIXME: Automatic restart after errors? */
 }
 
-static void
+static void				/* FIXME: Nobody uses */
 bgp_reset(struct bgp_proto *p)
 {
   bgp_close(p);
   proto_notify_state(&p->p, PS_DOWN);
 }
 
-static void
+void
 bgp_start_timer(timer *t, int value)
 {
   /* FIXME: Randomize properly */
   /* FIXME: Check if anybody uses tm_start directly */
-  tm_start(t, value);
+  if (value)
+    tm_start(t, value);
 }
 
 static void
@@ -86,36 +86,34 @@ bgp_send_open(struct bgp_conn *conn)
   tm_stop(conn->connect_retry_timer);
   bgp_schedule_packet(conn, PKT_OPEN);
   conn->state = BS_OPENSENT;
+  bgp_start_timer(conn->hold_timer, conn->bgp->cf->initial_hold_time);
 }
 
-static int
-bgp_connected(sock *sk, int dummy)
+static void
+bgp_connected(sock *sk)
 {
   struct bgp_conn *conn = sk->data;
 
   DBG("BGP: Connected\n");
   bgp_send_open(conn);
-  return 0;
 }
 
 static void
 bgp_connect_timeout(timer *t)
 {
-  struct bgp_proto *p = t->data;
-  struct bgp_conn *conn = &p->conn;
+  struct bgp_conn *conn = t->data;
 
   DBG("BGP: Connect timeout, retrying\n");
   bgp_close_conn(conn);
-  bgp_connect(p);
+  bgp_connect(conn->bgp);
 }
 
 static void
-bgp_err(sock *sk, int err)
+bgp_sock_err(sock *sk, int err)
 {
   struct bgp_conn *conn = sk->data;
 
   DBG("BGP: Socket error %d in state %d\n", err, conn->state);
-  sk->type = SK_DELETED;		/* FIXME: Need to do this always! */
   switch (conn->state)
     {
     case BS_CONNECT:
@@ -125,10 +123,11 @@ bgp_err(sock *sk, int err)
       break;
     case BS_OPENCONFIRM:
     case BS_ESTABLISHED:
-      /* FIXME: Should close the connection and go to Idle state */
+      /* FIXME */
     default:
-      bug("bgp_err called in invalid state %d", conn->state);
+      bug("bgp_sock_err called in invalid state %d", conn->state);
     }
+  bgp_close_conn(conn);
 }
 
 static int
@@ -159,6 +158,24 @@ bgp_incoming_connection(sock *sk, int dummy)
 }
 
 static void
+bgp_hold_timeout(timer *t)
+{
+  struct bgp_conn *conn = t->data;
+
+  DBG("BGP: Hold timeout, closing connection\n"); /* FIXME: Check states? */
+  bgp_error(conn, 4, 0, 0, 0);
+}
+
+static void
+bgp_keepalive_timeout(timer *t)
+{
+  struct bgp_conn *conn = t->data;
+
+  DBG("BGP: Keepalive timer\n");
+  bgp_schedule_packet(conn, PKT_KEEPALIVE);
+}
+
+static void
 bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
 {
   timer *t;
@@ -168,7 +185,7 @@ bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
   s->rbsize = BGP_RX_BUFFER_SIZE;
   s->tbsize = BGP_TX_BUFFER_SIZE;
   s->tx_hook = bgp_tx;
-  s->err_hook = bgp_err;
+  s->err_hook = bgp_sock_err;
   s->tos = IP_PREC_INTERNET_CONTROL;
 
   conn->bgp = p;
@@ -177,27 +194,27 @@ bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
 
   t = conn->connect_retry_timer = tm_new(p->p.pool);
   t->hook = bgp_connect_timeout;
-  t->data = p;
-#if 0
-  t = p->hold_timer = tm_new(p->p.pool);
+  t->data = conn;
+  t = conn->hold_timer = tm_new(p->p.pool);
   t->hook = bgp_hold_timeout;
-  t->data = p;
-  t = p->keepalive_timer = tm_new(p->p.pool);
+  t->data = conn;
+  t = conn->keepalive_timer = tm_new(p->p.pool);
   t->hook = bgp_keepalive_timeout;
-  t->data = p;
-#endif
+  t->data = conn;
 }
 
-static void
+void
 bgp_close_conn(struct bgp_conn *conn)
 {
+  DBG("BGP: Closing connection\n");
+  conn->packets_to_send = 0;
   rfree(conn->connect_retry_timer);
   conn->connect_retry_timer = NULL;
   rfree(conn->keepalive_timer);
   conn->keepalive_timer = NULL;
   rfree(conn->hold_timer);
   conn->hold_timer = NULL;
-  rfree(conn->sk);
+  sk_close(conn->sk);
   conn->sk = NULL;
   conn->state = BS_IDLE;
 }
@@ -217,12 +234,12 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   s->sport =				/* FIXME */
 #endif
   s->dport = BGP_PORT;
-  s->rx_hook = bgp_connected;
   bgp_setup_sk(p, conn, s);
+  s->tx_hook = bgp_connected;
   conn->state = BS_CONNECT;
   if (sk_open(s))
     {
-      bgp_err(s, 0);
+      bgp_sock_err(s, 0);
       return;
     }
   DBG("BGP: Waiting for connect success\n");
@@ -292,6 +309,21 @@ bgp_shutdown(struct proto *P)
 
   bgp_close(p);
   return PS_DOWN;
+}
+
+void
+bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, unsigned data, unsigned len)
+{
+  DBG("BGP: Error %d,%d,%d,%d\n", code, subcode, data, len); /* FIXME: Better messages */
+  if (c->error_flag)
+    return;
+  c->error_flag = 1;
+  c->notify_code = code;
+  c->notify_subcode = subcode;
+  c->notify_arg = data;
+  c->notify_arg_size = len;
+  proto_notify_state(&c->bgp->p, PS_STOP);
+  bgp_schedule_packet(c, PKT_NOTIFICATION);
 }
 
 void
