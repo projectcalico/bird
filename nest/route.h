@@ -92,10 +92,6 @@ typedef struct rte {
   word pref;				/* Route preference */
   bird_clock_t lastmod;			/* Last modified */
   union {				/* Protocol-dependent data (metrics etc.) */
-#ifdef CONFIG_STATIC
-    struct {
-    } stat;
-#endif
 #ifdef CONFIG_RIP
     struct {
       node garbage;			/* List for garbage collection */
