@@ -17,6 +17,10 @@
 
 #ifndef MACROS_ONLY
 
+/*
+ *  Of course we could add the paths to autoconf.h, but autoconf
+ *  is stupid and puts make-specific substitutious to the paths.
+ */
 #include "sysdep/paths.h"
 
 /* Types */
