@@ -20,9 +20,10 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
 {
   u32 nrid, myrid;
   struct ospf_neighbor *n;
-  struct ospf_lsreq_header *lsh;
+  struct ospf_lsa_header lsa,*plsa;
   int length;
-  u8 i;
+  u16 nolsa,i;
+  struct top_hash_entry *en;
 
   nrid=ntohl(ps->ospf_packet.routerid);
 
@@ -34,7 +35,28 @@ ospf_lsack_rx(struct ospf_lsack_packet *ps, struct proto *p,
       nrid);
     return ;
   }
-  /* FIXME Go on! */
+  
+  nolsa=(ntohs(ps->ospf_packet.length)-sizeof(struct ospf_lsack_packet))/
+    sizeof(struct ospf_lsa_header);
+  DBG("Received %d lsa\n",nolsa);
+  plsa=( struct ospf_lsa_header *)(ps+1);
+
+  for(i=0;i<nolsa;i++)
+  {
+    ntohlsah(plsa+i,&lsa);
+    if((en=ospf_hash_find_header(n->lsrth,&lsa))==NULL) continue;
+
+    if(lsa_comp(&lsa,&en->lsa)!=CMP_SAME)
+    {
+      log("Strange LS acknoledgement from %d\n",n->rid);
+      continue;
+    }
+
+    DBG("Deleting LS Id: %u RT: % Type: %u from LS Retl for neighbor %u\n",
+      lsa.id,lsa.rt,lsa.type,n->rid);
+    s_rem_node(SNODE en);
+    ospf_hash_delete(n->lsrth,en);
+  }  
 }
 
 void
