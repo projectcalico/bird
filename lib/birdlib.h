@@ -26,7 +26,7 @@
 #define NULL ((void *) 0)
 #endif
 
-/* Functions which don't return */
+/* Macros for gcc attributes */
 
 #define NORET __attribute__((noreturn))
 #define UNUSED __attribute__((unused))
