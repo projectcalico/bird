@@ -165,7 +165,7 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
 	rte_trace_out(D_ROUTES, p, new, "replaced");
       else if (new)
 	rte_trace_out(D_ROUTES, p, new, "added");
-      else
+      else if (old)
 	rte_trace_out(D_ROUTES, p, old, "removed");
     }
   if (new || old)
