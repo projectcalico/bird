@@ -48,7 +48,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
   char password[OSPF_AUTH_CRYPT_SIZE];
 
   pkt->autype = htons(ifa->autype);
-  bzero(pkt->u, sizeof(union ospf_auth));
+  bzero(&pkt->u, sizeof(union ospf_auth));
 
   switch(ifa->autype)
   {
