@@ -56,7 +56,7 @@ ospf_dbdes_tx(struct ospf_neighbor *n)
       pkt=(struct ospf_dbdes_packet *)(ifa->ip_sk->tbuf);
       op=(struct ospf_packet *)pkt;
       fill_ospf_pkt_hdr(ifa, pkt, DBDES);
-      pkt->iface_mtu=htons(ifa->iface->mtu);
+      pkt->iface_mtu=htons(ifa->iface->mtu);	/*FIXME NOT for VLINK! */
       pkt->options= ifa->options;
       pkt->imms=n->myimms;
       pkt->ddseq=n->dds;
