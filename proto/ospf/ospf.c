@@ -147,7 +147,14 @@ ospf_start(struct proto *p)
     oa->po = po;
     add_area_nets(oa, ac);
     fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
-    if (oa->areaid == 0) po->backbone = oa;
+
+    if (oa->areaid == 0)
+    {
+      po->backbone = oa;
+      if (oa->stub) log(L_ERR "Backbone cannot be stub. Ignoring!");
+      oa->stub = 0;
+    }
+
     oa->opt.byte = 0;
     if(!oa->stub) oa->opt.bit.e = 1;
   }
@@ -543,7 +550,7 @@ ospf_get_attr(eattr * a, byte * buf)
 static int
 ospf_patt_compare(struct ospf_iface_patt *a, struct ospf_iface_patt *b)
 {
-  return ((a->type == b->type) && (a->priority == b->priority));
+  return (a->type == b->type);
 }
 
 /**
@@ -561,170 +568,207 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 {
   struct ospf_config *old = (struct ospf_config *) (p->cf);
   struct ospf_config *new = (struct ospf_config *) c;
-  struct ospf_area_config *ac1, *ac2;
+  struct ospf_area_config *oldac, *newac;
   struct proto_ospf *po = (struct proto_ospf *) p;
-  struct ospf_iface_patt *ip1, *ip2;
+  struct ospf_iface_patt *oldip, *newip;
   struct ospf_iface *ifa;
   struct nbma_node *nb1, *nb2, *nbnx;
   struct ospf_area *oa = NULL;
   struct area_net *anet, *antmp;
-  int found;
+  int found, olddead, newdead;
+  struct net_fib *nf;
+  struct area_net_config *anc;
+  struct area_net *an;
 
-  /* FIXME Temporarily disabled */
-
-  return !memcmp(((byte *) old) + sizeof(struct proto_config),
-     ((byte *) new) + sizeof(struct proto_config),
-     sizeof(struct ospf_config) - sizeof(struct proto_config));
+  //return !memcmp(((byte *) old) + sizeof(struct proto_config),
+  //   ((byte *) new) + sizeof(struct proto_config),
+  //   sizeof(struct ospf_config) - sizeof(struct proto_config));
 
 
   po->rfc1583 = new->rfc1583;
   schedule_rtcalc(po);
 
-  ac1 = HEAD(old->area_list);
-  ac2 = HEAD(new->area_list);
+  po->tick = new->tick;
+  po->disp_timer->recurrent = po->tick;
+  tm_start(po->disp_timer, 1);
 
-  /* I should get it in same order */
+  oldac = HEAD(old->area_list);
+  newac = HEAD(new->area_list);
 
-  while (((NODE(ac1))->next != NULL) && ((NODE(ac2))->next != NULL))
+  /* I should get it in the same order */
+
+  while (((NODE(oldac))->next != NULL) && ((NODE(newac))->next != NULL))
   {
-    if (ac1->areaid != ac2->areaid)
+    if (oldac->areaid != newac->areaid)
       return 0;
-    if (ac1->stub != ac2->stub)
-      return 0;			/* FIXME: non zero values can change */
 
-    WALK_LIST(oa, po->area_list) if (oa->areaid == ac2->areaid)
-      break;
+    WALK_LIST(oa, po->area_list)
+      if (oa->areaid == newac->areaid)
+        break;
 
     if (!oa)
       return 0;
 
-    /* Change net_list */
-    fib_free(&oa->net_fib);
-    add_area_nets(oa, ac2);
+    oa->stub = newac->stub;
+    if (newac->stub && (oa->areaid == 0)) oa->stub = 0;
 
-    if (!iface_patts_equal(&ac1->patt_list, &ac2->patt_list,
+    /* Change net_list */
+    FIB_WALK(&oa->net_fib, nf)	/* First check if some networks are deleted */
+    {
+      found = 0;
+      WALK_LIST(anc, newac->net_list)
+      {
+        if (ipa_equal(anc->px.addr, nf->prefix) && (anc->px.len == nf->pxlen))
+	{
+	  found = 1;
+	  break;
+	}
+	if (!found) flush_sum_lsa(oa, nf, ORT_NET);	/* And flush them */
+      }
+    }
+    FIB_WALK_END;
+
+    WALK_LIST(anc, newac->net_list)	/* Second add new networks */
+    {
+      an = fib_get(&oa->net_fib, &anc->px.addr, anc->px.len);
+      an->hidden = anc->hidden;
+    }
+
+    if (!iface_patts_equal(&oldac->patt_list, &newac->patt_list,
 			   (void *) ospf_patt_compare))
       return 0;
 
     WALK_LIST(ifa, po->iface_list)
     {
-      if (ip1 = (struct ospf_iface_patt *)
-	  iface_patt_match(&ac1->patt_list, ifa->iface))
+      if (oldip = (struct ospf_iface_patt *)
+	  iface_patt_match(&oldac->patt_list, ifa->iface))
       {
 	/* Now reconfigure interface */
-	if (!(ip2 = (struct ospf_iface_patt *)
-	      iface_patt_match(&ac2->patt_list, ifa->iface)))
+	if (!(newip = (struct ospf_iface_patt *)
+	      iface_patt_match(&oldac->patt_list, ifa->iface)))
 	  return 0;
 
 	/* HELLO TIMER */
-	if (ip1->helloint != ip2->helloint)
+	if (oldip->helloint != newip->helloint)
 	{
-	  ifa->helloint = ip2->helloint;
+	  ifa->helloint = newip->helloint;
 	  ifa->hello_timer->recurrent = ifa->helloint;
 	  tm_start(ifa->hello_timer, ifa->helloint);
 	  OSPF_TRACE(D_EVENTS,
 		     "Changing hello interval on interface %s from %d to %d",
-		     ifa->iface->name, ip1->helloint, ip2->helloint);
+		     ifa->iface->name, oldip->helloint, newip->helloint);
 	}
 
 	/* POLL TIMER */
-	if (ip1->pollint != ip2->pollint)
+	if (oldip->pollint != newip->pollint)
 	{
-	  ifa->pollint = ip2->helloint;
+	  ifa->pollint = newip->helloint;
 	  ifa->poll_timer->recurrent = ifa->pollint;
 	  tm_start(ifa->poll_timer, ifa->pollint);
 	  OSPF_TRACE(D_EVENTS,
 		     "Changing poll interval on interface %s from %d to %d",
-		     ifa->iface->name, ip1->pollint, ip2->pollint);
+		     ifa->iface->name, oldip->pollint, newip->pollint);
 	}
 
 	/* COST */
-	if (ip1->cost != ip2->cost)
+	if (oldip->cost != newip->cost)
 	{
-	  ifa->cost = ip2->cost;
+	  ifa->cost = newip->cost;
 	  OSPF_TRACE(D_EVENTS,
 		     "Changing cost interface %s from %d to %d",
-		     ifa->iface->name, ip1->cost, ip2->cost);
+		     ifa->iface->name, oldip->cost, newip->cost);
 	  schedule_rt_lsa(ifa->oa);
 	}
 
 	/* strict nbma */
-	if ((ip1->strictnbma == 0) && (ip2->strictnbma != 0))
+	if ((oldip->strictnbma == 0) && (newip->strictnbma != 0))
 	{
-	  ifa->strictnbma = ip2->strictnbma;
+	  ifa->strictnbma = newip->strictnbma;
 	  OSPF_TRACE(D_EVENTS,
 		     "Interface %s is now strict NBMA.", ifa->iface->name);
 	}
-	if ((ip1->strictnbma != 0) && (ip2->strictnbma == 0))
+	if ((oldip->strictnbma != 0) && (newip->strictnbma == 0))
 	{
-	  ifa->strictnbma = ip2->strictnbma;
+	  ifa->strictnbma = newip->strictnbma;
 	  OSPF_TRACE(D_EVENTS,
 		     "Interface %s is no longer strict NBMA.",
 		     ifa->iface->name);
 	}
 
 	/* stub */
-	if ((ip1->stub == 0) && (ip2->stub != 0))
+	if ((oldip->stub == 0) && (newip->stub != 0))
 	{
-	  ifa->stub = ip2->stub;
+	  ifa->stub = newip->stub;
 	  OSPF_TRACE(D_EVENTS, "Interface %s is now stub.", ifa->iface->name);
 	}
-	if ((ip1->stub != 0) && (ip2->stub == 0) &&
+	if ((oldip->stub != 0) && (newip->stub == 0) &&
 	    ((ifa->ioprob & OSPF_I_IP) == 0) &&
 	    (((ifa->ioprob & OSPF_I_MC) == 0) || (ifa->type == OSPF_IT_NBMA)))
 	{
-	  ifa->stub = ip2->stub;
+	  ifa->stub = newip->stub;
 	  OSPF_TRACE(D_EVENTS,
 		     "Interface %s is no longer stub.", ifa->iface->name);
 	}
 
 	/* AUTHENTICATION */
-	if (ip1->autype != ip2->autype)
+	if (oldip->autype != newip->autype)
 	{
-	  ifa->autype = ip2->autype;
+	  ifa->autype = newip->autype;
 	  OSPF_TRACE(D_EVENTS,
 		     "Changing authentication type on interface %s",
 		     ifa->iface->name);
 	}
-        /* FIXME Add *passwords */
+        /* Add *passwords */
+	ifa->passwords = newip->passwords;
+
+	/* priority */
+	if (oldip->priority != newip->priority)
+	{
+	  ifa->priority = newip->priority;
+	  OSPF_TRACE(D_EVENTS,
+		     "Changing priority on interface %s from %d to %d",
+		     ifa->iface->name, oldip->priority, newip->priority);
+	}
 
 	/* RXMT */
-	if (ip1->rxmtint != ip2->rxmtint)
+	if (oldip->rxmtint != newip->rxmtint)
 	{
-	  ifa->rxmtint = ip2->rxmtint;
+	  ifa->rxmtint = newip->rxmtint;
 	  OSPF_TRACE(D_EVENTS,
 		     "Changing retransmit interval on interface %s from %d to %d",
-		     ifa->iface->name, ip1->rxmtint, ip2->rxmtint);
+		     ifa->iface->name, oldip->rxmtint, newip->rxmtint);
 	}
 
 	/* WAIT */
-	if (ip1->waitint != ip2->waitint)
+	if (oldip->waitint != newip->waitint)
 	{
-	  ifa->waitint = ip2->waitint;
+	  ifa->waitint = newip->waitint;
 	  if (ifa->wait_timer->expires != 0)
 	    tm_start(ifa->wait_timer, ifa->waitint);
 	  OSPF_TRACE(D_EVENTS,
 		     "Changing wait interval on interface %s from %d to %d",
-		     ifa->iface->name, ip1->waitint, ip2->waitint);
+		     ifa->iface->name, oldip->waitint, newip->waitint);
 	}
 
 	/* INFTRANS */
-	if (ip1->inftransdelay != ip2->inftransdelay)
+	if (oldip->inftransdelay != newip->inftransdelay)
 	{
-	  ifa->inftransdelay = ip2->inftransdelay;
+	  ifa->inftransdelay = newip->inftransdelay;
 	  OSPF_TRACE(D_EVENTS,
 		     "Changing transmit delay on interface %s from %d to %d",
-		     ifa->iface->name, ip1->inftransdelay,
-		     ip2->inftransdelay);
+		     ifa->iface->name, oldip->inftransdelay,
+		     newip->inftransdelay);
 	}
 
-	/* DEAD COUNT */
-	if (ip1->deadc != ip2->deadc)
+	/* DEAD */
+	olddead = (oldip->dead == 0) ? oldip->deadc * oldip->helloint : oldip->dead;
+	newdead = (newip->dead == 0) ? newip->deadc * newip->helloint : newip->dead;
+	if (olddead != newdead)
 	{
-	  ifa->dead = ip2->dead;
+	  ifa->dead = newdead;
 	  OSPF_TRACE(D_EVENTS,
-		     "Changing dead count on interface %s from %d to %d",
-		     ifa->iface->name, ip1->deadc, ip2->deadc);
+		     "Changing dead interval on interface %s from %d to %d",
+		     ifa->iface->name, olddead, newdead);
 	}
 
 	/* NBMA LIST */
@@ -732,7 +776,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	WALK_LIST_DELSAFE(nb1, nbnx, ifa->nbma_list)
 	{
 	  found = 0;
-	  WALK_LIST(nb2, ip2->nbma_list)
+	  WALK_LIST(nb2, newip->nbma_list)
 	    if (ipa_compare(nb1->ip, nb2->ip) == 0)
 	  {
 	    found = 1;
@@ -753,7 +797,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	  }
 	}
 	/* And then add new */
-	WALK_LIST(nb2, ip2->nbma_list)
+	WALK_LIST(nb2, newip->nbma_list)
 	{
 	  found = 0;
 	  WALK_LIST(nb1, ifa->nbma_list)
@@ -776,11 +820,11 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
       }
     }
 
-    ac1 = (struct ospf_area_config *)(NODE(ac1))->next;
-    ac2 = (struct ospf_area_config *)(NODE(ac2))->next;
+    oldac = (struct ospf_area_config *)(NODE(oldac))->next;
+    newac = (struct ospf_area_config *)(NODE(newac))->next;
   }
 
-  if (((NODE(ac1))->next) != ((NODE(ac2))->next))
+  if (((NODE(oldac))->next) != ((NODE(newac))->next))
     return 0;			/* One is not null */
 
   return 1;			/* Everything OK :-) */
