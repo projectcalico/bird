@@ -9,8 +9,10 @@
 
 #include "nest/bird.h"
 #include "nest/route.h"
+#include "nest/attrs.h"
 #include "lib/resource.h"
 #include "lib/unaligned.h"
+#include "lib/string.h"
 
 struct adata *
 as_path_prepend(struct linpool *pool, struct adata *olda, int as)
@@ -35,4 +37,47 @@ as_path_prepend(struct linpool *pool, struct adata *olda, int as)
     }
   put_u16(newa->data+2, as);
   return newa;
+}
+
+void
+as_path_format(struct adata *path, byte *buf, unsigned int size)
+{
+  byte *p = path->data;
+  byte *e = p + path->length - 8;
+  byte *end = buf + size;
+  int sp = 1;
+  int l, type, isset, as;
+
+  while (p < e)
+    {
+      if (buf > end)
+	{
+	  strcpy(buf, " ...");
+	  return;
+	}
+      isset = (*p++ == AS_PATH_SET);
+      l = *p++;
+      if (isset)
+	{
+	  if (!sp)
+	    *buf++ = ' ';
+	  *buf++ = '{';
+	  sp = 0;
+	}
+      while (l-- && buf <= end)
+	{
+	  if (!sp)
+	    *buf++ = ' ';
+	  buf += bsprintf(buf, "%d", get_u16(p));
+	  p += 2;
+	  sp = 0;
+	}
+      if (isset)
+	{
+	  *buf++ = ' ';
+	  *buf++ = '}';
+	  sp = 0;
+	}
+    }
+  *buf = 0;
 }

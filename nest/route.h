@@ -325,6 +325,7 @@ void ea_merge(ea_list *from, ea_list *to); /* Merge sub-lists to allocated buffe
 int ea_same(ea_list *x, ea_list *y);	/* Test whether two ea_lists are identical */
 unsigned int ea_hash(ea_list *e);	/* Calculate 16-bit hash value */
 void ea_format(eattr *e, byte *buf);
+#define EA_FORMAT_BUF_SIZE 256
 
 void rta_init(void);
 rta *rta_lookup(rta *);			/* Get rta equivalent to this one, uc++ */

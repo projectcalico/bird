@@ -13,6 +13,7 @@
 #include "nest/protocol.h"
 #include "nest/iface.h"
 #include "nest/cli.h"
+#include "nest/attrs.h"
 #include "lib/resource.h"
 #include "lib/string.h"
 
@@ -240,8 +241,9 @@ ea_format(eattr *e, byte *buf)
 {
   struct protocol *p;
   int status = GA_UNKNOWN;
-  unsigned int i, l;
+  unsigned int i;
   struct adata *ad = (e->type & EAF_EMBEDDED) ? NULL : e->u.ptr;
+  byte *end = buf + EA_FORMAT_BUF_SIZE - 1;
 
   if (p = attr_class_to_protocol[EA_PROTO(e->id)])
     {
@@ -264,15 +266,17 @@ ea_format(eattr *e, byte *buf)
 	  bsprintf(buf, "%d", e->u.data);
 	  break;
 	case EAF_TYPE_OPAQUE:
-	  l = (ad->length < 16) ? ad->length : 16;
-	  for(i=0; i<l; i++)
+	  for(i=0; i<ad->length; i++)
 	    {
-	      buf += bsprintf(buf, "%02x", ad->data[i]);
-	      if (i < l)
+	      if (buf > end - 8)
+		{
+		  strcpy(buf, " ...");
+		  break;
+		}
+	      if (i)
 		*buf++ = ' ';
+	      buf += bsprintf(buf, "%02x", ad->data[i]);
 	    }
-	  if (l < ad->length)
-	    strcpy(buf, "...");
 	  break;
 	case EAF_TYPE_IP_ADDRESS:
 	  bsprintf(buf, "%I", *(ip_addr *) ad->data);
@@ -280,8 +284,12 @@ ea_format(eattr *e, byte *buf)
 	case EAF_TYPE_ROUTER_ID:
 	  bsprintf(buf, "%08x", e->u.data); /* FIXME: Better printing of router ID's */
 	  break;
-	case EAF_TYPE_AS_PATH:		/* FIXME */
-	case EAF_TYPE_INT_SET:		/* FIXME */
+	case EAF_TYPE_AS_PATH:
+	  as_path_format(ad, buf, end - buf);
+	  break;
+	case EAF_TYPE_INT_SET:
+	  int_set_format(ad, buf, end - buf);
+	  break;
 	case EAF_TYPE_UNDEF:
 	default:
 	  bsprintf(buf, "<type %02x>", e->type);
@@ -542,7 +550,7 @@ rta_show(struct cli *c, rta *a)
   static char *cast_names[] = { "unicast", "broadcast", "multicast", "anycast" };
   ea_list *eal;
   int i;
-  byte buf[256];
+  byte buf[EA_FORMAT_BUF_SIZE];
 
   cli_printf(c, -1008, "\tType: %s %s %s", src_names[a->source], cast_names[a->cast], ip_scope_text(a->scope));
   for(eal=a->eattrs; eal; eal=eal->next)
