@@ -21,42 +21,39 @@
 #include "lib/timer.h"
 
 #include "unix.h"
+#include "krt.h"
 
 void
-uk_rt_notify(struct proto *p, net *net, rte *new, rte *old)
+krt_start(struct proto *P)
 {
+  struct krt_proto *p = (struct krt_proto *) P;
+  krt_scan_start(p);
 }
 
 void
-uk_start(struct proto *p)
+krt_shutdown(struct proto *P, int time)
 {
+  struct krt_proto *p = (struct krt_proto *) P;
+  krt_scan_shutdown(p);
 }
 
 void
-uk_init(struct protocol *x)
+krt_preconfig(struct protocol *x)
 {
-}
+  struct krt_proto *p = (struct krt_proto *) proto_new(&proto_unix_kernel, sizeof(struct krt_proto));
 
-void
-uk_preconfig(struct protocol *x)
-{
-  struct proto *p = proto_new(&proto_unix_kernel, sizeof(struct proto));
-
-  p->preference = DEF_PREF_UKR;
-  p->rt_notify = uk_rt_notify;
-  p->start = uk_start;
-}
-
-void
-uk_postconfig(struct protocol *x)
-{
+  p->p.preference = DEF_PREF_UKR;
+  p->p.start = krt_start;
+  p->p.shutdown = krt_shutdown;
+  krt_scan_preconfig(p);
+  krt_set_preconfig(p);
 }
 
 struct protocol proto_unix_kernel = {
   { NULL, NULL },
   "kernel",
   0,
-  uk_init,
-  uk_preconfig,
-  uk_postconfig
+  NULL,					/* init */
+  krt_preconfig,
+  NULL					/* postconfig */
 };

@@ -22,8 +22,4 @@ extern int if_scan_period;
 
 void scan_if_init(void);
 
-/* sync-rt.c */
-
-extern struct protocol proto_unix_kernel;
-
 #endif

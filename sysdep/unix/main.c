@@ -19,6 +19,7 @@
 #include "nest/confile.h"
 
 #include "unix.h"
+#include "krt.h"
 
 /*
  *	Debugging

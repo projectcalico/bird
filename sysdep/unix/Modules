@@ -5,3 +5,6 @@ io.c
 unix.h
 sync-if.c
 sync-rt.c
+krt.h
+krt-set.c
+krt-set.h
