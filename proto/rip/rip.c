@@ -411,6 +411,7 @@ rip_start(struct proto *p)
   P->timer->recurrent = RIP_TIME; 
   P->timer->hook = rip_timer;
   tm_start( P->timer, 5 );
+  CHK_MAGIC;
 
   debug( "RIP: ...done\n");
 }
@@ -446,10 +447,13 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *old, struct iface *new)
 static void
 rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old)
 {
-  debug( "rip: new entry came\n" );
+  debug( "rip: new entry came: " );
+  CHK_MAGIC;
 
   if (old) {
     struct rip_entry *e = find_entry( p, net->n.prefix, net->n.pxlen );
+
+    debug( "deleting old\n" );
     if (!e)
       log( L_ERR "Deleting nonexistent entry?!\n" );
 
@@ -459,6 +463,7 @@ rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte 
   if (new) {
     struct rip_entry *e = new_entry( p );
 
+    debug( "inserting new\n" );
     e->whotoldme = IPA_NONE;
     e->network = net->n.prefix;
     e->pxlen = net->n.pxlen;
@@ -488,6 +493,14 @@ rip_rte_better(struct rte *new, struct rte *old)
   return 0;
 }
 
+static int
+rip_rta_same(rta *a, rta *b)
+{
+  debug( "RIP: they ask me if rta_same\n" );
+  /* As we have no specific data in rta, they are always the same */
+  return 1;
+}
+
 static void
 rip_preconfig(struct protocol *x)
 {
@@ -499,7 +512,7 @@ rip_preconfig(struct protocol *x)
   p->if_notify = rip_if_notify;
   p->rt_notify = rip_rt_notify;
   p->rte_better = rip_rte_better;
-  p->rta_same = NULL; /* rip_rta_same; */
+  p->rta_same = rip_rta_same;
   p->dump = rip_dump;
 }
 
