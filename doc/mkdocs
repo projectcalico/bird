@@ -1,3 +1,8 @@
 #!/bin/bash
 ./sgml2html bird.sgml
 ./sgml2latex bird.sgml
+sgml2txt bird.sgml 2> /dev/null
+#> bird.txt
+#for i in bird.html bird-*.html; do 
+#    lynx -dump $i | grep -v 'file://' | grep -v '^References$' >> bird.txt
+#    done

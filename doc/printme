@@ -1,0 +1,2 @@
+#!/bin/bash
+./mkdocs; cat bird.txt | sed s/.//g | lpr
