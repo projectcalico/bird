@@ -747,7 +747,6 @@ rt_show_cleanup(struct cli *c)
 void
 rt_show(struct rt_show_data *d)
 {
-  struct rtable_config *tc;
   net *n;
 
   if (d->pxlen == 256)

@@ -460,7 +460,6 @@ proto_notify_state(struct proto *p, unsigned ps)
 	}
       break;
     default:
-    error:
       bug("Invalid state transition for %s from %s/%s to */%s", p->name, c_states[cs], p_states[ops], p_states[ps]);
     }
   p->proto_state = ps;

@@ -544,9 +544,7 @@ sentenced:
 static void
 krt_prune(struct krt_proto *p)
 {
-  struct proto *pp = &p->p;
   struct rtable *t = p->p.table;
-  struct fib_node *f;
 
   KRT_TRACE(p, D_EVENTS, "Pruning table %s", t->name);
   FIB_WALK(&t->fib, f)
@@ -605,7 +603,6 @@ void
 krt_got_route_async(struct krt_proto *p, rte *e, int new)
 {
   net *net = e->net;
-  rte *old = net->routes;
   int src = e->u.krt.src;
 
   switch (src)

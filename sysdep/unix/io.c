@@ -521,7 +521,7 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
 int
 sk_open(sock *s)
 {
-  int fd, e;
+  int fd;
   sockaddr sa;
   int one = 1;
   int type = s->type;

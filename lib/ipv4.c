@@ -72,7 +72,7 @@ ipv4_class_mask(u32 a)
 int
 ip_pton(char *a, ip_addr *o)
 {
-  int i,j;
+  int i;
   unsigned long int l;
   u32 ia = 0;
 

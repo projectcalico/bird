@@ -77,7 +77,6 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   struct bgp_bucket *buck;
   int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
   byte *w;
-  ip_addr ip;
   int wd_size = 0;
   int r_size = 0;
   int a_size = 0;
@@ -717,8 +716,6 @@ bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, b
 static void
 bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
 {
-  unsigned arg;
-
   if (len < 21)
     {
       bgp_error(conn, 1, 2, pkt+16, 2);

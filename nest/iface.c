@@ -202,7 +202,6 @@ struct iface *
 if_update(struct iface *new)
 {
   struct iface *i;
-  struct ifa *a, *b;
   unsigned c;
 
   WALK_LIST(i, iface_list)
@@ -263,7 +262,7 @@ if_end_partial_update(struct iface *i)
 void
 if_end_update(void)
 {
-  struct iface *i, j;
+  struct iface *i;
   struct ifa *a, *b;
 
   if (!config->router_id)

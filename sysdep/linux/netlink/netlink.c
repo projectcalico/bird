@@ -463,7 +463,6 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
     struct rtmsg r;
     char buf[128];
   } r;
-  struct nlmsghdr *reply;
 
   DBG("nl_send_route(%I/%d,new=%d)\n", net->n.prefix, net->n.pxlen, new);
 
