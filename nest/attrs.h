@@ -33,5 +33,4 @@ struct adata *int_set_add(struct linpool *pool, struct adata *list, u32 val);
 int int_set_contains(struct adata *list, u32 val);
 struct adata *int_set_del(struct linpool *pool, struct adata *list, u32 val);
 
-
 #endif

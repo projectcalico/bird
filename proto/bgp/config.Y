@@ -15,7 +15,9 @@ CF_HDR
 CF_DECLS
 
 CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
-	MULTIHOP, STARTUP, VIA, NEXT, HOP, SELF, BGP_PATH)
+	MULTIHOP, STARTUP, VIA, NEXT, HOP, SELF, DEFAULT, PATH, METRIC,
+	BGP_PATH, BGP_LOCAL_PREF, BGP_MED, BGP_ORIGIN, BGP_NEXT_HOP,
+	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY)
 
 CF_GRAMMAR
 
@@ -27,6 +29,8 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->hold_time = 240;
      BGP_CFG->connect_retry_time = 120;
      BGP_CFG->initial_hold_time = 240;
+     BGP_CFG->default_med = ~0;
+     BGP_CFG->compare_path_lengths = 1;
   }
  ;
 
@@ -48,9 +52,27 @@ bgp_proto:
  | bgp_proto KEEPALIVE TIME NUM ';' { BGP_CFG->connect_retry_time = $4; }
  | bgp_proto MULTIHOP NUM VIA IPA ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
+ | bgp_proto PATH METRIC NUM ';' { BGP_CFG->compare_path_lengths = $4; }
+ | bgp_proto DEFAULT BGP_MED NUM ';' { BGP_CFG->default_med = $4; }
+ | bgp_proto DEFAULT BGP_LOCAL_PREF NUM ';' { BGP_CFG->default_local_pref = $4; }
  ;
 
-CF_ADDTO(dynamic_attr, BGP_PATH { $$ = f_new_dynamic_attr(EAF_TYPE_AS_PATH, T_PATH, EA_CODE(EAP_BGP, BA_AS_PATH)); })
+CF_ADDTO(dynamic_attr, BGP_PATH
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_AS_PATH, T_PATH, EA_CODE(EAP_BGP, BA_AS_PATH)); })
+CF_ADDTO(dynamic_attr, BGP_LOCAL_PREF
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_CODE(EAP_BGP, BA_LOCAL_PREF)); })
+CF_ADDTO(dynamic_attr, BGP_MED
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC)); })
+CF_ADDTO(dynamic_attr, BGP_ORIGIN
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_CODE(EAP_BGP, BA_ORIGIN)); })
+CF_ADDTO(dynamic_attr, BGP_NEXT_HOP
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_IP_ADDRESS, T_IP, EA_CODE(EAP_BGP, BA_NEXT_HOP)); })
+CF_ADDTO(dynamic_attr, BGP_ATOMIC_AGGR
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_OPAQUE, T_ENUM_EMPTY, EA_CODE(EAP_BGP, BA_ATOMIC_AGGR)); })
+CF_ADDTO(dynamic_attr, BGP_AGGREGATOR
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_CODE(EAP_BGP, BA_AGGREGATOR)); })
+CF_ADDTO(dynamic_attr, BGP_COMMUNITY
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT_SET, T_CLIST, EA_CODE(EAP_BGP, BA_COMMUNITY)); })
 
 CF_CODE
 

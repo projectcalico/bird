@@ -29,6 +29,7 @@ struct attr_desc {
   int expected_length;
   int expected_flags;
   int type;
+  int allow_in_ebgp;
   int (*validate)(struct bgp_proto *p, byte *attr, int len);
   void (*format)(eattr *ea, byte *buf);
 };
@@ -78,32 +79,24 @@ bgp_check_next_hop(struct bgp_proto *p, byte *a, int len)
     return 8;
 }
 
-static int
-bgp_check_local_pref(struct bgp_proto *p, byte *a, int len)
-{
-  if (!p->is_internal)			/* Ignore local preference from EBGP connections */
-    return -1;
-  return 0;
-}
-
 static struct attr_desc bgp_attr_table[] = {
-  { NULL, -1, 0, 0,						/* Undefined */
+  { NULL, -1, 0, 0, 0,						/* Undefined */
     NULL, NULL },
-  { "origin", 1, BAF_TRANSITIVE, EAF_TYPE_INT,			/* BA_ORIGIN */
+  { "origin", 1, BAF_TRANSITIVE, EAF_TYPE_INT, 1,		/* BA_ORIGIN */
     bgp_check_origin, bgp_format_origin },
-  { "as_path", -1, BAF_TRANSITIVE, EAF_TYPE_AS_PATH,		/* BA_AS_PATH */
+  { "as_path", -1, BAF_TRANSITIVE, EAF_TYPE_AS_PATH, 1,		/* BA_AS_PATH */
     bgp_check_path, NULL },
-  { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS,		/* BA_NEXT_HOP */
+  { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS, 1,	/* BA_NEXT_HOP */
     bgp_check_next_hop, NULL },
-  { "MED", 4, BAF_OPTIONAL, EAF_TYPE_INT,			/* BA_MULTI_EXIT_DISC */
+  { "MED", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,			/* BA_MULTI_EXIT_DISC */
     NULL, NULL },
-  { "local_pref", 4, BAF_OPTIONAL, EAF_TYPE_INT,		/* BA_LOCAL_PREF */
-    bgp_check_local_pref, NULL },
-  { "atomic_aggr", 0, BAF_OPTIONAL, EAF_TYPE_OPAQUE,		/* BA_ATOMIC_AGGR */
+  { "local_pref", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,		/* BA_LOCAL_PREF */
     NULL, NULL },
-  { "aggregator", 6, BAF_OPTIONAL, EAF_TYPE_OPAQUE,		/* BA_AGGREGATOR */
+  { "atomic_aggr", 0, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,		/* BA_ATOMIC_AGGR */
     NULL, NULL },
-  { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET,	/* BA_COMMUNITY */
+  { "aggregator", 6, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,		/* BA_AGGREGATOR */
+    NULL, NULL },
+  { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET, 1,  /* BA_COMMUNITY */
     NULL, NULL },
 #if 0
   { 0, 0 },									/* BA_ORIGINATOR_ID */
@@ -308,10 +301,9 @@ static struct bgp_bucket *
 bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
 {
   ea_list *t, *new;
-  unsigned i, cnt;
+  unsigned i, cnt, hash, code;
   eattr *a, *d;
   u32 seen = 0;
-  unsigned hash;
   struct bgp_bucket *b;
 
   /* Merge the attribute lists */
@@ -339,8 +331,14 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *old, ea_list *tmp, int originate)
 #endif
       if (EA_PROTO(a->id) != EAP_BGP)
 	continue;
-      if (EA_ID(a->id) < 32)
-	seen |= 1 << EA_ID(a->id);
+      code = EA_ID(a->id);
+      if (code < ARRAY_SIZE(bgp_attr_table))
+	{
+	  if (!bgp_attr_table[code].allow_in_ebgp && !p->is_internal)
+	    continue;
+	}
+      if (code < 32)
+	seen |= 1 << code;
       *d = *a;
       if ((d->type & EAF_ORIGINATED) && !originate && (d->flags & BAF_TRANSITIVE) && (d->flags & BAF_OPTIONAL))
 	d->flags |= BAF_PARTIAL;
@@ -562,20 +560,53 @@ bgp_rte_better(rte *new, rte *old)
 {
   struct bgp_proto *new_bgp = (struct bgp_proto *) new->attrs->proto;
   struct bgp_proto *old_bgp = (struct bgp_proto *) old->attrs->proto;
-  eattr *new_lpref = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_LOCAL_PREF));
-  eattr *old_lpref = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_LOCAL_PREF));
+  eattr *x, *y;
+  u32 n, o;
 
   /* Start with local preferences */
-  if (new_lpref && old_lpref)		/* Somebody might have undefined them */
+  x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_LOCAL_PREF));
+  y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_LOCAL_PREF));
+  n = x ? x->u.data : new_bgp->cf->default_local_pref;
+  o = y ? y->u.data : old_bgp->cf->default_local_pref;
+  if (n > o)
+    return 1;
+  if (n < o)
+    return 0;
+
+  /* Use AS path lengths */
+  if (new_bgp->cf->compare_path_lengths || old_bgp->cf->compare_path_lengths)
     {
-      if (new_lpref->u.data > old_lpref->u.data)
+      x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
+      y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
+      n = x ? as_path_getlen(x->u.ptr) : 100000;
+      o = y ? as_path_getlen(y->u.ptr) : 100000;
+      if (n < o)
 	return 1;
-      if (new_lpref->u.data < old_lpref->u.data)
+      if (n > o)
 	return 0;
     }
 
+  /* Use origins */
+  x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_ORIGIN));
+  y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_ORIGIN));
+  n = x ? x->u.data : 2;
+  o = y ? y->u.data : 2;
+  if (n < o)
+    return 1;
+  if (n > o)
+    return 0;
+
+  /* Compare MED's */
+  x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
+  y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
+  n = x ? x->u.data : new_bgp->cf->default_med;
+  o = y ? y->u.data : old_bgp->cf->default_med;
+  if (n < o)
+    return 1;
+  if (n > o)
+    return 0;
+
   /* A tie breaking procedure according to RFC 1771, section 9.1.2.1 */
-  /* FIXME: Look at MULTI_EXIT_DISC, take the lowest */
   /* We don't have interior distances */
   /* We prefer external peers */
   if (new_bgp->is_internal > old_bgp->is_internal)
@@ -584,12 +615,6 @@ bgp_rte_better(rte *new, rte *old)
     return 1;
   /* Finally we compare BGP identifiers */
   return (new_bgp->remote_id < old_bgp->remote_id);
-}
-
-static int
-bgp_local_pref(struct bgp_proto *p, rta *a)
-{
-  return 0;				/* FIXME (should be compatible with Cisco defaults?) */
 }
 
 static int
@@ -680,6 +705,8 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 	    { errcode = 5; goto err; }
 	  if ((desc->expected_flags ^ flags) & (BAF_OPTIONAL | BAF_TRANSITIVE))
 	    { errcode = 4; goto err; }
+	  if (!desc->allow_in_ebgp && !bgp->is_internal)
+	    continue;
 	  if (desc->validate)
 	    {
 	      errcode = desc->validate(bgp, z, l);
@@ -745,20 +772,6 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 	  bgp_error(conn, 3, 3, code, 1);
 	  return NULL;
 	}
-    }
-
-  /* Assign local preference if none defined */
-  if (!(seen[BA_LOCAL_PREF/8] & (1 << (BA_LOCAL_PREF%8))))
-    {
-      ea = lp_alloc(pool, sizeof(ea_list) + sizeof(eattr));
-      ea->next = a->eattrs;
-      a->eattrs = ea;
-      ea->flags = 0;
-      ea->count = 1;
-      ea->attrs[0].id = EA_CODE(EAP_BGP, BA_LOCAL_PREF);
-      ea->attrs[0].flags = BAF_OPTIONAL;
-      ea->attrs[0].type = EAF_TYPE_INT;
-      ea->attrs[0].u.data = bgp_local_pref(bgp, a);
     }
 
   /* If the AS path attribute contains our AS, reject the routes */

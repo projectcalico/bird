@@ -21,6 +21,9 @@ struct bgp_config {
   int multihop;				/* Number of hops if multihop */
   ip_addr multihop_via;			/* Multihop: address to route to */
   int next_hop_self;			/* Always set next hop to local IP address */
+  int compare_path_lengths;		/* Use path lengths when selecting best route */
+  u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
+  u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
