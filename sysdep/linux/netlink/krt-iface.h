@@ -20,7 +20,6 @@ struct krt_if_status {
 };
 
 static inline void krt_if_preconfig(struct kif_config *c) { };
-static inline void krt_if_start(struct kif_proto *p) { };
 static inline void krt_if_shutdown(struct kif_proto *p) { };
 static inline void krt_if_io_init(void) { };
 

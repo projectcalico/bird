@@ -805,3 +805,9 @@ void
 krt_scan_shutdown(struct krt_proto *p)
 {
 }
+
+void
+krt_if_start(struct kif_proto *p)
+{
+  nl_open();
+}
