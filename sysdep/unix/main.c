@@ -435,6 +435,11 @@ main(int argc, char **argv)
       if (pid)
 	return 0;
       setsid();
+      close(0);
+      if (open("/dev/null", O_RDWR) < 0)
+	die("Cannot open /dev/null: %m");
+      dup2(0, 1);
+      dup2(0, 2);
     }
 
   signal_init();
