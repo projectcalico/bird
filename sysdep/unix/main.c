@@ -91,13 +91,16 @@ static int
 unix_read_config(struct config **cp, char *name)
 {
   struct config *conf = config_alloc(name);
+  int ret;
 
   *cp = conf;
   conf_fd = open(name, O_RDONLY);
   if (conf_fd < 0)
     return 0;
   cf_read_hook = cf_read;
-  return config_parse(conf);
+  ret = config_parse(conf);
+  close(conf_fd);
+  return ret;
 }
 
 static void
