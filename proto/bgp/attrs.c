@@ -576,7 +576,12 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   if (p->cf->next_hop_self ||
       !p->is_internal ||
       rta->dest != RTD_ROUTER)
-    *(ip_addr *)z = p->local_addr;
+    {
+      if (ipa_nonzero(p->cf->source_addr))
+        *(ip_addr *)z = p->cf->source_addr;
+      else
+        *(ip_addr *)z = p->local_addr;
+    }
   else
     *(ip_addr *)z = e->attrs->gw;
 
