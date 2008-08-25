@@ -91,11 +91,12 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
     sizeof(struct ospf_lsreq_header);
   for (i = 0; i < lsano; lsh++, i++)
   {
-    DBG("Processing LSA: ID=%I, Type=%u, Router=%I\n", ntohl(lsh->id),
-	lsh->type, ntohl(lsh->rt));
+    u32 hid = ntohl(lsh->id);
+    u32 hrt = ntohl(lsh->rt);
+    DBG("Processing LSA: ID=%I, Type=%u, Router=%I\n", hid, lsh->type, hrt);
     llsh = sl_alloc(upslab);
-    llsh->lsh.id = ntohl(lsh->id);
-    llsh->lsh.rt = ntohl(lsh->rt);
+    llsh->lsh.id = hid;
+    llsh->lsh.rt = hrt;
     llsh->lsh.type = lsh->type;
     add_tail(&uplist, NODE llsh);
     if (ospf_hash_find(po->gr, oa->areaid, llsh->lsh.id, llsh->lsh.rt,
@@ -103,7 +104,7 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
     {
       log(L_WARN
 	  "Received bad LS req from: %I looking: RT: %I, ID: %I, Type: %u",
-	  n->ip, lsh->rt, lsh->id, lsh->type);
+	  n->ip, hrt, hid, lsh->type);
       ospf_neigh_sm(n, INM_BADLSREQ);
       rfree(upslab);
       return;
