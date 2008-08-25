@@ -254,7 +254,7 @@ server_connect(void)
     die("Cannot create socket: %m");
   bzero(&sa, sizeof(sa));
   sa.sun_family = AF_UNIX;
-  strncpy(sa.sun_path, server_path, sizeof(sa.sun_path));
+  strcpy(sa.sun_path, server_path);
   if (connect(server_fd, (struct sockaddr *) &sa, SUN_LEN(&sa)) < 0)
     die("Unable to connect to server control socket (%s): %m", server_path);
   if (fcntl(server_fd, F_SETFL, O_NONBLOCK) < 0)
