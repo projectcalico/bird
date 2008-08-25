@@ -861,6 +861,44 @@ ospf_hash_delete(struct top_graph *f, struct top_hash_entry *e)
   bug("ospf_hash_delete() called for invalid node");
 }
 
+static void
+ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
+{
+  struct ospf_lsa_rt *rt = NULL;
+  struct ospf_lsa_rt_link *rr = NULL;
+  struct ospf_lsa_net *ln = NULL;
+  u32 *rts = NULL;
+  u32 i, max;
+
+  OSPF_TRACE(D_EVENTS, "- %1x %-1I %-1I %4u 0x%08x 0x%04x %-1I",
+	he->lsa.type, he->lsa.id, he->lsa.rt, he->lsa.age,
+	he->lsa.sn, he->lsa.checksum, he->oa ? he->oa->areaid : 0 );
+
+  switch (he->lsa.type)
+    {
+    case LSA_T_RT:
+      rt = he->lsa_body;
+      rr = (struct ospf_lsa_rt_link *) (rt + 1);
+
+      for (i = 0; i < rt->links; i++)
+        OSPF_TRACE(D_EVENTS, "  - %1x %-1I %-1I %5u", rr[i].type, rr[i].id, rr[i].data, rr[i].metric);
+      break;
+
+    case LSA_T_NET:
+      ln = he->lsa_body;
+      rts = (u32 *) (ln + 1);
+      max = (he->lsa.length - sizeof(struct ospf_lsa_header) -                                                                                                               
+		sizeof(struct ospf_lsa_net)) / sizeof(u32);
+
+      for (i = 0; i < max; i++)
+        OSPF_TRACE(D_EVENTS, "  - %-1I", rts[i]);
+      break;
+
+    default:
+      break;
+    }
+}
+
 void
 ospf_top_dump(struct top_graph *f, struct proto *p)
 {
@@ -869,14 +907,9 @@ ospf_top_dump(struct top_graph *f, struct proto *p)
 
   for (i = 0; i < f->hash_size; i++)
   {
-    struct top_hash_entry *e = f->hash_table[i];
-    while (e)
-    {
-      OSPF_TRACE(D_EVENTS, "- %1x %-1I %-1I %4u 0x%08x 0x%04x %-1I",
-		 e->lsa.type, e->lsa.id, e->lsa.rt, e->lsa.age,
-		 e->lsa.sn, e->lsa.checksum, e->oa ? e->oa->areaid : 0 );
-      e = e->next;
-    }
+    struct top_hash_entry *e;
+    for (e = f->hash_table[i]; e != NULL; e = e->next)
+      ospf_dump_lsa(e, p);
   }
 }
 
