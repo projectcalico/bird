@@ -140,7 +140,7 @@ scan_ifs(struct ifreq *r, int cnt)
 	  if (a.pxlen < 30)
 	    i.flags |= IF_MULTIACCESS;
 	  else
-	    a.opposite = ipa_opposite(a.ip);
+	    a.opposite = ipa_opposite(a.ip, a.pxlen);
 	}
       else
 	a.brd = a.opposite;
