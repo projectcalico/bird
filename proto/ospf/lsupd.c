@@ -183,7 +183,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 
       op->length = htons(len);
       OSPF_TRACE(D_PACKETS, "LS upd flooded via %s", ifa->iface->name);
-      DBG("ID=%I, AGE=%d, SEQ=%x", ntohl(lh->id), ntohs(lh->age),
+      DBG("ID=%I, AGE=%d, SEQ=%x\n", ntohl(lh->id), ntohs(lh->age),
 	  ntohl(lh->sn));
 
       switch (ifa->type)
