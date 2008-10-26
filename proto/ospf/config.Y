@@ -255,13 +255,19 @@ CF_ADDTO(dynamic_attr, OSPF_METRIC2 { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF
 CF_ADDTO(dynamic_attr, OSPF_TAG { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_TAG); })
 
 CF_CLI(SHOW OSPF, optsym, [<name>], [[Show information about OSPF protocol]])
-{ ospf_sh(proto_get_named($3, &proto_ospf)); } ;
+{ ospf_sh(proto_get_named($3, &proto_ospf)); };
 
 CF_CLI(SHOW OSPF NEIGHBORS, optsym opttext, [<name>] [\"<interface>\"], [[Show information about OSPF neighbors]])
-{ ospf_sh_neigh(proto_get_named($4, &proto_ospf), $5); } ;
+{ ospf_sh_neigh(proto_get_named($4, &proto_ospf), $5); };
 
 CF_CLI(SHOW OSPF INTERFACE, optsym opttext, [<name>] [\"<interface>\"], [[Show information about interface]])
 { ospf_sh_iface(proto_get_named($4, &proto_ospf), $5); };
+
+CF_CLI(SHOW OSPF TOPOLOGY, optsym opttext, [<name>], [[Show information about OSPF network topology]])
+{ ospf_sh_state(proto_get_named($4, &proto_ospf), 0); };
+
+CF_CLI(SHOW OSPF STATE, optsym opttext, [<name>], [[Show information about OSPF network state]])
+{ ospf_sh_state(proto_get_named($4, &proto_ospf), 1); };
 
 CF_CODE
 
