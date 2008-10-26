@@ -193,7 +193,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   if ((buck = p->withdraw_bucket) && !EMPTY_LIST(buck->prefixes))
     {
       DBG("Withdrawn routes:\n");
-      tmp = bgp_attach_attr(&ea, bgp_linpool, BA_MP_UNREACH_NLRI, remains-8);
+      tmp = bgp_attach_attr_wa(&ea, bgp_linpool, BA_MP_UNREACH_NLRI, remains-8);
       *tmp++ = 0;
       *tmp++ = BGP_AF_IPV6;
       *tmp++ = 1;
@@ -218,7 +218,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  size = bgp_encode_attrs(p, w, buck->eattrs, 1024);
 	  w += size;
 	  remains -= size;
-	  tstart = tmp = bgp_attach_attr(&ea, bgp_linpool, BA_MP_REACH_NLRI, remains-8);
+	  tstart = tmp = bgp_attach_attr_wa(&ea, bgp_linpool, BA_MP_REACH_NLRI, remains-8);
 	  *tmp++ = 0;
 	  *tmp++ = BGP_AF_IPV6;
 	  *tmp++ = 1;
@@ -702,7 +702,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
       /* Create fake NEXT_HOP attribute */
       if (len < 1 || (*x != 16 && *x != 32) || len < *x + 2)
 	goto bad;
-      memcpy(bgp_attach_attr(&a0->eattrs, bgp_linpool, BA_NEXT_HOP, 16), x+1, 16);
+      bgp_attach_attr_ip(&a0->eattrs, bgp_linpool, BA_NEXT_HOP, x[1]);
       len -= *x + 2;
       x += *x + 1;
 

@@ -25,6 +25,8 @@ struct bgp_config {
   int compare_path_lengths;		/* Use path lengths when selecting best route */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
   u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */
+  u32 rr_cluster_id;			/* Route reflector cluster ID, if different from local ID */
+  int rr_client;			/* Whether neighbor is RR client of me */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
@@ -60,6 +62,8 @@ struct bgp_proto {
   int as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
   u32 local_id;				/* BGP identifier of this router */
   u32 remote_id;			/* BGP identifier of the neighbor */
+  u32 rr_cluster_id;			/* Route reflector cluster ID */
+  int rr_client;			/* Whether neighbor is RR client of me */
   struct bgp_conn *conn;		/* Connection we have established */
   struct bgp_conn outgoing_conn;	/* Outgoing connection we're working with */
   struct bgp_conn incoming_conn;	/* Incoming connection we have neither accepted nor rejected yet */
@@ -121,7 +125,8 @@ void bgp_close_conn(struct bgp_conn *c);
 
 /* attrs.c */
 
-byte *bgp_attach_attr(struct ea_list **to, struct linpool *, unsigned attr, unsigned val);
+void bgp_attach_attr(struct ea_list **to, struct linpool *pool, unsigned attr, uintptr_t val);
+byte *bgp_attach_attr_wa(struct ea_list **to, struct linpool *pool, unsigned attr, unsigned len);
 struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool, int mandatory);
 int bgp_get_attr(struct eattr *e, byte *buf);
 int bgp_rte_better(struct rte *, struct rte *);
@@ -131,6 +136,9 @@ void bgp_attr_init(struct bgp_proto *);
 unsigned int bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains);
 void bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck);
 void bgp_get_route_info(struct rte *, byte *buf, struct ea_list *attrs);
+
+inline static void bgp_attach_attr_ip(struct ea_list **to, struct linpool *pool, unsigned attr, ip_addr a)
+{ *(ip_addr *) bgp_attach_attr_wa(to, pool, attr, sizeof(ip_addr)) = a; }
 
 /* packets.c */
 

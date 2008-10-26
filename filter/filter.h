@@ -11,6 +11,7 @@
 
 #include "lib/resource.h"
 #include "lib/ip.h"
+#include "nest/route.h"
 #include "nest/attrs.h"
 
 struct f_inst {		/* Instruction */

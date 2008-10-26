@@ -47,4 +47,7 @@ struct adata *int_set_add(struct linpool *pool, struct adata *list, u32 val);
 int int_set_contains(struct adata *list, u32 val);
 struct adata *int_set_del(struct linpool *pool, struct adata *list, u32 val);
 
+static inline int int_set_get_size(struct adata *list)
+{ return list->length / 4; }
+
 #endif

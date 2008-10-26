@@ -485,6 +485,13 @@ bgp_start_locked(struct object_lock *lock)
   p->local_id = cf->c.global->router_id;
   p->next_hop = cf->multihop ? cf->multihop_via : cf->remote_ip;
   p->neigh = neigh_find(&p->p, &p->next_hop, NEF_STICKY);
+
+  if (cf->rr_client)
+    {
+      p->rr_cluster_id = cf->rr_cluster_id ? cf->rr_cluster_id : p->local_id;
+      p->rr_client = cf->rr_client;
+    }
+
   if (!p->neigh)
     {
       log(L_ERR "%s: Invalid next hop %I", p->p.name, p->next_hop);
@@ -633,6 +640,8 @@ bgp_check(struct bgp_config *c)
     cf_error("Local AS number out of range");
   if (!bgp_as4_support && (c->remote_as > 0xFFFF))
     cf_error("Neighbor AS number out of range");
+  if ((c->local_as != c->remote_as) && (c->rr_client))
+    cf_error("Only internal neighbor can be RR client");
 }
 
 static void

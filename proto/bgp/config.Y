@@ -20,7 +20,8 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
 	MULTIHOP, STARTUP, VIA, NEXT, HOP, SELF, DEFAULT, PATH, METRIC,
 	ERROR, START, DELAY, FORGET, WAIT, DISABLE, AFTER,
 	BGP_PATH, BGP_LOCAL_PREF, BGP_MED, BGP_ORIGIN, BGP_NEXT_HOP,
-	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY, SOURCE, ADDRESS, PASSWORD)
+	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY, SOURCE, ADDRESS,
+	PASSWORD, RR, CLIENT, CLUSTER, ID)
 
 CF_GRAMMAR
 
@@ -38,7 +39,6 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->error_amnesia_time = 300;
      BGP_CFG->error_delay_time_min = 60;
      BGP_CFG->error_delay_time_max = 300;
-     BGP_CFG->password = NULL;
  }
  ;
 
@@ -52,6 +52,8 @@ bgp_proto:
      BGP_CFG->remote_ip = $3;
      BGP_CFG->remote_as = $5;
    }
+ | bgp_proto RR CLUSTER ID expr ';' { BGP_CFG->rr_cluster_id = $5; }
+ | bgp_proto RR CLIENT ';' { BGP_CFG->rr_client = 1; }
  | bgp_proto HOLD TIME expr ';' { BGP_CFG->hold_time = $4; }
  | bgp_proto STARTUP HOLD TIME expr ';' { BGP_CFG->initial_hold_time = $5; }
  | bgp_proto CONNECT RETRY TIME expr ';' { BGP_CFG->connect_retry_time = $5; }
