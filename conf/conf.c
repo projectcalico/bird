@@ -266,7 +266,7 @@ config_commit(struct config *c)
     }
   if (old_config)			/* Reconfiguration already in progress */
     {
-      if (shutting_down)
+      if (shutting_down == 2)
 	{
 	  log(L_INFO "New configuration discarded due to shutdown");
 	  config_free(c);
@@ -314,8 +314,9 @@ order_shutdown(void)
   init_list(&c->protos);
   init_list(&c->tables);
   c->shutdown = 1;
-  config_commit(c);
   shutting_down = 1;
+  config_commit(c);
+  shutting_down = 2;
 }
 
 /**
