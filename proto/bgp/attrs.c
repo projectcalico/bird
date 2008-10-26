@@ -73,13 +73,13 @@ bgp_check_path(byte *a, int len, int bs, int errcode)
 static int
 bgp_check_as_path(struct bgp_proto *p, byte *a, int len)
 {
-  return bgp_check_path(a, len, (bgp_as4_support && p->as4_support) ? 4 : 2, 11);
+  return bgp_check_path(a, len, p->as4_session ? 4 : 2, 11);
 }
 
 static int
 bgp_check_as4_path(struct bgp_proto *p, byte *a, int len)
 {
-  if (bgp_as4_support && (! p->as4_support))
+  if (bgp_as4_support && (! p->as4_session))
     return bgp_check_path(a, len, 4, 9);
   else 
     return 0;
@@ -106,7 +106,7 @@ bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
 static int
 bgp_check_aggregator(struct bgp_proto *p, UNUSED byte *a, int len)
 {
-  int exp_len = (bgp_as4_support && p->as4_support) ? 8 : 6;
+  int exp_len = p->as4_session ? 8 : 6;
   
   return (len == exp_len) ? 0 : 5;
 }
@@ -344,7 +344,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
        * we have to convert our 4B AS_PATH to 2B AS_PATH and send our AS_PATH 
        * as optional AS4_PATH attribute.
        */
-      if ((code == BA_AS_PATH) && bgp_as4_support && (! p->as4_support))
+      if ((code == BA_AS_PATH) && bgp_as4_support && (! p->as4_session))
 	{
 	  len = a->u.ptr->length;
 
@@ -384,7 +384,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 	}
 
       /* The same issue with AGGREGATOR attribute */
-      if ((code == BA_AGGREGATOR) && bgp_as4_support && (! p->as4_support))
+      if ((code == BA_AGGREGATOR) && bgp_as4_support && (! p->as4_session))
 	{
 	  int new_used;
 
@@ -1082,7 +1082,7 @@ bgp_remove_as4_attrs(struct bgp_proto *p, rta *a)
       if ((fid == id1) || (fid == id2))
 	{
 	  *el = (*el)->next;
-	  if (p->as4_support)
+	  if (p->as4_session)
 	    log(L_WARN "BGP: Unexpected AS4_* attributes received");
 	}
       else
@@ -1246,7 +1246,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   /* When receiving attributes from non-AS4-aware BGP speaker,
    * we have to reconstruct 4B AS_PATH and AGGREGATOR attributes
    */
-  if (bgp_as4_support && (! bgp->as4_support))
+  if (bgp_as4_support && (! bgp->as4_session))
     bgp_reconstruct_4b_atts(bgp, a, pool);
 
   if (bgp_as4_support)

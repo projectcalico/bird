@@ -73,7 +73,7 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
 #ifdef IPV6
   cap = bgp_put_cap_ipv6(conn, cap);
 #endif
-  if (bgp_as4_support)
+  if (p->cf->enable_as4)
     cap = bgp_put_cap_as4(conn, cap);
 
   cap_len = cap - buf - 12;
@@ -407,7 +407,8 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 	  if (cl != 4)
 	    goto err;
 	  p->as4_support = 1;
-	  if (bgp_as4_support)
+	  p->as4_session = p->cf->enable_as4;
+	  if (p->as4_session)
 	    conn->advertised_as = get_u32(opt + 2);
 	  break;
 

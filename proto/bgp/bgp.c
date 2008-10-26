@@ -636,9 +636,11 @@ bgp_check(struct bgp_config *c)
     cf_error("Local AS number must be set");
   if (!c->remote_as)
     cf_error("Neighbor must be configured");
-  if (!bgp_as4_support && (c->local_as > 0xFFFF))
+  if (!bgp_as4_support && c->enable_as4)
+    cf_error("AS4 support disabled globbaly");
+  if (!c->enable_as4 && (c->local_as > 0xFFFF))
     cf_error("Local AS number out of range");
-  if (!bgp_as4_support && (c->remote_as > 0xFFFF))
+  if (!c->enable_as4 && (c->remote_as > 0xFFFF))
     cf_error("Neighbor AS number out of range");
   if ((c->local_as != c->remote_as) && (c->rr_client))
     cf_error("Only internal neighbor can be RR client");

@@ -25,6 +25,7 @@ struct bgp_config {
   int compare_path_lengths;		/* Use path lengths when selecting best route */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
   u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */
+  int enable_as4;			/* Enable local support for 4B AS numbers [RFC4893] */
   u32 rr_cluster_id;			/* Route reflector cluster ID, if different from local ID */
   int rr_client;			/* Whether neighbor is RR client of me */
   unsigned connect_retry_time;
@@ -60,6 +61,7 @@ struct bgp_proto {
   u32 local_as, remote_as;
   int is_internal;			/* Internal BGP connection (local_as == remote_as) */
   int as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
+  int as4_session;			/* Session uses 4B AS numbers in AS_PATH (both sides support it) */
   u32 local_id;				/* BGP identifier of this router */
   u32 remote_id;			/* BGP identifier of the neighbor */
   u32 rr_cluster_id;			/* Route reflector cluster ID */
