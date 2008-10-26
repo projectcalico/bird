@@ -784,7 +784,7 @@ for each neighbor using the following configuration parameters:
 
 	<tag>default bgp_med <m/number/</tag> Value of the Multiple Exit
 	Discriminator to be used during route selection when the MED attribute
-	is missing. Default: infinite.
+	is missing. Default: 0.
 
 	<tag>default bgp_local_pref <m/number/</tag> Value of the Local Preference
 	to be used during route selection when the Local Preference attribute
@@ -806,10 +806,16 @@ with `<tt/O/') are optional.
 	selection among multiple BGP routes (see the selection rules above). It's
 	used as an additional metric which is propagated through the whole local AS.
 
-	<tag>int <cf/bgp_med/ [IO]</tag> The Multiple Exit Discriminator of the route
-	is an optional attribute which is often used within the local AS to
-	reflect interior distances to various boundary routers. See the route selection
-	rules above for exact semantics.
+	<tag>int <cf/bgp_med/ [O]</tag> The Multiple Exit Discriminator of the route
+	is an optional attribute which is used on on external (inter-AS) links to
+	convey to an adjacent AS the optimal entry point into the local AS.
+	The received attribute may be also propagated over internal BGP links
+	(and this is default behavior). The attribute value is zeroed when a route
+	is exported from a routing table to a BGP instance to ensure that the attribute
+	received from a neighboring AS is not propagated to other neighboring ASes.
+	A new value might be set in the export filter of a BGP instance.
+	See RFC 4451<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4451.txt">
+	for further discussion of BGP MED attribute.
 
 	<tag>enum <cf/bgp_origin/</tag> Origin of the route: either <cf/ORIGIN_IGP/
 	if the route has originated in an interior routing protocol or

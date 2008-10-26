@@ -146,7 +146,7 @@ static struct attr_desc bgp_attr_table[] = {
     bgp_check_as_path, NULL },
   { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS, 1,			/* BA_NEXT_HOP */
     bgp_check_next_hop, NULL },
-  { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,					/* BA_MULTI_EXIT_DISC */
+  { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 1,					/* BA_MULTI_EXIT_DISC */
     NULL, NULL },
   { "local_pref", 4, BAF_TRANSITIVE, EAF_TYPE_INT, 0,				/* BA_LOCAL_PREF */
     NULL, NULL },
@@ -829,7 +829,17 @@ bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   eattr *a;
 
   if (!p->is_internal)
-    bgp_path_prepend(e, attrs, pool, p->local_as);
+    {
+      bgp_path_prepend(e, attrs, pool, p->local_as);
+
+      /* The MULTI_EXIT_DISC attribute received from a neighboring AS MUST NOT be
+       * propagated to other neighboring ASes.
+       * Perhaps it would be better to undefine it.
+       */
+      a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
+      if (a)
+	bgp_attach_attr(attrs, pool, BA_MULTI_EXIT_DISC, 0);
+    }
 
   a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
   if (a && (p->is_internal || (!p->is_internal && e->attrs->iface == p->neigh->iface)))
@@ -894,6 +904,18 @@ bgp_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *
     return bgp_create_attrs(p, e, attrs, pool);
 }
 
+static inline u32
+bgp_get_neighbor(rte *r)
+{
+  eattr *e = ea_find(r->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
+  u32 as;
+
+  if (e && as_path_get_last(e->u.ptr, &as))
+    return as;
+  else
+    return ((struct bgp_proto *) r->attrs->proto)->remote_as;
+}
+
 int
 bgp_rte_better(rte *new, rte *old)
 {
@@ -936,14 +958,18 @@ bgp_rte_better(rte *new, rte *old)
     return 0;
 
   /* RFC 4271 9.1.2.2. c) Compare MED's */
-  x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
-  y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
-  n = x ? x->u.data : new_bgp->cf->default_med;
-  o = y ? y->u.data : old_bgp->cf->default_med;
-  if (n < o)
-    return 1;
-  if (n > o)
-    return 0;
+
+  if (bgp_get_neighbor(new) == bgp_get_neighbor(old))
+    {
+      x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
+      y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
+      n = x ? x->u.data : new_bgp->cf->default_med;
+      o = y ? y->u.data : old_bgp->cf->default_med;
+      if (n < o)
+	return 1;
+      if (n > o)
+	return 0;
+    }
 
   /* RFC 4271 9.1.2.2. d) Prefer external peers */
   if (new_bgp->is_internal > old_bgp->is_internal)

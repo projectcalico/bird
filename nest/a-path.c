@@ -244,6 +244,20 @@ as_path_get_first(struct adata *path, u32 *orig_as)
 }
 
 int
+as_path_get_last(struct adata *path, u32 *last_as)
+{
+  u8 *p = path->data;
+
+  if ((path->length == 0) || (p[0] != AS_PATH_SEQUENCE) || (p[1] == 0))
+    return 0;
+  else
+    {
+      *last_as = get_as(p+2);
+      return 1;
+    }
+}
+
+int
 as_path_is_member(struct adata *path, u32 as)
 {
   int bs = bgp_as4_support ? 4 : 2;
