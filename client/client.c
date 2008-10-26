@@ -252,6 +252,10 @@ server_connect(void)
   server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
   if (server_fd < 0)
     die("Cannot create socket: %m");
+
+  if (strlen(server_path) >= sizeof(sa.sun_path))
+    die("server_connect: path too long");
+
   bzero(&sa, sizeof(sa));
   sa.sun_family = AF_UNIX;
   strcpy(sa.sun_path, server_path);

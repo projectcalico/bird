@@ -865,6 +865,10 @@ sk_open_unix(sock *s, char *name)
   if (err = sk_setup(s))
     goto bad;
   unlink(name);
+ 
+  if (strlen(name) >= sizeof(sa.sun_path))
+    die("sk_open_unix: path too long");
+
   sa.sun_family = AF_UNIX;
   strcpy(sa.sun_path, name);
   if (bind(fd, (struct sockaddr *) &sa, SUN_LEN(&sa)) < 0)
