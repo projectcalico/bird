@@ -179,6 +179,9 @@ protocol static {
 #	default bgp_med 0;	# MED value we use for comparison when none is defined
 #	default bgp_local_pref 0;	# The same for local preference
 #	source address 62.168.0.14;	# What local address we use for the TCP connection
+#	password "secret"	# Password used for MD5 authentication
+#	rr client;		# I am a route reflector and the neighor is my client
+#	rr cluster id 1.0.0.1	# Use this value for cluster id instead of my router id 
 #	export where source=RTS_STATIC;
 #	export filter {
 #		if source = RTS_STATIC then {

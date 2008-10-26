@@ -655,13 +655,19 @@ routing table it wishes to export along with complete path information
 route) in order to avoid routing loops.
 
 <p>BIRD supports all requirements of the BGP4 standard as defined in
-RFC 1771<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1771.txt">
-including several enhancements from the
-latest draft<htmlurl url="ftp://ftp.rfc-editor.org/internet-drafts/draft-ietf-idr-bgp4-09.txt">.
-It also supports the community attributes as per
-RFC 1997<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1997.txt">,
-capability negotiation defined in
-RFC 2842<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2842.txt">.
+RFC 4271<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4271.txt">
+It also supports the community attributes
+(RFC 1997<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1997.txt">),
+capability negotiation
+(RFC 3392<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc3392.txt">),
+MD5 password authentication
+(RFC 2385<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2385.txt">),
+route reflectors 
+(RFC 4456<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4456.txt">),
+and 4B AS numbers 
+(RFC 4893<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4893.txt">).
+
+
 For IPv6, it uses the standard multiprotocol extensions defined in
 RFC 2283<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2283.txt">
 including changes described in the
@@ -720,6 +726,27 @@ for each neighbor using the following configuration parameters:
 	<tag>source address <m/ip/</tag> Define local address we should use
 	for next hop calculation. Default: the address of the local end
 	of the interface our neighbor is connected to.
+
+	<tag>password <m/string/</tag> Use this password for MD5 authentication
+	of BGP sessions. Default: no authentication.
+
+	<tag>rr client</tag> Be a route reflector and treat neighbor as
+	route reflection client. Default: disabled.
+
+	<tag>rr cluster id <m/IPv4 address/</tag> Route reflectors use cluster id
+	to avoid route reflection loops. When there is one route reflector in a cluster
+	it usually uses its router id as a cluster id, but when there are more route
+	reflectors in a cluster, these need to be configured (using this option) to
+	use a common cluster id. Clients in a cluster need not known their cluster
+	id and this option is not allowed to them  Default: a same as router id.
+
+	<tag>enable as4 <m/switch/</tag> BGP protocol was designed to use 2B AS numbers
+	and was extended later to allow 4B AS number. BIRD supports 4B AS extension,
+	but by disabling this option it can be persuaded not to advertise it and
+	to maintain old-style sessions with its neighbors. This might be useful for
+	circumventing bugs in neighbor's implementation of 4B AS extension.
+	Even when disabled (off), BIRD behaves internally as AS4-aware BGP router.
+	Default: on.
 
 	<tag>disable after error <m/switch/</tag> When an error is encountered (either
 	locally or by the other side), disable the instance automatically
