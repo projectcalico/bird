@@ -268,7 +268,8 @@ nl_parse_link(struct nlmsghdr *h, int scan)
   if (!a[IFLA_IFNAME] || RTA_PAYLOAD(a[IFLA_IFNAME]) < 2 ||
       !a[IFLA_MTU] || RTA_PAYLOAD(a[IFLA_MTU]) != 4)
     {
-      log(L_ERR "nl_parse_link: Malformed message received");
+      if (scan)
+        log(L_ERR "nl_parse_link: Malformed message received");
       return;
     }
   name = RTA_DATA(a[IFLA_IFNAME]);
