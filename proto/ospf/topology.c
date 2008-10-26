@@ -20,6 +20,8 @@
 #define HASH_LO_STEP 2
 #define HASH_LO_MIN 8
 
+int ptp_unnumbered_stub_lsa = 0;
+
 static void *
 originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 {
@@ -28,7 +30,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
   int j = 0, k = 0;
   u16 i = 0;
   struct ospf_lsa_rt *rt;
-  struct ospf_lsa_rt_link *ln;
+  struct ospf_lsa_rt_link *ln, *ln_after;
   struct ospf_neighbor *neigh;
 
   DBG("%s: Originating RT_lsa body for area \"%I\".\n", po->proto.name,
@@ -39,6 +41,9 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
     if ((ifa->oa == oa) && (ifa->state != OSPF_IS_DOWN))
     {
       i++;
+      if ((ifa->type == OSPF_IT_PTP) && (ifa->state == OSPF_IS_PTP) &&
+      	  (ptp_unnumbered_stub_lsa || !(ifa->iface->addr->flags & IA_UNNUMBERED)))
+        i++;
     }
   }
   rt = mb_allocz(po->proto.pool, sizeof(struct ospf_lsa_rt) +
@@ -48,6 +53,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
   if ((po->ebit) && (!oa->stub))
     rt->veb.bit.e = 1;
   ln = (struct ospf_lsa_rt_link *) (rt + 1);
+  ln_after = ln + i;
 
   WALK_LIST(ifa, po->iface_list)
   {
@@ -60,6 +66,9 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 
     if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
+
+    if (ln == ln_after)
+      die("LSA space overflow");
 
     if (ifa->state == OSPF_IS_LOOP)
     {
@@ -81,7 +90,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	  ln->id = neigh->rid;
 	  ln->metric = ifa->cost;
 	  ln->notos = 0;
-	  if (ifa->iface->flags && IA_UNNUMBERED)
+	  if (ifa->iface->addr->flags & IA_UNNUMBERED)
 	  {
 	    ln->data = ifa->iface->index;
 	  }
@@ -92,19 +101,30 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	}
 	else
 	{
-	  if (ifa->state == OSPF_IS_PTP)
+          ln--;
+	  i--;		/* No link added */
+        }
+
+	if ((ifa->state == OSPF_IS_PTP) && 
+	    (ptp_unnumbered_stub_lsa || !(ifa->iface->addr->flags & IA_UNNUMBERED)))
+	{
+	  ln++;
+	  if (ln == ln_after)
+            die("LSA space overflow");
+
+	  ln->type = LSART_STUB;
+	  ln->metric = ifa->cost;
+	  ln->notos = 0;
+	  if (ifa->iface->addr->flags & IA_UNNUMBERED)
 	  {
-	    ln->type = LSART_STUB;
-	    ln->id = ln->id = ipa_to_u32(ifa->iface->addr->opposite);
-	    ln->metric = ifa->cost;
-	    ln->notos = 0;
+	    ln->id = ipa_to_u32(ifa->iface->addr->opposite);
 	    ln->data = 0xffffffff;
 	  }
 	  else
-          {
-            ln--;
-	    i--;		/* No link added */
-          }
+	  {
+	    ln->data = ipa_to_u32(ipa_mkmask(ifa->iface->addr->pxlen));
+	    ln->id = ipa_to_u32(ifa->iface->addr->prefix) & ln->data;
+	  }
 	}
 	break;
       case OSPF_IT_BCAST:
