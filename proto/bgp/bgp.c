@@ -76,11 +76,16 @@ static void bgp_connect(struct bgp_proto *p);
 static void bgp_initiate(struct bgp_proto *p);
 static void bgp_setup_listen_sk(void);
 
+
 static void
-bgp_close(struct bgp_proto *p UNUSED)
+bgp_close(struct bgp_proto *p)
 {
   ASSERT(bgp_counter);
   bgp_counter--;
+
+  if (p->cf->password)
+    sk_set_md5_auth(bgp_listen_sk, p->cf->remote_ip, NULL);
+
   if (!bgp_counter)
     {
       rfree(bgp_listen_sk);
@@ -329,6 +334,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   bgp_setup_conn(p, conn);
   bgp_setup_sk(p, conn, s);
   s->tx_hook = bgp_connected;
+  s->password = p->cf->password;
   conn->state = BS_CONNECT;
   if (sk_open(s))
     {
@@ -479,6 +485,13 @@ bgp_start_locked(struct object_lock *lock)
   p->local_id = cf->c.global->router_id;
   p->next_hop = cf->multihop ? cf->multihop_via : cf->remote_ip;
   p->neigh = neigh_find(&p->p, &p->next_hop, NEF_STICKY);
+
+  if (cf->rr_client)
+    {
+      p->rr_cluster_id = cf->rr_cluster_id ? cf->rr_cluster_id : p->local_id;
+      p->rr_client = cf->rr_client;
+    }
+
   if (!p->neigh)
     {
       log(L_ERR "%s: Invalid next hop %I", p->p.name, p->next_hop);
@@ -505,6 +518,7 @@ bgp_start(struct proto *P)
 
   bgp_counter++;
   bgp_setup_listen_sk();
+
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);
 
@@ -522,6 +536,17 @@ bgp_start(struct proto *P)
   lock->hook = bgp_start_locked;
   lock->data = p;
   olock_acquire(lock);
+
+  /* We should create security association after we get a lock not to 
+   * break existing connections.
+   */
+  if (p->cf->password)
+    {
+      int rv = sk_set_md5_auth(bgp_listen_sk, p->cf->remote_ip, p->cf->password);
+      if (rv < 0)
+	return PS_STOP;
+    }
+
   return PS_START;
 }
 
@@ -611,6 +636,14 @@ bgp_check(struct bgp_config *c)
     cf_error("Local AS number must be set");
   if (!c->remote_as)
     cf_error("Neighbor must be configured");
+  if (!bgp_as4_support && c->enable_as4)
+    cf_error("AS4 support disabled globbaly");
+  if (!c->enable_as4 && (c->local_as > 0xFFFF))
+    cf_error("Local AS number out of range");
+  if (!c->enable_as4 && (c->remote_as > 0xFFFF))
+    cf_error("Neighbor AS number out of range");
+  if ((c->local_as != c->remote_as) && (c->rr_client))
+    cf_error("Only internal neighbor can be RR client");
 }
 
 static void

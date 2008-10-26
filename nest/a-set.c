@@ -40,10 +40,12 @@ int_set_format(struct adata *set, byte *buf, unsigned int size)
 struct adata *
 int_set_add(struct linpool *pool, struct adata *list, u32 val)
 {
-  struct adata *res = lp_alloc(pool, list->length + sizeof(struct adata) + 4);
-  res->length = list->length+4;
+  int len = list ? list->length : 0;
+  struct adata *res = lp_alloc(pool, len + sizeof(struct adata) + 4);
+  res->length = len + 4;
   * (u32 *) res->data = val;
-  memcpy((char *) res->data + 4, list->data, list->length);
+  if (list)
+    memcpy((char *) res->data + 4, list->data, list->length);
   return res;
 }
 

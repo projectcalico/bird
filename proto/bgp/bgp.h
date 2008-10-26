@@ -16,7 +16,7 @@ struct eattr;
 
 struct bgp_config {
   struct proto_config c;
-  unsigned int local_as, remote_as;
+  u32 local_as, remote_as;
   ip_addr remote_ip;
   int multihop;				/* Number of hops if multihop */
   ip_addr multihop_via;			/* Multihop: address to route to */
@@ -25,6 +25,9 @@ struct bgp_config {
   int compare_path_lengths;		/* Use path lengths when selecting best route */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
   u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */
+  int enable_as4;			/* Enable local support for 4B AS numbers [RFC4893] */
+  u32 rr_cluster_id;			/* Route reflector cluster ID, if different from local ID */
+  int rr_client;			/* Whether neighbor is RR client of me */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
@@ -33,6 +36,7 @@ struct bgp_config {
   unsigned error_delay_time_min;	/* Time to wait after an error is detected */
   unsigned error_delay_time_max;
   unsigned disable_after_error;		/* Disable the protocol when error is detected */
+  char *password;			/* Password used for MD5 authentication */
 };
 
 struct bgp_conn {
@@ -47,16 +51,21 @@ struct bgp_conn {
   byte *notify_data;
   int error_flag;			/* Error state, ignore all input */
   int primary;				/* This connection is primary */
+  u32 advertised_as;			/* Temporary value for AS number received */
   unsigned hold_time, keepalive_time;	/* Times calculated from my and neighbor's requirements */
 };
 
 struct bgp_proto {
   struct proto p;
   struct bgp_config *cf;		/* Shortcut to BGP configuration */
-  unsigned local_as, remote_as;
+  u32 local_as, remote_as;
   int is_internal;			/* Internal BGP connection (local_as == remote_as) */
+  int as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
+  int as4_session;			/* Session uses 4B AS numbers in AS_PATH (both sides support it) */
   u32 local_id;				/* BGP identifier of this router */
   u32 remote_id;			/* BGP identifier of the neighbor */
+  u32 rr_cluster_id;			/* Route reflector cluster ID */
+  int rr_client;			/* Whether neighbor is RR client of me */
   struct bgp_conn *conn;		/* Connection we have established */
   struct bgp_conn outgoing_conn;	/* Outgoing connection we're working with */
   struct bgp_conn incoming_conn;	/* Incoming connection we have neither accepted nor rejected yet */
@@ -100,6 +109,9 @@ struct bgp_bucket {
 
 extern struct linpool *bgp_linpool;
 
+extern int bgp_as4_support;
+
+
 void bgp_start_timer(struct timer *t, int value);
 void bgp_check(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len);
@@ -115,16 +127,20 @@ void bgp_close_conn(struct bgp_conn *c);
 
 /* attrs.c */
 
-byte *bgp_attach_attr(struct ea_list **to, struct linpool *, unsigned attr, unsigned val);
+void bgp_attach_attr(struct ea_list **to, struct linpool *pool, unsigned attr, uintptr_t val);
+byte *bgp_attach_attr_wa(struct ea_list **to, struct linpool *pool, unsigned attr, unsigned len);
 struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool, int mandatory);
 int bgp_get_attr(struct eattr *e, byte *buf);
 int bgp_rte_better(struct rte *, struct rte *);
 void bgp_rt_notify(struct proto *, struct network *, struct rte *, struct rte *, struct ea_list *);
 int bgp_import_control(struct proto *, struct rte **, struct ea_list **, struct linpool *);
 void bgp_attr_init(struct bgp_proto *);
-unsigned int bgp_encode_attrs(byte *w, struct ea_list *attrs, int remains);
+unsigned int bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains);
 void bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck);
 void bgp_get_route_info(struct rte *, byte *buf, struct ea_list *attrs);
+
+inline static void bgp_attach_attr_ip(struct ea_list **to, struct linpool *pool, unsigned attr, ip_addr a)
+{ *(ip_addr *) bgp_attach_attr_wa(to, pool, attr, sizeof(ip_addr)) = a; }
 
 /* packets.c */
 
@@ -165,6 +181,8 @@ void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subco
 #define BA_MP_REACH_NLRI	0x0e	/* [RFC2283] */
 #define BA_MP_UNREACH_NLRI	0x0f
 #define BA_EXTENDED_COMM	0x10	/* draft-ramachandra-bgp-ext-communities */
+#define BA_AS4_PATH             0x11    /* [RFC4893] */
+#define BA_AS4_AGGREGATOR       0x12
 
 /* BGP states */
 

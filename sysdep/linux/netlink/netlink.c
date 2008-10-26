@@ -499,6 +499,8 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
       nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->gw);
       break;
     case RTD_DEVICE:
+      if (!a->iface)
+	return;
       r.r.rtm_type = RTN_UNICAST;
       nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, a->iface->index);
       break;
@@ -532,11 +534,8 @@ krt_set_notify(struct krt_proto *p, net *n UNUSED, rte *new, rte *old)
   else
     {
       if (old)
-	{
-	  if (!old->attrs->iface || (old->attrs->iface->flags & IF_UP))
-	    nl_send_route(p, old, 0);
-	  /* else the kernel has already flushed it */
-	}
+	nl_send_route(p, old, 0);
+
       if (new)
 	nl_send_route(p, new, 1);
     }

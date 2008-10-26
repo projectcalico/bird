@@ -69,6 +69,30 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
   }
 }
 
+static void
+pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
+{
+  byte *end = buf + size - 16;
+
+  while (p)
+    {
+      if (buf > end)
+	{
+	  strcpy(buf, " ...");
+	  return;
+	}
+
+      if (p->any)
+	buf += bsprintf(buf, "? ");
+      else
+	buf += bsprintf(buf, "%u ", p->val);
+
+      p = p->next;
+    }
+
+  *buf = 0;
+}
+
 /**
  * val_compare - compare two values
  * @v1: first value
@@ -224,7 +248,7 @@ val_print(struct f_val v)
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   case T_PATH: as_path_format(v.val.ad, buf2, 1020); PRINTF( "(path %s)", buf2 ); break;
   case T_CLIST: int_set_format(v.val.ad, buf2, 1020); PRINTF( "(clist %s)", buf2 ); break;
-  case T_PATH_MASK: debug( "(pathmask " ); { struct f_path_mask *p = v.val.path_mask; while (p) { debug("%d ", p->val); p=p->next; } debug(")" ); } break;
+  case T_PATH_MASK: pm_format(v.val.path_mask, buf2, 1020); PRINTF( "(pathmask %s)", buf2 ); break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF
   }
