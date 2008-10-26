@@ -78,10 +78,14 @@ static void bgp_setup_listen_sk(void);
 
 
 static void
-bgp_close(struct bgp_proto *p UNUSED)
+bgp_close(struct bgp_proto *p)
 {
   ASSERT(bgp_counter);
   bgp_counter--;
+
+  if (p->cf->password)
+    sk_set_md5_auth(bgp_listen_sk, p->cf->remote_ip, NULL);
+
   if (!bgp_counter)
     {
       rfree(bgp_listen_sk);
@@ -330,6 +334,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   bgp_setup_conn(p, conn);
   bgp_setup_sk(p, conn, s);
   s->tx_hook = bgp_connected;
+  s->password = p->cf->password;
   conn->state = BS_CONNECT;
   if (sk_open(s))
     {
@@ -506,6 +511,7 @@ bgp_start(struct proto *P)
 
   bgp_counter++;
   bgp_setup_listen_sk();
+
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);
 
@@ -523,6 +529,17 @@ bgp_start(struct proto *P)
   lock->hook = bgp_start_locked;
   lock->data = p;
   olock_acquire(lock);
+
+  /* We should create security association after we get a lock not to 
+   * break existing connections.
+   */
+  if (p->cf->password)
+    {
+      int rv = sk_set_md5_auth(bgp_listen_sk, p->cf->remote_ip, p->cf->password);
+      if (rv < 0)
+	return PS_STOP;
+    }
+
   return PS_START;
 }
 

@@ -139,3 +139,24 @@ static inline char *sysio_mcast_join(sock *s)
 #endif
 
 #endif
+
+#include <linux/socket.h>
+#include <linux/tcp.h>
+
+/* For the case that we have older kernel headers */
+/* Copied from Linux kernel file include/linux/tcp.h */
+
+#ifndef TCP_MD5SIG
+
+#define TCP_MD5SIG  14
+#define TCP_MD5SIG_MAXKEYLEN 80
+
+struct tcp_md5sig {
+  struct __kernel_sockaddr_storage tcpm_addr;     /* address associated */
+  __u16   __tcpm_pad1;                            /* zero */
+  __u16   tcpm_keylen;                            /* key length */
+  __u32   __tcpm_pad2;                            /* zero */
+  __u8    tcpm_key[TCP_MD5SIG_MAXKEYLEN];         /* key (binary) */
+};
+
+#endif

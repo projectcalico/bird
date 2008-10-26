@@ -546,6 +546,7 @@ sk_new(pool *p)
   s->err_hook = NULL;
   s->fd = -1;
   s->rbuf_alloc = s->tbuf_alloc = NULL;
+  s->password = NULL;
   return s;
 }
 
@@ -641,6 +642,71 @@ sk_setup(sock *s)
 bad:
   return err;
 }
+
+
+/* FIXME: check portability  */
+
+static int
+sk_set_md5_auth_int(sock *s, sockaddr *sa, char *passwd)
+{
+  struct tcp_md5sig md5;
+
+  memset(&md5, 0, sizeof(md5));
+  memcpy(&md5.tcpm_addr, (struct sockaddr *) sa, sizeof(*sa));
+
+  if (passwd)
+    {
+      int len = strlen(passwd);
+
+      if (len > TCP_MD5SIG_MAXKEYLEN)
+	{
+	  log(L_ERR "MD5 password too long");
+	  return -1;
+	}
+
+      md5.tcpm_keylen = len;
+      memcpy(&md5.tcpm_key, passwd, len);
+    }
+
+  int rv = setsockopt(s->fd, IPPROTO_TCP, TCP_MD5SIG, &md5, sizeof(md5));
+
+  if (rv < 0) 
+    {
+      if (errno == ENOPROTOOPT)
+	log(L_ERR "Kernel does not support TCP MD5 signatures");
+      else
+	log(L_ERR "sk_set_md5_auth_int: setsockopt: %m");
+    }
+
+  return rv;
+}
+
+/**
+ * sk_set_md5_auth - add / remove MD5 security association for given socket.
+ * @s: socket
+ * @a: IP address of the other side
+ * @passwd: password used for MD5 authentication
+ *
+ * In TCP MD5 handling code in kernel, there is a set of pairs
+ * (address, password) used to choose password according to
+ * address of the other side. This function is useful for
+ * listening socket, for active sockets it is enough to set
+ * s->password field.
+ *
+ * When called with passwd != NULL, the new pair is added,
+ * When called with passwd == NULL, the existing pair is removed.
+ *
+ * Result: 0 for success, -1 for an error.
+ */
+
+int
+sk_set_md5_auth(sock *s, ip_addr a, char *passwd)
+{
+  sockaddr sa;
+  fill_in_sockaddr(&sa, a, 0);
+  return sk_set_md5_auth_int(s, &sa, passwd);
+}
+
 
 static void
 sk_tcp_connected(sock *s)
@@ -805,6 +871,14 @@ sk_open(sock *s)
 	ERR("bind");
     }
   fill_in_sockaddr(&sa, s->daddr, s->dport);
+
+  if (s->password)
+    {
+      int rv = sk_set_md5_auth_int(s, &sa, s->password);
+      if (rv < 0)
+	goto bad_no_log;
+    }
+
   switch (type)
     {
     case SK_TCP_ACTIVE:
@@ -846,6 +920,7 @@ sk_open(sock *s)
 
 bad:
   log(L_ERR "sk_open: %s: %m", err);
+bad_no_log:
   close(fd);
   s->fd = -1;
   return -1;
