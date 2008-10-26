@@ -1262,7 +1262,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
     goto loop;
 
   /* If there's no local preference, define one */
-  if (!(seen[0] && (1 << BA_LOCAL_PREF)))
+  if (!(seen[0] & (1 << BA_LOCAL_PREF)))
     bgp_attach_attr(&a->eattrs, pool, BA_LOCAL_PREF, 0);
   return a;
 
