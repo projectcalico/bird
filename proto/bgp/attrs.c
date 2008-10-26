@@ -55,20 +55,36 @@ bgp_format_origin(eattr *a, byte *buf)
 }
 
 static int
-bgp_check_path(struct bgp_proto *p UNUSED, byte *a, int len)
+bgp_check_path(byte *a, int len, int bs, int errcode)
 {
   while (len)
     {
       DBG("Path segment %02x %02x\n", a[0], a[1]);
       if (len < 2 ||
-	  a[0] != AS_PATH_SET && a[0] != AS_PATH_SEQUENCE ||
-	  2*a[1] + 2 > len)
-	return 11;
-      len -= 2*a[1] + 2;
-      a += 2*a[1] + 2;
+	  (a[0] != AS_PATH_SET && a[0] != AS_PATH_SEQUENCE) ||
+	  bs * a[1] + 2 > len)
+	return errcode;
+      len -= bs * a[1] + 2;
+      a += bs * a[1] + 2;
     }
   return 0;
 }
+
+static int
+bgp_check_as_path(struct bgp_proto *p, byte *a, int len)
+{
+  return bgp_check_path(a, len, (bgp_as4_support && p->as4_support) ? 4 : 2, 11);
+}
+
+static int
+bgp_check_as4_path(struct bgp_proto *p, byte *a, int len)
+{
+  if (bgp_as4_support && (! p->as4_support))
+    return bgp_check_path(a, len, 4, 9);
+  else 
+    return 0;
+}
+
 
 static int
 bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
@@ -85,6 +101,14 @@ bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
   else
     return 8;
 #endif
+}
+
+static int
+bgp_check_aggregator(struct bgp_proto *p UNUSED, UNUSED byte *a, int len)
+{
+  int exp_len = (bgp_as4_support && p->as4_support) ? 8 : 6;
+  
+  return (len == exp_len) ? 0 : 5;
 }
 
 static int
@@ -113,7 +137,7 @@ static struct attr_desc bgp_attr_table[] = {
   { "origin", 1, BAF_TRANSITIVE, EAF_TYPE_INT, 1,				/* BA_ORIGIN */
     bgp_check_origin, bgp_format_origin },
   { "as_path", -1, BAF_TRANSITIVE, EAF_TYPE_AS_PATH, 1,				/* BA_AS_PATH */
-    bgp_check_path, NULL },
+    bgp_check_as_path, NULL },
   { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS, 1,			/* BA_NEXT_HOP */
     bgp_check_next_hop, NULL },
   { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,					/* BA_MULTI_EXIT_DISC */
@@ -122,8 +146,8 @@ static struct attr_desc bgp_attr_table[] = {
     NULL, NULL },
   { "atomic_aggr", 0, BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,			/* BA_ATOMIC_AGGR */
     NULL, NULL },
-  { "aggregator", 6, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_AGGREGATOR */
-    NULL, NULL },
+  { "aggregator", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,	/* BA_AGGREGATOR */
+    bgp_check_aggregator, NULL },
   { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET, 1,	/* BA_COMMUNITY */
     NULL, NULL },
   { NULL, },									/* BA_ORIGINATOR_ID */
@@ -135,7 +159,17 @@ static struct attr_desc bgp_attr_table[] = {
     bgp_check_reach_nlri, NULL },
   { "mp_unreach_nlri", -1, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,			/* BA_MP_UNREACH_NLRI */
     bgp_check_unreach_nlri, NULL },
+  { NULL, },									/* BA_EXTENDED_COMM */
+  { "as4_path", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_AS4_PATH */
+    bgp_check_as4_path, NULL },
+  { "as4_aggregator", 8, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,	/* BA_AS4_PATH */
+    NULL, NULL }
 };
+
+/* BA_AS4_PATH is type EAF_TYPE_OPAQUE and not type EAF_TYPE_AS_PATH because
+ * EAF_TYPE_AS_PATH is supposed to have different format (2 or 4 B for each ASN)
+ * depending on bgp_as4_support variable.
+ */
 
 #define ATTR_KNOWN(code) ((code) < ARRAY_SIZE(bgp_attr_table) && bgp_attr_table[code].name)
 
@@ -170,8 +204,90 @@ bgp_attach_attr(ea_list **to, struct linpool *pool, unsigned attr, unsigned val)
   return bgp_set_attr(a->attrs, pool, attr, val);
 }
 
+static int
+bgp_encode_attr_hdr(byte *dst, unsigned int flags, unsigned code, int len)
+{
+  int wlen;
+
+  DBG("\tAttribute %02x (%d bytes, flags %02x)\n", code, len, flags);
+
+  if (len < 256)
+    {
+      *dst++ = flags;
+      *dst++ = code;
+      *dst++ = len;
+      wlen = 3;
+    }
+  else
+    {
+      *dst++ = flags | BAF_EXT_LEN;
+      *dst++ = code;
+      put_u16(dst, len);
+      wlen = 4;
+    }
+
+  return wlen;
+}
+
+static void
+aggregator_convert_to_old(struct adata *aggr, byte *dst, int *new_used)
+{
+  byte *src = aggr->data;
+  *new_used = 0;
+
+  u32 as = get_u32(src);
+  if (as > 0xFFFF) 
+    {
+      as = AS_TRANS;
+      *new_used = 1;
+    }
+  put_u16(dst, as);
+
+  /* Copy IPv4 address */
+  memcpy(dst + 2, src + 4, 4);
+}
+
+static void
+aggregator_convert_to_new(struct adata *aggr, byte *dst)
+{
+  byte *src = aggr->data;
+
+  u32 as   = get_u16(src);
+  put_u32(dst, as);
+
+  /* Copy IPv4 address */
+  memcpy(dst + 4, src + 2, 4);
+}
+
+static int
+bgp_get_attr_len(eattr *a)
+{
+  int len;
+  if (ATTR_KNOWN(EA_ID(a->id)))
+    {
+      int code = EA_ID(a->id);
+      struct attr_desc *desc = &bgp_attr_table[code];
+      len = desc->expected_length;
+      if (len < 0)
+	{
+	  ASSERT(!(a->type & EAF_EMBEDDED));
+	  len = a->u.ptr->length;
+	}
+    }
+  else
+    {
+      ASSERT((a->type & EAF_TYPE_MASK) == EAF_TYPE_OPAQUE);
+      len = a->u.ptr->length;
+    }
+  
+  return len;
+}
+
+#define ADVANCE(w, r, l) do { r -= l; w += l; } while (0)
+
 /**
  * bgp_encode_attrs - encode BGP attributes
+ * @p: BGP instance
  * @w: buffer
  * @attrs: a list of extended attributes
  * @remains: remaining space in the buffer
@@ -182,11 +298,11 @@ bgp_attach_attr(ea_list **to, struct linpool *pool, unsigned attr, unsigned val)
  * Result: Length of the attribute block generated.
  */
 unsigned int
-bgp_encode_attrs(byte *w, ea_list *attrs, int remains)
+bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 {
   unsigned int i, code, flags;
   byte *start = w;
-  int len;
+  int len, rv;
 
   for(i=0; i<attrs->count; i++)
     {
@@ -198,43 +314,90 @@ bgp_encode_attrs(byte *w, ea_list *attrs, int remains)
       if (code == BA_NEXT_HOP)
 	continue;
 #endif
-      flags = a->flags & (BAF_OPTIONAL | BAF_TRANSITIVE | BAF_PARTIAL);
-      if (ATTR_KNOWN(code))
+
+      /* When AS4-aware BGP speaker is talking to non-AS4-aware BGP speaker,
+       * we have to convert our 4B AS_PATH to 2B AS_PATH and send our AS_PATH 
+       * as optional AS4_PATH attribute.
+       */
+      if ((code == BA_AS_PATH) && bgp_as4_support && (! p->as4_support))
 	{
-	  struct attr_desc *desc = &bgp_attr_table[code];
-	  len = desc->expected_length;
-	  if (len < 0)
-	    {
-	      ASSERT(!(a->type & EAF_EMBEDDED));
-	      len = a->u.ptr->length;
-	    }
-	}
-      else
-	{
-	  ASSERT((a->type & EAF_TYPE_MASK) == EAF_TYPE_OPAQUE);
 	  len = a->u.ptr->length;
+
+	  if (remains < (len + 4))
+	    goto err_no_buffer;
+
+	  /* Using temporary buffer because don't know a length of created attr
+	   * and therefore a length of a header. Perhaps i should better always
+	   * use BAF_EXT_LEN. */
+	  
+	  byte buf[len];
+	  int new_used;
+	  int nl = as_path_convert_to_old(a->u.ptr, buf, &new_used);
+
+	  rv = bgp_encode_attr_hdr(w, BAF_TRANSITIVE, BA_AS_PATH, nl);
+	  ADVANCE(w, remains, rv);
+	  memcpy(w, buf, nl);
+	  ADVANCE(w, remains, nl);
+
+	  if (! new_used)
+	    continue;
+
+	  if (remains < (len + 4))
+	    goto err_no_buffer;
+
+	  /* We should discard AS_CONFED_SEQUENCE or AS_CONFED_SET path segments 
+	   * here but we don't support confederations and such paths we already
+	   * discarded in bgp_check_as_path().
+	   */
+
+	  rv = bgp_encode_attr_hdr(w, BAF_OPTIONAL | BAF_TRANSITIVE, BA_AS4_PATH, len);
+	  ADVANCE(w, remains, rv);
+	  memcpy(w, a->u.ptr->data, len);
+	  ADVANCE(w, remains, len);
+
+	  continue;
 	}
-      DBG("\tAttribute %02x (type %02x, %d bytes, flags %02x)\n", code, a->type, len, flags);
+
+      /* The same issue with AGGREGATOR attribute */
+      if ((code == BA_AGGREGATOR) && bgp_as4_support && (! p->as4_support))
+	{
+	  int new_used;
+
+	  len = 6;
+	  if (remains < (len + 3))
+	    goto err_no_buffer;
+
+	  rv = bgp_encode_attr_hdr(w, BAF_OPTIONAL | BAF_TRANSITIVE, BA_AGGREGATOR, len);
+	  ADVANCE(w, remains, rv);
+	  aggregator_convert_to_old(a->u.ptr, w, &new_used);
+	  ADVANCE(w, remains, len);
+
+	  if (! new_used)
+	    continue;
+
+	  len = 8;
+	  if (remains < (len + 3))
+	    goto err_no_buffer;
+
+	  rv = bgp_encode_attr_hdr(w, BAF_OPTIONAL | BAF_TRANSITIVE, BA_AS4_AGGREGATOR, len);
+	  ADVANCE(w, remains, rv);
+	  memcpy(w, a->u.ptr->data, len);
+	  ADVANCE(w, remains, len);
+
+	  continue;
+	}
+
+      /* Standard path continues here ... */
+
+      flags = a->flags & (BAF_OPTIONAL | BAF_TRANSITIVE | BAF_PARTIAL);
+      len = bgp_get_attr_len(a);
+
       if (remains < len + 4)
-	{
-	  log(L_ERR "BGP: attribute list too long, ignoring the remaining attributes");
-	  break;
-	}
-      if (len < 256)
-	{
-	  *w++ = flags;
-	  *w++ = code;
-	  *w++ = len;
-	  remains -= 3;
-	}
-      else
-	{
-	  *w++ = flags | BAF_EXT_LEN;
-	  *w++ = code;
-	  put_u16(w, len);
-	  w += 2;
-	  remains -= 4;
-	}
+	goto err_no_buffer;
+
+      rv = bgp_encode_attr_hdr(w, flags, code, len);
+      ADVANCE(w, remains, rv);
+
       switch (a->type & EAF_TYPE_MASK)
 	{
 	case EAF_TYPE_INT:
@@ -266,9 +429,12 @@ bgp_encode_attrs(byte *w, ea_list *attrs, int remains)
 	default:
 	  bug("bgp_encode_attrs: unknown attribute type %02x", a->type);
 	}
-      remains -= len;
-      w += len;
+      ADVANCE(w, remains, len);
     }
+  return w - start;
+
+ err_no_buffer:
+  log(L_ERR "BGP: attribute list too long, ignoring the remaining attributes");
   return w - start;
 }
 
@@ -566,10 +732,14 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
     bgp_set_attr(ea->attrs+1, pool, BA_AS_PATH, 0);
   else
     {
-      z = bgp_set_attr(ea->attrs+1, pool, BA_AS_PATH, 4);
+      z = bgp_set_attr(ea->attrs+1, pool, BA_AS_PATH, bgp_as4_support ? 6 : 4);
       z[0] = AS_PATH_SEQUENCE;
       z[1] = 1;				/* 1 AS */
-      put_u16(z+2, p->local_as);
+
+      if (bgp_as4_support)
+	put_u32(z+2, p->local_as);
+      else
+	put_u16(z+2, p->local_as);
     }
 
   z = bgp_set_attr(ea->attrs+2, pool, BA_NEXT_HOP, sizeof(ip_addr));
@@ -670,8 +840,8 @@ bgp_rte_better(rte *new, rte *old)
     {
       x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
       y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
-      n = x ? as_path_getlen(x->u.ptr) : 100000;
-      o = y ? as_path_getlen(y->u.ptr) : 100000;
+      n = x ? as_path_getlen(x->u.ptr) : AS_PATH_MAXLEN;
+      o = y ? as_path_getlen(y->u.ptr) : AS_PATH_MAXLEN;
       if (n < o)
 	return 1;
       if (n > o)
@@ -712,23 +882,118 @@ bgp_rte_better(rte *new, rte *old)
 static int
 bgp_path_loopy(struct bgp_proto *p, eattr *a)
 {
-  byte *path = a->u.ptr->data;
-  int len = a->u.ptr->length;
-  int i, n;
+  return as_path_is_member(a->u.ptr, p->local_as);
+}
 
-  while (len > 0)
+
+static struct adata *
+bgp_aggregator_convert_to_new(struct adata *old, struct linpool *pool)
+{
+  struct adata *newa = lp_alloc(pool, sizeof(struct adata) + 8);
+  newa->length = 8;
+  aggregator_convert_to_new(old, newa->data);
+  return newa;
+}
+
+
+/* Take last req_as ASNs from path old2 (in 2B format), convert to 4B format
+ * and append path old4 (in 4B format).
+ */
+static struct adata *
+bgp_merge_as_paths(struct adata *old2, struct adata *old4, int req_as, struct linpool *pool)
+{
+  byte buf[old2->length * 2];
+
+  int ol = as_path_convert_to_new(old2, buf, req_as);
+  int nl = ol + (old4 ? old4->length : 0);
+
+  struct adata *newa = lp_alloc(pool, sizeof(struct adata) + nl);
+  newa->length = nl;
+  memcpy(newa->data, buf, ol);
+  if (old4) memcpy(newa->data + ol, old4->data, old4->length);
+
+  return newa;
+}
+
+
+/* Reconstruct 4B AS_PATH and AGGREGATOR according to RFC4893 4.2.3 */
+static void
+bgp_reconstruct_4b_atts(struct bgp_proto *p, rta *a, struct linpool *pool)
+{
+  eattr *p2 =ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
+  eattr *p4 =ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS4_PATH));
+  eattr *a2 =ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AGGREGATOR));
+  eattr *a4 =ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS4_AGGREGATOR));
+
+  if (a2)
     {
-      n = path[1];
-      len -= 2 + 2*n;
-      path += 2;
-      for(i=0; i<n; i++)
+      u32 a2_as = get_u16(a2->u.ptr->data);
+
+      if (a4)
 	{
-	  if (get_u16(path) == p->local_as)
-	    return 1;
-	  path += 2;
+	  if (a2_as != AS_TRANS)
+	    {
+	      /* Routes were aggregated by old router and therefore AS4_PATH
+	       * and AS4_AGGREGATOR is invalid
+	       *
+	       * Convert AS_PATH and AGGREGATOR to 4B format and finish.
+	       */
+
+	      a2->u.ptr = bgp_aggregator_convert_to_new(a2->u.ptr, pool);
+	      p2->u.ptr = bgp_merge_as_paths(p2->u.ptr, NULL, AS_PATH_MAXLEN, pool);
+
+	      return;
+	    }
+	  else
+	    {
+	      /* Common case, use AS4_AGGREGATOR attribute */
+	      a2->u.ptr = a4->u.ptr;
+	    }
+	}
+      else
+	{
+	  /* Common case, use old AGGREGATOR attribute */
+	  a2->u.ptr = bgp_aggregator_convert_to_new(a2->u.ptr, pool);
+
+	  if (a2_as == AS_TRANS)
+	    log(L_WARN "BGP: AGGREGATOR attribute contain AS_TRANS, but AS4_AGGREGATOR is missing");
 	}
     }
-  return 0;
+  else
+    if (a4)
+      log(L_WARN "BGP: AS4_AGGREGATOR attribute received, but AGGREGATOR attribute is missing");
+
+  int p2_len = as_path_getlen(p2->u.ptr);
+  int p4_len = p4 ? as_path_getlen(p4->u.ptr) : AS_PATH_MAXLEN;
+
+  if (p2_len < p4_len)
+    p2->u.ptr = bgp_merge_as_paths(p2->u.ptr, NULL, AS_PATH_MAXLEN, pool);
+  else
+    p2->u.ptr = bgp_merge_as_paths(p2->u.ptr, p4->u.ptr, p2_len - p4_len, pool);
+
+}
+
+static void
+bgp_remove_as4_attrs(struct bgp_proto *p, rta *a)
+{
+  unsigned id1 = EA_CODE(EAP_BGP, BA_AS4_PATH);
+  unsigned id2 = EA_CODE(EAP_BGP, BA_AS4_AGGREGATOR);
+  ea_list **el = &(a->eattrs);
+
+  /* We know that ea_lists constructed in bgp_decode_attrs have one attribute per ea_list struct */
+  while (*el != NULL)
+    {
+      unsigned fid = (*el)->attrs[0].id;
+
+      if ((fid == id1) || (fid == id2))
+	{
+	  *el = (*el)->next;
+	  if (p->as4_support)
+	    log(L_WARN "BGP: Unexpected AS4_* attributes received");
+	}
+      else
+	el = &((*el)->next);
+    }
 }
 
 /**
@@ -883,6 +1148,15 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 	    }
 	}
     }
+  
+  /* When receiving attributes from non-AS4-aware BGP speaker,
+   * we have to reconstruct 4B AS_PATH and AGGREGATOR attributes
+   */
+  if (bgp_as4_support && (! bgp->as4_support))
+    bgp_reconstruct_4b_atts(bgp, a, pool);
+
+  if (bgp_as4_support)
+    bgp_remove_as4_attrs(bgp, a);
 
   /* If the AS path attribute contains our AS, reject the routes */
   e = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
@@ -945,11 +1219,11 @@ bgp_get_route_info(rte *e, byte *buf, ea_list *attrs)
 {
   eattr *p = ea_find(attrs, EA_CODE(EAP_BGP, BA_AS_PATH));
   eattr *o = ea_find(attrs, EA_CODE(EAP_BGP, BA_ORIGIN));
-  int origas;
+  u32 origas;
 
   buf += bsprintf(buf, " (%d) [", e->pref);
-  if (p && (origas = as_path_get_first(p->u.ptr)) >= 0)
-    buf += bsprintf(buf, "AS%d", origas);
+  if (p && as_path_get_first(p->u.ptr, &origas))
+    buf += bsprintf(buf, "AS%u", origas);
   if (o)
     buf += bsprintf(buf, "%c", "ie?"[o->u.data]);
   strcpy(buf, "]");

@@ -12,6 +12,7 @@
 #include "nest/iface.h"
 #include "nest/protocol.h"
 #include "nest/route.h"
+#include "nest/attrs.h"
 #include "conf/conf.h"
 #include "lib/unaligned.h"
 #include "lib/socket.h"
@@ -30,25 +31,10 @@ bgp_create_notification(struct bgp_conn *conn, byte *buf)
   return buf + 2 + conn->notify_size;
 }
 
+#ifdef IPV6
 static byte *
-bgp_create_open(struct bgp_conn *conn, byte *buf)
+bgp_put_cap_ipv6(struct bgp_conn *conn UNUSED, byte *buf)
 {
-  struct bgp_proto *p = conn->bgp;
-
-  BGP_TRACE(D_PACKETS, "Sending OPEN(ver=%d,as=%d,hold=%d,id=%08x)",
-	    BGP_VERSION, p->local_as, p->cf->hold_time, p->local_id);
-  buf[0] = BGP_VERSION;
-  put_u16(buf+1, p->local_as);
-  put_u16(buf+3, p->cf->hold_time);
-  put_u32(buf+5, p->local_id);
-#ifndef IPV6
-  buf[9] = 0;				/* No optional parameters */
-  return buf+10;
-#else
-  buf += 9;
-  *buf++ = 8;		/* Optional params len */
-  *buf++ = 2;		/* Option: Capability list */
-  *buf++ = 6;		/* Option length */
   *buf++ = 1;		/* Capability 1: Multiprotocol extensions */
   *buf++ = 4;		/* Capability data length */
   *buf++ = 0;		/* We support AF IPv6 */
@@ -56,7 +42,53 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
   *buf++ = 0;		/* RFU */
   *buf++ = 1;		/* and SAFI 1 */
   return buf;
+}
 #endif
+
+static byte *
+bgp_put_cap_as4(struct bgp_conn *conn, byte *buf)
+{
+  *buf++ = 65;		/* Capability 65: Support for 4-octet AS number */
+  *buf++ = 4;		/* Capability data length */
+  put_u32(buf, conn->bgp->local_as);
+  return buf + 4;
+}
+
+static byte *
+bgp_create_open(struct bgp_conn *conn, byte *buf)
+{
+  struct bgp_proto *p = conn->bgp;
+  byte *cap;
+  int cap_len;
+
+  BGP_TRACE(D_PACKETS, "Sending OPEN(ver=%d,as=%d,hold=%d,id=%08x)",
+	    BGP_VERSION, p->local_as, p->cf->hold_time, p->local_id);
+  buf[0] = BGP_VERSION;
+  put_u16(buf+1, (p->local_as < 0xFFFF) ? p->local_as : AS_TRANS);
+  put_u16(buf+3, p->cf->hold_time);
+  put_u32(buf+5, p->local_id);
+  /* Skipped 3 B for length field and Capabilities parameter header */
+  cap = buf + 12;
+
+#ifdef IPV6
+  cap = bgp_put_cap_ipv6(conn, cap);
+#endif
+  if (bgp_as4_support)
+    cap = bgp_put_cap_as4(conn, cap);
+
+  cap_len = cap - buf - 12;
+  if (cap_len > 0)
+    {
+      buf[9]  = cap_len + 2;	/* Optional params len */
+      buf[10] = 2;		/* Option: Capability list */
+      buf[11] = cap_len;	/* Option length */
+      return cap;
+    }
+  else
+    {
+      buf[9] = 0;		/* No optional parameters */
+      return buf + 10;
+    }
 }
 
 static unsigned int
@@ -118,7 +150,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	      continue;
 	    }
 	  DBG("Processing bucket %p\n", buck);
-	  a_size = bgp_encode_attrs(w+2, buck->eattrs, 1024);
+	  a_size = bgp_encode_attrs(p, w+2, buck->eattrs, 1024);
 	  put_u16(w, a_size);
 	  w += a_size + 2;
 	  r_size = bgp_encode_prefixes(p, w, buck, remains - a_size);
@@ -166,7 +198,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
       *tmp++ = BGP_AF_IPV6;
       *tmp++ = 1;
       ea->attrs[0].u.ptr->length = bgp_encode_prefixes(p, tmp, buck, remains-11);
-      size = bgp_encode_attrs(w, ea, remains);
+      size = bgp_encode_attrs(p, w, ea, remains);
       w += size;
       remains -= size;
     }
@@ -183,7 +215,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	      continue;
 	    }
 	  DBG("Processing bucket %p\n", buck);
-	  size = bgp_encode_attrs(w, buck->eattrs, 1024);
+	  size = bgp_encode_attrs(p, w, buck->eattrs, 1024);
 	  w += size;
 	  remains -= size;
 	  tstart = tmp = bgp_attach_attr(&ea, bgp_linpool, BA_MP_REACH_NLRI, remains-8);
@@ -230,7 +262,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  *tmp++ = 0;			/* No SNPA information */
 	  tmp += bgp_encode_prefixes(p, tmp, buck, remains - (8+3+32+1));
 	  ea->attrs[0].u.ptr->length = tmp - tstart;
-	  w += bgp_encode_attrs(w, ea, remains);
+	  w += bgp_encode_attrs(p, w, ea, remains);
 	  break;
 	}
     }
@@ -353,9 +385,49 @@ bgp_tx(sock *sk)
     ;
 }
 
+/* Capatibility negotiation as per RFC 2842 */
+
+void
+bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
+{
+  struct bgp_proto *p = conn->bgp;
+  int cl;
+  u32 as;
+
+  while (len > 0)
+    {
+      if (len < 2 || len < 2 + opt[1])
+	goto err;
+      
+      cl = opt[1];
+
+      switch (opt[0])
+	{
+	case 65:
+	  if (cl != 4)
+	    goto err;
+	  p->as4_support = 1;
+	  if (bgp_as4_support)
+	    conn->advertised_as = get_u32(opt + 2);
+	  break;
+
+	  /* We can safely ignore all other capabilities */
+	}
+      len -= 2 + cl;
+      opt += 2 + cl;
+    }
+  return;
+
+    err:
+  bgp_error(conn, 2, 0, NULL, 0);
+  return;
+}
+
 static int
 bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
 {
+  int ol;
+
   while (len > 0)
     {
       if (len < 2 || len < 2 + opt[1])
@@ -369,12 +441,14 @@ bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
 	DBG("\n");
       }
 #endif
+
+      ol = opt[1];
       switch (opt[0])
 	{
 	case 2:
-	  /* Capatibility negotiation as per RFC 2842 */
-	  /* We can safely ignore all capabilities announced */
+	  bgp_parse_capabilities(conn, opt + 2, ol);
 	  break;
+
 	default:
 	  /*
 	   *  BGP specs don't tell us to send which option
@@ -382,11 +456,11 @@ bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
 	   *  to do so. Also, capability negotiation with
 	   *  Cisco routers doesn't work without that.
 	   */
-	  bgp_error(conn, 2, 4, opt, opt[1]);
+	  bgp_error(conn, 2, 4, opt, ol);
 	  return 0;
 	}
-      len -= 2 + opt[1];
-      opt += 2 + opt[1];
+      len -= 2 + ol;
+      opt += 2 + ol;
     }
   return 0;
 }
@@ -397,7 +471,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   struct bgp_conn *other;
   struct bgp_proto *p = conn->bgp;
   struct bgp_config *cf = p->cf;
-  unsigned as, hold;
+  unsigned hold;
   u32 id;
 
   /* Check state */
@@ -409,19 +483,26 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
     { bgp_error(conn, 1, 2, pkt+16, 2); return; }
   if (pkt[19] != BGP_VERSION)
     { bgp_error(conn, 2, 1, pkt+19, 1); return; } /* RFC 1771 says 16 bits, draft-09 tells to use 8 */
-  as = get_u16(pkt+20);
+  conn->advertised_as = get_u16(pkt+20);
   hold = get_u16(pkt+22);
   id = get_u32(pkt+24);
-  BGP_TRACE(D_PACKETS, "Got OPEN(as=%d,hold=%d,id=%08x)", as, hold, id);
-  if (cf->remote_as && as != p->remote_as)
-    { bgp_error(conn, 2, 2, pkt+20, -2); return; }
-  if (hold > 0 && hold < 3)
-    { bgp_error(conn, 2, 6, pkt+22, 2); return; }
-  p->remote_id = id;
+  BGP_TRACE(D_PACKETS, "Got OPEN(as=%d,hold=%d,id=%08x)", conn->advertised_as, hold, id);
+
+  p->remote_id = id; // ???
   if (bgp_parse_options(conn, pkt+29, pkt[28]))
     return;
+
+  if (hold > 0 && hold < 3)
+    { bgp_error(conn, 2, 6, pkt+22, 2); return; }
+
   if (!id || id == 0xffffffff || id == p->local_id)
     { bgp_error(conn, 2, 3, pkt+24, -4); return; }
+
+
+  if (conn->advertised_as != p->remote_as)
+    {
+      bgp_error(conn, 2, 2, (byte *) &(conn->advertised_as), -4); return;
+    }
 
   /* Check the other connection */
   other = (conn == &p->outgoing_conn) ? &p->incoming_conn : &p->outgoing_conn;
@@ -463,7 +544,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   else
     conn->hold_time = p->cf->hold_time;
   conn->keepalive_time = p->cf->keepalive_time ? : conn->hold_time / 3;
-  p->remote_as = as;
+  // p->remote_as = conn->advertised_as;
   p->remote_id = id;
   DBG("BGP: Hold timer set to %d, keepalive to %d, AS to %d, ID to %x\n", conn->hold_time, conn->keepalive_time, p->remote_as, p->remote_id);
 
@@ -720,7 +801,7 @@ static struct {
   { 2, 4, "Unsupported optional parameter" },
   { 2, 5, "Authentication failure" },
   { 2, 6, "Unacceptable hold time" },
-  { 2, 7, "Required capability missing" }, /* capability negotiation draft */
+  { 2, 7, "Required capability missing" }, /* [RFC3392] */
   { 3, 0, "Invalid UPDATE message" },
   { 3, 1, "Malformed attribute list" },
   { 3, 2, "Unrecognized well-known attribute" },

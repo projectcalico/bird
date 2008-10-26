@@ -44,12 +44,10 @@ bgp_proto_start: proto_start BGP {
 bgp_proto:
    bgp_proto_start proto_name '{'
  | bgp_proto proto_item ';'
- | bgp_proto LOCAL AS expr ';' {
-     if ($4 < 0 || $4 > 65535) cf_error("AS number out of range");
-     BGP_CFG->local_as = $4;
-   }
+ | bgp_proto LOCAL AS expr ';' { BGP_CFG->local_as = $4; }
  | bgp_proto NEIGHBOR ipa AS expr ';' {
-     if ($5 < 0 || $5 > 65535) cf_error("AS number out of range");
+     if (ipa_nonzero(BGP_CFG->remote_ip)) cf_error("Only one neighbor per BGP instance is allowed");
+
      BGP_CFG->remote_ip = $3;
      BGP_CFG->remote_as = $5;
    }

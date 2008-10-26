@@ -39,7 +39,6 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %type <v> set_atom fprefix fprefix_s fipa
 %type <s> decls declsn one_decl function_params 
 %type <h> bgp_path
-%type <i> bgp_one
 
 CF_GRAMMAR
 
@@ -273,14 +272,12 @@ switch_body: /* EMPTY */ { $$ = NULL; }
 
 /* CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; } */
 
-bgp_one:
-   NUM { $$ = $1; }
- | '?' { $$ = PM_ANY; }
- ;
 
 bgp_path: 
-   bgp_one          { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = NULL; $$->val  = $1; }
- | bgp_one bgp_path { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = $1; }
+   NUM          { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = NULL; $$->val  = $1; $$->any = 0; }
+ | '?'          { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = NULL; $$->val  = 0;  $$->any = 1; }
+ | NUM bgp_path { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = $1; $$->any = 0; }
+ | '?' bgp_path { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = 0;  $$->any = 1; }
  ;
 
 constant:

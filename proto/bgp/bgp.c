@@ -76,6 +76,7 @@ static void bgp_connect(struct bgp_proto *p);
 static void bgp_initiate(struct bgp_proto *p);
 static void bgp_setup_listen_sk(void);
 
+
 static void
 bgp_close(struct bgp_proto *p UNUSED)
 {
@@ -611,6 +612,10 @@ bgp_check(struct bgp_config *c)
     cf_error("Local AS number must be set");
   if (!c->remote_as)
     cf_error("Neighbor must be configured");
+  if (!bgp_as4_support && (c->local_as > 0xFFFF))
+    cf_error("Local AS number out of range");
+  if (!bgp_as4_support && (c->remote_as > 0xFFFF))
+    cf_error("Neighbor AS number out of range");
 }
 
 static void
