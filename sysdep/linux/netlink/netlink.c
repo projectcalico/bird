@@ -385,7 +385,7 @@ nl_parse_addr(struct nlmsghdr *h)
 	  ipa_ntoh(xbrd);
 	  if (ipa_equal(xbrd, ifa.prefix) || ipa_equal(xbrd, ifa.brd))
 	    ifa.brd = xbrd;
-	  else
+	  else if (ifi->flags & IF_TMP_DOWN) /* Complain only during the first scan */
 	    log(L_ERR "KIF: Invalid broadcast address %I for %s", xbrd, ifi->name);
 	}
 #endif
