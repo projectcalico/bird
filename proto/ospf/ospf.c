@@ -1052,16 +1052,16 @@ show_lsa_router(struct top_hash_entry *he)
 	cli_msg(-1016, "\t\tnetwork %I/%d metric %u ", ipa_and(ipa_from_u32(net_lsa->id), net_ln->netmask), ipa_mklen(net_ln->netmask), rr[i].metric);
       }
       else
-	cli_msg(-1016, "\t\tnetwork ??? metric %u ", rr[i].id, ipa_mklen(rr[i].data), rr[i].metric);
+	cli_msg(-1016, "\t\tnetwork ??? metric %u ", rr[i].metric);
     }
 
   for (i = 0; i < rt->links; i++)
     if (rr[i].type == LSART_STUB)
-      cli_msg(-1016, "\t\tstubnet %I/%d metric %u ", rr[i].id, ipa_mklen(rr[i].data), rr[i].metric);
+      cli_msg(-1016, "\t\tstubnet %I/%d metric %u ", ipa_from_u32(rr[i].id), ipa_mklen(ipa_from_u32(rr[i].data)), rr[i].metric);
 
   for (i = 0; i < rt->links; i++)
     if (rr[i].type == LSART_VLNK)
-      cli_msg(-1016, "\t\tvlink %I metric %u ", rr[i].id, rr[i].metric);
+      cli_msg(-1016, "\t\tvlink %I metric %u ", ipa_from_u32(rr[i].id), rr[i].metric);
 }
 
 static inline void
@@ -1107,7 +1107,7 @@ show_lsa_external(struct top_hash_entry *he)
   char str_via[STD_ADDRESS_P_LENGTH + 8] = "";
   char str_tag[16] = "";
   
-  if (et->fwaddr)
+  if (ipa_nonzero(et->fwaddr))
     bsprintf(str_via, " via %I", et->fwaddr);
 
   if (et->tag)
