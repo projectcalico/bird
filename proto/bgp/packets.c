@@ -510,12 +510,9 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   switch (other->state)
     {
     case BS_IDLE:
-      break;
     case BS_CONNECT:
     case BS_ACTIVE:
     case BS_OPENSENT:
-      BGP_TRACE(D_EVENTS, "Connection collision, giving up the other connection");
-      bgp_close_conn(other);
       break;
     case BS_OPENCONFIRM:
       if ((p->local_id < id) == (conn == &p->incoming_conn))
