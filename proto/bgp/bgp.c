@@ -492,6 +492,8 @@ bgp_start_locked(struct object_lock *lock)
       p->rr_client = cf->rr_client;
     }
 
+  p->rs_client = cf->rs_client;
+
   if (!p->neigh)
     {
       log(L_ERR "%s: Invalid next hop %I", p->p.name, p->next_hop);
@@ -644,6 +646,8 @@ bgp_check(struct bgp_config *c)
     cf_error("Neighbor AS number out of range");
   if ((c->local_as != c->remote_as) && (c->rr_client))
     cf_error("Only internal neighbor can be RR client");
+  if ((c->local_as == c->remote_as) && (c->rs_client))
+    cf_error("Only external neighbor can be RS client");
 }
 
 static void

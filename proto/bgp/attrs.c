@@ -828,7 +828,7 @@ bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
 {
   eattr *a;
 
-  if (!p->is_internal)
+  if (!p->is_internal && !p->rs_client)
     {
       bgp_path_prepend(e, attrs, pool, p->local_as);
 

@@ -28,6 +28,7 @@ struct bgp_config {
   int enable_as4;			/* Enable local support for 4B AS numbers [RFC4893] */
   u32 rr_cluster_id;			/* Route reflector cluster ID, if different from local ID */
   int rr_client;			/* Whether neighbor is RR client of me */
+  int rs_client;			/* Whether neighbor is RS client of me */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
@@ -66,6 +67,7 @@ struct bgp_proto {
   u32 remote_id;			/* BGP identifier of the neighbor */
   u32 rr_cluster_id;			/* Route reflector cluster ID */
   int rr_client;			/* Whether neighbor is RR client of me */
+  int rs_client;			/* Whether neighbor is RS client of me */
   struct bgp_conn *conn;		/* Connection we have established */
   struct bgp_conn outgoing_conn;	/* Outgoing connection we're working with */
   struct bgp_conn incoming_conn;	/* Incoming connection we have neither accepted nor rejected yet */

@@ -62,9 +62,10 @@ a statically configured table.
 <p>A <em/Routing Daemon/ is in UNIX terminology a non-interactive program running on
 background which does the dynamic part of Internet routing, that is it communicates
 with the other routers, calculates routing tables and sends them to the OS kernel
-which does the actual packet forwarding. There already exist other such routing daemons: routed (RIP only), GateD<HTMLURL URL="http://www.gated.org/">
- (non-free), Zebra<HTMLURL URL="http://www.zebra.org"> and MRTD<HTMLURL URL="http://www.zcu.cz/ftp/mirrors/mmrz/mrtd">, but their capabilities are limited and
-they are relatively hard to configure and maintain.
+which does the actual packet forwarding. There already exist other such routing
+daemons: routed (RIP only), GateD (non-free), Zebra<HTMLURL URL="http://www.zebra.org">
+and MRTD<HTMLURL URL="http://sourceforge.net/projects/mrt">, but their capabilities are
+limited and they are relatively hard to configure and maintain.
 
 <p>BIRD is an Internet Routing Daemon designed to avoid all of these shortcomings,
 to support all the routing technology used in the today's Internet or planned to be
@@ -730,8 +731,8 @@ for each neighbor using the following configuration parameters:
 	<tag>password <m/string/</tag> Use this password for MD5 authentication
 	of BGP sessions. Default: no authentication.
 
-	<tag>rr client</tag> Be a route reflector and treat neighbor as
-	route reflection client. Default: disabled.
+	<tag>rr client</tag> Be a route reflector and treat the neighbor as
+	a route reflection client. Default: disabled.
 
 	<tag>rr cluster id <m/IPv4 address/</tag> Route reflectors use cluster id
 	to avoid route reflection loops. When there is one route reflector in a cluster
@@ -739,6 +740,15 @@ for each neighbor using the following configuration parameters:
 	reflectors in a cluster, these need to be configured (using this option) to
 	use a common cluster id. Clients in a cluster need not known their cluster
 	id and this option is not allowed to them  Default: a same as router id.
+
+	<tag>rs client</tag> Be a route server and treat the neighbor
+	as a route server client. A route server is used as a
+	replacement for full mesh EBGP routing in Internet exchange
+	points in a similar way to route reflectors used in IBGP routing.
+	Bird does not implement obsoleted RFC 1863, but uses ad-hoc implementation,
+	which behaves like plain EBGP but reduces modifications to advertised route
+	attributes to be transparent (for example does not prepend its AS number to
+	AS PATH attribute and keep MED attribute). Default: disabled.
 
 	<tag>enable as4 <m/switch/</tag> BGP protocol was designed to use 2B AS numbers
 	and was extended later to allow 4B AS number. BIRD supports 4B AS extension,
