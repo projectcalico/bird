@@ -298,11 +298,7 @@ static void
 bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
 {
   s->data = conn;
-  s->ttl = p->cf->multihop ? : 1;
-  s->rbsize = BGP_RX_BUFFER_SIZE;
-  s->tbsize = BGP_TX_BUFFER_SIZE;
   s->err_hook = bgp_sock_err;
-  s->tos = IP_PREC_INTERNET_CONTROL;
   conn->sk = s;
 }
 
@@ -330,11 +326,15 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
     s->saddr = p->local_addr;
   s->daddr = p->cf->remote_ip;
   s->dport = BGP_PORT;
+  s->ttl = p->cf->multihop ? : 1;
+  s->rbsize = BGP_RX_BUFFER_SIZE;
+  s->tbsize = BGP_TX_BUFFER_SIZE;
+  s->tos = IP_PREC_INTERNET_CONTROL;
+  s->password = p->cf->password;
+  s->tx_hook = bgp_connected;
   BGP_TRACE(D_EVENTS, "Connecting to %I from local address %I", s->daddr, s->saddr);
   bgp_setup_conn(p, conn);
   bgp_setup_sk(p, conn, s);
-  s->tx_hook = bgp_connected;
-  s->password = p->cf->password;
   conn->state = BS_CONNECT;
   if (sk_open(s))
     {
@@ -399,6 +399,7 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
 		  }
 		bgp_setup_conn(p, &p->incoming_conn);
 		bgp_setup_sk(p, &p->incoming_conn, sk);
+		sk_set_ttl(sk, p->cf->multihop ? : 1);
 		bgp_send_open(&p->incoming_conn);
 		return 0;
 	      }
@@ -420,7 +421,6 @@ bgp_setup_listen_sk(void)
       s->type = SK_TCP_PASSIVE;
       s->sport = BGP_PORT;
       s->tos = IP_PREC_INTERNET_CONTROL;
-      s->ttl = 1;
       s->rbsize = BGP_RX_BUFFER_SIZE;
       s->tbsize = BGP_TX_BUFFER_SIZE;
       s->rx_hook = bgp_incoming_connection;

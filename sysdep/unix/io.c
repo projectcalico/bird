@@ -610,6 +610,25 @@ get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port, int check)
 
 #endif
 
+static char *
+sk_set_ttl_int(sock *s)
+{
+  int one = 1;
+#ifdef IPV6
+  if (s->type != SK_UDP_MC && s->type != SK_IP_MC &&
+      setsockopt(fd, SOL_IPV6, IPV6_UNICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
+    return "IPV6_UNICAST_HOPS";
+#else
+  if (setsockopt(s->fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
+    return "IP_TTL";
+#ifdef CONFIG_UNIX_DONTROUTE
+  if (s->ttl == 1 && setsockopt(s->fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
+    return "SO_DONTROUTE";
+#endif 
+#endif
+  return NULL;
+}
+
 #define ERR(x) do { err = x; goto bad; } while(0)
 #define WARN(x) log(L_WARN "sk_setup: %s: %m", x)
 
@@ -617,30 +636,48 @@ static char *
 sk_setup(sock *s)
 {
   int fd = s->fd;
-  int one = 1;
   char *err;
 
   if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
     ERR("fcntl(O_NONBLOCK)");
   if (s->type == SK_UNIX)
     return NULL;
-#ifdef IPV6
-  if (s->ttl >= 0 && s->type != SK_UDP_MC && s->type != SK_IP_MC &&
-      setsockopt(fd, SOL_IPV6, IPV6_UNICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
-    ERR("IPV6_UNICAST_HOPS");
-#else
+#ifndef IPV6
   if ((s->tos >= 0) && setsockopt(fd, SOL_IP, IP_TOS, &s->tos, sizeof(s->tos)) < 0)
     WARN("IP_TOS");
-  if (s->ttl >= 0 && setsockopt(fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
-    ERR("IP_TTL");
-#ifdef CONFIG_UNIX_DONTROUTE
-  if (s->ttl == 1 && setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
-    ERR("SO_DONTROUTE");
-#endif 
 #endif
-  err = NULL;
+  
+  if (s->ttl >= 0)
+    err = sk_set_ttl_int(s);
+  else
+    err = NULL;
+
 bad:
   return err;
+}
+
+/**
+ * sk_set_ttl - set TTL for given socket.
+ * @s: socket
+ * @ttl: TTL value
+ *
+ * Set TTL for already opened connections when TTL was not set before.
+ * Useful for accepted connections when different ones should have 
+ * different TTL.
+ *
+ * Result: 0 for success, -1 for an error.
+ */
+
+int
+sk_set_ttl(sock *s, int ttl)
+{
+  char *err;
+
+  s->ttl = ttl;
+  if (err = sk_set_ttl_int(s))
+    log(L_ERR "sk_set_ttl: %s: %m", err);
+
+  return (err ? -1 : 0);
 }
 
 
