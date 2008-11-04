@@ -62,7 +62,7 @@ if test "$ac_test_CFLAGS" != set ; then
 	else
 		WARNS=" -Wno-unused"
 	fi
-	CFLAGS="$CFLAGS -Wall -W -Wstrict-prototypes -Wno-parentheses$WARNS"
+	CFLAGS="$CFLAGS -Wall -W -Wstrict-prototypes -Wno-pointer-sign -Wno-parentheses$WARNS"
 fi
 if test "$with_sysinclude" != no -a -n "$with_sysinclude"; then
 	CPPFLAGS="$CPPFLAGS -I$with_sysinclude"
