@@ -255,7 +255,7 @@ static void
 nl_parse_link(struct nlmsghdr *h, int scan)
 {
   struct ifinfomsg *i;
-  struct rtattr *a[IFLA_STATS+1];
+  struct rtattr *a[IFLA_WIRELESS+1];
   int new = h->nlmsg_type == RTM_NEWLINK;
   struct iface f;
   struct iface *ifi;
@@ -268,7 +268,7 @@ nl_parse_link(struct nlmsghdr *h, int scan)
   if (!a[IFLA_IFNAME] || RTA_PAYLOAD(a[IFLA_IFNAME]) < 2 ||
       !a[IFLA_MTU] || RTA_PAYLOAD(a[IFLA_MTU]) != 4)
     {
-      if (scan)
+      if (scan || !a[IFLA_WIRELESS])
         log(L_ERR "nl_parse_link: Malformed message received");
       return;
     }
