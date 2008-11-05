@@ -616,7 +616,7 @@ sk_set_ttl_int(sock *s)
   int one = 1;
 #ifdef IPV6
   if (s->type != SK_UDP_MC && s->type != SK_IP_MC &&
-      setsockopt(fd, SOL_IPV6, IPV6_UNICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
+      setsockopt(s->fd, SOL_IPV6, IPV6_UNICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
     return "IPV6_UNICAST_HOPS";
 #else
   if (setsockopt(s->fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
