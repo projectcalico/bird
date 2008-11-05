@@ -165,7 +165,7 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
       WALK_LIST(ptmp, *(ifa->passwords))
       {
         if (pkt->u.md5.keyid != ptmp->id) continue;
-        if ((ptmp->accfrom > now) || (ptmp->accto < now)) continue;
+        if ((ptmp->accfrom > now_real) || (ptmp->accto < now_real)) continue;
         pass = ptmp;
         break;
       }

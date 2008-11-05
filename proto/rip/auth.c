@@ -77,7 +77,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       WALK_LIST(ptmp, *l)
       {
         if (block->keyid != ptmp->id) continue;
-        if ((ptmp->genfrom > now) || (ptmp->gento < now)) continue;
+        if ((ptmp->genfrom > now_real) || (ptmp->gento < now_real)) continue;
         pass = ptmp;
         break;
       }

@@ -49,6 +49,8 @@ else
 	fi
 fi
 
+LIBS=" -lrt"
+
 AC_CANONICAL_HOST
 
 AC_PROG_CC

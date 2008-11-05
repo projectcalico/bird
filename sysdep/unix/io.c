@@ -83,10 +83,11 @@ tracked_fopen(pool *p, char *name, char *mode)
  * doesn't guarantee exact timing, only that a timer function
  * won't be called before the requested time.
  *
- * In BIRD, real time is represented by values of the &bird_clock_t type
- * which are integral numbers interpreted as a number of seconds since
- * a fixed (but platform dependent) epoch. The current time can be read
- * from a variable @now with reasonable accuracy.
+ * In BIRD, time is represented by values of the &bird_clock_t type
+ * which are integral numbers interpreted as a relative number of seconds since
+ * some fixed time point in past. The current time can be read
+ * from variable @now with reasonable accuracy and is monotonic. There is also
+ * a current 'absolute' time in variable @now_real reported by OS.
  *
  * Each timer is described by a &timer structure containing a pointer
  * to the handler function (@hook), data private to this function (@data),
@@ -99,7 +100,61 @@ tracked_fopen(pool *p, char *name, char *mode)
 static list near_timers, far_timers;
 static bird_clock_t first_far_timer = TIME_INFINITY;
 
-bird_clock_t now;
+bird_clock_t now, now_real;
+
+static void
+update_times_plain(void)
+{
+  bird_clock_t new_time = time(NULL);
+  int delta = new_time - now_real;
+
+  if ((delta >= 0) && (delta < 60))
+    now += delta;
+  else if (now_real != 0)
+   log(L_WARN "Time jump, delta %d s", delta);
+
+  now_real = new_time;
+}
+
+static void
+update_times_gettime(void)
+{
+  struct timespec ts;
+  int rv;
+
+  rv = clock_gettime(CLOCK_MONOTONIC, &ts);
+  if (rv != 0)
+    die("clock_gettime: %m");
+
+  if (ts.tv_sec != now) {
+    if (ts.tv_sec < now)
+      log(L_ERR "Monotonic timer is broken");
+
+    now = ts.tv_sec;
+    now_real = time(NULL);
+  }
+}
+
+static int clock_monotonic_available;
+
+static inline void
+update_times(void)
+{
+  if (clock_monotonic_available)
+    update_times_gettime();
+  else
+    update_times_plain();
+}
+
+static inline void
+init_times(void)
+{
+ struct timespec ts;
+ clock_monotonic_available = (clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
+ if (!clock_monotonic_available)
+   log(L_WARN "Monotonic timer is missing");
+}
+
 
 static void
 tm_free(resource *r)
@@ -353,8 +408,8 @@ tm_parse_date(char *x)
  * @x: destination buffer of size %TM_DATE_BUFFER_SIZE
  * @t: time
  *
- * This function formats the given time value @t to a textual
- * date representation (dd-mm-yyyy).
+ * This function formats the given relative time value @t to a textual
+ * date representation (dd-mm-yyyy) in real time..
  */
 void
 tm_format_date(char *x, bird_clock_t t)
@@ -370,14 +425,15 @@ tm_format_date(char *x, bird_clock_t t)
  * @x: destination buffer of size %TM_DATETIME_BUFFER_SIZE
  * @t: time
  *
- * This function formats the given time value @t to a textual
- * date/time representation (dd-mm-yyyy hh:mm:ss).
+ * This function formats the given relative time value @t to a textual
+ * date/time representation (dd-mm-yyyy hh:mm:ss) in real time.
  */
 void
 tm_format_datetime(char *x, bird_clock_t t)
 {
   struct tm *tm;
-
+  bird_clock_t delta = now - t;
+  t = now_real - delta;
   tm = localtime(&t);
   if (strftime(x, TM_DATETIME_BUFFER_SIZE, "%d-%m-%Y %H:%M:%S", tm) == TM_DATETIME_BUFFER_SIZE)
     strcpy(x, "<too-long>");
@@ -388,16 +444,17 @@ tm_format_datetime(char *x, bird_clock_t t)
  * @x: destination buffer of size %TM_RELTIME_BUFFER_SIZE
  * @t: time
  *
- * This function formats the given time value @t to a short
- * textual representation relative to the current time.
+ * This function formats the given relative time value @t to a short
+ * textual representation in real time, relative to the current time.
  */
 void
 tm_format_reltime(char *x, bird_clock_t t)
 {
   struct tm *tm;
-  bird_clock_t delta = (t < now) ? (now - t) : (t - now);
   static char *month_names[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
+  bird_clock_t delta = now - t;
+  t = now_real - delta;
   tm = localtime(&t);
   if (delta < 20*3600)
     bsprintf(x, "%02d:%02d", tm->tm_hour, tm->tm_min);
@@ -1217,8 +1274,9 @@ io_init(void)
   init_list(&sock_list);
   init_list(&global_event_list);
   krt_io_init();
-  now = time(NULL);
-  srandom((int) now);
+  init_times();
+  update_times();
+  srandom((int) now_real);
 }
 
 void
@@ -1235,7 +1293,7 @@ io_loop(void)
   for(;;)
     {
       events = ev_run_list(&global_event_list);
-      now = time(NULL);
+      update_times();
       tout = tm_first_shot();
       if (tout <= now)
 	{

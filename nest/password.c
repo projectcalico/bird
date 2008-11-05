@@ -22,7 +22,7 @@ password_find(list *l)
   {
     WALK_LIST(pi, *l)
     {
-      if ((pi->genfrom < now) && (pi->gento > now))
+      if ((pi->genfrom < now_real) && (pi->gento > now_real))
         return pi;
     }
   }
