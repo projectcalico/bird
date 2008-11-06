@@ -49,7 +49,7 @@ else
 	fi
 fi
 
-LIBS=" -lrt"
+AC_SEARCH_LIBS(clock_gettime,[c rt posix4])
 
 AC_CANONICAL_HOST
 
