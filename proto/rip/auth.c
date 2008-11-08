@@ -39,7 +39,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
   switch (ntohs(block->authtype)) {	/* Authentication type */
   case AT_PLAINTEXT: 
     {
-      struct password_item *passwd = password_find(P_CF->passwords);
+      struct password_item *passwd = password_find(P_CF->passwords, 1);
       DBG( "Plaintext passwd" );
       if (!passwd) {
 	log( L_AUTH "No passwords set and password authentication came" );
@@ -115,7 +115,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
 int
 rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, struct rip_packet *packet, int num )
 {
-  struct password_item *passwd = password_find( P_CF->passwords);
+  struct password_item *passwd = password_find(P_CF->passwords, 1);
 
   if (!P_CF->authtype)
     return PACKETLEN(num);

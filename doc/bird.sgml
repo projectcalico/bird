@@ -1072,16 +1072,14 @@ protocol ospf &lt;name&gt; {
 			rx buffer [normal|large|&lt;num&gt;];
 			type [broadcast|nonbroadcast|pointopoint];
 			strict nonbroadcast &lt;switch&gt;;
-			authentication [none|simple];
+			authentication [none|simple|cryptographics];
 			password "&lt;text&gt;";
-			passwords {
-				password "&lt;text&gt;" {
-					id &lt;num&gt;;
-					generate from "&lt;date&gt;";
-					generate to "&lt;date&gt;";
-					accept from "&lt;date&gt;";
-					accept to "&lt;date&gt;";
-				};
+			password "&lt;text&gt;" {
+				id &lt;num&gt;;
+				generate from "&lt;date&gt;";
+				generate to "&lt;date&gt;";
+				accept from "&lt;date&gt;";
+				accept to "&lt;date&gt;";
 			};
 			neighbors {
 				&lt;ip&gt;;
@@ -1210,7 +1208,7 @@ protocol ospf &lt;name&gt; {
 	 very weak.
 
 	<tag>authentication cryptographic</tag>
-	 16-byte long md5 digest is appended to every packet. For the digest
+	 16-byte long MD5 digest is appended to every packet. For the digest
          generation 16-byte long passwords are used. Those passwords are 
          not sent via network, so this mechanismus is quite secure.
          Packets can still be read by an attacker.
@@ -1220,7 +1218,9 @@ protocol ospf &lt;name&gt; {
 
 	<tag>id <M>num</M></tag>
 	 ID of the password, (0-255). If it's not used, BIRD will choose
-	 some automatically.
+	 ID based on an order of the password item in the interface. For
+	 example, second password item in one interface will have default
+	 ID 2.  
 
 	<tag>generate from <M>date</M></tag>
 	 The start time of the usage of the password for packet signing.
@@ -1439,7 +1439,7 @@ RIP on networks where maximal distance is higher than 15 hosts. You can read mor
 URL="http://www.ietf.org/html.charters/rip-charter.html" name="http://www.ietf.org/html.charters/rip-charter.html">. Both IPv4  
 (RFC 1723<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1723.txt">)
 and IPv6 (RFC 2080<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2080.txt">) versions of RIP are supported by BIRD, historical RIPv1 (RFC 1058<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1058.txt">)is
-not currently supported. RIPv4 md5 authentication (RFC 2082<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2082.txt">) is supported.
+not currently supported. RIPv4 MD5 authentication (RFC 2082<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2082.txt">) is supported.
 
 <p>RIP is a very simple protocol, and it has a lot of shortcomings. Slow
 convergence, big network load and inability to handle larger networks
@@ -1454,7 +1454,7 @@ because there are no good implementations of OSPFv3.
 <descrip>
 	<tag/authentication none|plaintext|md5/ selects authentication method to be used. <cf/none/ means that
 	  packets are not authenticated at all, <cf/plaintext/ means that a plaintext password is embedded
-	  into each packet, and <cf/md5/ means that packets are authenticated using a md5 cryptographic
+	  into each packet, and <cf/md5/ means that packets are authenticated using a MD5 cryptographic
 	  hash. If you set authentication to not-none, it is a good idea to add <cf>passwords { }</cf>
 	  section. Default: none.
 

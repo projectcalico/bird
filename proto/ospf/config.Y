@@ -32,7 +32,7 @@ CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL)
 
 CF_GRAMMAR
 
-CF_ADDTO(proto, ospf_proto '}')
+CF_ADDTO(proto, ospf_proto '}' { OSPF_PATT->passwords = get_passwords(); } )
 
 ospf_proto_start: proto_start OSPF {
      this_proto = proto_config_new(&proto_ospf, sizeof(struct ospf_config));
@@ -102,7 +102,7 @@ ospf_vlink_item:
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
  | AUTHENTICATION CRYPTOGRAPHIC { OSPF_PATT->autype = OSPF_AUTH_CRYPT ; }
- | password_list {OSPF_PATT->passwords = (list *) $1; }
+ | password_list 
  ;
 
 ospf_vlink_start: VIRTUAL LINK idval
@@ -146,7 +146,7 @@ ospf_iface_item:
  | RX BUFFER LARGE { OSPF_PATT->rxbuf = OSPF_RXBUF_LARGE ; } 
  | RX BUFFER NORMAL { OSPF_PATT->rxbuf = OSPF_RXBUF_NORMAL ; } 
  | RX BUFFER expr { OSPF_PATT->rxbuf = $3 ; if ($3 < OSPF_RXBUF_MINSIZE) cf_error("Buffer size is too small") ; } 
- | password_list {OSPF_PATT->passwords = (list *) $1; }
+ | password_list
  ;
 
 pref_list:

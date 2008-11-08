@@ -41,7 +41,7 @@ ospf_pkt_maxsize(struct ospf_iface *ifa)
 void
 ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 {
-  struct password_item *passwd = password_find (ifa->passwords);
+  struct password_item *passwd = NULL;
   void *tail;
   struct MD5Context ctxt;
   char password[OSPF_AUTH_CRYPT_SIZE];
@@ -52,6 +52,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
   {
     case OSPF_AUTH_SIMPLE:
       bzero(&pkt->u, sizeof(union ospf_auth));
+      passwd = password_find(ifa->passwords, 1);
       if (!passwd)
       {
         log( L_ERR "No suitable password found for authentication" );
@@ -65,6 +66,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 				  sizeof(struct ospf_packet), NULL);
       break;
     case OSPF_AUTH_CRYPT:
+      passwd = password_find(ifa->passwords, 0);
       if (!passwd)
       {
         log( L_ERR "No suitable password found for authentication" );
@@ -123,7 +125,7 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
       return 1;
       break;
     case OSPF_AUTH_SIMPLE:
-      pass = password_find (ifa->passwords);
+      pass = password_find(ifa->passwords, 1);
       if(!pass)
       {
         OSPF_TRACE(D_PACKETS, "OSPF_auth: no password found");

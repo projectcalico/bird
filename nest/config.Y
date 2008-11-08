@@ -20,6 +20,16 @@ static struct proto_config *this_proto;
 static struct iface_patt *this_ipatt;
 static list *this_p_list;
 static struct password_item *this_p_item;
+static int password_id;
+
+static list *
+get_passwords(void)
+{
+  list *rv = this_p_list;
+  this_p_list = NULL;
+  return rv;
+}
+
 
 CF_DECLS
 
@@ -37,7 +47,6 @@ CF_ENUM(T_ENUM_RTD, RTD_, ROUTER, DEVICE, BLACKHOLE, UNREACHABLE, PROHIBIT)
 %type <i32> idval
 %type <f> imexport
 %type <r> rtable
-%type <p> password_list password_begin password_begin_list
 %type <s> optsym
 %type <ra> r_args
 %type <i> echo_mask echo_size debug_mask debug_list debug_flag import_or_proto
@@ -197,6 +206,11 @@ debug_flag:
 
 /* Password lists */
 
+password_list:
+   PASSWORDS '{' password_items '}'
+ | password_item
+;
+
 password_items: 
     /* empty */
   | password_item ';' password_items
@@ -209,14 +223,18 @@ password_item:
 
 password_item_begin:
    PASSWORD TEXT {
-     static int id = 1;
+     if (!this_p_list) {
+     	this_p_list = cfg_alloc(sizeof(list));
+     	init_list(this_p_list);
+        password_id = 1;
+     }
      this_p_item = cfg_alloc(sizeof (struct password_item));
      this_p_item->password = $2;
      this_p_item->genfrom = 0;
      this_p_item->gento = TIME_INFINITY;
      this_p_item->accfrom = 0;
      this_p_item->accto = TIME_INFINITY;
-     this_p_item->id = id++;
+     this_p_item->id = password_id++;
      add_tail(this_p_list, &this_p_item->n);
    }
 ;
@@ -230,36 +248,6 @@ password_item_params:
  | ID expr ';' password_item_params { this_p_item->id = $2; if ($2 <= 0) cf_error("Password ID has to be greated than zero."); }
  ;
 
-password_list:
-   password_begin_list '{' password_items '}' {
-     $$ = $1;
-   }
- | password_begin
-;
-
-password_begin_list:
-  PASSWORDS {
-     this_p_list = cfg_alloc(sizeof(list));
-     init_list(this_p_list);
-     $$ = (void *) this_p_list;
-  }
-;
-
-password_begin:
-  PASSWORD TEXT {
-     this_p_list = cfg_alloc(sizeof(list));
-     init_list(this_p_list);
-     this_p_item = cfg_alloc(sizeof (struct password_item));
-     this_p_item->password = $2;
-     this_p_item->genfrom = 0;
-     this_p_item->gento = TIME_INFINITY;
-     this_p_item->accfrom = 0;
-     this_p_item->accto = TIME_INFINITY;
-     this_p_item->id = 1;
-     add_tail(this_p_list, &this_p_item->n);
-     $$ = (void *) this_p_list;
-  }
-;
 
 /* Core commands */
 CF_CLI_HELP(SHOW, ..., [[Show status information]])
