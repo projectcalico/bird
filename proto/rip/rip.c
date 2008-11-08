@@ -972,7 +972,7 @@ rip_init_config(struct rip_proto_config *c)
 }
 
 static int
-rip_get_attr(eattr *a, byte *buf)
+rip_get_attr(eattr *a, byte *buf, int buflen UNUSED)
 {
   switch (a->id) {
   case EA_RIP_METRIC: buf += bsprintf( buf, "metric: %d", a->u.data ); return GA_FULL;

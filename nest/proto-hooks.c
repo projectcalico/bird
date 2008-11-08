@@ -146,7 +146,7 @@ void get_route_info(rte *e, byte *buf, ea_list *attrs)
  * or doing the whole conversion (used in case the value requires extra
  * care; return %GA_FULL).
  */
-int get_attr(eattr *a, byte *buf)
+int get_attr(eattr *a, byte *buf, int buflen)
 { DUMMY; }
 
 /**

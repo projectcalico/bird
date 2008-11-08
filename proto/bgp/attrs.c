@@ -35,7 +35,7 @@ struct attr_desc {
   int type;
   int allow_in_ebgp;
   int (*validate)(struct bgp_proto *p, byte *attr, int len);
-  void (*format)(eattr *ea, byte *buf);
+  void (*format)(eattr *ea, byte *buf, int buflen);
 };
 
 static int
@@ -47,7 +47,7 @@ bgp_check_origin(struct bgp_proto *p UNUSED, byte *a UNUSED, int len)
 }
 
 static void
-bgp_format_origin(eattr *a, byte *buf)
+bgp_format_origin(eattr *a, byte *buf, int buflen)
 {
   static char *bgp_origin_names[] = { "IGP", "EGP", "Incomplete" };
 
@@ -104,7 +104,7 @@ bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
 }
 
 static int
-bgp_check_aggregator(struct bgp_proto *p, UNUSED byte *a, int len)
+bgp_check_aggregator(struct bgp_proto *p, byte *a UNUSED, int len)
 {
   int exp_len = p->as4_session ? 8 : 6;
   
@@ -112,9 +112,15 @@ bgp_check_aggregator(struct bgp_proto *p, UNUSED byte *a, int len)
 }
 
 static int
-bgp_check_cluster_list(struct bgp_proto *p UNUSED, UNUSED byte *a, int len)
+bgp_check_cluster_list(struct bgp_proto *p UNUSED, byte *a UNUSED, int len)
 {
   return ((len % 4) == 0) ? 0 : 5;
+}
+
+static void
+bgp_format_cluster_list(eattr *a, byte *buf, int buflen UNUSED)
+{
+  int_set_format(a->u.ptr, 0, buf, buflen);
 }
 
 static int
@@ -156,10 +162,10 @@ static struct attr_desc bgp_attr_table[] = {
     bgp_check_aggregator, NULL },
   { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET, 1,	/* BA_COMMUNITY */
     NULL, NULL },
-  { "originator_id", 4, BAF_OPTIONAL, EAF_TYPE_INT, 0,				/* BA_ORIGINATOR_ID */
+  { "originator_id", 4, BAF_OPTIONAL, EAF_TYPE_ROUTER_ID, 0,			/* BA_ORIGINATOR_ID */
     NULL, NULL },
   { "cluster_list", -1, BAF_OPTIONAL, EAF_TYPE_INT_SET, 0,			/* BA_CLUSTER_LIST */
-    bgp_check_cluster_list, NULL }, 
+    bgp_check_cluster_list, bgp_format_cluster_list }, 
   { NULL, },									/* BA_DPA */
   { NULL, },									/* BA_ADVERTISER */
   { NULL, },									/* BA_RCID_PATH */
@@ -1306,7 +1312,7 @@ err:
 }
 
 int
-bgp_get_attr(eattr *a, byte *buf)
+bgp_get_attr(eattr *a, byte *buf, int buflen)
 {
   unsigned int i = EA_ID(a->id);
   struct attr_desc *d;
@@ -1319,7 +1325,7 @@ bgp_get_attr(eattr *a, byte *buf)
 	{
 	  *buf++ = ':';
 	  *buf++ = ' ';
-	  d->format(a, buf);
+	  d->format(a, buf, buflen);
 	  return GA_FULL;
 	}
       return GA_NAME;

@@ -14,7 +14,7 @@
 #include "lib/string.h"
 
 void
-int_set_format(struct adata *set, byte *buf, unsigned int size)
+int_set_format(struct adata *set, int way, byte *buf, unsigned int size)
 {
   u32 *z = (u32 *) set->data;
   int l = set->length / 4;
@@ -30,7 +30,14 @@ int_set_format(struct adata *set, byte *buf, unsigned int size)
 	  strcpy(buf, "...");
 	  return;
 	}
-      buf += bsprintf(buf, "(%d,%d)", *z >> 16, *z & 0xffff);
+
+      if (way)
+	buf += bsprintf(buf, "(%d,%d)", *z >> 16, *z & 0xffff);
+      else
+	buf += bsprintf(buf, "%d.%d.%d.%d",
+			(*z >> 24) & 0xff, (*z >> 16) & 0xff,
+			(*z >> 8) & 0xff, *z & 0xff);
+
       z++;
       sp = 0;
     }

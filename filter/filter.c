@@ -247,7 +247,7 @@ val_print(struct f_val v)
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   case T_PATH: as_path_format(v.val.ad, buf2, 1020); PRINTF( "(path %s)", buf2 ); break;
-  case T_CLIST: int_set_format(v.val.ad, buf2, 1020); PRINTF( "(clist %s)", buf2 ); break;
+  case T_CLIST: int_set_format(v.val.ad, 1, buf2, 1020); PRINTF( "(clist %s)", buf2 ); break;
   case T_PATH_MASK: pm_format(v.val.path_mask, buf2, 1020); PRINTF( "(pathmask %s)", buf2 ); break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF

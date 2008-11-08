@@ -386,7 +386,7 @@ ea_format(eattr *e, byte *buf)
     {
       buf += bsprintf(buf, "%s.", p->name);
       if (p->get_attr)
-	status = p->get_attr(e, buf);
+	status = p->get_attr(e, buf, end - buf);
       buf += strlen(buf);
     }
   else if (EA_PROTO(e->id))
@@ -429,7 +429,7 @@ ea_format(eattr *e, byte *buf)
 	  as_path_format(ad, buf, end - buf);
 	  break;
 	case EAF_TYPE_INT_SET:
-	  int_set_format(ad, buf, end - buf);
+	  int_set_format(ad, 1, buf, end - buf);
 	  break;
 	case EAF_TYPE_UNDEF:
 	default:
