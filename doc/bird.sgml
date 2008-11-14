@@ -544,7 +544,8 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 <p>The filter language supports common integer operators <cf>(+,-,*,/)</cf>, parentheses <cf/(a*(b+c))/, comparison
 <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/. Logical operations include unary not (<cf/!/), and (<cf/&amp;&amp;/) and or (<cf/&verbar;&verbar;/). 
 Special operators include <cf/&tilde;/ for "is element of a set" operation - it can be
-used on element and set of elements of the same type (returning true if element is contained in the given set), or on IP and prefix (returning true if IP is within the range defined by that prefix), or on
+used on element and set of elements of the same type (returning true if element is contained in the given set), or
+on two strings (returning true if first string matches a shell-like pattern stored in second string) or on IP and prefix (returning true if IP is within the range defined by that prefix), or on
 prefix and prefix (returning true if first prefix is more specific than second one) or on bgppath and bgpmask (returning true if the path matches the mask) or on pair and clist (returning true if the community is element of the community list).
 
 
@@ -600,6 +601,9 @@ defined by using the <cf>defined( <m>attribute</m> )</cf> operator.
 	
 	<tag><m/ip/ gw</tag>
 	Next hop packets routed using this route should be forwarded to.
+
+	<tag><m/string/ proto</tag>
+	The name of the protocol which the route has been imported from. Read-only.
 
 	<tag><m/enum/ source</tag>
 	what protocol has told me about this route. Possible values: <cf/RTS_DUMMY/, <cf/RTS_STATIC/, <cf/RTS_INHERIT/, <cf/RTS_DEVICE/, <cf/RTS_STATIC_DEVICE/, <cf/RTS_REDIRECT/, <cf/RTS_RIP/, <cf/RTS_OSPF/, <cf/RTS_OSPF_IA/, <cf/RTS_OSPF_EXT/, <cf/RTS_BGP/, <cf/RTS_PIPE/.

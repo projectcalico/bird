@@ -137,6 +137,8 @@ val_compare(struct f_val v1, struct f_val v2)
     return 0;
   case T_PATH_MASK:
     return pm_path_compare(v1.val.path_mask, v2.val.path_mask);
+  case T_STRING:
+    return strcmp(v1.val.s, v2.val.s);
   default:
     debug( "Compare of unkown entities: %x\n", v1.type );
     return CMP_ERROR;
@@ -153,6 +155,8 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
     return as_path_match(v1.val.ad, v2.val.path_mask);
   if ((v1.type == T_PAIR) && (v2.type == T_CLIST))
     return int_set_contains(v2.val.ad, v1.val.i);
+  if ((v1.type == T_STRING) && (v2.type == T_STRING))
+    return patmatch(v2.val.s, v1.val.s);
 
   if ((v1.type == T_IP) && (v2.type == T_PREFIX))
     return !(ipa_compare(ipa_and(v2.val.px.ip, ipa_mkmask(v2.val.px.len)), ipa_and(v1.val.px.ip, ipa_mkmask(v2.val.px.len))));
@@ -496,6 +500,9 @@ interpret(struct f_inst *what)
 	break;
       case T_ENUM:
 	res.val.i = * ((char *) rta + what->a2.i);
+	break;
+      case T_STRING:	/* Warning: this is a special case for proto attribute */
+	res.val.s = rta->proto->name;
 	break;
       case T_PREFIX:	/* Warning: this works only for prefix of network */
 	{
