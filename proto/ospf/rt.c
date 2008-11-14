@@ -195,6 +195,7 @@ ospf_rt_spfa(struct ospf_area *oa)
         if (rt->veb.bit.e) nf.capa |= ORTA_ASBR;
 	nf.metric1 = act->dist;
 	nf.metric2 = LSINFINITY;
+	nf.tag = 0;
 	nf.oa = oa;
 	nf.ar = act;
 	nf.nh = act->nh;
@@ -221,6 +222,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  nf.capa = 0;
 	  nf.metric1 = act->dist + rtl->metric;
 	  nf.metric2 = LSINFINITY;
+	  nf.tag = 0;
 	  nf.oa = oa;
 	  nf.ar = act;
 	  nf.nh = act->nh;
@@ -278,6 +280,7 @@ ospf_rt_spfa(struct ospf_area *oa)
       nf.capa = 0;
       nf.metric1 = act->dist;
       nf.metric2 = LSINFINITY;
+      nf.tag = 0;
       nf.oa = oa;
       nf.ar = act;
       nf.nh = act->nh;
@@ -454,6 +457,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
     nf.capa = ORTA_ASBR;
     nf.metric1 = abr->n.metric1 + (tm->metric & METRIC_MASK);
     nf.metric2 = LSINFINITY;
+    nf.tag = 0;
     nf.oa = oa;
     nf.ar = abr->n.ar;
     nf.nh = abr->n.nh;
@@ -533,6 +537,7 @@ ospf_rt_sum(struct ospf_area *oa)
     nf.capa = ORTA_ASBR;
     nf.metric1 = abr->n.metric1 + (tm->metric & METRIC_MASK);
     nf.metric2 = LSINFINITY;
+    nf.tag = 0;
     nf.oa = oa;
     nf.ar = abr->n.ar;
     nf.nh = abr->n.nh;
@@ -754,11 +759,11 @@ ospf_ext_spf(struct proto_ospf *po)
     nfa.capa = 0;
     nfa.metric1 = met1;
     nfa.metric2 = met2;
+    nfa.tag = lt->tag;
     nfa.oa = (po->backbone == NULL) ? HEAD(po->area_list) : po->backbone;
     nfa.ar = nf1->n.ar;
     nfa.nh = nh;
     nfa.ifa = nhi;
-    nfa.tag = lt->tag;
     ri_install(po, ip, mlen, ORT_NET, &nfa, nfh);
   }
 
