@@ -851,13 +851,13 @@ again:
   FIB_ITERATE_START(&h->table->fib, fit, fn)
     {
       net *n = (net *) fn;
-      rte *e;
+      rte *e = n->routes;
       if (max_feed <= 0)
 	{
 	  FIB_ITERATE_PUT(fit, fn);
 	  return 0;
 	}
-      for(e=n->routes; e; e=e->next)
+      if (e)
 	{
 	  struct proto *q = e->attrs->proto;
 	  ea_list *tmpa;
