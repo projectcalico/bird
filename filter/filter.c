@@ -655,7 +655,7 @@ interpret(struct f_inst *what)
     ONEARG;
     res = v1;
     res.type |= T_RETURN;
-    break;
+    return res;
   case P('c','a'): /* CALL: this is special: if T_RETURN and returning some value, mask it out  */
     ONEARG;
     res = interpret(what->a2.p);
@@ -676,7 +676,10 @@ interpret(struct f_inst *what)
 	}
       }	
       /* It is actually possible to have t->data NULL */
-      return interpret(t->data);
+
+      res = interpret(t->data);
+      if (res.type & T_RETURN)
+	return res;
     }
     break;
   case P('i','M'): /* IP.MASK(val) */
