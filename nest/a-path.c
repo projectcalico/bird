@@ -333,6 +333,7 @@ as_path_match(struct adata *path, struct f_path_mask *mask)
     case AS_PATH_SEQUENCE:
       len = *p++;
       for (i=0; i<len; i++) {
+	next = p + bs;
 	as = get_as(p);
 	if (asterisk && (as == mask->val))
 	  MASK_PLUS;
