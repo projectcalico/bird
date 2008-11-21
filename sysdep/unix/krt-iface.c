@@ -153,7 +153,7 @@ scan_ifs(struct ifreq *r, int cnt)
 #ifdef SIOCGIFINDEX
       if (ioctl(if_scan_sock, SIOCGIFINDEX, r) >= 0)
 	i.index = r->ifr_ifindex;
-      else if (errno != -EINVAL)
+      else if (errno != EINVAL)
 	DBG("SIOCGIFINDEX failed: %m\n");
       else	/* defined, but not supported by the kernel */
 #endif
