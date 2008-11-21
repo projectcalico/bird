@@ -298,11 +298,18 @@ server_read(void)
   int c;
   byte *start, *p;
 
+ redo:
   c = read(server_fd, server_read_pos, server_read_buf + sizeof(server_read_buf) - server_read_pos);
   if (!c)
     die("Connection closed by server.");
   if (c < 0)
-    die("Server read error: %m");
+    {
+      if (errno == EINTR)
+	goto redo;
+      else
+	die("Server read error: %m");
+    }
+
   start = server_read_buf;
   p = server_read_pos;
   server_read_pos += c;
@@ -331,6 +338,7 @@ static fd_set select_fds;
 static void
 select_loop(int mode)
 {
+  int rv;
   server_reply = -1;
   while (mode || server_reply < 0)
     {
@@ -338,7 +346,16 @@ select_loop(int mode)
       FD_SET(server_fd, &select_fds);
       if (mode)
 	FD_SET(0, &select_fds);
-      select(server_fd+1, &select_fds, NULL, NULL, NULL);
+
+      rv = select(server_fd+1, &select_fds, NULL, NULL, NULL);
+      if (rv < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  else
+	    die("select: %m");
+	}
+
       if (FD_ISSET(server_fd, &select_fds))
 	{
 	  server_read();
@@ -352,6 +369,30 @@ select_loop(int mode)
 }
 
 static void
+wait_for_write(int fd)
+{
+  while (1)
+    {
+      int rv;
+      fd_set set;
+      FD_ZERO(&set);
+      FD_SET(fd, &set);
+
+      rv = select(fd+1, NULL, &set, NULL, NULL);
+      if (rv < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  else
+	    die("select: %m");
+	}
+
+      if (FD_ISSET(server_fd, &set))
+	return;
+    }
+}
+
+static void
 server_send(char *cmd)
 {
   int l = strlen(cmd);
@@ -362,19 +403,13 @@ server_send(char *cmd)
   while (l)
     {
       int cnt = write(server_fd, z, l);
+
       if (cnt < 0)
 	{
-	  if (errno == -EAGAIN)
-	    {
-	      fd_set set;
-	      FD_ZERO(&set);
-	      do
-		{
-		  FD_SET(server_fd, &set);
-		  select(server_fd+1, NULL, &set, NULL, NULL);
-		}
-	      while (!FD_ISSET(server_fd, &set));
-	    }
+	  if (errno == EAGAIN)
+	    wait_for_write(server_fd);
+	  else if (errno == EINTR)
+	    continue;
 	  else
 	    die("Server write error: %m");
 	}
