@@ -201,8 +201,9 @@ input_init(void)
   rl_add_defun("bird-help", input_help, '?');
   rl_callback_handler_install("bird> ", got_line);
   input_initialized = 1;
-  if (fcntl(0, F_SETFL, O_NONBLOCK) < 0)
-    die("fcntl: %m");
+//  readline library does strange things when stdin is nonblocking.
+//  if (fcntl(0, F_SETFL, O_NONBLOCK) < 0)
+//    die("fcntl: %m");
 }
 
 static void
