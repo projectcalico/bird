@@ -770,7 +770,7 @@ krt_start(struct proto *P)
   if (first)
     krt_scan_timer = krt_start_timer(p);
   else
-    tm_start(p->scan_timer, 0);
+    tm_start(krt_scan_timer, 0);
   p->scan_timer = krt_scan_timer;
 #else
   p->scan_timer = krt_start_timer(p);
