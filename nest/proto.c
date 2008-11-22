@@ -521,9 +521,10 @@ proto_feed_more(void *P)
 {
   struct proto *p = P;
 
-  DBG("Feeding protocol %s continued\n", p->name);
   if (p->core_state != FS_FEEDING)
     return;
+
+  DBG("Feeding protocol %s continued\n", p->name);
   if (rt_feed_baby(p))
     {
       p->core_state = FS_HAPPY;
@@ -541,6 +542,9 @@ static void
 proto_feed(void *P)
 {
   struct proto *p = P;
+
+  if (p->core_state != FS_FEEDING)
+    return;
 
   DBG("Feeding protocol %s\n", p->name);
   proto_add_announce_hook(p, p->table);
