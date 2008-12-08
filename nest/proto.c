@@ -552,6 +552,30 @@ proto_feed(void *P)
   proto_feed_more(P);
 }
 
+static void
+proto_schedule_flush(struct proto *p)
+{
+  /* Need to abort feeding */
+  if (p->core_state == FS_FEEDING)
+    rt_feed_baby_abort(p);
+
+  DBG("%s: Scheduling flush\n", p->name);
+  p->core_state = FS_FLUSHING;
+  proto_relink(p);
+  proto_flush_hooks(p);
+  ev_schedule(proto_flush_event);
+}
+
+static void
+proto_schedule_feed(struct proto *p)
+{
+  DBG("%s: Scheduling meal\n", p->name);
+  p->core_state = FS_FEEDING;
+  proto_relink(p);
+  p->attn->hook = proto_feed;
+  ev_schedule(p->attn);
+}
+
 /**
  * proto_notify_state - notify core about protocol state change
  * @p: protocol the state of which has changed
@@ -562,7 +586,9 @@ proto_feed(void *P)
  * it should immediately notify the core about the change by calling
  * proto_notify_state() which will write the new state to the &proto
  * structure and take all the actions necessary to adapt to the new
- * state.
+ * state. State change to PS_DOWN immediately frees resources of protocol
+ * and might execute start callback of protocol; therefore,
+ * it should be used at tail positions of protocol callbacks.
  */
 void
 proto_notify_state(struct proto *p, unsigned ps)
@@ -574,23 +600,23 @@ proto_notify_state(struct proto *p, unsigned ps)
   if (ops == ps)
     return;
 
+  p->proto_state = ps;
+
   switch (ps)
     {
     case PS_DOWN:
+      neigh_prune(); // FIXME convert neighbors to resource?
+      rfree(p->pool);
+      p->pool = NULL;
+
       if (cs == FS_HUNGRY)		/* Shutdown finished */
 	{
-	  p->proto_state = ps;
 	  proto_fell_down(p);
 	  return;			/* The protocol might have ceased to exist */
 	}
-      else if (cs == FS_FLUSHING)	/* Still flushing... */
-	;
-      else
-	{
-	  if (cs == FS_FEEDING)		/* Need to abort feeding */
-	    rt_feed_baby_abort(p);
-	  goto schedule_flush;		/* Need to start flushing */
-	}
+      /* Otherwise, we have something to flush... */
+      else if (cs != FS_FLUSHING)
+	proto_schedule_flush(p);
       break;
     case PS_START:
       ASSERT(ops == PS_DOWN);
@@ -599,27 +625,15 @@ proto_notify_state(struct proto *p, unsigned ps)
     case PS_UP:
       ASSERT(ops == PS_DOWN || ops == PS_START);
       ASSERT(cs == FS_HUNGRY);
-      DBG("%s: Scheduling meal\n", p->name);
-      cs = FS_FEEDING;
-      p->attn->hook = proto_feed;
-      ev_schedule(p->attn);
+      proto_schedule_feed(p);
       break;
     case PS_STOP:
-      if (ops != PS_DOWN)
-	{
-	schedule_flush:
-	  DBG("%s: Scheduling flush\n", p->name);
-	  proto_flush_hooks(p);
-	  cs = FS_FLUSHING;
-	  ev_schedule(proto_flush_event);
-	}
+      if ((cs = FS_FEEDING) || (cs == FS_HAPPY))
+	proto_schedule_flush(p);
       break;
     default:
       bug("Invalid state transition for %s from %s/%s to */%s", p->name, c_states[cs], p_states[ops], p_states[ps]);
     }
-  p->proto_state = ps;
-  p->core_state = cs;
-  proto_relink(p);
 }
 
 static void
@@ -628,15 +642,13 @@ proto_flush_all(void *unused UNUSED)
   struct proto *p;
 
   rt_prune_all();
-  neigh_prune();
   while ((p = HEAD(flush_proto_list))->n.next)
     {
       DBG("Flushing protocol %s\n", p->name);
-      rfree(p->pool);
-      p->pool = NULL;
       p->core_state = FS_HUNGRY;
       proto_relink(p);
-      proto_fell_down(p);
+      if (p->proto_state == PS_DOWN)
+	proto_fell_down(p);
     }
 }
 
