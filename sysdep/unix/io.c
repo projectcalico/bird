@@ -1372,14 +1372,14 @@ io_loop(void)
 	    {
 	      sock *s = current_sock;
 	      int e;
-	      if (FD_ISSET(s->fd, &rd))
+	      if (FD_ISSET(s->fd, &rd) && s->rx_hook)
 		do
 		  {
 		    e = sk_read(s);
 		    if (s != current_sock)
 		      goto next;
 		  }
-		while (e);
+		while (e && s->rx_hook);
 	      if (FD_ISSET(s->fd, &wr))
 		do
 		  {
