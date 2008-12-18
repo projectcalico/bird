@@ -125,13 +125,13 @@ ev_schedule(event *e)
 int
 ev_run_list(event_list *l)
 {
-  node *n, *p;
+  node *n;
   list tmp_list;
 
   init_list(&tmp_list);
   add_tail_list(&tmp_list, l);
   init_list(l);
-  WALK_LIST_DELSAFE(n, p, tmp_list)
+  WALK_LIST_FIRST(n, tmp_list)
     {
       event *e = SKIP_BACK(event, n, n);
       ev_run(e);
