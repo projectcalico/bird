@@ -365,6 +365,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 	  int new_used;
 	  int nl = as_path_convert_to_old(a->u.ptr, buf, &new_used);
 
+	  DBG("BGP: Encoding old AS_PATH\n");
 	  rv = bgp_encode_attr_hdr(w, BAF_TRANSITIVE, BA_AS_PATH, nl);
 	  ADVANCE(w, remains, rv);
 	  memcpy(w, buf, nl);
@@ -381,6 +382,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 	   * discarded in bgp_check_as_path().
 	   */
 
+	  DBG("BGP: Encoding AS4_PATH\n");
 	  rv = bgp_encode_attr_hdr(w, BAF_OPTIONAL | BAF_TRANSITIVE, BA_AS4_PATH, len);
 	  ADVANCE(w, remains, rv);
 	  memcpy(w, a->u.ptr->data, len);

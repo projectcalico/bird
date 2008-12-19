@@ -17,6 +17,8 @@
 #include "lib/unaligned.h"
 #include "lib/socket.h"
 
+#include "nest/cli.h"
+
 #include "bgp.h"
 
 static byte *
@@ -318,7 +320,8 @@ bgp_fire_tx(struct bgp_conn *conn)
 
   if (s & (1 << PKT_SCHEDULE_CLOSE))
     {
-      bgp_close_conn(conn);
+      /* We can finally close connection and enter idle state */
+      bgp_conn_enter_idle_state(conn);
       return 0;
     }
   if (s & (1 << PKT_NOTIFICATION))
@@ -371,8 +374,17 @@ bgp_schedule_packet(struct bgp_conn *conn, int type)
   DBG("BGP: Scheduling packet type %d\n", type);
   conn->packets_to_send |= 1 << type;
   if (conn->sk && conn->sk->tpos == conn->sk->tbuf)
-    while (bgp_fire_tx(conn))
-      ;
+    ev_schedule(conn->tx_ev);
+}
+
+void
+bgp_kick_tx(void *vconn)
+{
+  struct bgp_conn *conn = vconn;
+
+  DBG("BGP: kicking TX\n");
+  while (bgp_fire_tx(conn))
+    ;
 }
 
 void
@@ -406,9 +418,9 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 	case 65:
 	  if (cl != 4)
 	    goto err;
-	  p->as4_support = 1;
-	  p->as4_session = p->cf->enable_as4;
-	  if (p->as4_session)
+	  conn->as4_support = 1;
+
+	  if (p->cf->enable_as4)
 	    conn->advertised_as = get_u32(opt + 2);
 	  break;
 
@@ -477,7 +489,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 
   /* Check state */
   if (conn->state != BS_OPENSENT)
-    { bgp_error(conn, 5, 0, NULL, 0); }
+    { bgp_error(conn, 5, 0, NULL, 0); return; }
 
   /* Check message contents */
   if (len < 29 || len != 29 + pkt[28])
@@ -489,7 +501,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   id = get_u32(pkt+24);
   BGP_TRACE(D_PACKETS, "Got OPEN(as=%d,hold=%d,id=%08x)", conn->advertised_as, hold, id);
 
-  p->remote_id = id; // ???
+  conn->as4_support = 0; // Default value, possibly changed by capability.
   if (bgp_parse_options(conn, pkt+29, pkt[28]))
     return;
 
@@ -498,7 +510,6 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 
   if (!id || id == 0xffffffff || id == p->local_id)
     { bgp_error(conn, 2, 3, pkt+24, -4); return; }
-
 
   if (conn->advertised_as != p->remote_as)
     {
@@ -513,6 +524,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
     case BS_CONNECT:
     case BS_ACTIVE:
     case BS_OPENSENT:
+    case BS_CLOSE:
       break;
     case BS_OPENCONFIRM:
       if ((p->local_id < id) == (conn == &p->incoming_conn))
@@ -532,19 +544,13 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
       bug("bgp_rx_open: Unknown state");
     }
 
-  /* Make this connection primary */
-  conn->primary = 1;
-  p->conn = conn;
-
   /* Update our local variables */
-  if (hold < p->cf->hold_time)
-    conn->hold_time = hold;
-  else
-    conn->hold_time = p->cf->hold_time;
+  conn->hold_time = MIN(hold, p->cf->hold_time);
   conn->keepalive_time = p->cf->keepalive_time ? : conn->hold_time / 3;
-  // p->remote_as = conn->advertised_as;
   p->remote_id = id;
-  DBG("BGP: Hold timer set to %d, keepalive to %d, AS to %d, ID to %x\n", conn->hold_time, conn->keepalive_time, p->remote_as, p->remote_id);
+  p->as4_session = p->cf->enable_as4 && conn->as4_support;
+  
+  DBG("BGP: Hold timer set to %d, keepalive to %d, AS to %d, ID to %x, AS4 session to %d\n", conn->hold_time, conn->keepalive_time, p->remote_as, p->remote_id, p->as4_session);
 
   bgp_schedule_packet(conn, PKT_KEEPALIVE);
   bgp_start_timer(conn->hold_timer, conn->hold_time);
@@ -817,24 +823,41 @@ static struct {
   { 6, 0, "Cease" }
 };
 
+/**
+ * bgp_error_dsc - return BGP error description
+ * @buff: temporary buffer
+ * @code: BGP error code
+ * @subcode: BGP error subcode
+ *
+ * bgp_error_dsc() returns error description for BGP errors
+ * which might be static string or given temporary buffer.
+ */
+const byte *
+bgp_error_dsc(byte *buff, unsigned code, unsigned subcode)
+{
+  unsigned i;
+  for (i=0; i < ARRAY_SIZE(bgp_msg_table); i++)
+    if (bgp_msg_table[i].major == code && bgp_msg_table[i].minor == subcode)
+      {
+	return bgp_msg_table[i].msg;
+      }
+
+  bsprintf(buff, "Unknown error %d.%d", code, subcode);
+  return buff;
+}
+
 void
 bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, byte *data, unsigned len)
 {
-  byte *name, namebuf[16];
+  const byte *name;
+  byte namebuf[32];
   byte *t, argbuf[36];
   unsigned i;
 
   if (code == 6 && !subcode)		/* Don't report Cease messages */
     return;
 
-  bsprintf(namebuf, "%d.%d", code, subcode);
-  name = namebuf;
-  for (i=0; i < ARRAY_SIZE(bgp_msg_table); i++)
-    if (bgp_msg_table[i].major == code && bgp_msg_table[i].minor == subcode)
-      {
-	name = bgp_msg_table[i].msg;
-	break;
-      }
+  name = bgp_error_dsc(namebuf, code, subcode);
   t = argbuf;
   if (len)
     {
@@ -857,10 +880,13 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
       bgp_error(conn, 1, 2, pkt+16, 2);
       return;
     }
-  bgp_log_error(conn->bgp, "Received error notification", pkt[19], pkt[20], pkt+21, len-21);
-  conn->error_flag = 1;
-  if (conn->primary)
-    proto_notify_state(&conn->bgp->p, PS_STOP);
+
+  unsigned code = pkt[19];
+  unsigned subcode = pkt[20];
+  bgp_log_error(conn->bgp, "Received error notification", code, subcode, pkt+21, len-21);
+  bgp_store_error(conn->bgp, conn, BE_BGP_RX, (code << 16) | subcode);
+  bgp_update_startup_delay(conn->bgp, conn, code, subcode);
+  bgp_conn_enter_close_state(conn);
   bgp_schedule_packet(conn, PKT_SCHEDULE_CLOSE);
 }
 
@@ -874,10 +900,7 @@ bgp_rx_keepalive(struct bgp_conn *conn)
   switch (conn->state)
     {
     case BS_OPENCONFIRM:
-      DBG("BGP: UP!!!\n");
-      conn->state = BS_ESTABLISHED;
-      bgp_attr_init(conn->bgp);
-      proto_notify_state(&conn->bgp->p, PS_UP);
+      bgp_conn_enter_established_state(conn);
       break;
     case BS_ESTABLISHED:
       break;
@@ -930,18 +953,8 @@ bgp_rx(sock *sk, int size)
   DBG("BGP: RX hook: Got %d bytes\n", size);
   while (end >= pkt_start + BGP_HEADER_LENGTH)
     {
-      if (conn->error_flag)
-	{
-	  /*
-	   *  We still need to remember the erroneous packet, so that
-	   *  we can generate error notifications properly.  To avoid
-	   *  subsequent reads rewriting the buffer, we just reset the
-	   *  rx_hook.
-	   */
-	  DBG("BGP: Error, dropping input\n");
-	  sk->rx_hook = NULL;
-	  return 0;
-	}
+      if ((conn->state == BS_CLOSE) || (conn->sk != sk))
+	return 0;
       for(i=0; i<16; i++)
 	if (pkt_start[i] != 0xff)
 	  {

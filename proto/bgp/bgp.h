@@ -47,12 +47,13 @@ struct bgp_conn {
   struct timer *connect_retry_timer;
   struct timer *hold_timer;
   struct timer *keepalive_timer;
+  struct event *tx_ev;
   int packets_to_send;			/* Bitmap of packet types to be sent */
   int notify_code, notify_subcode, notify_size;
   byte *notify_data;
   int error_flag;			/* Error state, ignore all input */
-  int primary;				/* This connection is primary */
   u32 advertised_as;			/* Temporary value for AS number received */
+  int as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
   unsigned hold_time, keepalive_time;	/* Times calculated from my and neighbor's requirements */
 };
 
@@ -60,8 +61,8 @@ struct bgp_proto {
   struct proto p;
   struct bgp_config *cf;		/* Shortcut to BGP configuration */
   u32 local_as, remote_as;
+  int start_state;			/* Substates that partitions BS_START */
   int is_internal;			/* Internal BGP connection (local_as == remote_as) */
-  int as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
   int as4_session;			/* Session uses 4B AS numbers in AS_PATH (both sides support it) */
   u32 local_id;				/* BGP identifier of this router */
   u32 remote_id;			/* BGP identifier of the neighbor */
@@ -75,13 +76,17 @@ struct bgp_proto {
   ip_addr next_hop;			/* Either the peer or multihop_via */
   struct neighbor *neigh;		/* Neighbor entry corresponding to next_hop */
   ip_addr local_addr;			/* Address of the local end of the link to next_hop */
+  struct event *event;			/* Event for respawning and shutting process */
   struct bgp_bucket **bucket_hash;	/* Hash table of attribute buckets */
   unsigned int hash_size, hash_count, hash_limit;
   struct fib prefix_fib;		/* Prefixes to be sent */
   list bucket_queue;			/* Queue of buckets to send */
   struct bgp_bucket *withdraw_bucket;	/* Withdrawn routes */
   unsigned startup_delay;		/* Time to delay protocol startup by due to errors */
-  bird_clock_t last_connect;		/* Time of last connect attempt */
+  bird_clock_t last_proto_error;	/* Time of last error that leads to protocol stop */
+  u8 last_error_class; 			/* Error class of last error */
+  u32 last_error_code;			/* Error code of last error. BGP protocol errors
+					   are encoded as (bgp_err_code << 16 | bgp_err_subcode) */
 #ifdef IPV6
   byte *mp_reach_start, *mp_unreach_start; /* Multiprotocol BGP attribute notes */
   unsigned mp_reach_len, mp_unreach_len;
@@ -118,6 +123,12 @@ void bgp_start_timer(struct timer *t, int value);
 void bgp_check(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len);
 void bgp_close_conn(struct bgp_conn *c);
+void bgp_update_startup_delay(struct bgp_proto *p, struct bgp_conn *conn, unsigned code, unsigned subcode);
+void bgp_conn_enter_established_state(struct bgp_conn *conn);
+void bgp_conn_enter_close_state(struct bgp_conn *conn);
+void bgp_conn_enter_idle_state(struct bgp_conn *conn);
+void bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code);
+
 
 #ifdef LOCAL_DEBUG
 #define BGP_FORCE_DEBUG 1
@@ -147,8 +158,10 @@ inline static void bgp_attach_attr_ip(struct ea_list **to, struct linpool *pool,
 /* packets.c */
 
 void bgp_schedule_packet(struct bgp_conn *conn, int type);
+void bgp_kick_tx(void *vconn);
 void bgp_tx(struct birdsock *sk);
 int bgp_rx(struct birdsock *sk, int size);
+const byte * bgp_error_dsc(byte *buff, unsigned code, unsigned subcode);
 void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, byte *data, unsigned len);
 
 /* Packet types */
@@ -186,7 +199,7 @@ void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subco
 #define BA_AS4_PATH             0x11    /* [RFC4893] */
 #define BA_AS4_AGGREGATOR       0x12
 
-/* BGP states */
+/* BGP connection states */
 
 #define BS_IDLE			0
 #define BS_CONNECT		1	/* Attempting to connect */
@@ -194,6 +207,38 @@ void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subco
 #define BS_OPENSENT		3
 #define BS_OPENCONFIRM		4
 #define BS_ESTABLISHED		5
+#define BS_CLOSE		6	/* Used during transition to BS_IDLE */
+
+/* BGP start states
+ * 
+ * Used in PS_START for fine-grained specification of starting state.
+ *
+ * When BGP protocol is started by core, it goes to BSS_PREPARE. When BGP protocol
+ * done what is neccessary to start itself (like acquiring the lock), it goes to BSS_CONNECT.
+ * When some connection attempt failed because of option or capability error, it goes to
+ * BSS_CONNECT_NOCAP.
+ */
+
+#define BSS_PREPARE		0	/* Used before ordinary BGP started, i. e. waiting for lock */
+#define BSS_CONNECT		1	/* Ordinary BGP connecting */
+#define BSS_CONNECT_NOCAP	2	/* Legacy BGP connecting (without capabilities) */
+
+/* Error classes */
+
+#define BE_NONE			0
+#define BE_MISC			1	/* Miscellaneous error */
+#define BE_SOCKET		2	/* Socket error */
+#define BE_BGP_RX		3	/* BGP protocol error notification received */
+#define BE_BGP_TX		4	/* BGP protocol error notification sent */
+#define BE_AUTO_DOWN		5	/* Automatic shutdown */
+#define BE_MAN_DOWN		6	/* Manual shutdown */
+
+/* Misc error codes */
+
+#define BEM_NEIGHBOR_LOST	1
+#define BEM_INVALID_NEXT_HOP	2
+#define BEM_INVALID_MD5		3	/* MD5 authentication kernel request failed (possibly not supported */
+
 
 /* Well-known communities */
 
