@@ -51,9 +51,10 @@ struct bgp_conn {
   int packets_to_send;			/* Bitmap of packet types to be sent */
   int notify_code, notify_subcode, notify_size;
   byte *notify_data;
-  int error_flag;			/* Error state, ignore all input */
   u32 advertised_as;			/* Temporary value for AS number received */
-  int as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
+  int start_state;			/* protocol start_state snapshot when connection established */
+  int want_as4_support;			/* Connection tries to establish AS4 session */
+  int peer_as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
   unsigned hold_time, keepalive_time;	/* Times calculated from my and neighbor's requirements */
 };
 

@@ -368,6 +368,10 @@ bgp_conn_enter_idle_state(struct bgp_conn *conn)
 static void
 bgp_send_open(struct bgp_conn *conn)
 {
+  conn->start_state = conn->bgp->start_state;
+  conn->want_as4_support = conn->bgp->cf->enable_as4 && (conn->start_state != BSS_CONNECT_NOCAP);
+  conn->peer_as4_support = 0;	// Default value, possibly changed by receiving capability.
+
   DBG("BGP: Sending open\n");
   conn->sk->rx_hook = bgp_rx;
   conn->sk->tx_hook = bgp_tx;

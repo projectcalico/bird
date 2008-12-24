@@ -69,13 +69,21 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
   put_u16(buf+1, (p->local_as < 0xFFFF) ? p->local_as : AS_TRANS);
   put_u16(buf+3, p->cf->hold_time);
   put_u32(buf+5, p->local_id);
+
+  if (conn->start_state == BSS_CONNECT_NOCAP)
+    {
+      BGP_TRACE(D_PACKETS, "Skipping capabilities");
+      buf[9] = 0;
+      return buf + 10;
+    }
+
   /* Skipped 3 B for length field and Capabilities parameter header */
   cap = buf + 12;
 
 #ifdef IPV6
   cap = bgp_put_cap_ipv6(conn, cap);
 #endif
-  if (p->cf->enable_as4)
+  if (conn->want_as4_support)
     cap = bgp_put_cap_as4(conn, cap);
 
   cap_len = cap - buf - 12;
@@ -418,9 +426,8 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 	case 65:
 	  if (cl != 4)
 	    goto err;
-	  conn->as4_support = 1;
-
-	  if (p->cf->enable_as4)
+	  conn->peer_as4_support = 1;
+	  if (conn->want_as4_support)
 	    conn->advertised_as = get_u32(opt + 2);
 	  break;
 
@@ -501,7 +508,6 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   id = get_u32(pkt+24);
   BGP_TRACE(D_PACKETS, "Got OPEN(as=%d,hold=%d,id=%08x)", conn->advertised_as, hold, id);
 
-  conn->as4_support = 0; // Default value, possibly changed by capability.
   if (bgp_parse_options(conn, pkt+29, pkt[28]))
     return;
 
@@ -548,8 +554,8 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   conn->hold_time = MIN(hold, p->cf->hold_time);
   conn->keepalive_time = p->cf->keepalive_time ? : conn->hold_time / 3;
   p->remote_id = id;
-  p->as4_session = p->cf->enable_as4 && conn->as4_support;
-  
+  p->as4_session = conn->want_as4_support && conn->peer_as4_support;
+
   DBG("BGP: Hold timer set to %d, keepalive to %d, AS to %d, ID to %x, AS4 session to %d\n", conn->hold_time, conn->keepalive_time, p->remote_as, p->remote_id, p->as4_session);
 
   bgp_schedule_packet(conn, PKT_KEEPALIVE);
@@ -820,7 +826,15 @@ static struct {
   { 3, 11, "Malformed AS_PATH" },
   { 4, 0, "Hold timer expired" },
   { 5, 0, "Finite state machine error" },
-  { 6, 0, "Cease" }
+  { 6, 0, "Cease" }, /* Subcodes are according to [RFC4486] */
+  { 6, 1, "Maximum number of prefixes reached" },
+  { 6, 2, "Administrative shutdown" },
+  { 6, 3, "Peer de-configured" },
+  { 6, 4, "Administrative reset" },
+  { 6, 5, "Connection rejected" },
+  { 6, 6, "Other configuration change" },
+  { 6, 7, "Connection collision resolution" },
+  { 6, 8, "Out of Resources" }
 };
 
 /**
@@ -875,6 +889,7 @@ bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, b
 static void
 bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
 {
+  struct bgp_proto *p = conn->bgp;
   if (len < 21)
     {
       bgp_error(conn, 1, 2, pkt+16, 2);
@@ -883,9 +898,25 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
 
   unsigned code = pkt[19];
   unsigned subcode = pkt[20];
+  int delay = 1;
+
+#ifndef IPV6
+  if ((code == 2) && ((subcode == 4) || (subcode == 7)))
+    {
+      /* Error related to capability:
+       * 4 - Peer does not support capabilities at all.
+       * 7 - Peer request some capability. Strange unless it is IPv6 only peer.
+       * We try connect without capabilities
+       */
+      BGP_TRACE(D_EVENTS, "Capability related error received, capabilities disabled");
+      conn->bgp->start_state = BSS_CONNECT_NOCAP;
+      delay = 0;
+    }
+#endif
+
   bgp_log_error(conn->bgp, "Received error notification", code, subcode, pkt+21, len-21);
   bgp_store_error(conn->bgp, conn, BE_BGP_RX, (code << 16) | subcode);
-  bgp_update_startup_delay(conn->bgp, conn, code, subcode);
+  if (delay) bgp_update_startup_delay(conn->bgp, conn, code, subcode);
   bgp_conn_enter_close_state(conn);
   bgp_schedule_packet(conn, PKT_SCHEDULE_CLOSE);
 }
