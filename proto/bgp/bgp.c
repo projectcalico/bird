@@ -876,9 +876,15 @@ bgp_reconfigure(struct proto *P, struct proto_config *C)
   struct bgp_proto *p = (struct bgp_proto *) P;
   struct bgp_config *old = p->cf;
 
-  return !memcmp(((byte *) old) + sizeof(struct proto_config),
-		 ((byte *) new) + sizeof(struct proto_config),
-		 sizeof(struct bgp_config) - sizeof(struct proto_config));
+  int same = !memcmp(((byte *) old) + sizeof(struct proto_config),
+		     ((byte *) new) + sizeof(struct proto_config),
+		     sizeof(struct bgp_config) - sizeof(struct proto_config));
+
+  /* We should update our copy of configuration ptr as old configuration will be freed */
+  if (same)
+    p->cf = new;
+
+  return same;
 }
 
 struct protocol proto_bgp = {
