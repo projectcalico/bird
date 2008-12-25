@@ -79,15 +79,11 @@ type:
 
 one_decl:
    type SYM {
-     $2 = cf_define_symbol($2, SYM_VARIABLE | $1, NULL);
+     struct f_val * val = cfg_alloc(sizeof(struct f_val)); 
+     val->type = $1; 
+     $2 = cf_define_symbol($2, SYM_VARIABLE | $1, val);
      DBG( "New variable %s type %x\n", $2->name, $1 );
-     $2->aux = 0;
-     {
-       struct f_val * val; 
-       val = cfg_alloc(sizeof(struct f_val)); 
-       val->type = $1; 
-       $2->aux2 = val;
-     }
+     $2->aux2 = NULL;
      $$=$2;
    }
  ;
@@ -96,7 +92,7 @@ one_decl:
 decls: /* EMPTY */ { $$ = NULL; }
  | one_decl ';' decls {
      $$ = $1;
-     $$->aux = (int) $3;
+     $$->aux2 = $3;
    }
  ;
 
@@ -104,7 +100,7 @@ decls: /* EMPTY */ { $$ = NULL; }
 declsn: one_decl { $$ = $1; }
  | declsn ';' one_decl {
      $$ = $1;
-     $$->aux = (int) $3;
+     $$->aux2 = $3;
    }
  ;
 
@@ -167,8 +163,7 @@ function_def:
      cf_push_scope($2);
    } function_params function_body {
      $2->def = $5;
-     $2->aux = (int) $4;
-     $2->aux2 = $5;
+     $2->aux2 = $4;
      DBG("Hmm, we've got one function here - %s\n", $2->name); 
      cf_pop_scope();
    }
@@ -313,14 +308,14 @@ function_call:
      $$ = f_new_inst();
      $$->code = P('c','a');
      $$->a1.p = inst;
-     $$->a2.p = $1->aux2;
-     sym = (void *) $1->aux;
+     $$->a2.p = $1->def;
+     sym = $1->aux2;
      while (sym || inst) {
        if (!sym || !inst)
 	 cf_error("Wrong number of arguments for function %s.", $1->name);
        DBG( "You should pass parameter called %s\n", sym->name);
        inst->a1.p = sym;
-       sym = (void *) sym->aux;
+       sym = sym->aux2;
        inst = inst->next;
      }
    }
@@ -377,7 +372,7 @@ term:
        case SYM_VARIABLE | T_PATH:
        case SYM_VARIABLE | T_CLIST:
 	 $$->code = 'C';
-	 $$->a1.p = $1->aux2;
+	 $$->a1.p = $1->def;
 	 break;
        default:
 	 cf_error("%s: variable expected.", $1->name );
@@ -420,14 +415,14 @@ term:
      $$ = f_new_inst();
      $$->code = P('c','a');
      $$->a1.p = inst;
-     $$->a2.p = $1->aux2;
-     sym = (void *) $1->aux;
+     $$->a2.p = $1->def;
+     sym = $1->aux2;
      while (sym || inst) {
        if (!sym || !inst)
 	 cf_error("Wrong number of arguments for function %s.", $1->name);
        DBG( "You should pass parameter called %s\n", sym->name);
        inst->a1.p = sym;
-       sym = (void *) sym->aux;
+       sym = sym->aux2;
        inst = inst->next;
      }
    }

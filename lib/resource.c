@@ -165,8 +165,8 @@ rdump(void *res)
   char x[16];
   resource *r = res;
 
-  bsprintf(x, "%%%ds%%08x ", indent);
-  debug(x, "", (int) r);
+  bsprintf(x, "%%%ds%%p ", indent);
+  debug(x, "", r);
   if (r)
     {
       debug("%s ", r->class->name);

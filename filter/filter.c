@@ -437,16 +437,23 @@ interpret(struct f_inst *what)
     case T_PATH_MASK:
       if (sym->class != (SYM_VARIABLE | v2.type))
 	runtime( "Assigning to variable of incompatible type" );
-      * (struct f_val *) sym->aux2 = v2; 
+      * (struct f_val *) sym->def = v2; 
       break;
     default:
       bug( "Set to invalid type" );
     }
     break;
 
-  case 'c':	/* integer (or simple type) constant */
+    /* some constants have value in a2, some in *a1.p, strange. */
+  case 'c':	/* integer (or simple type) constant, or string, or set */
     res.type = what->aux;
-    res.val.i = what->a2.i;
+
+    if (res.type == T_SET)
+      res.val.t = what->a2.p;
+    else if (res.type == T_STRING)
+      res.val.s = what->a2.p;
+    else
+      res.val.i = what->a2.i;
     break;
   case 'C':
     res = * ((struct f_val *) what->a1.p);

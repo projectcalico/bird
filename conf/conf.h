@@ -76,7 +76,7 @@ struct symbol {
   struct sym_scope *scope;
   int class;
   int aux;
-  void *aux2; 
+  void *aux2;
   void *def;
   char name[1];
 };
