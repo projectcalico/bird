@@ -560,6 +560,15 @@ interpret(struct f_inst *what)
 	res.type = T_INT;
 	res.val.i = e->u.data;
 	break;
+      case EAF_TYPE_IP_ADDRESS:
+	if (!e) {
+	  res.type = T_VOID;
+	  break;
+	}
+	res.type = T_IP;
+	struct adata * ad = e->u.ptr;
+	res.val.px.ip = * (ip_addr *) ad->data;
+	break;
       case EAF_TYPE_AS_PATH:
 	if (!e) {
 	  res.type = T_VOID;
@@ -598,6 +607,14 @@ interpret(struct f_inst *what)
 	if (v1.type != T_INT)
 	  runtime( "Setting int attribute to non-int value" );
 	l->attrs[0].u.data = v1.val.i;
+	break;
+      case EAF_TYPE_IP_ADDRESS:
+	if (v1.type != T_IP)
+	  runtime( "Setting ip attribute to non-ip value" );
+	int len = sizeof(ip_addr);
+	struct adata *ad = lp_alloc(f_pool, sizeof(struct adata) + len);
+	ad->length = len;
+	(* (ip_addr *) ad->data) = v1.val.px.ip;
 	break;
       case EAF_TYPE_AS_PATH:
 	if (v1.type != T_PATH)
