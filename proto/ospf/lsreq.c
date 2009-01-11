@@ -45,8 +45,8 @@ ospf_lsreq_send(struct ospf_neighbor *n)
     lsh->type = en->lsa.type;
     lsh->rt = htonl(en->lsa.rt);
     lsh->id = htonl(en->lsa.id);
-    DBG("Requesting %uth LSA: Type: %u, Id: %I, RT: %I\n", i, en->lsa.type,
-	en->lsa.id, en->lsa.rt);
+    DBG("Requesting %uth LSA: Type: %u, ID: %I, RT: %I, SN: 0x%x, Age %u\n",
+	i, en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.sn, en->lsa.age);
     lsh++;
     if (sn == STAIL(n->lsrql))
       break;
@@ -93,7 +93,7 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
   {
     u32 hid = ntohl(lsh->id);
     u32 hrt = ntohl(lsh->rt);
-    DBG("Processing LSA: ID=%I, Type=%u, Router=%I\n", hid, lsh->type, hrt);
+    DBG("Processing requested LSA: Type: %u, ID: %I, RT: %I\n", lsh->type, hid, hrt);
     llsh = sl_alloc(upslab);
     llsh->lsh.id = hid;
     llsh->lsh.rt = hrt;
@@ -103,8 +103,8 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
 		       llsh->lsh.type) == NULL)
     {
       log(L_WARN
-	  "Received bad LS req from: %I looking: RT: %I, ID: %I, Type: %u",
-	  n->ip, hrt, hid, lsh->type);
+	  "Received bad LS req from: %I looking: Type: %u, ID: %I, RT: %I",
+	  n->ip, lsh->type, hid, hrt);
       ospf_neigh_sm(n, INM_BADLSREQ);
       rfree(upslab);
       return;

@@ -148,7 +148,7 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     OSPF_TRACE(D_PACKETS, "DB_DES (M) sent to %I via %s.", n->ip,
 	       ifa->iface->name);
 
-    DBG("DB_DES PS=%u, M=%u.", ntohl(pkt->ddseq), pkt->imms.bit.m);
+    DBG("DB_DES PS=%u, M=%u\n", ntohl(pkt->ddseq), pkt->imms.bit.m);
 
     if (!n->myimms.bit.ms)
     {
@@ -210,7 +210,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
   OSPF_TRACE(D_PACKETS, "Received dbdes from %I via %s.", n->ip,
 	     ifa->iface->name);
 
-  DBG("DB_DES PS=%u, M=%u SIZE=%u.", ntohl(ps->ddseq), ps->imms.bit.m, size);
+  DBG("DB_DES PS=%u, M=%u SIZE=%u\n", ntohl(ps->ddseq), ps->imms.bit.m, size);
 
   ospf_neigh_sm(n, INM_HELLOREC);
 
@@ -349,7 +349,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
     {
       OSPF_TRACE(D_PACKETS, "dbdes - sequence mismatch neighbor %I (full)",
 		 n->ip);
-      DBG("PS=%u, DDR=%u, DDS=%u", ntohl(ps->ddseq), n->ddr, n->dds);
+      DBG("PS=%u, DDR=%u, DDS=%u\n", ntohl(ps->ddseq), n->ddr, n->dds);
       ospf_neigh_sm(n, INM_SEQMIS);
     }
     break;

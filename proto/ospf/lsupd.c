@@ -50,6 +50,10 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       if (ifa->oa != oa)
         continue;
     }
+
+    DBG("Wanted to flood LSA: Type: %u, ID: %I, RT: %I, SN: 0x%x, Age %u\n",
+	hh->type, hh->id, hh->rt, hh->sn, hh->age);
+
     ret = 0;
     WALK_LIST(nn, ifa->neigh_list)
     {
@@ -59,6 +63,8 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       {
 	if ((en = ospf_hash_find_header(nn->lsrqh, nn->ifa->oa->areaid, hh)) != NULL)
 	{
+	  DBG("That LSA found in lsreq list for neigh %I\n", nn->rid);
+
 	  switch (lsa_comp(hh, &en->lsa))
 	  {
 	  case CMP_OLDER:
@@ -106,8 +112,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	}
 	s_add_tail(&nn->lsrtl, SNODE en);
 	memcpy(&en->lsa, hh, sizeof(struct ospf_lsa_header));
-	DBG("Adding LSA lsrt RT: %I, Id: %I, Type: %u for n: %I\n",
-	    en->lsa.rt, en->lsa.id, en->lsa.type, nn->ip);
+	DBG("Adding that LSA for flood to %I\n", nn->ip);
       }
       else
       {
@@ -245,8 +250,8 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
       continue;			/* Probably flushed LSA */
     /* FIXME This is a bug! I cannot flush LSA that is in lsrt */
 
-    DBG("Sending ID=%I, Type=%u, RT=%I Sn: 0x%x Age: %u\n",
-	llsh->lsh.id, llsh->lsh.type, llsh->lsh.rt, en->lsa.sn, en->lsa.age);
+    DBG("Sending LSA: Type=%u, ID=%I, RT=%I, SN: 0x%x, Age: %u\n",
+	llsh->lsh.type, llsh->lsh.id, llsh->lsh.rt, en->lsa.sn, en->lsa.age);
     if (((u32) (len + en->lsa.length)) > ospf_pkt_maxsize(n->ifa))
     {
       pk->lsano = htonl(lsano);

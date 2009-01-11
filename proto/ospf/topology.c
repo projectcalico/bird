@@ -539,9 +539,9 @@ check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
   if ((nf->n.type > RTS_OSPF_IA) && (nf->o.type > RTS_OSPF_IA)) return;
 
 #ifdef LOCAL_DEBUG
-  DBG("Checking...dest = %d, %I/%d", dest, nf->fn.prefix, nf->fn.pxlen);
-  if (nf->n.oa) DBG("New: met=%d, oa=%d", nf->n.metric1, nf->n.oa->areaid);
-  if (nf->o.oa) DBG("Old: met=%d, oa=%d", nf->o.metric1, nf->o.oa->areaid);
+  DBG("Checking...dest = %d, %I/%d\n", dest, nf->fn.prefix, nf->fn.pxlen);
+  if (nf->n.oa) DBG("New: met=%d, oa=%d\n", nf->n.metric1, nf->n.oa->areaid);
+  if (nf->o.oa) DBG("Old: met=%d, oa=%d\n", nf->o.metric1, nf->o.oa->areaid);
 #endif
 
   WALK_LIST(oa, po->area_list)

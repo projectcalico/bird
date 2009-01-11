@@ -293,7 +293,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
   struct proto_ospf *po = n->ifa->oa->po;
   struct proto *p = &po->proto;
 
-  DBG("Neighbor state machine for neighbor %I, event \"%s\".", n->ip,
+  DBG("Neighbor state machine for neighbor %I, event '%s'\n", n->ip,
 	     ospf_inm[event]);
 
   switch (event)
@@ -600,10 +600,11 @@ void
 rxmt_timer_hook(timer * timer)
 {
   struct ospf_neighbor *n = (struct ospf_neighbor *) timer->data;
+  struct proto *p = &n->ifa->oa->po->proto;
   struct top_hash_entry *en;
 
   DBG("%s: RXMT timer fired on interface %s for neigh: %I.\n",
-      p->name, ifa->iface->name, n->ip);
+      p->name, n->ifa->iface->name, n->ip);
 
   if(n->state < NEIGHBOR_EXSTART) return;
 

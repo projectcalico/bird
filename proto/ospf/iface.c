@@ -230,7 +230,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 {
   struct ospf_area *oa = ifa->oa;
 
-  DBG("SM on iface %s. Event is \"%s\".", ifa->iface->name, ospf_ism[event]);
+  DBG("SM on iface %s. Event is '%s'\n", ifa->iface->name, ospf_ism[event]);
 
   switch (event)
   {
