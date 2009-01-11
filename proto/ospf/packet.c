@@ -232,6 +232,12 @@ ospf_rx_hook(sock * sk, int size)
 
   ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
 
+  if (ps == NULL)
+  {
+    log(L_ERR "%s%I - bad IP header", mesg, sk->faddr);
+    return 1;
+  }
+
   if ((ifa->oa->areaid != 0) && (ntohl(ps->areaid) == 0))
   {
     WALK_LIST(iff, po->iface_list)
@@ -247,11 +253,6 @@ ospf_rx_hook(sock * sk, int size)
   DBG("%s: RX_Hook called on interface %s.\n", p->name, sk->iface->name);
 
   osize = ntohs(ps->length);
-  if (ps == NULL)
-  {
-    log(L_ERR "%s%I - bad IP header", mesg, sk->faddr);
-    return 1;
-  }
 
   if ((unsigned) size < sizeof(struct ospf_packet))
   {
