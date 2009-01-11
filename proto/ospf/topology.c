@@ -309,6 +309,7 @@ originate_net_lsa(struct ospf_iface *ifa)
 	       ifa->iface->name);
     ifa->nlsa->lsa.sn += 1;
     ifa->nlsa->lsa.age = LSA_MAXAGE;
+    lsasum_calculate(&ifa->nlsa->lsa, ifa->nlsa->lsa_body);
     ospf_lsupd_flood(NULL, NULL, &ifa->nlsa->lsa, NULL, ifa->oa, 0);
     s_rem_node(SNODE ifa->nlsa);
     if (ifa->nlsa->lsa_body != NULL)
