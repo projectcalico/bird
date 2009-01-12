@@ -398,6 +398,9 @@ ospf_send_to(sock *sk, ip_addr ip, struct ospf_iface *ifa)
   int len = ntohs(pkt->length) + ((ifa->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0);
   ospf_pkt_finalize(ifa, pkt);
 
+  if (sk->tbuf != sk->tpos)
+    log(L_ERR "Aiee, old packet was overwritted in TX buffer");
+
   if (ipa_equal(ip, IPA_NONE))
     sk_send(sk, len);
   else
