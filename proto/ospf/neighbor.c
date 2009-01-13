@@ -44,7 +44,7 @@ init_lists(struct ospf_neighbor *n)
   s_init(&(n->lsrti), &(n->lsrtl));
 }
 
-/* Resets LSA request and retransmit list.
+/* Resets LSA request and retransmit lists.
  * We do not reset DB summary list iterator here, 
  * it is reset during entering EXCHANGE state.
  */
