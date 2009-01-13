@@ -25,15 +25,42 @@ const char *ospf_inm[] =
   "inactivity timer", "line down"
 };
 
+static void neigh_chstate(struct ospf_neighbor *n, u8 state);
+static struct ospf_neighbor *electbdr(list nl);
+static struct ospf_neighbor *electdr(list nl);
+static void neighbor_timer_hook(timer * timer);
+static void rxmt_timer_hook(timer * timer);
+static void ackd_timer_hook(timer * t);
 
-void neighbor_timer_hook(timer * timer);
-void rxmt_timer_hook(timer * timer);
-void ackd_timer_hook(timer * t);
+static void
+init_lists(struct ospf_neighbor *n)
+{
+  s_init_list(&(n->lsrql));
+  n->lsrqh = ospf_top_new(n->pool);
+  s_init(&(n->lsrqi), &(n->lsrql));
+
+  s_init_list(&(n->lsrtl));
+  n->lsrth = ospf_top_new(n->pool);
+  s_init(&(n->lsrti), &(n->lsrtl));
+}
+
+/* Resets LSA request and retransmit list.
+ * We do not reset DB summary list iterator here, 
+ * it is reset during entering EXCHANGE state.
+ */
+static void
+reset_lists(struct ospf_neighbor *n)
+{
+  ospf_top_free(n->lsrqh);
+  ospf_top_free(n->lsrth);
+  init_lists(n);
+}
 
 struct ospf_neighbor *
 ospf_neighbor_new(struct ospf_iface *ifa)
 {
   struct proto *p = (struct proto *) (ifa->oa->po);
+  struct proto_ospf *po = ifa->oa->po;
   struct pool *pool = rp_new(p->pool, "OSPF Neighbor");
   struct ospf_neighbor *n = mb_allocz(pool, sizeof(struct ospf_neighbor));
 
@@ -44,6 +71,9 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   n->csn = 0;
   n->ldbdes = mb_allocz(pool, ifa->iface->mtu);
   n->state = NEIGHBOR_DOWN;
+
+  init_lists(n);
+  s_init(&(n->dbsi), &(po->lsal));
 
   n->inactim = tm_new(pool);
   n->inactim->data = n;
@@ -57,12 +87,6 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   n->rxmt_timer->randomize = 0;
   n->rxmt_timer->hook = rxmt_timer_hook;
   n->rxmt_timer->recurrent = ifa->rxmtint;
-  s_init_list(&(n->lsrql));
-  n->lsrqh = ospf_top_new(pool);
-  s_init_list(&(n->lsrtl));
-  n->lsrth = ospf_top_new(pool);
-  s_init(&(n->lsrqi), &(n->lsrql));
-  s_init(&(n->lsrti), &(n->lsrtl));
   tm_start(n->rxmt_timer, n->ifa->rxmtint);
   DBG("%s: Installing rxmt timer.\n", p->name);
 
@@ -88,7 +112,7 @@ ospf_neighbor_new(struct ospf_iface *ifa)
  * starts rxmt timers, call interface state machine etc.
  */
 
-void
+static void
 neigh_chstate(struct ospf_neighbor *n, u8 state)
 {
   u8 oldstate;
@@ -143,7 +167,7 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
   }
 }
 
-struct ospf_neighbor *
+static struct ospf_neighbor *
 electbdr(list nl)
 {
   struct ospf_neighbor *neigh, *n1, *n2;
@@ -194,7 +218,7 @@ electbdr(list nl)
   return (n1);
 }
 
-struct ospf_neighbor *
+static struct ospf_neighbor *
 electdr(list nl)
 {
   struct ospf_neighbor *neigh, *n;
@@ -323,7 +347,11 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
     if (n->state == NEIGHBOR_EXSTART)
     {
       neigh_chstate(n, NEIGHBOR_EXCHANGE);
+
+      /* Reset DB summary list iterator */
+      s_get(&(n->dbsi));
       s_init(&(n->dbsi), &po->lsal);
+
       while (!EMPTY_LIST(n->ackl[ACKL_DELAY]))
       {
 	struct lsah_n *no;
@@ -355,6 +383,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       if (n->state >= NEIGHBOR_EXSTART)
 	if (!can_do_adj(n))
 	{
+	  reset_lists(n);
 	  neigh_chstate(n, NEIGHBOR_2WAY);
 	}
       break;
@@ -364,15 +393,18 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
   case INM_BADLSREQ:
     if (n->state >= NEIGHBOR_EXCHANGE)
     {
+      reset_lists(n);
       neigh_chstate(n, NEIGHBOR_EXSTART);
     }
     break;
   case INM_KILLNBR:
   case INM_LLDOWN:
   case INM_INACTTIM:
+    reset_lists(n);
     neigh_chstate(n, NEIGHBOR_DOWN);
     break;
   case INM_1WAYREC:
+    reset_lists(n);
     neigh_chstate(n, NEIGHBOR_INIT);
     break;
   default:
@@ -539,7 +571,7 @@ ospf_find_area(struct proto_ospf *po, u32 aid)
 }
 
 /* Neighbor is inactive for a long time. Remove it. */
-void
+static void
 neighbor_timer_hook(timer * timer)
 {
   struct ospf_neighbor *n = (struct ospf_neighbor *) timer->data;
@@ -558,6 +590,7 @@ ospf_neigh_remove(struct ospf_neighbor *n)
   struct ospf_iface *ifa = n->ifa;
   struct proto *p = &ifa->oa->po->proto;
 
+  s_get(&(n->dbsi));
   neigh_chstate(n, NEIGHBOR_DOWN);
   rem_node(NODE n);
   rfree(n->pool);
@@ -596,7 +629,7 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
           (ifa->type == OSPF_IT_VLINK ? "vlink" : ifa->iface->name));
 }
 
-void
+static void
 rxmt_timer_hook(timer * timer)
 {
   struct ospf_neighbor *n = (struct ospf_neighbor *) timer->data;
@@ -649,7 +682,7 @@ rxmt_timer_hook(timer * timer)
   }
 }
 
-void
+static void
 ackd_timer_hook(timer * t)
 {
   struct ospf_neighbor *n = t->data;

@@ -113,8 +113,8 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 	  DBG("M bit unset.\n");
 	  n->myimms.bit.m = 0;	/* Unset more bit */
 	}
-	else
-	  s_put(&(n->dbsi), sn);
+
+	s_put(&(n->dbsi), sn);
       }
 
       pkt->imms.byte = n->myimms.byte;

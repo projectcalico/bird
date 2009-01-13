@@ -908,7 +908,7 @@ ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
     case LSA_T_NET:
       ln = he->lsa_body;
       rts = (u32 *) (ln + 1);
-      max = (he->lsa.length - sizeof(struct ospf_lsa_header) -                                                                                                               
+      max = (he->lsa.length - sizeof(struct ospf_lsa_header) -
 		sizeof(struct ospf_lsa_net)) / sizeof(u32);
 
       for (i = 0; i < max; i++)
