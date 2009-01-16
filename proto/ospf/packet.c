@@ -126,7 +126,7 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
       break;
     case OSPF_AUTH_SIMPLE:
       pass = password_find(ifa->passwords, 1);
-      if(!pass)
+      if (!pass)
       {
         OSPF_TRACE(D_PACKETS, "OSPF_auth: no password found");
 	return 0;
@@ -149,6 +149,7 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
         OSPF_TRACE(D_PACKETS, "OSPF_auth: wrong size of md5 digest");
         return 0;
       }
+
       if (ntohs(pkt->length) + OSPF_AUTH_CRYPT_SIZE != size)
       {
         OSPF_TRACE(D_PACKETS, "OSPF_auth: size mismatch (%d vs %d)",
@@ -164,21 +165,24 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
 
       tail = ((void *)pkt) + ntohs(pkt->length);
 
-      WALK_LIST(ptmp, *(ifa->passwords))
+      if (ifa->passwords)
       {
-        if (pkt->u.md5.keyid != ptmp->id) continue;
-        if ((ptmp->accfrom > now_real) || (ptmp->accto < now_real)) continue;
-        pass = ptmp;
-        break;
+	WALK_LIST(ptmp, *(ifa->passwords))
+	{
+	  if (pkt->u.md5.keyid != ptmp->id) continue;
+	  if ((ptmp->accfrom > now_real) || (ptmp->accto < now_real)) continue;
+	  pass = ptmp;
+	  break;
+	}
       }
 
-      if(!pass)
+      if (!pass)
       {
         OSPF_TRACE(D_PACKETS, "OSPF_auth: no suitable md5 password found");
         return 0;
       }
 
-      if(n)
+      if (n)
       {
         if(ntohs(pkt->u.md5.csn) < n->csn)
         {
