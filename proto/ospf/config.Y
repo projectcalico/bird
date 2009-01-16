@@ -32,7 +32,7 @@ CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL)
 
 CF_GRAMMAR
 
-CF_ADDTO(proto, ospf_proto '}' { OSPF_PATT->passwords = get_passwords(); } )
+CF_ADDTO(proto, ospf_proto '}')
 
 ospf_proto_start: proto_start OSPF {
      this_proto = proto_config_new(&proto_ospf, sizeof(struct ospf_config));
@@ -83,7 +83,7 @@ ospf_area_item:
  ;
 
 ospf_vlink:
-   ospf_vlink_start '{' ospf_vlink_opts '}'
+   ospf_vlink_start '{' ospf_vlink_opts '}' { OSPF_PATT->passwords = get_passwords(); }
  | ospf_vlink_start
  ;
 
@@ -237,7 +237,7 @@ ospf_iface_opt_list:
  ;
 
 ospf_iface:
-  ospf_iface_start iface_patt ospf_iface_opt_list
+  ospf_iface_start iface_patt ospf_iface_opt_list { OSPF_PATT->passwords = get_passwords(); }
  ;
 
 ospf_iface_list:
