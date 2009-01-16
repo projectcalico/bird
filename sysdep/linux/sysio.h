@@ -152,7 +152,7 @@ static inline char *sysio_mcast_join(sock *s)
 #define TCP_MD5SIG_MAXKEYLEN 80
 
 struct tcp_md5sig {
-  struct __kernel_sockaddr_storage tcpm_addr;     /* address associated */
+  struct  sockaddr_storage tcpm_addr;             /* address associated */
   __u16   __tcpm_pad1;                            /* zero */
   __u16   tcpm_keylen;                            /* key length */
   __u32   __tcpm_pad2;                            /* zero */
