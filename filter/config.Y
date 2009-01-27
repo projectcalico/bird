@@ -38,7 +38,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %type <e> set_item set_items switch_body
 %type <v> set_atom fprefix fprefix_s fipa
 %type <s> decls declsn one_decl function_params 
-%type <h> bgp_path
+%type <h> bgp_path bgp_path_tail1 bgp_path_tail2
 
 CF_GRAMMAR
 
@@ -267,12 +267,22 @@ switch_body: /* EMPTY */ { $$ = NULL; }
 
 /* CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; } */
 
+bgp_path:
+   '|' bgp_path_tail1 '|' { $$ = $2; }
+ | '/' bgp_path_tail2 '/' { $$ = $2; }
+ | OR  		      	  { $$ = NULL; } /* special case because of || is a different token */
+ ;
 
-bgp_path: 
-   NUM          { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = NULL; $$->val  = $1; $$->any = 0; }
- | '?'          { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = NULL; $$->val  = 0;  $$->any = 1; }
- | NUM bgp_path { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = $1; $$->any = 0; }
- | '?' bgp_path { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = 0;  $$->any = 1; }
+bgp_path_tail1:
+   NUM bgp_path_tail1 { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = $1; $$->any = 0; }
+ | '*' bgp_path_tail1 { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = 0;  $$->any = 1; }
+ |  		      { $$ = NULL; }
+ ;
+
+bgp_path_tail2:
+   NUM bgp_path_tail2 { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = $1; $$->any = 0; }
+ | '?' bgp_path_tail2 { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2;   $$->val  = 0;  $$->any = 1; }
+ | 		      { $$ = NULL; }
  ;
 
 constant:
@@ -285,7 +295,7 @@ constant:
  | fprefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
- | '/' bgp_path '/' { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; val->type = T_PATH_MASK; val->val.path_mask = $2; $$->a1.p = val; }
+ | bgp_path { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; val->type = T_PATH_MASK; val->val.path_mask = $1; $$->a1.p = val; }
  ;
 
 /*
