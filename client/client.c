@@ -168,20 +168,24 @@ input_complete(int arg UNUSED, int key UNUSED)
 static int
 input_help(int arg, int key UNUSED)
 {
-  int i = 0;
+  int i, in_string, in_path;
 
   if (arg != 1)
     return rl_insert(arg, '?');
-  while (i < rl_point)
+
+  in_string = in_path = 0;
+  for (i = 0; i < rl_point; i++)
     {
-      if (rl_line_buffer[i++] == '"')
-	do
-	  {
-	    if (i >= rl_point)		/* `?' inside quoted string -> insert */
-	      return rl_insert(1, '?');
-	  }
-        while (rl_line_buffer[i++] != '"');
+      if (rl_line_buffer[i] == '"')
+	in_string = ! in_string;
+      else if ((rl_line_buffer[i] == '|') && (! in_string))
+	in_path = ! in_path;
     }
+
+  /* `?' inside string or path -> insert */
+  if (in_string || in_path)
+    return rl_insert(1, '?');
+
   rl_begin_undo_group();		/* HACK: We want to display `?' at point position */
   rl_insert_text("?");
   rl_redisplay();
