@@ -263,8 +263,9 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
     {
       /* Duplicate packet */
       OSPF_TRACE(D_PACKETS, "Received duplicate dbdes from %I.", n->ip);
-      if (n->imms.bit.ms == 0)
+      if (n->myimms.bit.ms == 0)
       {
+	/* Slave should retransmit dbdes packet */
 	ospf_dbdes_send(n);
       }
       return;
