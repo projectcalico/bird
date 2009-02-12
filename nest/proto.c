@@ -605,6 +605,9 @@ proto_notify_state(struct proto *p, unsigned ps)
   switch (ps)
     {
     case PS_DOWN:
+      if ((cs = FS_FEEDING) || (cs == FS_HAPPY))
+	proto_schedule_flush(p);
+
       neigh_prune(); // FIXME convert neighbors to resource?
       rfree(p->pool);
       p->pool = NULL;
@@ -614,9 +617,6 @@ proto_notify_state(struct proto *p, unsigned ps)
 	  proto_fell_down(p);
 	  return;			/* The protocol might have ceased to exist */
 	}
-      /* Otherwise, we have something to flush... */
-      else if (cs != FS_FLUSHING)
-	proto_schedule_flush(p);
       break;
     case PS_START:
       ASSERT(ops == PS_DOWN);
