@@ -111,6 +111,27 @@ bgp_check_aggregator(struct bgp_proto *p, byte *a UNUSED, int len)
   return (len == exp_len) ? 0 : 5;
 }
 
+static void
+bgp_format_aggregator(eattr *a, byte *buf, int buflen UNUSED)
+{
+  struct adata *ad =  a->u.ptr;
+  byte *data = ad->data;
+  u32 as;
+
+  if (bgp_as4_support)
+    {
+      as = get_u32(data);
+      data += 4;
+    }
+  else
+    {
+      as = get_u16(data);
+      data += 2;
+    }
+
+  bsprintf(buf, "%d.%d.%d.%d AS%d", data[0], data[1], data[2], data[3], as);
+}
+
 static int
 bgp_check_cluster_list(struct bgp_proto *p UNUSED, byte *a UNUSED, int len)
 {
@@ -159,7 +180,7 @@ static struct attr_desc bgp_attr_table[] = {
   { "atomic_aggr", 0, BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,			/* BA_ATOMIC_AGGR */
     NULL, NULL },
   { "aggregator", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,	/* BA_AGGREGATOR */
-    bgp_check_aggregator, NULL },
+    bgp_check_aggregator, bgp_format_aggregator },
   { "community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_INT_SET, 1,	/* BA_COMMUNITY */
     NULL, NULL },
   { "originator_id", 4, BAF_OPTIONAL, EAF_TYPE_ROUTER_ID, 0,			/* BA_ORIGINATOR_ID */

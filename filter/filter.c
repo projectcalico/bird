@@ -83,7 +83,7 @@ pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
 	}
 
       if (p->any)
-	buf += bsprintf(buf, "? ");
+	buf += bsprintf(buf, "* ");
       else
 	buf += bsprintf(buf, "%u ", p->val);
 
