@@ -661,7 +661,7 @@ interpret(struct f_inst *what)
     switch(v1.type) {
     case T_PREFIX: res.val.i = v1.val.px.len; break;
     case T_PATH:   res.val.i = as_path_getlen(v1.val.ad); break;
-    default: bug( "Length of what?" );
+    default: runtime( "Prefix or path expected" );
     }
     break;
   case P('c','p'):	/* Convert prefix to ... */
