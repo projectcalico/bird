@@ -298,6 +298,9 @@ as_path_match(struct adata *path, struct f_path_mask *mask)
   u8 *next;
   u32 as;
 
+  if (!mask)
+    return ! path->length;
+
   asterisk = mask->any;
   if (asterisk)
     { mask = mask->next; if (!mask) return 1; }
