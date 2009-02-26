@@ -21,6 +21,8 @@
 
 #include "bgp.h"
 
+static struct rate_limit rl_rcv_update,  rl_snd_update;
+
 static byte *
 bgp_create_notification(struct bgp_conn *conn, byte *buf)
 {
@@ -175,7 +177,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
     }
   if (wd_size || r_size)
     {
-      BGP_TRACE(D_PACKETS, "Sending UPDATE");
+      BGP_TRACE_RL(&rl_snd_update, D_PACKETS, "Sending UPDATE");
       return w;
     }
   else
@@ -282,7 +284,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   lp_flush(bgp_linpool);
   if (size)
     {
-      BGP_TRACE(D_PACKETS, "Sending UPDATE");
+      BGP_TRACE_RL(&rl_snd_update, D_PACKETS, "Sending UPDATE");
       return w;
     }
   else
@@ -762,7 +764,8 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
   byte *withdrawn, *attrs, *nlri;
   int withdrawn_len, attr_len, nlri_len;
 
-  BGP_TRACE(D_PACKETS, "Got UPDATE");
+  BGP_TRACE_RL(&rl_rcv_update, D_PACKETS, "Got UPDATE");
+
   if (conn->state != BS_ESTABLISHED)
     { bgp_error(conn, 5, 0, NULL, 0); return; }
   bgp_start_timer(conn->hold_timer, conn->hold_time);

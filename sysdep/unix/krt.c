@@ -183,18 +183,18 @@ struct protocol proto_unix_iface = {
  *	Tracing of routes
  */
 
-static void
-krt_trace_in_print(struct krt_proto *p, rte *e, char *msg)
-{
-  DBG("KRT: %I/%d: %s\n", e->net->n.prefix, e->net->n.pxlen, msg);
-  log(L_TRACE "%s: %I/%d: %s", p->p.name, e->net->n.prefix, e->net->n.pxlen, msg);
-}
-
 static inline void
 krt_trace_in(struct krt_proto *p, rte *e, char *msg)
 {
   if (p->p.debug & D_PACKETS)
-    krt_trace_in_print(p, e, msg);
+    log(L_TRACE "%s: %I/%d: %s", p->p.name, e->net->n.prefix, e->net->n.pxlen, msg);
+}
+
+static inline void
+krt_trace_in_rl(struct rate_limit *rl, struct krt_proto *p, rte *e, char *msg)
+{
+  if (p->p.debug & D_PACKETS)
+    log_rl(rl, L_TRACE "%s: %I/%d: %s", p->p.name, e->net->n.prefix, e->net->n.pxlen, msg);
 }
 
 /*
@@ -202,6 +202,8 @@ krt_trace_in(struct krt_proto *p, rte *e, char *msg)
  */
 
 #ifdef KRT_ALLOW_LEARN
+
+static struct rate_limit rl_alien_seen, rl_alien_updated, rl_alien_created, rl_alien_ignored;
 
 static inline int
 krt_same_key(rte *a, rte *b)
@@ -249,20 +251,20 @@ krt_learn_scan(struct krt_proto *p, rte *e)
     {
       if (krt_uptodate(m, e))
 	{
-	  krt_trace_in(p, e, "[alien] seen");
+	  krt_trace_in_rl(&rl_alien_seen, p, e, "[alien] seen");
 	  rte_free(e);
 	  m->u.krt.seen = 1;
 	}
       else
 	{
-	  krt_trace_in(p, e, "[alien] updated");
+	  krt_trace_in_rl(&rl_alien_updated, p, e, "[alien] updated");
 	  *mm = m->next;
 	  rte_free(m);
 	  m = NULL;
 	}
     }
   else
-    krt_trace_in(p, e, "[alien] created");
+    krt_trace_in_rl(&rl_alien_created, p, e, "[alien] created");
   if (!m)
     {
       e->attrs = rta_lookup(e->attrs);
@@ -516,7 +518,7 @@ krt_got_route(struct krt_proto *p, rte *e)
 	krt_learn_scan(p, e);
       else
 	{
-	  krt_trace_in(p, e, "alien route, ignored");
+	  krt_trace_in_rl(&rl_alien_ignored, p, e, "alien route, ignored");
 	  rte_free(e);
 	}
       return;

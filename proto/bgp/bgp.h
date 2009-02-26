@@ -139,6 +139,10 @@ void bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code
 #define BGP_TRACE(flags, msg, args...) do { if ((p->p.debug & flags) || BGP_FORCE_DEBUG) \
 	log(L_TRACE "%s: " msg, p->p.name , ## args ); } while(0)
 
+#define BGP_TRACE_RL(rl, flags, msg, args...) do { if ((p->p.debug & flags) || BGP_FORCE_DEBUG) \
+	log_rl(rl, L_TRACE "%s: " msg, p->p.name , ## args ); } while(0)
+
+
 /* attrs.c */
 
 void bgp_attach_attr(struct ea_list **to, struct linpool *pool, unsigned attr, uintptr_t val);

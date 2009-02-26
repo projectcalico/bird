@@ -281,8 +281,10 @@ rta_cow(void)
   }
 }
 
+static struct rate_limit rl_runtime_err;
+
 #define runtime(x) do { \
-    log( L_ERR "filters, line %d: %s", what->lineno, x); \
+    log_rl(&rl_runtime_err, L_ERR "filters, line %d: %s", what->lineno, x); \
     res.type = T_RETURN; \
     res.val.i = F_ERROR; \
     return res; \

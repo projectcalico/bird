@@ -129,6 +129,8 @@ nl_get_reply(void)
     }
 }
 
+static struct rate_limit rl_netlink_err;
+
 static int
 nl_error(struct nlmsghdr *h)
 {
@@ -143,7 +145,7 @@ nl_error(struct nlmsghdr *h)
   e = (struct nlmsgerr *) NLMSG_DATA(h);
   ec = -e->error;
   if (ec)
-    log(L_WARN "Netlink: %s", strerror(ec));
+    log_rl(&rl_netlink_err, L_WARN "Netlink: %s", strerror(ec));
   return ec;
 }
 
