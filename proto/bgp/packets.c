@@ -127,6 +127,18 @@ bgp_encode_prefixes(struct bgp_proto *p, byte *w, struct bgp_bucket *buck, unsig
   return w - start;
 }
 
+static void
+bgp_flush_prefixes(struct bgp_proto *p, struct bgp_bucket *buck)
+{
+  while (!EMPTY_LIST(buck->prefixes))
+    {
+      struct bgp_prefix *px = SKIP_BACK(struct bgp_prefix, bucket_node, HEAD(buck->prefixes));
+      log(L_ERR "%s: - route %I/%d skipped", p->p.name, px->n.prefix, px->n.pxlen);
+      rem_node(&px->bucket_node);
+      fib_delete(&p->prefix_fib, px);
+    }
+}
+
 #ifndef IPV6		/* IPv4 version */
 
 static byte *
@@ -150,7 +162,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
     }
   put_u16(buf, wd_size);
 
-  if (remains >= 2048)
+  if (remains >= 3072)
     {
       while ((buck = (struct bgp_bucket *) HEAD(p->bucket_queue))->send_node.next)
 	{
@@ -161,8 +173,19 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	      bgp_free_bucket(p, buck);
 	      continue;
 	    }
+
 	  DBG("Processing bucket %p\n", buck);
-	  a_size = bgp_encode_attrs(p, w+2, buck->eattrs, 1024);
+	  a_size = bgp_encode_attrs(p, w+2, buck->eattrs, 2048);
+
+	  if (a_size < 0)
+	    {
+	      log(L_ERR "%s: Attribute list too long, skipping corresponding route group", p->p.name);
+	      bgp_flush_prefixes(p, buck);
+	      rem_node(&buck->send_node);
+	      bgp_free_bucket(p, buck);
+	      continue;
+	    }
+
 	  put_u16(w, a_size);
 	  w += a_size + 2;
 	  r_size = bgp_encode_prefixes(p, w, buck, remains - a_size);
@@ -211,11 +234,12 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
       *tmp++ = 1;
       ea->attrs[0].u.ptr->length = bgp_encode_prefixes(p, tmp, buck, remains-11);
       size = bgp_encode_attrs(p, w, ea, remains);
+      ASSERT(size >= 0);
       w += size;
       remains -= size;
     }
 
-  if (remains >= 2048)
+  if (remains >= 3072)
     {
       while ((buck = (struct bgp_bucket *) HEAD(p->bucket_queue))->send_node.next)
 	{
@@ -226,8 +250,19 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	      bgp_free_bucket(p, buck);
 	      continue;
 	    }
+
 	  DBG("Processing bucket %p\n", buck);
-	  size = bgp_encode_attrs(p, w, buck->eattrs, 1024);
+	  size = bgp_encode_attrs(p, w, buck->eattrs, 2048);
+
+	  if (size < 0)
+	    {
+	      log(L_ERR "%s: Attribute list too long, ignoring corresponding route group", p->p.name);
+	      bgp_flush_prefixes(p, buck);
+	      rem_node(&buck->send_node);
+	      bgp_free_bucket(p, buck);
+	      continue;
+	    }
+
 	  w += size;
 	  remains -= size;
 	  tstart = tmp = bgp_attach_attr_wa(&ea, bgp_linpool, BA_MP_REACH_NLRI, remains-8);
@@ -274,7 +309,9 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  *tmp++ = 0;			/* No SNPA information */
 	  tmp += bgp_encode_prefixes(p, tmp, buck, remains - (8+3+32+1));
 	  ea->attrs[0].u.ptr->length = tmp - tstart;
-	  w += bgp_encode_attrs(p, w, ea, remains);
+	  size = bgp_encode_attrs(p, w, ea, remains);
+	  ASSERT(size >= 0);
+	  w += size;
 	  break;
 	}
     }

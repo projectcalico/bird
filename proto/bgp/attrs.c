@@ -347,7 +347,7 @@ bgp_get_attr_len(eattr *a)
  * The bgp_encode_attrs() function takes a list of extended attributes
  * and converts it to its BGP representation (a part of an Update message).
  *
- * Result: Length of the attribute block generated.
+ * Result: Length of the attribute block generated or -1 if not enough space.
  */
 unsigned int
 bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
@@ -488,8 +488,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
   return w - start;
 
  err_no_buffer:
-  log(L_ERR "BGP: attribute list too long, ignoring the remaining attributes");
-  return w - start;
+  return -1;
 }
 
 static void
