@@ -21,7 +21,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
 	ERROR, START, DELAY, FORGET, WAIT, ENABLE, DISABLE, AFTER,
 	BGP_PATH, BGP_LOCAL_PREF, BGP_MED, BGP_ORIGIN, BGP_NEXT_HOP,
 	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY, SOURCE, ADDRESS,
-	PASSWORD, RR, RS, CLIENT, CLUSTER, ID, AS4)
+	PASSWORD, RR, RS, CLIENT, CLUSTER, ID, AS4, ADVERTISE, IPV4)
 
 CF_GRAMMAR
 
@@ -71,6 +71,7 @@ bgp_proto:
  | bgp_proto ERROR WAIT TIME expr ',' expr ';' { BGP_CFG->error_delay_time_min = $5; BGP_CFG->error_delay_time_max = $7; }
  | bgp_proto DISABLE AFTER ERROR bool ';' { BGP_CFG->disable_after_error = $5; }
  | bgp_proto ENABLE AS4 bool ';' { BGP_CFG->enable_as4 = $4; }
+ | bgp_proto ADVERTISE IPV4 ';' { BGP_CFG->advertise_ipv4 = 1; }
  | bgp_proto PASSWORD TEXT ';' { BGP_CFG->password = $3; }
  ;
 

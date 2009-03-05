@@ -29,6 +29,7 @@ struct bgp_config {
   u32 rr_cluster_id;			/* Route reflector cluster ID, if different from local ID */
   int rr_client;			/* Whether neighbor is RR client of me */
   int rs_client;			/* Whether neighbor is RS client of me */
+  int advertise_ipv4;			/* Whether we should add IPv4 capability advertisement to OPEN message */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
@@ -259,6 +260,7 @@ void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subco
 
 /* Address families */
 
+#define BGP_AF_IPV4		1
 #define BGP_AF_IPV6		2
 
 #endif

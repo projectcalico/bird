@@ -47,6 +47,20 @@ bgp_put_cap_ipv6(struct bgp_conn *conn UNUSED, byte *buf)
   *buf++ = 1;		/* and SAFI 1 */
   return buf;
 }
+
+#else
+
+static byte *
+bgp_put_cap_ipv4(struct bgp_conn *conn UNUSED, byte *buf)
+{
+  *buf++ = 1;		/* Capability 1: Multiprotocol extensions */
+  *buf++ = 4;		/* Capability data length */
+  *buf++ = 0;		/* We support AF IPv4 */
+  *buf++ = BGP_AF_IPV4;
+  *buf++ = 0;		/* RFU */
+  *buf++ = 1;		/* and SAFI 1 */
+  return buf;
+}
 #endif
 
 static byte *
@@ -81,6 +95,11 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
 
   /* Skipped 3 B for length field and Capabilities parameter header */
   cap = buf + 12;
+
+#ifndef IPV6
+  if (p->cf->advertise_ipv4)
+    cap = bgp_put_cap_ipv4(conn, cap);
+#endif
 
 #ifdef IPV6
   cap = bgp_put_cap_ipv6(conn, cap);
@@ -940,6 +959,9 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
   unsigned subcode = pkt[20];
   int delay = 1;
 
+  bgp_log_error(conn->bgp, "Received error notification", code, subcode, pkt+21, len-21);
+  bgp_store_error(conn->bgp, conn, BE_BGP_RX, (code << 16) | subcode);
+
 #ifndef IPV6
   if ((code == 2) && ((subcode == 4) || (subcode == 7)))
     {
@@ -948,14 +970,12 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
        * 7 - Peer request some capability. Strange unless it is IPv6 only peer.
        * We try connect without capabilities
        */
-      BGP_TRACE(D_EVENTS, "Capability related error received, capabilities disabled");
+      log(L_WARN "%s: Capability related error received, capabilities disabled", p->p.name);
       conn->bgp->start_state = BSS_CONNECT_NOCAP;
       delay = 0;
     }
 #endif
 
-  bgp_log_error(conn->bgp, "Received error notification", code, subcode, pkt+21, len-21);
-  bgp_store_error(conn->bgp, conn, BE_BGP_RX, (code << 16) | subcode);
   if (delay) bgp_update_startup_delay(conn->bgp, conn, code, subcode);
   bgp_conn_enter_close_state(conn);
   bgp_schedule_packet(conn, PKT_SCHEDULE_CLOSE);

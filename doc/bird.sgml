@@ -762,6 +762,16 @@ for each neighbor using the following configuration parameters:
 	Even when disabled (off), BIRD behaves internally as AS4-aware BGP router.
 	Default: on.
 
+	<tag>advertise ipv4</tag> Advertise IPv4 multiprotocol capability.
+	This is not correct behavior but it is required by some BGP
+	implementations (Cisco and Quagga). Without this option,
+	the session establishment with these implementations takes
+	more time, session is degraded (no optional capabilities)
+	and the problem is logged. When the option is used, there might
+	be compatibility issues with other BGP implementations.
+	This option is relevant to IPv4 mode only.
+	Default: disabled.
+
 	<tag>disable after error <m/switch/</tag> When an error is encountered (either
 	locally or by the other side), disable the instance automatically
 	and wait for an administrator to fix the problem manually. Default: off.
