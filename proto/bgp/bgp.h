@@ -25,6 +25,7 @@ struct bgp_config {
   int compare_path_lengths;		/* Use path lengths when selecting best route */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
   u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */
+  int capabilities;			/* Enable capability handshake [RFC3392] */
   int enable_as4;			/* Enable local support for 4B AS numbers [RFC4893] */
   u32 rr_cluster_id;			/* Route reflector cluster ID, if different from local ID */
   int rr_client;			/* Whether neighbor is RR client of me */

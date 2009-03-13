@@ -104,6 +104,7 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
 #ifdef IPV6
   cap = bgp_put_cap_ipv6(conn, cap);
 #endif
+
   if (conn->want_as4_support)
     cap = bgp_put_cap_as4(conn, cap);
 
@@ -504,6 +505,7 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 static int
 bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
 {
+  struct bgp_proto *p = conn->bgp;
   int ol;
 
   while (len > 0)
@@ -524,7 +526,10 @@ bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
       switch (opt[0])
 	{
 	case 2:
-	  bgp_parse_capabilities(conn, opt + 2, ol);
+	  if (conn->start_state == BSS_CONNECT_NOCAP)
+	    BGP_TRACE(D_PACKETS, "Ignoring received capabilities");
+	  else
+	    bgp_parse_capabilities(conn, opt + 2, ol);
 	  break;
 
 	default:
@@ -550,6 +555,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   struct bgp_proto *p = conn->bgp;
   struct bgp_config *cf = p->cf;
   unsigned hold;
+  u16 base_as;
   u32 id;
 
   /* Check state */
@@ -561,7 +567,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
     { bgp_error(conn, 1, 2, pkt+16, 2); return; }
   if (pkt[19] != BGP_VERSION)
     { bgp_error(conn, 2, 1, pkt+19, 1); return; } /* RFC 1771 says 16 bits, draft-09 tells to use 8 */
-  conn->advertised_as = get_u16(pkt+20);
+  conn->advertised_as = base_as = get_u16(pkt+20);
   hold = get_u16(pkt+22);
   id = get_u32(pkt+24);
   BGP_TRACE(D_PACKETS, "Got OPEN(as=%d,hold=%d,id=%08x)", conn->advertised_as, hold, id);
@@ -575,10 +581,11 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   if (!id || id == 0xffffffff || id == p->local_id)
     { bgp_error(conn, 2, 3, pkt+24, -4); return; }
 
+  if ((conn->advertised_as != base_as) && (base_as != AS_TRANS))
+    log(L_WARN "%s: Peer advertised inconsistent AS numbers", p->p.name);
+
   if (conn->advertised_as != p->remote_as)
-    {
-      bgp_error(conn, 2, 2, (byte *) &(conn->advertised_as), -4); return;
-    }
+    { bgp_error(conn, 2, 2, (byte *) &(conn->advertised_as), -4); return; }
 
   /* Check the other connection */
   other = (conn == &p->outgoing_conn) ? &p->incoming_conn : &p->outgoing_conn;
@@ -963,14 +970,20 @@ bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
   bgp_store_error(conn->bgp, conn, BE_BGP_RX, (code << 16) | subcode);
 
 #ifndef IPV6
-  if ((code == 2) && ((subcode == 4) || (subcode == 7)))
-    {
+  if ((code == 2) && ((subcode == 4) || (subcode == 7))
       /* Error related to capability:
        * 4 - Peer does not support capabilities at all.
        * 7 - Peer request some capability. Strange unless it is IPv6 only peer.
-       * We try connect without capabilities
        */
-      log(L_WARN "%s: Capability related error received, capabilities disabled", p->p.name);
+      && (p->cf->capabilities == 2)
+      /* Capabilities are not explicitly enabled or disabled, therefore heuristic is used */
+      && (conn->start_state == BSS_CONNECT)
+      /* Failed connection attempt have used capabilities */
+      && (p->cf->remote_as <= 0xFFFF))
+      /* Not possible with disabled capabilities */
+    {
+      /* We try connect without capabilities */
+      log(L_WARN "%s: Capability related error received, retry with capabilities disabled", p->p.name);
       conn->bgp->start_state = BSS_CONNECT_NOCAP;
       delay = 0;
     }

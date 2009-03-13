@@ -669,6 +669,8 @@ MD5 password authentication
 (RFC 2385<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2385.txt">),
 route reflectors 
 (RFC 4456<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4456.txt">),
+multiprotocol extensions
+(RFC 4760<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4760.txt">),
 and 4B AS numbers 
 (RFC 4893<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4893.txt">).
 
@@ -762,15 +764,19 @@ for each neighbor using the following configuration parameters:
 	Even when disabled (off), BIRD behaves internally as AS4-aware BGP router.
 	Default: on.
 
-	<tag>advertise ipv4</tag> Advertise IPv4 multiprotocol capability.
-	This is not correct behavior but it is required by some BGP
-	implementations (Cisco and Quagga). Without this option,
-	the session establishment with these implementations takes
-	more time, session is degraded (no optional capabilities)
-	and the problem is logged. When the option is used, there might
-	be compatibility issues with other BGP implementations.
-	This option is relevant to IPv4 mode only.
-	Default: disabled.
+	<tag>capabilities <m/switch/</tag> Use capability advertisement
+	to advertise optional capabilities. This is standard behavior
+	for newer BGP implementations, but there might be some older
+	BGP implementations that reject such connection attempts.
+	When disabled (off), features that request it (4B AS support)
+	are also disabled. Default: on, with automatic fallback to
+	off when received capability-related error.
+
+	<tag>advertise ipv4 <m/switch/</tag> Advertise IPv4 multiprotocol capability.
+	This is not a correct behavior according to the strict interpretation
+	of RFC 4760, but it is widespread and required by some BGP
+	implementations (Cisco and Quagga). This option is relevant
+	to IPv4 mode with enabled capability advertisement only. Default: on.
 
 	<tag>disable after error <m/switch/</tag> When an error is encountered (either
 	locally or by the other side), disable the instance automatically

@@ -113,7 +113,7 @@ bgp_open(struct bgp_proto *p)
 	}
     }
 
-  p->start_state = BSS_CONNECT;
+  p->start_state = p->cf->capabilities ? BSS_CONNECT : BSS_CONNECT_NOCAP;
   return 0;
 }
 
@@ -823,16 +823,22 @@ bgp_check(struct bgp_config *c)
 {
   if (!c->local_as)
     cf_error("Local AS number must be set");
+
   if (!c->remote_as)
     cf_error("Neighbor must be configured");
+
   if (!bgp_as4_support && c->enable_as4)
     cf_error("AS4 support disabled globally");
-  if (!c->enable_as4 && (c->local_as > 0xFFFF))
+
+  if (!bgp_as4_support && (c->local_as > 0xFFFF))
     cf_error("Local AS number out of range");
-  if (!c->enable_as4 && (c->remote_as > 0xFFFF))
-    cf_error("Neighbor AS number out of range");
+
+  if (!(c->capabilities && c->enable_as4) && (c->remote_as > 0xFFFF))
+    cf_error("Neighbor AS number out of range (AS4 not available)");
+
   if ((c->local_as != c->remote_as) && (c->rr_client))
     cf_error("Only internal neighbor can be RR client");
+
   if ((c->local_as == c->remote_as) && (c->rs_client))
     cf_error("Only external neighbor can be RS client");
 }
