@@ -190,7 +190,7 @@ protocol static {
 #			bgp_community = -empty-; bgp_community.add((65000,5678));
 ##			if (65000,5678) ~ bgp_community then
 ##				bgp_community.add((0, 1));
-#			if bgp_path ~ / 65000 / then
+#			if bgp_path ~ [= 65000 =] then
 #				bgp_path.prepend(65000);
 #			accept;
 #		}

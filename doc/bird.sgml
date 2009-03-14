@@ -525,13 +525,13 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 
 	<tag/bgpmask/
 	  BGP masks are patterns used for BGP path matching
-	  (using <cf>path &tilde; |2 3 5 *|</cf> syntax). The masks
+	  (using <cf>path &tilde; [= 2 3 5 * =]</cf> syntax). The masks
 	  resemble wildcard patterns as used by UNIX shells. Autonomous
 	  system numbers match themselves, <cf/*/ matches any (even empty)
-	  sequence of arbitrary AS numbers. For example:
-	  <tt>|4 3 2 1| &tilde; |? 4 3 *|</tt> is true, but 
-	  <tt>|4 3 2 1| &tilde; |? 4 5 *|</tt> is false.
-	  There is also old syntax that uses / instead of | and ? instead of *.
+	  sequence of arbitrary AS numbers. For example, if <cf>bgp_path</cf> is 4 3 2 1, then:
+	  <tt>bgp_path &tilde; [= * 4 3 * =]</tt> is true, but 
+	  <tt>bgp_path &tilde; [= * 4 5 * =]</tt> is false.
+	  There is also old syntax that uses / .. / instead of [= .. =] and ? instead of *.
 	<tag/clist/ 
 	  Community list is similar to set of pairs,
 	  except that unlike other sets, it can be modified.
