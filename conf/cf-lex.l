@@ -200,6 +200,9 @@ WHITE [ \t]
 \&\& return AND;
 \|\| return OR;
 
+\[\= return PO;
+\=\] return PC;
+
 %%
 
 static int

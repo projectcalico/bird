@@ -83,9 +83,9 @@ pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
 	}
 
       if (p->any)
-	buf += bsprintf(buf, "* ");
+	buf += bsprintf(buf, " *");
       else
-	buf += bsprintf(buf, "%u ", p->val);
+	buf += bsprintf(buf, " %u", p->val);
 
       p = p->next;
     }
@@ -252,7 +252,7 @@ val_print(struct f_val v)
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   case T_PATH: as_path_format(v.val.ad, buf2, 1020); PRINTF( "(path %s)", buf2 ); break;
   case T_CLIST: int_set_format(v.val.ad, 1, buf2, 1020); PRINTF( "(clist %s)", buf2 ); break;
-  case T_PATH_MASK: pm_format(v.val.path_mask, buf2, 1020); PRINTF( "(pathmask %s)", buf2 ); break;
+  case T_PATH_MASK: pm_format(v.val.path_mask, buf2, 1020); PRINTF( "(pathmask%s)", buf2 ); break;
   default: PRINTF( "[unknown type %x]", v.type );
 #undef PRINTF
   }

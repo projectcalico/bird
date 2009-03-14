@@ -268,7 +268,7 @@ switch_body: /* EMPTY */ { $$ = NULL; }
 /* CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; } */
 
 bgp_path:
-   '|' bgp_path_tail1 '|' { $$ = $2; }
+   PO  bgp_path_tail1 PC  { $$ = $2; }
  | '/' bgp_path_tail2 '/' { $$ = $2; }
  | OR  		      	  { $$ = NULL; } /* special case because of || is a different token */
  ;

@@ -45,6 +45,7 @@ CF_DECLS
 
 %token END CLI_MARKER INVALID_TOKEN
 %token GEQ LEQ NEQ AND OR
+%token PO PC
 %token <i> NUM ENUM
 %token <i32> RTRID
 %token <a> IPA
@@ -57,7 +58,7 @@ CF_DECLS
 %type <px> prefix prefix_or_ipa
 
 %nonassoc PREFIX_DUMMY
-%nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ AND OR
+%nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ AND OR PO PC
 %left '+' '-'
 %left '*' '/' '%'
 %left '!'
