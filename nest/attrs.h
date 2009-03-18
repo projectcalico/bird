@@ -13,6 +13,8 @@
 
 #define AS_PATH_SET		1	/* Types of path segments */
 #define AS_PATH_SEQUENCE	2
+#define AS_PATH_CONFED_SEQUENCE	3
+#define AS_PATH_CONFED_SET	4
 
 #define AS_PATH_MAXLEN		10000
 

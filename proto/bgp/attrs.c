@@ -77,16 +77,6 @@ bgp_check_as_path(struct bgp_proto *p, byte *a, int len)
 }
 
 static int
-bgp_check_as4_path(struct bgp_proto *p, byte *a, int len)
-{
-  if (bgp_as4_support && (! p->as4_session))
-    return bgp_check_path(a, len, 4, 9);
-  else 
-    return 0;
-}
-
-
-static int
 bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
 {
 #ifdef IPV6
@@ -196,8 +186,8 @@ static struct attr_desc bgp_attr_table[] = {
     bgp_check_unreach_nlri, NULL },
   { NULL, },									/* BA_EXTENDED_COMM */
   { "as4_path", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_AS4_PATH */
-    bgp_check_as4_path, NULL },
-  { "as4_aggregator", 8, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,	/* BA_AS4_PATH */
+    NULL, NULL },
+  { "as4_aggregator", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,	/* BA_AS4_PATH */
     NULL, NULL }
 };
 
@@ -1063,6 +1053,85 @@ bgp_merge_as_paths(struct adata *old2, struct adata *old4, int req_as, struct li
   return newa;
 }
 
+static int
+as4_aggregator_valid(struct adata *aggr)
+{
+  if (aggr->length != 8)
+    return 0;
+
+  u32 *a = (u32 *) aggr->data;
+
+  if ((a[0] == 0) || (a[1] == 0))
+    return 0;
+}
+
+static int
+as4_path_sanitize_and_get_length(struct adata *path)
+{
+  int res = 0;
+  u8 *p, *dst;
+  int len, plen, copy;
+
+  dst = p = path->data;
+  len = path->length;
+
+  while (len)
+    {
+      if (len <= 2) /* We do not allow empty segments */
+	goto inconsistent_path;
+
+      switch (p[0])
+	{
+	case AS_PATH_SET:
+	  plen = 2 + 4 * p[1];
+	  copy = 1;
+	  res++;
+	  break;
+
+	case AS_PATH_SEQUENCE:
+	  plen = 2 + 4 * p[1];
+	  copy = 1;
+	  res += p[1];
+	  break;
+
+	case AS_PATH_CONFED_SEQUENCE:
+	case AS_PATH_CONFED_SET:
+	  log(L_WARN "BGP: AS4_PATH attribute contains AS_CONFED_* segment, skipping segment");
+	  plen = 2 + 4 * p[1];
+	  copy = 0;
+	  break;
+
+	default:
+	  goto unknown_segment;
+	}
+
+      if (len < plen)
+	goto inconsistent_path;
+
+      if (copy)
+	{
+	  if (dst != p)
+	    memmove(dst, p, plen);
+	  dst += plen;
+	}
+
+      len -= plen;
+      p += plen;
+    }
+
+  path->length = dst - path->data;
+  return res;
+
+ inconsistent_path:
+  log(L_WARN "BGP: AS4_PATH attribute is inconsistent, skipping attribute");
+  return -1;
+
+ unknown_segment:
+  log(L_WARN "BGP: AS4_PATH attribute contains unknown segment, skipping attribute");
+  return -1;
+}
+
+
 
 /* Reconstruct 4B AS_PATH and AGGREGATOR according to RFC 4893 4.2.3 */
 static void
@@ -1072,6 +1141,14 @@ bgp_reconstruct_4b_atts(struct bgp_proto *p, rta *a, struct linpool *pool)
   eattr *p4 =ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS4_PATH));
   eattr *a2 =ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AGGREGATOR));
   eattr *a4 =ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS4_AGGREGATOR));
+  int a4_removed = 0;
+
+  if (a4 && !as4_aggregator_valid(a4->u.ptr))
+    {
+      log(L_WARN "BGP: AS4_AGGREGATOR attribute is invalid, skipping attribute");
+      a4 = NULL;
+      a4_removed = 1;
+    }
 
   if (a2)
     {
@@ -1103,7 +1180,7 @@ bgp_reconstruct_4b_atts(struct bgp_proto *p, rta *a, struct linpool *pool)
 	  /* Common case, use old AGGREGATOR attribute */
 	  a2->u.ptr = bgp_aggregator_convert_to_new(a2->u.ptr, pool);
 
-	  if (a2_as == AS_TRANS)
+	  if ((a2_as == AS_TRANS) && !a4_removed)
 	    log(L_WARN "BGP: AGGREGATOR attribute contain AS_TRANS, but AS4_AGGREGATOR is missing");
 	}
     }
@@ -1112,13 +1189,12 @@ bgp_reconstruct_4b_atts(struct bgp_proto *p, rta *a, struct linpool *pool)
       log(L_WARN "BGP: AS4_AGGREGATOR attribute received, but AGGREGATOR attribute is missing");
 
   int p2_len = as_path_getlen(p2->u.ptr);
-  int p4_len = p4 ? as_path_getlen(p4->u.ptr) : AS_PATH_MAXLEN;
+  int p4_len = p4 ? as4_path_sanitize_and_get_length(p4->u.ptr) : -1;
 
-  if (p2_len < p4_len)
+  if ((p4_len <= 0) || (p2_len < p4_len))
     p2->u.ptr = bgp_merge_as_paths(p2->u.ptr, NULL, AS_PATH_MAXLEN, pool);
   else
     p2->u.ptr = bgp_merge_as_paths(p2->u.ptr, p4->u.ptr, p2_len - p4_len, pool);
-
 }
 
 static void

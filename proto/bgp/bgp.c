@@ -53,7 +53,7 @@
  * Unknown transitive attributes are attached to the route as %EAF_TYPE_OPAQUE byte streams.
  */
 
-#define LOCAL_DEBUG
+#undef LOCAL_DEBUG
 
 #include "nest/bird.h"
 #include "nest/iface.h"
