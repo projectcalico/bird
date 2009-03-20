@@ -462,8 +462,12 @@ krt_flush_routes(struct krt_proto *p)
       if (e)
 	{
 	  rta *a = e->attrs;
-	  if (a->source != RTS_DEVICE && a->source != RTS_INHERIT)
-	    krt_set_notify(p, e->net, NULL, e);
+	  if ((n->n.flags & KRF_INSTALLED) &&
+	      a->source != RTS_DEVICE && a->source != RTS_INHERIT)
+	    {
+	      krt_set_notify(p, e->net, NULL, e);
+	      n->n.flags &= ~KRF_INSTALLED;
+	    }
 	}
     }
   FIB_WALK_END;
@@ -795,7 +799,8 @@ krt_shutdown(struct proto *P)
 #endif
     tm_stop(p->scan_timer);
 
-  if (!KRT_CF->persist)
+  /* FIXME we should flush routes even when persist during reconfiguration */
+  if (p->initialized && !KRT_CF->persist)
     krt_flush_routes(p);
 
   krt_set_shutdown(p, last);
