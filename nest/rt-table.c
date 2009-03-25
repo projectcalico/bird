@@ -483,22 +483,30 @@ rte_update(rtable *table, net *net, struct proto *p, rte *new)
   rte_update_lock();
   if (new)
     {
+      struct filter *filter = p->in_filter;
+
+	/* Do not filter routes going to the secondary side of the pipe, 
+	   that should only go through export filter.
+	   FIXME Make a better check whether p is really a pipe. */
+      if (p->table != table)
+	filter = FILTER_ACCEPT;
+
       if (!rte_validate(new))
 	{
 	  rte_trace_in(D_FILTERS, p, new, "invalid");
 	  goto drop;
 	}
-      if (p->in_filter == FILTER_REJECT)
+      if (filter == FILTER_REJECT)
 	{
 	  rte_trace_in(D_FILTERS, p, new, "filtered out");
 	  goto drop;
 	}
       if (p->make_tmp_attrs)
 	tmpa = p->make_tmp_attrs(new, rte_update_pool);
-      if (p->in_filter)
+      if (filter)
 	{
 	  ea_list *old_tmpa = tmpa;
-	  int fr = f_run(p->in_filter, &new, &tmpa, rte_update_pool, 0);
+	  int fr = f_run(filter, &new, &tmpa, rte_update_pool, 0);
 	  if (fr > F_ACCEPT)
 	    {
 	      rte_trace_in(D_FILTERS, p, new, "filtered out");
