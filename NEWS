@@ -1,4 +1,4 @@
-Version 1.0.13 (2009-03-xx)
+Version 1.0.13 (2009-03-14)
   o A lot of bugfixes in BGP, OSPF and core
   o A new syntax for BGP masks
 

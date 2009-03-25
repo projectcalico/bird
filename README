@@ -78,7 +78,6 @@ What do we support:
 What is missing:
 
 	o  OSPF for IPv6
-	o  OSPF multiple areas and virtual links
 	o  See the TODO list
 
 Good Luck and enjoy the BIRD :)

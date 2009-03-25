@@ -744,8 +744,8 @@ for each neighbor using the following configuration parameters:
 	to avoid route reflection loops. When there is one route reflector in a cluster
 	it usually uses its router id as a cluster id, but when there are more route
 	reflectors in a cluster, these need to be configured (using this option) to
-	use a common cluster id. Clients in a cluster need not known their cluster
-	id and this option is not allowed to them. Default: a same as router id.
+	use a common cluster id. Clients in a cluster need not know their cluster
+	id and this option is not allowed for them. Default: the same as router id.
 
 	<tag>rs client</tag> Be a route server and treat the neighbor
 	as a route server client. A route server is used as a
