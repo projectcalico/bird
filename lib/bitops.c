@@ -52,12 +52,13 @@ u32_masklen(u32 x)
  *
  * This function computes a integral part of binary logarithm of given
  * integer @v and returns it. The computed value is also an index of the
- * first non-zero bit position.
+ * most significant non-zero bit position.
  */
 
 u32
 u32_log2(u32 v)
 {
+  /* The code from http://www-graphics.stanford.edu/~seander/bithacks.html */
   u32 r, shift;
   r =     (v > 0xFFFF) << 4; v >>= r;
   shift = (v > 0xFF  ) << 3; v >>= shift; r |= shift;
@@ -66,3 +67,4 @@ u32_log2(u32 v)
   r |= (v >> 1);
   return r;
 }
+

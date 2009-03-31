@@ -49,11 +49,6 @@
  * final node (if it is not in the trie) and we came to node that
  * is either extension of our prefix, or completely out of path
  * In the first case, we also have to check M2.
-
- * There also might be
- * a problem that interval of acceptance (on path from root to the
- * final node) might be completely missing (for example if we have
- * prefix patterns 192.168.128.0/24{8,10} and 192.168.1.0/24
  *
  * Second, we really need not to maintain two separate bitmasks.
  * Checks for mask M1 are always larger than &applen and we need
