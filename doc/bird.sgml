@@ -520,9 +520,9 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 
 	  There are also two shorthands for prefix patterns: <cf><m>address</m>/<m/len/+</cf> is a shorthand for
 	  <cf><m>address</m>/<m/len/{<m/len/,<m/maxlen/}</cf> (where <cf><m>maxlen</m></c> is 32 for IPv4 and 128 for IPv6), 
-	  that means prefix <cf><m>address</m>/<m/len/</cf> and all its subprefixes. <cf><m>address</m>/<m/len/-</cf>
-	  is a shorthand for <cf><m>address</m>/<m/len/{0,<m/len/}</cf>, that means prefix <cf><m>address</m>/<m/len/</cf>
-	  and all its superprefixes (prefixes that contain it).
+	  that means network prefix <cf><m>address</m>/<m/len/</cf> and all its subnets. <cf><m>address</m>/<m/len/-</cf>
+	  is a shorthand for <cf><m>address</m>/<m/len/{0,<m/len/}</cf>, that means network prefix <cf><m>address</m>/<m/len/</cf>
+	  and all its supernets (network prefixes that contain it).
 
 	  For example, <cf>[ 1.0.0.0/8, 2.0.0.0/8+, 3.0.0.0/8-, 4.0.0.0/8{16,24} ]</cf> matches
 	  prefix <cf>1.0.0.0/8</cf>, all subprefixes of <cf>2.0.0.0/8</cf>, all superprefixes of <cf>3.0.0.0/8</cf> and prefixes
