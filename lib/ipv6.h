@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include "lib/string.h"
+#include "lib/bitops.h"
 
 typedef struct ipv6_addr {
   u32 addr[4];
@@ -23,6 +24,7 @@ typedef struct ipv6_addr {
 #define _I2(a) ((a).addr[2])
 #define _I3(a) ((a).addr[3])
 
+#define MAX_PREFIX_LENGTH 128
 #define BITS_PER_IP_ADDRESS 128
 #define STD_ADDRESS_P_LENGTH 39
 #define SIZE_OF_IP_HEADER 40
@@ -57,6 +59,9 @@ typedef struct ipv6_addr {
 /* ipa_from_u32 and ipa_to_u32 replaced by ipa_build */
 #define ipa_build(a,b,c,d) _MI(a,b,c,d)
 #define ipa_compare(x,y) ipv6_compare(x,y)
+/* ipa_pxlen() requires that x != y */
+#define ipa_pxlen(x, y) ipv6_pxlen(x, y)
+#define ipa_getbit(x, y) ipv6_getbit(x, y)
 #define ipa_absolutize(x,y) ipv6_absolutize(x,y)
 
 ip_addr ipv6_mkmask(unsigned);
@@ -79,6 +84,21 @@ static inline unsigned ipv6_hash(ip_addr *a)
   /* Returns a 16-bit hash key */
   u32 x = _I0(*a) ^ _I1(*a) ^ _I2(*a) ^ _I3(*a);
   return (x ^ (x >> 16) ^ (x >> 8)) & 0xffff;
+}
+
+static inline u32 ipv6_getbit(ip_addr a, u32 y)
+{
+  return a.addr[y / 32] & (0x80000000 >> (y % 32));
+}
+
+static inline u32 ipv6_pxlen(ip_addr a, ip_addr b)
+{
+  int i = 0;
+  i+= (a.addr[i] == b.addr[i]);
+  i+= (a.addr[i] == b.addr[i]);
+  i+= (a.addr[i] == b.addr[i]);
+  i+= (a.addr[i] == b.addr[i]);
+  return 32 * i + 31 - u32_log2(a.addr[i] ^ b.addr[i]);
 }
 
 /*

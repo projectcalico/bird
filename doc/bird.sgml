@@ -508,12 +508,33 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  Filters recognize four types of sets. Sets are similar to strings: you can pass them around
 	  but you can't modify them. Literals of type <cf>set int</cf> look like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
-	  sets. Sets of prefixes are special: you can specify which prefix lengths should match them by
-	  using <cf>[ 1.0.0.0/8+, 2.0.0.0/8-, 3.0.0.0/8{5,6} ]</cf>. <cf>3.0.0.0/8{5,6}</cf> matches
-	  prefixes <cf/3.X.X.X/ whose prefix length is 5 to 6. <cf><m>address</m>/<m>num</m>+</cf> is a shorthand for <cf><m>address</m>/{0,<m/num/}</cf>,
-	  <cf><m>address</m>/<m/num/-</cf> is a shorthand for <cf><m>address</m>/{0,<m/num-1/}</cf>. For example,
-	  <cf>1.2.0.0/16 &tilde; [ 1.0.0.0/8{ 15 , 17 } ]</cf> is true, but
-	  <cf>1.0.0.0/8 &tilde; [ 1.0.0.0/8- ]</cf> is false.
+	  sets.
+
+	  Sets of prefixes are special: their literals does not allow ranges, but allows
+	  prefix patterns that are written as <cf><M>ipaddress</M>/<M>pxlen</M>{<M>low</M>,<M>high</M>}</cf>.
+	  Prefix <cf><m>ip1</m>/<m>len1</m></cf> matches prefix pattern <cf><m>ip2</m>/<m>len2</m>{<m>l</m>, <m>h</m>}</cf> iff 
+	  the first <cf>min(len1, len2)</cf> bits of <cf/ip1/> and <cf/ip2/ are identical and <cf>len1 &le; ip1 &le; len2</cf>.
+	  A valid prefix pattern has to satisfy <cf/low &le; high/, but <cf/pxlen> is not constrained by <cf/low/
+	  or <cf/high/. Obviously, a prefix matches a prefix set literal iff it matches any prefix pattern in the
+	  prefix set literal.
+
+	  There are also two shorthands for prefix patterns: <cf><m>address</m>/<m/len/+</cf> is a shorthand for
+	  <cf><m>address</m>/<m/len/{<m/len/,<m/maxlen/}</cf> (where <cf><m>maxlen</m></c> is 32 for IPv4 and 128 for IPv6), 
+	  that means prefix <cf><m>address</m>/<m/len/</cf> and all its subprefixes. <cf><m>address</m>/<m/len/-</cf>
+	  is a shorthand for <cf><m>address</m>/<m/len/{0,<m/len/}</cf>, that means prefix <cf><m>address</m>/<m/len/</cf>
+	  and all its superprefixes (prefixes that contain it).
+
+	  For example, <cf>[ 1.0.0.0/8, 2.0.0.0/8+, 3.0.0.0/8-, 4.0.0.0/8{16,24} ]</cf> matches
+	  prefix <cf>1.0.0.0/8</cf>, all subprefixes of <cf>2.0.0.0/8</cf>, all superprefixes of <cf>3.0.0.0/8</cf> and prefixes
+	  <cf/4.X.X.X/ whose prefix length is 16 to 24. <cf>[ 0.0.0.0/0{20,24} ]</cf> matches all prefixes (regardless of
+	  IP address) whose prefix length is 20 to 24, <cf>[ 1.2.3.4/32- ]</cf> matches any prefix that contains IP address
+	  <cf>1.2.3.4</cf>. <cf>1.2.0.0/16 &tilde; [ 1.0.0.0/8{ 15 , 17 } ]</cf> is true,
+	  but <cf>1.0.0.0/16 &tilde; [ 1.0.0.0/8- ]</cf> is false.
+
+	  Cisco-style patterns like <cf>10.0.0.0/8 ge 16 le 24</cf> can be expressed
+	  in Bird as <cf>10.0.0.0/8{16,24}</cf>, <cf>192.168.0.0/16 le 24</cf> as 
+	  <cf>192.168.0.0/16{16,24}</cf> and <cf>192.168.0.0/16 ge 24</cf> as
+	  <cf>192.168.0.0/16{24,32}</cf>.
 
 	<tag/enum/
 	  Enumeration types are fixed sets of possibilities. You can't define your own

@@ -36,6 +36,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %type <f> filter filter_body where_filter
 %type <i> type break_command pair
 %type <e> set_item set_items switch_body
+%type <trie> fprefix_set
 %type <v> set_atom fprefix fprefix_s fipa
 %type <s> decls declsn one_decl function_params 
 %type <h> bgp_path bgp_path_tail1 bgp_path_tail2
@@ -69,12 +70,20 @@ type:
  | CLIST { $$ = T_CLIST; }
  | type SET { 
 	switch ($1) {
+	  case T_INT:
+	  case T_IP:
+	  case T_PAIR:
+	       $$ = T_SET;
+	       break;
+
+	  case T_PREFIX:
+	       $$ = T_PREFIX_SET;
+	    break;
+
 	  default:
 		cf_error( "You can't create sets of this type." );
-	  case T_INT: case T_IP: case T_PREFIX: case T_PAIR: ;
 	}
-	$$ = $1 | T_SET;
-	}
+   }
  ;
 
 one_decl:
@@ -201,20 +210,6 @@ pair:
 /*
  * Complex types, their bison value is struct f_val
  */
-fprefix_s:
-   IPA '/' NUM %prec '/' {
-     if (!ip_is_prefix($1, $3)) cf_error("Invalid network prefix: %I/%d.", $1, $3);
-     $$.type = T_PREFIX; $$.val.px.ip = $1; $$.val.px.len = $3;
-   }
- ;
-
-fprefix:
-   fprefix_s { $$ = $1; }
- | fprefix_s '+' { $$ = $1; $$.val.px.len |= LEN_PLUS; }
- | fprefix_s '-' { $$ = $1; $$.val.px.len |= LEN_MINUS; }
- | fprefix_s '{' NUM ',' NUM '}' { $$ = $1; $$.val.px.len |= LEN_RANGE | ($3 << 16) | ($5 << 8); }
- ;
-
 fipa:
    IPA %prec PREFIX_DUMMY { $$.type = T_IP; $$.val.px.ip = $1; }
  ;
@@ -223,7 +218,6 @@ set_atom:
    NUM  { $$.type = T_INT; $$.val.i = $1; }
  | pair { $$.type = T_PAIR; $$.val.i = $1; }
  | fipa { $$ = $1; }
- | fprefix { $$ = $1; }
  | ENUM {  $$.type = $1 >> 16; $$.val.i = $1 & 0xffff; }
  ; 
 
@@ -231,24 +225,40 @@ set_item:
    set_atom { 
 	$$ = f_new_tree(); 
 	$$->from = $1; 
-	if ($1.type != T_PREFIX)
-		$$->to = $1;
-	else {
-		$$->to = $1;
-		$$->to.val.px.ip = ipa_or( $$->to.val.px.ip, ipa_not( ipa_mkmask( $$->to.val.px.len ) ));
-	}
+	$$->to = $1;
    }
  | set_atom '.' '.' set_atom { 
 	$$ = f_new_tree(); 
 	$$->from = $1; 
 	$$->to = $4; 
-	if (($1.type == T_PREFIX) || ($4.type == T_PREFIX)) cf_error( "You can't use prefixes for range." ); 
    }
  ;
 
 set_items:
    set_item { $$ = $1; }
  | set_items ',' set_item { $$ = $3; $$->left = $1; }
+ ;
+
+fprefix_s:
+   IPA '/' NUM %prec '/' {
+     if (($3 < 0) || ($3 > MAX_PREFIX_LENGTH) || !ip_is_prefix($1, $3)) cf_error("Invalid network prefix: %I/%d.", $1, $3);
+     $$.type = T_PREFIX; $$.val.px.ip = $1; $$.val.px.len = $3;
+   }
+ ;
+
+fprefix:
+   fprefix_s { $$ = $1; }
+ | fprefix_s '+' { $$ = $1; $$.val.px.len |= LEN_PLUS; }
+ | fprefix_s '-' { $$ = $1; $$.val.px.len |= LEN_MINUS; }
+ | fprefix_s '{' NUM ',' NUM '}' { 
+     if (! ((0 <= $3) && ($3 <= $5) && ($5 <= MAX_PREFIX_LENGTH))) cf_error("Invalid prefix pattern range: {%d, %d}.", $3, $5);
+     $$ = $1; $$.val.px.len |= LEN_RANGE | ($3 << 16) | ($5 << 8);
+   }
+ ;
+
+fprefix_set:
+   fprefix { $$ = f_new_trie(); trie_add_prefix($$, &($1.val.px)); }
+ | fprefix_set ',' fprefix { $$ = $1; trie_add_prefix($$, &($3.val.px)); }
  ;
 
 switch_body: /* EMPTY */ { $$ = NULL; }
@@ -294,6 +304,7 @@ constant:
  | fipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | fprefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
+ | '[' fprefix_set ']' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PREFIX_SET;  $$->a2.p = $2; }
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
  | bgp_path { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; val->type = T_PATH_MASK; val->val.path_mask = $1; $$->a1.p = val; }
  ;
@@ -374,12 +385,16 @@ term:
        case SYM_IPA:
 	{ NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_IP; val->val.px.ip = * (ip_addr *) ($1->def); }
 	break;
+       case SYM_VARIABLE | T_BOOL:
        case SYM_VARIABLE | T_INT:
        case SYM_VARIABLE | T_PAIR:
-       case SYM_VARIABLE | T_PREFIX:
+       case SYM_VARIABLE | T_STRING:
        case SYM_VARIABLE | T_IP:
-       case SYM_VARIABLE | T_PATH_MASK:
+       case SYM_VARIABLE | T_PREFIX:
+       case SYM_VARIABLE | T_PREFIX_SET:
+       case SYM_VARIABLE | T_SET:
        case SYM_VARIABLE | T_PATH:
+       case SYM_VARIABLE | T_PATH_MASK:
        case SYM_VARIABLE | T_CLIST:
 	 $$->code = 'C';
 	 $$->a1.p = $1->def;

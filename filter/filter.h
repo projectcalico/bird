@@ -50,6 +50,7 @@ struct f_val {
     struct f_prefix px;
     char *s;
     struct f_tree *t;
+    struct f_trie *ti;
     struct adata *ad;
     struct f_path_mask *path_mask;
   } val;
@@ -68,6 +69,12 @@ struct f_inst *f_generate_complex(int operation, int operation_aux, struct f_ins
 struct f_tree *build_tree(struct f_tree *);
 struct f_tree *find_tree(struct f_tree *t, struct f_val val);
 int same_tree(struct f_tree *t1, struct f_tree *t2);
+
+struct f_trie *f_new_trie(void);
+void trie_add_prefix(struct f_trie *t, struct f_prefix *px);
+int trie_match_prefix(struct f_trie *t, struct f_prefix *px);
+int trie_same(struct f_trie *t1, struct f_trie *t2);
+int trie_print(struct f_trie *t, char *buf, int blen);
 
 struct ea_list;
 struct rte;
@@ -128,11 +135,25 @@ void val_print(struct f_val v);
 
 #define T_RETURN 0x40
 #define T_SET 0x80
+#define T_PREFIX_SET 0x81
 
 struct f_tree {
   struct f_tree *left, *right;
   struct f_val from, to;
   void *data;
+};
+
+struct f_trie_node
+{
+  ip_addr addr, mask, accept;
+  int plen;
+  struct f_trie_node *c[2];
+};
+
+struct f_trie
+{
+  int zero;
+  struct f_trie_node root;
 };
 
 #define NEW_F_VAL struct f_val * val; val = cfg_alloc(sizeof(struct f_val));

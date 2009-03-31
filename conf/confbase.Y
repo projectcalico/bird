@@ -34,6 +34,7 @@ CF_DECLS
   struct f_inst *x;
   struct filter *f;
   struct f_tree *e;
+  struct f_trie *trie;
   struct f_val v;
   struct f_path_mask *h;
   struct password_item *p;

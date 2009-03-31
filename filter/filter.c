@@ -145,6 +145,25 @@ val_compare(struct f_val v1, struct f_val v2)
   }
 }
 
+
+void
+f_prefix_get_bounds(struct f_prefix *px, int *l, int *h)
+{
+  *l = *h = px->len & LEN_MASK;
+
+  if (px->len & LEN_MINUS)
+    *l = 0;
+
+  else if (px->len & LEN_PLUS)
+    *h = MAX_PREFIX_LENGTH;
+
+  else if (px->len & LEN_RANGE)
+    {
+      *l = 0xff & (px->len >> 16);
+      *h = 0xff & (px->len >> 8);
+    }
+}
+
 /*
  * val_simple_in_range - check if @v1 ~ @v2 for everything except sets
  */ 
@@ -162,21 +181,21 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
     return !(ipa_compare(ipa_and(v2.val.px.ip, ipa_mkmask(v2.val.px.len)), ipa_and(v1.val.px.ip, ipa_mkmask(v2.val.px.len))));
 
   if ((v1.type == T_PREFIX) && (v2.type == T_PREFIX)) {
-    ip_addr mask;
+
     if (v1.val.px.len & (LEN_PLUS | LEN_MINUS | LEN_RANGE))
       return CMP_ERROR;
-    mask = ipa_mkmask( v2.val.px.len & LEN_MASK );
+
+    int p1 = v1.val.px.len & LEN_MASK;
+    int p2 = v2.val.px.len & LEN_MASK;
+    ip_addr mask = ipa_mkmask(MIN(p1, p2));
+
     if (ipa_compare(ipa_and(v2.val.px.ip, mask), ipa_and(v1.val.px.ip, mask)))
       return 0;
 
-    if ((v2.val.px.len & LEN_MINUS) && (v1.val.px.len <= (v2.val.px.len & LEN_MASK)))
-      return 0;
-    if ((v2.val.px.len & LEN_PLUS) && (v1.val.px.len < (v2.val.px.len & LEN_MASK)))
-      return 0;
-    if ((v2.val.px.len & LEN_RANGE) && ((v1.val.px.len < (0xff & (v2.val.px.len >> 16)))
-					|| (v1.val.px.len > (0xff & (v2.val.px.len >> 8)))))
-      return 0;
-    return 1;    
+    int l, h;
+    f_prefix_get_bounds(&v2.val.px, &l, &h);
+
+    return ((l <= v1.val.px.len) && (v1.val.px.len <= h));
   }
   return CMP_ERROR;
 }
@@ -199,6 +218,9 @@ val_in_range(struct f_val v1, struct f_val v2)
   if (res != CMP_ERROR)
     return res;
   
+  if ((v1.type == T_PREFIX) && (v2.type == T_PREFIX_SET))
+    return trie_match_prefix(v2.val.ti, &v1.val.px);
+
   if (v2.type == T_SET)
     switch (v1.type) {
     case T_ENUM:
@@ -248,6 +270,7 @@ val_print(struct f_val v)
   case T_IP: PRINTF( "%I", v.val.px.ip ); break;
   case T_PREFIX: PRINTF( "%I/%d", v.val.px.ip, v.val.px.len ); break;
   case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
+  case T_PREFIX_SET: trie_print(v.val.ti, buf, 2040); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
   case T_PATH: as_path_format(v.val.ad, buf2, 1020); PRINTF( "(path %s)", buf2 ); break;
@@ -430,13 +453,17 @@ interpret(struct f_inst *what)
     switch (res.type = v2.type) {
     case T_VOID: runtime( "Can't assign void values" );
     case T_ENUM:
-    case T_INT: 
-    case T_IP: 
-    case T_PREFIX: 
-    case T_PAIR: 
+    case T_BOOL:
+    case T_INT:
+    case T_PAIR:
+    case T_STRING:
+    case T_IP:
+    case T_PREFIX:
+    case T_PREFIX_SET:
+    case T_SET:
     case T_PATH:
-    case T_CLIST:
     case T_PATH_MASK:
+    case T_CLIST:
       if (sym->class != (SYM_VARIABLE | v2.type))
 	runtime( "Assigning to variable of incompatible type" );
       * (struct f_val *) sym->def = v2; 
@@ -447,10 +474,12 @@ interpret(struct f_inst *what)
     break;
 
     /* some constants have value in a2, some in *a1.p, strange. */
-  case 'c':	/* integer (or simple type) constant, or string, or set */
+  case 'c':	/* integer (or simple type) constant, string, set, or prefix_set */
     res.type = what->aux;
 
-    if (res.type == T_SET)
+    if (res.type == T_PREFIX_SET)
+      res.val.ti = what->a2.p;
+    else if (res.type == T_SET)
       res.val.t = what->a2.p;
     else if (res.type == T_STRING)
       res.val.s = what->a2.p;
@@ -818,16 +847,21 @@ i_same(struct f_inst *f1, struct f_inst *f2)
     break;
 
   case 'c': 
-    if (f1->aux & T_SET) {
+    switch (f1->aux) {
+
+    case T_PREFIX_SET:
+      if (!trie_same(f1->a2.p, f2->a2.p))
+	return 0;
+
+    case T_SET:
       if (!same_tree(f1->a2.p, f2->a2.p))
 	return 0;
-      break;
-    } 
-    switch (f1->aux) {
+
     case T_STRING:
       if (strcmp(f1->a2.p, f2->a2.p))
 	return 0;
       break;
+
     default:
       A2_SAME;
     }
