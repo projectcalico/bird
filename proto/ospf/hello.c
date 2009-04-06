@@ -19,7 +19,7 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
   struct proto *p = (struct proto *) ifa->oa->po;
   unsigned int size = ntohs(ps->ospf_packet.length), i, twoway, oldpriority, eligible = 0, peers;
 
-  OSPF_TRACE(D_PACKETS, "Received hello from %I via %s%s", faddr,
+  OSPF_TRACE(D_PACKETS, "HELLO packet received from %I via %s%s", faddr,
       (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);
   mask = ps->netmask;
   ipa_ntoh(mask);
@@ -282,6 +282,7 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
     default:
       ospf_send_to(ifa->hello_sk, IPA_NONE, ifa);
   }
-  OSPF_TRACE(D_PACKETS, "Hello sent via %s%s",
-      (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);
+
+  OSPF_TRACE(D_PACKETS, "HELLO packet sent via %s%s",
+	     (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);
 }

@@ -8,6 +8,49 @@
 
 #include "ospf.h"
 
+
+void ospf_dump_lsahdr(struct proto *p, struct ospf_lsa_header *lsa_n)
+{
+  struct ospf_lsa_header lsa;
+  ntohlsah(lsa_n, &lsa);
+
+  log(L_TRACE "%s:     LSA      Id: %I, Rt: %I, Type: %u, Age: %u, Seqno: 0x%08x, Sum: %u",
+      p->name, lsa.id, lsa.rt, lsa.type, lsa.age, lsa.sn, lsa.checksum);
+}
+
+void ospf_dump_common(struct proto *p, struct ospf_packet *op)
+{
+  log(L_TRACE "%s:     length   %d", p->name, ntohs(op->length));
+  log(L_TRACE "%s:     router   %I", p->name, _MI(ntohl(op->routerid)));
+}
+
+static void ospf_dump_lsupd(struct proto *p, struct ospf_lsupd_packet *pkt)
+{
+  struct ospf_packet *op = &pkt->ospf_packet;
+
+  ASSERT(op->type == LSUPD_P);
+  ospf_dump_common(p, op);
+
+  u8 *pbuf= (u8 *) pkt;
+  int offset = sizeof(struct ospf_lsupd_packet);
+  int bound = ntohs(op->length) - sizeof(struct ospf_lsa_header);
+  int i, j;
+
+  j = ntohl(pkt->lsano);
+  for (i = 0; i < j; i++)
+    {
+      if (offset > bound)
+	{
+	  log(L_TRACE "%s:     LSA      invalid", p->name);
+	  return;
+	}
+
+      struct ospf_lsa_header *lsa = (void *) (pbuf + offset);
+      ospf_dump_lsahdr(p, lsa);
+      offset += ntohs(lsa->length);
+    }
+}
+
 /**
  * ospf_lsupd_flood - send received or generated lsa to the neighbors
  * @n: neighbor than sent this lsa (or NULL if generated)
@@ -187,9 +230,9 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       lh->age = htons(age);
 
       op->length = htons(len);
-      OSPF_TRACE(D_PACKETS, "LS upd flooded via %s", ifa->iface->name);
-      DBG("ID=%I, AGE=%d, SEQ=%x\n", ntohl(lh->id), ntohs(lh->age),
-	  ntohl(lh->sn));
+
+      OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) sk->tbuf,
+		  "LSUPD packet flooded via %s", ifa->iface->name);
 
       switch (ifa->type)
       {
@@ -257,8 +300,9 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
       pk->lsano = htonl(lsano);
       op->length = htons(len);
 
+      OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) n->ifa->ip_sk->tbuf,
+		  "LSUPD packet sent to %I via %s", n->ip, n->ifa->iface->name);
       ospf_send_to(n->ifa->ip_sk, n->ip, n->ifa);
-      OSPF_TRACE(D_PACKETS, "LS upd sent to %I (%d LSAs)", n->ip, lsano);
 
       DBG("LSupd: next packet\n");
       ospf_pkt_fill_hdr(n->ifa, pk, LSUPD_P);
@@ -279,7 +323,8 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
     pk->lsano = htonl(lsano);
     op->length = htons(len);
 
-    OSPF_TRACE(D_PACKETS, "LS upd sent to %I (%d LSAs)", n->ip, lsano);
+    OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) n->ifa->ip_sk->tbuf,
+		"LSUPD packet sent to %I via %s", n->ip, n->ifa->iface->name);
     ospf_send_to(n->ifa->ip_sk, n->ip, n->ifa);
   }
 }
@@ -296,6 +341,8 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
   struct proto *p = &po->proto;
   unsigned int i, sendreq = 1, size = ntohs(ps->ospf_packet.length);
 
+  OSPF_PACKET(ospf_dump_lsupd, ps, "LSUPD packet received from %I via %s", n->ip, ifa->iface->name);
+
   if (n->state < NEIGHBOR_EXCHANGE)
   {
     OSPF_TRACE(D_PACKETS,
@@ -311,7 +358,6 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
     return;
   }
 
-  OSPF_TRACE(D_PACKETS, "Received LS upd from %I", n->ip);
   ospf_neigh_sm(n, INM_HELLOREC);	/* Questionable */
 
   lsa = (struct ospf_lsa_header *) (ps + 1);

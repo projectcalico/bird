@@ -8,6 +8,30 @@
 
 #include "ospf.h"
 
+  
+static void ospf_dump_dbdes(struct proto *p, struct ospf_dbdes_packet *pkt)
+{
+  struct ospf_packet *op = &pkt->ospf_packet;
+
+  ASSERT(op->type == DBDES_P);
+  ospf_dump_common(p, op);
+  log(L_TRACE "%s:     imms     %s%s%s",
+      p->name, pkt->imms.bit.ms ? "MS " : "",
+      pkt->imms.bit.m ? "M " : "",
+      pkt->imms.bit.i ? "I " : "" );
+  log(L_TRACE "%s:     ddseq    %u", p->name, ntohl(pkt->ddseq));
+
+  struct ospf_lsa_header *plsa = (void *) (pkt + 1);
+  int i, j;
+
+  j = (ntohs(op->length) - sizeof(struct ospf_dbdes_packet)) /
+    sizeof(struct ospf_lsa_header);
+
+  for (i = 0; i < j; i++)
+    ospf_dump_lsahdr(p, plsa + i);
+}
+
+
 /**
  * ospf_dbdes_send - transmit database description packet
  * @n: neighbor
@@ -45,9 +69,9 @@ ospf_dbdes_send(struct ospf_neighbor *n)
     pkt->ddseq = htonl(n->dds);
     length = sizeof(struct ospf_dbdes_packet);
     op->length = htons(length);
+
+    OSPF_PACKET(ospf_dump_dbdes, pkt, "DBDES packet sent to %I via %s", n->ip, ifa->iface->name);
     ospf_send_to(ifa->ip_sk, n->ip, ifa);
-    OSPF_TRACE(D_PACKETS, "DB_DES (I) sent to %I via %s.", n->ip,
-	       ifa->iface->name);
     break;
 
   case NEIGHBOR_EXCHANGE:
@@ -128,7 +152,6 @@ ospf_dbdes_send(struct ospf_neighbor *n)
 
   case NEIGHBOR_LOADING:
   case NEIGHBOR_FULL:
-    pkt = n->ldbdes;
     length = ntohs(((struct ospf_packet *) n->ldbdes)->length);
 
     if (!length)
@@ -138,17 +161,14 @@ ospf_dbdes_send(struct ospf_neighbor *n)
       return;
     }
 
-    memcpy(ifa->ip_sk->tbuf, n->ldbdes, length);
     /* Copy last sent packet again */
+    memcpy(ifa->ip_sk->tbuf, n->ldbdes, length);
 
+    OSPF_PACKET(ospf_dump_dbdes, (struct ospf_dbdes_packet *) ifa->ip_sk->tbuf,
+		"DBDES packet sent to %I via %s", n->ip, ifa->iface->name);
     ospf_send_to(ifa->ip_sk, n->ip, n->ifa);
 
     if(n->myimms.bit.ms) tm_start(n->rxmt_timer, n->ifa->rxmtint);		/* Restart timer */
-
-    OSPF_TRACE(D_PACKETS, "DB_DES (M) sent to %I via %s.", n->ip,
-	       ifa->iface->name);
-
-    DBG("DB_DES PS=%u, M=%u\n", ntohl(pkt->ddseq), pkt->imms.bit.m);
 
     if (!n->myimms.bit.ms)
     {
@@ -207,10 +227,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
   u32 myrid = p->cf->global->router_id;
   unsigned int size = ntohs(ps->ospf_packet.length);
 
-  OSPF_TRACE(D_PACKETS, "Received dbdes from %I via %s.", n->ip,
-	     ifa->iface->name);
-
-  DBG("DB_DES PS=%u, M=%u SIZE=%u\n", ntohl(ps->ddseq), ps->imms.bit.m, size);
+  OSPF_PACKET(ospf_dump_dbdes, ps, "DBDES packet received from %I via %s", n->ip, ifa->iface->name);
 
   ospf_neigh_sm(n, INM_HELLOREC);
 

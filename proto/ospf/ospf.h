@@ -26,6 +26,11 @@
 #define OSPF_TRACE(flags, msg, args...) do { if ((p->debug & flags) || OSPF_FORCE_DEBUG) \
   log(L_TRACE "%s: " msg, p->name , ## args ); } while(0)
 
+#define OSPF_PACKET(dumpfn, buffer, msg, args...) \
+do { if ((p->debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
+{ log(L_TRACE "%s: " msg, p->name, ## args ); dumpfn(p, buffer); } } while(0)
+
+
 #include "nest/bird.h"
 
 #include "lib/checksum.h"

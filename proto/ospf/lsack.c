@@ -10,6 +10,25 @@
 
 char *s_queue[] = { "direct", "delayed" };
 
+
+static void ospf_dump_lsack(struct proto *p, struct ospf_lsack_packet *pkt)
+{
+  struct ospf_packet *op = &pkt->ospf_packet;
+
+  ASSERT(op->type == LSACK_P);
+  ospf_dump_common(p, op);
+
+  struct ospf_lsa_header *plsa = (void *) (pkt + 1);
+  int i, j;
+
+  j = (ntohs(op->length) - sizeof(struct ospf_lsack_packet)) /
+    sizeof(struct ospf_lsa_header);
+
+  for (i = 0; i < j; i++)
+    ospf_dump_lsahdr(p, plsa + i);
+}
+
+
 /*
  * =====================================
  * Note, that h is in network endianity!
@@ -42,8 +61,6 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   if (EMPTY_LIST(n->ackl[queue]))
     return;
 
-  OSPF_TRACE(D_PACKETS, "LS ack sent to %I (%s)", n->ip, s_queue[queue]);
-
   if (ifa->type == OSPF_IT_BCAST)
     sk = ifa->hello_sk;
   else
@@ -74,6 +91,10 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 	  i * sizeof(struct ospf_lsa_header);
 	op->length = htons(len);
 	DBG("Sending and continuing! Len=%u\n", len);
+
+	OSPF_PACKET(ospf_dump_lsack, (struct ospf_lsack_packet *) sk->tbuf,
+		    "LSACK packet sent via %s", ifa->iface->name);
+
 	if (ifa->type == OSPF_IT_BCAST)
 	{
 	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
@@ -98,6 +119,10 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   len = sizeof(struct ospf_lsack_packet) + i * sizeof(struct ospf_lsa_header);
   op->length = htons(len);
   DBG("Sending! Len=%u\n", len);
+
+  OSPF_PACKET(ospf_dump_lsack, (struct ospf_lsack_packet *) sk->tbuf,
+	      "LSACK packet sent via %s", ifa->iface->name);
+
   if (ifa->type == OSPF_IT_BCAST)
   {
     if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
@@ -125,7 +150,8 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
   struct proto *p = &ifa->oa->po->proto;
   unsigned int size = ntohs(ps->ospf_packet.length), i;
 
-  OSPF_TRACE(D_PACKETS, "Received LS ack from %I", n->ip);
+  OSPF_PACKET(ospf_dump_lsack, ps, "LSACK packet received from %I via %s", n->ip, ifa->iface->name);
+
   ospf_neigh_sm(n, INM_HELLOREC);
 
   if (n->state < NEIGHBOR_EXCHANGE)

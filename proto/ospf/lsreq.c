@@ -8,6 +8,24 @@
 
 #include "ospf.h"
 
+static void ospf_dump_lsreq(struct proto *p, struct ospf_lsreq_packet *pkt)
+{
+  struct ospf_packet *op = &pkt->ospf_packet;
+
+  ASSERT(op->type == LSREQ_P);
+  ospf_dump_common(p, op);
+
+  struct ospf_lsreq_header *plsr = (void *) (pkt + 1);
+  int i, j;
+
+  j = (ntohs(op->length) - sizeof(struct ospf_dbdes_packet)) /
+    sizeof(struct ospf_lsreq_header);
+
+  for (i = 0; i < j; i++)
+    log(L_TRACE "%s:     LSR      Id: %I, Rt: %I, Type: %u",
+	p->name, htonl(plsr[i].id), htonl(plsr[i].rt), plsr[i].type);
+}
+
 void
 ospf_lsreq_send(struct ospf_neighbor *n)
 {
@@ -59,8 +77,10 @@ ospf_lsreq_send(struct ospf_neighbor *n)
     sizeof(struct ospf_lsreq_packet) + (j -
 					i) * sizeof(struct ospf_lsreq_header);
   op->length = htons(length);
+
+  OSPF_PACKET(ospf_dump_lsreq, (struct ospf_lsreq_packet *) n->ifa->ip_sk->tbuf,
+	      "LSREQ packet sent to %I via %s", n->ip, n->ifa->iface->name);
   ospf_send_to(n->ifa->ip_sk, n->ip, n->ifa);
-  OSPF_TRACE(D_PACKETS, "LS request sent to: %I", n->rid);
 }
 
 void
@@ -77,10 +97,11 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
 
+  OSPF_PACKET(ospf_dump_lsreq, ps, "LSREQ packet received from %I via %s", n->ip, ifa->iface->name);
+
   if (n->state < NEIGHBOR_EXCHANGE)
     return;
 
-  OSPF_TRACE(D_EVENTS, "Received LS req from neighbor: %I", n->ip);
   ospf_neigh_sm(n, INM_HELLOREC);
 
   lsh = (void *) (ps + 1);
