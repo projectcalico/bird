@@ -643,12 +643,12 @@ rxmt_timer_hook(timer * timer)
 
   if (n->state == NEIGHBOR_EXSTART)
   {
-    ospf_dbdes_send(n);
+    ospf_dbdes_send(n, 1);
     return;
   }
 
   if ((n->state == NEIGHBOR_EXCHANGE) && n->myimms.bit.ms)	/* I'm master */
-    ospf_dbdes_send(n);
+    ospf_dbdes_send(n, 0);
 
 
   if (n->state < NEIGHBOR_FULL)	

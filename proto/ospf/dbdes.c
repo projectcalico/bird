@@ -35,6 +35,7 @@ static void ospf_dump_dbdes(struct proto *p, struct ospf_dbdes_packet *pkt)
 /**
  * ospf_dbdes_send - transmit database description packet
  * @n: neighbor
+ * @next: whether to send a next packet in a sequence (1) or to retransmit the old one (0)
  *
  * Sending of a database description packet is described in 10.6 of RFC 2328.
  * Reception of each packet is acknowledged in the sequence number of another.
@@ -43,7 +44,7 @@ static void ospf_dump_dbdes(struct proto *p, struct ospf_dbdes_packet *pkt)
  * of the buffer.
  */
 void
-ospf_dbdes_send(struct ospf_neighbor *n)
+ospf_dbdes_send(struct ospf_neighbor *n, int next)
 {
   struct ospf_dbdes_packet *pkt;
   struct ospf_packet *op;
@@ -77,10 +78,9 @@ ospf_dbdes_send(struct ospf_neighbor *n)
   case NEIGHBOR_EXCHANGE:
     n->myimms.bit.i = 0;
 
-    if (((n->myimms.bit.ms) && (n->dds == n->ddr + 1)) ||
-	((!(n->myimms.bit.ms)) && (n->dds == n->ddr)))
+    if (next)
     {
-      snode *sn;		/* Send next */
+      snode *sn;
       struct ospf_lsa_header *lsa;
 
       pkt = n->ldbdes;
@@ -254,7 +254,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
       n->imms.byte = ps->imms.byte;
       OSPF_TRACE(D_PACKETS, "I'm slave to %I.", n->ip);
       ospf_neigh_sm(n, INM_NEGDONE);
-      ospf_dbdes_send(n);
+      ospf_dbdes_send(n, 1);
       break;
     }
 
@@ -283,7 +283,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
       if (n->myimms.bit.ms == 0)
       {
 	/* Slave should retransmit dbdes packet */
-	ospf_dbdes_send(n);
+	ospf_dbdes_send(n, 0);
       }
       return;
     }
@@ -334,7 +334,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
       }
       else
       {
-	ospf_dbdes_send(n);
+	ospf_dbdes_send(n, 1);
       }
 
     }
@@ -350,7 +350,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
       n->ddr = ntohl(ps->ddseq);
       n->dds = ntohl(ps->ddseq);
       ospf_dbdes_reqladd(ps, n);
-      ospf_dbdes_send(n);
+      ospf_dbdes_send(n, 1);
     }
 
     break;
@@ -364,7 +364,7 @@ ospf_dbdes_receive(struct ospf_dbdes_packet *ps,
       if (n->myimms.bit.ms == 0)
       {
 	/* Slave should retransmit dbdes packet */
-	ospf_dbdes_send(n);
+	ospf_dbdes_send(n, 0);
       }
       return;
     }
