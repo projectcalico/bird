@@ -161,7 +161,8 @@ struct ospf_iface
   u16 autype;
   u16 helloint;			/* number of seconds between hello sending */
   list *passwords;
-  u32 csn;                      /* Crypt seq num. that will be sent net */
+  u32 csn;                      /* Last used crypt seq number */
+  bird_clock_t csn_use;         /* Last time when packet with that CSN was sent */
   ip_addr drip;			/* Designated router */
   u32 drid;
   ip_addr bdrip;		/* Backup DR */

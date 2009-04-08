@@ -22,7 +22,13 @@ static list *this_p_list;
 static struct password_item *this_p_item;
 static int password_id;
 
-static list *
+static inline void
+reset_passwords(void)
+{
+ this_p_list = NULL;
+}
+
+static inline list *
 get_passwords(void)
 {
   list *rv = this_p_list;

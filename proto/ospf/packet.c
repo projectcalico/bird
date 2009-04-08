@@ -75,13 +75,25 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 
       pkt->checksum = 0;
 
+      /* Perhaps use random value to prevent replay attacks after
+	 reboot when system does not have independent RTC? */
       if (!ifa->csn)
-        ifa->csn = (u32) time(NULL);
+	{
+	  ifa->csn = (u32) now;
+	  ifa->csn_use = now;
+	}
+
+      /* We must have sufficient delay between sending a packet and increasing 
+	 CSN to prevent reordering of packets (in a network) with different CSNs */
+      if ((now - ifa->csn_use) > 1)
+	ifa->csn++;
+
+      ifa->csn_use = now;
 
       pkt->u.md5.keyid = passwd->id;
       pkt->u.md5.len = OSPF_AUTH_CRYPT_SIZE;
       pkt->u.md5.zero = 0;
-      pkt->u.md5.csn = htonl(ifa->csn++);
+      pkt->u.md5.csn = htonl(ifa->csn);
       tail = ((void *)pkt) + ntohs(pkt->length);
       MD5Init(&ctxt);
       MD5Update(&ctxt, (char *) pkt, ntohs(pkt->length));
@@ -184,12 +196,14 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
 
       if (n)
       {
-        if(ntohs(pkt->u.md5.csn) < n->csn)
-        {
-          OSPF_TRACE(D_PACKETS, "OSPF_auth: lower sequence number");
-          return 0;
-        }
-        n->csn = ntohs(pkt->u.md5.csn);
+	u32 rcv_csn = ntohl(pkt->u.md5.csn);
+	if(rcv_csn < n->csn)
+	{
+	  OSPF_TRACE(D_PACKETS, "OSPF_auth: lower sequence number (rcv %d, old %d)", rcv_csn, n->csn);
+	  return 0;
+	}
+
+	n->csn = rcv_csn;
       }
 
       MD5Init(&ctxt);

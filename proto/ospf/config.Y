@@ -19,6 +19,18 @@ static struct iface_patt *this_ipatt;
 static struct nbma_node *this_nbma;
 static struct area_net_config *this_pref;
 
+static void
+finish_iface_config(struct ospf_iface_patt *ip)
+{
+  ip->passwords = get_passwords();
+
+  if ((ip->autype == OSPF_AUTH_CRYPT) && (ip->helloint < 5))
+    log(L_WARN "Hello or poll interval less that 5 makes cryptographic authenication prone to replay attacks");
+
+  if ((ip->autype == OSPF_AUTH_NONE) && (ip->passwords != NULL))
+    log(L_WARN "Password option without authentication option does not make sense");
+}
+
 CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG)
@@ -83,7 +95,7 @@ ospf_area_item:
  ;
 
 ospf_vlink:
-   ospf_vlink_start '{' ospf_vlink_opts '}' { OSPF_PATT->passwords = get_passwords(); }
+   ospf_vlink_start '{' ospf_vlink_opts '}' { finish_iface_config(OSPF_PATT); }
  | ospf_vlink_start
  ;
 
@@ -121,6 +133,7 @@ ospf_vlink_start: VIRTUAL LINK idval
   OSPF_PATT->type = OSPF_IT_VLINK;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype = OSPF_AUTH_NONE;
+  reset_passwords();
  }
 ;
 
@@ -223,6 +236,7 @@ ospf_iface_start:
   OSPF_PATT->stub = 0;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype = OSPF_AUTH_NONE;
+  reset_passwords();
  }
 ;
 
@@ -237,7 +251,7 @@ ospf_iface_opt_list:
  ;
 
 ospf_iface:
-  ospf_iface_start iface_patt ospf_iface_opt_list { OSPF_PATT->passwords = get_passwords(); }
+  ospf_iface_start iface_patt ospf_iface_opt_list { finish_iface_config(OSPF_PATT); }
  ;
 
 ospf_iface_list:
