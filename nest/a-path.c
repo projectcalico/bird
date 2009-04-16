@@ -280,79 +280,171 @@ as_path_is_member(struct adata *path, u32 as)
 }
 
 
+struct pm_pos
+{
+  u8 set;
+  u8 mark;
+  union
+  {
+    char *sp;
+    u32 asn;
+  } val;
+};
 
-#define MASK_PLUS do { mask = mask->next; if (!mask) return next == q; \
-		       asterisk = mask->any; \
-                       if (asterisk) { mask = mask->next; if (!mask) { return 1; } } \
-		       } while(0)
+static int
+parse_path(struct adata *path, struct pm_pos *pos)
+{
+  int bs = bgp_as4_support ? 4 : 2;
+  u8 *p = path->data;
+  u8 *q = p + path->length;
+  struct pm_pos *opos = pos;
+  int i, j, len;
+
+
+  while (p < q)
+    switch (*p++)
+      {
+      case AS_PATH_SET:
+	pos->set = 1;
+	pos->mark = 0;
+	pos->val.sp = p;
+	len = *p;
+	p += 1 + bs * len;
+	pos++;
+	break;
+      
+      case AS_PATH_SEQUENCE:
+	len = *p++;
+	for (i = 0; i < len; i++)
+	  {
+	    pos->set = 0;
+	    pos->mark = 0;
+	    pos->val.asn = get_as(p);
+	    p += bs;
+	    pos++;
+	  }
+	break;
+
+      default:
+	bug("as_path_match: Invalid path component");
+      }
+  
+  return pos - opos;
+}
+
+
+static int
+pm_match(struct pm_pos *pos, u32 asn)
+{
+  if (! pos->set)
+    return pos->val.asn == asn;
+
+  int bs = bgp_as4_support ? 4 : 2;
+  u8 *p = pos->val.sp;
+  int len = *p++;
+  int i;
+
+  for (i = 0; i < len; i++)
+    if (get_as(p + i * bs) == asn)
+      return 1;
+
+  return 0;
+}
+
+static void
+pm_mark(struct pm_pos *pos, int i, int plen, int *nl, int *nh)
+{
+  int j;
+
+  if (pos[i].set)
+    pos[i].mark = 1;
+  
+  for (j = i + 1; (j < plen) && pos[j].set && (! pos[j].mark); j++)
+    pos[j].mark = 1;
+  pos[j].mark = 1;
+
+  /* We are going downwards, therefore every mark is
+     new low and just the first mark is new high */
+
+  *nl = i + (pos[i].set ? 0 : 1);
+
+  if (*nh < 0)
+    *nh = j;
+}
+
+/* AS path matching is nontrivial. Because AS path can
+ * contain sets, it is not a plain wildcard matching. A set 
+ * in an AS path is interpreted as it might represent any
+ * sequence of AS numbers from that set (possibly with
+ * repetitions). So it is also a kind of a pattern,
+ * more complicated than a path mask.
+ *
+ * The algorithm for AS path matching is a variant
+ * of nondeterministic finite state machine, where
+ * positions in AS path are states, and items in
+ * path mask are input for that finite state machine.
+ * During execution of the algorithm we maintain a set
+ * of marked states - a state is marked if it can be
+ * reached by any walk through NFSM with regard to
+ * currently processed part of input. When we process
+ * next part of mask, we advance each marked state.
+ * We start with marked first position, when we
+ * run out of marked positions, we reject. When
+ * we process the whole mask, we accept iff final position
+ * (auxiliary position after last real position in AS path)
+ * is marked.
+ */
 
 int
 as_path_match(struct adata *path, struct f_path_mask *mask)
 {
-  int bs = bgp_as4_support ? 4 : 2;
-  int i;
-  int asterisk = 0;
-  u8 *p = path->data;
-  u8 *q = p+path->length;
-  int len;
-  u8 *next;
-  u32 as;
+  struct pm_pos pos[2048 + 1];
+  int plen = parse_path(path, pos);
+  int l, h, i, nh, nl;
 
-  if (!mask)
-    return ! path->length;
+  /* l and h are bound of interval of positions where
+     are marked states */
 
-  asterisk = mask->any;
-  if (asterisk)
-    { mask = mask->next; if (!mask) return 1; }
+  pos[plen].set = 0;
+  pos[plen].mark = 0;
 
-  while (p<q) {
-    switch (*p++) {
-    case AS_PATH_SET:
-      len = *p++;
-      {
-	u8 *p_save = p;
-	next = p_save + bs * len;
-      retry:
-	p = p_save;
-	for (i=0; i<len; i++) {
-	  as = get_as(p);
-	  if (asterisk && (as == mask->val)) {
-	    MASK_PLUS;
-	    goto retry;
-	  }
-	  if (!asterisk && (as == mask->val)) {
-	    p = next;
-	    MASK_PLUS;
-	    goto okay;
-	  }
-	  p += bs;
-	}
-	if (!asterisk)
-	  return 0;
-      okay: ;
-      }
-      break;
+  l = h = 0;
+  pos[0].mark = 1;
+  
+  while (mask)
+    {
+      /* We remove this mark to not step after pos[plen] */
+      pos[plen].mark = 0;
 
-    case AS_PATH_SEQUENCE:
-      len = *p++;
-      for (i=0; i<len; i++) {
-	next = p + bs;
-	as = get_as(p);
-	if (asterisk && (as == mask->val))
-	  MASK_PLUS;
-	else if (!asterisk) {
-	  if (as != mask->val)
+      switch (mask->kind)
+	{
+	case PM_ASTERISK:
+	  for (i = l; i <= plen; i++)
+	    pos[i].mark = 1;
+	  h = plen;
+	  break;
+
+	case PM_QUESTION:
+	case PM_ASN:
+	  nh = -1;
+	  for (i = h; i >= l; i--)
+	    if (pos[i].mark)
+	      {
+		pos[i].mark = 0;
+		if ((mask->kind == PM_QUESTION) || pm_match(pos + i, mask->val))
+		  pm_mark(pos, i, plen, &nl, &nh);
+	      }
+
+	  if (nh < 0)
 	    return 0;
-	  MASK_PLUS;
+
+	  h = nh;
+	  l = nl;
+	  break;
 	}
-	p += bs;
-      }
-      break;
 
-    default:
-      bug("as_path_match: Invalid path component");
+      mask = mask->next;
     }
-  }
-  return 0;
-}
 
+  return pos[plen].mark;
+}

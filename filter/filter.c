@@ -82,10 +82,10 @@ pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
 	  return;
 	}
 
-      if (p->any)
-	buf += bsprintf(buf, " *");
-      else
+      if (p->kind == PM_ASN)
 	buf += bsprintf(buf, " %u", p->val);
+      else
+	buf += bsprintf(buf, (p->kind == PM_ASTERISK) ? " *" : " ?");
 
       p = p->next;
     }
