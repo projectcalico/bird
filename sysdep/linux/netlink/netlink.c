@@ -38,8 +38,14 @@
  *	Synchronous Netlink interface
  */
 
-static int nl_sync_fd = -1;		/* Unix socket for synchronous netlink actions */
-static u32 nl_sync_seq;			/* Sequence number of last request sent */
+struct nl_sock
+{
+  int fd;
+  u32 seq;
+};
+
+static struct nl_sock nl_scan = {-1, 0};	/* Netlink socket for synchronous scan */
+static struct nl_sock nl_req  = {-1, 0};	/* Netlink socket for requests */
 
 static byte *nl_rx_buffer;		/* Receive buffer */
 #define NL_RX_SIZE 8192
@@ -48,28 +54,37 @@ static struct nlmsghdr *nl_last_hdr;	/* Recently received packet */
 static unsigned int nl_last_size;
 
 static void
-nl_open(void)
+nl_open_sock(struct nl_sock *nl)
 {
-  if (nl_sync_fd < 0)
+  if (nl->fd < 0)
     {
-      nl_sync_fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-      if (nl_sync_fd < 0)
+      nl->fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+      if (nl->fd < 0)
 	die("Unable to open rtnetlink socket: %m");
-      nl_sync_seq = now;
-      nl_rx_buffer = xmalloc(NL_RX_SIZE);
+      nl->seq = now;
     }
 }
 
 static void
-nl_send(struct nlmsghdr *nh)
+nl_open(void)
+{
+  nl_open_sock(&nl_scan);
+  nl_open_sock(&nl_req);
+
+  if (nl_rx_buffer == NULL)
+    nl_rx_buffer = xmalloc(NL_RX_SIZE);
+}
+
+static void
+nl_send(struct nl_sock *nl, struct nlmsghdr *nh)
 {
   struct sockaddr_nl sa;
 
   memset(&sa, 0, sizeof(sa));
   sa.nl_family = AF_NETLINK;
   nh->nlmsg_pid = 0;
-  nh->nlmsg_seq = ++nl_sync_seq;
-  if (sendto(nl_sync_fd, nh, nh->nlmsg_len, 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
+  nh->nlmsg_seq = ++(nl->seq);
+  if (sendto(nl->fd, nh, nh->nlmsg_len, 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
     die("rtnetlink sendto: %m");
   nl_last_hdr = NULL;
 }
@@ -85,11 +100,11 @@ nl_request_dump(int cmd)
   req.nh.nlmsg_len = sizeof(req);
   req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
   req.g.rtgen_family = BIRD_PF;
-  nl_send(&req.nh);
+  nl_send(&nl_scan, &req.nh);
 }
 
 static struct nlmsghdr *
-nl_get_reply(void)
+nl_get_reply(struct nl_sock *nl)
 {
   for(;;)
     {
@@ -98,7 +113,7 @@ nl_get_reply(void)
 	  struct iovec iov = { nl_rx_buffer, NL_RX_SIZE };
 	  struct sockaddr_nl sa;
 	  struct msghdr m = { (struct sockaddr *) &sa, sizeof(sa), &iov, 1, NULL, 0, 0 };
-	  int x = recvmsg(nl_sync_fd, &m, 0);
+	  int x = recvmsg(nl->fd, &m, 0);
 	  if (x < 0)
 	    die("nl_get_reply: %m");
 	  if (sa.nl_pid)		/* It isn't from the kernel */
@@ -115,10 +130,10 @@ nl_get_reply(void)
 	{
 	  struct nlmsghdr *h = nl_last_hdr;
 	  nl_last_hdr = NLMSG_NEXT(h, nl_last_size);
-	  if (h->nlmsg_seq != nl_sync_seq)
+	  if (h->nlmsg_seq != nl->seq)
 	    {
 	      log(L_WARN "nl_get_reply: Ignoring out of sequence netlink packet (%x != %x)",
-		  h->nlmsg_seq, nl_sync_seq);
+		  h->nlmsg_seq, nl->seq);
 	      continue;
 	    }
 	  return h;
@@ -152,7 +167,7 @@ nl_error(struct nlmsghdr *h)
 static struct nlmsghdr *
 nl_get_scan(void)
 {
-  struct nlmsghdr *h = nl_get_reply();
+  struct nlmsghdr *h = nl_get_reply(&nl_scan);
 
   if (h->nlmsg_type == NLMSG_DONE)
     return NULL;
@@ -169,10 +184,10 @@ nl_exchange(struct nlmsghdr *pkt)
 {
   struct nlmsghdr *h;
 
-  nl_send(pkt);
+  nl_send(&nl_req, pkt);
   for(;;)
     {
-      h = nl_get_reply();
+      h = nl_get_reply(&nl_req);
       if (h->nlmsg_type == NLMSG_ERROR)
 	break;
       log(L_WARN "nl_exchange: Unexpected reply received");
