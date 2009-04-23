@@ -1355,10 +1355,10 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
     }
 
 #ifdef IPV6
-  if (seen[BA_MP_REACH_NLRI / 8] & (1 << (BA_MP_REACH_NLRI % 8)))
+  /* If we received MP_REACH_NLRI we should check mandatory attributes */
+  if (bgp->mp_reach_len != 0)
     mandatory = 1;
 #endif
-
 
   /* If there is no (reachability) NLRI, we should exit now */
   if (! mandatory)
@@ -1374,7 +1374,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 	  return NULL;
 	}
     }
-  
+
   /* When receiving attributes from non-AS4-aware BGP speaker,
    * we have to reconstruct 4B AS_PATH and AGGREGATOR attributes
    */
@@ -1396,6 +1396,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   /* If there's no local preference, define one */
   if (!(seen[0] & (1 << BA_LOCAL_PREF)))
     bgp_attach_attr(&a->eattrs, pool, BA_LOCAL_PREF, 0);
+
   return a;
 
 loop:
