@@ -1359,17 +1359,19 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
     mandatory = 1;
 #endif
 
+
+  /* If there is no (reachability) NLRI, we should exit now */
+  if (! mandatory)
+    return a;
+
   /* Check if all mandatory attributes are present */
-  if (mandatory)
+  for(i=0; i < ARRAY_SIZE(bgp_mandatory_attrs); i++)
     {
-      for(i=0; i < ARRAY_SIZE(bgp_mandatory_attrs); i++)
+      code = bgp_mandatory_attrs[i];
+      if (!(seen[code/8] & (1 << (code%8))))
 	{
-	  code = bgp_mandatory_attrs[i];
-	  if (!(seen[code/8] & (1 << (code%8))))
-	    {
-	      bgp_error(conn, 3, 3, &bgp_mandatory_attrs[i], 1);
-	      return NULL;
-	    }
+	  bgp_error(conn, 3, 3, &bgp_mandatory_attrs[i], 1);
+	  return NULL;
 	}
     }
   
