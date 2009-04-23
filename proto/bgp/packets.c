@@ -252,7 +252,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
       *tmp++ = 0;
       *tmp++ = BGP_AF_IPV6;
       *tmp++ = 1;
-      ea->attrs[0].u.ptr->length = bgp_encode_prefixes(p, tmp, buck, remains-11);
+      ea->attrs[0].u.ptr->length = 3 + bgp_encode_prefixes(p, tmp, buck, remains-11);
       size = bgp_encode_attrs(p, w, ea, remains);
       ASSERT(size >= 0);
       w += size;
