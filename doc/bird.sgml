@@ -514,7 +514,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  prefix patterns that are written as <cf><M>ipaddress</M>/<M>pxlen</M>{<M>low</M>,<M>high</M>}</cf>.
 	  Prefix <cf><m>ip1</m>/<m>len1</m></cf> matches prefix pattern <cf><m>ip2</m>/<m>len2</m>{<m>l</m>, <m>h</m>}</cf> iff 
 	  the first <cf>min(len1, len2)</cf> bits of <cf/ip1/> and <cf/ip2/ are identical and <cf>len1 &le; ip1 &le; len2</cf>.
-	  A valid prefix pattern has to satisfy <cf/low &le; high/, but <cf/pxlen> is not constrained by <cf/low/
+	  A valid prefix pattern has to satisfy <cf/low &le; high/, but <cf/pxlen/ is not constrained by <cf/low/
 	  or <cf/high/. Obviously, a prefix matches a prefix set literal iff it matches any prefix pattern in the
 	  prefix set literal.
 
