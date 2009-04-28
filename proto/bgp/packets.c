@@ -293,7 +293,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  ASSERT(nh);
 	  ip = *(ip_addr *) nh->u.ptr->data;
 	  is_ll = 0;
-	  if (ipa_equal(ip, p->local_addr))
+	  if (ipa_equal(ip, p->source_addr))
 	    {
 	      is_ll = 1;
 	      ip_ll = p->local_link;

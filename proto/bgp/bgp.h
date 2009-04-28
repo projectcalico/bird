@@ -79,6 +79,7 @@ struct bgp_proto {
   ip_addr next_hop;			/* Either the peer or multihop_via */
   struct neighbor *neigh;		/* Neighbor entry corresponding to next_hop */
   ip_addr local_addr;			/* Address of the local end of the link to next_hop */
+  ip_addr source_addr;			/* Address used as advertised next hop, usually local_addr */
   struct event *event;			/* Event for respawning and shutting process */
   struct bgp_bucket **bucket_hash;	/* Hash table of attribute buckets */
   unsigned int hash_size, hash_count, hash_limit;
