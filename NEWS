@@ -1,3 +1,11 @@
+Version 1.0.14 (2009-04-28)
+  o A lot of bugfixes in BGP, OSPF and core.
+  o A bugfix in filters in the pipe protocol. It is recommended to
+    check whether the new behavior of used pipe filters is consistent
+    with expectations.
+  o Reimplementation of prefix sets and a slight change in the meaning
+    of some prefix set patterns.
+
 Version 1.0.13 (2009-03-14)
   o A lot of bugfixes in BGP, OSPF and core
   o A new syntax for BGP masks
