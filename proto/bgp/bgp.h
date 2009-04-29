@@ -148,6 +148,17 @@ void bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code
 
 /* attrs.c */
 
+/* Hack: although BA_NEXT_HOP attribute has type EAF_TYPE_IP_ADDRESS, in IPv6
+ * we store two addesses in it - a global address and a link local address.
+ */
+#ifdef IPV6
+#define NEXT_HOP_LENGTH (2*sizeof(ip_addr))
+static inline void set_next_hop(byte *b, ip_addr addr) { ((ip_addr *) b)[0] = addr; ((ip_addr *) b)[1] = IPA_NONE; }
+#else
+#define NEXT_HOP_LENGTH sizeof(ip_addr)
+static inline void set_next_hop(byte *b, ip_addr addr) { ((ip_addr *) b)[0] = addr; }
+#endif
+
 void bgp_attach_attr(struct ea_list **to, struct linpool *pool, unsigned attr, uintptr_t val);
 byte *bgp_attach_attr_wa(struct ea_list **to, struct linpool *pool, unsigned attr, unsigned len);
 struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool, int mandatory);

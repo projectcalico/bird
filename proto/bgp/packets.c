@@ -234,10 +234,10 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 {
   struct bgp_proto *p = conn->bgp;
   struct bgp_bucket *buck;
-  int size, is_ll;
+  int size;
   int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
   byte *w, *tmp, *tstart;
-  ip_addr ip, ip_ll;
+  ip_addr *ipp, ip, ip_ll;
   ea_list *ea;
   eattr *nh;
   neighbor *n;
@@ -291,26 +291,31 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  *tmp++ = 1;
 	  nh = ea_find(buck->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
 	  ASSERT(nh);
-	  ip = *(ip_addr *) nh->u.ptr->data;
-	  is_ll = 0;
+
+	  /* We have two addresses here in 'nh'. Really. */
+	  ipp = (ip_addr *) nh->u.ptr->data;
+	  ip = ipp[0];
+	  ip_ll = IPA_NONE;
+
 	  if (ipa_equal(ip, p->source_addr))
-	    {
-	      is_ll = 1;
-	      ip_ll = p->local_link;
-	    }
+	    ip_ll = p->local_link;
 	  else
 	    {
+	      /* If we send a route with 'third party' next hop destinated 
+	       * in the same interface, we should also send a link local 
+	       * next hop address. We use the received one (stored in the 
+	       * other part of BA_NEXT_HOP eattr). If we didn't received
+	       * it (for example it is a static route), we do not send link
+	       * local next hop address. It is contrary to RFC 2545, but
+	       * probably the only sane possibility.
+	       */
+
 	      n = neigh_find(&p->p, &ip, 0);
 	      if (n && n->iface == p->neigh->iface)
-		{
-		  /* FIXME: We are assuming the global scope addresses use the lower 64 bits
-		   * as an interface identifier which hasn't necessarily to be true.
-		   */
-		  is_ll = 1;
-	          ip_ll = ipa_or(ipa_build(0xfe800000,0,0,0), ipa_and(ip, ipa_build(0,0,~0,~0)));
-		}
+		ip_ll = ipp[1];
 	    }
-	  if (is_ll)
+
+	  if (ipa_nonzero(ip_ll))
 	    {
 	      *tmp++ = 32;
 	      ipa_hton(ip);
@@ -326,6 +331,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	      memcpy(tmp, &ip, 16);
 	      tmp += 16;
 	    }
+
 	  *tmp++ = 0;			/* No SNPA information */
 	  tmp += bgp_encode_prefixes(p, tmp, buck, remains - (8+3+32+1));
 	  ea->attrs[0].u.ptr->length = tmp - tstart;
@@ -778,9 +784,18 @@ bgp_do_rx_update(struct bgp_conn *conn,
       if (len < 1 || (*x != 16 && *x != 32) || len < *x + 2)
 	goto bad;
 
-      byte *nh = bgp_attach_attr_wa(&a0->eattrs, bgp_linpool, BA_NEXT_HOP, 16);
+      ip_addr *nh = (ip_addr *) bgp_attach_attr_wa(&a0->eattrs, bgp_linpool, BA_NEXT_HOP, NEXT_HOP_LENGTH);
       memcpy(nh, x+1, 16);
-      ipa_ntoh(*(ip_addr *)nh);
+      ipa_ntoh(nh[0]);
+
+      /* We store received link local address in the other part of BA_NEXT_HOP eattr. */
+      if (*x == 32)
+	{
+	  memcpy(nh+1, x+17, 16);
+	  ipa_ntoh(nh[1]);
+	}
+      else
+	nh[1] = IPA_NONE;
 
       /* Also ignore one reserved byte */
       len -= *x + 2;

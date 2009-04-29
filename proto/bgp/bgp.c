@@ -612,13 +612,17 @@ bgp_start_neighbor(struct bgp_proto *p)
 #ifdef IPV6
   {
     struct ifa *a;
-    p->local_link = ipa_or(ipa_build(0xfe80,0,0,0), ipa_and(p->local_addr, ipa_build(0,0,~0,~0)));
+    p->local_link = IPA_NONE;
     WALK_LIST(a, p->neigh->iface->addrs)
       if (a->scope == SCOPE_LINK)
         {
 	  p->local_link = a->ip;
 	  break;
 	}
+
+    if (! ipa_nonzero(p->local_link))
+      log(L_WARN "%s: Missing link local address on interface %s", p->p.name,  p->neigh->iface->name);
+
     DBG("BGP: Selected link-level address %I\n", p->local_link);
   }
 #endif
