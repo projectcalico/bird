@@ -738,43 +738,6 @@ sk_set_ttl(sock *s, int ttl)
 }
 
 
-/* FIXME: check portability  */
-
-static int
-sk_set_md5_auth_int(sock *s, sockaddr *sa, char *passwd)
-{
-  struct tcp_md5sig md5;
-
-  memset(&md5, 0, sizeof(md5));
-  memcpy(&md5.tcpm_addr, (struct sockaddr *) sa, sizeof(*sa));
-
-  if (passwd)
-    {
-      int len = strlen(passwd);
-
-      if (len > TCP_MD5SIG_MAXKEYLEN)
-	{
-	  log(L_ERR "MD5 password too long");
-	  return -1;
-	}
-
-      md5.tcpm_keylen = len;
-      memcpy(&md5.tcpm_key, passwd, len);
-    }
-
-  int rv = setsockopt(s->fd, IPPROTO_TCP, TCP_MD5SIG, &md5, sizeof(md5));
-
-  if (rv < 0) 
-    {
-      if (errno == ENOPROTOOPT)
-	log(L_ERR "Kernel does not support TCP MD5 signatures");
-      else
-	log(L_ERR "sk_set_md5_auth_int: setsockopt: %m");
-    }
-
-  return rv;
-}
-
 /**
  * sk_set_md5_auth - add / remove MD5 security association for given socket.
  * @s: socket
