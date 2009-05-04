@@ -637,8 +637,8 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new UNUSED)
       DBG("It's a redirect, kill him! Kill! Kill!\n");
       krt_set_notify(p, net, NULL, e);
       break;
-    case KRT_SRC_ALIEN:
 #ifdef KRT_ALLOW_LEARN
+    case KRT_SRC_ALIEN:
       if (KRT_CF->learn)
 	{
 	  krt_learn_async(p, e, new);
