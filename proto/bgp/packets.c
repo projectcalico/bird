@@ -305,14 +305,25 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	       * in the same interface, we should also send a link local 
 	       * next hop address. We use the received one (stored in the 
 	       * other part of BA_NEXT_HOP eattr). If we didn't received
-	       * it (for example it is a static route), we do not send link
-	       * local next hop address. It is contrary to RFC 2545, but
-	       * probably the only sane possibility.
+	       * it (for example it is a static route), we can't use
+	       * 'third party' next hop and we have to use local IP address
+	       * as next hop. Sending original next hop address without
+	       * link local address seems to be a natural way to solve that
+	       * problem, but it is contrary to RFC 2545 and Quagga does not
+	       * accept such routes.
 	       */
 
 	      n = neigh_find(&p->p, &ip, 0);
 	      if (n && n->iface == p->neigh->iface)
-		ip_ll = ipp[1];
+		{
+		  if (ipa_nonzero(ipp[1]))
+		    ip_ll = ipp[1];
+		  else
+		    {
+		      ip = p->source_addr;
+		      ip_ll = p->local_link;
+		    }
+		}
 	    }
 
 	  if (ipa_nonzero(ip_ll))
