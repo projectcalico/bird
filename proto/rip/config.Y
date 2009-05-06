@@ -55,7 +55,7 @@ rip_cfg:
  | rip_cfg HONOR ALWAYS ';'    { RIP_CFG->honor = HO_ALWAYS; }
  | rip_cfg HONOR NEIGHBOR ';'    { RIP_CFG->honor = HO_NEIGHBOR; }
  | rip_cfg HONOR NEVER ';'    { RIP_CFG->honor = HO_NEVER; }
- | rip_cfg rip_iface_list ';'
+ | rip_cfg INTERFACE rip_iface ';'
  ;
 
 rip_auth:
@@ -63,6 +63,7 @@ rip_auth:
  | MD5 { $$=AT_MD5; }
  | NONE { $$=AT_NONE; }
  ;
+
 
 rip_mode: 
     BROADCAST { $$=IM_BROADCAST; }
@@ -78,28 +79,26 @@ rip_iface_item:
  ;
 
 rip_iface_opts: 
-   '{'
+   /* empty */
  | rip_iface_opts rip_iface_item ';'
  ;
 
-rip_iface_opt_list: /* EMPTY */ | rip_iface_opts '}' ;
+rip_iface_opt_list:
+   /* empty */
+ | '{' rip_iface_opts '}'
+ ;
 
 rip_iface_init:
    /* EMPTY */ {
-     struct rip_patt *k = cfg_allocz(sizeof(struct rip_patt));
-     k->metric = 1;
-     add_tail(&RIP_CFG->iface_list, &k->i.n);
-     this_ipatt = &k->i;
+     this_ipatt = cfg_allocz(sizeof(struct rip_patt));
+     add_tail(&RIP_CFG->iface_list, NODE this_ipatt);
+     init_list(&this_ipatt->ipn_list);
+     RIP_IPATT->metric = 1;
    }
  ;
 
 rip_iface:
-   rip_iface_init iface_patt rip_iface_opt_list
- ;
-
-rip_iface_list:
-   INTERFACE rip_iface
- | rip_iface_list ',' rip_iface
+   rip_iface_init iface_patt_list rip_iface_opt_list
  ;
 
 CF_ADDTO(dynamic_attr, RIP_METRIC { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_RIP_METRIC); })

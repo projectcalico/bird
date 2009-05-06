@@ -18,6 +18,7 @@ CF_DEFINES
 
 static struct proto_config *this_proto;
 static struct iface_patt *this_ipatt;
+static struct iface_patt_node *this_ipn;
 static list *this_p_list;
 static struct password_item *this_p_item;
 static int password_id;
@@ -146,11 +147,35 @@ debug_default:
 
 /* Interface patterns */
 
-iface_patt:
-   TEXT { this_ipatt->pattern = $1; this_ipatt->prefix = IPA_NONE; this_ipatt->pxlen = 0; }
- | prefix { this_ipatt->pattern = NULL; this_ipatt->prefix = $1.addr; this_ipatt->pxlen = $1.len; }
- | TEXT prefix { this_ipatt->pattern = $1; this_ipatt->prefix = $2.addr; this_ipatt->pxlen = $2.len; }
+iface_patt_node_init:
+   /* EMPTY */ {
+     struct iface_patt_node *ipn = cfg_allocz(sizeof(struct iface_patt_node));
+     add_tail(&this_ipatt->ipn_list, NODE ipn);
+     this_ipn = ipn;
+   }
  ;
+
+iface_patt_node_body:
+   TEXT { this_ipn->pattern = $1; this_ipn->prefix = IPA_NONE; this_ipn->pxlen = 0; }
+ | prefix { this_ipn->pattern = NULL; this_ipn->prefix = $1.addr; this_ipn->pxlen = $1.len; }
+ | TEXT prefix { this_ipn->pattern = $1; this_ipn->prefix = $2.addr; this_ipn->pxlen = $2.len; }
+ ;
+
+iface_negate:
+       { this_ipn->positive = 1; }
+ | '-' { this_ipn->positive = 0; }
+ ;
+
+iface_patt_node:
+   iface_patt_node_init iface_negate iface_patt_node_body 
+ ;
+
+
+iface_patt_list:
+   iface_patt_node
+ | iface_patt_list ',' iface_patt_node
+ ;
+
 
 /* Direct device route protocol */
 
@@ -167,25 +192,20 @@ dev_proto_start: proto_start DIRECT {
 dev_proto:
    dev_proto_start proto_name '{'
  | dev_proto proto_item ';'
- | dev_proto dev_iface_list ';'
+ | dev_proto dev_iface_patt ';'
  ;
 
-dev_iface_entry_init:
+dev_iface_init:
    /* EMPTY */ {
      struct rt_dev_config *p = (void *) this_proto;
-     struct iface_patt *k = cfg_allocz(sizeof(struct iface_patt));
-     add_tail(&p->iface_list, &k->n);
-     this_ipatt = k;
+     this_ipatt = cfg_allocz(sizeof(struct iface_patt));
+     add_tail(&p->iface_list, NODE this_ipatt);
+     init_list(&this_ipatt->ipn_list);
    }
  ;
 
-dev_iface_entry:
-   dev_iface_entry_init iface_patt
- ;
-
-dev_iface_list:
-   INTERFACE dev_iface_entry
- | dev_iface_list ',' dev_iface_entry
+dev_iface_patt:
+   INTERFACE dev_iface_init iface_patt_list
  ;
 
 /* Debug flags */

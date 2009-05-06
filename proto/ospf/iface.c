@@ -550,7 +550,7 @@ ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
     WALK_LIST(ac, c->area_list)
     {
       if (ip = (struct ospf_iface_patt *)
-	  iface_patt_match(&ac->patt_list, iface))
+	  iface_patt_find(&ac->patt_list, iface))
 	break;
     }
 

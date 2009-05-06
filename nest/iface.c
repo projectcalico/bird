@@ -543,30 +543,70 @@ if_init(void)
  *	Interface Pattern Lists
  */
 
-struct iface_patt *
-iface_patt_match(list *l, struct iface *i)
+static int
+iface_patt_match(struct iface_patt *ifp, struct iface *i)
 {
-  struct iface_patt *p;
+  struct iface_patt_node *p;
 
-  WALK_LIST(p, *l)
+  WALK_LIST(p, ifp->ipn_list)
     {
       char *t = p->pattern;
-      int ok = 1;
+      int pos = p->positive;
+
       if (t)
 	{
 	  if (*t == '-')
 	    {
 	      t++;
-	      ok = 0;
+	      pos = !pos;
 	    }
+
 	  if (!patmatch(t, i->name))
 	    continue;
 	}
-      if (!i->addr || !ipa_in_net(i->addr->ip, p->prefix, p->pxlen))
-	continue;
-      return ok ? p : NULL;
+
+      if (p->pxlen)
+	if (!i->addr || !ipa_in_net(i->addr->ip, p->prefix, p->pxlen))
+	  continue;
+
+      return pos;
     }
+
+  return 0;
+}
+
+struct iface_patt *
+iface_patt_find(list *l, struct iface *i)
+{
+  struct iface_patt *p;
+
+  WALK_LIST(p, *l)
+    if (iface_patt_match(p, i))
+      return p;
+
   return NULL;
+}
+
+static int
+iface_plists_equal(struct iface_patt *pa, struct iface_patt *pb)
+{
+  struct iface_patt_node *x, *y;
+
+  x = HEAD(pa->ipn_list);
+  y = HEAD(pb->ipn_list);
+  while (x->n.next && y->n.next)
+    {
+      if ((x->positive != y->positive) ||
+	  (!x->pattern && y->pattern) ||	/* This nasty lines where written by me... :-( Feela */
+	  (!y->pattern && x->pattern) ||
+	  ((x->pattern != y->pattern) && strcmp(x->pattern, y->pattern)) ||
+	  !ipa_equal(x->prefix, y->prefix) ||
+	  (x->pxlen != y->pxlen))
+	return 0;
+      x = (void *) x->n.next;
+      y = (void *) y->n.next;
+    }
+  return (!x->n.next && !y->n.next);
 }
 
 int
@@ -578,13 +618,8 @@ iface_patts_equal(list *a, list *b, int (*comp)(struct iface_patt *, struct ifac
   y = HEAD(*b);
   while (x->n.next && y->n.next)
     {
-      if ((!x->pattern && y->pattern) ||	/* This nasty lines where written by me... :-( Feela */
-          (!y->pattern && x->pattern) ||
-          (!(x->pattern==y->pattern) &&
-          strcmp(x->pattern, y->pattern)) ||
-	  !ipa_equal(x->prefix, y->prefix) ||
-	  x->pxlen != y->pxlen ||
-	  comp && !comp(x, y))
+      if (!iface_plists_equal(x, y) ||
+	  (comp && !comp(x, y)))
 	return 0;
       x = (void *) x->n.next;
       y = (void *) y->n.next;

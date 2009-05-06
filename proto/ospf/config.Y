@@ -13,9 +13,9 @@ CF_HDR
 CF_DEFINES
 
 #define OSPF_CFG ((struct ospf_config *) this_proto)
-static struct ospf_area_config *this_area;
-static struct iface_patt *this_ipatt;
 #define OSPF_PATT ((struct ospf_iface_patt *) this_ipatt)
+
+static struct ospf_area_config *this_area;
 static struct nbma_node *this_nbma;
 static struct area_net_config *this_pref;
 
@@ -90,7 +90,7 @@ ospf_area_item:
    STUB COST expr { this_area->stub = $3 ; if($3<=0) cf_error("Stub cost must be greater than zero"); }
  | STUB bool {if($2) { if(!this_area->stub) this_area->stub=DEFAULT_STUB_COST;}else{ this_area->stub=0;}}
  | NETWORKS '{' pref_list '}'
- | INTERFACE ospf_iface_list
+ | INTERFACE ospf_iface
  | ospf_vlink
  ;
 
@@ -122,6 +122,7 @@ ospf_vlink_start: VIRTUAL LINK idval
   if (this_area->areaid == 0) cf_error("Virtual link cannot be in backbone");
   this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
   add_tail(&this_area->vlink_list, NODE this_ipatt);
+  init_list(&this_ipatt->ipn_list);
   OSPF_PATT->vid = $3;
   OSPF_PATT->cost = COST_D;
   OSPF_PATT->helloint = HELLOINT_D;
@@ -222,6 +223,7 @@ ospf_iface_start:
  {
   this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
   add_tail(&this_area->patt_list, NODE this_ipatt);
+  init_list(&this_ipatt->ipn_list);
   OSPF_PATT->cost = COST_D;
   OSPF_PATT->helloint = HELLOINT_D;
   OSPF_PATT->pollint = POLLINT_D;
@@ -251,12 +253,7 @@ ospf_iface_opt_list:
  ;
 
 ospf_iface:
-  ospf_iface_start iface_patt ospf_iface_opt_list { finish_iface_config(OSPF_PATT); }
- ;
-
-ospf_iface_list:
-   ospf_iface
- | ospf_iface_list ',' ospf_iface
+  ospf_iface_start iface_patt_list ospf_iface_opt_list { finish_iface_config(OSPF_PATT); }
  ;
 
 opttext:

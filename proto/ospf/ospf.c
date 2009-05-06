@@ -634,11 +634,11 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
     WALK_LIST(ifa, po->iface_list)
     {
       if (oldip = (struct ospf_iface_patt *)
-	  iface_patt_match(&oldac->patt_list, ifa->iface))
+	  iface_patt_find(&oldac->patt_list, ifa->iface))
       {
 	/* Now reconfigure interface */
 	if (!(newip = (struct ospf_iface_patt *)
-	      iface_patt_match(&newac->patt_list, ifa->iface)))
+	      iface_patt_find(&newac->patt_list, ifa->iface)))
 	  return 0;
 
 	/* HELLO TIMER */
