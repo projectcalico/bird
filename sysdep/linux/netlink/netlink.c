@@ -42,16 +42,16 @@ struct nl_sock
 {
   int fd;
   u32 seq;
+  byte *rx_buffer;			/* Receive buffer */
+  struct nlmsghdr *last_hdr;		/* Recently received packet */
+  unsigned int last_size;
 };
 
-static struct nl_sock nl_scan = {-1, 0};	/* Netlink socket for synchronous scan */
-static struct nl_sock nl_req  = {-1, 0};	/* Netlink socket for requests */
-
-static byte *nl_rx_buffer;		/* Receive buffer */
 #define NL_RX_SIZE 8192
 
-static struct nlmsghdr *nl_last_hdr;	/* Recently received packet */
-static unsigned int nl_last_size;
+static struct nl_sock nl_scan = {.fd = -1};	/* Netlink socket for synchronous scan */
+static struct nl_sock nl_req  = {.fd = -1};	/* Netlink socket for requests */
+
 
 static void
 nl_open_sock(struct nl_sock *nl)
@@ -62,6 +62,9 @@ nl_open_sock(struct nl_sock *nl)
       if (nl->fd < 0)
 	die("Unable to open rtnetlink socket: %m");
       nl->seq = now;
+      nl->rx_buffer = xmalloc(NL_RX_SIZE);
+      nl->last_hdr = NULL;
+      nl->last_size = 0;
     }
 }
 
@@ -70,9 +73,6 @@ nl_open(void)
 {
   nl_open_sock(&nl_scan);
   nl_open_sock(&nl_req);
-
-  if (nl_rx_buffer == NULL)
-    nl_rx_buffer = xmalloc(NL_RX_SIZE);
 }
 
 static void
@@ -86,7 +86,7 @@ nl_send(struct nl_sock *nl, struct nlmsghdr *nh)
   nh->nlmsg_seq = ++(nl->seq);
   if (sendto(nl->fd, nh, nh->nlmsg_len, 0, (struct sockaddr *)&sa, sizeof(sa)) < 0)
     die("rtnetlink sendto: %m");
-  nl_last_hdr = NULL;
+  nl->last_hdr = NULL;
 }
 
 static void
@@ -108,9 +108,9 @@ nl_get_reply(struct nl_sock *nl)
 {
   for(;;)
     {
-      if (!nl_last_hdr)
+      if (!nl->last_hdr)
 	{
-	  struct iovec iov = { nl_rx_buffer, NL_RX_SIZE };
+	  struct iovec iov = { nl->rx_buffer, NL_RX_SIZE };
 	  struct sockaddr_nl sa;
 	  struct msghdr m = { (struct sockaddr *) &sa, sizeof(sa), &iov, 1, NULL, 0, 0 };
 	  int x = recvmsg(nl->fd, &m, 0);
@@ -121,15 +121,15 @@ nl_get_reply(struct nl_sock *nl)
 	      DBG("Non-kernel packet\n");
 	      continue;
 	    }
-	  nl_last_size = x;
-	  nl_last_hdr = (void *) nl_rx_buffer;
+	  nl->last_size = x;
+	  nl->last_hdr = (void *) nl->rx_buffer;
 	  if (m.msg_flags & MSG_TRUNC)
 	    bug("nl_get_reply: got truncated reply which should be impossible");
 	}
-      if (NLMSG_OK(nl_last_hdr, nl_last_size))
+      if (NLMSG_OK(nl->last_hdr, nl->last_size))
 	{
-	  struct nlmsghdr *h = nl_last_hdr;
-	  nl_last_hdr = NLMSG_NEXT(h, nl_last_size);
+	  struct nlmsghdr *h = nl->last_hdr;
+	  nl->last_hdr = NLMSG_NEXT(h, nl->last_size);
 	  if (h->nlmsg_seq != nl->seq)
 	    {
 	      log(L_WARN "nl_get_reply: Ignoring out of sequence netlink packet (%x != %x)",
@@ -138,9 +138,9 @@ nl_get_reply(struct nl_sock *nl)
 	    }
 	  return h;
 	}
-      if (nl_last_size)
-	log(L_WARN "nl_get_reply: Found packet remnant of size %d", nl_last_size);
-      nl_last_hdr = NULL;
+      if (nl->last_size)
+	log(L_WARN "nl_get_reply: Found packet remnant of size %d", nl->last_size);
+      nl->last_hdr = NULL;
     }
 }
 
@@ -797,7 +797,6 @@ nl_async_hook(sock *sk, int size UNUSED)
   int x;
   unsigned int len;
 
-  nl_last_hdr = NULL;		/* Discard packets accidentally remaining in the rxbuf */
   x = recvmsg(sk->fd, &m, 0);
   if (x < 0)
     {
