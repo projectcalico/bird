@@ -278,7 +278,7 @@ CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
 CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
 { if_show_summary(); } ;
 
-CF_CLI(SHOW ROUTE, r_args, [[[<prefix>|for <prefix>|for <ip>] [table <t>] [filter <f>|where <cond>] [all] [primary] [(import|preimport) <p>] [stats|count]]], [[Show routing table]])
+CF_CLI(SHOW ROUTE, r_args, [[[<prefix>|for <prefix>|for <ip>] [table <t>] [filter <f>|where <cond>] [all] [primary] [(import|preimport) <p>] [protocol <p>] [stats|count]]], [[Show routing table]])
 { rt_show($3); } ;
 
 r_args:
@@ -332,6 +332,14 @@ r_args:
      $$->import_mode = $2;
      $$->primary_only = 1;
      $$->import_protocol = c->proto;
+     $$->running_on_config = c->proto->cf->global;
+   }
+ | r_args PROTOCOL SYM {
+     struct proto_config *c = (struct proto_config *) $3->def;
+     $$ = $1;
+     if ($$->show_protocol) cf_error("Protocol specified twice");
+     if ($3->class != SYM_PROTO || !c->proto) cf_error("%s is not a protocol", $3->name);
+     $$->show_protocol = c->proto;
      $$->running_on_config = c->proto->cf->global;
    }
  | r_args STATS {
