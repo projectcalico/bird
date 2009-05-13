@@ -206,6 +206,7 @@ protocol device {
 protocol rip {
 	export all;
 	import all;
+	interface "*";
 }
 </code>
 
@@ -298,19 +299,88 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 <p>There are several options that give sense only with certain protocols:
 
 <descrip>
-	<tag>passwords { password "<m/password/" from <m/time/ to <m/time/ passive <m/time/ id
-	<m/num/ [...] }</tag> Specifies passwords to be used with this protocol. <cf>Passive <m/time/</cf> is
-	time from which the password is not used for sending, but it is recognized on reception. <cf/id/ is password ID as needed by
-	certain protocols. Format of <cf><m/time/</cf> is <tt>dd-mm-yyyy HH:MM:SS</tt>.
+	<tag><label id="dsc-iface">interface [-] [ "<m/mask/" ] [ <m/prefix/ ] [, ...] [ { <m/option/ ; [...] } ]</tag>
 
-	<tag>interface "<m/mask/"|<m/prefix/ [ { <m/option/ ; [...] } ]</tag> Specifies which
-	interfaces is this protocol active on and allows you to set options on a
-	per-interface basis. Mask is specified as in shell-like patterns, thus <cf>interface
-	"*" { mode broadcast; };</cf> will start the protocol on all interfaces with <cf>mode
-	broadcast;</cf> option. If the first character of mask is <cf/-/, such interfaces are
-	excluded. Masks are parsed left-to-right, thus <cf/interface "-eth*", "*";/ means all but
-	the ethernets. Default: none.
+	Specifies a set of interfaces on which the protocol is activated with
+	given interface-specific options. A set of interfaces specified by one
+	interface option is described using an interface pattern. The
+	interface pattern consists of a sequence of clauses (separted by
+	commas), each clause may contain a mask, a prefix, or both of them. An
+	interface matches the clause if its name matches the mask (if
+	specified) and its address matches the prefix (if specified). Mask is
+	specified as shell-like pattern.
 
+	An interface matches the pattern if it matches any of its
+	clauses. If the clause begins with <cf/-/, matching interfaces are
+	excluded. Patterns are parsed left-to-right, thus
+	<cf/interface "eth0", -"eth*", "*";/ means eth0 and all
+	non-ethernets.
+
+	An interface option can be used more times with different
+	interfaces-specific options, in that case for given interface
+	the first matching interface option is used.
+	
+	This option is allowed in Direct, OSPF and RIP protocols,
+	but in OSPF protocol it is used in <cf/area/ subsection.
+
+	Default: none.
+
+	Examples:
+
+	<cf>interface "*" { type broadcast; };</cf> - start the protocol on all interfaces with
+	<cf>type broadcast</cf> option.
+
+	<cf>interface "eth1", "eth4", "eth5" { type pointopoint; };</cf> - start the protocol
+	on enumerated interfaces with <cf>type pointopoint</cf> option.
+	
+	<cf>interface -192.168.1.0/24, 192.168.0.0/16;</cf> - start the protocol on all
+	interfaces that have address from 192.168.0.0/16, but not
+	from 192.168.1.0/24.
+
+	<cf>interface -192.168.1.0/24, 192.168.0.0/16;</cf> - start the protocol on all
+	interfaces that have address from 192.168.0.0/16, but not
+	from 192.168.1.0/24.
+
+	<cf>interface "eth*" 192.168.1.0/24;</cf> - start the protocol on all
+	ethernet interfaces that have address from 192.168.1.0/24.
+
+	<tag><label id="dsc-pass">password "<m/password/" [ { id <m/num/; generate from <m/time/; generate to <m/time/; accept from <m/time/; accept to <m/time/; } ]</tag>
+	Specifies a password that can be used by the protocol. Password option can
+	be used more times to specify more passwords. If more passwords are
+	specified, it is a protocol-dependent decision which one is really
+	used. Specifying passwords does not mean that authentication is
+	enabled, authentication can be enabled by separate, protocol-dependent
+	<cf/authentication/ option.
+	
+	This option is allowed in OSPF and RIP protocols. BGP has also
+	<cf/password/ option, but it is slightly different and described
+	separately.
+
+	Default: none.
+</descrip>
+
+<p>Password option can contain section with some (not necessary all) password sub-options:
+
+<descrip>
+	<tag>id <M>num</M></tag>
+	 ID of the password, (0-255). If it's not used, BIRD will choose
+	 ID based on an order of the password item in the interface. For
+	 example, second password item in one interface will have default
+	 ID 2. ID is used by some routing protocols to identify which
+	 password was used to authenticate protocol packets.
+
+	<tag>generate from "<m/time/"</tag>
+	 The start time of the usage of the password for packet signing.
+	 The format of <cf><m/time/</cf> is <tt>dd-mm-yyyy HH:MM:SS</tt>.
+
+	<tag>generate to "<m/time/"</tag>
+	 The last time of the usage of the password for packet signing.
+
+	<tag>accept from "<m/time/"</tag>
+	 The start time of the usage of the password for packet verification.
+
+	<tag>accept to "<m/time/"</tag>
+	 The last time of the usage of the password for packet verification.
 </descrip>
 
 <chapt>Remote control
@@ -327,6 +397,9 @@ codes along with the messages. You do not necessarily need to use <file/birdc/ t
 own applications could do that, too -- the format of communication between
 BIRD and <file/birdc/ is stable (see the programmer's documentation).
 
+Many commands have the <m/name/ of the protocol instance as an argument.
+This argument can be omitted if there exists only a single instance.
+
 <p>Here is a brief list of supported functions:
 
 <descrip>
@@ -339,12 +412,23 @@ BIRD and <file/birdc/ is stable (see the programmer's documentation).
 	<tag>show protocols [all]</tag>
 	Show list of protocol instances along with tables they are connected to and protocol status, possibly giving verbose information, if <cf/all/ is specified.
 
-	<tag>show ospf [interface|neighbors] [<m/name/] ["<m/interface/"]</tag>
-	Show detailed information about OSPF protocol, possibly giving a verbose list of interfaces and neighbors. The <m/name/ of the protocol instance can be omitted if there exists only a single instance.
+	<tag>show ospf interface [<m/name/] ["<m/interface/"]</tag>
+	Show detailed information about OSPF interfaces.
+
+	<tag>show ospf neighbors [<m/name/] ["<m/interface/"]</tag>
+	Show a list of OSPF neighbors and a state of adjacency to them.
+
+	<tag>show ospf state [<m/name/]</tag>
+	Show detailed information about OSPF areas based on a content of link-state database.
+	It shows network topology,  aggregated networks and routers from other areas and external routes.
+
+	<tag>show ospf topology [<m/name/]</tag>
+	Show a topology of OSPF areas based on a content of link-state database.
+	It is just a stripped-down version of 'show ospf state'.
 
 	<tag>show static [<m/name/]</tag>
-	Show detailed information about static routes. The <m/name/ of the protocol instance can be omitted if there exists only a single instance.
-	
+	Show detailed information about static routes.
+
 	<tag>show interfaces [summary]</tag>
 	Show the list of interfaces. For each interface, print its type, state, MTU and addresses assigned. 
 
@@ -367,7 +451,7 @@ BIRD and <file/birdc/ is stable (see the programmer's documentation).
 	a given filter (<cf>filter <m/name/</cf> or <cf>filter { <m/filter/ }
 	</cf> or matching a given condition (<cf>where <m/condition/</cf>).
 	The <cf/import/ and <cf/preimport/ switches ask for printing of entries
-        that are imported to the specified protocol. With <cf/preimport/, the
+	that are imported to the specified protocol. With <cf/preimport/, the
 	import filter of the protocol is skipped.
 
 	<p>The <cf/stats/ switch requests showing of route statistics (the
@@ -1172,6 +1256,7 @@ protocol ospf &lt;name&gt; {
 
 	<tag>interface <M>pattern</M></tag>
 	 Defines that the specified interfaces belong to the area being defined.
+	 See <ref id="dsc-iface" name="interface"> common option for detailed description.
 
 	<tag>virtual link <M>id</M></tag>
 	 Virtual link to router with the router id. Virtual link acts as a
@@ -1257,24 +1342,7 @@ protocol ospf &lt;name&gt; {
 
 	<tag>password "<M>text</M>"</tag>
 	 An 8-byte or 16-byte password used for authentication.
-
-	<tag>id <M>num</M></tag>
-	 ID of the password, (0-255). If it's not used, BIRD will choose
-	 ID based on an order of the password item in the interface. For
-	 example, second password item in one interface will have default
-	 ID 2.  
-
-	<tag>generate from <M>date</M></tag>
-	 The start time of the usage of the password for packet signing.
-
-	<tag>generate to <M>date</M></tag>
-	 The last time of the usage of the password for packet signing.
-
-	<tag>accept from <M>date</M></tag>
-	 The start time of the usage of the password for packet verification.
-
-	<tag>accept to <M>date</M></tag>
-	 The last time of the usage of the password for packet verification.
+	 See <ref id="dsc-pass" name="password"> common option for detailed description.
 
 	<tag>neighbors { <m/set/ } </tag>
 	 A set of neighbors to which Hello messages on nonbroadcast networks
@@ -1310,7 +1378,7 @@ protocol ospf MyOSPF {
 			accept;
 		}
 		reject;
-	};                                                                      
+	};
 	area 0.0.0.0 {
 		interface "eth*" {
 			cost 11;
@@ -1323,17 +1391,15 @@ protocol ospf MyOSPF {
 		interface "ppp*" {
 			cost 100;
 			authentication cryptographic;
-			passwords {
-				password "abc" {
-					id 1;
-					generate to "22-04-2003 11:00:06";
-					accept from "17-01-2001 12:01:05";
-				};
-				password "def" {
-					id 2;
-					generate to "22-07-2005 17:03:21";
-					accept from "22-02-2001 11:34:06";
-				};
+			password "abc" {
+				id 1;
+				generate to "22-04-2003 11:00:06";
+				accept from "17-01-2001 12:01:05";
+			};
+			password "def" {
+				id 2;
+				generate to "22-07-2005 17:03:21";
+				accept from "22-02-2001 11:34:06";
 			};
 		};
 		interface "arc0" {
@@ -1497,7 +1563,7 @@ because there are no good implementations of OSPFv3.
 	<tag/authentication none|plaintext|md5/ selects authentication method to be used. <cf/none/ means that
 	  packets are not authenticated at all, <cf/plaintext/ means that a plaintext password is embedded
 	  into each packet, and <cf/md5/ means that packets are authenticated using a MD5 cryptographic
-	  hash. If you set authentication to not-none, it is a good idea to add <cf>passwords { }</cf>
+	  hash. If you set authentication to not-none, it is a good idea to add <cf>password</cf>
 	  section. Default: none.
 
 	<tag>honor always|neighbor|never </tag>specifies when should requests for dumping routing table
@@ -1562,8 +1628,8 @@ protocol rip MyRIP_test {
         port 1520;
         period 10;
         garbage time 60;
-        interface "eth0" { metric 3; mode multicast; }
-	          "eth1" { metric 2; mode broadcast; };
+        interface "eth0" { metric 3; mode multicast; };
+	interface "eth*" { metric 2; mode broadcast; };
         honor neighbor;
         authentication none;
         import filter { print "importing"; accept; };
