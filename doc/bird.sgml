@@ -435,7 +435,7 @@ This argument can be omitted if there exists only a single instance.
 	<tag>show symbols</tag>
 	Show the list of symbols defined in the configuration (names of protocols, routing tables etc.).
 
-	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(import|preimport) <m/p/] [<m/options/]</tag>
+	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(import|preimport) <m/p/] [protocol <m/p/] [<m/options/]</tag>
 	Show contents of a routing table (by default of the main one),
 	that is routes, their metrics and (in case the <cf/all/ switch is given)
 	all their attributes.
@@ -453,6 +453,9 @@ This argument can be omitted if there exists only a single instance.
 	The <cf/import/ and <cf/preimport/ switches ask for printing of entries
 	that are imported to the specified protocol. With <cf/preimport/, the
 	import filter of the protocol is skipped.
+
+	<p>You can also select just routes added by a specific protocol.
+	<cf>protocol <m/p/</cf>.
 
 	<p>The <cf/stats/ switch requests showing of route statistics (the
 	number of networks, number of routes before and after filtering). If

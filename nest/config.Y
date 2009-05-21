@@ -56,7 +56,7 @@ CF_ENUM(T_ENUM_RTD, RTD_, ROUTER, DEVICE, BLACKHOLE, UNREACHABLE, PROHIBIT)
 %type <r> rtable
 %type <s> optsym
 %type <ra> r_args
-%type <i> echo_mask echo_size debug_mask debug_list debug_flag import_or_proto
+%type <i> echo_mask echo_size debug_mask debug_list debug_flag import_or_preimport
 %type <t> proto_patt
 
 CF_GRAMMAR
@@ -298,7 +298,7 @@ CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
 CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
 { if_show_summary(); } ;
 
-CF_CLI(SHOW ROUTE, r_args, [[[<prefix>|for <prefix>|for <ip>] [table <t>] [filter <f>|where <cond>] [all] [primary] [(import|protocol) <p>] [stats|count]]], [[Show routing table]])
+CF_CLI(SHOW ROUTE, r_args, [[[<prefix>|for <prefix>|for <ip>] [table <t>] [filter <f>|where <cond>] [all] [primary] [(import|preimport) <p>] [protocol <p>] [stats|count]]], [[Show routing table]])
 { rt_show($3); } ;
 
 r_args:
@@ -344,7 +344,7 @@ r_args:
      $$ = $1;
      $$->primary_only = 1;
    }
- | r_args import_or_proto SYM {
+ | r_args import_or_preimport SYM {
      struct proto_config *c = (struct proto_config *) $3->def;
      $$ = $1;
      if ($$->import_mode) cf_error("Protocol specified twice");
@@ -352,6 +352,14 @@ r_args:
      $$->import_mode = $2;
      $$->primary_only = 1;
      $$->import_protocol = c->proto;
+     $$->running_on_config = c->proto->cf->global;
+   }
+ | r_args PROTOCOL SYM {
+     struct proto_config *c = (struct proto_config *) $3->def;
+     $$ = $1;
+     if ($$->show_protocol) cf_error("Protocol specified twice");
+     if ($3->class != SYM_PROTO || !c->proto) cf_error("%s is not a protocol", $3->name);
+     $$->show_protocol = c->proto;
      $$->running_on_config = c->proto->cf->global;
    }
  | r_args STATS {
@@ -364,7 +372,7 @@ r_args:
    }
  ;
 
-import_or_proto:
+import_or_preimport:
    PREIMPORT { $$ = 1; }
  | IMPORT { $$ = 2; }
  ;

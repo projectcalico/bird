@@ -114,6 +114,10 @@ else
 				;;
 		ipv4:freebsd*)	sysdesc=bsd
 				;;
+		ipv6:openbsd*)	sysdesc=bsd-v6
+				;;
+		ipv4:openbsd*)	sysdesc=bsd
+				;;
 		*)		AC_MSG_ERROR([Cannot determine correct system configuration. Please use --with-sysconfig to set it manually.])
 				;;
 		esac

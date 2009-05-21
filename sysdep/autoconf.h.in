@@ -54,3 +54,7 @@
 
 /* struct sockaddr_in(6) */
 #undef HAVE_SIN_LEN
+
+/* We have stdint.h */
+#undef HAVE_STDINT_H
+
