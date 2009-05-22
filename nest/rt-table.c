@@ -978,7 +978,7 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
     {
       struct ea_list *tmpa, *old_tmpa;
       struct proto *p0 = e->attrs->proto;
-      struct proto *p1 = d->import_protocol;
+      struct proto *p1 = d->export_protocol;
       struct proto *p2 = d->show_protocol;
       d->rt_counter++;
       ee = e;
@@ -986,12 +986,12 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
       old_tmpa = tmpa = p0->make_tmp_attrs ? p0->make_tmp_attrs(e, rte_update_pool) : NULL;
       ok = (d->filter == FILTER_ACCEPT || f_run(d->filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
       if (p2 && p2 != p0) ok = 0;
-      if (ok && d->import_mode)
+      if (ok && d->export_mode)
 	{
 	  int ic = (p1->import_control ? p1->import_control(p1, &e, &tmpa, rte_update_pool) : 0);
 	  if (ic < 0)
 	    ok = 0;
-	  else if (!ic && d->import_mode > 1)
+	  else if (!ic && d->export_mode > 1)
 	    {
 	      if (p1->out_filter == FILTER_REJECT ||
 		  p1->out_filter && f_run(p1->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
@@ -1033,9 +1033,9 @@ rt_show_cont(struct cli *c)
 	  cli_printf(c, 8004, "Stopped due to reconfiguration");
 	  goto done;
 	}
-      if (d->import_protocol &&
-	  d->import_protocol->core_state != FS_HAPPY &&
-	  d->import_protocol->core_state != FS_FEEDING)
+      if (d->export_protocol &&
+	  d->export_protocol->core_state != FS_HAPPY &&
+	  d->export_protocol->core_state != FS_FEEDING)
 	{
 	  cli_printf(c, 8005, "Protocol is down");
 	  goto done;
