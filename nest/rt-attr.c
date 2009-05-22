@@ -310,7 +310,7 @@ ea_same(ea_list *x, ea_list *y)
 	  a->flags != b->flags ||
 	  a->type != b->type ||
 	  ((a->type & EAF_EMBEDDED) ? a->u.data != b->u.data :
-	   (a->u.ptr->length != b->u.ptr->length || memcmp(a->u.ptr, b->u.ptr, a->u.ptr->length))))
+	   (a->u.ptr->length != b->u.ptr->length || memcmp(a->u.ptr->data, b->u.ptr->data, a->u.ptr->length))))
 	return 0;
     }
   return 1;
