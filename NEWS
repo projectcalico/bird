@@ -1,3 +1,11 @@
+Version 1.0.15 (2009-05-25)
+  o FreeBSD and NetBSD port renewed. OpenBSD port introduced.
+  o import/preimport 'show route' modifiers was renamed to export/preexport
+    for consistency with filters.
+  o Minor change in the grammar of 'interface' config option.
+  o Many bugfixes in IPv6 BGP.
+  o As usual, miscellaneous bugfixes.
+
 Version 1.0.14 (2009-04-28)
   o A lot of bugfixes in BGP, OSPF and core.
   o A bugfix in filters in the pipe protocol. It is recommended to
