@@ -323,6 +323,9 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
+  /* This is deviation from RFC 2328 - neighbours should be identified by
+   * IP address on broadcast and NBMA networks.
+   */
   n = find_neigh(ifa, ntohl(((struct ospf_packet *) ps)->routerid));
 
   if(!n && (ps->type != HELLO_P))

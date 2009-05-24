@@ -24,16 +24,36 @@ ospf_hello_receive(struct ospf_hello_packet *ps,
   mask = ps->netmask;
   ipa_ntoh(mask);
 
-  if (((ifa->type != OSPF_IT_VLINK) && (ifa->type != OSPF_IT_PTP)) &&
-      ((unsigned) ipa_mklen(mask) != ifa->iface->addr->pxlen))
-  {
-    log(L_ERR "%s%I%sbad netmask %I.", beg, faddr, rec, mask);
-    return;
-  }
+  if (ifa->type != OSPF_IT_VLINK)
+    {
+      char *msg = L_WARN "Received HELLO packet %s (%I) is inconsistent "
+	"with the primary address of interface %s.";
+
+      if ((ifa->type != OSPF_IT_PTP) &&
+	  !ipa_equal(mask, ipa_mkmask(ifa->iface->addr->pxlen)))
+	{
+	  if (!n) log(msg, "netmask", mask, ifa->iface->name);
+	  return;
+	}
+
+      /* This check is not specified in RFC 2328, but it is needed
+       * to handle the case when there is more IP networks on one
+       * physical network (which is not handled in RFC 2328).
+       * We allow OSPF on primary IP address only and ignore HELLO packets
+       * with secondary addresses (which are sent for example by Quagga.
+       */
+      if ((ifa->iface->addr->flags & IA_UNNUMBERED) ?
+	  !ipa_equal(faddr, ifa->iface->addr->opposite) :
+	  !ipa_equal(ipa_and(faddr,mask), ifa->iface->addr->prefix))
+	{
+	  if (!n) log(msg, "address", faddr, ifa->iface->name);
+	  return;
+	}
+    }
 
   if (ntohs(ps->helloint) != ifa->helloint)
   {
-    log(L_WARN "%s%I%shello interval mismatch (%d).", beg, faddr, rec,
+    log(L_ERR "%s%I%shello interval mismatch (%d).", beg, faddr, rec,
 	ntohs(ps->helloint));
     return;
   }
