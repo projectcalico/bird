@@ -225,7 +225,8 @@ ospf_hello_send(timer * timer, int poll, struct ospf_neighbor *dirn)
 
   pkt->netmask = ipa_mkmask(ifa->iface->addr->pxlen);
   ipa_hton(pkt->netmask);
-  if (ifa->type == OSPF_IT_VLINK) pkt->netmask = IPA_NONE;
+  if ((ifa->type == OSPF_IT_VLINK) || (ifa->type == OSPF_IT_PTP))
+    pkt->netmask = IPA_NONE;
   pkt->helloint = ntohs(ifa->helloint);
   pkt->options = ifa->oa->opt.byte;
   pkt->priority = ifa->priority;
