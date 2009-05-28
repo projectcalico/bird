@@ -120,7 +120,8 @@ val_compare(struct f_val v1, struct f_val v2)
   }
   switch (v1.type) {
   case T_ENUM:
-  case T_INT: 
+  case T_INT:
+  case T_BOOL:
   case T_PAIR:
     if (v1.val.i == v2.val.i) return 0;
     if (v1.val.i < v2.val.i) return -1;
