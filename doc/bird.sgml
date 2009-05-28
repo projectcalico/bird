@@ -844,7 +844,8 @@ for each neighbor using the following configuration parameters:
 	of the interface our neighbor is connected to.
 
 	<tag>password <m/string/</tag> Use this password for MD5 authentication
-	of BGP sessions. Default: no authentication.
+	of BGP sessions. Default: no authentication. Password has to be set by
+	external utility (e.g. setkey(8)) on BSD systems.
 
 	<tag>rr client</tag> Be a route reflector and treat the neighbor as
 	a route reflection client. Default: disabled.
