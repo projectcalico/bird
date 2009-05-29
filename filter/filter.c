@@ -141,7 +141,7 @@ val_compare(struct f_val v1, struct f_val v2)
   case T_STRING:
     return strcmp(v1.val.s, v2.val.s);
   default:
-    debug( "Compare of unkown entities: %x\n", v1.type );
+    debug( "Compare of unknown entities: %x\n", v1.type );
     return CMP_ERROR;
   }
 }
