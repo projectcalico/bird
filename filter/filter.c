@@ -64,6 +64,8 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
   while (1) {
     if ((!m1) || (!m2))
       return !((!m1) && (!m2));
+
+    if ((m1->kind != m2->kind) || (m1->val != m2->val)) return 1;
     m1 = m1->next;
     m2 = m2->next;
   }
