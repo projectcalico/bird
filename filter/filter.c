@@ -489,6 +489,7 @@ interpret(struct f_inst *what)
     else
       res.val.i = what->a2.i;
     break;
+  case 'V':
   case 'C':
     res = * ((struct f_val *) what->a1.p);
     break;
@@ -855,10 +856,12 @@ i_same(struct f_inst *f1, struct f_inst *f2)
     case T_PREFIX_SET:
       if (!trie_same(f1->a2.p, f2->a2.p))
 	return 0;
+      break;
 
     case T_SET:
       if (!same_tree(f1->a2.p, f2->a2.p))
 	return 0;
+      break;
 
     case T_STRING:
       if (strcmp(f1->a2.p, f2->a2.p))
@@ -871,6 +874,10 @@ i_same(struct f_inst *f1, struct f_inst *f2)
     break;
   case 'C': 
     if (val_compare(* (struct f_val *) f1->a1.p, * (struct f_val *) f2->a1.p))
+      return 0;
+    break;
+  case 'V': 
+    if (strcmp((char *) f1->a2.p, (char *) f2->a2.p))
       return 0;
     break;
   case 'p': case 'L': ONEARG; break;
