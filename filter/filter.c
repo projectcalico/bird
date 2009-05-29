@@ -178,25 +178,11 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
     return patmatch(v2.val.s, v1.val.s);
 
   if ((v1.type == T_IP) && (v2.type == T_PREFIX))
-    return !(ipa_compare(ipa_and(v2.val.px.ip, ipa_mkmask(v2.val.px.len)), ipa_and(v1.val.px.ip, ipa_mkmask(v2.val.px.len))));
+    return ipa_in_net(v1.val.px.ip, v2.val.px.ip, v2.val.px.len);
 
-  if ((v1.type == T_PREFIX) && (v2.type == T_PREFIX)) {
+  if ((v1.type == T_PREFIX) && (v2.type == T_PREFIX))
+    return ipa_in_net(v1.val.px.ip, v2.val.px.ip, v2.val.px.len) && (v1.val.px.len >= v2.val.px.len);
 
-    if (v1.val.px.len & (LEN_PLUS | LEN_MINUS | LEN_RANGE))
-      return CMP_ERROR;
-
-    int p1 = v1.val.px.len & LEN_MASK;
-    int p2 = v2.val.px.len & LEN_MASK;
-    ip_addr mask = ipa_mkmask(MIN(p1, p2));
-
-    if (ipa_compare(ipa_and(v2.val.px.ip, mask), ipa_and(v1.val.px.ip, mask)))
-      return 0;
-
-    int l, h;
-    f_prefix_get_bounds(&v2.val.px, &l, &h);
-
-    return ((l <= v1.val.px.len) && (v1.val.px.len <= h));
-  }
   return CMP_ERROR;
 }
 
