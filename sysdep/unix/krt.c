@@ -151,6 +151,49 @@ kif_shutdown(struct proto *P)
   return PS_DOWN;
 }
 
+
+static inline int
+prefer_scope(struct ifa *a, struct ifa *b)
+{ return (a->scope > SCOPE_LINK) && (b->scope <= SCOPE_LINK); }
+
+static inline int
+prefer_addr(struct ifa *a, struct ifa *b)
+{ return ipa_compare(a->ip, b->ip) < 0; }
+
+static inline struct ifa *
+find_preferred_ifa(struct iface *i, ip_addr prefix, ip_addr mask)
+{
+  struct ifa *a, *b = NULL;
+
+  WALK_LIST(a, i->addrs)
+    {
+      if (!(a->flags & IA_SECONDARY) &&
+	  ipa_equal(ipa_and(a->ip, mask), prefix) &&
+	  (!b || prefer_scope(a, b) || prefer_addr(a, b)))
+	b = a;
+    }
+
+  return b;
+}
+
+struct ifa *
+kif_choose_primary(struct iface *i)
+{
+  struct kif_config *cf = (struct kif_config *) (kif_proto->p.cf);
+  struct kif_primary_item *it;
+  struct ifa *a;
+
+  WALK_LIST(it, cf->primary)
+    {
+      if (!it->pattern || patmatch(it->pattern, i->name))
+	if (a = find_preferred_ifa(i, it->prefix, ipa_mkmask(it->pxlen)))
+	  return a;
+    }
+
+  return find_preferred_ifa(i, IPA_NONE, IPA_NONE);
+}
+
+
 static int
 kif_reconfigure(struct proto *p, struct proto_config *new)
 {
@@ -159,6 +202,7 @@ kif_reconfigure(struct proto *p, struct proto_config *new)
 
   if (!kif_params_same(&o->iface, &n->iface))
     return 0;
+
   if (o->scan_time != n->scan_time)
     {
       tm_stop(kif_scan_timer);
@@ -166,6 +210,18 @@ kif_reconfigure(struct proto *p, struct proto_config *new)
       kif_scan(kif_scan_timer);
       tm_start(kif_scan_timer, n->scan_time);
     }
+
+  if (!EMPTY_LIST(o->primary) || !EMPTY_LIST(n->primary))
+    {
+      /* This is hack, we have to update a configuration
+       * to the new value just now, because it is used
+       * for recalculation of primary addresses.
+       */
+      p->cf = new;
+
+      ifa_recalc_all_primary_addresses();
+    }
+
   return 1;
 }
 

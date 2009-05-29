@@ -80,6 +80,7 @@ void if_end_partial_update(struct iface *);
 void if_feed_baby(struct proto *);
 struct iface *if_find_by_index(unsigned);
 struct iface *if_find_by_name(char *);
+void ifa_recalc_all_primary_addresses(void);
 
 /* The Neighbor Cache */
 

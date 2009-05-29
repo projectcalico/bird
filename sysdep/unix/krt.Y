@@ -82,7 +82,7 @@ kif_item:
       /* Scan time of 0 means scan on startup only */
       THIS_KIF->scan_time = $3;
    }
- | PRIMARY TEXT prefix_or_ipa {
+ | PRIMARY text_or_none prefix_or_ipa {
      struct kif_primary_item *kpi = cfg_alloc(sizeof (struct kif_primary_item));
      kpi->pattern = $2;
      kpi->prefix = $3.addr;

@@ -399,28 +399,42 @@ if_find_by_name(char *name)
   return NULL;
 }
 
+struct ifa *kif_choose_primary(struct iface *i);
+
 static int
 ifa_recalc_primary(struct iface *i)
 {
-  struct ifa *a, *b = NULL;
-  int res;
+  struct ifa *a = kif_choose_primary(i);
 
-  WALK_LIST(a, i->addrs)
+  if (a == i->addr)
+    return 0;
+
+  if (i->addr)
+    i->addr->flags &= ~IA_PRIMARY;
+
+  if (a)
     {
-      if (!(a->flags & IA_SECONDARY) && (!b || a->scope > b->scope))
-	b = a;
-      a->flags &= ~IA_PRIMARY;
+      a->flags |= IA_PRIMARY;
+      rem_node(&a->n);
+      add_head(&i->addrs, &a->n);
     }
-  res = (b != i->addr);
-  i->addr = b;
-  if (b)
-    {
-      b->flags |= IA_PRIMARY;
-      rem_node(&b->n);
-      add_head(&i->addrs, &b->n);
-    }
-  return res;
+
+  i->addr = a;
+  return 1;
 }
+
+void
+ifa_recalc_all_primary_addresses(void)
+{
+  struct iface *i;
+
+  WALK_LIST(i, iface_list)
+    {
+      if (ifa_recalc_primary(i))
+	if_change_flags(i, i->flags | IF_TMP_DOWN);
+    }
+}
+
 
 /**
  * ifa_update - update interface address
@@ -464,7 +478,7 @@ ifa_update(struct ifa *a)
   memcpy(b, a, sizeof(struct ifa));
   add_tail(&i->addrs, &b->n);
   b->flags = (i->flags & ~IA_FLAGS) | (a->flags & IA_FLAGS);
-  if ((!i->addr || i->addr->scope < b->scope) && ifa_recalc_primary(i))
+  if (ifa_recalc_primary(i))
     if_change_flags(i, i->flags | IF_TMP_DOWN);
   if (b->flags & IF_UP)
     ifa_notify_change(IF_CHANGE_CREATE | IF_CHANGE_UP, b);

@@ -57,6 +57,7 @@ CF_DECLS
 %type <time> datetime
 %type <a> ipa
 %type <px> prefix prefix_or_ipa
+%type <t> text_or_none
 
 %nonassoc PREFIX_DUMMY
 %nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ AND OR PO PC
@@ -151,6 +152,11 @@ datetime:
      if (!$$)
        cf_error("Invalid date and time");
    }
+ ;
+
+text_or_none:
+   TEXT { $$ = $1; }
+ |      { $$ = NULL; }
  ;
 
 CF_CODE
