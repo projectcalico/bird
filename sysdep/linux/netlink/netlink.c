@@ -500,7 +500,7 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
   bzero(&r.r, sizeof(r.r));
   r.h.nlmsg_type = new ? RTM_NEWROUTE : RTM_DELROUTE;
   r.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-  r.h.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | (new ? NLM_F_CREATE|NLM_F_REPLACE : 0);
+  r.h.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | (new ? NLM_F_CREATE|NLM_F_EXCL : 0);
 
   r.r.rtm_family = BIRD_AF;
   r.r.rtm_dst_len = net->n.pxlen;
@@ -540,22 +540,11 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
 void
 krt_set_notify(struct krt_proto *p, net *n UNUSED, rte *new, rte *old)
 {
-  if (old && new)
-    {
-      /*
-       *  We should check whether priority and TOS is identical as well,
-       *  but we don't use these and default value is always equal to default value. :-)
-       */
-      nl_send_route(p, new, 1);
-    }
-  else
-    {
-      if (old)
-	nl_send_route(p, old, 0);
+  if (old)
+    nl_send_route(p, old, 0);
 
-      if (new)
-	nl_send_route(p, new, 1);
-    }
+  if (new)
+    nl_send_route(p, new, 1);
 }
 
 static struct iface *
