@@ -875,6 +875,7 @@ krt_init(struct proto_config *c)
 {
   struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
 
+  p->p.accept_ra_types = RA_OPTIMAL;
   p->p.rt_notify = krt_notify;
   p->p.min_scope = SCOPE_HOST;
   return &p->p;

@@ -146,6 +146,7 @@ typedef struct network {
 typedef struct rte {
   struct rte *next;
   net *net;				/* Network this RTE belongs to */
+  struct proto *sender;			/* Protocol instance that sent the route to the routing table */
   struct rta *attrs;			/* Attributes of this route */
   byte flags;				/* Flags (REF_...) */
   byte pflags;				/* Protocol-specific flags */
@@ -178,6 +179,10 @@ typedef struct rte {
 
 #define REF_COW 1			/* Copy this rte on write */
 
+/* Types of route announcement, also used as flags */
+#define RA_OPTIMAL 1			/* Announcement of optimal route change */
+#define RA_ANY 2			/* Announcement of any route change */
+
 struct config;
 
 void rt_init(void);
@@ -191,6 +196,7 @@ static inline net *net_get(rtable *tab, ip_addr addr, unsigned len) { return (ne
 rte *rte_find(net *net, struct proto *p);
 rte *rte_get_temp(struct rta *);
 void rte_update(rtable *tab, net *net, struct proto *p, rte *new);
+void rte_update2(rtable *tab, net *net, struct proto *p, struct proto *src, rte *new);
 void rte_discard(rtable *tab, rte *old);
 void rte_dump(rte *);
 void rte_free(rte *);
@@ -230,7 +236,7 @@ void rt_show(struct rt_show_data *);
 
 typedef struct rta {
   struct rta *next, **pprev;		/* Hash chain */
-  struct proto *proto;			/* Protocol instance */
+  struct proto *proto;			/* Protocol instance that originally created the route */
   unsigned uc;				/* Use count */
   byte source;				/* Route source (RTS_...) */
   byte scope;				/* Route scope (SCOPE_... -- see ip.h) */

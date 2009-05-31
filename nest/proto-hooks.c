@@ -188,6 +188,8 @@ void ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
  * belonging to network @net being replaced by a new route @new with
  * extended attributes @attrs. Either @new or @old or both can be %NULL
  * if the corresponding route doesn't exist.
+ *
+ * FIXME documentation
  */
 void rt_notify(struct proto *p, net *net, rte *new, rte *old, ea_list *attrs)
 { DUMMY; }

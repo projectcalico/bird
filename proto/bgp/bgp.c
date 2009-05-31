@@ -753,6 +753,7 @@ bgp_init(struct proto_config *C)
   struct proto *P = proto_new(C, sizeof(struct bgp_proto));
   struct bgp_proto *p = (struct bgp_proto *) P;
 
+  P->accept_ra_types = RA_OPTIMAL;
   P->rt_notify = bgp_rt_notify;
   P->rte_better = bgp_rte_better;
   P->import_control = bgp_import_control;

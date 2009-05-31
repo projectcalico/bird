@@ -224,6 +224,7 @@ ospf_init(struct proto_config *c)
   p->import_control = ospf_import_control;
   p->make_tmp_attrs = ospf_make_tmp_attrs;
   p->store_tmp_attrs = ospf_store_tmp_attrs;
+  p->accept_ra_types = RA_OPTIMAL;
   p->rt_notify = ospf_rt_notify;
   p->if_notify = ospf_iface_notify;
   p->rte_better = ospf_rte_better;

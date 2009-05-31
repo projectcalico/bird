@@ -946,6 +946,7 @@ rip_rte_remove(net *net UNUSED, rte *rte)
 void
 rip_init_instance(struct proto *p)
 {
+  p->accept_ra_types = RA_OPTIMAL;
   p->if_notify = rip_if_notify;
   p->rt_notify = rip_rt_notify;
   p->import_control = rip_import_control;

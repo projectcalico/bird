@@ -158,7 +158,7 @@ rte_trace_out(unsigned int flag, struct proto *p, rte *e, char *msg)
 }
 
 static inline void
-do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *tmpa, int class)
+do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old, ea_list *tmpa, int class)
 {
   struct proto *p = a->proto;
   rte *new0 = new;
@@ -234,13 +234,16 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
 /**
  * rte_announce - announce a routing table change
  * @tab: table the route has been added to
+ * @type: type of route announcement (RA_OPTIMAL or RA_ANY)
  * @net: network in question
  * @new: the new route to be announced
- * @old: previous optimal route for the same network
+ * @old: the previous route for the same network
  * @tmpa: a list of temporary attributes belonging to the new route
  *
  * This function gets a routing table update and announces it
  * to all protocols connected to the same table by their announcement hooks.
+ *
+ * previous optimal route for the same network FIXME
  *
  * For each such protocol, we first call its import_control() hook which
  * performs basic checks on the route (each protocol has a right to veto
@@ -250,7 +253,7 @@ do_rte_announce(struct announce_hook *a, net *net, rte *new, rte *old, ea_list *
  * route, the rt_notify() hook of the protocol gets called.
  */
 static void
-rte_announce(rtable *tab, net *net, rte *new, rte *old, ea_list *tmpa)
+rte_announce(rtable *tab, int type, net *net, rte *new, rte *old, ea_list *tmpa)
 {
   struct announce_hook *a;
   int class = ipa_classify(net->n.prefix);
@@ -258,7 +261,8 @@ rte_announce(rtable *tab, net *net, rte *new, rte *old, ea_list *tmpa)
   WALK_LIST(a, tab->hooks)
     {
       ASSERT(a->proto->core_state == FS_HAPPY || a->proto->core_state == FS_FEEDING);
-      do_rte_announce(a, net, new, old, tmpa, class);
+      if (a->proto->accept_ra_types == type)
+	do_rte_announce(a, type, net, new, old, tmpa, class);
     }
 }
 
@@ -271,7 +275,7 @@ rte_validate(rte *e)
   if (ipa_nonzero(ipa_and(n->n.prefix, ipa_not(ipa_mkmask(n->n.pxlen)))))
     {
       log(L_BUG "Ignoring bogus prefix %I/%d received via %s",
-	  n->n.prefix, n->n.pxlen, e->attrs->proto->name);
+	  n->n.prefix, n->n.pxlen, e->sender->name);
       return 0;
     }
   if (n->n.pxlen)
@@ -290,14 +294,14 @@ rte_validate(rte *e)
 		return 1;
 	    }
 	  log(L_WARN "Ignoring bogus route %I/%d received via %s",
-	      n->n.prefix, n->n.pxlen, e->attrs->proto->name);
+	      n->n.prefix, n->n.pxlen, e->sender->name);
 	  return 0;
 	}
-      if ((c & IADDR_SCOPE_MASK) < e->attrs->proto->min_scope)
+      if ((c & IADDR_SCOPE_MASK) < e->sender->min_scope)
 	{
 	  log(L_WARN "Ignoring %s scope route %I/%d received from %I via %s",
 	      ip_scope_text(c & IADDR_SCOPE_MASK),
-	      n->n.prefix, n->n.pxlen, e->attrs->from, e->attrs->proto->name);
+	      n->n.prefix, n->n.pxlen, e->attrs->from, e->sender->name);
 	  return 0;
 	}
     }
@@ -337,7 +341,7 @@ rte_same(rte *x, rte *y)
 }
 
 static void
-rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmpa)
+rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte *new, ea_list *tmpa)
 {
   rte *old_best = net->routes;
   rte *old = NULL;
@@ -346,7 +350,7 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
   k = &net->routes;			/* Find and remove original route from the same protocol */
   while (old = *k)
     {
-      if (old->attrs->proto == p)
+      if (old->attrs->proto == src)
 	{
 	  if (new && rte_same(old, new))
 	    {
@@ -362,10 +366,14 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
       k = &old->next;
     }
 
+  log(L_WARN "ANNOUNCE %I/%d from %s (%s) %p", net->n.prefix, net->n.pxlen, p->name, src->name, old_best);
+
+  rte_announce(table, RA_ANY, net, new, old, tmpa);
+
   if (new && rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
     {
       rte_trace_in(D_ROUTES, p, new, "added [best]");
-      rte_announce(table, net, new, old_best, tmpa);
+      rte_announce(table, RA_OPTIMAL, net, new, old_best, tmpa);
       new->next = net->routes;
       net->routes = new;
     }
@@ -377,7 +385,7 @@ rte_recalculate(rtable *table, net *net, struct proto *p, rte *new, ea_list *tmp
 	  for(s=net->routes; s; s=s->next)
 	    if (rte_better(s, r))
 	      r = s;
-	  rte_announce(table, net, r, old_best, tmpa);
+	  rte_announce(table, RA_OPTIMAL, net, r, old_best, tmpa);
 	  if (r)			/* Re-link the new optimal route */
 	    {
 	      k = &net->routes;
@@ -478,11 +486,18 @@ rte_update_unlock(void)
 void
 rte_update(rtable *table, net *net, struct proto *p, rte *new)
 {
+  rte_update2(table, net, p, p, new);
+}
+
+void
+rte_update2(rtable *table, net *net, struct proto *p, struct proto *src, rte *new)
+{
   ea_list *tmpa = NULL;
 
   rte_update_lock();
   if (new)
     {
+      new->sender = p;
       struct filter *filter = p->in_filter;
 
 	/* Do not filter routes going to the secondary side of the pipe, 
@@ -501,8 +516,8 @@ rte_update(rtable *table, net *net, struct proto *p, rte *new)
 	  rte_trace_in(D_FILTERS, p, new, "filtered out");
 	  goto drop;
 	}
-      if (p->make_tmp_attrs)
-	tmpa = p->make_tmp_attrs(new, rte_update_pool);
+      if (src->make_tmp_attrs)
+	tmpa = src->make_tmp_attrs(new, rte_update_pool);
       if (filter)
 	{
 	  ea_list *old_tmpa = tmpa;
@@ -512,14 +527,14 @@ rte_update(rtable *table, net *net, struct proto *p, rte *new)
 	      rte_trace_in(D_FILTERS, p, new, "filtered out");
 	      goto drop;
 	    }
-	  if (tmpa != old_tmpa && p->store_tmp_attrs)
-	    p->store_tmp_attrs(new, tmpa);
+	  if (tmpa != old_tmpa && src->store_tmp_attrs)
+	    src->store_tmp_attrs(new, tmpa);
 	}
       if (!(new->attrs->aflags & RTAF_CACHED)) /* Need to copy attributes */
 	new->attrs = rta_lookup(new->attrs);
       new->flags |= REF_COW;
     }
-  rte_recalculate(table, net, p, new, tmpa);
+  rte_recalculate(table, net, p, src, new, tmpa);
   rte_update_unlock();
   return;
 
@@ -531,11 +546,8 @@ drop:
 void
 rte_discard(rtable *t, rte *old)	/* Non-filtered route deletion, used during garbage collection */
 {
-  net *n = old->net;
-  struct proto *p = old->attrs->proto;
-
   rte_update_lock();
-  rte_recalculate(t, n, p, NULL, NULL);
+  rte_recalculate(t, old->net, old->sender, old->attrs->proto, NULL, NULL);
   rte_update_unlock();
 }
 
@@ -673,8 +685,8 @@ again:
       ncnt++;
     rescan:
       for (e=n->routes; e; e=e->next, rcnt++)
-	if (e->attrs->proto->core_state != FS_HAPPY &&
-	    e->attrs->proto->core_state != FS_FEEDING)
+	if (e->sender->core_state != FS_HAPPY &&
+	    e->sender->core_state != FS_FEEDING)
 	  {
 	    rte_discard(tab, e);
 	    rdel++;
@@ -827,6 +839,18 @@ rt_commit(struct config *new, struct config *old)
   DBG("\tdone\n");
 }
 
+static inline void
+do_feed_baby(struct proto *p, int type, struct announce_hook *h, net *n, rte *e)
+{
+  struct proto *q = e->attrs->proto;
+  ea_list *tmpa;
+
+  rte_update_lock();
+  tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
+  do_rte_announce(h, type, n, e, NULL, tmpa, ipa_classify(n->n.prefix));
+  rte_update_unlock();
+}
+
 /**
  * rt_feed_baby - advertise routes to a new protocol
  * @p: protocol to be fed
@@ -865,19 +889,24 @@ again:
 	  FIB_ITERATE_PUT(fit, fn);
 	  return 0;
 	}
-      if (e)
-	{
-	  struct proto *q = e->attrs->proto;
-	  ea_list *tmpa;
 
-	  if (p->core_state != FS_FEEDING)
-	    return 1;  /* In the meantime, the protocol fell down. */
-	  rte_update_lock();
-	  tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
-	  do_rte_announce(h, n, e, NULL, tmpa, ipa_classify(n->n.prefix));
-	  rte_update_unlock();
-	  max_feed--;
-	}
+      if (p->accept_ra_types == RA_OPTIMAL)
+	if (e)
+	  {
+	    if (p->core_state != FS_FEEDING)
+	      return 1;  /* In the meantime, the protocol fell down. */
+	    do_feed_baby(p, RA_OPTIMAL, h, n, e);
+	    max_feed--;
+	  }
+
+      if (p->accept_ra_types == RA_ANY)
+	for(e = n->routes; e != NULL; e = e->next)
+	  {
+	    if (p->core_state != FS_FEEDING)
+	      return 1;  /* In the meantime, the protocol fell down. */
+	    do_feed_baby(p, RA_ANY, h, n, e);
+	    max_feed--;
+	  }
     }
   FIB_ITERATE_END(fn);
   p->feed_ahook = h->next;
