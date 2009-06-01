@@ -51,13 +51,23 @@ pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old, ea_lis
   if (new)
     {
       memcpy(&a, new->attrs, sizeof(rta));
+
+      if (p->mode == PIPE_OPAQUE)
+	{
+	  a.proto = &p->p;
+	  a.source = RTS_PIPE;
+	}
+
       a.aflags = 0;
       a.eattrs = attrs;
       e = rte_get_temp(&a);
       e->net = nn;
 
-      /* Copy protocol specific embedded attributes. */
-      memcpy(&(e->u), &(new->u), sizeof(e->u));
+      if (p->mode == PIPE_TRANSPARENT)
+	{
+	  /* Copy protocol specific embedded attributes. */
+	  memcpy(&(e->u), &(new->u), sizeof(e->u));
+	}
 
       src = new->attrs->proto;
     }
@@ -68,7 +78,7 @@ pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old, ea_lis
     }
 
   dest->pipe_busy = 1;
-  rte_update2(dest, nn, &p->p, src, e);
+  rte_update2(dest, nn, &p->p, (p->mode == PIPE_OPAQUE) ? &p->p : src, e);
   dest->pipe_busy = 0;
 }
 
@@ -117,7 +127,7 @@ pipe_start(struct proto *P)
   memcpy(ph, p, sizeof(struct pipe_proto));
   p->phantom = ph;
   ph->phantom = p;
-  ph->p.accept_ra_types = RA_ANY;
+  ph->p.accept_ra_types = (p->mode == PIPE_OPAQUE) ? RA_OPTIMAL : RA_ANY;
   ph->p.rt_notify = pipe_rt_notify_sec;
   ph->p.proto_state = PS_UP;
   ph->p.core_state = ph->p.core_goal = FS_HAPPY;
@@ -153,7 +163,8 @@ pipe_init(struct proto_config *C)
   struct pipe_proto *p = (struct pipe_proto *) P;
 
   p->peer = c->peer->table;
-  P->accept_ra_types = RA_ANY;
+  p->mode = c->mode;
+  P->accept_ra_types = (p->mode == PIPE_OPAQUE) ? RA_OPTIMAL : RA_ANY;
   P->rt_notify = pipe_rt_notify_pri;
   P->import_control = pipe_import_control;
   return P;
@@ -175,7 +186,7 @@ pipe_get_status(struct proto *P, byte *buf)
 {
   struct pipe_proto *p = (struct pipe_proto *) P;
 
-  bsprintf(buf, "-> %s", p->peer->name);
+  bsprintf(buf, "%c> %s", (p->mode == PIPE_OPAQUE) ? '-' : '=', p->peer->name);
 }
 
 static int
@@ -184,7 +195,7 @@ pipe_reconfigure(struct proto *p, struct proto_config *new)
   struct pipe_config *o = (struct pipe_config *) p->cf;
   struct pipe_config *n = (struct pipe_config *) new;
 
-  return o->peer == n->peer;
+  return (o->peer == n->peer) && (o->mode == n->mode);
 }
 
 struct protocol proto_pipe = {
