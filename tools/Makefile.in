@@ -44,12 +44,12 @@ tags:
 
 install: all
 	$(INSTALL) -d $(sbindir) $(sysconfdir) $(localstatedir)
-	$(INSTALL_PROGRAM) -s $(exedir)/bird $(sbindir)/
+	$(INSTALL_PROGRAM) -s $(exedir)/bird $(sbindir)/bird@SUFFIX6@
 	if test -n "@CLIENT@" ; then								\
-		$(INSTALL_PROGRAM) -s $(exedir)/birdc $(sbindir)/ ;				\
+		$(INSTALL_PROGRAM) -s $(exedir)/birdc $(sbindir)/birdc@SUFFIX6@ ;				\
 	fi
-	if ! test -f $(sysconfdir)/bird.conf ; then						\
-		$(INSTALL_DATA) $(srcdir)/doc/bird.conf.example $(sysconfdir)/bird.conf ;	\
+	if ! test -f $(sysconfdir)/bird.@SUFFIX6@conf ; then						\
+		$(INSTALL_DATA) $(srcdir)/doc/bird.conf.example $(sysconfdir)/bird@SUFFIX6@.conf ;	\
 	else											\
 		echo "Not overwriting old bird.conf" ;						\
 	fi
