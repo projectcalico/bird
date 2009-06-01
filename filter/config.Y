@@ -280,7 +280,6 @@ switch_body: /* EMPTY */ { $$ = NULL; }
 bgp_path:
    PO  bgp_path_tail1 PC  { $$ = $2; }
  | '/' bgp_path_tail2 '/' { $$ = $2; }
- | OR  		      	  { $$ = NULL; } /* special case because of || is a different token */
  ;
 
 bgp_path_tail1:
