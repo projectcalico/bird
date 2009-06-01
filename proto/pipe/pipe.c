@@ -78,7 +78,7 @@ pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old, ea_lis
     }
 
   dest->pipe_busy = 1;
-  rte_update2(dest, nn, &p->p, (p->mode == PIPE_OPAQUE) ? &p->p : src, e);
+  rte_update(dest, nn, &p->p, (p->mode == PIPE_OPAQUE) ? &p->p : src, e);
   dest->pipe_busy = 0;
 }
 

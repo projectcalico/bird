@@ -195,8 +195,7 @@ static inline net *net_find(rtable *tab, ip_addr addr, unsigned len) { return (n
 static inline net *net_get(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_get(&tab->fib, &addr, len); }
 rte *rte_find(net *net, struct proto *p);
 rte *rte_get_temp(struct rta *);
-void rte_update(rtable *tab, net *net, struct proto *p, rte *new);
-void rte_update2(rtable *tab, net *net, struct proto *p, struct proto *src, rte *new);
+void rte_update(rtable *tab, net *net, struct proto *p, struct proto *src, rte *new);
 void rte_discard(rtable *tab, rte *old);
 void rte_dump(rte *);
 void rte_free(rte *);

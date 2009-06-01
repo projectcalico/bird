@@ -705,7 +705,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
       DECODE_PREFIX(withdrawn, withdrawn_len);
       DBG("Withdraw %I/%d\n", prefix, pxlen);
       if (n = net_find(p->p.table, prefix, pxlen))
-	rte_update(p->p.table, n, &p->p, NULL);
+	rte_update(p->p.table, n, &p->p, &p->p, NULL);
     }
 
   if (!attr_len && !nlri_len)		/* shortcut */
@@ -724,7 +724,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
 	  n = net_get(p->p.table, prefix, pxlen);
 	  e->net = n;
 	  e->pflags = 0;
-	  rte_update(p->p.table, n, &p->p, e);
+	  rte_update(p->p.table, n, &p->p, &p->p, e);
 	}
     }
 bad:
@@ -783,7 +783,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
 	  DECODE_PREFIX(x, len);
 	  DBG("Withdraw %I/%d\n", prefix, pxlen);
 	  if (n = net_find(p->p.table, prefix, pxlen))
-	    rte_update(p->p.table, n, &p->p, NULL);
+	    rte_update(p->p.table, n, &p->p, &p->p, NULL);
 	}
     }
 
@@ -824,7 +824,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
 	      n = net_get(p->p.table, prefix, pxlen);
 	      e->net = n;
 	      e->pflags = 0;
-	      rte_update(p->p.table, n, &p->p, e);
+	      rte_update(p->p.table, n, &p->p, &p->p, e);
 	    }
 	  rta_free(a);
 	}

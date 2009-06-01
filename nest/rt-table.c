@@ -241,16 +241,24 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
  * @tmpa: a list of temporary attributes belonging to the new route
  *
  * This function gets a routing table update and announces it
- * to all protocols connected to the same table by their announcement hooks.
+ * to all protocols that acccepts given type of route announcement
+ * and are connected to the same table by their announcement hooks.
  *
- * previous optimal route for the same network FIXME
+ * Route announcement of type RA_OPTIMAL si generated when optimal
+ * route (in routing table @tab) changes. In that case @old stores the
+ * old optimal route.
  *
- * For each such protocol, we first call its import_control() hook which
- * performs basic checks on the route (each protocol has a right to veto
- * or force accept of the route before any filter is asked) and adds default
- * values of attributes specific to the new protocol (metrics, tags etc.).
- * Then it consults the protocol's export filter and if it accepts the
- * route, the rt_notify() hook of the protocol gets called.
+ * Route announcement of type RA_ANY si generated when any route (in
+ * routing table @tab) changes In that case @old stores the old route
+ * from the same protocol.
+ *
+ * For each appropriate protocol, we first call its import_control()
+ * hook which performs basic checks on the route (each protocol has a
+ * right to veto or force accept of the route before any filter is
+ * asked) and adds default values of attributes specific to the new
+ * protocol (metrics, tags etc.).  Then it consults the protocol's
+ * export filter and if it accepts the route, the rt_notify() hook of
+ * the protocol gets called.
  */
 static void
 rte_announce(rtable *tab, int type, net *net, rte *new, rte *old, ea_list *tmpa)
@@ -455,6 +463,7 @@ rte_update_unlock(void)
  * @table: table to be updated
  * @net: network node
  * @p: protocol submitting the update
+ * @src: protocol originating the update
  * @new: a &rte representing the new route or %NULL for route removal.
  *
  * This function is called by the routing protocols whenever they discover
@@ -465,6 +474,12 @@ rte_update_unlock(void)
  * rta_clone()), call rte_get_temp() to obtain a temporary &rte, fill in all
  * the appropriate data and finally submit the new &rte by calling rte_update().
  *
+ * @src specifies the protocol that originally created the route and the meaning
+ * of protocol-dependent data of @new. If @new is not %NULL, @src have to be the
+ * same value as @new->attrs->proto. @p specifies the protocol that called
+ * rte_update(). In most cases it is the same protocol as @src. rte_update()
+ * stores @p in @new->sender;
+ *
  * When rte_update() gets any route, it automatically validates it (checks,
  * whether the network and next hop address are valid IP addresses and also
  * whether a normal routing protocol doesn't try to smuggle a host or link
@@ -474,7 +489,7 @@ rte_update_unlock(void)
  * stores the temporary attributes back to the &rte.
  *
  * Now, having a "public" version of the route, we
- * automatically find any old route defined by the protocol @p
+ * automatically find any old route defined by the protocol @src
  * for network @n, replace it by the new one (or removing it if @new is %NULL),
  * recalculate the optimal route for this destination and finally broadcast
  * the change (if any) to all routing protocols by calling rte_announce().
@@ -483,14 +498,9 @@ rte_update_unlock(void)
  * from a special linear pool @rte_update_pool and freed when rte_update()
  * finishes.
  */
-void
-rte_update(rtable *table, net *net, struct proto *p, rte *new)
-{
-  rte_update2(table, net, p, p, new);
-}
 
 void
-rte_update2(rtable *table, net *net, struct proto *p, struct proto *src, rte *new)
+rte_update(rtable *table, net *net, struct proto *p, struct proto *src, rte *new)
 {
   ea_list *tmpa = NULL;
 

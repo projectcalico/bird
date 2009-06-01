@@ -179,8 +179,8 @@ void ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
  * rt_notify - notify instance about routing table change
  * @p: protocol instance
  * @net: a network entry
- * @new: new optimal route for the network
- * @old: old optimal route for the network
+ * @new: new route for the network
+ * @old: old route for the network
  * @attrs: extended attributes associated with the @new entry
  *
  * The rt_notify() hook is called to inform the protocol instance about
@@ -189,7 +189,16 @@ void ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
  * extended attributes @attrs. Either @new or @old or both can be %NULL
  * if the corresponding route doesn't exist.
  *
- * FIXME documentation
+ * If the type of route announcement is RA_OPTIMAL, it is an
+ * announcement of optimal route change, @new stores the new optimal
+ * route and @old stores the old optimal route.
+ *
+ * If the type of route announcement is RA_ANY, it is an announcement
+ * of any route change, @new stores the new route and @old stores the
+ * old route from the same protocol.
+ *
+ * @p->accept_ra_types specifies which kind of route announcements
+ * protocol wants to receive.
  */
 void rt_notify(struct proto *p, net *net, rte *new, rte *old, ea_list *attrs)
 { DUMMY; }

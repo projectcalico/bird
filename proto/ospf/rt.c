@@ -1003,11 +1003,11 @@ again1:
         e->pref = p->preference;
         DBG("Mod rte type %d - %I/%d via %I on iface %s, met %d\n",
 	  a0.source, nf->fn.prefix, nf->fn.pxlen, a0.gw, a0.iface ? a0.iface->name : "(none)", nf->n.metric1);
-	rte_update(p->table, ne, p, e);
+	rte_update(p->table, ne, p, p, e);
       }
       else
       {
-        rte_update(p->table, ne, p, NULL);
+        rte_update(p->table, ne, p, p, NULL);
         FIB_ITERATE_PUT(&fit, nftmp);
         fib_delete(fib, nftmp);
         goto again1;

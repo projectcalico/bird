@@ -268,7 +268,7 @@ rip_rte_update_if_better(rtable *tab, net *net, struct proto *p, rte *new)
   if (!old || p->rte_better(new, old) ||
       (ipa_equal(old->attrs->from, new->attrs->from) &&
       (old->u.rip.metric != new->u.rip.metric)) )
-    rte_update(tab, net, p, new);
+    rte_update(tab, net, p, p, new);
 }
 
 /*

@@ -280,7 +280,7 @@ krt_learn_announce_update(struct krt_proto *p, rte *e)
   ee->pflags = 0;
   ee->pref = p->p.preference;
   ee->u.krt = e->u.krt;
-  rte_update(p->p.table, nn, &p->p, ee);
+  rte_update(p->p.table, nn, &p->p, &p->p, ee);
 }
 
 static void
@@ -288,7 +288,7 @@ krt_learn_announce_delete(struct krt_proto *p, net *n)
 {
   n = net_find(p->p.table, n->n.prefix, n->n.pxlen);
   if (n)
-    rte_update(p->p.table, n, &p->p, NULL);
+    rte_update(p->p.table, n, &p->p, &p->p, NULL);
 }
 
 static void

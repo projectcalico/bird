@@ -1446,10 +1446,23 @@ and vice versa, depending on what's allowed by the filters. Export filters contr
 of routes from the primary table to the secondary one, import filters control the opposite
 direction.
 
+<p>The Pipe protocol may work in the opaque mode or in the transparent
+mode. In the opaque mode, thee Pipe protocol retransmits optimal route
+from one table to the other table in a similar way like other
+protocols send and receive routes. Retransmitted route will have the
+source set to the Pipe protocol, which may limit access to protocol
+specific route attributes. The opaque mode is a default mode.
+
+<p>In transparent mode, the Pipe protocol retransmits all routes from
+one table to the other table, retaining their original source and
+attributes.  If import and export filters are set to accept, then both
+tables would have the same content. The mode can be set by
+<tt/mode/ option.
+
 <p>The primary use of multiple routing tables and the Pipe protocol is for policy routing,
 where handling of a single packet doesn't depend only on its destination address, but also
 on its source address, source interface, protocol type and other similar parameters.
-In many systems (Linux 2.2 being a good example), the kernel allows to enforce routing policies
+In many systems (Linux being a good example), the kernel allows to enforce routing policies
 by defining routing rules which choose one of several routing tables to be used for a packet
 according to its parameters. Setting of these rules is outside the scope of BIRD's work
 (on Linux, you can use the <tt/ip/ command), but you can create several routing tables in BIRD,
@@ -1460,8 +1473,10 @@ another one.
 <sect1>Configuration
 
 <p><descrip>
-	<tag>peer table <m/table/</tag> Define secondary routing table to connect to. The
+	<tag>peer table <m/table/</tag> Defines secondary routing table to connect to. The
 	primary one is selected by the <cf/table/ keyword.
+
+	<tag>mode opaque|transparent</tag> Specifies the mode for the pipe to work in. Default is opaque.
 </descrip>
 
 <sect1>Attributes
