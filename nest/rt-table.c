@@ -374,8 +374,6 @@ rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte
       k = &old->next;
     }
 
-  log(L_WARN "ANNOUNCE %I/%d from %s (%s) %p", net->n.prefix, net->n.pxlen, p->name, src->name, old_best);
-
   rte_announce(table, RA_ANY, net, new, old, tmpa);
 
   if (new && rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
