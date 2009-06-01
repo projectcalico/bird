@@ -69,6 +69,8 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
   }
 }
 
+u32 f_eval_asn(struct f_inst *expr);
+
 static void
 pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
 {
@@ -82,10 +84,24 @@ pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
 	  return;
 	}
 
-      if (p->kind == PM_ASN)
-	buf += bsprintf(buf, " %u", p->val);
-      else
-	buf += bsprintf(buf, (p->kind == PM_ASTERISK) ? " *" : " ?");
+      switch(p->kind)
+	{
+	case PM_ASN:
+	  buf += bsprintf(buf, " %u", p->val);
+	  break;
+
+	case PM_QUESTION:
+	  buf += bsprintf(buf, " ?");
+	  break;
+
+	case PM_ASTERISK:
+	  buf += bsprintf(buf, " *");
+	  break;
+
+	case PM_ASN_EXPR:
+	  buf += bsprintf(buf, " %u", f_eval_asn((struct f_inst *) p->val));
+	  break;
+	}
 
       p = p->next;
     }
@@ -333,6 +349,7 @@ interpret(struct f_inst *what)
 {
   struct symbol *sym;
   struct f_val v1, v2, res;
+  unsigned u1, u2;
   int i;
 
   res.type = T_VOID;
@@ -393,6 +410,18 @@ interpret(struct f_inst *what)
     res.type = v1.type;
     if (res.type != T_BOOL) runtime( "Can't do boolean operation on non-booleans" );
     res.val.i = v1.val.i || v2.val.i;
+    break;
+
+  case P('m','p'):
+    TWOARGS_C;
+    if ((v1.type != T_INT) || (v2.type != T_INT))
+      runtime( "Can't operate with value of non-integer type in pair constructor" );
+    u1 = v1.val.i;
+    u2 = v2.val.i;
+    if ((u1 > 0xFFFF) || (u2 > 0xFFFF))
+      runtime( "Can't operate with value out of bounds in pair constructor" );
+    res.val.i = (u1 << 16) | u2;
+    res.type = T_PAIR;
     break;
 
 /* Relational operators */
@@ -810,6 +839,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case '/':
   case '|':
   case '&':
+  case P('m','p'):
   case P('!','='):
   case P('=','='):
   case '<':
@@ -930,6 +960,16 @@ f_eval_int(struct f_inst *expr)
   res = interpret(expr);
   if (res.type != T_INT)
     cf_error("Integer expression expected");
+  return res.val.i;
+}
+
+u32
+f_eval_asn(struct f_inst *expr)
+{
+  struct f_val res = interpret(expr);
+  if (res.type != T_INT)
+    cf_error("Can't operate with value of non-integer type in AS path mask constructor");
+ 
   return res.val.i;
 }
 

@@ -35,11 +35,12 @@ int as_path_is_member(struct adata *path, u32 as);
 #define PM_ASN		0
 #define PM_QUESTION	1
 #define PM_ASTERISK	2
+#define PM_ASN_EXPR	3
 
 struct f_path_mask {
   struct f_path_mask *next;
   int kind;
-  u32 val;
+  uintptr_t val;
 };
 
 int as_path_match(struct adata *path, struct f_path_mask *mask);

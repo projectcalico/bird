@@ -401,6 +401,7 @@ as_path_match(struct adata *path, struct f_path_mask *mask)
   struct pm_pos pos[2048 + 1];
   int plen = parse_path(path, pos);
   int l, h, i, nh, nl;
+  u32 val;
 
   /* l and h are bound of interval of positions where
      are marked states */
@@ -424,14 +425,20 @@ as_path_match(struct adata *path, struct f_path_mask *mask)
 	  h = plen;
 	  break;
 
-	case PM_QUESTION:
 	case PM_ASN:
+	  val = mask->val;
+	  goto step;
+	case PM_ASN_EXPR:
+	  val = f_eval_asn((struct f_inst *) mask->val);
+	  goto step;
+	case PM_QUESTION:
+	step:
 	  nh = -1;
 	  for (i = h; i >= l; i--)
 	    if (pos[i].mark)
 	      {
 		pos[i].mark = 0;
-		if ((mask->kind == PM_QUESTION) || pm_match(pos + i, mask->val))
+		if ((mask->kind == PM_QUESTION) || pm_match(pos + i, val))
 		  pm_mark(pos, i, plen, &nl, &nh);
 	      }
 

@@ -14,6 +14,17 @@ CF_DEFINES
 
 #define P(a,b) ((a<<8) | b)
 
+static int make_pair(int i1, int i2)
+{
+  unsigned u1 = i1;
+  unsigned u2 = i2;
+
+  if ((u1 > 0xFFFF) || (u2 > 0xFFFF))
+    cf_error( "Can't operate with value out of bounds in pair constructor");
+
+  return (u1 << 16) | u2;
+}
+
 CF_DECLS
 
 CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
@@ -32,9 +43,9 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %nonassoc THEN
 %nonassoc ELSE
 
-%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn dynamic_attr static_attr function_call
+%type <x> term block cmds cmd function_body constant print_one print_list var_list var_listn dynamic_attr static_attr function_call symbol dpair bgp_path_expr
 %type <f> filter filter_body where_filter
-%type <i> type break_command pair
+%type <i> type break_command cpair
 %type <e> set_item set_items switch_body
 %type <trie> fprefix_set
 %type <v> set_atom fprefix fprefix_s fipa
@@ -203,8 +214,8 @@ block:
 /*
  * Simple types, their bison value is int
  */
-pair:
-   '(' NUM ',' NUM ')' { $$ = $2 << 16 | $4; }
+cpair:
+   '(' NUM ',' NUM ')' { $$ = make_pair($2, $4); }
  ;
 
 /*
@@ -215,10 +226,10 @@ fipa:
  ;
 
 set_atom:
-   NUM  { $$.type = T_INT; $$.val.i = $1; }
- | pair { $$.type = T_PAIR; $$.val.i = $1; }
- | fipa { $$ = $1; }
- | ENUM {  $$.type = $1 >> 16; $$.val.i = $1 & 0xffff; }
+   NUM   { $$.type = T_INT; $$.val.i = $1; }
+ | cpair { $$.type = T_PAIR; $$.val.i = $1; }
+ | fipa  { $$ = $1; }
+ | ENUM  {  $$.type = $1 >> 16; $$.val.i = $1 & 0xffff; }
  ; 
 
 set_item:
@@ -277,6 +288,11 @@ switch_body: /* EMPTY */ { $$ = NULL; }
 
 /* CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; } */
 
+bgp_path_expr:
+   symbol       { $$ = $1; }   
+ | '(' term ')' { $$ = $2; }
+ ;
+
 bgp_path:
    PO  bgp_path_tail1 PC  { $$ = $2; }
  | '/' bgp_path_tail2 '/' { $$ = $2; }
@@ -286,6 +302,7 @@ bgp_path_tail1:
    NUM bgp_path_tail1 { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2; $$->kind = PM_ASN;      $$->val = $1; }
  | '*' bgp_path_tail1 { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2; $$->kind = PM_ASTERISK; $$->val  = 0; }
  | '?' bgp_path_tail1 { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2; $$->kind = PM_QUESTION; $$->val  = 0; }
+ | bgp_path_expr bgp_path_tail1 { $$ = cfg_alloc(sizeof(struct f_path_mask)); $$->next = $2; $$->kind = PM_ASN_EXPR; $$->val = (uintptr_t) $1; }
  |  		      { $$ = NULL; }
  ;
 
@@ -295,12 +312,24 @@ bgp_path_tail2:
  | 		      { $$ = NULL; }
  ;
 
+dpair:
+   '(' term ',' term ')' {
+        if (($2->code == 'c') && ($4->code == 'c'))
+          { 
+            if (($2->aux != T_INT) || ($4->aux != T_INT))
+              cf_error( "Can't operate with value of non-integer type in pair constructor" );
+            $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PAIR;  $$->a2.i = make_pair($2->a2.i, $4->a2.i);
+          }
+	else
+	  { $$ = f_new_inst(); $$->code = P('m', 'p'); $$->a1.p = $2; $$->a2.p = $4; }
+    }
+ ;
+
 constant:
    NUM    { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT;  $$->a2.i = $1; }
  | TRUE   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_BOOL; $$->a2.i = 1;  }
  | FALSE  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_BOOL; $$->a2.i = 0;  }
  | TEXT   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_STRING; $$->a2.p = $1; }
- | pair   { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_PAIR;  $$->a2.i = $1; }
  | fipa	   { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | fprefix_s {NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; *val = $1; }
  | '[' set_items ']' { DBG( "We've got a set here..." ); $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_SET; $$->a2.p = build_tree($2); DBG( "ook\n" ); }
@@ -308,6 +337,7 @@ constant:
  | ENUM	  { $$ = f_new_inst(); $$->code = 'c'; $$->aux = $1 >> 16; $$->a2.i = $1 & 0xffff; }
  | bgp_path { NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; val->type = T_PATH_MASK; val->val.path_mask = $1; $$->a1.p = val; }
  ;
+
 
 /*
  *  Maybe there are no dynamic attributes defined by protocols.
@@ -342,6 +372,38 @@ function_call:
    }
  ;
 
+symbol:
+   SYM {
+     $$ = f_new_inst();
+     switch ($1->class) {
+       case SYM_NUMBER:
+	$$ = f_new_inst();
+	$$->code = 'c'; 
+	$$->aux = T_INT; 
+	$$->a2.i = $1->aux;
+	break;
+       case SYM_IPA:
+	{ NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_IP; val->val.px.ip = * (ip_addr *) ($1->def); }
+	break;
+       case SYM_VARIABLE | T_BOOL:
+       case SYM_VARIABLE | T_INT:
+       case SYM_VARIABLE | T_PAIR:
+       case SYM_VARIABLE | T_STRING:
+       case SYM_VARIABLE | T_IP:
+       case SYM_VARIABLE | T_PREFIX:
+       case SYM_VARIABLE | T_PREFIX_SET:
+       case SYM_VARIABLE | T_SET:
+       case SYM_VARIABLE | T_PATH:
+       case SYM_VARIABLE | T_PATH_MASK:
+       case SYM_VARIABLE | T_CLIST:
+	 $$->code = 'C';
+	 $$->a1.p = $1->def;
+	 break;
+       default:
+	 cf_error("%s: variable expected.", $1->name );
+     }
+   }
+
 static_attr:
    FROM    { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, from);   $$->a1.i = 1; }
 
@@ -372,37 +434,9 @@ term:
  | '!' term { $$ = f_new_inst(); $$->code = '!'; $$->a1.p = $2; }
  | DEFINED '(' term ')' { $$ = f_new_inst(); $$->code = P('d','e');  $$->a1.p = $3; }
 
+ | symbol   { $$ = $1; }
  | constant { $$ = $1; }
- | SYM {
-     $$ = f_new_inst();
-     switch ($1->class) {
-       case SYM_NUMBER:
-	$$ = f_new_inst();
-	$$->code = 'c'; 
-	$$->aux = T_INT; 
-	$$->a2.i = $1->aux;
-	break;
-       case SYM_IPA:
-	{ NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_IP; val->val.px.ip = * (ip_addr *) ($1->def); }
-	break;
-       case SYM_VARIABLE | T_BOOL:
-       case SYM_VARIABLE | T_INT:
-       case SYM_VARIABLE | T_PAIR:
-       case SYM_VARIABLE | T_STRING:
-       case SYM_VARIABLE | T_IP:
-       case SYM_VARIABLE | T_PREFIX:
-       case SYM_VARIABLE | T_PREFIX_SET:
-       case SYM_VARIABLE | T_SET:
-       case SYM_VARIABLE | T_PATH:
-       case SYM_VARIABLE | T_PATH_MASK:
-       case SYM_VARIABLE | T_CLIST:
-	 $$->code = 'C';
-	 $$->a1.p = $1->def;
-	 break;
-       default:
-	 cf_error("%s: variable expected.", $1->name );
-     }
-   }
+ | dpair    { $$ = $1; }
 
  | PREFERENCE { $$ = f_new_inst(); $$->code = 'P'; }
 
