@@ -48,7 +48,7 @@ install: all
 	if test -n "@CLIENT@" ; then								\
 		$(INSTALL_PROGRAM) -s $(exedir)/birdc $(sbindir)/birdc@SUFFIX6@ ;				\
 	fi
-	if ! test -f $(sysconfdir)/bird.@SUFFIX6@conf ; then						\
+	if ! test -f $(sysconfdir)/bird@SUFFIX6@.conf ; then						\
 		$(INSTALL_DATA) $(srcdir)/doc/bird.conf.example $(sysconfdir)/bird@SUFFIX6@.conf ;	\
 	else											\
 		echo "Not overwriting old bird.conf" ;						\
