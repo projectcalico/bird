@@ -512,6 +512,9 @@ static void
 proto_fell_down(struct proto *p)
 {
   DBG("Protocol %s down\n", p->name);
+  ASSERT(p->stats.imp_routes == 0);
+
+  bzero(&p->stats, sizeof(struct proto_stats));
   rt_unlock_table(p->table);
   proto_rethink_goal(p);
 }
@@ -693,9 +696,30 @@ proto_do_show(struct proto *p, int verbose)
 	  buf);
   if (verbose)
     {
-      cli_msg(-1006, "\tPreference: %d", p->preference);
-      cli_msg(-1006, "\tInput filter: %s", filter_name(p->in_filter));
-      cli_msg(-1006, "\tOutput filter: %s", filter_name(p->out_filter));
+      cli_msg(-1006, "  Preference:     %d", p->preference);
+      cli_msg(-1006, "  Input filter:   %s", filter_name(p->in_filter));
+      cli_msg(-1006, "  Output filter:  %s", filter_name(p->out_filter));
+
+      if (p->proto_state != PS_DOWN)
+	{
+	  cli_msg(-1006, "  Routes:         %u imported, %u exported, %u preferred", 
+		  p->stats.imp_routes, p->stats.exp_routes, p->stats.pref_routes);
+	  cli_msg(-1006, "  Route change stats:     received   rejected   filtered    ignored   accepted");
+	  cli_msg(-1006, "    Import updates:     %10u %10u %10u %10u %10u",
+		  p->stats.imp_updates_received, p->stats.imp_updates_invalid,
+		  p->stats.imp_updates_filtered, p->stats.imp_updates_ignored,
+		  p->stats.imp_updates_accepted);
+	  cli_msg(-1006, "    Import withdraws:   %10u %10u        --- %10u %10u",
+		  p->stats.imp_withdraws_received, p->stats.imp_withdraws_invalid,
+		  p->stats.imp_withdraws_ignored, p->stats.imp_withdraws_accepted);
+	  cli_msg(-1006, "    Export updates:     %10u %10u %10u        --- %10u",
+		  p->stats.exp_updates_received, p->stats.exp_updates_rejected,
+		  p->stats.exp_updates_filtered, p->stats.exp_updates_accepted);
+	  cli_msg(-1006, "    Export withdraws:   %10u        ---        ---        --- %10u",
+		  p->stats.exp_withdraws_received, p->stats.exp_withdraws_accepted);
+	}
+
+      cli_msg(-1006, "");
     }
 }
 

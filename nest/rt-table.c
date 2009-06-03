@@ -167,16 +167,27 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 
   if (new)
     {
+      p->stats.exp_updates_received++;
+
       char *drop_reason = NULL;
       if ((class & IADDR_SCOPE_MASK) < p->min_scope)
-	drop_reason = "out of scope";
+	{
+	  p->stats.exp_updates_rejected++;
+	  drop_reason = "out of scope";
+	}
       else if ((ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0) < 0)
-	drop_reason = "rejected by protocol";
+	{
+	  p->stats.exp_updates_rejected++;
+	  drop_reason = "rejected by protocol";
+	}
       else if (ok)
 	rte_trace_out(D_FILTERS, p, new, "forced accept by protocol");
       else if (p->out_filter == FILTER_REJECT ||
 	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
-	drop_reason = "filtered out";
+	{
+	  p->stats.exp_updates_filtered++;
+	  drop_reason = "filtered out";
+	}
       if (drop_reason)
 	{
 	  rte_trace_out(D_FILTERS, p, new, drop_reason);
@@ -185,7 +196,10 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 	  new = NULL;
 	}
     }
-  if (old && p->out_filter)
+  else
+    p->stats.exp_withdraws_received++;
+
+  if (old)
     {
       if (p->out_filter == FILTER_REJECT)
 	old = NULL;
@@ -193,7 +207,7 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 	{
 	  ea_list *tmpb = p->make_tmp_attrs ? p->make_tmp_attrs(old, rte_update_pool) : NULL;
 	  ok = p->import_control ? p->import_control(p, &old, &tmpb, rte_update_pool) : 0;
-	  if (ok < 0 || (!ok && f_run(p->out_filter, &old, &tmpb, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
+	  if (ok < 0 || (!ok && p->out_filter && f_run(p->out_filter, &old, &tmpb, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
 	    {
 	      if (old != old0)
 		rte_free(old);
@@ -201,6 +215,20 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 	    }
 	}
     }
+
+  if (!new && !old)
+    return;
+
+  if (new)
+    p->stats.exp_updates_accepted++;
+  else
+    p->stats.exp_withdraws_accepted++;
+
+  if (new)
+    p->stats.exp_routes++;
+  if (old)
+    p->stats.exp_routes--;
+
   if (p->debug & D_ROUTES)
     {
       if (new && old)
@@ -210,8 +238,6 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
       else if (old)
 	rte_trace_out(D_ROUTES, p, old, "removed");
     }
-  if (!new && !old)
-    return;
   if (!new)
     p->rt_notify(p, net, NULL, old, NULL);
   else if (tmpa)
@@ -265,6 +291,14 @@ rte_announce(rtable *tab, int type, net *net, rte *new, rte *old, ea_list *tmpa)
 {
   struct announce_hook *a;
   int class = ipa_classify(net->n.prefix);
+
+  if (type == RA_OPTIMAL)
+    {
+      if (new)
+	new->attrs->proto->stats.pref_routes++;
+      if (old)
+	old->attrs->proto->stats.pref_routes--;
+    }
 
   WALK_LIST(a, tab->hooks)
     {
@@ -363,6 +397,7 @@ rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte
 	  if (new && rte_same(old, new))
 	    {
 	      /* No changes, ignore the new route */
+	      p->stats.imp_updates_ignored++;
 	      rte_trace_in(D_ROUTES, p, new, "ignored");
 	      rte_free_quick(new);
 	      old->lastmod = now;
@@ -373,6 +408,22 @@ rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte
 	}
       k = &old->next;
     }
+
+  if (!old && !new)
+    {
+      p->stats.imp_withdraws_ignored++;
+      return;
+    }
+
+  if (new)
+    p->stats.imp_updates_accepted++;
+  else
+    p->stats.imp_withdraws_accepted++;
+
+  if (new)
+    p->stats.imp_routes++;
+  if (old)
+    p->stats.imp_routes--;
 
   rte_announce(table, RA_ANY, net, new, old, tmpa);
 
@@ -514,13 +565,16 @@ rte_update(rtable *table, net *net, struct proto *p, struct proto *src, rte *new
       if (p->table != table)
 	filter = FILTER_ACCEPT;
 
+      p->stats.imp_updates_received++;
       if (!rte_validate(new))
 	{
 	  rte_trace_in(D_FILTERS, p, new, "invalid");
+	  p->stats.imp_updates_invalid++;
 	  goto drop;
 	}
       if (filter == FILTER_REJECT)
 	{
+	  p->stats.imp_updates_filtered++;
 	  rte_trace_in(D_FILTERS, p, new, "filtered out");
 	  goto drop;
 	}
@@ -532,6 +586,7 @@ rte_update(rtable *table, net *net, struct proto *p, struct proto *src, rte *new
 	  int fr = f_run(filter, &new, &tmpa, rte_update_pool, 0);
 	  if (fr > F_ACCEPT)
 	    {
+	      p->stats.imp_updates_filtered++;
 	      rte_trace_in(D_FILTERS, p, new, "filtered out");
 	      goto drop;
 	    }
@@ -542,6 +597,9 @@ rte_update(rtable *table, net *net, struct proto *p, struct proto *src, rte *new
 	new->attrs = rta_lookup(new->attrs);
       new->flags |= REF_COW;
     }
+  else
+    p->stats.imp_withdraws_received++;
+
   rte_recalculate(table, net, p, src, new, tmpa);
   rte_update_unlock();
   return;
@@ -1025,8 +1083,11 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
       if (p2 && p2 != p0) ok = 0;
       if (ok && d->export_mode)
 	{
-	  int ic = (p1->import_control ? p1->import_control(p1, &e, &tmpa, rte_update_pool) : 0);
-	  if (ic < 0)
+	  int class = ipa_classify(n->n.prefix);
+	  int ic;
+	  if ((class & IADDR_SCOPE_MASK) < p1->min_scope)
+	    ok = 0;
+	  else if ((ic = p1->import_control ? p1->import_control(p1, &e, &tmpa, rte_update_pool) : 0) < 0)
 	    ok = 0;
 	  else if (!ic && d->export_mode > 1)
 	    {

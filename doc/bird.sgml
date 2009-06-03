@@ -1450,7 +1450,7 @@ of routes from the primary table to the secondary one, import filters control th
 direction.
 
 <p>The Pipe protocol may work in the opaque mode or in the transparent
-mode. In the opaque mode, thee Pipe protocol retransmits optimal route
+mode. In the opaque mode, the Pipe protocol retransmits optimal route
 from one table to the other table in a similar way like other
 protocols send and receive routes. Retransmitted route will have the
 source set to the Pipe protocol, which may limit access to protocol
