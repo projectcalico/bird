@@ -212,7 +212,7 @@ bgp_update_startup_delay(struct bgp_proto *p, struct bgp_conn *conn, unsigned co
   struct bgp_config *cf = p->cf;
 
   /* Don't handle cease messages as errors */
-  if (code == 6 && !subcode)
+  if (code == 6 && !subcode && p->last_error_class != BE_AUTO_DOWN)
     {
       p->startup_delay = 0;
       return;
@@ -482,6 +482,21 @@ bgp_active(struct bgp_proto *p, int delay)
   conn->state = BS_ACTIVE;
   bgp_start_timer(conn->connect_retry_timer, delay);
 }
+
+int
+bgp_apply_limits(struct bgp_proto *p)
+{
+  if (p->cf->route_limit && (p->p.stats.imp_routes > p->cf->route_limit))
+    {
+      log(L_WARN "%s: Route limit exceeded, shutting down", p->p.name);
+      bgp_store_error(p, NULL, BE_AUTO_DOWN, BEA_ROUTE_LIMIT_EXCEEDED);
+      bgp_stop(p);
+      return -1;
+    }
+
+  return 0;
+}
+
 
 /**
  * bgp_connect - initiate an outgoing connection
@@ -848,8 +863,9 @@ bgp_check(struct bgp_config *c)
 }
 
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established", "Close" };
-static char *bgp_err_classes[] = { "", "Error: ", "Socket: ", "Received: ", "BGP Error: ", "Automatic shutdown", ""};
+static char *bgp_err_classes[] = { "", "Error: ", "Socket: ", "Received: ", "BGP Error: ", "Automatic shutdown: ", ""};
 static char *bgp_misc_errors[] = { "", "Neighbor lost", "Invalid next hop", "Kernel MD5 auth failed" };
+static char *bgp_auto_errors[] = { "", "Route limit exceeded"};
 
 
 static void
@@ -872,6 +888,9 @@ bgp_get_status(struct proto *P, byte *buf)
     case BE_BGP_RX:
     case BE_BGP_TX:
       err2 = bgp_error_dsc(errbuf, p->last_error_code >> 16, p->last_error_code & 0xFF);
+      break;
+    case BE_AUTO_DOWN:
+      err2 = bgp_auto_errors[p->last_error_code];
       break;
     }
 

@@ -725,13 +725,19 @@ bgp_do_rx_update(struct bgp_conn *conn,
 	  e->net = n;
 	  e->pflags = 0;
 	  rte_update(p->p.table, n, &p->p, &p->p, e);
+	  if (bgp_apply_limits(p) < 0)
+	    goto bad2;
 	}
+      rta_free(a);
     }
-bad:
+
+  return;
+
+ bad:
+  bgp_error(conn, 3, err, NULL, 0);
+ bad2:
   if (a)
     rta_free(a);
-  if (err)
-    bgp_error(conn, 3, err, NULL, 0);
   return;
 }
 
@@ -825,6 +831,8 @@ bgp_do_rx_update(struct bgp_conn *conn,
 	      e->net = n;
 	      e->pflags = 0;
 	      rte_update(p->p.table, n, &p->p, &p->p, e);
+	      if (bgp_apply_limits(p) < 0)
+		goto bad2;
 	    }
 	  rta_free(a);
 	}
@@ -832,8 +840,9 @@ bgp_do_rx_update(struct bgp_conn *conn,
 
   return;
 
-bad:
+ bad:
   bgp_error(conn, 3, 9, start, len0);
+ bad2:
   if (a)
     rta_free(a);
   return;
