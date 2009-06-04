@@ -891,6 +891,10 @@ for each neighbor using the following configuration parameters:
 	implementations (Cisco and Quagga). This option is relevant
 	to IPv4 mode with enabled capability advertisement only. Default: on.
 
+	<tag>route limit <m/number/</tag> The maximal number of routes
+	that may be imported from the protocol. If the route limit is
+	exceeded, the connection is closed with error. Default: no limit.
+
 	<tag>disable after error <m/switch/</tag> When an error is encountered (either
 	locally or by the other side), disable the instance automatically
 	and wait for an administrator to fix the problem manually. Default: off.
