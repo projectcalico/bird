@@ -82,6 +82,7 @@ struct bgp_proto {
   ip_addr local_addr;			/* Address of the local end of the link to next_hop */
   ip_addr source_addr;			/* Address used as advertised next hop, usually local_addr */
   struct event *event;			/* Event for respawning and shutting process */
+  struct timer *startup_timer;		/* Timer used to delay protocol startup due to previous errors (startup_delay) */
   struct bgp_bucket **bucket_hash;	/* Hash table of attribute buckets */
   unsigned int hash_size, hash_count, hash_limit;
   struct fib prefix_fib;		/* Prefixes to be sent */
@@ -241,8 +242,9 @@ void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subco
  */
 
 #define BSS_PREPARE		0	/* Used before ordinary BGP started, i. e. waiting for lock */
-#define BSS_CONNECT		1	/* Ordinary BGP connecting */
-#define BSS_CONNECT_NOCAP	2	/* Legacy BGP connecting (without capabilities) */
+#define BSS_DELAY		1	/* Startup delay due to previous errors */
+#define BSS_CONNECT		2	/* Ordinary BGP connecting */
+#define BSS_CONNECT_NOCAP	3	/* Legacy BGP connecting (without capabilities) */
 
 /* Error classes */
 

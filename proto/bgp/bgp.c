@@ -73,8 +73,7 @@ static int bgp_counter;			/* Number of protocol instances using the listening so
 
 static void bgp_close(struct bgp_proto *p, int apply_md5);
 static void bgp_connect(struct bgp_proto *p);
-static void bgp_active(struct bgp_proto *p, int delay);
-static void bgp_initiate(struct bgp_proto *p);
+static void bgp_active(struct bgp_proto *p);
 static void bgp_stop(struct bgp_proto *p);
 static sock *bgp_setup_listen_sk(void);
 
@@ -113,8 +112,34 @@ bgp_open(struct bgp_proto *p)
 	}
     }
 
-  p->start_state = p->cf->capabilities ? BSS_CONNECT : BSS_CONNECT_NOCAP;
   return 0;
+}
+
+static void
+bgp_startup(struct bgp_proto *p)
+{
+  BGP_TRACE(D_EVENTS, "Started");
+  p->start_state = p->cf->capabilities ? BSS_CONNECT : BSS_CONNECT_NOCAP;
+  bgp_active(p);
+}
+
+static void
+bgp_startup_timeout(timer *t)
+{
+  bgp_startup(t->data);
+}
+
+
+static void
+bgp_initiate(struct bgp_proto *p)
+{
+  if (p->startup_delay)
+    {
+      BGP_TRACE(D_EVENTS, "Startup delayed by %d seconds", p->startup_delay);
+      bgp_start_timer(p->startup_timer, p->startup_delay);
+    }
+  else
+    bgp_startup(p);
 }
 
 /**
@@ -293,7 +318,7 @@ bgp_decision(void *vp)
   DBG("BGP: Decision start\n");
   if ((p->p.proto_state == PS_START)
       && (p->outgoing_conn.state == BS_IDLE))
-    bgp_initiate(p);
+    bgp_active(p);
 
   if ((p->p.proto_state == PS_STOP)
       && (p->outgoing_conn.state == BS_IDLE)
@@ -473,8 +498,9 @@ bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
 }
 
 static void
-bgp_active(struct bgp_proto *p, int delay)
+bgp_active(struct bgp_proto *p)
 {
+  int delay = MIN(1, p->cf->start_delay_time);
   struct bgp_conn *conn = &p->outgoing_conn;
 
   BGP_TRACE(D_EVENTS, "Connect delayed by %d seconds", delay);
@@ -537,17 +563,6 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   bgp_start_timer(conn->connect_retry_timer, p->cf->connect_retry_time);
 }
 
-static void
-bgp_initiate(struct bgp_proto *p)
-{
-  unsigned delay = MAX(p->startup_delay, p->cf->start_delay_time);
-
-  if (delay)
-    bgp_active(p, delay);
-  else
-    bgp_connect(p);
-}
-
 /**
  * bgp_incoming_connection - handle an incoming connection
  * @sk: TCP socket
@@ -564,7 +579,6 @@ static int
 bgp_incoming_connection(sock *sk, int dummy UNUSED)
 {
   struct proto_config *pc;
-  int match = 0;
 
   DBG("BGP: Incoming connection from %I port %d\n", sk->daddr, sk->dport);
   WALK_LIST(pc, config->protos)
@@ -573,25 +587,26 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
 	struct bgp_proto *p = (struct bgp_proto *) pc->proto;
 	if (ipa_equal(p->cf->remote_ip, sk->daddr))
 	  {
-	    match = 1;
-	    if ((p->p.proto_state == PS_START || p->p.proto_state == PS_UP) && (p->start_state > BSS_PREPARE))
-	      {
-		BGP_TRACE(D_EVENTS, "Incoming connection from %I port %d", sk->daddr, sk->dport);
-		if (p->incoming_conn.sk)
-		  {
-		    DBG("BGP: But one incoming connection already exists, how is that possible?\n");
-		    break;
-		  }
-		bgp_setup_conn(p, &p->incoming_conn);
-		bgp_setup_sk(p, &p->incoming_conn, sk);
-		sk_set_ttl(sk, p->cf->multihop ? : 1);
-		bgp_send_open(&p->incoming_conn);
-		return 0;
-	      }
+	    /* We are in proper state and there is no other incoming connection */
+	    int acc = (p->p.proto_state == PS_START || p->p.proto_state == PS_UP) &&
+	      (p->start_state >= BSS_CONNECT) && (!p->incoming_conn.sk);
+
+	    BGP_TRACE(D_EVENTS, "Incoming connection from %I (port %d) %s",
+		      sk->daddr, sk->dport, acc ? "accepted" : "rejected");
+
+	    if (!acc)
+	      goto err;
+
+	    bgp_setup_conn(p, &p->incoming_conn);
+	    bgp_setup_sk(p, &p->incoming_conn, sk);
+	    sk_set_ttl(sk, p->cf->multihop ? : 1);
+	    bgp_send_open(&p->incoming_conn);
+	    return 0;
 	  }
       }
-  if (!match)
-    log(L_AUTH "BGP: Unauthorized connect from %I port %d", sk->daddr, sk->dport);
+
+  log(L_WARN "BGP: Unexpected connect from unknown address %I (port %d)", sk->daddr, sk->dport);
+ err:
   rfree(sk);
   return 0;
 }
@@ -729,6 +744,10 @@ bgp_start(struct proto *P)
   p->event = ev_new(p->p.pool);
   p->event->hook = bgp_decision;
   p->event->data = p;
+
+  p->startup_timer = tm_new(p->p.pool);
+  p->startup_timer->hook = bgp_startup_timeout;
+  p->startup_timer->data = p;
 
   /*
    *  Before attempting to create the connection, we need to lock the
