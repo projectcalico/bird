@@ -129,12 +129,14 @@ void bgp_start_timer(struct timer *t, int value);
 void bgp_check(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len);
 void bgp_close_conn(struct bgp_conn *c);
-void bgp_update_startup_delay(struct bgp_proto *p, struct bgp_conn *conn, unsigned code, unsigned subcode);
+void bgp_update_startup_delay(struct bgp_proto *p);
 void bgp_conn_enter_established_state(struct bgp_conn *conn);
 void bgp_conn_enter_close_state(struct bgp_conn *conn);
 void bgp_conn_enter_idle_state(struct bgp_conn *conn);
 void bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code);
 int bgp_apply_limits(struct bgp_proto *p);
+void bgp_stop(struct bgp_proto *p, unsigned subcode);
+
 
 
 #ifdef LOCAL_DEBUG
@@ -184,7 +186,7 @@ void bgp_kick_tx(void *vconn);
 void bgp_tx(struct birdsock *sk);
 int bgp_rx(struct birdsock *sk, int size);
 const byte * bgp_error_dsc(byte *buff, unsigned code, unsigned subcode);
-void bgp_log_error(struct bgp_proto *p, char *msg, unsigned code, unsigned subcode, byte *data, unsigned len);
+void bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsigned subcode, byte *data, unsigned len);
 
 /* Packet types */
 
