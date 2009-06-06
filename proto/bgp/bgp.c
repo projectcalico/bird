@@ -253,6 +253,9 @@ bgp_update_startup_delay(struct bgp_proto *p, struct bgp_conn *conn, unsigned co
 
   DBG("BGP: Updating startup delay %d %d\n", code, subcode);
 
+  if (p->last_proto_error && ((now - p->last_proto_error) >= cf->error_amnesia_time))
+    p->startup_delay = 0;
+
   p->last_proto_error = now;
 
   if (cf->disable_after_error)
@@ -265,8 +268,6 @@ bgp_update_startup_delay(struct bgp_proto *p, struct bgp_conn *conn, unsigned co
       return;
     }
 
-  if (p->last_proto_error && ((now - p->last_proto_error) >= cf->error_amnesia_time))
-    p->startup_delay = 0;
 
   if (!p->startup_delay)
     p->startup_delay = cf->error_delay_time_min;
