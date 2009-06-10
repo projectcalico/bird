@@ -550,6 +550,8 @@ struct proto_ospf
   int rfc1583;			/* RFC1583 compatibility */
   int ebit;			/* Did I originate any ext lsa? */
   struct ospf_area *backbone;	/* If exists */
+  void *lsab;			/* LSA buffer used when originating router LSAs */
+  int lsab_size, lsab_used;
 };
 
 struct ospf_iface_patt
@@ -585,8 +587,6 @@ int ospf_import_control(struct proto *p, rte **new, ea_list **attrs,
 			struct linpool *pool);
 struct ea_list *ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool);
 void ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs);
-void ospf_rt_notify(struct proto *p, net *n, rte *new, rte *old,
-		    ea_list * attrs);
 void schedule_rt_lsa(struct ospf_area *oa);
 void schedule_rtcalc(struct proto_ospf *po);
 void schedule_net_lsa(struct ospf_iface *ifa);
