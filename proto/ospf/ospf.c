@@ -148,6 +148,7 @@ ospf_start(struct proto *p)
     oa = mb_allocz(p->pool, sizeof(struct ospf_area));
     add_tail(&po->area_list, NODE oa);
     po->areano++;
+    oa->ac = ac;
     oa->stub = ac->stub;
     oa->areaid = ac->areaid;
     oa->rt = NULL;
@@ -629,8 +630,30 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
     if (!oa)
       return 0;
 
+    oa->ac = newac;
     oa->stub = newac->stub;
     if (newac->stub && (oa->areaid == 0)) oa->stub = 0;
+
+    /* Check stubnet_list */
+    struct ospf_stubnet_config *oldsn = HEAD(oldac->stubnet_list);
+    struct ospf_stubnet_config *newsn = HEAD(newac->stubnet_list);
+
+    while (((NODE(oldsn))->next != NULL) && ((NODE(newsn))->next != NULL))
+      {
+	if (!ipa_equal(oldsn->px.addr, newsn->px.addr) ||
+	    (oldsn->px.len != newsn->px.len) ||
+	    (oldsn->hidden != newsn->hidden) ||
+	    (oldsn->summary != newsn->summary) ||
+	    (oldsn->cost != newsn->cost))
+	  break;
+
+	oldsn = (struct ospf_stubnet_config *)(NODE(oldsn))->next;
+	newsn = (struct ospf_stubnet_config *)(NODE(newsn))->next;
+      }
+
+    /* If there is no change, both pointers should be NULL */
+    if (((NODE(oldsn))->next) != ((NODE(newsn))->next))
+      schedule_rt_lsa(oa);
 
     /* Change net_list */
     FIB_WALK(&oa->net_fib, nf)	/* First check if some networks are deleted */

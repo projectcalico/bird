@@ -52,6 +52,25 @@ lsab_flush(struct proto_ospf *po)
   return r;
 }
 
+static int
+configured_stubnet(struct ospf_area *oa, struct ifa *a)
+{
+  struct ospf_stubnet_config *sn;
+  WALK_LIST(sn, oa->ac->stubnet_list)
+    {
+      if (sn->summary)
+	{
+	  if (ipa_in_net(a->prefix, sn->px.addr, sn->px.len) && (a->pxlen >= sn->px.len))
+	    return 1;
+	}
+      else
+	{
+	  if (ipa_equal(a->prefix, sn->px.addr) && (a->pxlen == sn->px.len))
+	    return 1;
+	}
+    }
+  return 0;
+}
 
 static void *
 originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
@@ -163,8 +182,10 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
       {
 	if (((a == ifa->iface->addr) && master) ||
 	    (a->flags & IA_SECONDARY) ||
-	    (a->flags & IA_UNNUMBERED))
+	    (a->flags & IA_UNNUMBERED) ||
+	    configured_stubnet(oa, a))
 	  continue;
+
 
 	ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
 	ln->type = LSART_STUB;
@@ -175,6 +196,19 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
 	i++;
       }
   }
+
+  struct ospf_stubnet_config *sn;
+  WALK_LIST(sn, oa->ac->stubnet_list)
+    if (!sn->hidden)
+      {
+	ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
+	ln->type = LSART_STUB;
+	ln->id = ipa_to_u32(sn->px.addr);
+	ln->data = ipa_to_u32(ipa_mkmask(sn->px.len));
+	ln->metric = sn->cost;
+	ln->notos = 0;
+	i++;
+      }
 
   rt = po->lsab;
   rt->links = i;

@@ -99,6 +99,14 @@ struct area_net
   u32 metric;
 };
 
+struct ospf_stubnet_config
+{
+  node n;
+  struct prefix px;
+  int hidden, summary;
+  u32 cost;
+};
+
 struct ospf_area_config
 {
   node n;
@@ -107,6 +115,7 @@ struct ospf_area_config
   list patt_list;
   list vlink_list;
   list net_list;
+  list stubnet_list;
 };
 
 struct obits
@@ -523,6 +532,7 @@ struct ospf_area
 {
   node n;
   u32 areaid;
+  struct ospf_area_config *ac;	/* Related area config */
   int origrt;			/* Rt lsa origination scheduled? */
   struct top_hash_entry *rt;	/* My own router LSA */
   list cand;			/* List of candidates for RT calc. */

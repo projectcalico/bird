@@ -18,6 +18,7 @@ CF_DEFINES
 static struct ospf_area_config *this_area;
 static struct nbma_node *this_nbma;
 static struct area_net_config *this_pref;
+static struct ospf_stubnet_config *this_stubnet; 
 
 static void
 finish_iface_config(struct ospf_iface_patt *ip)
@@ -38,7 +39,7 @@ CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
 CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
 CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, LINK)
-CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL)
+CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY)
 
 %type <t> opttext
 
@@ -75,6 +76,7 @@ ospf_area_start: AREA idval '{' {
   init_list(&this_area->patt_list);
   init_list(&this_area->vlink_list);
   init_list(&this_area->net_list);
+  init_list(&this_area->stubnet_list);
  }
  ;
 
@@ -90,8 +92,34 @@ ospf_area_item:
    STUB COST expr { this_area->stub = $3 ; if($3<=0) cf_error("Stub cost must be greater than zero"); }
  | STUB bool {if($2) { if(!this_area->stub) this_area->stub=DEFAULT_STUB_COST;}else{ this_area->stub=0;}}
  | NETWORKS '{' pref_list '}'
+ | STUBNET ospf_stubnet
  | INTERFACE ospf_iface
  | ospf_vlink
+ ;
+
+ospf_stubnet:
+   ospf_stubnet_start '{' ospf_stubnet_opts '}'
+ | ospf_stubnet_start
+ ;
+
+ospf_stubnet_start:
+   prefix {
+     this_stubnet = cfg_allocz(sizeof(struct stubnet_config));
+     add_tail(&this_area->stubnet_list, NODE this_stubnet);
+     this_stubnet->px = $1;
+     this_stubnet->cost = COST_D;
+   } 
+ ;
+
+ospf_stubnet_opts:
+   /* empty */
+ | ospf_stubnet_opts ospf_stubnet_item ';'
+ ;
+
+ospf_stubnet_item:
+   HIDDEN bool { this_stubnet->hidden = $2; }
+ | SUMMARY bool { this_stubnet->summary = $2; }
+ | COST expr { this_stubnet->cost = $2; }
  ;
 
 ospf_vlink:

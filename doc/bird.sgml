@@ -1195,8 +1195,13 @@ protocol ospf &lt;name&gt; {
 			&lt;prefix&gt;;
 			&lt;prefix&gt; hidden;
 		}
-		interface &lt;interface pattern&gt;
-		{
+		stubnet &lt;prefix&gt;;
+		stubnet &lt;prefix&gt; {
+			hidden &lt;switch&gt;;
+			summary &lt;switch&gt;;
+			cost &lt;num&gt;;
+		}
+		interface &lt;interface pattern&gt; {
 			cost &lt;num&gt;;
 			stub &lt;switch&gt;;
 			hello &lt;num&gt;;
@@ -1223,8 +1228,7 @@ protocol ospf &lt;name&gt; {
 				&lt;ip&gt; eligible;
 			};
 		};
-		virtual link &lt;id&gt;
-		{
+		virtual link &lt;id&gt;	{
 			hello &lt;num&gt;;
 			retransmit &lt;num&gt;;
 			wait &lt;num&gt;;
@@ -1265,6 +1269,24 @@ protocol ospf &lt;name&gt; {
          Definition of area IP ranges. This is used in summary lsa origination.
 	 Hidden networks are not propagated into other areas.
 
+	<tag>stubnet <m/prefix/ { <m/options/ }</tag>
+	 Stub networks are networks that are not transit networks
+	 between OSPF routers. They are also propagated through an
+	 OSPF area as a part of a link state database. By default,
+	 BIRD generates a stub network record for each primary network
+	 address on each OSPF interface that does not have any OSPF
+	 neighbors, and also for each non-primary network address on
+	 each OSPF interface. This option allows to alter a set of
+	 stub networks propagated by this router. 
+
+	 Each instance of this option adds a stub network with given
+	 network prefix to the set of propagated stub network, unless
+	 option <cf/hidden/ is used. It also suppresses default stub
+	 networks for given network prefix. When option
+	 <cf/summary/ is used, also default stub networks that are
+	 subnetworks of given stub network are suppressed. This might
+	 be used, for example, to aggregate generated stub networks.
+	 
 	<tag>interface <M>pattern</M></tag>
 	 Defines that the specified interfaces belong to the area being defined.
 	 See <ref id="dsc-iface" name="interface"> common option for detailed description.
