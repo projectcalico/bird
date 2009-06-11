@@ -1029,7 +1029,7 @@ interfaces from the kernel.
 this protocol in the configuration since almost all other protocols
 require network interfaces to be defined for them to work with.
 
-<p>The only configurable thing is interface scan time:
+<sect1>Configuration
 
 <p><descrip>
 	<tag>scan time <m/number/</tag> Time in seconds between two scans
@@ -1037,14 +1037,34 @@ require network interfaces to be defined for them to work with.
 	interface status changes asynchronously (such as newer versions of
 	Linux), we need to scan the list only in order to avoid confusion by lost
 	notification messages, so the default time is set to a large value.
+
+	<tag>primary  [ "<m/mask/" ] <m/prefix/</tag>
+	If a network interface has more than one network address,
+	BIRD has to choose one of them as a primary one, because some
+	routing protocols (for example OSPFv2) suppose there is only
+	one network address per interface. By default, BIRD chooses
+	the lexicographically smallest address as the primary one.
+
+	This option allows to specify which network address should be
+	chosen as a primary one. Network addresses that match
+	<m/prefix/ are preferred to non-matching addresses. If more
+	<cf/primary/ options are used, the first one has the highest
+	preference. If "<m/mask/" is specified, then such
+	<cf/primary/ option is relevant only to matching network
+	interfaces.
+
+	In all cases, an address marked by operating system as
+	secondary cannot be chosen as the primary one. 
 </descrip>
 
 <p>As the Device protocol doesn't generate any routes, it cannot have
-any attributes. Example configuration looks really simple:
+any attributes. Example configuration looks like this:
 
 <p><code>
 protocol device {
 	scan time 10;		# Scan the interfaces often
+	primary "eth0" 192.168.1.1;
+	primary 192.168.0.0/16;
 }
 </code>
 
