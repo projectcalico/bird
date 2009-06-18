@@ -31,7 +31,11 @@ typedef struct ipv6_addr {
 
 #define IPA_NONE _MI(0,0,0,0)
 
-#define ipa_equal(x,y) (!memcmp(&(x),&(y),sizeof(ip_addr)))
+#define ipa_equal(x,y)  ({ ip_addr _a=(x), _b=(y); \
+			   _I0(_a) == _I0(_b) && \
+			   _I1(_a) == _I1(_b) && \
+			   _I2(_a) == _I2(_b) && \
+			   _I3(_a) == _I3(_b); })
 #define ipa_nonzero(x) ({ ip_addr _a=(x); (_I0(_a) || _I1(_a) || _I2(_a) || _I3(_a)); })
 #define ipa_and(x,y) ({ ip_addr _a=(x), _b=(y); \
 		     _MI(_I0(_a) & _I0(_b), \

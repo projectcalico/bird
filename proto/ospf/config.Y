@@ -104,7 +104,7 @@ ospf_stubnet:
 
 ospf_stubnet_start:
    prefix {
-     this_stubnet = cfg_allocz(sizeof(struct stubnet_config));
+     this_stubnet = cfg_allocz(sizeof(struct ospf_stubnet_config));
      add_tail(&this_area->stubnet_list, NODE this_stubnet);
      this_stubnet->px = $1;
      this_stubnet->cost = COST_D;
