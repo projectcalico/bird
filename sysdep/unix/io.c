@@ -703,7 +703,13 @@ sk_setup(sock *s)
   if ((s->tos >= 0) && setsockopt(fd, SOL_IP, IP_TOS, &s->tos, sizeof(s->tos)) < 0)
     WARN("IP_TOS");
 #endif
-  
+
+#ifdef IPV6
+  int v = 1;
+  if ((s->flags & SKF_V6ONLY) && setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &v, sizeof(v)) < 0)
+    WARN("IPV6_V6ONLY");
+#endif
+
   if (s->ttl >= 0)
     err = sk_set_ttl_int(s);
   else

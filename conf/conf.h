@@ -22,6 +22,9 @@ struct config {
   list logfiles;			/* Configured log fils (sysdep) */
   struct rtable_config *master_rtc;	/* Configuration of master routing table */
   u32 router_id;			/* Our Router ID */
+  ip_addr bind_bgp_addr;		/* Listening BGP socket should use this address */
+  unsigned bind_bgp_port;		/* Listening BGP socket should use this port (0 is default) */
+  u32 bind_bgp_flags;			/* Listening BGP socket should use these flags */
   unsigned int proto_default_debug;	/* Default protocol debug mask */
   int cli_debug;			/* Tracing of CLI connections and commands */
   char *err_msg;			/* Parser error message */

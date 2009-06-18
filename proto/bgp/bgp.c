@@ -74,7 +74,7 @@ static int bgp_counter;			/* Number of protocol instances using the listening so
 static void bgp_close(struct bgp_proto *p, int apply_md5);
 static void bgp_connect(struct bgp_proto *p);
 static void bgp_active(struct bgp_proto *p);
-static sock *bgp_setup_listen_sk(void);
+static sock *bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags);
 
 
 /**
@@ -90,10 +90,11 @@ static sock *bgp_setup_listen_sk(void);
 static int
 bgp_open(struct bgp_proto *p)
 {
+  struct config *cfg = p->cf->c.global;
   bgp_counter++;
 
   if (!bgp_listen_sk)
-    bgp_listen_sk = bgp_setup_listen_sk();
+    bgp_listen_sk = bgp_setup_listen_sk(cfg->bind_bgp_addr, cfg->bind_bgp_port, cfg->bind_bgp_flags);
 
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);
@@ -587,12 +588,14 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
 }
 
 static sock *
-bgp_setup_listen_sk(void)
+bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags)
 {
   sock *s = sk_new(&root_pool);
   DBG("BGP: Creating incoming socket\n");
   s->type = SK_TCP_PASSIVE;
-  s->sport = BGP_PORT;
+  s->saddr = addr;
+  s->sport = port ? port : BGP_PORT;
+  s->flags = flags;
   s->tos = IP_PREC_INTERNET_CONTROL;
   s->rbsize = BGP_RX_BUFFER_SIZE;
   s->tbsize = BGP_TX_BUFFER_SIZE;

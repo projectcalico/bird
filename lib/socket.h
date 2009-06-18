@@ -20,6 +20,7 @@ typedef struct birdsock {
   unsigned sport, dport;		/* 0 = unspecified (for IP: protocol type) */
   int tos;				/* TOS and priority, -1 = default */
   int ttl;				/* Time To Live, -1 = default */
+  u32 flags;
   struct iface *iface;			/* Interface; specify this for broad/multicast sockets */
 
   byte *rbuf, *rpos;			/* NULL=allocate automatically */
@@ -56,6 +57,12 @@ sk_send_buffer_empty(sock *sk)
 {
 	return sk->tbuf == sk->tpos;
 }
+
+
+/* Socket flags */
+
+#define SKF_V6ONLY	1	/* Use  IPV6_V6ONLY socket option */
+
 
 /*
  *	Socket types		     SA SP DA DP IF  TTL SendTo	(?=may, -=must not, *=must)

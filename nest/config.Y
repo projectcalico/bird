@@ -44,6 +44,7 @@ CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
 CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE)
+CF_KEYWORDS(BIND, BGP, V6ONLY, ADDRESS, PORT)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_IA, OSPF_EXT1, OSPF_EXT2, BGP, PIPE)
@@ -81,6 +82,23 @@ idval:
 #endif
    }
  ;
+
+
+CF_ADDTO(conf, bind)
+
+bind: BIND BGP bind_opts ';' ;
+
+bind_opts:
+   /* Nothing */
+ | bind_opts bind_opt
+ ;
+
+bind_opt: 
+   ADDRESS ipa { new_config->bind_bgp_addr = $2; }
+ | PORT expr { new_config->bind_bgp_port = $2; }
+ | V6ONLY { new_config->bind_bgp_flags |= SKF_V6ONLY; }
+ ;
+
 
 /* Creation of routing tables */
 
