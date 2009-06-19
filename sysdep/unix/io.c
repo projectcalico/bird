@@ -30,6 +30,12 @@
 #include "lib/unix.h"
 #include "lib/sysio.h"
 
+/* Maximum number of calls of rx/tx handler for one socket in one
+ * select iteration. Should be small enough to not monopolize CPU by
+ * one protocol instance.
+ */
+#define MAX_STEPS 4
+
 /*
  *	Tracked Files
  */
@@ -1341,22 +1347,27 @@ io_loop(void)
 	    {
 	      sock *s = current_sock;
 	      int e;
+	      int steps = MAX_STEPS;
 	      if (FD_ISSET(s->fd, &rd) && s->rx_hook)
 		do
 		  {
+		    steps--;
 		    e = sk_read(s);
 		    if (s != current_sock)
 		      goto next;
 		  }
-		while (e && s->rx_hook);
+		while (e && s->rx_hook && steps);
+
+	      steps = MAX_STEPS;
 	      if (FD_ISSET(s->fd, &wr))
 		do
 		  {
+		    steps--;
 		    e = sk_write(s);
 		    if (s != current_sock)
 		      goto next;
 		  }
-		while (e);
+		while (e && steps);
 	      current_sock = sk_next(s);
 	    next: ;
 	    }
