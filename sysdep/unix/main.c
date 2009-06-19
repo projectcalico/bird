@@ -115,7 +115,7 @@ read_config(void)
       else
 	die("Unable to open configuration file %s: %m", config_name);
     }
-  config_commit(conf);
+  config_commit(conf, RECONFIG_HARD);
 }
 
 void
@@ -133,11 +133,11 @@ async_config(void)
       config_free(conf);
     }
   else
-    config_commit(conf);
+    config_commit(conf, RECONFIG_HARD);
 }
 
 void
-cmd_reconfig(char *name)
+cmd_reconfig(char *name, int type)
 {
   struct config *conf;
 
@@ -154,7 +154,7 @@ cmd_reconfig(char *name)
     }
   else
     {
-      switch (config_commit(conf))
+      switch (config_commit(conf, type))
 	{
 	case CONF_DONE:
 	  cli_msg(3, "Reconfigured.");

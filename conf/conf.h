@@ -50,7 +50,9 @@ struct config *config_alloc(byte *name);
 int config_parse(struct config *);
 int cli_parse(struct config *);
 void config_free(struct config *);
-int config_commit(struct config *);
+int config_commit(struct config *, int type);
+#define RECONFIG_HARD 0
+#define RECONFIG_SOFT 1
 void cf_error(char *msg, ...) NORET;
 void config_add_obstacle(struct config *);
 void config_del_obstacle(struct config *);

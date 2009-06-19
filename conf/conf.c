@@ -189,7 +189,7 @@ global_commit(struct config *new, struct config *old)
 }
 
 static int
-config_do_commit(struct config *c)
+config_do_commit(struct config *c, int type)
 {
   int force_restart, nobs;
 
@@ -205,7 +205,7 @@ config_do_commit(struct config *c)
   DBG("rt_commit\n");
   rt_commit(c, old_config);
   DBG("protos_commit\n");
-  protos_commit(c, old_config, force_restart);
+  protos_commit(c, old_config, force_restart, type);
   new_config = NULL;			/* Just to be sure nobody uses that now */
   if (old_config)
     nobs = --old_config->obstacle_count;
@@ -236,7 +236,7 @@ config_done(void *unused UNUSED)
       c = future_config;
       future_config = NULL;
       log(L_INFO "Switching to queued configuration...");
-      if (!config_do_commit(c))
+      if (!config_do_commit(c, RECONFIG_HARD))
 	break;
     }
 }
@@ -244,6 +244,7 @@ config_done(void *unused UNUSED)
 /**
  * config_commit - commit a configuration
  * @c: new configuration
+ * @type: type of reconfiguration (RECONFIG_SOFT or RECONFIG_HARD)
  *
  * When a configuration is parsed and prepared for use, the
  * config_commit() function starts the process of reconfiguration.
@@ -263,11 +264,11 @@ config_done(void *unused UNUSED)
  * are accepted.
  */
 int
-config_commit(struct config *c)
+config_commit(struct config *c, int type)
 {
   if (!config)				/* First-time configuration */
     {
-      config_do_commit(c);
+      config_do_commit(c, RECONFIG_HARD);
       return CONF_DONE;
     }
   if (old_config)			/* Reconfiguration already in progress */
@@ -288,7 +289,7 @@ config_commit(struct config *c)
       future_config = c;
       return CONF_QUEUED;
     }
-  if (config_do_commit(c))
+  if (config_do_commit(c, type))
     {
       config_done(NULL);
       return CONF_DONE;
@@ -321,7 +322,7 @@ order_shutdown(void)
   init_list(&c->tables);
   c->shutdown = 1;
   shutting_down = 1;
-  config_commit(c);
+  config_commit(c, RECONFIG_HARD);
   shutting_down = 2;
 }
 

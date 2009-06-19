@@ -269,6 +269,7 @@ proto_init(struct proto_config *c)
  * @old: old configuration or %NULL if it's boot time config
  * @force_reconfig: force restart of all protocols (used for example
  * when the router ID changes)
+ * @type: type of reconfiguration (RECONFIG_SOFT or RECONFIG_HARD)
  *
  * Scan differences between @old and @new configuration and adjust all
  * protocol instances to conform to the new configuration.
@@ -281,15 +282,17 @@ proto_init(struct proto_config *c)
  * When a protocol exists in the old configuration, but it doesn't in the
  * new one, it's shut down and deleted after the shutdown completes.
  *
- * When a protocol exists in both configurations, the core decides whether
- * it's possible to reconfigure it dynamically (it checks all the core properties
- * of the protocol and if they match, it asks the reconfigure() hook of the
- * protocol to see if the protocol is able to switch to the new configuration).
- * If it isn't possible, the protocol is shut down and a new instance is started
- * with the new configuration after the shutdown is completed.
+ * When a protocol exists in both configurations, the core decides
+ * whether it's possible to reconfigure it dynamically - it checks all
+ * the core properties of the protocol (changes in filters are ignored
+ * if type is RECONFIG_SOFT) and if they match, it asks the
+ * reconfigure() hook of the protocol to see if the protocol is able
+ * to switch to the new configuration.  If it isn't possible, the
+ * protocol is shut down and a new instance is started with the new
+ * configuration after the shutdown is completed.
  */
 void
-protos_commit(struct config *new, struct config *old, int force_reconfig)
+protos_commit(struct config *new, struct config *old, int force_reconfig, int type)
 {
   struct proto_config *oc, *nc;
   struct proto *p, *n;
@@ -310,8 +313,8 @@ protos_commit(struct config *new, struct config *old, int force_reconfig)
 		  && nc->preference == oc->preference
 		  && nc->disabled == oc->disabled
 		  && nc->table->table == oc->table->table
-		  && filter_same(nc->in_filter, oc->in_filter)
-		  && filter_same(nc->out_filter, oc->out_filter)
+		  && ((type == RECONFIG_SOFT) || filter_same(nc->in_filter, oc->in_filter))
+		  && ((type == RECONFIG_SOFT) || filter_same(nc->out_filter, oc->out_filter))
 		  && p->proto_state != PS_DOWN)
 		{
 		  /* Generic attributes match, try converting them and then ask the protocol */
