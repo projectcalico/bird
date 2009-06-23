@@ -94,7 +94,7 @@ bgp_open(struct bgp_proto *p)
   bgp_counter++;
 
   if (!bgp_listen_sk)
-    bgp_listen_sk = bgp_setup_listen_sk(cfg->bind_bgp_addr, cfg->bind_bgp_port, cfg->bind_bgp_flags);
+    bgp_listen_sk = bgp_setup_listen_sk(cfg->listen_bgp_addr, cfg->listen_bgp_port, cfg->listen_bgp_flags);
 
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);

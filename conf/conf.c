@@ -176,9 +176,9 @@ global_commit(struct config *new, struct config *old)
   if (!old)
     return 0;
 
-  if (!ipa_equal(old->bind_bgp_addr, new->bind_bgp_addr) ||
-      (old->bind_bgp_port != new->bind_bgp_port) ||
-      (old->bind_bgp_flags != new->bind_bgp_flags))
+  if (!ipa_equal(old->listen_bgp_addr, new->listen_bgp_addr) ||
+      (old->listen_bgp_port != new->listen_bgp_port) ||
+      (old->listen_bgp_flags != new->listen_bgp_flags))
     log(L_WARN "Reconfiguration of BGP listening socket not implemented, please restart BIRD.");
 
   if (!new->router_id)
