@@ -39,9 +39,9 @@ struct attr_desc {
 };
 
 static int
-bgp_check_origin(struct bgp_proto *p UNUSED, byte *a UNUSED, int len)
+bgp_check_origin(struct bgp_proto *p UNUSED, byte *a, int len UNUSED)
 {
-  if (len > 2)
+  if (*a > 2)
     return 6;
   return 0;
 }
