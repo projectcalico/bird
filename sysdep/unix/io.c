@@ -599,6 +599,7 @@ sk_new(pool *p)
   s->saddr = s->daddr = IPA_NONE;
   s->sport = s->dport = 0;
   s->tos = s->ttl = -1;
+  s->flags = 0;
   s->iface = NULL;
   s->rbuf = NULL;
   s->rx_hook = NULL;
