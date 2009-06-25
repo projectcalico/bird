@@ -64,6 +64,8 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
   while (1) {
     if ((!m1) || (!m2))
       return !((!m1) && (!m2));
+
+    if ((m1->kind != m2->kind) || (m1->val != m2->val)) return 1;
     m1 = m1->next;
     m2 = m2->next;
   }
@@ -136,7 +138,8 @@ val_compare(struct f_val v1, struct f_val v2)
   }
   switch (v1.type) {
   case T_ENUM:
-  case T_INT: 
+  case T_INT:
+  case T_BOOL:
   case T_PAIR:
     if (v1.val.i == v2.val.i) return 0;
     if (v1.val.i < v2.val.i) return -1;
@@ -156,7 +159,7 @@ val_compare(struct f_val v1, struct f_val v2)
   case T_STRING:
     return strcmp(v1.val.s, v2.val.s);
   default:
-    debug( "Compare of unkown entities: %x\n", v1.type );
+    debug( "Compare of unknown entities: %x\n", v1.type );
     return CMP_ERROR;
   }
 }
@@ -501,6 +504,7 @@ interpret(struct f_inst *what)
     else
       res.val.i = what->a2.i;
     break;
+  case 'V':
   case 'C':
     res = * ((struct f_val *) what->a1.p);
     break;
@@ -868,10 +872,12 @@ i_same(struct f_inst *f1, struct f_inst *f2)
     case T_PREFIX_SET:
       if (!trie_same(f1->a2.p, f2->a2.p))
 	return 0;
+      break;
 
     case T_SET:
       if (!same_tree(f1->a2.p, f2->a2.p))
 	return 0;
+      break;
 
     case T_STRING:
       if (strcmp(f1->a2.p, f2->a2.p))
@@ -884,6 +890,10 @@ i_same(struct f_inst *f1, struct f_inst *f2)
     break;
   case 'C': 
     if (val_compare(* (struct f_val *) f1->a1.p, * (struct f_val *) f2->a1.p))
+      return 0;
+    break;
+  case 'V': 
+    if (strcmp((char *) f1->a2.p, (char *) f2->a2.p))
       return 0;
     break;
   case 'p': case 'L': ONEARG; break;

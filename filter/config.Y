@@ -396,8 +396,9 @@ symbol:
        case SYM_VARIABLE | T_PATH:
        case SYM_VARIABLE | T_PATH_MASK:
        case SYM_VARIABLE | T_CLIST:
-	 $$->code = 'C';
+	 $$->code = 'V';
 	 $$->a1.p = $1->def;
+	 $$->a2.p = $1->name;
 	 break;
        default:
 	 cf_error("%s: variable expected.", $1->name );

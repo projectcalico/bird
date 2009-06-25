@@ -42,11 +42,13 @@ AC_SUBST(srcdir_rel_mf)
 
 if test "$enable_ipv6" = yes ; then
 	ip=ipv6
+	SUFFIX6=6
 	if test "$with_protocols" = all ; then
 		with_protocols=bgp,pipe,rip,static
 	fi
 else
 	ip=ipv4
+	SUFFIX6=""
 	if test "$with_protocols" = all ; then
 		with_protocols=bgp,ospf,pipe,rip,static
 	fi
@@ -208,6 +210,7 @@ if test "$enable_client" = yes ; then
 fi
 AC_SUBST(CLIENT)
 AC_SUBST(CLIENT_LIBS)
+AC_SUBST(SUFFIX6)
 
 mkdir -p $objdir/sysdep
 AC_CONFIG_HEADERS([$objdir/sysdep/autoconf.h:sysdep/autoconf.h.in])
