@@ -934,7 +934,8 @@ sk_open(sock *s)
 	}
       fill_in_sockaddr(&sa, s->saddr, port);
 #ifdef CONFIG_SKIP_MC_BIND
-      if (type == SK_IP && bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
+      if ((type != SK_UDP_MC) && (type != SK_IP_MC) &&
+	  bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
 #else
       if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
 #endif
