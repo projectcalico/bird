@@ -1,10 +1,10 @@
 Version 1.1.0 (2009-06-28)
-  o Parametrized pair and path mask expessions in the filter language.
+  o Parametrized pair and path mask expressions in the filter language.
   o Transparent pipe mode allows to implement BGP route server with
     independent route policy for each peer.
   o Kernel route table synchronization does not allow overwriting
     of alien routes.
-  o Configureable BGP import route limits.
+  o Configurable BGP import route limits.
   o During BGP error delay, incoming connections are rejected.
   o BGP route statistics.
   o Better support for multiple network addresses on OSPF interfaces.
