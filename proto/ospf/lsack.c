@@ -43,7 +43,7 @@ ospf_lsack_enqueue(struct ospf_neighbor *n, struct ospf_lsa_header *h,
   memcpy(&no->lsa, h, sizeof(struct ospf_lsa_header));
   add_tail(&n->ackl[queue], NODE no);
   DBG("Adding (%s) ack for %I, ID: %I, RT: %I, Type: %u\n", s_queue[queue],
-      n->rid, ntohl(h->id), ntohl(h->rt), h->type);
+      ipa_from_u32(n->rid), ipa_from_u32(ntohl(h->id)), ipa_from_u32(ntohl(h->rt)), h->type);
 }
 
 void
@@ -77,8 +77,8 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
     no = (struct lsah_n *) HEAD(n->ackl[queue]);
     memcpy(h + i, &no->lsa, sizeof(struct ospf_lsa_header));
     i++;
-    DBG("Iter %u ID: %I, RT: %I, Type: %u\n", i, ntohl((h + i)->id),
-	ntohl((h + i)->rt), (h + i)->type);
+    DBG("Iter %u ID: %I, RT: %I, Type: %u\n", i, ipa_from_u32(ntohl((h + i)->id)),
+	ipa_from_u32(ntohl((h + i)->rt)), (h + i)->type);
     rem_node(NODE no);
     mb_free(no);
     if ((i * sizeof(struct ospf_lsa_header) +
@@ -191,7 +191,7 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
     }
 
     DBG("Deleting LS Id: %I RT: %I Type: %u from LS Retl for neighbor %I\n",
-	lsa.id, lsa.rt, lsa.type, n->rid);
+	ipa_from_u32(lsa.id), ipa_from_u32(lsa.rt), lsa.type, ipa_from_u32(n->rid));
     s_rem_node(SNODE en);
     if (en->lsa_body != NULL)
       mb_free(en->lsa_body);

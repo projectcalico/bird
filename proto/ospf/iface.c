@@ -113,7 +113,7 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
     {
       OSPF_TRACE(D_EVENTS,
 		 "Changing state of virtual link %I from \"%s\" into \"%s\".",
-		 ifa->vid, ospf_is[oldstate], ospf_is[state]);
+		 ipa_from_u32(ifa->vid), ospf_is[oldstate], ospf_is[state]);
       if (state == OSPF_IS_PTP)
       {
         ifa->ip_sk = ospf_open_ip_socket(ifa);
@@ -586,8 +586,8 @@ ospf_iface_info(struct ospf_iface *ifa)
     strict = "";
   if (ifa->type == OSPF_IT_VLINK)
   {
-    cli_msg(-1015, "Virtual link to %I:", ifa->vid);
-    cli_msg(-1015, "\tTransit area: %I (%u)", ifa->voa->areaid,
+    cli_msg(-1015, "Virtual link to %I:", ipa_from_u32(ifa->vid));
+    cli_msg(-1015, "\tTransit area: %I (%u)", ipa_from_u32(ifa->voa->areaid),
 	    ifa->voa->areaid);
   }
   else
@@ -595,13 +595,14 @@ ospf_iface_info(struct ospf_iface *ifa)
     cli_msg(-1015, "Interface \"%s\":",
 	    (ifa->iface ? ifa->iface->name : "(none)"));
     cli_msg(-1015, "\tType: %s %s", ospf_it[ifa->type], strict);
-    cli_msg(-1015, "\tArea: %I (%u)", ifa->oa->areaid, ifa->oa->areaid);
+    cli_msg(-1015, "\tArea: %I (%u)", ipa_from_u32(ifa->oa->areaid), ifa->oa->areaid);
   }
   cli_msg(-1015, "\tState: %s %s", ospf_is[ifa->state],
 	  ifa->stub ? "(stub)" : "");
   cli_msg(-1015, "\tPriority: %u", ifa->priority);
   cli_msg(-1015, "\tCost: %u", ifa->cost);
   cli_msg(-1015, "\tHello timer: %u", ifa->helloint);
+
   if (ifa->type == OSPF_IT_NBMA)
   {
     cli_msg(-1015, "\tPoll timer: %u", ifa->pollint);
@@ -611,9 +612,9 @@ ospf_iface_info(struct ospf_iface *ifa)
   cli_msg(-1015, "\tRetransmit timer: %u", ifa->rxmtint);
   if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
   {
-    cli_msg(-1015, "\tDesigned router (ID): %I", ifa->drid);
+    cli_msg(-1015, "\tDesigned router (ID): %I", ipa_from_u32(ifa->drid));
     cli_msg(-1015, "\tDesigned router (IP): %I", ifa->drip);
-    cli_msg(-1015, "\tBackup designed router (ID): %I", ifa->bdrid);
+    cli_msg(-1015, "\tBackup designed router (ID): %I", ipa_from_u32(ifa->bdrid));
     cli_msg(-1015, "\tBackup designed router (IP): %I", ifa->bdrip);
   }
 }
