@@ -506,7 +506,7 @@ bdr_election(struct ospf_iface *ifa)
     ifa->bdrip = nbdr->ip;
   }
 
-  DBG("DR=%I, BDR=%I\n", ifa->drid, ifa->bdrid);
+  DBG("DR=%I, BDR=%I\n", ipa_from_u32(ifa->drid), ipa_from_u32(ifa->bdrid));
 
   if (myid == ifa->drid)
     ospf_iface_chstate(ifa, OSPF_IS_DR);
@@ -624,7 +624,7 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
   if ((n->ifa->type == OSPF_IT_PTP) || (n->ifa->type == OSPF_IT_VLINK))
     pos = "ptp  ";
 
-  cli_msg(-1013, "%-1I\t%3u\t%s/%s\t%-5s\t%-1I\t%-10s", n->rid, n->priority,
+  cli_msg(-1013, "%-1I\t%3u\t%s/%s\t%-5s\t%-1I\t%-10s", ipa_from_u32(n->rid), n->priority,
 	  ospf_ns[n->state], pos, etime, n->ip,
           (ifa->type == OSPF_IT_VLINK ? "vlink" : ifa->iface->name));
 }
@@ -673,7 +673,7 @@ rxmt_timer_hook(timer * timer)
 	llsh->lsh.rt = en->lsa.rt;
 	llsh->lsh.type = en->lsa.type;
 	DBG("Working on ID: %I, RT: %I, Type: %u\n",
-	    en->lsa.id, en->lsa.rt, en->lsa.type);
+	    ipa_from_u32(en->lsa.id), ipa_from_u32(en->lsa.rt), en->lsa.type);
 	add_tail(&uplist, NODE llsh);
       }
       ospf_lsupd_send_list(n, &uplist);

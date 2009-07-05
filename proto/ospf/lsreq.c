@@ -23,7 +23,8 @@ static void ospf_dump_lsreq(struct proto *p, struct ospf_lsreq_packet *pkt)
 
   for (i = 0; i < j; i++)
     log(L_TRACE "%s:     LSR      Id: %I, Rt: %I, Type: %u",
-	p->name, htonl(plsr[i].id), htonl(plsr[i].rt), plsr[i].type);
+	p->name, ipa_from_u32(htonl(plsr[i].id)),
+	ipa_from_u32(htonl(plsr[i].rt)), plsr[i].type);
 }
 
 void
@@ -64,7 +65,7 @@ ospf_lsreq_send(struct ospf_neighbor *n)
     lsh->rt = htonl(en->lsa.rt);
     lsh->id = htonl(en->lsa.id);
     DBG("Requesting %uth LSA: Type: %u, ID: %I, RT: %I, SN: 0x%x, Age %u\n",
-	i, en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.sn, en->lsa.age);
+	i, en->lsa.type, ipa_from_u32(en->lsa.id), ipa_from_u32(en->lsa.rt), en->lsa.sn, en->lsa.age);
     lsh++;
     if (sn == STAIL(n->lsrql))
       break;
@@ -114,7 +115,7 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
   {
     u32 hid = ntohl(lsh->id);
     u32 hrt = ntohl(lsh->rt);
-    DBG("Processing requested LSA: Type: %u, ID: %I, RT: %I\n", lsh->type, hid, hrt);
+    DBG("Processing requested LSA: Type: %u, ID: %I, RT: %I\n", lsh->type, ipa_from_u32(hid), ipa_from_u32(hrt));
     llsh = sl_alloc(upslab);
     llsh->lsh.id = hid;
     llsh->lsh.rt = hrt;
@@ -125,7 +126,7 @@ ospf_lsreq_receive(struct ospf_lsreq_packet *ps,
     {
       log(L_WARN
 	  "Received bad LS req from: %I looking: Type: %u, ID: %I, RT: %I",
-	  n->ip, lsh->type, hid, hrt);
+	  n->ip, lsh->type, ipa_from_u32(hid), ipa_from_u32(hrt));
       ospf_neigh_sm(n, INM_BADLSREQ);
       rfree(upslab);
       return;

@@ -182,7 +182,7 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
 
       OSPF_TRACE(D_PACKETS, "Strange LS acknoledgement from %I", n->ip);
       OSPF_TRACE(D_PACKETS, "Id: %I, Rt: %I, Type: %u",
-		 lsa.id, lsa.rt, lsa.type);
+		 ipa_from_u32(lsa.id), ipa_from_u32(lsa.rt), lsa.type);
       OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seqno: 0x%08x, Sum: %u",
 		 en->lsa.age, en->lsa.sn, en->lsa.checksum);
       OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seqno: 0x%08x, Sum: %u",
