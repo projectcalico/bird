@@ -120,7 +120,7 @@ struct ospf_area_config
 
 struct obits
 {
-#ifdef _BIG_ENDIAN
+#ifdef CPU_BIG_ENDIAN
   u8 unused2:2;
   u8 dc:1;
   u8 ea:1;
@@ -264,7 +264,7 @@ struct ospf_hello_packet
 
 struct immsb
 {
-#ifdef _BIG_ENDIAN
+#ifdef CPU_BIG_ENDIAN
   u8 padding:5;
   u8 i:1;
   u8 m:1;
@@ -320,7 +320,7 @@ struct ospf_lsa_header
 
 struct vebb
 {
-#ifdef _BIG_ENDIAN
+#ifdef CPU_BIG_ENDIAN
   u8 padding:5;
   u8 v:1;
   u8 e:1;
@@ -384,7 +384,7 @@ struct ospf_lsa_ext
 
 struct ospf_lsa_ext_etos 
 {
-#ifdef _BIG_ENDIAN
+#ifdef CPU_BIG_ENDIAN
   u8 ebit:1;
   u8 tos:7;
   u8 padding1;
@@ -400,7 +400,7 @@ struct ospf_lsa_ext_etos
 #define METRIC_MASK 0x00FFFFFF
 struct ospf_lsa_sum_tos 
 {
-#ifdef _BIG_ENDIAN
+#ifdef CPU_BIG_ENDIAN
   u8 tos;
   u8 padding1;
   u16 padding2;
