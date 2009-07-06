@@ -250,6 +250,7 @@ resource_init(void)
 struct mblock {
   resource r;
   unsigned size;
+  uintptr_t data_align[0];
   byte data[0];
 };
 
