@@ -927,7 +927,10 @@ bgp_reconfigure(struct proto *P, struct proto_config *C)
 
   int same = !memcmp(((byte *) old) + sizeof(struct proto_config),
 		     ((byte *) new) + sizeof(struct proto_config),
-		     sizeof(struct bgp_config) - sizeof(struct proto_config));
+		     // password item is last and must be checked separately
+		     OFFSETOF(struct bgp_config, password) - sizeof(struct proto_config))
+    && ((!old->password && !new->password)
+	|| (old->password && new->password && !strcmp(old->password, new->password)));
 
   /* We should update our copy of configuration ptr as old configuration will be freed */
   if (same)
