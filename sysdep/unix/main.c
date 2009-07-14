@@ -178,22 +178,44 @@ cmd_reconfig(char *name, int type)
 static sock *cli_sk;
 static char *path_control_socket = PATH_CONTROL_SOCKET;
 
-int
+
+static void
 cli_write(cli *c)
 {
   sock *s = c->priv;
 
-  if (c->tx_pos)
+  while (c->tx_pos)
     {
       struct cli_out *o = c->tx_pos;
+
+      int len = o->wpos - o->outpos;
       s->tbuf = o->outpos;
-      if (sk_send(s, o->wpos - o->outpos) > 0)
-	{
-	  c->tx_pos = o->next;
-	  ev_schedule(c->event);
-	}
+      o->outpos = o->wpos;
+
+      if (sk_send(s, len) <= 0)
+	return;
+
+      c->tx_pos = o->next;
     }
-  return !c->tx_pos;
+
+  /* Everything is written */
+  s->tbuf = NULL;
+  cli_written(c);
+}
+
+void
+cli_write_trigger(cli *c)
+{
+  sock *s = c->priv;
+
+  if (s->tbuf == NULL)
+    cli_write(c);
+}
+
+static void
+cli_tx(sock *s)
+{
+  cli_write(s->data);
 }
 
 int
@@ -230,15 +252,6 @@ cli_rx(sock *s, int size UNUSED)
 {
   cli_kick(s->data);
   return 0;
-}
-
-static void
-cli_tx(sock *s)
-{
-  cli *c = s->data;
-
-  if (cli_write(c))
-    cli_written(c);
 }
 
 static void
