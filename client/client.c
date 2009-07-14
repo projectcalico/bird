@@ -17,6 +17,7 @@
 #include <sys/types.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <curses.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
@@ -29,13 +30,19 @@ static int verbose;
 
 static char *server_path = PATH_CONTROL_SOCKET;
 static int server_fd;
-static int server_reply;
 static byte server_read_buf[4096];
 static byte *server_read_pos = server_read_buf;
 
+#define STATE_PROMPT		0
+#define STATE_CMD_SERVER	1
+#define STATE_CMD_USER		2
+
 static int input_initialized;
-static int input_hidden;
 static int input_hidden_end;
+static int cstate = STATE_CMD_SERVER;
+static int nstate = STATE_CMD_SERVER;
+
+static int num_lines, skip_input, interactive;
 
 /*** Parsing of arguments ***/
 
@@ -70,7 +77,6 @@ parse_args(int argc, char **argv)
 /*** Input ***/
 
 static void server_send(char *);
-static void select_loop(int);
 
 /* HACK: libreadline internals we need to access */
 extern int _rl_vis_botlin;
@@ -93,6 +99,15 @@ handle_internal_command(char *cmd)
   return 0;
 }
 
+void
+submit_server_command(char *cmd)
+{
+  server_send(cmd);
+  nstate = STATE_CMD_SERVER;
+  num_lines = 2;
+}
+
+
 static void
 got_line(char *cmd_buffer)
 {
@@ -109,13 +124,10 @@ got_line(char *cmd_buffer)
       if (cmd)
 	{
 	  add_history(cmd);
+
 	  if (!handle_internal_command(cmd))
-	    {
-	      server_send(cmd);
-	      input_hidden = -1;
-	      select_loop(0);
-	      input_hidden = 0;
-	    }
+	    submit_server_command(cmd);
+
 	  free(cmd);
 	}
       else
@@ -219,27 +231,23 @@ input_init(void)
 static void
 input_hide(void)
 {
-  if (input_hidden)
-    return;
-  if (rl_line_buffer)
-    {
-      input_hidden_end = rl_end;
-      rl_end = 0;
-      rl_expand_prompt("");
-      rl_redisplay();
-      input_hidden = 1;
-    }
+  input_hidden_end = rl_end;
+  rl_end = 0;
+  rl_expand_prompt("");
+  rl_redisplay();
 }
 
 static void
 input_reveal(void)
 {
-  if (input_hidden <= 0)
-    return;
+  /* need this, otherwise some lib seems to eat pending output when
+     the prompt is displayed */
+  fflush(stdout);
+  tcdrain(fileno(stdout));
+
   rl_end = input_hidden_end;
   rl_expand_prompt("bird> ");
   rl_forced_update_display();
-  input_hidden = 0;
 }
 
 void
@@ -252,6 +260,51 @@ cleanup(void)
       rl_callback_handler_remove();
     }
 }
+
+void
+update_state(void)
+{
+  if (nstate == cstate)
+    return;
+
+  if (nstate == STATE_PROMPT)
+    if (input_initialized)
+      input_reveal();
+    else
+      input_init();
+
+  if (nstate != STATE_PROMPT)
+    input_hide();
+
+  cstate = nstate;
+}
+
+void
+more(void)
+{
+  printf("--More--\015");
+  fflush(stdout);
+
+ redo:
+  switch (getchar())
+    {
+    case 32:
+      num_lines = 2;
+      break;
+    case 13:
+      num_lines--;
+      break;
+    case 'q':
+      skip_input = 1;
+      break;
+    default:
+      goto redo;
+    }
+
+  printf("        \015");
+  fflush(stdout);
+}
+
 
 /*** Communication with server ***/
 
@@ -281,26 +334,32 @@ server_got_reply(char *x)
 {
   int code;
 
-  input_hide();
   if (*x == '+')			/* Async reply */
-    printf(">>> %s\n", x+1);
+    skip_input || printf(">>> %s\n", x+1);
   else if (x[0] == ' ')			/* Continuation */
-    printf("%s%s\n", verbose ? "     " : "", x+1);
+    skip_input || printf("%s%s\n", verbose ? "     " : "", x+1);
   else if (strlen(x) > 4 &&
 	   sscanf(x, "%d", &code) == 1 && code >= 0 && code < 10000 &&
 	   (x[4] == ' ' || x[4] == '-'))
     {
       if (code)
-	printf("%s\n", verbose ? x : x+5);
+	skip_input || printf("%s\n", verbose ? x : x+5);
       if (x[4] == ' ')
-	server_reply = code;
+      {
+	nstate = STATE_PROMPT;
+	skip_input = 0;
+	return;
+      }
     }
   else
-    printf("??? <%s>\n", x);
-  /* need this, otherwise some lib seems to eat pending output when
-     the prompt is displayed */
-  fflush(stdout);
-  tcdrain(fileno(stdout));
+    skip_input || printf("??? <%s>\n", x);
+
+  if (skip_input)
+    return;
+
+  num_lines++;
+  if (interactive && input_initialized && (num_lines >= LINES) && (cstate == STATE_CMD_SERVER))
+    more();
 }
 
 static void
@@ -347,15 +406,16 @@ server_read(void)
 static fd_set select_fds;
 
 static void
-select_loop(int mode)
+select_loop(void)
 {
   int rv;
-  server_reply = -1;
-  while (mode || server_reply < 0)
+  while (1)
     {
       FD_ZERO(&select_fds);
-      FD_SET(server_fd, &select_fds);
-      if (mode)
+
+      if (cstate != STATE_CMD_USER)
+	FD_SET(server_fd, &select_fds);
+      if (cstate != STATE_CMD_SERVER)
 	FD_SET(0, &select_fds);
 
       rv = select(server_fd+1, &select_fds, NULL, NULL, NULL);
@@ -370,13 +430,15 @@ select_loop(int mode)
       if (FD_ISSET(server_fd, &select_fds))
 	{
 	  server_read();
-	  if (mode)
-	    input_reveal();
+	  update_state();
 	}
+
       if (FD_ISSET(0, &select_fds))
-	rl_callback_read_char();
+	{
+	  rl_callback_read_char();
+	  update_state();
+	}
     }
-  input_reveal();
 }
 
 static void
@@ -440,13 +502,10 @@ main(int argc, char **argv)
     dmalloc_debug(0x2f03d00);
 #endif
 
+  interactive = isatty(0);
   parse_args(argc, argv);
   cmd_build_tree();
   server_connect();
-  select_loop(0);
-
-  input_init();
-
-  select_loop(1);
+  select_loop();
   return 0;
 }
