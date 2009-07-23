@@ -419,11 +419,7 @@ ea_format(eattr *e, byte *buf)
 	  bsprintf(buf, "%I", *(ip_addr *) ad->data);
 	  break;
 	case EAF_TYPE_ROUTER_ID:
-	  bsprintf(buf, "%d.%d.%d.%d",
-		   (e->u.data >> 24) & 0xff,
-		   (e->u.data >> 16) & 0xff,
-		   (e->u.data >> 8) & 0xff,
-		   e->u.data & 0xff);
+	  bsprintf(buf, "%R", e->u.data);
 	  break;
 	case EAF_TYPE_AS_PATH:
 	  as_path_format(ad, buf, end - buf);

@@ -34,9 +34,7 @@ int_set_format(struct adata *set, int way, byte *buf, unsigned int size)
       if (way)
 	buf += bsprintf(buf, "(%d,%d)", *z >> 16, *z & 0xffff);
       else
-	buf += bsprintf(buf, "%d.%d.%d.%d",
-			(*z >> 24) & 0xff, (*z >> 16) & 0xff,
-			(*z >> 8) & 0xff, *z & 0xff);
+	buf += bsprintf(buf, "%R", *z);
 
       z++;
       sp = 0;
