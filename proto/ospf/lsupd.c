@@ -14,15 +14,14 @@ void ospf_dump_lsahdr(struct proto *p, struct ospf_lsa_header *lsa_n)
   struct ospf_lsa_header lsa;
   ntohlsah(lsa_n, &lsa);
 
-  log(L_TRACE "%s:     LSA      Id: %I, Rt: %I, Type: %u, Age: %u, Seqno: 0x%08x, Sum: %u",
-      p->name, ipa_from_u32(lsa.id), ipa_from_u32(lsa.rt), lsa.type,
-      lsa.age, lsa.sn, lsa.checksum);
+  log(L_TRACE "%s:     LSA      Id: %R, Rt: %R, Type: %u, Age: %u, Seqno: 0x%08x, Sum: %u",
+      p->name, lsa.id, lsa.rt, lsa.type, lsa.age, lsa.sn, lsa.checksum);
 }
 
 void ospf_dump_common(struct proto *p, struct ospf_packet *op)
 {
   log(L_TRACE "%s:     length   %d", p->name, ntohs(op->length));
-  log(L_TRACE "%s:     router   %I", p->name, ipa_from_u32(ntohl(op->routerid)));
+  log(L_TRACE "%s:     router   %R", p->name, ntohl(op->routerid));
 }
 
 static void ospf_dump_lsupd(struct proto *p, struct ospf_lsupd_packet *pkt)
@@ -95,8 +94,8 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
         continue;
     }
 
-    DBG("Wanted to flood LSA: Type: %u, ID: %I, RT: %I, SN: 0x%x, Age %u\n",
-	hh->type, ipa_from_u32(hh->id), ipa_from_u32(hh->rt), hh->sn, hh->age);
+    DBG("Wanted to flood LSA: Type: %u, ID: %R, RT: %R, SN: 0x%x, Age %u\n",
+	hh->type, hh->id, hh->rt, hh->sn, hh->age);
 
     ret = 0;
     WALK_LIST(nn, ifa->neigh_list)
@@ -107,7 +106,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
       {
 	if ((en = ospf_hash_find_header(nn->lsrqh, nn->ifa->oa->areaid, hh)) != NULL)
 	{
-	  DBG("That LSA found in lsreq list for neigh %I\n", ipa_from_u32(nn->rid));
+	  DBG("That LSA found in lsreq list for neigh %R\n", nn->rid);
 
 	  switch (lsa_comp(hh, &en->lsa))
 	  {
@@ -119,7 +118,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	    if (en->lsa_body != NULL)
 	      mb_free(en->lsa_body);
 	    en->lsa_body = NULL;
-	    DBG("Removing from lsreq list for neigh %I\n", ipa_from_u32(nn->rid));
+	    DBG("Removing from lsreq list for neigh %R\n", nn->rid);
 	    ospf_hash_delete(nn->lsrqh, en);
 	    if (EMPTY_SLIST(nn->lsrql))
 	      ospf_neigh_sm(nn, INM_LOADDONE);
@@ -130,7 +129,7 @@ ospf_lsupd_flood(struct ospf_neighbor *n, struct ospf_lsa_header *hn,
 	    if (en->lsa_body != NULL)
 	      mb_free(en->lsa_body);
 	    en->lsa_body = NULL;
-	    DBG("Removing from lsreq list for neigh %I\n", ipa_from_u32(nn->rid));
+	    DBG("Removing from lsreq list for neigh %R\n", nn->rid);
 	    ospf_hash_delete(nn->lsrqh, en);
 	    if (EMPTY_SLIST(nn->lsrql))
 	      ospf_neigh_sm(nn, INM_LOADDONE);
@@ -294,9 +293,8 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
       continue;			/* Probably flushed LSA */
     /* FIXME This is a bug! I cannot flush LSA that is in lsrt */
 
-    DBG("Sending LSA: Type=%u, ID=%I, RT=%I, SN: 0x%x, Age: %u\n",
-	llsh->lsh.type, ipa_from_u32(llsh->lsh.id), ipa_from_u32(llsh->lsh.rt),
-	en->lsa.sn, en->lsa.age);
+    DBG("Sending LSA: Type=%u, ID=%R, RT=%R, SN: 0x%x, Age: %u\n",
+	llsh->lsh.type, llsh->lsh.id, llsh->lsh.rt, en->lsa.sn, en->lsa.age);
     if (((u32) (len + en->lsa.length)) > ospf_pkt_maxsize(n->ifa))
     {
       pk->lsano = htonl(lsano);
@@ -347,9 +345,7 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 
   if (n->state < NEIGHBOR_EXCHANGE)
   {
-    OSPF_TRACE(D_PACKETS,
-	       "Received lsupd in lesser state than EXCHANGE from (%I)",
-	       n->ip);
+    OSPF_TRACE(D_PACKETS, "Received lsupd in lesser state than EXCHANGE from (%I)", n->ip);
     return;
   }
 
@@ -414,16 +410,15 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 
     ntohlsah(lsa, &lsatmp);
 
-    DBG("Update Type: %u ID: %I RT: %I, Sn: 0x%08x Age: %u, Sum: %u\n",
-	lsatmp.type, ipa_from_u32(lsatmp.id), ipa_from_u32(lsatmp.rt),
-	lsatmp.sn, lsatmp.age, lsatmp.checksum);
+    DBG("Update Type: %u ID: %R RT: %R, Sn: 0x%08x Age: %u, Sum: %u\n",
+	lsatmp.type, lsatmp.id, lsatmp.rt, lsatmp.sn, lsatmp.age, lsatmp.checksum);
 
     lsadb = ospf_hash_find_header(po->gr, oa->areaid, &lsatmp);
 
 #ifdef LOCAL_DEBUG
     if (lsadb)
-      DBG("I have Type: %u ID: %I RT: %I, Sn: 0x%08x Age: %u, Sum: %u\n",
-	  lsadb->lsa.type, ipa_from_u32(lsadb->lsa.id), ipa_from_u32(lsadb->lsa.rt),
+      DBG("I have Type: %u ID: %R RT: %R, Sn: 0x%08x Age: %u, Sum: %u\n",
+	  lsadb->lsa.type, lsadb->lsa.id, lsadb->lsa.rt,
 	  lsadb->lsa.sn, lsadb->lsa.age, lsadb->lsa.checksum);
 #endif
 
@@ -474,8 +469,8 @@ ospf_lsupd_receive(struct ospf_lsupd_packet *ps,
 	lsa->age = htons(LSA_MAXAGE);
 	lsa->sn = htonl(LSA_MAXSEQNO);
 	OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa.");
-	OSPF_TRACE(D_EVENTS, "Type: %d, Id: %I, Rt: %I", lsatmp.type,
-		   ipa_from_u32(lsatmp.id), ipa_from_u32(lsatmp.rt));
+	OSPF_TRACE(D_EVENTS, "Type: %d, Id: %R, Rt: %R",
+		   lsatmp.type, lsatmp.id, lsatmp.rt);
 	lsasum_check(lsa, (lsa + 1));	/* It also calculates chsum! */
 	lsatmp.checksum = ntohs(lsa->checksum);
 	ospf_lsupd_flood(NULL, lsa, &lsatmp, NULL, oa, 0);
@@ -611,7 +606,6 @@ ospf_lsupd_flush_nlsa(struct top_hash_entry *en, struct ospf_area *oa)
   lsa->sn = LSA_MAXSEQNO;
   lsasum_calculate(lsa, en->lsa_body);
   OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa!");
-  OSPF_TRACE(D_EVENTS, "Type: %d, Id: %I, Rt: %I", lsa->type,
-	     ipa_from_u32(lsa->id), ipa_from_u32(lsa->rt));
+  OSPF_TRACE(D_EVENTS, "Type: %d, Id: %R, Rt: %R", lsa->type, lsa->id, lsa->rt);
   ospf_lsupd_flood(NULL, NULL, lsa, NULL, oa, 0);
 }

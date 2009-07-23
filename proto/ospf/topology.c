@@ -82,8 +82,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 * length)
   struct ospf_lsa_rt_link *ln;
   struct ospf_neighbor *neigh;
 
-  DBG("%s: Originating RT_lsa body for area \"%I\".\n", po->proto.name,
-      ipa_from_u32(oa->areaid));
+  DBG("%s: Originating RT_lsa body for area %R.\n", po->proto.name,
+      oa->areaid);
     
   ASSERT(po->lsab_used == 0);
   rt = lsab_allocz(po, sizeof(struct ospf_lsa_rt));
@@ -244,7 +244,7 @@ originate_rt_lsa(struct ospf_area *oa)
    * try to do it next tick.
    */
 
-  OSPF_TRACE(D_EVENTS, "Originating RT_lsa for area \"%I\".", ipa_from_u32(oa->areaid));
+  OSPF_TRACE(D_EVENTS, "Originating RT_lsa for area %R.", oa->areaid);
 
   lsa.age = 0;
   lsa.id = rtid;
@@ -464,8 +464,8 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
         en->lsa.age = LSA_MAXAGE;
         en->lsa.sn = LSA_MAXSEQNO;
         lsasum_calculate(&en->lsa, sum);
-        OSPF_TRACE(D_EVENTS, "Flushing summary lsa. (id=%I, type=%d)",
-		   ipa_from_u32(en->lsa.id), en->lsa.type);
+        OSPF_TRACE(D_EVENTS, "Flushing summary lsa. (id=%R, type=%d)",
+		   en->lsa.id, en->lsa.type);
         ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, oa, 1);
         if (can_flush_lsa(po)) flush_lsa(en, po);
         break;
@@ -914,9 +914,9 @@ ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
   u32 *rts = NULL;
   u32 i, max;
 
-  OSPF_TRACE(D_EVENTS, "- %1x %-1I %-1I %4u 0x%08x 0x%04x %-1I",
-	he->lsa.type, ipa_from_u32(he->lsa.id), ipa_from_u32(he->lsa.rt),
-	he->lsa.age, he->lsa.sn, he->lsa.checksum, he->oa ? he->oa->areaid : 0 );
+  OSPF_TRACE(D_EVENTS, "- %1x %-1R %-1R %4u 0x%08x 0x%04x %-1R",
+	     he->lsa.type, he->lsa.id, he->lsa.rt, he->lsa.age, he->lsa.sn,
+	     he->lsa.checksum, he->oa ? he->oa->areaid : 0 );
 
   switch (he->lsa.type)
     {
@@ -925,7 +925,8 @@ ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
       rr = (struct ospf_lsa_rt_link *) (rt + 1);
 
       for (i = 0; i < rt->links; i++)
-        OSPF_TRACE(D_EVENTS, "  - %1x %-1I %-1I %5u", rr[i].type, ipa_from_u32(rr[i].id), ipa_from_u32(rr[i].data), rr[i].metric);
+        OSPF_TRACE(D_EVENTS, "  - %1x %-1R %-1R %5u",
+		   rr[i].type, rr[i].id, rr[i].data, rr[i].metric);
       break;
 
     case LSA_T_NET:
@@ -935,7 +936,7 @@ ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
 		sizeof(struct ospf_lsa_net)) / sizeof(u32);
 
       for (i = 0; i < max; i++)
-        OSPF_TRACE(D_EVENTS, "  - %-1I", ipa_from_u32(rts[i]));
+        OSPF_TRACE(D_EVENTS, "  - %-1R", rts[i]);
       break;
 
     default:

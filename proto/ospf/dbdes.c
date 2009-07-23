@@ -115,8 +115,7 @@ ospf_dbdes_send(struct ospf_neighbor *n, int next)
           {
 	    htonlsah(&(en->lsa), lsa);
 	    DBG("Working on: %d\n", i);
-	    DBG("\tX%01x %-1I %-1I %p\n", en->lsa.type, ipa_from_u32(en->lsa.id),
-	        ipa_from_u32(en->lsa.rt), en->lsa_body);
+	    DBG("\tX%01x %-1R %-1R %p\n", en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa_body);
 
 	    lsa++;
           }

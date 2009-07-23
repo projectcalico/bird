@@ -42,8 +42,8 @@ ospf_lsack_enqueue(struct ospf_neighbor *n, struct ospf_lsa_header *h,
   struct lsah_n *no = mb_alloc(n->pool, sizeof(struct lsah_n));
   memcpy(&no->lsa, h, sizeof(struct ospf_lsa_header));
   add_tail(&n->ackl[queue], NODE no);
-  DBG("Adding (%s) ack for %I, ID: %I, RT: %I, Type: %u\n", s_queue[queue],
-      ipa_from_u32(n->rid), ipa_from_u32(ntohl(h->id)), ipa_from_u32(ntohl(h->rt)), h->type);
+  DBG("Adding (%s) ack for %R, ID: %R, RT: %R, Type: %u\n", s_queue[queue],
+      n->rid, ntohl(h->id), ntohl(h->rt), h->type);
 }
 
 void
@@ -77,8 +77,8 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
     no = (struct lsah_n *) HEAD(n->ackl[queue]);
     memcpy(h + i, &no->lsa, sizeof(struct ospf_lsa_header));
     i++;
-    DBG("Iter %u ID: %I, RT: %I, Type: %u\n", i, ipa_from_u32(ntohl((h + i)->id)),
-	ipa_from_u32(ntohl((h + i)->rt)), (h + i)->type);
+    DBG("Iter %u ID: %R, RT: %R, Type: %u\n", i, ntohl((h + i)->id),
+	ntohl((h + i)->rt), (h + i)->type);
     rem_node(NODE no);
     mb_free(no);
     if ((i * sizeof(struct ospf_lsa_header) +
@@ -181,8 +181,8 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
 	continue;
 
       OSPF_TRACE(D_PACKETS, "Strange LS acknoledgement from %I", n->ip);
-      OSPF_TRACE(D_PACKETS, "Id: %I, Rt: %I, Type: %u",
-		 ipa_from_u32(lsa.id), ipa_from_u32(lsa.rt), lsa.type);
+      OSPF_TRACE(D_PACKETS, "Id: %R, Rt: %R, Type: %u",
+		 lsa.id, lsa.rt, lsa.type);
       OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seqno: 0x%08x, Sum: %u",
 		 en->lsa.age, en->lsa.sn, en->lsa.checksum);
       OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seqno: 0x%08x, Sum: %u",
@@ -190,8 +190,8 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
       continue;
     }
 
-    DBG("Deleting LS Id: %I RT: %I Type: %u from LS Retl for neighbor %I\n",
-	ipa_from_u32(lsa.id), ipa_from_u32(lsa.rt), lsa.type, ipa_from_u32(n->rid));
+    DBG("Deleting LS Id: %R RT: %R Type: %u from LS Retl for neighbor %R\n",
+	lsa.id, lsa.rt, lsa.type, n->rid);
     s_rem_node(SNODE en);
     if (en->lsa_body != NULL)
       mb_free(en->lsa_body);

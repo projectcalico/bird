@@ -209,11 +209,11 @@ ospf_dump(struct proto *p)
   {
     OSPF_TRACE(D_EVENTS, "Interface: %s", (ifa->iface ? ifa->iface->name : "(null)"));
     OSPF_TRACE(D_EVENTS, "state: %u", ifa->state);
-    OSPF_TRACE(D_EVENTS, "DR:  %I", ipa_from_u32(ifa->drid));
-    OSPF_TRACE(D_EVENTS, "BDR: %I", ipa_from_u32(ifa->bdrid));
+    OSPF_TRACE(D_EVENTS, "DR:  %R", ifa->drid);
+    OSPF_TRACE(D_EVENTS, "BDR: %R", ifa->bdrid);
     WALK_LIST(n, ifa->neigh_list)
     {
-      OSPF_TRACE(D_EVENTS, "  neighbor %I in state %u", ipa_from_u32(n->rid), n->state);
+      OSPF_TRACE(D_EVENTS, "  neighbor %R in state %u", n->rid, n->state);
     }
   }
 
@@ -309,8 +309,7 @@ schedule_rt_lsa(struct ospf_area *oa)
 {
   struct proto *p = &oa->po->proto;
 
-  OSPF_TRACE(D_EVENTS, "Scheduling RT lsa origination for area %I.",
-	     ipa_from_u32(oa->areaid));
+  OSPF_TRACE(D_EVENTS, "Scheduling RT lsa origination for area %R.", oa->areaid);
   oa->origrt = 1;
 }
 
@@ -953,7 +952,7 @@ ospf_sh(struct proto *p)
 
   WALK_LIST(oa, po->area_list)
   {
-    cli_msg(-1014, "\tArea: %I (%u) %s", ipa_from_u32(oa->areaid), oa->areaid,
+    cli_msg(-1014, "\tArea: %R (%u) %s", oa->areaid, oa->areaid,
 	    oa->areaid == 0 ? "[BACKBONE]" : "");
     ifano = 0;
     nno = 0;
@@ -1088,7 +1087,7 @@ show_lsa_router(struct top_hash_entry *he)
 
   for (i = 0; i < rt->links; i++)
     if (rr[i].type == LSART_PTP)
-      cli_msg(-1016, "\t\trouter %I metric %u ", ipa_from_u32(rr[i].id), rr[i].metric);
+      cli_msg(-1016, "\t\trouter %R metric %u ", rr[i].id, rr[i].metric);
 
   for (i = 0; i < rt->links; i++)
     if (rr[i].type == LSART_NET)
@@ -1125,10 +1124,10 @@ show_lsa_network(struct top_hash_entry *he)
 
   cli_msg(-1016, "");
   cli_msg(-1016, "\tnetwork %I/%d", ipa_and(ipa_from_u32(lsa->id), ln->netmask), ipa_mklen(ln->netmask));
-  cli_msg(-1016, "\t\tdr %I", ipa_from_u32(lsa->rt));
+  cli_msg(-1016, "\t\tdr %R", lsa->rt);
 
   for (i = 0; i < max; i++)
-    cli_msg(-1016, "\t\trouter %I", ipa_from_u32(rts[i]));
+    cli_msg(-1016, "\t\trouter %R", rts[i]);
 }
 
 static inline void
@@ -1143,7 +1142,7 @@ show_lsa_sum_net(struct top_hash_entry *he)
 static inline void
 show_lsa_sum_rt(struct top_hash_entry *he)
 {
-  cli_msg(-1016, "\t\txrouter %I", ipa_from_u32(he->lsa.id));
+  cli_msg(-1016, "\t\txrouter %R", he->lsa.id);
 }
 
 
@@ -1207,7 +1206,7 @@ ospf_sh_state(struct proto *p, int verbose)
     if (last_area != hea[i]->oa->areaid)
     {
       cli_msg(-1016, "");
-      cli_msg(-1016, "area %I", ipa_from_u32(hea[i]->oa->areaid));
+      cli_msg(-1016, "area %R", hea[i]->oa->areaid);
       last_area = hea[i]->oa->areaid;
       last_rt = 0xFFFFFFFF;
     }
@@ -1215,7 +1214,7 @@ ospf_sh_state(struct proto *p, int verbose)
     if ((hea[i]->lsa.rt != last_rt) && (hea[i]->lsa.type != LSA_T_NET))
     {
       cli_msg(-1016, "");
-      cli_msg(-1016, (hea[i]->lsa.type != LSA_T_EXT) ? "\trouter %I" : "\txrouter %I", ipa_from_u32(hea[i]->lsa.rt));
+      cli_msg(-1016, (hea[i]->lsa.type != LSA_T_EXT) ? "\trouter %R" : "\txrouter %R", hea[i]->lsa.rt);
       last_rt = hea[i]->lsa.rt;
     }
 
