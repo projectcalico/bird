@@ -11,7 +11,7 @@ BISON_DEBUG=-t
 #FLEX_DEBUG=-d
 endif
 
-cf-parse.tab.c cf-parse-tab.h: cf-parse.y
+cf-parse.tab.c cf-parse.tab.h: cf-parse.y
 	$(BISON) -bcf-parse -dv -pcf_ $(BISON_DEBUG) cf-parse.y
 
 cf-parse.y: $(conf-fragments) $(conf-src)/gen_parser.m4
@@ -23,7 +23,7 @@ keywords.h: $(conf-fragments) $(conf-src)/gen_keywords.m4
 commands.h: $(conf-fragments) $(conf-src)/gen_commands.m4 $(srcdir)/client/cmds.m4
 	$(M4) -P $(conf-src)/gen_commands.m4 $(srcdir)/client/cmds.m4 $(conf-fragments) | sort >commands.h
 
-cf-lex.c: cf-lex.l cf-parse-tab.h
+cf-lex.c: cf-lex.l cf-parse.tab.h
 	$(FLEX) $(FLEX_DEBUG) -s -B -8 -ocf-lex.c -Pcf_ cf-lex.l
 
 depend: keywords.h commands.h cf-parse.tab.c cf-lex.c
