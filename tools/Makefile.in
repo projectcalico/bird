@@ -11,17 +11,25 @@ daemon: $(exedir)/bird
 
 client: $(exedir)/birdc
 
-subdir depend: .dir-stamp
+bird-dep := $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
+
+$(bird-dep): sysdep/paths.h .dep-stamp subdir
+
+birdc-dep := client/all.o lib/birdlib.a
+
+$(birdc-dep): sysdep/paths.h .dep-stamp subdir
+
+subdir depend: sysdep/paths.h .dir-stamp
 	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a $@ ; done
 	set -e ; for a in $(static-dirs) $(client-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
 
-$(exedir)/bird: $(addsuffix /all.o, $(static-dirs)) conf/all.o lib/birdlib.a
+$(exedir)/bird: $(bird-dep)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(exedir)/birdc: client/all.o lib/birdlib.a
+$(exedir)/birdc: $(birdc-dep)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS) $(CLIENT_LIBS)
 
-.dir-stamp:
+.dir-stamp: sysdep/paths.h
 	mkdir -p $(static-dirs) $(client-dirs) $(doc-dirs)
 	touch .dir-stamp
 
