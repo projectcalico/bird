@@ -68,6 +68,7 @@ install-docs:
 
 clean:
 	find . -name "*.[oa]" -o -name core -o -name depend -o -name "*.html" | xargs rm -f
+	rm -f conf/cf-lex.c conf/cf-parse.* conf/commands.h conf/keywords.h
 	rm -f $(exedir)/bird $(exedir)/birdc $(exedir)/bird.ctl $(exedir)/bird6.ctl .dep-stamp
 
 distclean: clean
