@@ -515,7 +515,9 @@ static void
 proto_fell_down(struct proto *p)
 {
   DBG("Protocol %s down\n", p->name);
-  ASSERT(p->stats.imp_routes == 0);
+
+  if (p->stats.imp_routes != 0)
+    log(L_ERR "Protocol %s is down but still has %d routes", p->name, p->stats.imp_routes);
 
   bzero(&p->stats, sizeof(struct proto_stats));
   rt_unlock_table(p->table);
