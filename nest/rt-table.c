@@ -464,8 +464,8 @@ rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte
 	}
       if (new)				/* Link in the new non-optimal route */
 	{
-	  new->next = old_best->next;
-	  old_best->next = new;
+	  new->next = net->routes->next;
+	  net->routes->next = new;
 	  rte_trace_in(D_ROUTES, p, new, "added");
 	}
       else if (old && (p->debug & D_ROUTES))
