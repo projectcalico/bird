@@ -333,17 +333,18 @@ static void
 server_got_reply(char *x)
 {
   int code;
+  int len = 0;
 
   if (*x == '+')			/* Async reply */
-    skip_input || printf(">>> %s\n", x+1);
+    skip_input || (len = printf(">>> %s\n", x+1));
   else if (x[0] == ' ')			/* Continuation */
-    skip_input || printf("%s%s\n", verbose ? "     " : "", x+1);
+    skip_input || (len = printf("%s%s\n", verbose ? "     " : "", x+1));
   else if (strlen(x) > 4 &&
 	   sscanf(x, "%d", &code) == 1 && code >= 0 && code < 10000 &&
 	   (x[4] == ' ' || x[4] == '-'))
     {
       if (code)
-	skip_input || printf("%s\n", verbose ? x : x+5);
+	skip_input || (len = printf("%s\n", verbose ? x : x+5));
       if (x[4] == ' ')
       {
 	nstate = STATE_PROMPT;
@@ -352,14 +353,19 @@ server_got_reply(char *x)
       }
     }
   else
-    skip_input || printf("??? <%s>\n", x);
+    skip_input || (len = printf("??? <%s>\n", x));
 
   if (skip_input)
     return;
 
-  num_lines++;
-  if (interactive && input_initialized && (num_lines >= LINES) && (cstate == STATE_CMD_SERVER))
-    more();
+  if (interactive && input_initialized && (len > 0))
+    {
+      int lns = LINES ? LINES : 25;
+      int cls = COLS ? COLS : 80;
+      num_lines += (len + cls - 1) / cls; /* Divide and round up */
+      if ((num_lines >= lns)  && (cstate == STATE_CMD_SERVER))
+	more();
+    }
 }
 
 static void
