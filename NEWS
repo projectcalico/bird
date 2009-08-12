@@ -1,3 +1,9 @@
+Version 1.1.1 (2009-08-14)
+  o 'more' style paging in BIRD client.
+  o Important core bug fixed.
+  o Portability to non-x86 related bugfixes.
+  o As usual, miscellaneous bugfixes.
+
 Version 1.1.0 (2009-06-28)
   o Parametrized pair and path mask expressions in the filter language.
   o Transparent pipe mode allows to implement BGP route server with
