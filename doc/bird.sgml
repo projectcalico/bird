@@ -23,7 +23,8 @@ configuration primitives, <cf> is fragment of configuration within normal text, 
 <author>
 Ondrej Filip <it/&lt;feela@network.cz&gt;/,
 Pavel Machek <it/&lt;pavel@ucw.cz&gt;/,
-Martin Mares <it/&lt;mj@ucw.cz&gt;/
+Martin Mares <it/&lt;mj@ucw.cz&gt;/,
+Ondrej Zajicek <it/&lt;santiago@crfreenet.org&gt;/
 </author>
 
 <abstract>
