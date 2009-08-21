@@ -24,21 +24,37 @@ ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
 
   pkt->routerid = htonl(p->cf->global->router_id);
   pkt->areaid = htonl(ifa->oa->areaid);
+
+#ifdef OSPFv3
+  pkt->instance_id = ifa->instance_id;
+#endif
+
+#ifdef OSPFv2
   pkt->autype = htons(ifa->autype);
+#endif
+
   pkt->checksum = 0;
 }
 
 unsigned
 ospf_pkt_maxsize(struct ospf_iface *ifa)
 {
+  /* For virtual links use mtu=576, can be mtu < 576? */
   unsigned mtu = (ifa->type == OSPF_IT_VLINK) ? OSPF_VLINK_MTU : ifa->iface->mtu;
-  /* Can be mtu < 576? */
+  unsigned add = 0;
+
+#ifdef OSPFv2
+  add = ((ifa->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0);
+#endif
+
   return ((mtu <=  ifa->iface->mtu) ? mtu : ifa->iface->mtu) -
-  SIZE_OF_IP_HEADER - ((ifa->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0);
-  /* For virtual links use mtu=576 */
+  SIZE_OF_IP_HEADER - add;
 }
 
-void
+
+#ifdef OSPFv2
+
+static void
 ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 {
   struct password_item *passwd = NULL;
@@ -224,6 +240,20 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
   }
 }
 
+#else
+
+/* OSPFv3 authentication not yet supported */
+
+static inline void
+ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
+{ }
+
+static int
+ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_packet *pkt, int size)
+{ return 1; }
+
+#endif
+
 /**
  * ospf_rx_hook
  * @sk: socket we received the packet. Its ignored.
@@ -290,6 +320,8 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
+  /* FIXME - handle checksums in OSPFv3  */ 
+#ifdef OSPFv2
   if ((ps->autype != htons(OSPF_AUTH_CRYPT)) &&
       (!ipsum_verify(ps, 16, (void *) ps + sizeof(struct ospf_packet),
 		    ntohs(ps->length) - sizeof(struct ospf_packet), NULL)))
@@ -297,12 +329,22 @@ ospf_rx_hook(sock * sk, int size)
     log(L_ERR "%s%I - bad checksum", mesg, sk->faddr);
     return 1;
   }
+#endif
 
   if (ntohl(ps->areaid) != ifa->oa->areaid)
   {
-    log(L_ERR "%s%I - different area %ld", mesg, sk->faddr, ntohl(ps->areaid));
+    log(L_ERR "%s%I - different area (%u)", mesg, sk->faddr, ntohl(ps->areaid));
     return 1;
   }
+
+  /* FIXME - handling of instance id should be better */
+#ifdef OSPFv3
+  if (ps->instance_id != ifa->instance_id)
+  {
+    log(L_ERR "%s%I - different instance (%u)", mesg, sk->faddr, ps->instance_id);
+    return 1;
+  }
+#endif
 
   if (ntohl(ps->routerid) == p->cf->global->router_id)
   {
@@ -352,23 +394,23 @@ ospf_rx_hook(sock * sk, int size)
   {
   case HELLO_P:
     DBG("%s: Hello received.\n", p->name);
-    ospf_hello_receive((struct ospf_hello_packet *) ps, ifa, n, sk->faddr);
+    ospf_hello_receive(ps, ifa, n, sk->faddr);
     break;
   case DBDES_P:
     DBG("%s: Database description received.\n", p->name);
-    ospf_dbdes_receive((struct ospf_dbdes_packet *) ps, ifa, n);
+    ospf_dbdes_receive(ps, ifa, n);
     break;
   case LSREQ_P:
     DBG("%s: Link state request received.\n", p->name);
-    ospf_lsreq_receive((struct ospf_lsreq_packet *) ps, ifa, n);
+    ospf_lsreq_receive(ps, ifa, n);
     break;
   case LSUPD_P:
     DBG("%s: Link state update received.\n", p->name);
-    ospf_lsupd_receive((struct ospf_lsupd_packet *) ps, ifa, n);
+    ospf_lsupd_receive(ps, ifa, n);
     break;
   case LSACK_P:
     DBG("%s: Link state ack received.\n", p->name);
-    ospf_lsack_receive((struct ospf_lsack_packet *) ps, ifa, n);
+    ospf_lsack_receive(ps, ifa, n);
     break;
   default:
     log(L_ERR "%s%I - wrong type %u", mesg, sk->faddr, ps->type);
@@ -416,9 +458,14 @@ void
 ospf_send_to(sock *sk, ip_addr ip, struct ospf_iface *ifa)
 {
   struct ospf_packet *pkt = (struct ospf_packet *) sk->tbuf;
-  int len = ntohs(pkt->length) + ((ifa->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0);
-  ospf_pkt_finalize(ifa, pkt);
+  int len = ntohs(pkt->length);
 
+#ifdef OSPFv2
+  if (ifa->autype == OSPF_AUTH_CRYPT)
+    len += OSPF_AUTH_CRYPT_SIZE;
+#endif
+
+  ospf_pkt_finalize(ifa, pkt);
   if (sk->tbuf != sk->tpos)
     log(L_ERR "Aiee, old packet was overwritted in TX buffer");
 

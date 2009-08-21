@@ -157,16 +157,16 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 	  rfree(ifa->dr_sk);
 	  ifa->dr_sk = NULL;
 	}
-	if ((oldstate == OSPF_IS_DR) && (ifa->nlsa != NULL))
+	if ((oldstate == OSPF_IS_DR) && (ifa->net_lsa != NULL))
 	{
-	  ifa->nlsa->lsa.age = LSA_MAXAGE;
+	  ifa->net_lsa->lsa.age = LSA_MAXAGE;
 	  if (state >= OSPF_IS_WAITING)
 	  {
-	    ospf_lsupd_flush_nlsa(ifa->nlsa, ifa->oa);
+	    ospf_lsupd_flush_nlsa(po, ifa->net_lsa);
 	  }
 	  if (can_flush_lsa(po))
-	    flush_lsa(ifa->nlsa, po);
-	  ifa->nlsa = NULL;
+	    flush_lsa(ifa->net_lsa, po);
+	  ifa->net_lsa = NULL;
 	}
       }
     }
@@ -412,8 +412,16 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
   ifa->waitint = ip->waitint;
   ifa->dead = (ip->dead == 0) ? ip->deadc * ifa->helloint : ip->dead;
   ifa->stub = ip->stub;
+
+#ifdef OSPFv2
   ifa->autype = ip->autype;
   ifa->passwords = ip->passwords;
+#endif
+
+#ifdef OSPFv3
+  ifa->instance_id = ip->instance_id;
+#endif
+
   ifa->rxbuf = ip->rxbuf;
 
   if (ip->type == OSPF_IT_UNDEF)

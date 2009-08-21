@@ -171,16 +171,23 @@ static struct ospf_neighbor *
 electbdr(list nl)
 {
   struct ospf_neighbor *neigh, *n1, *n2;
+  u32 nid;
+
+#ifdef OSPFv2
+  nid = ipa_to_u32(neigh->ip);
+#else /* OSPFv3 */
+  nid = neigh->rid;
+#endif
 
   n1 = NULL;
   n2 = NULL;
-  WALK_LIST(neigh, nl)		/* First try those decl. themselves */
+  WALK_LIST(neigh, nl)			/* First try those decl. themselves */
   {
     if (neigh->state >= NEIGHBOR_2WAY)	/* Higher than 2WAY */
-      if (neigh->priority > 0)	/* Eligible */
-	if (ipa_compare(neigh->ip, neigh->dr) != 0)	/* And not decl. itself DR */
+      if (neigh->priority > 0)		/* Eligible */
+	if (neigh->dr != nid)		/* And not decl. itself DR */
 	{
-	  if (ipa_compare(neigh->ip, neigh->bdr) == 0)	/* Declaring BDR */
+	  if (neigh->bdr == nid)	/* Declaring BDR */
 	  {
 	    if (n1 != NULL)
 	    {
@@ -222,13 +229,20 @@ static struct ospf_neighbor *
 electdr(list nl)
 {
   struct ospf_neighbor *neigh, *n;
+  u32 nid;
+
+#ifdef OSPFv2
+  nid = ipa_to_u32(neigh->ip);
+#else /* OSPFv3 */
+  nid = neigh->rid;
+#endif
 
   n = NULL;
-  WALK_LIST(neigh, nl)		/* And now DR */
+  WALK_LIST(neigh, nl)			/* And now DR */
   {
     if (neigh->state >= NEIGHBOR_2WAY)	/* Higher than 2WAY */
-      if (neigh->priority > 0)	/* Eligible */
-	if (ipa_compare(neigh->ip, neigh->dr) == 0)	/* And declaring itself DR */
+      if (neigh->priority > 0)		/* Eligible */
+	if (neigh->dr == nid)		/* And declaring itself DR */
 	{
 	  if (n != NULL)
 	  {
@@ -427,7 +441,6 @@ bdr_election(struct ospf_iface *ifa)
 {
   struct ospf_neighbor *neigh, *ndr, *nbdr, me;
   u32 myid;
-  ip_addr ndrip, nbdrip;
   int doadj;
   struct proto *p = &ifa->oa->po->proto;
 
@@ -438,9 +451,16 @@ bdr_election(struct ospf_iface *ifa)
   me.state = NEIGHBOR_2WAY;
   me.rid = myid;
   me.priority = ifa->priority;
-  me.dr = ifa->drip;
-  me.bdr = ifa->bdrip;
   me.ip = ifa->iface->addr->ip;
+
+#ifdef OSPFv2
+  me.dr = ipa_to_u32(ifa->drip);
+  me.bdr = ipa_to_u32(ifa->bdrip);
+#else /* OSPFv3 */
+  me.dr = ifa->drid;
+  me.bdr = ifa->bdrid;
+  me.iface_id = ifa->iface->index;
+#endif
 
   add_tail(&ifa->neigh_list, NODE & me);
 
@@ -450,63 +470,42 @@ bdr_election(struct ospf_iface *ifa)
   if (ndr == NULL)
     ndr = nbdr;
 
+  /* 9.4. (4) */
   if (((ifa->drid == myid) && (ndr != &me))
       || ((ifa->drid != myid) && (ndr == &me))
       || ((ifa->bdrid == myid) && (nbdr != &me))
       || ((ifa->bdrid != myid) && (nbdr == &me)))
   {
-    if (ndr == NULL)
-      ifa->drip = me.dr = IPA_NONE;
-    else
-      ifa->drip = me.dr = ndr->ip;
-
-    if (nbdr == NULL)
-      ifa->bdrip = me.bdr = IPA_NONE;
-    else
-      ifa->bdrip = me.bdr = nbdr->ip;
+#ifdef OSPFv2
+    me.dr = ndr ? ipa_to_u32(ndr->ip) : IPA_NONE;
+    me.bdr = nbdr ? ipa_to_u32(nbdr->ip) : IPA_NONE;
+#else /* OSPFv3 */
+    me.dr = ndr ? ndr->rid : 0;
+    me.bdr = nbdr ? nbdr->rid : 0;
+#endif
 
     nbdr = electbdr(ifa->neigh_list);
     ndr = electdr(ifa->neigh_list);
+
+    if (ndr == NULL)
+      ndr = nbdr;
   }
 
-  if (ndr == NULL)
-    ndrip = IPA_NONE;
-  else
-    ndrip = ndr->ip;
+  u32 odrid = ifa->drid;
+  u32 obdrid = ifa->bdrid;
+ 
+  ifa->drid = ndr ? ndr->rid : 0;
+  ifa->drip = ndr ? ndr->ip  : IPA_NONE;
+  ifa->bdrid = nbdr ? nbdr->rid : 0;
+  ifa->bdrip = nbdr ? nbdr->ip  : IPA_NONE;
 
-  if (nbdr == NULL)
-    nbdrip = IPA_NONE;
-  else
-    nbdrip = nbdr->ip;
-
-  doadj = 0;
-  if ((ipa_compare(ifa->drip, ndrip) != 0)
-      || (ipa_compare(ifa->bdrip, nbdrip) != 0))
-    doadj = 1;
-
-  if (ndr == NULL)
-  {
-    ifa->drid = 0;
-    ifa->drip = IPA_NONE;
-  }
-  else
-  {
-    ifa->drid = ndr->rid;
-    ifa->drip = ndr->ip;
-  }
-
-  if (nbdr == NULL)
-  {
-    ifa->bdrid = 0;
-    ifa->bdrip = IPA_NONE;
-  }
-  else
-  {
-    ifa->bdrid = nbdr->rid;
-    ifa->bdrip = nbdr->ip;
-  }
+#ifdef OSPFv3
+  ifa->dr_iface_id = ndr ? ndr->iface_id : 0;
+#endif
 
   DBG("DR=%R, BDR=%R\n", ifa->drid, ifa->bdrid);
+
+  doadj = ((ifa->drid != odrid) || (ifa->bdrid != obdrid));
 
   if (myid == ifa->drid)
     ospf_iface_chstate(ifa, OSPF_IS_DR);

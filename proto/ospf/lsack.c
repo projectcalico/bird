@@ -8,6 +8,14 @@
 
 #include "ospf.h"
 
+
+struct ospf_lsack_packet
+{
+  struct ospf_packet ospf_packet;
+  struct ospf_lsa_header lsh[];
+};
+
+
 char *s_queue[] = { "direct", "delayed" };
 
 
@@ -18,14 +26,12 @@ static void ospf_dump_lsack(struct proto *p, struct ospf_lsack_packet *pkt)
   ASSERT(op->type == LSACK_P);
   ospf_dump_common(p, op);
 
-  struct ospf_lsa_header *plsa = (void *) (pkt + 1);
   int i, j;
-
   j = (ntohs(op->length) - sizeof(struct ospf_lsack_packet)) /
     sizeof(struct ospf_lsa_header);
 
   for (i = 0; i < j; i++)
-    ospf_dump_lsahdr(p, plsa + i);
+    ospf_dump_lsahdr(p, pkt->lsh + i);
 }
 
 
@@ -70,7 +76,7 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   op = (struct ospf_packet *) sk->tbuf;
 
   ospf_pkt_fill_hdr(n->ifa, pk, LSACK_P);
-  h = (struct ospf_lsa_header *) (pk + 1);
+  h = pk->lsh;
 
   while (!EMPTY_LIST(n->ackl[queue]))
   {
@@ -141,10 +147,11 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 }
 
 void
-ospf_lsack_receive(struct ospf_lsack_packet *ps,
-		   struct ospf_iface *ifa, struct ospf_neighbor *n)
+ospf_lsack_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
+		   struct ospf_neighbor *n)
 {
-  struct ospf_lsa_header lsa, *plsa;
+  struct ospf_lsack_packet *ps = (void *) ps_i;
+  struct ospf_lsa_header lsa;
   u16 nolsa;
   struct top_hash_entry *en;
   struct proto *p = &ifa->oa->po->proto;
@@ -167,12 +174,10 @@ ospf_lsack_receive(struct ospf_lsack_packet *ps,
     return;
   }
 
-  plsa = (struct ospf_lsa_header *) (ps + 1);
-
   for (i = 0; i < nolsa; i++)
   {
-    ntohlsah(plsa + i, &lsa);
-    if ((en = ospf_hash_find_header(n->lsrth, n->ifa->oa->areaid, &lsa)) == NULL)
+    ntohlsah(ps->lsh + i, &lsa);
+    if ((en = ospfxx_hash_find_smart(n->lsrth, n->ifa, &lsa)) == NULL)
       continue;			/* pg 155 */
 
     if (lsa_comp(&lsa, &en->lsa) != CMP_SAME)	/* pg 156 */

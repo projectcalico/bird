@@ -163,8 +163,11 @@ ospf_start(struct proto *p)
       oa->stub = 0;
     }
 
-    oa->opt.byte = 0;
-    if(!oa->stub) oa->opt.bit.e = 1;
+#ifdef OSPFv2
+    oa->options = (oa->stub ? 0 : OPT_E);
+#else /* OSPFv3 */
+    oa->options = OPT_R | (oa->stub ? 0 : OPT_E) | OPT_V6;
+#endif
   }
 
   /* Add all virtual links as interfaces */
@@ -186,8 +189,11 @@ ospf_start(struct proto *p)
 	  fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 16, ospf_area_initfib);
           fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
           po->backbone = oa;
-          oa->opt.byte = 0;
-          oa->opt.bit.e = 1;
+#ifdef OSPFv2
+	  oa->options = OPT_E;
+#else /* OSPFv3 */
+	  oa->options = OPT_R | OPT_E | OPT_V6;
+#endif
 	}
         ospf_iface_new(po, NULL, ac, ipatt);
       }
@@ -448,36 +454,9 @@ ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old UNUSED,
 */
 
   if (new)			/* Got some new route */
-  {
     originate_ext_lsa(n, new, po, attrs);
-  }
   else
-  {
-    u32 rtid = po->proto.cf->global->router_id;
-    struct ospf_area *oa;
-    struct top_hash_entry *en;
-    u32 pr = ipa_to_u32(n->n.prefix);
-    struct ospf_lsa_ext *ext;
-    int i;
-    int max = max_ext_lsa(n->n.pxlen);
-
-    /* Flush old external LSA */
-    for (i = 0; i < max; i++, pr++)
-    {
-      if (en = ospf_hash_find(po->gr, 0, pr, rtid, LSA_T_EXT))
-      {
-        ext = en->lsa_body;
-	if (ipa_compare(ext->netmask, ipa_mkmask(n->n.pxlen)) == 0)
-	{
-          WALK_LIST(oa, po->area_list)
-          {
-	    ospf_lsupd_flush_nlsa(en, oa);
-	  }
-	}
-        break;
-      }
-    }
-  }
+    flush_ext_lsa(n, po);
 }
 
 static void
@@ -762,6 +741,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 		     "Interface %s is no longer stub.", ifa->iface->name);
 	}
 
+#ifdef OSPFv2	
 	/* AUTHENTICATION */
 	if (oldip->autype != newip->autype)
 	{
@@ -772,6 +752,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	}
         /* Add *passwords */
 	ifa->passwords = newip->passwords;
+#endif
 
 	/* priority */
 	if (oldip->priority != newip->priority)
@@ -1076,24 +1057,24 @@ he_compare(const void *p1, const void *p2)
       return lsa1->age - lsa2->age;
     }
 }
-
+/*
 static inline void
 show_lsa_router(struct top_hash_entry *he)
 {
   struct ospf_lsa_header *lsa = &(he->lsa);
   struct ospf_lsa_rt *rt = he->lsa_body;
   struct ospf_lsa_rt_link *rr = (struct ospf_lsa_rt_link *) (rt + 1);
-  u32 i;
+  int max = lsa_rt_count(lsa);
 
-  for (i = 0; i < rt->links; i++)
+  for (i = 0; i < max; i++)
     if (rr[i].type == LSART_PTP)
       cli_msg(-1016, "\t\trouter %R metric %u ", rr[i].id, rr[i].metric);
 
-  for (i = 0; i < rt->links; i++)
+  for (i = 0; i < max; i++)
     if (rr[i].type == LSART_NET)
     {
       struct proto_ospf *po = he->oa->po;
-      struct top_hash_entry *net_he = ospf_hash_find(po->gr, he->oa->areaid, rr[i].id, rr[i].id, LSA_T_NET);
+      struct top_hash_entry *net_he = ospfxx_hash_find(po->gr, he->oa->areaid, rr[i].id, rr[i].id, LSA_T_NET);
       if (net_he)
       {
 	struct ospf_lsa_header *net_lsa = &(net_he->lsa);
@@ -1104,11 +1085,11 @@ show_lsa_router(struct top_hash_entry *he)
 	cli_msg(-1016, "\t\tnetwork ??? metric %u ", rr[i].metric);
     }
 
-  for (i = 0; i < rt->links; i++)
+  for (i = 0; i < max; i++)
     if (rr[i].type == LSART_STUB)
       cli_msg(-1016, "\t\tstubnet %I/%d metric %u ", ipa_from_u32(rr[i].id), ipa_mklen(ipa_from_u32(rr[i].data)), rr[i].metric);
 
-  for (i = 0; i < rt->links; i++)
+  for (i = 0; i < max; i++)
     if (rr[i].type == LSART_VLNK)
       cli_msg(-1016, "\t\tvlink %I metric %u ", ipa_from_u32(rr[i].id), rr[i].metric);
 }
@@ -1119,14 +1100,13 @@ show_lsa_network(struct top_hash_entry *he)
   struct ospf_lsa_header *lsa = &(he->lsa);
   struct ospf_lsa_net *ln = he->lsa_body;
   u32 *rts = (u32 *) (ln + 1);
-  u32 max = (lsa->length - sizeof(struct ospf_lsa_header) - sizeof(struct ospf_lsa_net)) / sizeof(u32);
   u32 i;
 
   cli_msg(-1016, "");
   cli_msg(-1016, "\tnetwork %I/%d", ipa_and(ipa_from_u32(lsa->id), ln->netmask), ipa_mklen(ln->netmask));
   cli_msg(-1016, "\t\tdr %R", lsa->rt);
 
-  for (i = 0; i < max; i++)
+  for (i = 0; i < lsa_net_count(lsa); i++)
     cli_msg(-1016, "\t\trouter %R", rts[i]);
 }
 
@@ -1168,7 +1148,7 @@ show_lsa_external(struct top_hash_entry *he)
 	  et->etm.metric & METRIC_MASK, str_via, str_tag);
 }
 
-
+*/
 void
 ospf_sh_state(struct proto *p, int verbose)
 {
@@ -1177,7 +1157,7 @@ ospf_sh_state(struct proto *p, int verbose)
   unsigned int i, j;
   u32 last_rt = 0xFFFFFFFF;
   u32 last_area = 0xFFFFFFFF;
-
+  /*
   if (p->proto_state != PS_UP)
   {
     cli_msg(-1016, "%s: is not up", p->name);
@@ -1240,7 +1220,7 @@ ospf_sh_state(struct proto *p, int verbose)
 	break;
     }
   }
-
+  */
   cli_msg(0, "");
 }
 

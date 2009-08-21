@@ -17,9 +17,12 @@
 typedef struct orta
 {
   int type;
-  int capa;
-#define ORTA_ASBR 1
-#define ORTA_ABR 2
+  u32 options;			
+  /* router-LSA style options (for ORT_ROUTER), with V,E,B bits.
+     In OSPFv2, ASBRs from another areas (that we know from rt-summary-lsa),
+     have just ORTA_ASBR in options, their real options are unknown */
+#define ORTA_ASBR OPT_RT_E
+#define ORTA_ABR  OPT_RT_V
   struct ospf_area *oa;
   u32 metric1;
   u32 metric2;

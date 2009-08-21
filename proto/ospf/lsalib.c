@@ -65,8 +65,8 @@ ospf_age(struct proto_ospf *po)
 	flush_lsa(en, po);
       continue;
     }
-    if ((en->lsa.rt == p->cf->global->router_id) &&(en->lsa.age >=
-						    LSREFRESHTIME))
+    if ((en->lsa.rt == p->cf->global->router_id) &&
+	(en->lsa.age >= LSREFRESHTIME))
     {
       OSPF_TRACE(D_EVENTS, "Refreshing my LSA: Type: %u, Id: %R, Rt: %R",
 		 en->lsa.type, en->lsa.id, en->lsa.rt);
@@ -75,7 +75,7 @@ ospf_age(struct proto_ospf *po)
       en->inst_t = now;
       en->ini_age = 0;
       lsasum_calculate(&en->lsa, en->lsa_body);
-      ospf_lsupd_flood(NULL, NULL, &en->lsa, NULL, en->oa, 1);
+      ospf_lsupd_flood(po, NULL, NULL, &en->lsa, en->domain, 1);
       continue;
     }
     if ((en->lsa.age = (en->ini_age + (now - en->inst_t))) >= LSA_MAXAGE)
@@ -96,7 +96,9 @@ void
 htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
 {
   n->age = htons(h->age);
+#ifdef OSPFv2
   n->options = h->options;
+#endif
   n->type = h->type;
   n->id = htonl(h->id);
   n->rt = htonl(h->rt);
@@ -109,7 +111,9 @@ void
 ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
 {
   h->age = ntohs(n->age);
+#ifdef OSPFv2
   h->options = n->options;
+#endif
   h->type = n->type;
   h->id = ntohl(n->id);
   h->rt = ntohl(n->rt);
@@ -119,7 +123,7 @@ ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
 };
 
 void
-htonlsab(void *h, void *n, u8 type, u16 len)
+htonlsab(void *h, void *n, u16 type, u16 len)
 {
   unsigned int i;
   switch (type)
@@ -132,24 +136,43 @@ htonlsab(void *h, void *n, u8 type, u16 len)
 
       nrt = n;
       hrt = h;
-      links = hrt->links;
 
+#ifdef OSPFv2
       nrt->veb.byte = hrt->veb.byte;
       nrt->padding = 0;
       nrt->links = htons(hrt->links);
+      links = hrt->links;
+#else /* OSPFv3 */
+      hrt->options = htonl(nrt->options);
+      links = (len - sizeof(struct ospf_lsa_rt)) /
+	sizeof(struct ospf_lsa_rt_link);
+#endif
+
       nrtl = (struct ospf_lsa_rt_link *) (nrt + 1);
       hrtl = (struct ospf_lsa_rt_link *) (hrt + 1);
       for (i = 0; i < links; i++)
       {
-	(nrtl + i)->id = htonl((hrtl + i)->id);
-	(nrtl + i)->data = htonl((hrtl + i)->data);
-	(nrtl + i)->type = (hrtl + i)->type;
-	(nrtl + i)->notos = (hrtl + i)->notos;
-	(nrtl + i)->metric = htons((hrtl + i)->metric);
+#ifdef OSPFv2
+	nrtl[i].id = htonl(hrtl[i].id);
+	nrtl[i].data = htonl(hrtl[i].data);
+	nrtl[i].type = hrtl[i].type;
+	nrtl[i].notos = hrtl[i].notos;
+	nrtl[i].metric = htons(hrtl[i].metric);
+#else /* OSPFv3 */
+	nrtl[i].type = hrtl[i].type;
+	nrtl[i].padding = 0;
+	nrtl[i].metric = htons(hrtl[i].metric);
+	nrtl[i].lif = htonl(hrtl[i].lif);
+	nrtl[i].nif = htonl(hrtl[i].nif);
+	nrtl[i].id = htonl(hrtl[i].id);
+#endif
       }
       break;
     }
   case LSA_T_NET:
+  case LSA_T_SUM_NET:
+  case LSA_T_SUM_RT:
+  case LSA_T_EXT:
     {
       u32 *hid, *nid;
 
@@ -162,59 +185,14 @@ htonlsab(void *h, void *n, u8 type, u16 len)
       }
       break;
     }
-  case LSA_T_SUM_NET:
-  case LSA_T_SUM_RT:
-    {
-      struct ospf_lsa_sum *hs, *ns;
-      union ospf_lsa_sum_tm *hn, *nn;
 
-      hs = h;
-      ns = n;
-
-      ns->netmask = hs->netmask;
-      ipa_hton(ns->netmask);
-
-      hn = (union ospf_lsa_sum_tm *) (hs + 1);
-      nn = (union ospf_lsa_sum_tm *) (ns + 1);
-
-      for (i = 0; i < ((len - sizeof(struct ospf_lsa_sum)) /
-		       sizeof(union ospf_lsa_sum_tm)); i++)
-      {
-	(nn + i)->metric = htonl((hn + i)->metric);
-      }
-      break;
-    }
-  case LSA_T_EXT:
-    {
-      struct ospf_lsa_ext *he, *ne;
-      struct ospf_lsa_ext_tos *ht, *nt;
-
-      he = h;
-      ne = n;
-
-      ne->netmask = he->netmask;
-      ipa_hton(ne->netmask);
-
-      ht = (struct ospf_lsa_ext_tos *) (he + 1);
-      nt = (struct ospf_lsa_ext_tos *) (ne + 1);
-
-      for (i = 0; i < ((len - sizeof(struct ospf_lsa_ext)) /
-		       sizeof(struct ospf_lsa_ext_tos)); i++)
-      {
-	(nt + i)->etm.metric = htonl((ht + i)->etm.metric);
-	(nt + i)->fwaddr = (ht + i)->fwaddr;
-	ipa_hton((nt + i)->fwaddr);
-	(nt + i)->tag = htonl((ht + i)->tag);
-      }
-      break;
-    }
   default:
     bug("(hton): Unknown LSA");
   }
 };
 
 void
-ntohlsab(void *n, void *h, u8 type, u16 len)
+ntohlsab(void *n, void *h, u16 type, u16 len)
 {
   unsigned int i;
   switch (type)
@@ -228,22 +206,41 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
       nrt = n;
       hrt = h;
 
+#ifdef OSPFv2
       hrt->veb.byte = nrt->veb.byte;
       hrt->padding = 0;
       links = hrt->links = ntohs(nrt->links);
+#else /* OSPFv3 */
+      hrt->options = ntohl(nrt->options);
+      links = (len - sizeof(struct ospf_lsa_rt)) /
+	sizeof(struct ospf_lsa_rt_link);
+#endif
+
       nrtl = (struct ospf_lsa_rt_link *) (nrt + 1);
       hrtl = (struct ospf_lsa_rt_link *) (hrt + 1);
       for (i = 0; i < links; i++)
       {
-	(hrtl + i)->id = ntohl((nrtl + i)->id);
-	(hrtl + i)->data = ntohl((nrtl + i)->data);
-	(hrtl + i)->type = (nrtl + i)->type;
-	(hrtl + i)->notos = (nrtl + i)->notos;
-	(hrtl + i)->metric = ntohs((nrtl + i)->metric);
+#ifdef OSPFv2
+	hrtl[i].id = ntohl(nrtl[i].id);
+	hrtl[i].data = ntohl(nrtl[i].data);
+	hrtl[i].type = nrtl[i].type;
+	hrtl[i].notos = nrtl[i].notos;
+	hrtl[i].metric = ntohs(nrtl[i].metric);
+#else /* OSPFv3 */
+	hrtl[i].type = nrtl[i].type;
+	hrtl[i].padding = 0;
+	hrtl[i].metric = ntohs(nrtl[i].metric);
+	hrtl[i].lif = ntohl(nrtl[i].lif);
+	hrtl[i].nif = ntohl(nrtl[i].nif);
+	hrtl[i].id = ntohl(nrtl[i].id);
+#endif
       }
       break;
     }
   case LSA_T_NET:
+  case LSA_T_SUM_NET:
+  case LSA_T_SUM_RT:
+  case LSA_T_EXT:
     {
       u32 *hid, *nid;
 
@@ -252,53 +249,7 @@ ntohlsab(void *n, void *h, u8 type, u16 len)
 
       for (i = 0; i < (len / sizeof(u32)); i++)
       {
-	*(hid + i) = ntohl(*(nid + i));
-      }
-      break;
-    }
-  case LSA_T_SUM_NET:
-  case LSA_T_SUM_RT:
-    {
-      struct ospf_lsa_sum *hs, *ns;
-      union ospf_lsa_sum_tm *hn, *nn;
-
-      hs = h;
-      ns = n;
-
-      hs->netmask = ns->netmask;
-      ipa_ntoh(hs->netmask);
-
-      hn = (union ospf_lsa_sum_tm *) (hs + 1);
-      nn = (union ospf_lsa_sum_tm *) (ns + 1);
-
-      for (i = 0; i < ((len - sizeof(struct ospf_lsa_sum)) /
-		       sizeof(union ospf_lsa_sum_tm)); i++)
-      {
-	(hn + i)->metric = ntohl((nn + i)->metric);
-      }
-      break;
-    }
-  case LSA_T_EXT:
-    {
-      struct ospf_lsa_ext *he, *ne;
-      struct ospf_lsa_ext_tos *ht, *nt;
-
-      he = h;
-      ne = n;
-
-      he->netmask = ne->netmask;
-      ipa_ntoh(he->netmask);
-
-      ht = (struct ospf_lsa_ext_tos *) (he + 1);
-      nt = (struct ospf_lsa_ext_tos *) (ne + 1);
-
-      for (i = 0; i < ((len - sizeof(struct ospf_lsa_ext)) /
-		       sizeof(struct ospf_lsa_ext_tos)); i++)
-      {
-	(ht + i)->etm.metric = ntohl((nt + i)->etm.metric);
-	(ht + i)->fwaddr = (nt + i)->fwaddr;
-	ipa_ntoh((ht + i)->fwaddr);
-	(ht + i)->tag = ntohl((nt + i)->tag);
+	hid[i] = ntohl(nid[i]);
       }
       break;
     }
@@ -343,7 +294,8 @@ lsasum_check(struct ospf_lsa_header *h, void *body)
   u16 length;
 
   b = body;
-  sp = (char *) &h->options;
+  sp = (char *) &h;
+  sp += 2; /* Skip Age field */
   length = ntohs(h->length) - 2;
   h->checksum = 0;
 
@@ -417,45 +369,40 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
 
 /**
  * lsa_install_new - install new LSA into database
+ * @po: OSPF protocol
  * @lsa: LSA header
+ * @domain: domain of LSA
  * @body: pointer to LSA body
- * @oa: current ospf_area
+
  *
  * This function ensures installing new LSA into LSA database. Old instance is
  * replaced. Several actions are taken to detect if new routing table
  * calculation is necessary. This is described in 13.2 of RFC 2328.
  */
 struct top_hash_entry *
-lsa_install_new(struct ospf_lsa_header *lsa, void *body, struct ospf_area *oa)
+lsa_install_new(struct proto_ospf *po, struct ospf_lsa_header *lsa, u32 domain, void *body)
 {
   /* LSA can be temporarrily, but body must be mb_allocated. */
   int change = 0;
   unsigned i;
   struct top_hash_entry *en;
-  struct proto_ospf *po = oa->po;
 
-  if ((en = ospf_hash_find_header(po->gr, oa->areaid, lsa)) == NULL)
+  if ((en = ospfxx_hash_find_header(po->gr, domain, lsa)) == NULL)
   {
-    en = ospf_hash_get_header(po->gr, oa, lsa);
+    en = ospfxx_hash_get_header(po->gr, domain, lsa);
     change = 1;
   }
   else
   {
-    if ((en->lsa.length != lsa->length) || (en->lsa.options != lsa->options)
-	|| ((en->lsa.age == LSA_MAXAGE) || (lsa->age == LSA_MAXAGE)))
+    if ((en->lsa.length != lsa->length)
+#ifdef OSPFv2       
+	|| (en->lsa.options != lsa->options)
+#endif
+	|| (en->lsa.age == LSA_MAXAGE)
+	|| (lsa->age == LSA_MAXAGE)
+	|| memcmp(en->lsa_body, body, lsa->length - sizeof(struct ospf_lsa_header)))
       change = 1;
-    else
-    {
-      u8 *k = en->lsa_body, *l = body;
-      for (i = 0; i < (lsa->length - sizeof(struct ospf_lsa_header)); i++)
-      {
-	if (*(k + i) != *(l + i))
-	{
-	  change = 1;
-	  break;
-	}
-      }
-    }
+
     s_rem_node(SNODE en);
   }
 

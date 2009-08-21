@@ -20,6 +20,7 @@ static struct nbma_node *this_nbma;
 static struct area_net_config *this_pref;
 static struct ospf_stubnet_config *this_stubnet; 
 
+#ifdef OSPFv2
 static void
 finish_iface_config(struct ospf_iface_patt *ip)
 {
@@ -31,6 +32,16 @@ finish_iface_config(struct ospf_iface_patt *ip)
   if ((ip->autype == OSPF_AUTH_NONE) && (ip->passwords != NULL))
     log(L_WARN "Password option without authentication option does not make sense");
 }
+#endif
+
+#ifdef OSPFv3
+static void
+finish_iface_config(struct ospf_iface_patt *ip)
+{
+  if ((ip->autype != OSPF_AUTH_NONE) || (get_passwords() != NULL))
+    log(L_WARN "Authentication not supported in OSPFv3");
+}
+#endif
 
 CF_DECLS
 
