@@ -188,6 +188,12 @@ int
 as_path_getlen(struct adata *path)
 {
   int bs = bgp_as4_support ? 4 : 2;
+  return as_path_getlen_int(path, bs);
+}
+
+int
+as_path_getlen_int(struct adata *path, int bs)
+{
   int res = 0;
   u8 *p = path->data;
   u8 *q = p+path->length;
