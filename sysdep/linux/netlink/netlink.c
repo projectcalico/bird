@@ -390,7 +390,6 @@ nl_parse_addr(struct nlmsghdr *h)
   else
     {
       ip_addr netmask = ipa_mkmask(ifa.pxlen);
-      ip_addr xbrd;
       ifa.prefix = ipa_and(ifa.ip, netmask);
       ifa.brd = ipa_or(ifa.ip, ipa_not(netmask));
 #ifndef IPV6
@@ -398,6 +397,7 @@ nl_parse_addr(struct nlmsghdr *h)
 	ifa.opposite = ipa_opposite(ifa.ip, i->ifa_prefixlen);
       if ((ifi->flags & IF_BROADCAST) && a[IFA_BROADCAST])
 	{
+	  ip_addr xbrd;
 	  memcpy(&xbrd, RTA_DATA(a[IFA_BROADCAST]), sizeof(xbrd));
 	  ipa_ntoh(xbrd);
 	  if (ipa_equal(xbrd, ifa.prefix) || ipa_equal(xbrd, ifa.brd))

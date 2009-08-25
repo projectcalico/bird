@@ -177,7 +177,8 @@ ospf_lsack_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   for (i = 0; i < nolsa; i++)
   {
     ntohlsah(ps->lsh + i, &lsa);
-    if ((en = ospfxx_hash_find_smart(n->lsrth, n->ifa, &lsa)) == NULL)
+    u32 dom = ospf_lsa_domain(lsa.type, n->ifa);
+    if ((en = ospf_hash_find_header(n->lsrth, dom, &lsa)) == NULL)
       continue;			/* pg 155 */
 
     if (lsa_comp(&lsa, &en->lsa) != CMP_SAME)	/* pg 156 */

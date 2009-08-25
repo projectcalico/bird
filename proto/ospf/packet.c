@@ -278,7 +278,7 @@ ospf_rx_hook(sock * sk, int size)
   if (ifa->stub)
     return (1);
 
-  ps = (struct ospf_packet *) ipv4_skip_header(sk->rbuf, &size);
+  ps = (struct ospf_packet *) ip_skip_header(sk->rbuf, &size);
 
   if (ps == NULL)
   {

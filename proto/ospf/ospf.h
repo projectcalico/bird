@@ -194,6 +194,7 @@ struct ospf_iface
   u32 dr_iface_id;		/* if drid is valid, this is iface_id of DR (for connecting network) */
   u8 instance_id;		/* Used to differentiate between more OSPF
 				   instances on one interface */
+  ip_addr lladdr;		/* Used link-local addr */
 #endif
 
   u8 type;			/* OSPF view of type */
@@ -371,8 +372,8 @@ struct ospf_lsa_header
   u32 id;
   u32 rt;			/* Advertising router */
   s32 sn;			/* LS Sequence number */
-#define LSA_INITSEQNO 0x80000001
-#define LSA_MAXSEQNO 0x7fffffff
+#define LSA_INITSEQNO ((s32) 0x80000001)
+#define LSA_MAXSEQNO ((s32) 0x7fffffff)
   u16 checksum;
   u16 length;
 };

@@ -47,27 +47,27 @@ struct top_graph
 struct top_graph *ospf_top_new(pool *);
 void ospf_top_free(struct top_graph *);
 void ospf_top_dump(struct top_graph *, struct proto *);
-struct top_hash_entry *ospfxx_hash_find_header(struct top_graph *f, u32 areaid,
+u32 ospf_lsa_domain(u32 type, struct ospf_iface *ifa);
+struct top_hash_entry *ospf_hash_find_header(struct top_graph *f, u32 domain,
 					     struct ospf_lsa_header *h);
-struct top_hash_entry *ospfxx_hash_get_header(struct top_graph *f, u32 domain,
+struct top_hash_entry *ospf_hash_get_header(struct top_graph *f, u32 domain,
 					    struct ospf_lsa_header *h);
 
-struct top_hash_entry *ospfxx_hash_find_smart(struct top_graph *f, struct ospf_iface *ifa,
-					     struct ospf_lsa_header *h);
-struct top_hash_entry *ospfxx_hash_get_smart(struct top_graph *f, struct ospf_iface *ifa,
-					    struct ospf_lsa_header *h);
-
-struct top_hash_entry *ospfxx_hash_find(struct top_graph *, u32 domain, u32 lsa, u32 rtr,
+struct top_hash_entry *ospf_hash_find(struct top_graph *, u32 domain, u32 lsa, u32 rtr,
 				      u32 type);
-struct top_hash_entry *ospfxx_hash_get(struct top_graph *, u32 domain, u32 lsa, u32 rtr,
+struct top_hash_entry *ospf_hash_get(struct top_graph *, u32 domain, u32 lsa, u32 rtr,
 				     u32 type);
 void ospf_hash_delete(struct top_graph *, struct top_hash_entry *);
 void originate_rt_lsa(struct ospf_area *oa);
+void update_rt_lsa(struct ospf_area *oa);
 void originate_net_lsa(struct ospf_iface *ifa);
+void update_net_lsa(struct ospf_iface *ifa);
+void update_link_lsa(struct ospf_iface *ifa);
 int can_flush_lsa(struct proto_ospf *po);
 int max_ext_lsa(unsigned pxlen);
 void originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 		       struct ea_list *attrs);
+void flush_ext_lsa(net *n, struct proto_ospf *po);
 void check_sum_lsa(struct proto_ospf *po, ort *nf, int);
 void originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric, u32 options);
 void flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type);

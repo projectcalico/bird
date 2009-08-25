@@ -156,7 +156,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
       /* 13.3 (1b) */
       if (nn->state < NEIGHBOR_FULL)
       {
-	if ((en = ospfxx_hash_find_header(nn->lsrqh, domain, hh)) != NULL)
+	if ((en = ospf_hash_find_header(nn->lsrqh, domain, hh)) != NULL)
 	{
 	  DBG("That LSA found in lsreq list for neigh %R\n", nn->rid);
 
@@ -203,9 +203,9 @@ ospf_lsupd_flood(struct proto_ospf *po,
 	   that type of LSA (for LSA types with U-bit == 0). But as we does not support
 	   any optional LSA types, this is not needed yet */
 
-	if ((en = ospfxx_hash_find_header(nn->lsrth, domain, hh)) == NULL)
+	if ((en = ospf_hash_find_header(nn->lsrth, domain, hh)) == NULL)
 	{
-	  en = ospfxx_hash_get_header(nn->lsrth, domain, hh);
+	  en = ospf_hash_get_header(nn->lsrth, domain, hh);
 	}
 	else
 	{
@@ -217,7 +217,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
       }
       else
       {
-	if ((en = ospfxx_hash_find_header(nn->lsrth, domain, hh)) != NULL)
+	if ((en = ospf_hash_find_header(nn->lsrth, domain, hh)) != NULL)
 	{
 	  s_rem_node(SNODE en);
 	  if (en->lsa_body != NULL)
@@ -274,7 +274,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
 
 	htonlsah(hh, lh);
 	help = (u8 *) (lh + 1);
-	en = ospfxx_hash_find_header(po->gr, domain, hh);
+	en = ospf_hash_find_header(po->gr, domain, hh);
 	htonlsab(en->lsa_body, help, hh->type, hh->length
 		 - sizeof(struct ospf_lsa_header));
       }
@@ -347,7 +347,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
   WALK_LIST(llsh, *l)
   {
     u32 domain = ospf_lsa_domain(llsh->lsh.type, n->ifa);
-    if ((en = ospfxx_hash_find(po->gr, domain, llsh->lsh.id,
+    if ((en = ospf_hash_find(po->gr, domain, llsh->lsh.id,
 			       llsh->lsh.rt, llsh->lsh.type)) == NULL)
       continue;			/* Probably flushed LSA */
     /* FIXME This is a bug! I cannot flush LSA that is in lsrt */
@@ -487,7 +487,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 	lsatmp.type, lsatmp.id, lsatmp.rt, lsatmp.sn, lsatmp.age, lsatmp.checksum);
 
     u32 domain = ospf_lsa_domain(lsatmp.type, ifa);
-    lsadb = ospfxx_hash_find_header(po->gr, domain, &lsatmp);
+    lsadb = ospf_hash_find_header(po->gr, domain, &lsatmp);
 
 #ifdef LOCAL_DEBUG
     if (lsadb)
@@ -508,7 +508,6 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     {
       struct ospf_iface *ift = NULL;
       void *body;
-      struct ospf_iface *nifa;
       int self = (lsatmp.rt == p->cf->global->router_id);
 
       DBG("PG143(5): Received LSA is newer\n");
@@ -517,6 +516,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       /* 13.4 - check self-originated LSAs of NET type */
       if ((!self) && (lsatmp.type == LSA_T_NET))
       {
+	struct ospf_iface *nifa;
 	WALK_LIST(nifa, po->iface_list)
 	{
 	  if (!nifa->iface)
@@ -551,7 +551,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 	lsasum_check(lsa, (lsa + 1));	/* It also calculates chsum! */
 	lsatmp.checksum = ntohs(lsa->checksum);
 	ospf_lsupd_flood(po, NULL, lsa, &lsatmp, domain, 0);
-	if (en = ospfxx_hash_find_header(po->gr, domain, &lsatmp))
+	if (en = ospf_hash_find_header(po->gr, domain, &lsatmp))
 	{ /* FIXME verify hacks */
 	  ospf_lsupd_flood(po, NULL, NULL, &en->lsa, domain, 1);
 	}
@@ -586,7 +586,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       {
 	struct top_hash_entry *en;
 	if (ntmp->state > NEIGHBOR_EXSTART)
-	  if ((en = ospfxx_hash_find_header(ntmp->lsrth, domain, &lsadb->lsa)) != NULL)
+	  if ((en = ospf_hash_find_header(ntmp->lsrth, domain, &lsadb->lsa)) != NULL)
 	  {
 	    s_rem_node(SNODE en);
 	    if (en->lsa_body != NULL)
@@ -622,7 +622,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     {
       struct top_hash_entry *en;
       DBG("PG145(7) Got the same LSA\n");
-      if ((en = ospfxx_hash_find_header(n->lsrth, lsadb->domain, &lsadb->lsa)) != NULL)
+      if ((en = ospf_hash_find_header(n->lsrth, lsadb->domain, &lsadb->lsa)) != NULL)
       {
 	/* pg145 (7a) */
 	s_rem_node(SNODE en);

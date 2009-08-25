@@ -420,6 +420,23 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
 
 #ifdef OSPFv3
   ifa->instance_id = ip->instance_id;
+
+  ifa->lladdr = IPA_NONE;
+
+  /* Find link-local address */
+  if (ifa->type != OSPF_IT_VLINK)
+    {
+      struct ifa *a;
+      WALK_LIST(a, iface->addrs)
+	if (a->scope == SCOPE_LINK)
+	  {
+	    ifa->lladdr = a->ip;
+	    break;
+	  }
+
+      if (! ipa_nonzero(ifa->lladdr))
+	log(L_WARN "%s: Missing link local address on interface %s", p->name,  iface->name);
+    }
 #endif
 
   ifa->rxbuf = ip->rxbuf;

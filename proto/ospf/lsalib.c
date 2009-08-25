@@ -384,12 +384,11 @@ lsa_install_new(struct proto_ospf *po, struct ospf_lsa_header *lsa, u32 domain, 
 {
   /* LSA can be temporarrily, but body must be mb_allocated. */
   int change = 0;
-  unsigned i;
   struct top_hash_entry *en;
 
-  if ((en = ospfxx_hash_find_header(po->gr, domain, lsa)) == NULL)
+  if ((en = ospf_hash_find_header(po->gr, domain, lsa)) == NULL)
   {
-    en = ospfxx_hash_get_header(po->gr, domain, lsa);
+    en = ospf_hash_get_header(po->gr, domain, lsa);
     change = 1;
   }
   else

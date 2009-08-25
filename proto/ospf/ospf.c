@@ -337,7 +337,7 @@ schedule_rtcalc(struct proto_ospf *po)
  * @oa: ospf area
  *
  * It invokes aging and when @ospf_area->origrt is set to 1, start
- * function for origination of router LSA and network LSAs.
+ * function for origination of router, network LSAs.
  */
 void
 area_disp(struct ospf_area *oa)
@@ -347,13 +347,18 @@ area_disp(struct ospf_area *oa)
 
   /* Now try to originage rt_lsa */
   if (oa->origrt)
-    originate_rt_lsa(oa);
+    update_rt_lsa(oa);
 
   /* Now try to originate network LSA's */
   WALK_LIST(ifa, po->iface_list)
   {
+#ifdef OSPFv3
+    if (ifa->origlink && (ifa->oa == oa))
+      update_link_lsa(ifa);
+#endif
+
     if (ifa->orignet && (ifa->oa == oa))
-      originate_net_lsa(ifa);
+      update_net_lsa(ifa);
   }
 }
 
@@ -376,7 +381,7 @@ ospf_disp(timer * timer)
 
   /* Calculate routing table */
   if (po->calcrt)
-    ospf_rt_spf (po);
+    ospf_rt_spf(po);
 }
 
 
@@ -1019,6 +1024,7 @@ ospf_sh_iface(struct proto *p, char *iff)
  * according to originating router id (to get all LSA needed to represent one
  * router node together). Then, according to LSA type, ID and age.
  */
+/*
 static int
 he_compare(const void *p1, const void *p2)
 {
@@ -1057,6 +1063,7 @@ he_compare(const void *p1, const void *p2)
       return lsa1->age - lsa2->age;
     }
 }
+*/
 /*
 static inline void
 show_lsa_router(struct top_hash_entry *he)
@@ -1074,7 +1081,7 @@ show_lsa_router(struct top_hash_entry *he)
     if (rr[i].type == LSART_NET)
     {
       struct proto_ospf *po = he->oa->po;
-      struct top_hash_entry *net_he = ospfxx_hash_find(po->gr, he->oa->areaid, rr[i].id, rr[i].id, LSA_T_NET);
+      struct top_hash_entry *net_he = ospf_hash_find(po->gr, he->oa->areaid, rr[i].id, rr[i].id, LSA_T_NET);
       if (net_he)
       {
 	struct ospf_lsa_header *net_lsa = &(net_he->lsa);
@@ -1152,12 +1159,13 @@ show_lsa_external(struct top_hash_entry *he)
 void
 ospf_sh_state(struct proto *p, int verbose)
 {
+  /*
   struct proto_ospf *po = (struct proto_ospf *) p;
   struct top_graph *f = po->gr;
   unsigned int i, j;
   u32 last_rt = 0xFFFFFFFF;
   u32 last_area = 0xFFFFFFFF;
-  /*
+
   if (p->proto_state != PS_UP)
   {
     cli_msg(-1016, "%s: is not up", p->name);

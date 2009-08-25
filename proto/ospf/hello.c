@@ -48,7 +48,6 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   struct ospf_hello_packet *ps = (void *) ps_i;
   u32 *pnrid;
   u32 olddr, oldbdr, oldiface_id, tmp;
-  ip_addr mask;
   char *beg = "Bad OSPF hello packet from ", *rec = " received: ";
   struct proto *p = (struct proto *) ifa->oa->po;
   unsigned int size = ntohs(ps->ospf_packet.length), i, twoway, oldpriority, eligible = 0, peers;

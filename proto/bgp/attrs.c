@@ -1131,6 +1131,8 @@ as4_aggregator_valid(struct adata *aggr)
 
   if ((a[0] == 0) || (a[1] == 0))
     return 0;
+
+  return 1;
 }
 
 

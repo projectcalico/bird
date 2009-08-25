@@ -71,7 +71,6 @@ ea__find(ea_list *e, unsigned id)
 
   while (e)
     {
-    /*
       if (e->flags & EALF_BISECT)
 	{
 	  l = 0;
@@ -89,7 +88,6 @@ ea__find(ea_list *e, unsigned id)
 	    }
 	}
       else
-      */
 	for(m=0; m<e->count; m++)
 	  if (e->attrs[m].id == id)
 	    return &e->attrs[m];

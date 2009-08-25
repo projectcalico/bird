@@ -127,7 +127,7 @@ ospf_lsreq_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     llsh->lsh.rt = hrt;
     llsh->lsh.type = htype;
     add_tail(&uplist, NODE llsh);
-    if (ospfxx_hash_find(po->gr, dom, hid, hrt, htype) == NULL)
+    if (ospf_hash_find(po->gr, dom, hid, hrt, htype) == NULL)
     {
       log(L_WARN
 	  "Received bad LS req from: %I looking: Type: %u, ID: %R, RT: %R",

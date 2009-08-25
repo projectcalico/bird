@@ -85,8 +85,9 @@ ospf_dbdes_send(struct ospf_neighbor *n, int next)
   struct proto *p = &po->proto;
   u16 length, i, j;
 
+  /* FIXME ??? */
   if ((oa->rt == NULL) || (EMPTY_LIST(po->lsal)))
-    originate_rt_lsa(oa);
+    update_rt_lsa(oa);
 
   switch (n->state)
   {
@@ -227,13 +228,14 @@ ospf_dbdes_reqladd(struct ospf_dbdes_packet *ps, struct ospf_neighbor *n)
   for (i = 0; i < j; i++)
   {
     ntohlsah(plsa + i, &lsa);
-    if (((he = ospfxx_hash_find_smart(gr, n->ifa, &lsa)) == NULL) ||
+    u32 dom = ospf_lsa_domain(lsa.type, n->ifa);
+    if (((he = ospf_hash_find_header(gr, dom, &lsa)) == NULL) ||
 	(lsa_comp(&lsa, &(he->lsa)) == 1))
     {
       /* Is this condition necessary? */
-      if (ospfxx_hash_find_smart(n->lsrqh, n->ifa, &lsa) == NULL)
+      if (ospf_hash_find_header(n->lsrqh, dom, &lsa) == NULL)
       {
-	sn = ospfxx_hash_get_smart(n->lsrqh, n->ifa, &lsa);
+	sn = ospf_hash_get_header(n->lsrqh, dom, &lsa);
 	ntohlsah(plsa + i, &(sn->lsa));
 	s_add_tail(&(n->lsrql), SNODE sn);
       }
