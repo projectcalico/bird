@@ -1131,6 +1131,8 @@ as4_aggregator_valid(struct adata *aggr)
 
   if ((a[0] == 0) || (a[1] == 0))
     return 0;
+
+  return 1;
 }
 
 
@@ -1245,7 +1247,6 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   int errcode;
   byte *z, *attr_start;
   byte seen[256/8];
-  eattr *e;
   ea_list *ea;
   struct adata *ad;
 

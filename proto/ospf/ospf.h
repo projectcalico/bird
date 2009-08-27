@@ -603,6 +603,8 @@ void schedule_net_lsa(struct ospf_iface *ifa);
 void ospf_sh_neigh(struct proto *p, char *iff);
 void ospf_sh(struct proto *p);
 void ospf_sh_iface(struct proto *p, char *iff);
+void ospf_sh_state(struct proto *p, int verbose);
+
 
 #define EA_OSPF_METRIC1	EA_CODE(EAP_OSPF, 0)
 #define EA_OSPF_METRIC2	EA_CODE(EAP_OSPF, 1)

@@ -488,7 +488,6 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 {
   struct bgp_proto *p = conn->bgp;
   int cl;
-  u32 as;
 
   while (len > 0)
     {
@@ -570,7 +569,6 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 {
   struct bgp_conn *other;
   struct bgp_proto *p = conn->bgp;
-  struct bgp_config *cf = p->cf;
   unsigned hold;
   u16 base_as;
   u32 id;

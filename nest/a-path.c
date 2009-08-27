@@ -13,6 +13,7 @@
 #include "lib/resource.h"
 #include "lib/unaligned.h"
 #include "lib/string.h"
+#include "filter/filter.h"
 
 
 /* Global AS4 support, shared by all BGP instances.
@@ -304,7 +305,7 @@ parse_path(struct adata *path, struct pm_pos *pos)
   u8 *p = path->data;
   u8 *q = p + path->length;
   struct pm_pos *opos = pos;
-  int i, j, len;
+  int i, len;
 
 
   while (p < q)
