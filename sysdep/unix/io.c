@@ -636,6 +636,12 @@ fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
   set_inaddr(&sa->sin6_addr, a);
 }
 
+static inline void
+fill_in_sockifa(sockaddr *sa, struct iface *ifa)
+{
+  sa->sin6_scope_id = ifa ? ifa->index : 0;
+}
+
 void
 get_sockaddr(struct sockaddr_in6 *sa, ip_addr *a, unsigned *port, int check)
 {
@@ -659,6 +665,11 @@ fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
   sa->sin_len = sizeof(struct sockaddr_in);
 #endif
   set_inaddr(&sa->sin_addr, a);
+}
+
+static inline void
+fill_in_sockifa(sockaddr *sa, struct iface *ifa)
+{
 }
 
 void
@@ -874,10 +885,8 @@ sk_open(sock *s)
     {
     case SK_UDP:
     case SK_IP:
+#ifndef IPV6
       if (s->iface)			/* It's a broadcast socket */
-#ifdef IPV6
-	bug("IPv6 has no broadcasts");
-#else
 	if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) < 0)
 	  ERR("SO_BROADCAST");
 #endif
@@ -911,7 +920,7 @@ sk_open(sock *s)
 	    if (setsockopt(fd, SOL_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
 	      ERR("IPV6_ADD_MEMBERSHIP");
 	  }
-#else
+#else /* IPv4 */
 	/* With IPv4 there are zillions of different socket interface variants. Ugh. */
 	ASSERT(s->iface && s->iface->addr);
 	if (err = sysio_mcast_join(s))
@@ -933,6 +942,7 @@ sk_open(sock *s)
 	    ERR("SO_REUSEADDR");
 	}
       fill_in_sockaddr(&sa, s->saddr, port);
+      fill_in_sockifa(&sa, s->iface);
 #ifdef CONFIG_SKIP_MC_BIND
       if ((type != SK_UDP_MC) && (type != SK_IP_MC) &&
 	  bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
@@ -1067,8 +1077,9 @@ sk_maybe_write(sock *s)
 
 	if (s->tbuf == s->tpos)
 	  return 1;
-	fill_in_sockaddr(&sa, s->faddr, s->fport);
 
+	fill_in_sockaddr(&sa, s->faddr, s->fport);
+	fill_in_sockifa(&sa, s->iface);
 	e = sendto(s->fd, s->tbuf, s->tpos - s->tbuf, 0, (struct sockaddr *) &sa, sizeof(sa));
 	if (e < 0)
 	  {

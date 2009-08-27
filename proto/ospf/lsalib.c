@@ -99,7 +99,7 @@ htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
 #ifdef OSPFv2
   n->options = h->options;
 #endif
-  n->type = h->type;
+  n->type = htont(h->type);
   n->id = htonl(h->id);
   n->rt = htonl(h->rt);
   n->sn = htonl(h->sn);
@@ -114,7 +114,7 @@ ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
 #ifdef OSPFv2
   h->options = n->options;
 #endif
-  h->type = n->type;
+  h->type = ntoht(n->type);
   h->id = ntohl(n->id);
   h->rt = ntohl(n->rt);
   h->sn = ntohl(n->sn);
@@ -143,7 +143,7 @@ htonlsab(void *h, void *n, u16 type, u16 len)
       nrt->links = htons(hrt->links);
       links = hrt->links;
 #else /* OSPFv3 */
-      hrt->options = htonl(nrt->options);
+      nrt->options = htonl(hrt->options);
       links = (len - sizeof(struct ospf_lsa_rt)) /
 	sizeof(struct ospf_lsa_rt_link);
 #endif
@@ -173,6 +173,10 @@ htonlsab(void *h, void *n, u16 type, u16 len)
   case LSA_T_SUM_NET:
   case LSA_T_SUM_RT:
   case LSA_T_EXT:
+#ifdef OSPFv3
+  case LSA_T_LINK:
+  case LSA_T_PREFIX:
+#endif
     {
       u32 *hid, *nid;
 
@@ -241,6 +245,10 @@ ntohlsab(void *n, void *h, u16 type, u16 len)
   case LSA_T_SUM_NET:
   case LSA_T_SUM_RT:
   case LSA_T_EXT:
+#ifdef OSPFv3
+  case LSA_T_LINK:
+  case LSA_T_PREFIX:
+#endif
     {
       u32 *hid, *nid;
 
@@ -258,6 +266,35 @@ ntohlsab(void *n, void *h, u16 type, u16 len)
   }
 };
 
+void
+buf_dump(const char *hdr, const byte *buf, int blen)
+{
+  char b2[1024];
+  char *bp;
+  int first = 1;
+  int i;
+
+  const char *lhdr = hdr;
+
+  bp = b2;
+  for(i = 0; i < blen; i++)
+    {
+      if ((i > 0) && ((i % 16) == 0))
+	{
+	      *bp = 0;
+	      log(L_WARN "%s\t%s", lhdr, b2);
+	      lhdr = "";
+	      bp = b2;
+	}
+
+      bp += snprintf(bp, 1022, "%02x ", buf[i]);
+
+    }
+
+  *bp = 0;
+  log(L_WARN "%s\t%s", lhdr, b2);
+}
+
 #define MODX 4102		/* larges signed value without overflow */
 
 /* Fletcher Checksum -- Refer to RFC1008. */
@@ -268,17 +305,25 @@ ntohlsab(void *n, void *h, u16 type, u16 len)
 void
 lsasum_calculate(struct ospf_lsa_header *h, void *body)
 {
-  u16 length;
+  u16 length = h->length;
+  u16 type = h->type;
 
-  length = h->length;
-
+  log(L_WARN "Checksum %R %R %d start (len %d)", h->id, h->rt, h->type, length);
   htonlsah(h, h);
-  htonlsab(body, body, h->type, length - sizeof(struct ospf_lsa_header));
+
+  htonlsab(body, body, type, length - sizeof(struct ospf_lsa_header));
+
+  char buf[1024];
+  memcpy(buf, h, sizeof(struct ospf_lsa_header));
+  memcpy(buf + sizeof(struct ospf_lsa_header), body, length - sizeof(struct ospf_lsa_header));
+  buf_dump("CALC", buf, length);
 
   (void) lsasum_check(h, body);
 
+  log(L_WARN "Checksum result %4x", h->checksum);
+
   ntohlsah(h, h);
-  ntohlsab(body, body, h->type, length - sizeof(struct ospf_lsa_header));
+  ntohlsab(body, body, type, length - sizeof(struct ospf_lsa_header));
 }
 
 /*
@@ -294,7 +339,7 @@ lsasum_check(struct ospf_lsa_header *h, void *body)
   u16 length;
 
   b = body;
-  sp = (char *) &h;
+  sp = (char *) h;
   sp += 2; /* Skip Age field */
   length = ntohs(h->length) - 2;
   h->checksum = 0;

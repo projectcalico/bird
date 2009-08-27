@@ -136,60 +136,6 @@ ipv6_compare(ip_addr X, ip_addr Y)
   return 0;
 }
 
-/* From Linux include/net/ipv6.h */
-#define NEXTHDR_HOP             0       /* Hop-by-hop option header. */
-#define NEXTHDR_ROUTING         43      /* Routing header. */
-#define NEXTHDR_FRAGMENT        44      /* Fragmentation/reassembly header. */
-#define NEXTHDR_DEST            60      /* Destination options header. */
-#define NEXTHDR_NONE            59      /* No next header */
-
-#define NEXTHDR_ESP             50      /* Encapsulating security payload. */
-#define NEXTHDR_AUTH            51      /* Authentication header. */
-
-
-byte *
-ipv6_skip_header(byte *pkt, int *len)
-{
-  int l = *len;
-  int q;
-  u8 nh;
-
-  if (l < 40 || (*pkt & 0xf0) != 0x60)
-    return NULL;
-
-  /* Skip IPv6 header */
-  nh = pkt[6];
-  pkt += 40;
-
-  while ()
-    {
-      switch (nw)
-	{
-	case NEXTHDR_FRAGMENT:
-
-	case NEXTHDR_HOP:
-	case NEXTHDR_ROUTING:
-	case NEXTHDR_DEST:
-
-	case NEXTHDR_AUTH:
-	  break;
-
-	case NEXTHDR_NONE:
-	  return NULL;
-
-	default:
-	  return pkt;
-	}
-    }
-
-  q = (*pkt & 0x0f) * 4;
-  if (q > l)
-    return NULL;
-  *len -= q;
-  return pkt + q;
-}
-
-
 /*
  *  Conversion of IPv6 address to presentation format and vice versa.
  *  Heavily inspired by routines written by Paul Vixie for the BIND project

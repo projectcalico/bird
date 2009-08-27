@@ -69,6 +69,9 @@ typedef struct ipv6_addr {
 #define ipa_getbit(x, y) ipv6_getbit(x, y)
 #define ipa_absolutize(x,y) ipv6_absolutize(x,y)
 
+/* In IPv6, SOCK_RAW does not return packet header */
+#define ip_skip_header(x, y) x
+
 ip_addr ipv6_mkmask(unsigned);
 unsigned ipv6_mklen(ip_addr *);
 int ipv6_classify(ip_addr *);

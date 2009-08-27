@@ -22,6 +22,7 @@
 
 void originate_prefix_rt_lsa(struct ospf_area *oa);
 void originate_prefix_net_lsa(struct ospf_iface *ifa);
+void flush_prefix_net_lsa(struct ospf_iface *ifa);
 
 #ifdef OSPFv2
 #define ipa_to_rid(x) _I(x)
@@ -557,8 +558,6 @@ flush_net_lsa(struct ospf_iface *ifa)
   ifa->net_lsa->lsa.age = LSA_MAXAGE;
   lsasum_calculate(&ifa->net_lsa->lsa, ifa->net_lsa->lsa_body);
   ospf_lsupd_flood(po, NULL, NULL, &ifa->net_lsa->lsa, dom, 0);
-
-
   flush_lsa(ifa->net_lsa, po);
   ifa->net_lsa = NULL;
 }
@@ -1214,6 +1213,28 @@ originate_prefix_net_lsa(struct ospf_iface *ifa)
   ifa->pxn_lsa = lsa_install_new(po, &lsa, dom, body);
   ospf_lsupd_flood(po, NULL, NULL, &lsa, dom, 1);
 }
+
+void
+flush_prefix_net_lsa(struct ospf_iface *ifa)
+{
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
+  struct top_hash_entry *en = ifa->pxn_lsa;
+  u32 dom = ifa->oa->areaid;
+
+  if (en == NULL)
+    return;
+
+  OSPF_TRACE(D_EVENTS, "Flushing Net Prefix lsa for iface \"%s\".",
+	     ifa->iface->name);
+  en->lsa.sn += 1;
+  en->lsa.age = LSA_MAXAGE;
+  lsasum_calculate(&en->lsa, en->lsa_body);
+  ospf_lsupd_flood(po, NULL, NULL, &en->lsa, dom, 0);
+  flush_lsa(en, po);
+  ifa->pxn_lsa = NULL;
+}
+
 
 #endif
 

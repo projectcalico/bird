@@ -424,6 +424,10 @@ struct ospf_lsa_ext
 
 #define LSA_EXT_EBIT 0x80000000
 
+/* Endianity swap for lsa->type */
+#define ntoht(x) x
+#define htont(x) x
+
 
 #else  /* OSPFv3 */
 
@@ -487,6 +491,10 @@ struct ospf_lsa_prefix
 #define LSA_EXT_EBIT 0x4000000
 #define LSA_EXT_FBIT 0x2000000
 #define LSA_EXT_TBIT 0x1000000
+
+/* Endianity swap for lsa->type */
+#define ntoht(x) ntohs(x)
+#define htont(x) htons(x)
 
 #endif
 

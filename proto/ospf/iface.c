@@ -67,7 +67,13 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
   ipsk = sk_new(p->pool);
   ipsk->type = SK_IP;
   ipsk->dport = OSPF_PROTO;
+
+#ifdef OSPFv2
   ipsk->saddr = ifa->iface->addr->ip;
+#else /* OSPFv3 */
+  ipsk->saddr = ifa->lladdr;
+#endif
+
   ipsk->tos = IP_PREC_INTERNET_CONTROL;
   ipsk->ttl = 1;
   if (ifa->type == OSPF_IT_VLINK)
@@ -135,7 +141,13 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 	    ifa->dr_sk->type = SK_IP_MC;
 	    ifa->dr_sk->sport = 0;
 	    ifa->dr_sk->dport = OSPF_PROTO;
+
+#ifdef OSPFv2
 	    ifa->dr_sk->saddr = AllDRouters;
+#else /* OSPFv3 */
+	    ifa->dr_sk->saddr = ifa->lladdr;
+#endif
+
 	    ifa->dr_sk->daddr = AllDRouters;
 	    ifa->dr_sk->tos = IP_PREC_INTERNET_CONTROL;
 	    ifa->dr_sk->ttl = 1;
@@ -308,7 +320,13 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
   mcsk->type = SK_IP_MC;
   mcsk->sport = 0;
   mcsk->dport = OSPF_PROTO;
-  mcsk->saddr = AllSPFRouters;
+
+#ifdef OSPFv2
+  mcsk->saddr = AllDRouters;
+#else /* OSPFv3 */
+  mcsk->saddr = ifa->lladdr;
+#endif
+
   mcsk->daddr = AllSPFRouters;
   mcsk->tos = IP_PREC_INTERNET_CONTROL;
   mcsk->ttl = 1;

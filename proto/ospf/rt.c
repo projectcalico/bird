@@ -312,7 +312,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  nf.ar = act;
 	  nf.nh = act->nh;
 	  nf.ifa = act->nhi;
-	  ri_install(po, ipa_from_rid(act->lsa.rt), 32, ORT_ROUTER, &nf, NULL);
+	  ri_install(po, ipa_from_rid(act->lsa.rt), MAX_PREFIX_LENGTH, ORT_ROUTER, &nf, NULL);
 	}
 
       rr = (struct ospf_lsa_rt_link *) (rt + 1);
@@ -582,7 +582,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
 #endif
 
       ip = ipa_from_rid(dst_rid);
-      pxlen = 32;
+      pxlen = MAX_PREFIX_LENGTH;
       metric = ls->metric & METRIC_MASK;
       options |= ORTA_ASBR;
       type = ORT_ROUTER;
@@ -595,7 +595,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
 
     abrip = ipa_from_rid(en->lsa.rt);
 
-    abr = fib_find(&oa->rtr, &abrip, 32);
+    abr = fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH);
     if (!abr) continue;
 
     nf.type = re->n.type;
@@ -691,7 +691,7 @@ ospf_rt_sum(struct ospf_area *oa)
 #endif
 
       ip = ipa_from_rid(dst_rid);
-      pxlen = 32;
+      pxlen = MAX_PREFIX_LENGTH;
       metric = ls->metric & METRIC_MASK;
       options |= ORTA_ASBR;
       type = ORT_ROUTER;
@@ -703,7 +703,7 @@ ospf_rt_sum(struct ospf_area *oa)
 
     /* Page 169 (4) */
     abrip = ipa_from_rid(en->lsa.rt);
-    if (!(abr = (ort *) fib_find(&oa->rtr, &abrip, 32))) continue;
+    if (!(abr = (ort *) fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH))) continue;
     if (abr->n.metric1 == LSINFINITY) continue;
     if (!(abr->n.options & ORTA_ABR)) continue;
 
@@ -891,7 +891,7 @@ ospf_ext_spf(struct proto_ospf *po)
     nf1 = NULL;
     WALK_LIST(atmp, po->area_list)
     {
-      nfh = fib_find(&atmp->rtr, &rtid, 32);
+      nfh = fib_find(&atmp->rtr, &rtid, MAX_PREFIX_LENGTH);
       if (nfh == NULL) continue;
       if (nf1 == NULL) nf1 = nfh;
       else if (ri_better(po, &nfh->n, NULL, &nf1->n, NULL, po->rfc1583)) nf1 = nfh;
@@ -915,14 +915,13 @@ ospf_ext_spf(struct proto_ospf *po)
     }
     else
     {
-      nf2 = fib_route(&po->rtf, rt_fwaddr, 32);
+      nf2 = fib_route(&po->rtf, rt_fwaddr, MAX_PREFIX_LENGTH);
 
       if (!nf2)
       {
 	DBG("Cannot find network route (GW=%I)\n", rt_fwaddr);
 	continue;
       }
-
 
       if ((nn = neigh_find(p, &rt_fwaddr, 0)) != NULL)
       {
@@ -1179,7 +1178,7 @@ again1:
         int found = 0;
         struct ospf_iface *ifa;
         struct top_hash_entry *en;
-        OSPF_TRACE(D_EVENTS, "Trying to find correct next hop");
+        OSPF_TRACE(D_EVENTS, "Trying to find correct next hop %I/%d via %I", nf->fn.prefix, nf->fn.pxlen, nf->n.nh);
         WALK_LIST(ifa, po->iface_list)
         {
           if ((ifa->type == OSPF_IT_VLINK) && ipa_equal(ifa->vip, nf->n.nh))

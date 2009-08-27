@@ -78,13 +78,32 @@ ospf_lsa_flooding_allowed(struct ospf_lsa_header *lsa, u32 domain, struct ospf_i
 
 #else /* OSPFv3 */
 
+static int
+unknown_lsa_type(struct ospf_lsa_header *lsa)
+{
+  switch (lsa->type)
+    {
+    case LSA_T_RT:
+    case LSA_T_NET:
+    case LSA_T_SUM_NET:
+    case LSA_T_SUM_RT:
+    case LSA_T_EXT:
+    case LSA_T_LINK:
+    case LSA_T_PREFIX:
+      return 0;
+
+    default:
+      return 1;
+    }
+}
+
 int
 ospf_lsa_flooding_allowed(struct ospf_lsa_header *lsa, u32 domain, struct ospf_iface *ifa)
 {    
   u32 scope = LSA_SCOPE(lsa);
 
   /* 4.5.2 (Case 2) */
-  if (unknown_type(lsa) && !(lsa->type & LSA_UBIT))
+  if (unknown_lsa_type(lsa) && !(lsa->type & LSA_UBIT))
     scope = LSA_SCOPE_LINK;
 
   switch (scope)
@@ -444,9 +463,11 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 
     /* pg 143 (1) */
     chsum = lsa->checksum;
+    log(L_WARN "Checking rcv %R %R %d (len %d)", ntohl(lsa->id), ntohl(lsa->rt), ntoht(lsa->type), ntohs(lsa->length));
+    buf_dump("RCV", lsa, ntohs(lsa->length));
     if (chsum != lsasum_check(lsa, NULL))
     {
-      log(L_WARN "Received bad lsa checksum from %I", n->ip);
+      log(L_WARN "Received bad lsa checksum from %I: %x %x", n->ip, chsum, lsa->checksum);
       continue;
     }
 
