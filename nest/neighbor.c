@@ -100,14 +100,16 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
  * IP address, neigh_find() returns %NULL.
  */
 
+/*
 neighbor *
 neigh_find(struct proto *p, ip_addr *a, unsigned flags)
 {
   return neigh_find2(p, a, NULL, flags);
 }
+*/
 
 neighbor *
-neigh_find2(struct proto *p, ip_addr *a, unsigned flags)
+neigh_find(struct proto *p, ip_addr *a, unsigned flags)
 {
   neighbor *n;
   int class, scope = SCOPE_HOST;

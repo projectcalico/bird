@@ -145,6 +145,7 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 #ifdef OSPFv2
 	    ifa->dr_sk->saddr = AllDRouters;
 #else /* OSPFv3 */
+	    // ifa->dr_sk->saddr = AllDRouters;
 	    ifa->dr_sk->saddr = ifa->lladdr;
 #endif
 
@@ -322,8 +323,9 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
   mcsk->dport = OSPF_PROTO;
 
 #ifdef OSPFv2
-  mcsk->saddr = AllDRouters;
+  mcsk->saddr = AllSPFRouters;
 #else /* OSPFv3 */
+  // mcsk->saddr = AllSPFRouters;
   mcsk->saddr = ifa->lladdr;
 #endif
 
