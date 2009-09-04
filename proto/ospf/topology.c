@@ -174,7 +174,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
   ASSERT(po->lsab_used == 0);
   rt = lsab_allocz(po, sizeof(struct ospf_lsa_rt));
 
-  rt->options = 0
+  rt->options = 0;
 
   if (po->areano > 1)
     rt->options |= OPT_RT_B;
@@ -445,7 +445,9 @@ update_rt_lsa(struct ospf_area *oa)
    */
 
   originate_rt_lsa(oa);
+#ifdef OSPFv3
   originate_prefix_rt_lsa(oa);
+#endif
 
   schedule_rtcalc(po);
   oa->origrt = 0;
@@ -577,12 +579,16 @@ update_net_lsa(struct ospf_iface *ifa)
   if ((ifa->state != OSPF_IS_DR) || (ifa->fadj == 0))
     {
       flush_net_lsa(ifa);
+#ifdef OSPFv3
       flush_prefix_net_lsa(ifa);
+#endif
     }
   else
     {
       originate_net_lsa(ifa);
+#ifdef OSPFv3
       originate_prefix_net_lsa(ifa);
+#endif
     }
 
   schedule_rtcalc(po);
@@ -1353,6 +1359,16 @@ ospf_top_rehash(struct top_graph *f, int step)
   ospf_top_ht_free(oldt);
 }
 
+#ifdef OSPFv2
+
+u32
+ospf_lsa_domain(u32 type, struct ospf_iface *ifa)
+{
+  return (type == LSA_T_EXT) ? 0 : ifa->oa->areaid;
+}
+
+#else /* OSPFv3 */
+
 u32
 ospf_lsa_domain(u32 type, struct ospf_iface *ifa)
 {
@@ -1369,6 +1385,8 @@ ospf_lsa_domain(u32 type, struct ospf_iface *ifa)
       return 0;
     }
 }
+
+#endif
 
 struct top_hash_entry *
 ospf_hash_find_header(struct top_graph *f, u32 domain, struct ospf_lsa_header *h)

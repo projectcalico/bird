@@ -50,7 +50,15 @@ int sk_send_to(sock *, unsigned len, ip_addr to, unsigned port); /* sk_send to g
 void sk_reallocate(sock *);		/* Free and allocate tbuf & rbuf */
 void sk_dump_all(void);
 int sk_set_ttl(sock *s, int ttl);	/* Set TTL for given socket */
-int sk_set_md5_auth(sock *s, ip_addr a, char *passwd);	/* Add or remove security associations for given passive socket */
+
+/* Add or remove security associations for given passive socket */
+int sk_set_md5_auth(sock *s, ip_addr a, char *passwd);
+
+/* Prepare UDP or IP socket to multicasting. s->iface and s->ttl must be set */
+int sk_setup_multicast(sock *s);	
+int sk_join_group(sock *s, ip_addr maddr);
+int sk_leave_group(sock *s, ip_addr maddr);
+
 
 static inline int
 sk_send_buffer_empty(sock *sk)
@@ -72,9 +80,7 @@ sk_send_buffer_empty(sock *sk)
 #define SK_TCP_ACTIVE	1          /* ?  ?  *  *  -  ?   -	*/
 #define SK_TCP		2
 #define SK_UDP		3          /* ?  ?  -  -  -  ?   ?	*/
-#define SK_UDP_MC       4          /* ?  ?  *  *  *  *   -	*/
 #define SK_IP		5          /* ?  -  -  *  -  ?   ?	*/
-#define SK_IP_MC	6          /* ?  -  *  *  *  *   -	*/
 #define SK_MAGIC	7	   /* Internal use by sysdep code */
 #define SK_UNIX_PASSIVE	8
 #define SK_UNIX		9

@@ -56,7 +56,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);
 
 #ifdef OSPFv2
-  mask = ps->netmask;
+  ip_addr mask = ps->netmask;
   ipa_ntoh(mask);
   if (ifa->type != OSPF_IT_VLINK)
     {
@@ -198,7 +198,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   if (n->state >= NEIGHBOR_2WAY)
   {
 #ifdef OSPFv2
-    u32 rid = n->ip;
+    u32 rid = ipa_to_u32(n->ip);
 #else /* OSPFv3 */
     u32 rid = p->cf->global->router_id;
 #endif
@@ -266,20 +266,12 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
   p = (struct proto *) (ifa->oa->po);
   DBG("%s: Hello/Poll timer fired on interface %s.\n",
       p->name, ifa->iface->name);
-  /* Now we should send a hello packet */
-  /* First a common packet header */
-  if ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_VLINK))
-  {
-    pkt = (struct ospf_hello_packet *) (ifa->ip_sk->tbuf);
-  }
-  else
-  {
-    pkt = (struct ospf_hello_packet *) (ifa->hello_sk->tbuf);
-  }
 
-  /* Now fill ospf_hello header */
+  /* Now we should send a hello packet */
+  pkt = (struct ospf_hello_packet *) (ifa->sk->tbuf);
   op = (struct ospf_packet *) pkt;
 
+  /* Now fill ospf_hello header */
   ospf_pkt_fill_hdr(ifa, pkt, HELLO_P);
 
 #ifdef OSPFv2
@@ -332,7 +324,7 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
     case OSPF_IT_NBMA:
       if (timer == NULL)		/* Response to received hello */
       {
-        ospf_send_to(ifa->ip_sk, dirn->ip, ifa);
+        ospf_send_to(ifa, dirn->ip);
       }
       else
       {
@@ -357,7 +349,7 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
           if ((poll == 1) && (send))
           {
             if (toall || (meeli && nb->eligible))
-              ospf_send_to(ifa->ip_sk, nb->ip, ifa);
+              ospf_send_to(ifa, nb->ip);
           }
         }
         if (poll == 0)
@@ -366,16 +358,16 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
           {
             if (toall || (n1->rid == ifa->drid) || (n1->rid == ifa->bdrid) ||
                 (meeli && (n1->priority > 0)))
-              ospf_send_to(ifa->ip_sk, n1->ip, ifa);
+              ospf_send_to(ifa, n1->ip);
           }
         }
       }
       break;
     case OSPF_IT_VLINK:
-      ospf_send_to(ifa->ip_sk, ifa->vip, ifa);
+      ospf_send_to(ifa, ifa->vip);
       break;
     default:
-      ospf_send_to(ifa->hello_sk, IPA_NONE, ifa);
+      ospf_send_to(ifa, AllSPFRouters);
   }
 
   OSPF_TRACE(D_PACKETS, "HELLO packet sent via %s%s",

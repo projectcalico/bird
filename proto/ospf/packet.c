@@ -437,26 +437,27 @@ ospf_err_hook(sock * sk, int err)
 }
 
 void
-ospf_send_to_agt(sock * sk, struct ospf_iface *ifa, u8 state)
+ospf_send_to_agt(struct ospf_iface *ifa, u8 state)
 {
   struct ospf_neighbor *n;
 
   WALK_LIST(n, ifa->neigh_list) if (n->state >= state)
-    ospf_send_to(sk, n->ip, ifa);
+    ospf_send_to(ifa, n->ip);
 }
 
 void
-ospf_send_to_bdr(sock * sk, struct ospf_iface *ifa)
+ospf_send_to_bdr(struct ospf_iface *ifa)
 {
   if (!ipa_equal(ifa->drip, IPA_NONE))
-    ospf_send_to(sk, ifa->drip, ifa);
+    ospf_send_to(ifa, ifa->drip);
   if (!ipa_equal(ifa->bdrip, IPA_NONE))
-    ospf_send_to(sk, ifa->bdrip, ifa);
+    ospf_send_to(ifa, ifa->bdrip);
 }
 
 void
-ospf_send_to(sock *sk, ip_addr ip, struct ospf_iface *ifa)
+ospf_send_to(struct ospf_iface *ifa, ip_addr ip)
 {
+  sock *sk = ifa->sk;
   struct ospf_packet *pkt = (struct ospf_packet *) sk->tbuf;
   int len = ntohs(pkt->length);
 

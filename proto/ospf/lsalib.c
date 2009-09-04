@@ -126,6 +126,7 @@ void
 htonlsab(void *h, void *n, u16 type, u16 len)
 {
   unsigned int i;
+
   switch (type)
   {
   case LSA_T_RT:
@@ -138,10 +139,9 @@ htonlsab(void *h, void *n, u16 type, u16 len)
       hrt = h;
 
 #ifdef OSPFv2
-      nrt->veb.byte = hrt->veb.byte;
-      nrt->padding = 0;
-      nrt->links = htons(hrt->links);
       links = hrt->links;
+      nrt->options = htons(hrt->options);
+      nrt->links = htons(hrt->links);
 #else /* OSPFv3 */
       nrt->options = htonl(hrt->options);
       links = (len - sizeof(struct ospf_lsa_rt)) /
@@ -211,8 +211,7 @@ ntohlsab(void *n, void *h, u16 type, u16 len)
       hrt = h;
 
 #ifdef OSPFv2
-      hrt->veb.byte = nrt->veb.byte;
-      hrt->padding = 0;
+      hrt->options = ntohs(nrt->options);
       links = hrt->links = ntohs(nrt->links);
 #else /* OSPFv3 */
       hrt->options = ntohl(nrt->options);
@@ -308,19 +307,20 @@ lsasum_calculate(struct ospf_lsa_header *h, void *body)
   u16 length = h->length;
   u16 type = h->type;
 
-  log(L_WARN "Checksum %R %R %d start (len %d)", h->id, h->rt, h->type, length);
+  //  log(L_WARN "Checksum %R %R %d start (len %d)", h->id, h->rt, h->type, length);
   htonlsah(h, h);
-
   htonlsab(body, body, type, length - sizeof(struct ospf_lsa_header));
 
+  /*
   char buf[1024];
   memcpy(buf, h, sizeof(struct ospf_lsa_header));
   memcpy(buf + sizeof(struct ospf_lsa_header), body, length - sizeof(struct ospf_lsa_header));
   buf_dump("CALC", buf, length);
+  */
 
   (void) lsasum_check(h, body);
 
-  log(L_WARN "Checksum result %4x", h->checksum);
+  //  log(L_WARN "Checksum result %4x", h->checksum);
 
   ntohlsah(h, h);
   ntohlsab(body, body, type, length - sizeof(struct ospf_lsa_header));

@@ -59,7 +59,7 @@ rxbufsize(struct ospf_iface *ifa)
 }
 
 static sock *
-ospf_open_ip_socket(struct ospf_iface *ifa)
+ospf_open_socket(struct ospf_iface *ifa, int mc)
 {
   sock *ipsk;
   struct proto *p = &ifa->oa->po->proto;
@@ -69,7 +69,8 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
   ipsk->dport = OSPF_PROTO;
 
 #ifdef OSPFv2
-  ipsk->saddr = ifa->iface->addr->ip;
+  //  ipsk->saddr = ifa->iface->addr->ip;
+  ipsk->saddr = IPA_NONE;
 #else /* OSPFv3 */
   ipsk->saddr = ifa->lladdr;
 #endif
@@ -86,12 +87,22 @@ ospf_open_ip_socket(struct ospf_iface *ifa)
   ipsk->tbsize = ifa->iface->mtu;
   ipsk->data = (void *) ifa;
   if (sk_open(ipsk) != 0)
+    goto err;
+
+  if (mc)
   {
-    DBG("%s: SK_OPEN: ip open failed.\n", p->name);
-    return (NULL);
+    if (sk_setup_multicast(ipsk) < 0)
+      goto err;
+
+    if (sk_join_group(ipsk, AllSPFRouters) < 0)
+      goto err;
   }
-  DBG("%s: SK_OPEN: ip opened.\n", p->name);
-  return (ipsk);
+
+  return ipsk;
+
+ err:
+  rfree(ipsk);
+  return NULL;
 }
 
 
@@ -122,7 +133,7 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 		 ifa->vid, ospf_is[oldstate], ospf_is[state]);
       if (state == OSPF_IS_PTP)
       {
-        ifa->ip_sk = ospf_open_ip_socket(ifa);
+        ifa->sk = ospf_open_socket(ifa, 0);
       }
     }
     else
@@ -132,43 +143,17 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 		 ifa->iface->name, ospf_is[oldstate], ospf_is[state]);
       if (ifa->iface->flags & IF_MULTICAST)
       {
-	if ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR))
+	if ((ifa->type != OSPF_IT_NBMA) && (ifa->ioprob == OSPF_I_OK) &&
+	    ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR)))
 	{
-	  if ((ifa->dr_sk == NULL) && (ifa->type != OSPF_IT_NBMA))
-	  {
-	    DBG("%s: Adding new multicast socket for (B)DR\n", p->name);
-	    ifa->dr_sk = sk_new(p->pool);
-	    ifa->dr_sk->type = SK_IP_MC;
-	    ifa->dr_sk->sport = 0;
-	    ifa->dr_sk->dport = OSPF_PROTO;
-
-#ifdef OSPFv2
-	    ifa->dr_sk->saddr = AllDRouters;
-#else /* OSPFv3 */
-	    // ifa->dr_sk->saddr = AllDRouters;
-	    ifa->dr_sk->saddr = ifa->lladdr;
-#endif
-
-	    ifa->dr_sk->daddr = AllDRouters;
-	    ifa->dr_sk->tos = IP_PREC_INTERNET_CONTROL;
-	    ifa->dr_sk->ttl = 1;
-	    ifa->dr_sk->rx_hook = ospf_rx_hook;
-	    ifa->dr_sk->tx_hook = ospf_tx_hook;
-	    ifa->dr_sk->err_hook = ospf_err_hook;
-	    ifa->dr_sk->iface = ifa->iface;
-	    ifa->dr_sk->rbsize = rxbufsize(ifa);
-	    ifa->dr_sk->tbsize = ifa->iface->mtu;
-	    ifa->dr_sk->data = (void *) ifa;
-	    if (sk_open(ifa->dr_sk) != 0)
-	    {
-	      DBG("%s: SK_OPEN: new? mc open failed.\n", p->name);
-	    }
-	  }
+	  /* FIXME some error handing ? */
+	  sk_join_group(ifa->sk, AllDRouters);
+	  ifa->dr_up = 1;
 	}
-	else
+	else if (ifa->dr_up)
 	{
-	  rfree(ifa->dr_sk);
-	  ifa->dr_sk = NULL;
+	  sk_leave_group(ifa->sk, AllDRouters);
+	  ifa->dr_up = 0;
 	}
 	if ((oldstate == OSPF_IS_DR) && (ifa->net_lsa != NULL))
 	{
@@ -209,13 +194,12 @@ ospf_iface_down(struct ospf_iface *ifa)
     OSPF_TRACE(D_EVENTS, "Removing neighbor %I", n->ip);
     ospf_neigh_remove(n);
   }
-  rfree(ifa->hello_sk);
-  rfree(ifa->dr_sk);
-  rfree(ifa->ip_sk);
+
+  rfree(ifa->sk);
+  ifa->sk = NULL;
 
   if (ifa->type == OSPF_IT_VLINK)
   {
-    ifa->ip_sk = NULL;
     ifa->iface = NULL;
     return;
   }
@@ -311,6 +295,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 
 }
 
+#if 0
 static sock *
 ospf_open_mc_socket(struct ospf_iface *ifa)
 {
@@ -347,6 +332,7 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
   DBG("%s: SK_OPEN: mc opened.\n", p->name);
   return (mcsk);
 }
+#endif
 
 u8
 ospf_iface_clasify(struct iface * ifa)
@@ -383,20 +369,8 @@ ospf_iface_add(struct object_lock *lock)
 
   ifa->ioprob = OSPF_I_OK;
 
-  if (ifa->type != OSPF_IT_NBMA)
-  {
-    if ((ifa->hello_sk = ospf_open_mc_socket(ifa)) == NULL)
-    {
-      log("%s: Huh? could not open mc socket on interface %s?", p->name,
-	  iface->name);
-      log("%s: Declaring as stub.", p->name);
-      ifa->stub = 1;
-      ifa->ioprob += OSPF_I_MC;
-    }
-    ifa->dr_sk = NULL;
-  }
-
-  if ((ifa->ip_sk = ospf_open_ip_socket(ifa)) == NULL)
+  ifa->sk = ospf_open_socket(ifa, ifa->type != OSPF_IT_NBMA);
+  if (ifa->sk == NULL)
   {
     log("%s: Huh? could not open ip socket on interface %s?", p->name,
 	iface->name);
@@ -546,23 +520,12 @@ ospf_iface_change_mtu(struct proto_ospf *po, struct ospf_iface *ifa)
   struct ospf_packet *op;
   struct ospf_neighbor *n;
   OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s.", ifa->iface->name);
-  if (ifa->hello_sk)
+
+  if (ifa->sk)
   {
-    ifa->hello_sk->rbsize = rxbufsize(ifa);
-    ifa->hello_sk->tbsize = ifa->iface->mtu;
-    sk_reallocate(ifa->hello_sk);
-  }
-  if (ifa->dr_sk)
-  {
-    ifa->dr_sk->rbsize = rxbufsize(ifa);
-    ifa->dr_sk->tbsize = ifa->iface->mtu;
-    sk_reallocate(ifa->dr_sk);
-  }
-  if (ifa->ip_sk)
-  {
-    ifa->ip_sk->rbsize = rxbufsize(ifa);
-    ifa->ip_sk->tbsize = ifa->iface->mtu;
-    sk_reallocate(ifa->ip_sk);
+    ifa->sk->rbsize = rxbufsize(ifa);
+    ifa->sk->tbsize = ifa->iface->mtu;
+    sk_reallocate(ifa->sk);
   }
 
   WALK_LIST(n, ifa->neigh_list)

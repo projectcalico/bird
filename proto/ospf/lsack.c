@@ -57,7 +57,6 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 {
   struct ospf_packet *op;
   struct ospf_lsack_packet *pk;
-  sock *sk;
   u16 len, i = 0;
   struct ospf_lsa_header *h;
   struct lsah_n *no;
@@ -67,13 +66,8 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   if (EMPTY_LIST(n->ackl[queue]))
     return;
 
-  if (ifa->type == OSPF_IT_BCAST)
-    sk = ifa->hello_sk;
-  else
-    sk = ifa->ip_sk;
-
-  pk = (struct ospf_lsack_packet *) sk->tbuf;
-  op = (struct ospf_packet *) sk->tbuf;
+  pk = (struct ospf_lsack_packet *) ifa->sk->tbuf;
+  op = (struct ospf_packet *) ifa->sk->tbuf;
 
   ospf_pkt_fill_hdr(n->ifa, pk, LSACK_P);
   h = pk->lsh;
@@ -98,22 +92,22 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
 	op->length = htons(len);
 	DBG("Sending and continuing! Len=%u\n", len);
 
-	OSPF_PACKET(ospf_dump_lsack, (struct ospf_lsack_packet *) sk->tbuf,
+	OSPF_PACKET(ospf_dump_lsack, (struct ospf_lsack_packet *) ifa->sk->tbuf,
 		    "LSACK packet sent via %s", ifa->iface->name);
 
 	if (ifa->type == OSPF_IT_BCAST)
 	{
 	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
-	    ospf_send_to(sk, AllSPFRouters, ifa);
+	    ospf_send_to(ifa, AllSPFRouters);
 	  else
-	    ospf_send_to(sk, AllDRouters, ifa);
+	    ospf_send_to(ifa, AllDRouters);
 	}
 	else
 	{
 	  if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
-	    ospf_send_to_agt(sk, ifa, NEIGHBOR_EXCHANGE);
+	    ospf_send_to_agt(ifa, NEIGHBOR_EXCHANGE);
 	  else
-	    ospf_send_to_bdr(sk, ifa);
+	    ospf_send_to_bdr(ifa);
 	}
 
 	ospf_pkt_fill_hdr(n->ifa, pk, LSACK_P);
@@ -126,24 +120,18 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   op->length = htons(len);
   DBG("Sending! Len=%u\n", len);
 
-  OSPF_PACKET(ospf_dump_lsack, (struct ospf_lsack_packet *) sk->tbuf,
+  OSPF_PACKET(ospf_dump_lsack, (struct ospf_lsack_packet *) ifa->sk->tbuf,
 	      "LSACK packet sent via %s", ifa->iface->name);
 
   if (ifa->type == OSPF_IT_BCAST)
   {
     if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
-    {
-      ospf_send_to(sk, AllSPFRouters, ifa);
-    }
+      ospf_send_to(ifa, AllSPFRouters);
     else
-    {
-      ospf_send_to(sk, AllDRouters, ifa);
-    }
+      ospf_send_to(ifa, AllDRouters);
   }
   else
-  {
-    ospf_send_to_agt(sk, ifa, NEIGHBOR_EXCHANGE);
-  }
+    ospf_send_to_agt(ifa, NEIGHBOR_EXCHANGE);
 }
 
 void

@@ -26,6 +26,8 @@ static void rt_sync(struct proto_ospf *po);
 #endif
 
 
+#ifdef OSPFv3
+
 static inline u32 *
 get_ipv6_prefix(u32 *buf, ip_addr *addr, int *pxlen, u8 *pxopts, u16 *rest)
 {
@@ -55,6 +57,9 @@ get_ipv6_addr(u32 *buf, ip_addr *addr)
   *addr = *(ip_addr *) buf;
   return buf + 4;
 }
+
+#endif
+
 
 static void
 fill_ri(orta * orta)
@@ -839,8 +844,8 @@ ospf_ext_spf(struct proto_ospf *po)
     if (en->lsa.rt == p->cf->global->router_id)
       continue;
 
-    DBG("%s: Working on LSA. ID: %R, RT: %R, Type: %u, Mask %I\n",
-	p->name, en->lsa.id, en->lsa.rt, en->lsa.type, le->netmask);
+    DBG("%s: Working on LSA. ID: %R, RT: %R, Type: %u\n",
+	p->name, en->lsa.id, en->lsa.rt, en->lsa.type);
 
     le = en->lsa_body;
 
@@ -1056,7 +1061,7 @@ static inline int
 match_dr(struct ospf_iface *ifa, struct top_hash_entry *en)
 {
 #ifdef OSPFv2
-  return (ifa->drid == en->lsa.rt) && (ifa->drip == ipa_from_u32(en->lsa.id));
+  return (ifa->drid == en->lsa.rt) && (ipa_to_u32(ifa->drip) == en->lsa.id);
 #else /* OSPFv3 */
   return (ifa->drid == en->lsa.rt) && (ifa->dr_iface_id == en->lsa.id);
 #endif

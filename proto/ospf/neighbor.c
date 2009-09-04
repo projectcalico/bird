@@ -478,8 +478,8 @@ bdr_election(struct ospf_iface *ifa)
       || ((ifa->bdrid != myid) && (nbdr == &me)))
   {
 #ifdef OSPFv2
-    me.dr = ndr ? ipa_to_u32(ndr->ip) : IPA_NONE;
-    me.bdr = nbdr ? ipa_to_u32(nbdr->ip) : IPA_NONE;
+    me.dr = ndr ? ipa_to_u32(ndr->ip) : 0;
+    me.bdr = nbdr ? ipa_to_u32(nbdr->ip) : 0;
 #else /* OSPFv3 */
     me.dr = ndr ? ndr->rid : 0;
     me.bdr = nbdr ? nbdr->rid : 0;

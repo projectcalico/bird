@@ -18,6 +18,7 @@
 			 * normally allocate 2*mtu - (I found one cisco
 			 * sending packets mtu+16)
 			 */
+#define LOCAL_DEBUG 1
 #ifdef LOCAL_DEBUG
 #define OSPF_FORCE_DEBUG 1
 #else
@@ -161,9 +162,7 @@ struct ospf_iface
   struct iface *iface;		/* Nest's iface */
   struct ospf_area *oa;
   struct object_lock *lock;
-  sock *hello_sk;		/* Hello socket */
-  sock *dr_sk;			/* For states DR or BACKUP */
-  sock *ip_sk;			/* IP socket (for DD ...) */
+  sock *sk;			/* IP socket (for DD ...) */
   list neigh_list;		/* List of neigbours */
   u32 cost;			/* Cost of iface */
   u32 waitint;			/* number of sec before changing state from wait */
@@ -241,6 +240,7 @@ struct ospf_iface
   list nbma_list;
   u8 priority;				/* A router priority for DR election */
   u8 ioprob;
+  u8 dr_up;				/* Socket is a member of DRouters group */
   u32 rxbuf;
 };
 

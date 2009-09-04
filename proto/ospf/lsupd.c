@@ -21,7 +21,7 @@ void ospf_dump_lsahdr(struct proto *p, struct ospf_lsa_header *lsa_n)
   struct ospf_lsa_header lsa;
   ntohlsah(lsa_n, &lsa);
 
-  log(L_TRACE "%s:     LSA      Id: %R, Rt: %R, Type: %u, Age: %u, Seqno: 0x%08x, Sum: %u",
+  log(L_TRACE "%s:     LSA      Id: %R, Rt: %R, Type: 0x%04x, Age: %u, Seqno: 0x%08x, Sum: 0x%04x",
       p->name, lsa.id, lsa.rt, lsa.type, lsa.age, lsa.sn, lsa.checksum);
 }
 
@@ -70,7 +70,7 @@ ospf_lsa_flooding_allowed(struct ospf_lsa_header *lsa, u32 domain, struct ospf_i
 	return 0;
       if (ifa->oa->stub)
 	return 0;
-      return 1
+      return 1;
     }
   else
     return ifa->oa->areaid == domain;
@@ -262,19 +262,13 @@ ospf_lsupd_flood(struct proto_ospf *po,
     }
 
     {
-      sock *sk;
       u16 len, age;
       struct ospf_lsupd_packet *pk;
       struct ospf_packet *op;
       struct ospf_lsa_header *lh;
 
-      if ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_VLINK))
-	sk = ifa->ip_sk;
-      else
-	sk = ifa->hello_sk;
-
-      pk = (struct ospf_lsupd_packet *) sk->tbuf;
-      op = (struct ospf_packet *) sk->tbuf;
+      pk = (struct ospf_lsupd_packet *) ifa->sk->tbuf;
+      op = (struct ospf_packet *) ifa->sk->tbuf;
 
       ospf_pkt_fill_hdr(ifa, pk, LSUPD_P);
       pk->lsano = htonl(1);
@@ -308,28 +302,28 @@ ospf_lsupd_flood(struct proto_ospf *po,
 
       op->length = htons(len);
 
-      OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) sk->tbuf,
+      OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) ifa->sk->tbuf,
 		  "LSUPD packet flooded via %s", ifa->iface->name);
 
       switch (ifa->type)
       {
       case OSPF_IT_NBMA:
 	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR))
-	  ospf_send_to_agt(sk, ifa, NEIGHBOR_EXCHANGE);
+	  ospf_send_to_agt(ifa, NEIGHBOR_EXCHANGE);
 	else
-	  ospf_send_to_bdr(sk, ifa);
+	  ospf_send_to_bdr(ifa);
 	break;
 
       case OSPF_IT_VLINK:
-	ospf_send_to(sk, ifa->vip, ifa);
+	ospf_send_to(ifa, ifa->vip);
 	break;
 
       default:
 	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR) ||
 	    (ifa->type == OSPF_IT_PTP))
-	  ospf_send_to(sk, AllSPFRouters, ifa);
+	  ospf_send_to(ifa, AllSPFRouters);
 	else
-	  ospf_send_to(sk, AllDRouters, ifa);
+	  ospf_send_to(ifa, AllDRouters);
       }
     }
   }
@@ -353,8 +347,8 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
   if (EMPTY_LIST(*l))
     return;
 
-  pk = (struct ospf_lsupd_packet *) n->ifa->ip_sk->tbuf;
-  op = (struct ospf_packet *) n->ifa->ip_sk->tbuf;
+  pk = (struct ospf_lsupd_packet *) n->ifa->sk->tbuf;
+  op = (struct ospf_packet *) n->ifa->sk->tbuf;
 
   DBG("LSupd: 1st packet\n");
 
@@ -378,9 +372,9 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
       pk->lsano = htonl(lsano);
       op->length = htons(len);
 
-      OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) n->ifa->ip_sk->tbuf,
+      OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) n->ifa->sk->tbuf,
 		  "LSUPD packet sent to %I via %s", n->ip, n->ifa->iface->name);
-      ospf_send_to(n->ifa->ip_sk, n->ip, n->ifa);
+      ospf_send_to(n->ifa, n->ip);
 
       DBG("LSupd: next packet\n");
       ospf_pkt_fill_hdr(n->ifa, pk, LSUPD_P);
@@ -401,9 +395,9 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
     pk->lsano = htonl(lsano);
     op->length = htons(len);
 
-    OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) n->ifa->ip_sk->tbuf,
+    OSPF_PACKET(ospf_dump_lsupd,  (struct ospf_lsupd_packet *) n->ifa->sk->tbuf,
 		"LSUPD packet sent to %I via %s", n->ip, n->ifa->iface->name);
-    ospf_send_to(n->ifa->ip_sk, n->ip, n->ifa);
+    ospf_send_to(n->ifa, n->ip);
   }
 }
 
