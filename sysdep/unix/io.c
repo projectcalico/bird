@@ -205,10 +205,6 @@ timer *
 tm_new(pool *p)
 {
   timer *t = ralloc(p, &tm_class);
-  t->hook = NULL;
-  t->data = NULL;
-  t->randomize = 0;
-  t->expires = 0;
   return t;
 }
 
@@ -595,22 +591,9 @@ sk_new(pool *p)
 {
   sock *s = ralloc(p, &sk_class);
   s->pool = p;
-  s->data = NULL;
-  s->saddr = s->daddr = IPA_NONE;
-  s->sport = s->dport = 0;
+  // s->saddr = s->daddr = IPA_NONE;
   s->tos = s->ttl = -1;
-  s->flags = 0;
-  s->iface = NULL;
-  s->rbuf = NULL;
-  s->rx_hook = NULL;
-  s->rbsize = 0;
-  s->tbuf = NULL;
-  s->tx_hook = NULL;
-  s->tbsize = 0;
-  s->err_hook = NULL;
   s->fd = -1;
-  s->rbuf_alloc = s->tbuf_alloc = NULL;
-  s->password = NULL;
   return s;
 }
 
