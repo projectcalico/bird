@@ -211,7 +211,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	  ln->data = (ifa->iface->addr->flags & IA_UNNUMBERED) ?
 	    ifa->iface->index : ipa_to_u32(ifa->iface->addr->ip);
 	  ln->metric = ifa->cost;
-	  ln->notos = 0;
+	  ln->padding = 0;
 	  i++;
 	  master = 1;
 	}
@@ -226,7 +226,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    ln->id = ipa_to_u32(ifa->drip);
 	    ln->data = ipa_to_u32(ifa->iface->addr->ip);
 	    ln->metric = ifa->cost;
-	    ln->notos = 0;
+	    ln->padding = 0;
 	    i++;
 	    master = 1;
 	  }
@@ -241,7 +241,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	  ln->id = neigh->rid;
 	  ln->data = ipa_to_u32(ifa->iface->addr->ip);
 	  ln->metric = ifa->cost;
-	  ln->notos = 0;
+	  ln->padding = 0;
 	  i++;
 	  master = 1;
         }
@@ -268,7 +268,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	ln->id = ipa_to_u32(a->prefix);
 	ln->data = ipa_to_u32(ipa_mkmask(a->pxlen));
 	ln->metric = ifa->cost;
-	ln->notos = 0;
+	ln->padding = 0;
 	i++;
       }
   }
@@ -282,7 +282,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	ln->id = ipa_to_u32(sn->px.addr);
 	ln->data = ipa_to_u32(ipa_mkmask(sn->px.len));
 	ln->metric = sn->cost;
-	ln->notos = 0;
+	ln->padding = 0;
 	i++;
       }
 

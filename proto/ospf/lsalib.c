@@ -105,7 +105,7 @@ htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
   n->sn = htonl(h->sn);
   n->checksum = htons(h->checksum);
   n->length = htons(h->length);
-};
+}
 
 void
 ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
@@ -120,150 +120,29 @@ ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
   h->sn = ntohl(n->sn);
   h->checksum = ntohs(n->checksum);
   h->length = ntohs(n->length);
-};
+}
 
 void
 htonlsab(void *h, void *n, u16 type, u16 len)
 {
-  unsigned int i;
+  u32 *hid = h;
+  u32 *nid = n;
+  int i;
 
-  switch (type)
-  {
-  case LSA_T_RT:
-    {
-      struct ospf_lsa_rt *hrt, *nrt;
-      struct ospf_lsa_rt_link *hrtl, *nrtl;
-      u16 links;
-
-      nrt = n;
-      hrt = h;
-
-#ifdef OSPFv2
-      links = hrt->links;
-      nrt->options = htons(hrt->options);
-      nrt->links = htons(hrt->links);
-#else /* OSPFv3 */
-      nrt->options = htonl(hrt->options);
-      links = (len - sizeof(struct ospf_lsa_rt)) /
-	sizeof(struct ospf_lsa_rt_link);
-#endif
-
-      nrtl = (struct ospf_lsa_rt_link *) (nrt + 1);
-      hrtl = (struct ospf_lsa_rt_link *) (hrt + 1);
-      for (i = 0; i < links; i++)
-      {
-#ifdef OSPFv2
-	nrtl[i].id = htonl(hrtl[i].id);
-	nrtl[i].data = htonl(hrtl[i].data);
-	nrtl[i].type = hrtl[i].type;
-	nrtl[i].notos = hrtl[i].notos;
-	nrtl[i].metric = htons(hrtl[i].metric);
-#else /* OSPFv3 */
-	nrtl[i].type = hrtl[i].type;
-	nrtl[i].padding = 0;
-	nrtl[i].metric = htons(hrtl[i].metric);
-	nrtl[i].lif = htonl(hrtl[i].lif);
-	nrtl[i].nif = htonl(hrtl[i].nif);
-	nrtl[i].id = htonl(hrtl[i].id);
-#endif
-      }
-      break;
-    }
-  case LSA_T_NET:
-  case LSA_T_SUM_NET:
-  case LSA_T_SUM_RT:
-  case LSA_T_EXT:
-#ifdef OSPFv3
-  case LSA_T_LINK:
-  case LSA_T_PREFIX:
-#endif
-    {
-      u32 *hid, *nid;
-
-      nid = n;
-      hid = h;
-
-      for (i = 0; i < (len / sizeof(u32)); i++)
-      {
-	*(nid + i) = htonl(*(hid + i));
-      }
-      break;
-    }
-
-  default:
-    bug("(hton): Unknown LSA");
-  }
-};
+  for (i = 0; i < (len / sizeof(u32)); i++)
+    nid[i] = htonl(hid[i]);
+}
 
 void
 ntohlsab(void *n, void *h, u16 type, u16 len)
 {
-  unsigned int i;
-  switch (type)
-  {
-  case LSA_T_RT:
-    {
-      struct ospf_lsa_rt *hrt, *nrt;
-      struct ospf_lsa_rt_link *hrtl, *nrtl;
-      u16 links;
+  u32 *nid = n;
+  u32 *hid = h;
+  int i;
 
-      nrt = n;
-      hrt = h;
-
-#ifdef OSPFv2
-      hrt->options = ntohs(nrt->options);
-      links = hrt->links = ntohs(nrt->links);
-#else /* OSPFv3 */
-      hrt->options = ntohl(nrt->options);
-      links = (len - sizeof(struct ospf_lsa_rt)) /
-	sizeof(struct ospf_lsa_rt_link);
-#endif
-
-      nrtl = (struct ospf_lsa_rt_link *) (nrt + 1);
-      hrtl = (struct ospf_lsa_rt_link *) (hrt + 1);
-      for (i = 0; i < links; i++)
-      {
-#ifdef OSPFv2
-	hrtl[i].id = ntohl(nrtl[i].id);
-	hrtl[i].data = ntohl(nrtl[i].data);
-	hrtl[i].type = nrtl[i].type;
-	hrtl[i].notos = nrtl[i].notos;
-	hrtl[i].metric = ntohs(nrtl[i].metric);
-#else /* OSPFv3 */
-	hrtl[i].type = nrtl[i].type;
-	hrtl[i].padding = 0;
-	hrtl[i].metric = ntohs(nrtl[i].metric);
-	hrtl[i].lif = ntohl(nrtl[i].lif);
-	hrtl[i].nif = ntohl(nrtl[i].nif);
-	hrtl[i].id = ntohl(nrtl[i].id);
-#endif
-      }
-      break;
-    }
-  case LSA_T_NET:
-  case LSA_T_SUM_NET:
-  case LSA_T_SUM_RT:
-  case LSA_T_EXT:
-#ifdef OSPFv3
-  case LSA_T_LINK:
-  case LSA_T_PREFIX:
-#endif
-    {
-      u32 *hid, *nid;
-
-      hid = h;
-      nid = n;
-
-      for (i = 0; i < (len / sizeof(u32)); i++)
-      {
-	hid[i] = ntohl(nid[i]);
-      }
-      break;
-    }
-  default:
-    bug("(ntoh): Unknown LSA");
-  }
-};
+  for (i = 0; i < (len / sizeof(u32)); i++)
+    hid[i] = ntohl(nid[i]);
+}
 
 void
 buf_dump(const char *hdr, const byte *buf, int blen)

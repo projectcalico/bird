@@ -389,17 +389,28 @@ struct ospf_lsa_header
 
 struct ospf_lsa_rt
 {
+#ifdef CPU_BIG_ENDIAN
   u16 options;	/* VEB flags only */
   u16 links;
+#else
+  u16 links;
+  u16 options;	/* VEB flags only */
+#endif
 };
 
 struct ospf_lsa_rt_link
 {
   u32 id;
   u32 data;
+#ifdef CPU_BIG_ENDIAN
   u8 type;
-  u8 notos;
+  u8 padding;
   u16 metric;
+#else
+  u16 metric;
+  u8 padding;
+  u8 type;
+#endif
 };
 
 struct ospf_lsa_net
@@ -438,9 +449,15 @@ struct ospf_lsa_rt
 
 struct ospf_lsa_rt_link
 {
+#ifdef CPU_BIG_ENDIAN
   u8 type;
   u8 padding;
   u16 metric;
+#else
+  u16 metric;
+  u8 padding;
+  u8 type;
+#endif
   u32 lif;	/* Local interface ID */
   u32 nif;	/* Neighbor interface ID */
   u32 id;	/* Neighbor router ID */
@@ -481,8 +498,13 @@ struct ospf_lsa_link
 
 struct ospf_lsa_prefix
 {
+#ifdef CPU_BIG_ENDIAN
   u16 pxcount;
   u16 ref_type;
+#else
+  u16 ref_type;
+  u16 pxcount;
+#endif
   u32 ref_id;
   u32 ref_rt;
   u32 rest[];
@@ -513,57 +535,6 @@ static inline unsigned lsa_net_count(struct ospf_lsa_header *lsa)
     / sizeof(u32);
 }
 
-
-/*
-struct ospf_lsa_ext_etos 
-{
-#ifdef CPU_BIG_ENDIAN
-  u8 ebit:1;
-  u8 tos:7;
-  u8 padding1;
-  u16 padding2;
-#else
-  u16 padding2;
-  u8 padding1;
-  u8 tos:7;
-  u8 ebit:1;
-#endif
-};
-
-
-struct ospf_lsa_sum_tos 
-{
-#ifdef CPU_BIG_ENDIAN
-  u8 tos;
-  u8 padding1;
-  u16 padding2;
-#else
-  u16 padding2;
-  u8 padding1;
-  u8 tos;
-#endif
-};
-
-union ospf_lsa_sum_tm
-{
-  struct ospf_lsa_sum_tos tos;
-  u32 metric;
-};
-
-union ospf_lsa_ext_etm
-{
-  struct ospf_lsa_ext_etos etos;
-  u32 metric;
-};
-
-struct ospf_lsa_ext_tos
-{
-  union ospf_lsa_ext_etm etm;
-  ip_addr fwaddr;
-  u32 tag;
-};
-
-*/
 
 struct ospf_lsreq_header
 {
