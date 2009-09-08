@@ -232,8 +232,8 @@ struct ospf_iface
   struct top_hash_entry *net_lsa;	/* Originated network LSA */
   int orignet;				/* Schedule network LSA origination */
 #ifdef OSPFv3
-  struct top_hash_entry *link_lsa;	/* Originated link LSA */
   int origlink;				/* Schedule link LSA origination */
+  struct top_hash_entry *link_lsa;	/* Originated link LSA */
   struct top_hash_entry *pxn_lsa;	/* Originated prefix LSA */
 #endif
   int fadj;				/* Number of full adjacent neigh */
@@ -734,6 +734,13 @@ void ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs);
 void schedule_rt_lsa(struct ospf_area *oa);
 void schedule_rtcalc(struct proto_ospf *po);
 void schedule_net_lsa(struct ospf_iface *ifa);
+
+#ifdef OSPFv3
+void schedule_link_lsa(struct ospf_iface *ifa);
+#else
+static inline void schedule_link_lsa(struct ospf_iface *ifa) {}
+#endif
+
 void ospf_sh_neigh(struct proto *p, char *iff);
 void ospf_sh(struct proto *p);
 void ospf_sh_iface(struct proto *p, char *iff);

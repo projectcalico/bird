@@ -462,9 +462,7 @@ lsa_install_new(struct proto_ospf *po, struct ospf_lsa_header *lsa, u32 domain, 
   en->ini_age = en->lsa.age;
 
   if (change)
-  {
     schedule_rtcalc(po);
-  }
 
   return en;
 }

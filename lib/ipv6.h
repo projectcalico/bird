@@ -60,6 +60,7 @@ typedef struct ipv6_addr {
 #define ipa_hton(x) ipv6_hton(&(x))
 #define ipa_ntoh(x) ipv6_ntoh(&(x))
 #define ipa_classify(x) ipv6_classify(&(x))
+#define ipa_has_link_scope(x) ipv6_has_link_scope(&(x))
 /* ipa_opposite and ipa_class_mask don't make sense with IPv6 */
 /* ipa_from_u32 and ipa_to_u32 replaced by ipa_build */
 #define ipa_build(a,b,c,d) _MI(a,b,c,d)
@@ -80,6 +81,11 @@ void ipv6_ntoh(ip_addr *);
 int ipv6_compare(ip_addr, ip_addr);
 int ipv4_pton_u32(char *, u32 *);
 void ipv6_absolutize(ip_addr *, ip_addr *);
+
+static inline int ipv6_has_link_scope(ip_addr *a)
+{
+  return ((a->addr[0] & 0xffc00000) == 0xfe800000);
+}
 
 /*
  *  This hash function looks well, but once IPv6 enters

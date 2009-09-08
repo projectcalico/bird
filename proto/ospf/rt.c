@@ -321,7 +321,6 @@ ospf_rt_spfa(struct ospf_area *oa)
 	}
 
       rr = (struct ospf_lsa_rt_link *) (rt + 1);
-      DBG("  Number of links: %u\n", rt->links);
       for (i = 0; i < lsa_rt_count(&act->lsa); i++)
       {
 	tmp = NULL;
@@ -1178,7 +1177,7 @@ again1:
       if (nf->n.ifa) a0.iface = nf->n.ifa->iface;
       a0.gw = nf->n.nh;
 
-      if ((!ipa_equal(nf->n.nh, IPA_NONE)) && (!neigh_find(p, &nf->n.nh, 0)))
+      if (ipa_nonzero(nf->n.nh) && (!neigh_find2(p, &nf->n.nh, nf->n.ifa->iface, 0)))
       {
         int found = 0;
         struct ospf_iface *ifa;

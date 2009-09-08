@@ -627,6 +627,13 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       lsadb = lsa_install_new(po, &lsatmp, domain, body);
       DBG("New LSA installed in DB\n");
 
+#ifdef OSPFv3
+      /* Events 6,7 from 4.4.3. */
+      if ((lsatmp.type == LSA_T_LINK) &&
+	  (ifa->state == OSPF_IS_DR))
+	schedule_net_lsa(ifa);
+#endif
+
       continue;
     }
 

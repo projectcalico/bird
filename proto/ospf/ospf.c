@@ -307,15 +307,29 @@ ospf_build_attrs(ea_list * next, struct linpool *pool, u32 m1, u32 m2,
 void
 schedule_net_lsa(struct ospf_iface *ifa)
 {
+  struct proto *p = &ifa->oa->po->proto;
+
+  OSPF_TRACE(D_EVENTS, "Scheduling network-LSA origination for iface %s", ifa->iface->name);
   ifa->orignet = 1;
 }
+
+#ifdef OSPFv3
+void
+schedule_link_lsa(struct ospf_iface *ifa)
+{
+  struct proto *p = &ifa->oa->po->proto;
+
+  OSPF_TRACE(D_EVENTS, "Scheduling link-LSA origination for iface %s", ifa->iface->name);
+  ifa->origlink = 1;
+}
+#endif
 
 void
 schedule_rt_lsa(struct ospf_area *oa)
 {
   struct proto *p = &oa->po->proto;
 
-  OSPF_TRACE(D_EVENTS, "Scheduling RT lsa origination for area %R.", oa->areaid);
+  OSPF_TRACE(D_EVENTS, "Scheduling router-LSA origination for area %R", oa->areaid);
   oa->origrt = 1;
 }
 
@@ -327,7 +341,7 @@ schedule_rtcalc(struct proto_ospf *po)
   if (po->calcrt)
     return;
 
-  OSPF_TRACE(D_EVENTS, "Scheduling RT calculation.");
+  OSPF_TRACE(D_EVENTS, "Scheduling routing table calculation");
   po->calcrt = 1;
 }
 
@@ -353,6 +367,7 @@ area_disp(struct ospf_area *oa)
   WALK_LIST(ifa, po->iface_list)
   {
 #ifdef OSPFv3
+    /* Link LSA should be originated before Network LSA */
     if (ifa->origlink && (ifa->oa == oa))
       update_link_lsa(ifa);
 #endif
@@ -478,6 +493,7 @@ ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
       if (ifa->iface == a->iface)
 	{
 	  schedule_rt_lsa(ifa->oa);
+	  schedule_link_lsa(ifa);
 	  return;
 	}
     }

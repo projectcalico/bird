@@ -381,6 +381,7 @@ ospf_iface_add(struct object_lock *lock)
 
   ifa->state = OSPF_IS_DOWN;
   ospf_iface_sm(ifa, ISM_UP);
+  schedule_link_lsa(ifa);
 }
 
 void

@@ -168,9 +168,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
   struct ospf_lsa_rt_link *ln;
   struct ospf_neighbor *neigh;
 
-  DBG("%s: Originating RT_lsa body for area %R.\n", po->proto.name,
-      oa->areaid);
-    
   ASSERT(po->lsab_used == 0);
   rt = lsab_allocz(po, sizeof(struct ospf_lsa_rt));
 
@@ -322,9 +319,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
   struct ospf_lsa_rt *rt;
   struct ospf_neighbor *neigh;
 
-  DBG("%s: Originating RT_lsa body for area %R.\n", po->proto.name,
-      oa->areaid);
-  
   ASSERT(po->lsab_used == 0);
   rt = lsab_allocz(po, sizeof(struct ospf_lsa_rt));
 
@@ -411,7 +405,7 @@ originate_rt_lsa(struct ospf_area *oa)
   u32 rid = po->proto.cf->global->router_id;
   void *body;
 
-  OSPF_TRACE(D_EVENTS, "Originating RT_lsa for area %R.", oa->areaid);
+  OSPF_TRACE(D_EVENTS, "Originating router-LSA for area %R", oa->areaid);
 
   lsa.age = 0;
   lsa.type = LSA_T_RT;
@@ -522,7 +516,7 @@ originate_net_lsa(struct ospf_iface *ifa)
   struct proto *p = &po->proto;
   void *body;
 
-  OSPF_TRACE(D_EVENTS, "Originating Net lsa for iface \"%s\".",
+  OSPF_TRACE(D_EVENTS, "Originating network-LSA for iface %s",
 	     ifa->iface->name);
 
   lsa.age = 0;
@@ -554,7 +548,7 @@ flush_net_lsa(struct ospf_iface *ifa)
   if (ifa->net_lsa == NULL)
     return;
 
-  OSPF_TRACE(D_EVENTS, "Deleting Net lsa for iface \"%s\".",
+  OSPF_TRACE(D_EVENTS, "Flushing network-LSA for iface %s",
 	     ifa->iface->name);
   ifa->net_lsa->lsa.sn += 1;
   ifa->net_lsa->lsa.age = LSA_MAXAGE;
@@ -685,14 +679,14 @@ originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metri
 
   if (type == ORT_NET)
     {
-      OSPF_TRACE(D_EVENTS, "Originating Net-Summary-LSA for %I/%d (metric %d).",
+      OSPF_TRACE(D_EVENTS, "Originating summary-LSA for %I/%d (metric %d)",
 		 fn->prefix, fn->pxlen, metric);
 
       body = originate_sum_net_lsa_body(po, &lsa.length, fn, metric);
     }
   else
     {
-      OSPF_TRACE(D_EVENTS, "Originating RT-Summary-LSA for %R (metric %d).",
+      OSPF_TRACE(D_EVENTS, "Originating summary-LSA for %R (metric %d)",
 		 lsa.id, metric);
 
       body = originate_sum_rt_lsa_body(po, &lsa.length, lsa.id, metric, options);
@@ -734,7 +728,7 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
       en->lsa.sn = LSA_MAXSEQNO;
       lsasum_calculate(&en->lsa, sum);
 
-      OSPF_TRACE(D_EVENTS, "Flushing summary lsa. (id=%R, type=%d)",
+      OSPF_TRACE(D_EVENTS, "Flushing summary-LSA (id=%R, type=%d)",
 		 en->lsa.id, en->lsa.type);
       ospf_lsupd_flood(po, NULL, NULL, &en->lsa, oa->areaid, 1);
       if (can_flush_lsa(po)) flush_lsa(en, po);
@@ -879,15 +873,15 @@ void
 originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 		  struct ea_list *attrs)
 {
+  struct proto *p = &po->proto;
   struct ospf_lsa_header lsa;
   u32 rid = po->proto.cf->global->router_id;
   struct top_hash_entry *en = NULL;
   void *body;
-  struct proto *p = &po->proto;
   struct ospf_area *oa;
 
-  OSPF_TRACE(D_EVENTS, "Originating Ext lsa for %I/%d.", n->n.prefix,
-	     n->n.pxlen);
+  OSPF_TRACE(D_EVENTS, "Originating AS-external-LSA for %I/%d",
+	     n->n.prefix, n->n.pxlen);
 
   lsa.age = 0;
   lsa.type = LSA_T_EXT;
@@ -924,9 +918,13 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 void
 flush_ext_lsa(net *n, struct proto_ospf *po)
 {
+  struct proto *p = &po->proto;
   u32 rid = po->proto.cf->global->router_id;
   struct ospf_area *oa;
   struct top_hash_entry *en;
+
+  OSPF_TRACE(D_EVENTS, "Flushing AS-external-LSA for %I/%d",
+	     n->n.prefix, n->n.pxlen);
 
   /* FIXME proper handling of LSA IDs and check for the same network */
   u32 lsaid = ipa_to_lsaid(n->n.prefix);
@@ -987,7 +985,7 @@ originate_link_lsa(struct ospf_iface *ifa)
   void *body;
 
   /* FIXME check for vlink and skip that? */
-  OSPF_TRACE(D_EVENTS, "Originating Link_lsa for iface %s.", ifa->iface->name);
+  OSPF_TRACE(D_EVENTS, "Originating link-LSA for iface %s", ifa->iface->name);
 
   lsa.age = 0;
   lsa.type = LSA_T_LINK;
@@ -1000,6 +998,10 @@ originate_link_lsa(struct ospf_iface *ifa)
   lsasum_calculate(&lsa, body);
   ifa->link_lsa = lsa_install_new(po, &lsa, dom, body);
   ospf_lsupd_flood(po, NULL, NULL, &lsa, dom, 1);
+
+  /* Just to be sure to not forget on our link LSA */
+  if (ifa->state == OSPF_IS_DR)
+    schedule_net_lsa(ifa);
 }
 
 void
@@ -1050,6 +1052,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	if (((a->pxlen < MAX_PREFIX_LENGTH) && net_lsa) ||
 	    (a->flags & IA_SECONDARY) ||
 	    (a->flags & IA_UNNUMBERED) ||
+	    (a->scope <= SCOPE_LINK) ||
 	    configured_stubnet(oa, a))
 	  continue;
 
@@ -1081,14 +1084,17 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 void
 originate_prefix_rt_lsa(struct ospf_area *oa)
 {
-  struct ospf_lsa_header lsa;
   struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;  
   u32 rid = po->proto.cf->global->router_id;
+  struct ospf_lsa_header lsa;
   void *body;
+
+  OSPF_TRACE(D_EVENTS, "Originating router prefix-LSA for area %R", oa->areaid);
 
   lsa.age = 0;
   lsa.type = LSA_T_PREFIX;
-  lsa.id = 1 << 31;
+  lsa.id = 0;
   lsa.rt = rid;
   lsa.sn = oa->pxr_lsa ? (oa->pxr_lsa->lsa.sn + 1) : LSA_INITSEQNO;
   u32 dom = oa->areaid;
@@ -1128,12 +1134,14 @@ prefix_same(u32 *b1, u32 *b2)
 static inline u32 *
 prefix_advance(u32 *buf)
 {
-  return buf + prefix_space(buf);
+  int pxl = *buf >> 24;
+  return buf + IPV6_PREFIX_WORDS(pxl);
 }
 
 static void
-add_prefix(struct proto_ospf *po, u32 *px, u32 *pxl, int *pxc)
+add_prefix(struct proto_ospf *po, u32 *px, int offset, int *pxc)
 {
+  u32 *pxl = lsab_offset(po, offset);
   int i;
   for (i = 0; i < *pxc; i++)
     {
@@ -1154,19 +1162,31 @@ add_prefix(struct proto_ospf *po, u32 *px, u32 *pxl, int *pxc)
   (*pxc)++;
 }
 
+static void
+add_link_lsa(struct proto_ospf *po, struct top_hash_entry *en, int offset, int *pxc)
+{
+  struct ospf_lsa_link *ll = en->lsa_body;
+  u32 *pxb = ll->rest;
+  int j;
+
+  for (j = 0; j < ll->pxcount; j++)
+    {
+      add_prefix(po, pxb, offset, pxc);
+      pxb = prefix_advance(pxb);
+    }
+}
+
+
 
 static void *
 originate_prefix_net_lsa_body(struct ospf_iface *ifa, u16 *length)
 {
   struct proto_ospf *po = ifa->oa->po;
   struct ospf_lsa_prefix *lp;
-  struct ospf_lsa_link *ll;
   struct ospf_neighbor *n;
   struct top_hash_entry *en;
   u32 rid = po->proto.cf->global->router_id;
-  u32 *pxb;
-  int i, j, offset;
-
+  int pxc, offset;
 
   ASSERT(po->lsab_used == 0);
   lp = lsab_allocz(po, sizeof(struct ospf_lsa_prefix));
@@ -1175,26 +1195,20 @@ originate_prefix_net_lsa_body(struct ospf_iface *ifa, u16 *length)
   lp->ref_rt = rid;
   lp = NULL; /* buffer might be reallocated later */
 
-  i = 0;
+  pxc = 0;
   offset = po->lsab_used;
 
-  /* Find all Link LSA associated with the link and merge their prefixes */
+  /* Find all Link LSAs associated with the link and merge their prefixes */
+  if (ifa->link_lsa)
+    add_link_lsa(po, ifa->link_lsa, offset, &pxc);
+
   WALK_LIST(n, ifa->neigh_list)
     if ((n->state == NEIGHBOR_FULL) &&
       	(en = ospf_hash_find(po->gr, ifa->iface->index, n->iface_id, n->rid, LSA_T_LINK)))
-      {
-	ll = en->lsa_body;
-	pxb = ll->rest;
-
-	for (j = 0; j < ll->pxcount; j++)
-	  {
-	    add_prefix(po, pxb, lsab_offset(po, offset), &i);
-	    pxb = prefix_advance(pxb);
-	  }
-      }
+      add_link_lsa(po, en, offset, &pxc);
 
   lp = po->lsab;
-  lp->pxcount = i;
+  lp->pxcount = pxc;
   *length = po->lsab_used + sizeof(struct ospf_lsa_header);
   return lsab_flush(po);
 }
@@ -1202,10 +1216,14 @@ originate_prefix_net_lsa_body(struct ospf_iface *ifa, u16 *length)
 void
 originate_prefix_net_lsa(struct ospf_iface *ifa)
 {
-  struct ospf_lsa_header lsa;
   struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
   u32 rid = po->proto.cf->global->router_id;
+  struct ospf_lsa_header lsa;
   void *body;
+
+  OSPF_TRACE(D_EVENTS, "Originating network prefix-LSA for iface %s",
+	     ifa->iface->name);
 
   lsa.age = 0;
   lsa.type = LSA_T_PREFIX;
@@ -1231,8 +1249,9 @@ flush_prefix_net_lsa(struct ospf_iface *ifa)
   if (en == NULL)
     return;
 
-  OSPF_TRACE(D_EVENTS, "Flushing Net Prefix lsa for iface \"%s\".",
+  OSPF_TRACE(D_EVENTS, "Flushing network prefix-LSA for iface %s",
 	     ifa->iface->name);
+
   en->lsa.sn += 1;
   en->lsa.age = LSA_MAXAGE;
   lsasum_calculate(&en->lsa, en->lsa_body);
@@ -1283,7 +1302,7 @@ ospf_top_hash_u32(u32 a)
 static inline unsigned
 ospf_top_hash(struct top_graph *f, u32 domain, u32 lsaid, u32 rtrid, u32 type)
 {
-  /* In OSPFv2, we don't know Router ID when looking for network lsas.
+  /* In OSPFv2, we don't know Router ID when looking for network LSAs.
      dirty patch to make rt table calculation work. */
 
   return (ospf_top_hash_u32(lsaid) + type +

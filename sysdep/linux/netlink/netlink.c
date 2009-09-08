@@ -472,6 +472,9 @@ krt_capable(rte *e)
   switch (a->dest)
     {
     case RTD_ROUTER:
+      if (ipa_has_link_scope(a->gw) && (a->iface == NULL))
+	return 0;
+
     case RTD_DEVICE:
     case RTD_BLACKHOLE:
     case RTD_UNREACHABLE:
@@ -514,6 +517,11 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
     case RTD_ROUTER:
       r.r.rtm_type = RTN_UNICAST;
       nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->gw);
+
+      /* a->iface != NULL checked in krt_capable() */
+      if (ipa_has_link_scope(a->gw))
+	nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, a->iface->index);
+
       break;
     case RTD_DEVICE:
       if (!a->iface)
