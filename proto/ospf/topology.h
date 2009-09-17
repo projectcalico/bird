@@ -72,7 +72,20 @@ void check_sum_lsa(struct proto_ospf *po, ort *nf, int);
 void originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric, u32 options);
 void flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type);
 
+#ifdef OSPFv2
+struct top_hash_entry * ospf_hash_find_net(struct top_graph *f, u32 domain, u32 lsa);
 
+static inline struct top_hash_entry *
+ospf_hash_find_rt(struct top_graph *f, u32 domain, u32 rtr)
+{
+  return ospf_hash_find(f, domain, rtr, rtr, LSA_T_RT);
+}
+
+#else /* OSPFv3 */
+struct top_hash_entry * ospf_hash_find_rt(struct top_graph *f, u32 domain, u32 rtr);
+struct top_hash_entry * ospf_hash_find_rt_first(struct top_graph *f, u32 domain, u32 rtr);
+struct top_hash_entry * ospf_hash_find_rt_next(struct top_hash_entry *e);
+#endif
 
 
 #endif /* _BIRD_OSPF_TOPOLOGY_H_ */

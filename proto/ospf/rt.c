@@ -225,10 +225,12 @@ process_prefixes(struct ospf_area *oa)
       continue;
 
     px = en->lsa_body;
-    /* FIXME: for router LSA, we should find the first one */
-    src = ospf_hash_find(po->gr, oa->areaid,
-			 ((px->ref_type == LSA_T_RT) ? px->ref_rt : px->ref_id),
-			 px->ref_rt, px->ref_type);
+
+    /* For router prefix-LSA, we would like to find the first router-LSA */
+    if (px->ref_type == LSA_T_RT)
+      src = ospf_hash_find_rt(po->gr, oa->areaid, px->ref_rt);
+    else
+      src = ospf_hash_find(po->gr, oa->areaid, px->ref_id, px->ref_rt, px->ref_type);
 
     if (!src)
       continue;
@@ -253,18 +255,107 @@ process_prefixes(struct ospf_area *oa)
 }
 #endif
 
+
+static void
+ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct top_hash_entry *en)
+{
+  struct proto *p = &oa->po->proto;
+  struct proto_ospf *po = oa->po;
+  orta nf;
+  u32 i;
+
+  struct ospf_lsa_rt *rt = en->lsa_body;
+  struct ospf_lsa_rt_link *rr = (struct ospf_lsa_rt_link *) (rt + 1);
+
+  for (i = 0; i < lsa_rt_count(&en->lsa); i++)
+    {
+      struct ospf_lsa_rt_link *rtl = rr + i;
+      struct top_hash_entry *tmp = NULL;
+
+      DBG("     Working on link: %R (type: %u)  ", rtl->id, rtl->type);
+      switch (rtl->type)
+	{
+#ifdef OSPFv2
+	case LSART_STUB:
+	  /*
+	   * This violates rfc2328! But it is mostly harmless.
+	   */
+	  DBG("\n");
+
+	  nf.type = RTS_OSPF;
+	  nf.options = 0;
+	  nf.metric1 = act->dist + rtl->metric;
+	  nf.metric2 = LSINFINITY;
+	  nf.tag = 0;
+	  nf.oa = oa;
+	  nf.ar = act;
+	  nf.nh = act->nh;
+	  nf.ifa = act->nhi;
+
+	  if (act == oa->rt)
+	    {
+	      struct ospf_iface *iff;
+
+	      WALK_LIST(iff, po->iface_list)	/* Try to find corresponding interface */
+		{
+		  if (iff->iface && (iff->type != OSPF_IT_VLINK) &&
+		      (rtl->id == (ipa_to_u32(ipa_mkmask(iff->iface->addr->pxlen))
+				   & ipa_to_u32(iff->iface->addr->prefix))))	/* No VLINK and IP must match */
+		    {
+		      nf.ifa = iff;
+		      break;
+		    }
+		}
+	    }
+
+	  if (!nf.ifa)
+	    continue;
+
+	  ri_install(po, ipa_from_u32(rtl->id),
+		     ipa_mklen(ipa_from_u32(rtl->data)), ORT_NET, &nf, NULL);
+	  break;
+#endif
+
+	case LSART_NET:
+#ifdef OSPFv2
+	  /* In OSPFv2, rtl->id is IP addres of DR, Router ID is not known */
+	  tmp = ospf_hash_find_net(po->gr, oa->areaid, rtl->id);
+#else /* OSPFv3 */
+	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->nif, rtl->id, LSA_T_NET);
+#endif
+	  if (tmp == NULL)
+	    DBG("Not found!\n");
+	  else
+	    DBG("Found. :-)\n");
+	  break;
+
+	case LSART_VLNK:
+	case LSART_PTP:
+	  tmp = ospf_hash_find_rt(po->gr, oa->areaid, rtl->id);
+	  DBG("PTP found.\n");
+	  break;
+	default:
+	  log("Unknown link type in router lsa. (rid = %R)", act->lsa.id);
+	  break;
+	}
+      if (tmp)
+	DBG("Going to add cand, Mydist: %u, Req: %u\n",
+	    tmp->dist, act->dist + rtl->metric);
+      add_cand(&oa->cand, tmp, act, act->dist + rtl->metric, oa);
+    }
+}
+
 static void
 ospf_rt_spfa(struct ospf_area *oa)
 {
-  u32 i, *rts;
-  struct ospf_lsa_rt *rt;
-  struct ospf_lsa_rt_link *rtl, *rr;
   struct proto *p = &oa->po->proto;
   struct proto_ospf *po = oa->po;
+  struct ospf_lsa_rt *rt;
   struct ospf_lsa_net *ln;
-  orta nf;
   struct ospf_iface *iface;
   struct top_hash_entry *act, *tmp;
+  u32 i, *rts;
+  orta nf;
   node *n;
 
   if (oa->rt == NULL)
@@ -300,7 +391,6 @@ ospf_rt_spfa(struct ospf_area *oa)
     switch (act->lsa.type)
     {
     case LSA_T_RT:
-      /* FIXME - in OSPFv3 we should process all RT LSAs from that router */
       rt = (struct ospf_lsa_rt *) act->lsa_body;
       if (rt->options & OPT_RT_V)
 	oa->trcap = 1;
@@ -320,83 +410,14 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  ri_install(po, ipa_from_rid(act->lsa.rt), MAX_PREFIX_LENGTH, ORT_ROUTER, &nf, NULL);
 	}
 
-      rr = (struct ospf_lsa_rt_link *) (rt + 1);
-      for (i = 0; i < lsa_rt_count(&act->lsa); i++)
-      {
-	tmp = NULL;
-	rtl = (rr + i);
-	DBG("     Working on link: %R (type: %u)  ", rtl->id, rtl->type);
-	switch (rtl->type)
-	{
 #ifdef OSPFv2
-	case LSART_STUB:
-	  /*
-	   * This violates rfc2328! But it is mostly harmless.
-	   */
-	  DBG("\n");
-
-	  nf.type = RTS_OSPF;
-	  nf.options = 0;
-	  nf.metric1 = act->dist + rtl->metric;
-	  nf.metric2 = LSINFINITY;
-	  nf.tag = 0;
-	  nf.oa = oa;
-	  nf.ar = act;
-	  nf.nh = act->nh;
-	  nf.ifa = act->nhi;
-
-	  if (act == oa->rt)
-	  {
-	    struct ospf_iface *iff;
-
-	    WALK_LIST(iff, po->iface_list)	/* Try to find corresponding interface */
-	    {
-               if (iff->iface && (iff->type != OSPF_IT_VLINK) &&
-	         (rtl->id == (ipa_to_u32(ipa_mkmask(iff->iface->addr->pxlen))
-	         & ipa_to_u32(iff->iface->addr->prefix))))	/* No VLINK and IP must match */
-	       {
-		 nf.ifa = iff;
-	         break;
-	       }
-            }
-	  }
-
-	  if (!nf.ifa)
-	    continue;
-
-	  ri_install(po, ipa_from_u32(rtl->id),
-		     ipa_mklen(ipa_from_u32(rtl->data)), ORT_NET, &nf, NULL);
-	  break;
-#endif
-	case LSART_NET:
-#ifdef OSPFv2
-	  /* In OSPFv2, rtl->id is IP addres of DR, router ID is not known */
-	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->id, 0, LSA_T_NET);
+      ospf_rt_spfa_rtlinks(oa, act, act);
 #else /* OSPFv3 */
-	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->nif, rtl->id, LSA_T_NET);
+      for (tmp = ospf_hash_find_rt_first(po->gr, act->domain, act->lsa.rt);
+	   tmp; tmp = ospf_hash_find_rt_next(tmp))
+	ospf_rt_spfa_rtlinks(oa, act, tmp);
 #endif
-	  if (tmp == NULL)
-	    DBG("Not found!\n");
-	  else
-	    DBG("Found. :-)\n");
-	  break;
 
-	case LSART_VLNK:
-	case LSART_PTP:
-	  /* FIXME - in OSPFv3, find lowest LSA ID */
-	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->id, rtl->id, LSA_T_RT);
-
-	  DBG("PTP found.\n");
-	  break;
-	default:
-	  log("Unknown link type in router lsa. (rid = %R)", act->lsa.id);
-	  break;
-	}
-	if (tmp)
-	  DBG("Going to add cand, Mydist: %u, Req: %u\n",
-	      tmp->dist, act->dist + rtl->metric);
-	add_cand(&oa->cand, tmp, act, act->dist + rtl->metric, oa);
-      }
       break;
     case LSA_T_NET:
       ln = act->lsa_body;
@@ -410,8 +431,7 @@ ospf_rt_spfa(struct ospf_area *oa)
       for (i = 0; i < lsa_net_count(&act->lsa); i++)
       {
 	DBG("     Working on router %R ", rts[i]);
-	/* FIXME - in OSPFv3, find any LSA ID */
-	tmp = ospf_hash_find(po->gr, oa->areaid, rts[i], rts[i], LSA_T_RT);
+	tmp = ospf_hash_find_rt(po->gr, oa->areaid, rts[i]);
 	if (tmp != NULL)
 	  DBG("Found :-)\n");
 	else
@@ -431,9 +451,8 @@ ospf_rt_spfa(struct ospf_area *oa)
   {
     if ((iface->type == OSPF_IT_VLINK) && (iface->voa == oa))
     {
-      /* FIXME in OSPFv3, different LSAID */
-      if ((tmp = ospf_hash_find(po->gr, oa->areaid, iface->vid, iface->vid, LSA_T_RT)) &&
-        (!ipa_equal(tmp->lb, IPA_NONE)))
+      if ((tmp = ospf_hash_find_rt(po->gr, oa->areaid, iface->vid)) &&
+	  (!ipa_equal(tmp->lb, IPA_NONE)))
       {
         if ((iface->state != OSPF_IS_PTP) || (iface->iface != tmp->nhi->iface) || (!ipa_equal(iface->vip, tmp->lb)))
         {
@@ -1187,9 +1206,8 @@ again1:
         {
           if ((ifa->type == OSPF_IT_VLINK) && ipa_equal(ifa->vip, nf->n.nh))
           {
-	    /* FIXME in OSPFv3, may be different LSA ID */
-            if ((en = ospf_hash_find(po->gr, ifa->voa->areaid, ifa->vid, ifa->vid, LSA_T_RT))
-	      && (!ipa_equal(en->nh, IPA_NONE)))
+            if ((en = ospf_hash_find_rt(po->gr, ifa->voa->areaid, ifa->vid))
+		&& (!ipa_equal(en->nh, IPA_NONE)))
             {
               a0.gw = en->nh;
               found = 1;

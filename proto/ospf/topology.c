@@ -1303,15 +1303,19 @@ static inline unsigned
 ospf_top_hash(struct top_graph *f, u32 domain, u32 lsaid, u32 rtrid, u32 type)
 {
   /* In OSPFv2, we don't know Router ID when looking for network LSAs.
-     dirty patch to make rt table calculation work. */
+     In OSPFv3, we don't know LSA ID when looking for router LSAs.
+     In both cases, there is (usually) just one (or small number)
+     appropriate LSA, so we just clear unknown part of key. */
 
-  return (ospf_top_hash_u32(lsaid) + type +
+  return (
 #ifdef OSPFv2
 	  ((type == LSA_T_NET) ? 0 : ospf_top_hash_u32(rtrid)) +
+	  ospf_top_hash_u32(lsaid) + 
 #else /* OSPFv3 */
 	  ospf_top_hash_u32(rtrid) +
+	  ((type == LSA_T_RT) ? 0 : ospf_top_hash_u32(lsaid)) +
 #endif
-	  domain) & f->hash_mask;
+	  type + domain) & f->hash_mask;
 
   /*
   return (ospf_top_hash_u32(lsaid) + ospf_top_hash_u32(rtrid) +
@@ -1423,26 +1427,80 @@ struct top_hash_entry *
 ospf_hash_find(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
 {
   struct top_hash_entry *e;
-
   e = f->hash_table[ospf_top_hash(f, domain, lsa, rtr, type)];
-
-#ifdef OSPFv2
-  /* dirty patch to make rt table calculation work. */
-  if (type == LSA_T_NET)
-  {
-    while (e && (e->lsa.id != lsa || e->lsa.type != LSA_T_NET || e->domain != domain))
-      e = e->next;
-
-    return e;
-  }
-
-#endif
 
   while (e && (e->lsa.id != lsa || e->lsa.type != type || e->lsa.rt != rtr || e->domain != domain))
     e = e->next;
 
   return e;
 }
+
+
+#ifdef OSPFv2
+
+/* In OSPFv2, sometimes we don't know Router ID when looking for network LSAs.
+   There should be just one, so we find any match. */
+struct top_hash_entry *
+ospf_hash_find_net(struct top_graph *f, u32 domain, u32 lsa)
+{
+  struct top_hash_entry *e;
+  e = f->hash_table[ospf_top_hash(f, domain, lsa, 0, LSA_T_NET)];
+
+  while (e && (e->lsa.id != lsa || e->lsa.type != LSA_T_NET || e->domain != domain))
+    e = e->next;
+
+  return e;
+}
+
+#endif
+
+
+#ifdef OSPFv3
+
+/* In OSPFv3, usually we don't know LSA ID when looking for router
+   LSAs. We return matching LSA with smallest LSA ID. */
+struct top_hash_entry *
+ospf_hash_find_rt(struct top_graph *f, u32 domain, u32 rtr)
+{
+  struct top_hash_entry *rv = NULL;
+  struct top_hash_entry *e;
+  e = f->hash_table[ospf_top_hash(f, domain, 0, rtr, LSA_T_RT)];
+  
+  while (e)
+    {
+      if (e->lsa.rt == rtr && e->lsa.type == LSA_T_RT && e->domain == domain)
+	if (!rv || e->lsa.id < rv->lsa.id)
+	  rv = e;
+      e = e->next;
+    }
+
+  return rv;
+}
+
+static inline struct top_hash_entry *
+find_matching_rt(struct top_hash_entry *e, u32 domain, u32 rtr)
+{
+  while (e && (e->lsa.rt != rtr || e->lsa.type != LSA_T_RT || e->domain != domain))
+    e = e->next;
+  return e;
+}
+
+struct top_hash_entry *
+ospf_hash_find_rt_first(struct top_graph *f, u32 domain, u32 rtr)
+{
+  struct top_hash_entry *e;
+  e = f->hash_table[ospf_top_hash(f, domain, 0, rtr, LSA_T_RT)];
+  return find_matching_rt(e, domain, rtr);
+}
+
+struct top_hash_entry *
+ospf_hash_find_rt_next(struct top_hash_entry *e)
+{
+  return find_matching_rt(e->next, e->domain, e->lsa.rt);
+}
+
+#endif
+
 
 struct top_hash_entry *
 ospf_hash_get(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
