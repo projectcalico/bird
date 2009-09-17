@@ -724,7 +724,7 @@ defined by using the <cf>defined( <m>attribute</m> )</cf> operator.
 	Address scope of the network (<cf/SCOPE_HOST/ for addresses local to this host, <cf/SCOPE_LINK/ for those specific for a physical link, <cf/SCOPE_SITE/ and <cf/SCOPE_ORGANIZATION/ for private addresses, <cf/SCOPE_UNIVERSE/ for globally visible addresses).
 
 	<tag><m/int/ preference</tag>
-	Preference of the route. (See the chapter about routing tables.)
+	Preference of the route. Valid values are 0-65535. (See the chapter about routing tables.)
 
 	<tag><m/ip/ from</tag>
 	The router which the route has originated from. Read-only.

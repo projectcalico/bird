@@ -132,7 +132,7 @@ proto_name:
 proto_item:
    /* EMPTY */
  | PREFERENCE expr {
-     if ($2 < 0 || $2 > 255) cf_error("Invalid preference");
+     if ($2 < 0 || $2 > 0xFFFF) cf_error("Invalid preference");
      this_proto->preference = $2;
    }
  | DISABLED bool { this_proto->disabled = $2; }
