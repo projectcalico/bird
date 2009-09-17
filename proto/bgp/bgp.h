@@ -9,6 +9,7 @@
 #ifndef _BIRD_BGP_H_
 #define _BIRD_BGP_H_
 
+#include <stdint.h>
 #include "nest/route.h"
 
 struct linpool;
