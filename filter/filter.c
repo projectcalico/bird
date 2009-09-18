@@ -664,6 +664,7 @@ interpret(struct f_inst *what)
 	struct adata *ad = lp_alloc(f_pool, sizeof(struct adata) + len);
 	ad->length = len;
 	(* (ip_addr *) ad->data) = v1.val.px.ip;
+	l->attrs[0].u.ptr = ad;
 	break;
       case EAF_TYPE_AS_PATH:
 	if (v1.type != T_PATH)
