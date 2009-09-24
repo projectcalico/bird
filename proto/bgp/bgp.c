@@ -120,7 +120,9 @@ bgp_startup(struct bgp_proto *p)
 {
   BGP_TRACE(D_EVENTS, "Started");
   p->start_state = p->cf->capabilities ? BSS_CONNECT : BSS_CONNECT_NOCAP;
-  bgp_active(p);
+
+  if (!p->cf->passive)
+    bgp_active(p);
 }
 
 static void
@@ -292,7 +294,8 @@ bgp_decision(void *vp)
 
   DBG("BGP: Decision start\n");
   if ((p->p.proto_state == PS_START)
-      && (p->outgoing_conn.state == BS_IDLE))
+      && (p->outgoing_conn.state == BS_IDLE)
+      && (!p->cf->passive))
     bgp_active(p);
 
   if ((p->p.proto_state == PS_STOP)

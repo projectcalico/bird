@@ -868,6 +868,11 @@ for each neighbor using the following configuration parameters:
 	of BGP sessions. Default: no authentication. Password has to be set by
 	external utility (e.g. setkey(8)) on BSD systems.
 
+	<tag>passive <m/switch/</tag> Standard BGP behavior is both
+        initiating outgoing connections and accepting incoming
+        connections. In passive mode, outgoing connections are not
+        initiated. Default: off.
+
 	<tag>rr client</tag> Be a route reflector and treat the neighbor as
 	a route reflection client. Default: disabled.
 
