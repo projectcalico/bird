@@ -686,8 +686,10 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 	  if (ng && ng->scope)
 	    ra.iface = ng->iface;
 	  else
-	    /* FIXME: Remove this warning? Handle it somehow... */
-	    log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", ra.gw, net->n.prefix, net->n.pxlen);
+	    {
+	      log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", ra.gw, net->n.prefix, net->n.pxlen);
+	      return;
+	    }
 	}
       else
 	{
