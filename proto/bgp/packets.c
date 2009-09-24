@@ -602,7 +602,17 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
     log(L_WARN "%s: Peer advertised inconsistent AS numbers", p->p.name);
 
   if (conn->advertised_as != p->remote_as)
-    { bgp_error(conn, 2, 2, (byte *) &(conn->advertised_as), -4); return; }
+    {
+      if (conn->peer_as4_support)
+	{
+	  u32 val = htonl(conn->advertised_as);
+	  bgp_error(conn, 2, 2, (byte *) &val, 4);
+	}
+      else
+	bgp_error(conn, 2, 2, pkt+20, 2);
+
+      return;
+    }
 
   /* Check the other connection */
   other = (conn == &p->outgoing_conn) ? &p->incoming_conn : &p->outgoing_conn;
@@ -974,11 +984,19 @@ bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsigned 
     {
       *t++ = ':';
       *t++ = ' ';
+
+      if ((code == 2) && (subcode == 2) && ((len == 2) || (len == 4)))
+	{
+	  /* Bad peer AS - we would like to print the AS */
+	  t += bsprintf(t, "%d", (len == 2) ? get_u16(data) : get_u32(data));
+	  goto done;
+	}
       if (len > 16)
 	len = 16;
       for (i=0; i<len; i++)
 	t += bsprintf(t, "%02x", data[i]);
     }
+ done:
   *t = 0;
   log(L_REMOTE "%s: %s: %s%s", p->p.name, msg, name, argbuf);
 }
