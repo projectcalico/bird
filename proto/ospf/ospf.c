@@ -605,7 +605,9 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   struct area_net_config *anc;
   struct area_net *an;
 
-  po->rfc1583 = new->rfc1583;
+  if (po->rfc1583 != new->rfc1583)
+    return 0;
+
   schedule_rtcalc(po);
 
   po->tick = new->tick;

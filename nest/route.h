@@ -37,6 +37,7 @@ struct fib_node {
   byte pxlen;
   byte flags;				/* User-defined */
   byte x0, x1;				/* User-defined */
+  u32 uid;				/* Unique ID based on hash */
   ip_addr prefix;			/* In host order */
 };
 

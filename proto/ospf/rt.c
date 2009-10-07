@@ -18,7 +18,7 @@ static void ospf_ext_spf(struct proto_ospf *po);
 static void rt_sync(struct proto_ospf *po);
 
 /* In ospf_area->rtr we store paths to routers, but we use RID (and not IP address)
-   as index, so we need to encapsulate RID to IP addresss */
+   as index, so we need to encapsulate RID to IP address */
 #ifdef OSPFv2
 #define ipa_from_rid(x) _MI(x)
 #else /* OSPFv3 */
