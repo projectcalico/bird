@@ -36,7 +36,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	LEN,
 	DEFINED,
 	ADD, DELETE, CONTAINS, RESET,
-	PREPEND, MATCH,
+	PREPEND, FIRST, LAST, MATCH,
 	EMPTY,
 	FILTER, WHERE, EVAL)
 
@@ -448,6 +448,8 @@ term:
  | term '.' IP { $$ = f_new_inst(); $$->code = P('c','p'); $$->a1.p = $1; $$->aux = T_IP; }
  | term '.' LEN { $$ = f_new_inst(); $$->code = 'L'; $$->a1.p = $1; }
  | term '.' MASK '(' term ')' { $$ = f_new_inst(); $$->code = P('i','M'); $$->a1.p = $1; $$->a2.p = $5; }
+ | term '.' FIRST { $$ = f_new_inst(); $$->code = P('a','f'); $$->a1.p = $1; }
+ | term '.' LAST  { $$ = f_new_inst(); $$->code = P('a','l'); $$->a1.p = $1; }
 
 /* Communities */
 /* This causes one shift/reduce conflict

@@ -353,6 +353,7 @@ interpret(struct f_inst *what)
   struct f_val v1, v2, res;
   unsigned u1, u2;
   int i;
+  u32 as;
 
   res.type = T_VOID;
   if (!what)
@@ -726,6 +727,26 @@ interpret(struct f_inst *what)
     case T_IP: res.val.px.ip = v1.val.px.ip; break;
     default: bug( "Unknown prefix to conversion" );
     }
+    break;
+  case P('a','f'):	/* Get first ASN from AS PATH */
+    ONEARG;
+    if (v1.type != T_PATH)
+      runtime( "AS Path expected" );
+
+    as = 0;
+    as_path_get_last(v1.val.ad, &as); /* really last */
+    res.type = T_INT;
+    res.val.i = as;
+    break;
+  case P('a','l'):	/* Get last ASN from AS PATH */
+    ONEARG;
+    if (v1.type != T_PATH)
+      runtime( "AS path expected" );
+
+    as = 0;
+    as_path_get_first(v1.val.ad, &as); /* really first */
+    res.type = T_INT;
+    res.val.i = as;
     break;
   case 'r':
     ONEARG;
