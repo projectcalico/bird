@@ -30,11 +30,16 @@
 #include "lib/unix.h"
 #include "lib/sysio.h"
 
-/* Maximum number of calls of rx/tx handler for one socket in one
+/* Maximum number of calls of tx handler for one socket in one
  * select iteration. Should be small enough to not monopolize CPU by
  * one protocol instance.
  */
 #define MAX_STEPS 4
+
+/* Maximum number of calls of rx handler for all sockets in one select
+   iteration. RX callbacks are often much more costly so we limit
+   this to gen small latencies */
+#define MAX_RX_STEPS 4
 
 /*
  *	Tracked Files
@@ -493,6 +498,7 @@ tm_format_reltime(char *x, bird_clock_t t)
 
 static list sock_list;
 static struct birdsock *current_sock;
+static struct birdsock *stored_sock;
 static int sock_recalc_fdsets_p;
 
 static inline sock *
@@ -541,6 +547,8 @@ sk_free(resource *r)
       close(s->fd);
       if (s == current_sock)
 	current_sock = sk_next(s);
+      if (s == stored_sock)
+	stored_sock = sk_next(s);
       rem_node(&s->n);
       sock_recalc_fdsets_p = 1;
     }
@@ -1071,6 +1079,29 @@ sk_maybe_write(sock *s)
     }
 }
 
+int
+sk_rx_ready(sock *s)
+{
+  fd_set rd, wr;
+  struct timeval timo;
+  int rv;
+
+  FD_ZERO(&rd);
+  FD_ZERO(&wr);
+  FD_SET(s->fd, &rd);
+
+  timo.tv_sec = 0;
+  timo.tv_usec = 0;
+
+ redo:
+  rv = select(s->fd+1, &rd, &wr, NULL, &timo);
+  
+  if ((rv < 0) && (errno == EINTR || errno == EAGAIN))
+    goto redo;
+
+  return rv;
+}
+
 /**
  * sk_send - send data to a socket
  * @s: socket
@@ -1239,6 +1270,9 @@ io_init(void)
   srandom((int) now_real);
 }
 
+static int short_loops = 0;
+#define SHORT_LOOP_MAX 10
+
 void
 io_loop(void)
 {
@@ -1317,8 +1351,8 @@ io_loop(void)
 	}
 
       /* And finally enter select() to find active sockets */
-
       hi = select(hi+1, &rd, &wr, NULL, &timo);
+
       if (hi < 0)
 	{
 	  if (errno == EINTR || errno == EAGAIN)
@@ -1327,13 +1361,17 @@ io_loop(void)
 	}
       if (hi)
 	{
-	  current_sock = SKIP_BACK(sock, n, HEAD(sock_list));	/* guaranteed to be non-empty */
+	  /* guaranteed to be non-empty */
+	  current_sock = SKIP_BACK(sock, n, HEAD(sock_list));
+
 	  while (current_sock)
 	    {
 	      sock *s = current_sock;
 	      int e;
-	      int steps = MAX_STEPS;
-	      if (FD_ISSET(s->fd, &rd) && s->rx_hook)
+	      int steps;
+
+	      steps = MAX_STEPS;
+	      if ((s->type >= SK_MAGIC) && FD_ISSET(s->fd, &rd) && s->rx_hook)
 		do
 		  {
 		    steps--;
@@ -1356,6 +1394,35 @@ io_loop(void)
 	      current_sock = sk_next(s);
 	    next: ;
 	    }
+
+	  short_loops++;
+	  if (events && (short_loops < SHORT_LOOP_MAX))
+	    continue;
+	  short_loops = 0;
+
+	  int count = 0;
+	  current_sock = stored_sock;
+	  if (current_sock == NULL)
+	    current_sock = SKIP_BACK(sock, n, HEAD(sock_list));
+
+	  while (current_sock && count < MAX_RX_STEPS)
+	    {
+	      sock *s = current_sock;
+	      int e;
+	      int steps;
+
+	      if ((s->type < SK_MAGIC) && FD_ISSET(s->fd, &rd) && s->rx_hook)
+		{
+		  count++;
+		  e = sk_read(s);
+		  if (s != current_sock)
+		      goto next2;
+		}
+	      current_sock = sk_next(s);
+	    next2: ;
+	    }
+
+	  stored_sock = current_sock;
 	}
     }
 }

@@ -431,8 +431,15 @@ bgp_hold_timeout(timer *t)
 {
   struct bgp_conn *conn = t->data;
 
-  DBG("BGP: Hold timeout, closing connection\n");
-  bgp_error(conn, 4, 0, NULL, 0);
+  DBG("BGP: Hold timeout\n");
+
+  /* If there is something in input queue, we are probably congested
+     and perhaps just not processed BGP packets in time. */
+
+  if (sk_rx_ready(conn->sk) > 0)
+    bgp_start_timer(conn->hold_timer, 10);
+  else
+    bgp_error(conn, 4, 0, NULL, 0);
 }
 
 static void
