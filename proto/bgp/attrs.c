@@ -996,7 +996,7 @@ bgp_get_neighbor(rte *r)
   eattr *e = ea_find(r->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
   u32 as;
 
-  if (e && as_path_get_last(e->u.ptr, &as))
+  if (e && as_path_get_first(e->u.ptr, &as))
     return as;
   else
     return ((struct bgp_proto *) r->attrs->proto)->remote_as;
@@ -1470,7 +1470,7 @@ bgp_get_route_info(rte *e, byte *buf, ea_list *attrs)
   u32 origas;
 
   buf += bsprintf(buf, " (%d) [", e->pref);
-  if (p && as_path_get_first(p->u.ptr, &origas))
+  if (p && as_path_get_last(p->u.ptr, &origas))
     buf += bsprintf(buf, "AS%u", origas);
   if (o)
     buf += bsprintf(buf, "%c", "ie?"[o->u.data]);

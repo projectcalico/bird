@@ -734,7 +734,7 @@ interpret(struct f_inst *what)
       runtime( "AS Path expected" );
 
     as = 0;
-    as_path_get_last(v1.val.ad, &as); /* really last */
+    as_path_get_first(v1.val.ad, &as);
     res.type = T_INT;
     res.val.i = as;
     break;
@@ -744,7 +744,7 @@ interpret(struct f_inst *what)
       runtime( "AS path expected" );
 
     as = 0;
-    as_path_get_first(v1.val.ad, &as); /* really first */
+    as_path_get_last(v1.val.ad, &as);
     res.type = T_INT;
     res.val.i = as;
     break;
