@@ -689,7 +689,7 @@ bgp_start_locked(struct object_lock *lock)
     }
 
   DBG("BGP: Got lock\n");
-  p->local_id = cf->c.global->router_id;
+  p->local_id = proto_get_router_id(&cf->c);
   p->next_hop = cf->multihop ? cf->multihop_via : cf->remote_ip;
   p->neigh = neigh_find(&p->p, &p->next_hop, NEF_STICKY);
 
