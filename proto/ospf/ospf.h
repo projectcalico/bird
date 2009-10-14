@@ -523,17 +523,55 @@ struct ospf_lsa_prefix
 #define METRIC_MASK  0x00FFFFFF
 #define OPTIONS_MASK 0x00FFFFFF
 
-static inline unsigned lsa_rt_count(struct ospf_lsa_header *lsa)
+static inline unsigned
+lsa_rt_count(struct ospf_lsa_header *lsa)
 {
   return (lsa->length - sizeof(struct ospf_lsa_header) - sizeof(struct ospf_lsa_rt))
     / sizeof(struct ospf_lsa_rt_link);
 }
 
-static inline unsigned lsa_net_count(struct ospf_lsa_header *lsa)
+static inline unsigned
+lsa_net_count(struct ospf_lsa_header *lsa)
 {
   return (lsa->length - sizeof(struct ospf_lsa_header) - sizeof(struct ospf_lsa_net))
     / sizeof(u32);
 }
+
+
+#ifdef OSPFv3
+
+static inline u32 *
+lsa_get_ipv6_prefix(u32 *buf, ip_addr *addr, int *pxlen, u8 *pxopts, u16 *rest)
+{
+  u8 pxl = (*buf >> 24);
+  *pxopts = (*buf >> 16);
+  *rest = *buf;
+  *pxlen = pxl;
+  buf++;
+
+  *addr = IPA_NONE;
+
+  if (pxl > 0)
+    _I0(*addr) = *buf++;
+  if (pxl > 32)
+    _I1(*addr) = *buf++;
+  if (pxl > 64)
+    _I2(*addr) = *buf++;
+  if (pxl > 96)
+    _I3(*addr) = *buf++;
+
+  return buf;
+}
+
+static inline u32 *
+lsa_get_ipv6_addr(u32 *buf, ip_addr *addr)
+{
+  *addr = *(ip_addr *) buf;
+  return buf + 4;
+}
+
+#endif
+
 
 
 struct ospf_lsreq_header

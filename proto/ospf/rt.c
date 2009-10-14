@@ -26,41 +26,6 @@ static void rt_sync(struct proto_ospf *po);
 #endif
 
 
-#ifdef OSPFv3
-
-static inline u32 *
-get_ipv6_prefix(u32 *buf, ip_addr *addr, int *pxlen, u8 *pxopts, u16 *rest)
-{
-  u8 pxl = (*buf >> 24);
-  *pxopts = (*buf >> 16);
-  *rest = *buf;
-  *pxlen = pxl;
-  buf++;
-
-  *addr = IPA_NONE;
-
-  if (pxl > 0)
-    _I0(*addr) = *buf++;
-  if (pxl > 32)
-    _I1(*addr) = *buf++;
-  if (pxl > 64)
-    _I2(*addr) = *buf++;
-  if (pxl > 96)
-    _I3(*addr) = *buf++;
-
-  return buf;
-}
-
-static inline u32 *
-get_ipv6_addr(u32 *buf, ip_addr *addr)
-{
-  *addr = *(ip_addr *) buf;
-  return buf + 4;
-}
-
-#endif
-
-
 static void
 fill_ri(orta * orta)
 {
@@ -244,7 +209,7 @@ process_prefixes(struct ospf_area *oa)
     buf = px->rest;
     for (i = 0; i < px->pxcount; i++)
       {
-	buf = get_ipv6_prefix(buf, &pxa, &pxlen, &pxopts, &metric);
+	buf = lsa_get_ipv6_prefix(buf, &pxa, &pxlen, &pxopts, &metric);
 
 	if (pxopts & OPT_PX_NU)
 	  continue;
@@ -581,7 +546,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       u8 pxopts;
       u16 rest;
       struct ospf_lsa_sum_net *ls = en->lsa_body;
-      get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
+      lsa_get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
 
       if (pxopts & OPT_PX_NU)
 	continue;
@@ -680,7 +645,7 @@ ospf_rt_sum(struct ospf_area *oa)
       u8 pxopts;
       u16 rest;
       struct ospf_lsa_sum_net *ls = en->lsa_body;
-      get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
+      lsa_get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
 
       if (pxopts & OPT_PX_NU)
 	continue;
@@ -883,14 +848,14 @@ ospf_ext_spf(struct proto_ospf *po)
     u8 pxopts;
     u16 rest;
     u32 *buf = le->rest;
-    buf = get_ipv6_prefix(buf, &ip, &pxlen, &pxopts, &rest);
+    buf = lsa_get_ipv6_prefix(buf, &ip, &pxlen, &pxopts, &rest);
 
     if (pxopts & OPT_PX_NU)
       continue;
 
     rt_fwaddr_valid = le->metric & LSA_EXT_FBIT;
     if (rt_fwaddr_valid)
-      buf = get_ipv6_addr(buf, &rt_fwaddr);
+      buf = lsa_get_ipv6_addr(buf, &rt_fwaddr);
     else 
       rt_fwaddr = IPA_NONE;
 

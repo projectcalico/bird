@@ -881,11 +881,11 @@ originate_ext_lsa_body(net *n, rte *e, u16 *length, struct proto_ospf *po,
   ext = mb_alloc(p->pool, size);
   *length = sizeof(struct ospf_lsa_header) + size;
 
-  ext->metric = (m1 != LSINFINITY) ? m1 : (m2 & LSA_EXT_EBIT); 
+  ext->metric = (m1 != LSINFINITY) ? m1 : (m2 | LSA_EXT_EBIT); 
 
 #ifdef OSPFv2
   ext->netmask = ipa_mkmask(n->n.pxlen);
-  ext->fwaddr = gw ? IPA_NONE : e->attrs->gw;
+  ext->fwaddr = gw ? e->attrs->gw : IPA_NONE;
   ext->tag = tag;
 #else /* OSPFv3 */
   buf = ext->rest;

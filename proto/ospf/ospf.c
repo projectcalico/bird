@@ -1036,87 +1036,148 @@ ospf_sh_iface(struct proto *p, char *iff)
   cli_msg(0, "");
 }
 
-/* First we want to separate network-LSAs and other LSAs (because network-LSAs
+/* lsa_compare_for_state() - Compare function for 'show ospf state'
+ *
+ * First we want to separate network-LSAs and other LSAs (because network-LSAs
  * will be presented as network nodes and other LSAs together as router nodes)
  * Network-LSAs are sorted according to network prefix, other LSAs are sorted
  * according to originating router id (to get all LSA needed to represent one
  * router node together). Then, according to LSA type, ID and age.
+ *
+ * For OSPFv3, we have to handle also Prefix-LSAs. We would like to put each
+ * immediately after the referenced LSA. We will make faked LSA based on ref_
+ * values
  */
-/*
+
+static struct ospf_lsa_header *
+fake_lsa_from_prefix_lsa(struct ospf_lsa_header *dst, struct ospf_lsa_header *src,
+			 struct ospf_lsa_prefix *px)
+{
+  dst->age = src->age;
+  dst->type = px->ref_type;
+  dst->id = px->ref_id;
+  dst->rt = px->ref_rt;
+  dst->sn = src->sn;
+
+  return dst;
+}
+
 static int
-he_compare(const void *p1, const void *p2)
+lsa_compare_for_state(const void *p1, const void *p2)
 {
   struct top_hash_entry * he1 = * (struct top_hash_entry **) p1;
   struct top_hash_entry * he2 = * (struct top_hash_entry **) p2;
   struct ospf_lsa_header *lsa1 = &(he1->lsa);
   struct ospf_lsa_header *lsa2 = &(he2->lsa);
+
+  if (he1->domain != he2->domain)
+    return he1->domain - he2->domain;
+
+#ifdef OSPFv3
+  struct ospf_lsa_header lsatmp1, lsatmp2;
+
+  int px1 = (lsa1->type == LSA_T_PREFIX);
+  int px2 = (lsa2->type == LSA_T_PREFIX);
+
+  if (px1)
+    lsa1 = fake_lsa_from_prefix_lsa(&lsatmp1, lsa1, he1->lsa_body);
+
+  if (px2)
+    lsa2 = fake_lsa_from_prefix_lsa(&lsatmp2, lsa2, he2->lsa_body);
+#endif
+
   int nt1 = (lsa1->type == LSA_T_NET);
   int nt2 = (lsa2->type == LSA_T_NET);
-
-  if (he1->oa->areaid != he2->oa->areaid)
-    return he1->oa->areaid - he2->oa->areaid;
 
   if (nt1 != nt2)
     return nt1 - nt2;
 
   if (nt1)
   {
-    // we are cheating for now
+#ifdef OSPFv3
+    /* In OSPFv3, neworks are named base on ID of DR */
+    if (lsa1->rt != lsa2->rt)
+      return lsa1->rt - lsa2->rt;
+#endif
+
+    /* For OSPFv2, this is IP of the network,
+       for OSPFv3, this is interface ID */
     if (lsa1->id != lsa2->id)
       return lsa1->id - lsa2->id;
-    
-    return lsa1->age - lsa2->age;
+
+#ifdef OSPFv3
+    if (px1 != px2)
+      return px1 - px2;
+#endif
+
+    return lsa1->sn - lsa2->sn;
   }
   else 
-    {
-      if (lsa1->rt != lsa2->rt)
-	return lsa1->rt - lsa2->rt;
- 
-      if (lsa1->type != lsa2->type)
-	return lsa1->type - lsa2->type;
+  {
+    if (lsa1->rt != lsa2->rt)
+      return lsa1->rt - lsa2->rt;
+
+    if (lsa1->type != lsa2->type)
+      return lsa1->type - lsa2->type;
   
-      if (lsa1->id != lsa2->id)
-	return lsa1->id - lsa2->id;
+    if (lsa1->id != lsa2->id)
+      return lsa1->id - lsa2->id;
+
+#ifdef OSPFv3
+    if (px1 != px2)
+      return px1 - px2;
+#endif
   
-      return lsa1->age - lsa2->age;
-    }
+    return lsa1->sn - lsa2->sn;
+  }
 }
-*/
-/*
+
 static inline void
-show_lsa_router(struct top_hash_entry *he)
+show_lsa_router(struct proto_ospf *po, struct top_hash_entry *he)
 {
   struct ospf_lsa_header *lsa = &(he->lsa);
   struct ospf_lsa_rt *rt = he->lsa_body;
   struct ospf_lsa_rt_link *rr = (struct ospf_lsa_rt_link *) (rt + 1);
   int max = lsa_rt_count(lsa);
+  int i;
+
+  for (i = 0; i < max; i++)
+    if (rr[i].type == LSART_VLNK)
+      cli_msg(-1016, "\t\tvlink %R metric %u", rr[i].id, rr[i].metric);
 
   for (i = 0; i < max; i++)
     if (rr[i].type == LSART_PTP)
-      cli_msg(-1016, "\t\trouter %R metric %u ", rr[i].id, rr[i].metric);
+      cli_msg(-1016, "\t\trouter %R metric %u", rr[i].id, rr[i].metric);
 
   for (i = 0; i < max; i++)
     if (rr[i].type == LSART_NET)
     {
-      struct proto_ospf *po = he->oa->po;
-      struct top_hash_entry *net_he = ospf_hash_find(po->gr, he->oa->areaid, rr[i].id, rr[i].id, LSA_T_NET);
+#ifdef OSPFv2
+      struct top_hash_entry *net_he = ospf_hash_find_net(po->gr, he->domain, rr[i].id);
+
       if (net_he)
       {
 	struct ospf_lsa_header *net_lsa = &(net_he->lsa);
 	struct ospf_lsa_net *net_ln = net_he->lsa_body;
-	cli_msg(-1016, "\t\tnetwork %I/%d metric %u ", ipa_and(ipa_from_u32(net_lsa->id), net_ln->netmask), ipa_mklen(net_ln->netmask), rr[i].metric);
+
+	cli_msg(-1016, "\t\tnetwork %I/%d metric %u", 
+		ipa_and(ipa_from_u32(net_lsa->id), net_ln->netmask),
+		ipa_mklen(net_ln->netmask), rr[i].metric);
       }
       else
-	cli_msg(-1016, "\t\tnetwork ??? metric %u ", rr[i].metric);
+	cli_msg(-1016, "\t\tnetwork [%R] metric %u", rr[i].id, rr[i].metric);
+
+#else /* OSPFv3 */
+      cli_msg(-1016, "\t\tnetwork [%R-%u] metric %u", rr[i].id, rr[i].nif, rr[i].metric);
+#endif
     }
 
+#ifdef OSPFv2
   for (i = 0; i < max; i++)
     if (rr[i].type == LSART_STUB)
-      cli_msg(-1016, "\t\tstubnet %I/%d metric %u ", ipa_from_u32(rr[i].id), ipa_mklen(ipa_from_u32(rr[i].data)), rr[i].metric);
-
-  for (i = 0; i < max; i++)
-    if (rr[i].type == LSART_VLNK)
-      cli_msg(-1016, "\t\tvlink %I metric %u ", ipa_from_u32(rr[i].id), rr[i].metric);
+      cli_msg(-1016, "\t\tstubnet %I/%d metric %u", ipa_from_u32(rr[i].id),
+	      ipa_mklen(ipa_from_u32(rr[i].data)), rr[i].metric);
+#endif
 }
 
 static inline void
@@ -1124,30 +1185,58 @@ show_lsa_network(struct top_hash_entry *he)
 {
   struct ospf_lsa_header *lsa = &(he->lsa);
   struct ospf_lsa_net *ln = he->lsa_body;
-  u32 *rts = (u32 *) (ln + 1);
   u32 i;
 
+#ifdef OSPFv2
   cli_msg(-1016, "");
   cli_msg(-1016, "\tnetwork %I/%d", ipa_and(ipa_from_u32(lsa->id), ln->netmask), ipa_mklen(ln->netmask));
   cli_msg(-1016, "\t\tdr %R", lsa->rt);
+#else /* OSPFv3 */
+  cli_msg(-1016, "");
+  cli_msg(-1016, "\tnetwork [%R-%u]", lsa->rt, lsa->id);
+#endif
 
   for (i = 0; i < lsa_net_count(lsa); i++)
-    cli_msg(-1016, "\t\trouter %R", rts[i]);
+    cli_msg(-1016, "\t\trouter %R", ln->routers[i]);
 }
 
 static inline void
 show_lsa_sum_net(struct top_hash_entry *he)
 {
   struct ospf_lsa_header *lsa = &(he->lsa);
-  struct ospf_lsa_sum *sm = he->lsa_body;
+  ip_addr ip;
+  int pxlen;
 
-  cli_msg(-1016, "\t\txnetwork %I/%d", ipa_and(ipa_from_u32(lsa->id), sm->netmask), ipa_mklen(sm->netmask));
+#ifdef OSPFv2
+  struct ospf_lsa_sum *ls = he->lsa_body;
+  pxlen = ipa_mklen(ls->netmask);
+  ip = ipa_and(ipa_from_u32(he->lsa.id), ls->netmask);
+#else /* OSPFv3 */
+  u8 pxopts;
+  u16 rest;
+  struct ospf_lsa_sum_net *ls = he->lsa_body;
+  lsa_get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
+#endif
+
+  cli_msg(-1016, "\t\txnetwork %I/%d", ip, pxlen);
 }
 
 static inline void
 show_lsa_sum_rt(struct top_hash_entry *he)
 {
-  cli_msg(-1016, "\t\txrouter %R", he->lsa.id);
+  u32 dst_rid, options;
+
+#ifdef OSPFv2
+  struct ospf_lsa_sum *ls = he->lsa_body;
+  dst_rid = he->lsa.id;
+  options = 0;
+#else /* OSPFv3 */
+  struct ospf_lsa_sum_rt *ls = he->lsa_body;
+  dst_rid = ls->drid; 
+  options = ls->options & OPTIONS_MASK;
+#endif
+
+  cli_msg(-1016, "\t\txrouter %R", dst_rid);
 }
 
 
@@ -1157,32 +1246,94 @@ show_lsa_external(struct top_hash_entry *he)
   struct ospf_lsa_header *lsa = &(he->lsa);
   struct ospf_lsa_ext *ext = he->lsa_body;
   struct ospf_lsa_ext_tos *et = (struct ospf_lsa_ext_tos *) (ext + 1);
-
   char str_via[STD_ADDRESS_P_LENGTH + 8] = "";
   char str_tag[16] = "";
+  ip_addr ip, rt_fwaddr;
+  int pxlen, ebit, rt_fwaddr_valid;
+  u32 rt_tag, rt_metric;
+
+  rt_metric = ext->metric & METRIC_MASK;
+  ebit = ext->metric & LSA_EXT_EBIT;
+#ifdef OSPFv2
+  ip = ipa_and(ipa_from_u32(lsa->id), ext->netmask);
+  pxlen = ipa_mklen(ext->netmask);
+  rt_fwaddr = ext->fwaddr;
+  rt_fwaddr_valid = !ipa_equal(rt_fwaddr, IPA_NONE);
+  rt_tag = ext->tag;
+#else /* OSPFv3 */
+  u8 pxopts;
+  u16 rest;
+  u32 *buf = ext->rest;
+  buf = lsa_get_ipv6_prefix(buf, &ip, &pxlen, &pxopts, &rest);
+
+  rt_fwaddr_valid = ext->metric & LSA_EXT_FBIT;
+  if (rt_fwaddr_valid)
+    buf = lsa_get_ipv6_addr(buf, &rt_fwaddr);
+  else 
+    rt_fwaddr = IPA_NONE;
+
+  if (ext->metric & LSA_EXT_TBIT)
+    rt_tag = *buf++;
+  else
+    rt_tag = 0;
+#endif
   
-  if (ipa_nonzero(et->fwaddr))
-    bsprintf(str_via, " via %I", et->fwaddr);
+  if (rt_fwaddr_valid)
+    bsprintf(str_via, " via %I", rt_fwaddr);
 
-  if (et->tag)
-    bsprintf(str_tag, " tag %08x", et->tag);
+  if (rt_tag)
+    bsprintf(str_tag, " tag %08x", rt_tag);
 
-  cli_msg(-1016, "\t\texternal %I/%d metric%s %u%s%s",
-	  ipa_and(ipa_from_u32(lsa->id), ext->netmask),
-	  ipa_mklen(ext->netmask), et->etm.etos.ebit ? "2" : "",
-	  et->etm.metric & METRIC_MASK, str_via, str_tag);
+  cli_msg(-1016, "\t\texternal %I/%d metric%s %u%s%s", ip, pxlen,
+	  ebit ? "2" : "", rt_metric, str_via, str_tag);
 }
 
-*/
+#ifdef OSPFv3
+static inline void
+show_lsa_prefix(struct top_hash_entry *he, struct ospf_lsa_header *olsa)
+{
+  struct ospf_lsa_header *lsa = &(he->lsa);
+  struct ospf_lsa_prefix *px = he->lsa_body;
+  struct ospf_lsa_ext *ext = he->lsa_body;
+  char *msg;
+  ip_addr pxa;
+  int pxlen;
+  u8 pxopts;
+  u16 metric;
+  u32 *buf;
+  int i;
+
+  /* We check whether given prefix-LSA is related to the last non-prefix-LSA */
+  if ((olsa == NULL) || (olsa->type != px->ref_type) || (olsa->rt != px->ref_rt) ||
+      !(((px->ref_type == LSA_T_RT)  && (px->ref_id == 0)) ||
+	((px->ref_type == LSA_T_NET) && (px->ref_id == olsa->id))))
+    return;
+
+  buf = px->rest;
+  for (i = 0; i < px->pxcount; i++)
+    {
+      buf = lsa_get_ipv6_prefix(buf, &pxa, &pxlen, &pxopts, &metric);
+
+      if (px->ref_type == LSA_T_RT)
+	cli_msg(-1016, "\t\tstubnet %I/%d metric %u", pxa, pxlen, metric);
+      else
+	cli_msg(-1016, "\t\taddress %I/%d", pxa, pxlen);
+    }
+}
+#endif
+
 void
 ospf_sh_state(struct proto *p, int verbose)
 {
-  /*
   struct proto_ospf *po = (struct proto_ospf *) p;
   struct top_graph *f = po->gr;
-  unsigned int i, j;
+  unsigned int i, j1, j2;
   u32 last_rt = 0xFFFFFFFF;
   u32 last_area = 0xFFFFFFFF;
+
+#ifdef OSPFv3
+  struct ospf_lsa_header *olsa = NULL;
+#endif
 
   if (p->proto_state != PS_UP)
   {
@@ -1194,30 +1345,57 @@ ospf_sh_state(struct proto *p, int verbose)
   struct top_hash_entry *hea[f->hash_entries];
   struct top_hash_entry *he;
 
-  j = 0;
-  for (i = 0; i < f->hash_size; i++)
-    for (he = f->hash_table[i]; he != NULL; he = he->next)
-      hea[j++] = he;
+  j1 = j2 = 0;
+  WALK_SLIST(he, po->lsal)
+  {
+    int accept;
 
-  if (j == f->hash_size)
+    switch (he->lsa.type)
+      {
+      case LSA_T_RT:
+      case LSA_T_NET:
+	accept = 1;
+	break;
+
+      case LSA_T_SUM_NET:
+      case LSA_T_SUM_RT:
+      case LSA_T_EXT:
+#ifdef OSPFv3
+      case LSA_T_PREFIX:
+#endif
+	accept = verbose;
+	break;
+
+      default:
+	accept = 0;
+      }
+
+    if (accept)
+      hea[j1++] = he;
+    else
+      j2++;
+  }
+
+  if ((j1 + j2) != f->hash_entries)
     die("Fatal mismatch");
 
-  qsort(hea, j, sizeof(struct top_hash_entry *), he_compare);
+  qsort(hea, j1, sizeof(struct top_hash_entry *), lsa_compare_for_state);
 
-  for (i = 0; i < j; i++)
+  for (i = 0; i < j1; i++)
   {
-    if ((verbose == 0) && (hea[i]->lsa.type > LSA_T_NET))
-      continue;
-
-    if (last_area != hea[i]->oa->areaid)
+    if (last_area != hea[i]->domain)
     {
       cli_msg(-1016, "");
-      cli_msg(-1016, "area %R", hea[i]->oa->areaid);
-      last_area = hea[i]->oa->areaid;
+      cli_msg(-1016, "area %R", hea[i]->domain);
+      last_area = hea[i]->domain;
       last_rt = 0xFFFFFFFF;
     }
 
-    if ((hea[i]->lsa.rt != last_rt) && (hea[i]->lsa.type != LSA_T_NET))
+    if ((hea[i]->lsa.rt != last_rt) && (hea[i]->lsa.type != LSA_T_NET)
+#ifdef OSPFv3
+	&& (hea[i]->lsa.type != LSA_T_PREFIX)
+#endif
+	)
     {
       cli_msg(-1016, "");
       cli_msg(-1016, (hea[i]->lsa.type != LSA_T_EXT) ? "\trouter %R" : "\txrouter %R", hea[i]->lsa.rt);
@@ -1227,7 +1405,7 @@ ospf_sh_state(struct proto *p, int verbose)
     switch (hea[i]->lsa.type)
     {
       case LSA_T_RT:
-	show_lsa_router(hea[i]);
+        show_lsa_router(po, hea[i]);
 	break;
 
       case LSA_T_NET:
@@ -1241,12 +1419,23 @@ ospf_sh_state(struct proto *p, int verbose)
       case LSA_T_SUM_RT:
 	show_lsa_sum_rt(hea[i]);
 	break;
+
       case LSA_T_EXT:
 	show_lsa_external(hea[i]);
 	break;
+
+#ifdef OSPFv3
+      case LSA_T_PREFIX:
+	show_lsa_prefix(hea[i], olsa);
+	break;
+#endif
     }
+
+#ifdef OSPFv3
+    if (hea[i]->lsa.type != LSA_T_PREFIX)
+      olsa = &(hea[i]->lsa);
+#endif
   }
-  */
   cli_msg(0, "");
 }
 
