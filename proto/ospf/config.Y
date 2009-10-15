@@ -50,7 +50,7 @@ CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, RETRANSMIT)
 CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, NONBROADCAST, POINTOPOINT, TYPE)
 CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, LINK)
-CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY)
+CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY, LSADB)
 
 %type <t> opttext
 
@@ -318,6 +318,9 @@ CF_CLI(SHOW OSPF TOPOLOGY, optsym opttext, [<name>], [[Show information about OS
 
 CF_CLI(SHOW OSPF STATE, optsym opttext, [<name>], [[Show information about OSPF network state]])
 { ospf_sh_state(proto_get_named($4, &proto_ospf), 1); };
+
+CF_CLI(SHOW OSPF LSADB, optsym opttext, [<name>], [[Show content of OSPF LSA database]])
+{ ospf_sh_lsadb(proto_get_named($4, &proto_ospf)); };
 
 CF_CODE
 

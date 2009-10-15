@@ -347,6 +347,11 @@ struct ospf_lsa_header
 #define LSA_T_SUM_RT	4
 #define LSA_T_EXT	5
 
+#define LSA_SCOPE_AREA	0x2000
+#define LSA_SCOPE_AS	0x4000
+
+#define LSA_SCOPE(lsa)	(((lsa)->type == LSA_T_EXT) ? LSA_SCOPE_AS : LSA_SCOPE_AREA)
+
 #else /* OSPFv3 */
   u16 type;
 

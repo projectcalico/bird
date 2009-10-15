@@ -1439,6 +1439,103 @@ ospf_sh_state(struct proto *p, int verbose)
   cli_msg(0, "");
 }
 
+
+static int
+lsa_compare_for_lsadb(const void *p1, const void *p2)
+{
+  struct top_hash_entry * he1 = * (struct top_hash_entry **) p1;
+  struct top_hash_entry * he2 = * (struct top_hash_entry **) p2;
+  struct ospf_lsa_header *lsa1 = &(he1->lsa);
+  struct ospf_lsa_header *lsa2 = &(he2->lsa);
+  int sc1 = LSA_SCOPE(lsa1);
+  int sc2 = LSA_SCOPE(lsa2);
+
+  if (sc1 != sc2)
+    return sc2 - sc1;
+
+  if (he1->domain != he2->domain)
+    return he1->domain - he2->domain;
+
+  if (lsa1->rt != lsa2->rt)
+    return lsa1->rt - lsa2->rt;
+  
+  if (lsa1->id != lsa2->id)
+    return lsa1->id - lsa2->id;
+
+  if (lsa1->type != lsa2->type)
+    return lsa1->type - lsa2->type;
+
+  return lsa1->sn - lsa2->sn;
+}
+
+void
+ospf_sh_lsadb(struct proto *p)
+{
+  struct proto_ospf *po = (struct proto_ospf *) p;
+  struct top_graph *f = po->gr;
+  unsigned int i, j;
+  int last_dscope = -1;
+  u32 last_domain = 0;
+
+  if (p->proto_state != PS_UP)
+  {
+    cli_msg(-1017, "%s: is not up", p->name);
+    cli_msg(0, "");
+    return;
+  }
+
+  struct top_hash_entry *hea[f->hash_entries];
+  struct top_hash_entry *he;
+
+  j = 0;
+  WALK_SLIST(he, po->lsal)
+    hea[j++] = he;
+
+  if (j != f->hash_entries)
+    die("Fatal mismatch");
+
+  qsort(hea, j, sizeof(struct top_hash_entry *), lsa_compare_for_lsadb);
+
+  for (i = 0; i < j; i++)
+  {
+    struct ospf_lsa_header *lsa = &(hea[i]->lsa);
+    int dscope = LSA_SCOPE(lsa);
+    
+    if ((dscope != last_dscope) || (hea[i]->domain != last_domain))
+    {
+      struct iface *ifa;
+
+      cli_msg(-1017, "");
+      switch (dscope)
+      {
+	case LSA_SCOPE_AS:
+	  cli_msg(-1017, "Global");
+	  break;
+	case LSA_SCOPE_AREA:
+	  cli_msg(-1017, "Area %R", hea[i]->domain);
+	  break;
+#ifdef OSPFv3
+	case LSA_SCOPE_LINK:
+	  ifa = if_find_by_index(hea[i]->domain);
+	  cli_msg(-1017, "Link %s", (ifa != NULL) ? ifa->name : "?");
+	  break;
+#endif
+      }
+      cli_msg(-1017, "");
+      cli_msg(-1017,"  Router ID       LS ID          Type   Age   Sequence Checksum");
+
+      last_dscope = dscope;
+      last_domain = hea[i]->domain;
+    }
+
+
+    cli_msg(-1017,"%-15R %-15R 0x%04x %5u 0x%08x 0x%04x",
+	    lsa->rt, lsa->id, lsa->type, lsa->age, lsa->sn, lsa->checksum);
+  }
+  cli_msg(0, "");
+}
+
+
 struct protocol proto_ospf = {
   name:"OSPF",
   template:"ospf%d",
