@@ -682,13 +682,29 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 	  ra.dest = RTD_ROUTER;
 	  memcpy(&ra.gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ra.gw));
 	  ipa_ntoh(ra.gw);
-	  ng = neigh_find(&p->p, &ra.gw, 0);
-	  if (ng && ng->scope)
-	    ra.iface = ng->iface;
+
+	  if (i->rtm_flags & RTNH_F_ONLINK)
+	    {
+	      /* route with 'onlink' attribute */
+	      ra.iface = if_find_by_index(oif);
+	      if (ra.iface == NULL)
+		{
+		  log(L_WARN "Kernel told us to use unknown interface %u for %I/%d",
+		      oif, net->n.prefix, net->n.pxlen);
+		  return;
+		}
+	    }
 	  else
 	    {
-	      log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", ra.gw, net->n.prefix, net->n.pxlen);
-	      return;
+	      /* standard route */
+	      ng = neigh_find(&p->p, &ra.gw, 0);
+	      if (ng && ng->scope)
+		ra.iface = ng->iface;
+	      else
+		{
+		  log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", ra.gw, net->n.prefix, net->n.pxlen);
+		  return;
+		}
 	    }
 	}
       else
