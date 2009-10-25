@@ -644,7 +644,7 @@ update_net_lsa(struct ospf_iface *ifa)
 
 #ifdef OSPFv2
 
-static void *
+static inline void *
 originate_sum_lsa_body(struct proto_ospf *po, u16 *length, u32 mlen, u32 metric)
 {
   struct ospf_lsa_sum *sum = mb_alloc(po->proto.pool, sizeof(struct ospf_lsa_sum));
@@ -662,9 +662,23 @@ originate_sum_lsa_body(struct proto_ospf *po, u16 *length, u32 mlen, u32 metric)
 #define originate_sum_rt_lsa_body(po,length,drid,metric,options) \
   originate_sum_lsa_body(po, length, 0, metric)
 
+static inline int
+check_sum_net_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
+{
+  struct ospf_lsa_sum *sum = en->lsa_body;
+  return (fn->pxlen != ipa_mklen(sum->netmask))
+}
+
+static inline int
+check_ext_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
+{
+  struct ospf_lsa_ext *ext = en->lsa_body;
+  return (fn->pxlen != ipa_mklen(ext->netmask))
+}
+
 #else /* OSPFv3 */
 
-static void *
+static inline void *
 originate_sum_net_lsa_body(struct proto_ospf *po, u16 *length, struct fib_node *fn, u32 metric)
 {
   int size = sizeof(struct ospf_lsa_sum_net) + IPV6_PREFIX_SPACE(fn->pxlen);
@@ -677,7 +691,33 @@ originate_sum_net_lsa_body(struct proto_ospf *po, u16 *length, struct fib_node *
   return sum;
 }
 
-static void *
+static inline int
+check_sum_net_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
+{
+  struct ospf_lsa_sum_net *sum = en->lsa_body;
+  ip_addr prefix;
+  int pxlen;
+  u8 pxopts;
+  u16 rest;
+
+  lsa_get_ipv6_prefix(sum->prefix, &prefix, &pxlen, &pxopts, &rest);
+  return (fn->pxlen != pxlen) || !ipa_equal(fn->prefix, prefix);
+}
+
+static inline int
+check_ext_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
+{
+  struct ospf_lsa_ext *ext = en->lsa_body;
+  ip_addr prefix;
+  int pxlen;
+  u8 pxopts;
+  u16 rest;
+
+  lsa_get_ipv6_prefix(ext->rest, &prefix, &pxlen, &pxopts, &rest);
+  return (fn->pxlen != pxlen) || !ipa_equal(fn->prefix, prefix);
+}
+
+static inline void *
 originate_sum_rt_lsa_body(struct proto_ospf *po, u16 *length, u32 drid, u32 metric, u32 options)
 {
   struct ospf_lsa_sum_rt *sum = mb_alloc(po->proto.pool, sizeof(struct ospf_lsa_sum_rt));
@@ -693,60 +733,88 @@ originate_sum_rt_lsa_body(struct proto_ospf *po, u16 *length, u32 drid, u32 metr
 #endif
 
 void
-originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric, u32 options)
+originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
 {
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
   struct top_hash_entry *en;
   u32 rid = po->proto.cf->global->router_id;
+  u32 dom = oa->areaid;
   struct ospf_lsa_header lsa;
   void *body;
 
-  /* options argument is used in ORT_NET and OSPFv3 only */
+  OSPF_TRACE(D_EVENTS, "Originating net-summary-LSA for %I/%d (metric %d)",
+	     fn->prefix, fn->pxlen, metric);
 
+  /* options argument is used in ORT_NET and OSPFv3 only */
   lsa.age = 0;
-  lsa.rt = rid;
-  lsa.sn = LSA_INITSEQNO;
 #ifdef OSPFv2
   lsa.options = oa->options;
 #endif
+  lsa.type = LSA_T_SUM_NET;
+  lsa.id = fibnode_to_lsaid(po, fn);
+  lsa.rt = rid;
+  lsa.sn = LSA_INITSEQNO;
 
-  if (type == ORT_NET)
-    {
-      lsa.id = fibnode_to_lsaid(po, fn);
-      lsa.type = LSA_T_SUM_NET;
-    }
-  else
-    {
-      /* In OSPFv6, LSA ID is meaningless, but we still use Router ID of ASBR */
-      lsa.id = ipa_to_rid(fn->prefix);
-      lsa.type = LSA_T_SUM_RT;
-    }
+  if ((en = ospf_hash_find_header(po->gr, dom, &lsa)) != NULL)
+  {
+    if (check_sum_net_lsaid_collision(fn, en))
+      {
+	log(L_ERR, "%s: LSAID collision for %I/%d",
+	    p->name, fn->prefix, fn->pxlen);
+	return;
+      }
 
-  u32 dom = oa->areaid;  
-
-  /* FIXME check for the same LSA */
-  if ((en = ospf_hash_find_header(po->gr, oa->areaid, &lsa)) != NULL)
     lsa.sn = en->lsa.sn + 1;
+  }
 
-  if (type == ORT_NET)
-    {
-      OSPF_TRACE(D_EVENTS, "Originating summary-LSA for %I/%d (metric %d)",
-		 fn->prefix, fn->pxlen, metric);
-
-      body = originate_sum_net_lsa_body(po, &lsa.length, fn, metric);
-    }
-  else
-    {
-      OSPF_TRACE(D_EVENTS, "Originating summary-LSA for %R (metric %d)",
-		 lsa.id, metric);
-
-      body = originate_sum_rt_lsa_body(po, &lsa.length, lsa.id, metric, options);
-    }
-
+  body = originate_sum_net_lsa_body(po, &lsa.length, fn, metric);
   lsasum_calculate(&lsa, body);
   en = lsa_install_new(po, &lsa, dom, body);
   ospf_lsupd_flood(po, NULL, NULL, &lsa, dom, 1);
+}
+
+void
+originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 options)
+{
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
+  struct top_hash_entry *en;
+  u32 rid = po->proto.cf->global->router_id;
+  u32 dom = oa->areaid;  
+  struct ospf_lsa_header lsa;
+  void *body;
+
+  OSPF_TRACE(D_EVENTS, "Originating rt-summary-LSA for %R (metric %d)",
+	     lsa.id, metric);
+
+  lsa.age = 0;
+#ifdef OSPFv2
+  lsa.options = oa->options;
+#endif
+  lsa.type = LSA_T_SUM_RT;
+  /* In OSPFv3, LSA ID is meaningless, but we still use Router ID of ASBR */
+  lsa.id = ipa_to_rid(fn->prefix);
+  lsa.rt = rid;
+  lsa.sn = LSA_INITSEQNO;
+
+  if ((en = ospf_hash_find_header(po->gr, dom, &lsa)) != NULL)
+    lsa.sn = en->lsa.sn + 1;
+
+  body = originate_sum_rt_lsa_body(po, &lsa.length, lsa.id, metric, options);
+  lsasum_calculate(&lsa, body);
+  en = lsa_install_new(po, &lsa, dom, body);
+  ospf_lsupd_flood(po, NULL, NULL, &lsa, dom, 1);
+}
+
+
+void
+originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric, u32 options)
+{
+  if (type == ORT_NET)
+    originate_sum_net_lsa(oa, fn, metric);
+  else
+    originate_sum_rt_lsa(oa, fn, metric, options);
 }
 
 
@@ -767,15 +835,20 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
     }
   else
     {
-      /* In OSPFv6, LSA ID is meaningless, but we still use Router ID of ASBR */
+      /* In OSPFv3, LSA ID is meaningless, but we still use Router ID of ASBR */
       lsa.id = ipa_to_rid(fn->prefix);
       lsa.type = LSA_T_SUM_RT;
     }
 
-  /* FIXME check for the same network */
-
   if ((en = ospf_hash_find_header(po->gr, oa->areaid, &lsa)) != NULL)
     {
+      if ((type == ORT_NET) && check_sum_net_lsaid_collision(fn, en))
+	{
+	  log(L_ERR, "%s: LSAID collision for %I/%d",
+	      p->name, fn->prefix, fn->pxlen);
+	  return;
+	}
+
       struct ospf_lsa_sum *sum = en->lsa_body;
       en->lsa.age = LSA_MAXAGE;
       en->lsa.sn = LSA_MAXSEQNO;
@@ -927,6 +1000,7 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 		  struct ea_list *attrs)
 {
   struct proto *p = &po->proto;
+  struct fib_node *fn = &n->n;
   struct ospf_lsa_header lsa;
   u32 rid = po->proto.cf->global->router_id;
   struct top_hash_entry *en = NULL;
@@ -934,21 +1008,26 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
   struct ospf_area *oa;
 
   OSPF_TRACE(D_EVENTS, "Originating AS-external-LSA for %I/%d",
-	     n->n.prefix, n->n.pxlen);
+	     fn->prefix, fn->pxlen);
 
   lsa.age = 0;
-  lsa.type = LSA_T_EXT;
-  lsa.rt = rid;
-  lsa.sn = LSA_INITSEQNO;
 #ifdef OSPFv2
   lsa.options = 0; /* or oa->options ? */
 #endif
-
-  /* FIXME proper handling of LSA IDs and check for the same network */
-  lsa.id = fibnode_to_lsaid(po, &n->n);
+  lsa.type = LSA_T_EXT;
+  lsa.id = fibnode_to_lsaid(po, fn);
+  lsa.rt = rid;
+  lsa.sn = LSA_INITSEQNO;
 
   if ((en = ospf_hash_find_header(po->gr, 0, &lsa)) != NULL)
     {
+      if (check_ext_lsaid_collision(fn, en))
+	{
+	  log(L_ERR, "%s: LSAID collision for %I/%d",
+	      p->name, fn->prefix, fn->pxlen);
+	  return;
+	}
+
       lsa.sn = en->lsa.sn + 1;
     }
 
@@ -972,23 +1051,26 @@ void
 flush_ext_lsa(net *n, struct proto_ospf *po)
 {
   struct proto *p = &po->proto;
+  struct fib_node *fn = &n->n;
   u32 rid = po->proto.cf->global->router_id;
   struct ospf_area *oa;
   struct top_hash_entry *en;
 
   OSPF_TRACE(D_EVENTS, "Flushing AS-external-LSA for %I/%d",
-	     n->n.prefix, n->n.pxlen);
+	     fn->prefix, fn->pxlen);
 
-  /* FIXME proper handling of LSA IDs and check for the same network */
-  u32 lsaid = fibnode_to_lsaid(po, &n->n);
+  u32 lsaid = fibnode_to_lsaid(po, fn);
 
   if (en = ospf_hash_find(po->gr, 0, lsaid, rid, LSA_T_EXT))
     {
-      /* FIXME this is nonsense */
-      WALK_LIST(oa, po->area_list)
+      if (check_ext_lsaid_collision(fn, en))
 	{
-	  ospf_lsupd_flush_nlsa(po, en);
+	  log(L_ERR, "%s: LSAID collision for %I/%d",
+	      p->name, fn->prefix, fn->pxlen);
+	  return;
 	}
+
+      ospf_lsupd_flush_nlsa(po, en);
     }
 }
 
