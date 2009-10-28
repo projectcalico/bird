@@ -1,3 +1,10 @@
+Version 1.1.5 (2009-10-29)
+  o Better scalability of BGP.
+  o New accessors for AS path - first and last.
+  o Allows to set protocol-specific router ID.
+  o Allows import kernel 'onlink' routes.
+  o Endianity check in buildsystem changed.
+
 Version 1.1.4 (2009-10-02)
   o BGP passive option.
   o Several minor bugfixes.
