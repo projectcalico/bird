@@ -457,8 +457,6 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 
     /* pg 143 (1) */
     chsum = lsa->checksum;
-    log(L_WARN "Checking rcv %R %R %d (len %d)", ntohl(lsa->id), ntohl(lsa->rt), ntoht(lsa->type), ntohs(lsa->length));
-    buf_dump("RCV", lsa, ntohs(lsa->length));
     if (chsum != lsasum_check(lsa, NULL))
     {
       log(L_WARN "Received bad lsa checksum from %I: %x %x", n->ip, chsum, lsa->checksum);
