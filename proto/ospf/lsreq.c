@@ -23,7 +23,7 @@ static void ospf_dump_lsreq(struct proto *p, struct ospf_lsreq_packet *pkt)
   ASSERT(op->type == LSREQ_P);
   ospf_dump_common(p, op);
 
-  int i, j;
+  unsigned int i, j;
   j = (ntohs(op->length) - sizeof(struct ospf_lsreq_packet)) /
     sizeof(struct ospf_lsreq_header);
 
@@ -91,17 +91,23 @@ void
 ospf_lsreq_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n)
 {
-  struct ospf_lsreq_packet *ps = (void *) ps_i;
+  struct ospf_area *oa = ifa->oa;
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
   struct ospf_lsreq_header *lsh;
   struct l_lsr_head *llsh;
   list uplist;
   slab *upslab;
-  unsigned int size = ntohs(ps->ospf_packet.length);
   int i, lsano;
-  struct ospf_area *oa = ifa->oa;
-  struct proto_ospf *po = oa->po;
-  struct proto *p = &po->proto;
 
+  unsigned int size = ntohs(ps_i->length);
+  if (size < sizeof(struct ospf_lsreq_packet))
+  {
+    log(L_ERR "Bad OSPF LSREQ packet from %I -  too short (%u B)", n->ip, size);
+    return;
+  }
+
+  struct ospf_lsreq_packet *ps = (void *) ps_i;
   OSPF_PACKET(ospf_dump_lsreq, ps, "LSREQ packet received from %I via %s", n->ip, ifa->iface->name);
 
   if (n->state < NEIGHBOR_EXCHANGE)
@@ -129,8 +135,7 @@ ospf_lsreq_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     add_tail(&uplist, NODE llsh);
     if (ospf_hash_find(po->gr, dom, hid, hrt, htype) == NULL)
     {
-      log(L_WARN
-	  "Received bad LS req from: %I looking: Type: %u, ID: %R, RT: %R",
+      log(L_WARN "Received bad LS req from: %I looking: Type: %u, ID: %R, RT: %R",
 	  n->ip, htype, hid, hrt);
       ospf_neigh_sm(n, INM_BADLSREQ);
       rfree(upslab);

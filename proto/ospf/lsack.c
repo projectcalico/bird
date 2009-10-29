@@ -26,7 +26,7 @@ static void ospf_dump_lsack(struct proto *p, struct ospf_lsack_packet *pkt)
   ASSERT(op->type == LSACK_P);
   ospf_dump_common(p, op);
 
-  int i, j;
+  unsigned int i, j;
   j = (ntohs(op->length) - sizeof(struct ospf_lsack_packet)) /
     sizeof(struct ospf_lsa_header);
 
@@ -138,13 +138,19 @@ void
 ospf_lsack_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n)
 {
-  struct ospf_lsack_packet *ps = (void *) ps_i;
-  struct ospf_lsa_header lsa;
-  u16 nolsa;
-  struct top_hash_entry *en;
   struct proto *p = &ifa->oa->po->proto;
-  unsigned int size = ntohs(ps->ospf_packet.length), i;
+  struct ospf_lsa_header lsa;
+  struct top_hash_entry *en;
+  unsigned int i, lsano;
 
+  unsigned int size = ntohs(ps_i->length);
+  if (size < sizeof(struct ospf_lsack_packet))
+  {
+    log(L_ERR "Bad OSPF LSACK packet from %I -  too short (%u B)", n->ip, size);
+    return;
+  }
+
+  struct ospf_lsack_packet *ps = (void *) ps_i;
   OSPF_PACKET(ospf_dump_lsack, ps, "LSACK packet received from %I via %s", n->ip, ifa->iface->name);
 
   ospf_neigh_sm(n, INM_HELLOREC);
@@ -152,17 +158,9 @@ ospf_lsack_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   if (n->state < NEIGHBOR_EXCHANGE)
     return;
 
-  nolsa = (size - sizeof(struct ospf_lsack_packet)) /
+  lsano = (size - sizeof(struct ospf_lsack_packet)) /
     sizeof(struct ospf_lsa_header);
-
-  if ((nolsa < 1) || ((size - sizeof(struct ospf_lsack_packet)) !=
-		      (nolsa * sizeof(struct ospf_lsa_header))))
-  {
-    log(L_ERR "Received corrupted LS ack from %I", n->ip);
-    return;
-  }
-
-  for (i = 0; i < nolsa; i++)
+  for (i = 0; i < lsano; i++)
   {
     ntohlsah(ps->lsh + i, &lsa);
     u32 dom = ospf_lsa_domain(lsa.type, n->ifa);

@@ -16,6 +16,7 @@ struct ospf_lsupd_packet
 };
 
 
+/* Beware of unaligned access */
 void ospf_dump_lsahdr(struct proto *p, struct ospf_lsa_header *lsa_n)
 {
   struct ospf_lsa_header lsa;
@@ -38,15 +39,16 @@ static void ospf_dump_lsupd(struct proto *p, struct ospf_lsupd_packet *pkt)
   ASSERT(op->type == LSUPD_P);
   ospf_dump_common(p, op);
 
+  /* We know that ntohs(op->length) >= sizeof(struct ospf_lsa_header) */
   u8 *pbuf= (u8 *) pkt;
-  int offset = sizeof(struct ospf_lsupd_packet);
-  int bound = ntohs(op->length) - sizeof(struct ospf_lsa_header);
-  int i, j;
+  unsigned int offset = sizeof(struct ospf_lsupd_packet);
+  unsigned int bound = ntohs(op->length) - sizeof(struct ospf_lsa_header);
+  unsigned int i, j;
 
   j = ntohl(pkt->lsano);
   for (i = 0; i < j; i++)
     {
-      if (offset > bound)
+      if ((offset > bound) || ((offset % 4) != 0))
 	{
 	  log(L_TRACE "%s:     LSA      invalid", p->name);
 	  return;
@@ -405,13 +407,20 @@ void
 ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n)
 {
-  struct ospf_lsupd_packet *ps = (void *) ps_i;
+
   struct ospf_neighbor *ntmp;
-  struct ospf_lsa_header *lsa;
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
-  unsigned int i, sendreq = 1, size = ntohs(ps->ospf_packet.length);
+  unsigned int i, max, sendreq = 1;
 
+  unsigned int size = ntohs(ps_i->length);
+  if (size < (sizeof(struct ospf_lsupd_packet) + sizeof(struct ospf_lsa_header)))
+  {
+    log(L_ERR "Bad OSPF LSUPD packet from %I -  too short (%u B)", n->ip, size);
+    return;
+  }
+
+  struct ospf_lsupd_packet *ps = (void *) ps_i;
   OSPF_PACKET(ospf_dump_lsupd, ps, "LSUPD packet received from %I via %s", n->ip, ifa->iface->name);
 
   if (n->state < NEIGHBOR_EXCHANGE)
@@ -420,35 +429,29 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     return;
   }
 
-  if (size <=
-      (sizeof(struct ospf_lsupd_packet) + sizeof(struct ospf_lsa_header)))
-  {
-    log(L_WARN "Received lsupd from %I is too short!", n->ip);
-    return;
-  }
-
   ospf_neigh_sm(n, INM_HELLOREC);	/* Questionable */
 
-  lsa = (struct ospf_lsa_header *) (ps + 1);
+  unsigned int offset = sizeof(struct ospf_lsupd_packet);
+  unsigned int bound = size - sizeof(struct ospf_lsa_header);
 
-  for (i = 0; i < ntohl(ps->lsano); i++,
-       lsa = (struct ospf_lsa_header *) (((u8 *) lsa) + ntohs(lsa->length)))
+  max = ntohl(ps->lsano);
+  for (i = 0; i < max; i++)
   {
     struct ospf_lsa_header lsatmp;
     struct top_hash_entry *lsadb;
-    unsigned diff = ((u8 *) lsa) - ((u8 *) ps), lenn = ntohs(lsa->length);
-    u16 chsum;
 
-    if (((diff + sizeof(struct ospf_lsa_header)) >= size)
-	|| ((lenn + diff) > size))
+    if (offset > bound)
     {
       log(L_WARN "Received lsupd from %I is too short!", n->ip);
       ospf_neigh_sm(n, INM_BADLSREQ);
-      break;
+      return;
     }
 
-    if ((lenn <= sizeof(struct ospf_lsa_header))
-	|| (lenn != (4 * (lenn / 4))))
+    struct ospf_lsa_header *lsa = (void *) (((u8 *) ps) + offset);
+    unsigned int lsalen = ntohs(lsa->length);
+
+    if (((offset + lsalen) > size) || ((lsalen % 4) != 0) ||
+	(lsalen <= sizeof(struct ospf_lsa_header)))
     {
       log(L_WARN "Received LSA from %I with bad length", n->ip);
       ospf_neigh_sm(n, INM_BADLSREQ);
@@ -456,13 +459,12 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     }
 
     /* pg 143 (1) */
-    chsum = lsa->checksum;
+    u16 chsum = lsa->checksum;
     if (chsum != lsasum_check(lsa, NULL))
     {
       log(L_WARN "Received bad lsa checksum from %I: %x %x", n->ip, chsum, lsa->checksum);
       continue;
     }
-
 
 #ifdef OSPFv2
     /* pg 143 (2) */
@@ -520,7 +522,6 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     if ((lsadb == NULL) || (lsa_comp(&lsatmp, &lsadb->lsa) == CMP_NEWER))
     {
       struct ospf_iface *ift = NULL;
-      void *body;
       int self = (lsatmp.rt == p->cf->global->router_id);
 
       DBG("PG143(5): Received LSA is newer\n");
@@ -618,10 +619,20 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       }				/* FIXME lsack? */
 
       /* pg 144 (5d) */
-      body =
-	mb_alloc(p->pool, lsatmp.length - sizeof(struct ospf_lsa_header));
+      void *body = mb_alloc(p->pool, lsatmp.length - sizeof(struct ospf_lsa_header));
       ntohlsab(lsa + 1, body, lsatmp.type,
 	       lsatmp.length - sizeof(struct ospf_lsa_header));
+
+      /* We will do validation check after flooding and
+	 acknowledging given LSA to minimize problems
+	 when communicating with non-validating peer */
+      if (lsa_validate(&lsatmp, body) == 0)
+      {
+	log(L_WARN "Received invalid LSA from %I", n->ip);
+	mb_free(body);
+	continue;	
+      }
+
       lsadb = lsa_install_new(po, &lsatmp, domain, body);
       DBG("New LSA installed in DB\n");
 

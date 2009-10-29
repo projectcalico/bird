@@ -291,6 +291,219 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
   return CMP_SAME;
 }
 
+#define HDRLEN sizeof(struct ospf_lsa_header)
+
+static int
+lsa_validate_rt(struct ospf_lsa_header *lsa, struct ospf_lsa_rt *body)
+{
+  unsigned int i, max;
+
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_rt)))
+    return 0;
+
+  struct ospf_lsa_rt_link *rtl = (struct ospf_lsa_rt_link *) (body + 1);
+  max = lsa_rt_count(lsa);
+
+#ifdef OSPFv2
+  if (body->links != max)
+    return 0;
+#endif  
+
+  for (i = 0; i < max; i++)
+  {
+    u8 type = rtl[i].type;
+    if (!((type == LSART_PTP) ||
+	  (type == LSART_NET) ||
+#ifdef OSPFv2
+	  (type == LSART_STUB) ||
+#endif
+	  (type == LSART_VLNK)))
+      return 0;
+  }
+  return 1;
+}
+
+static int
+lsa_validate_net(struct ospf_lsa_header *lsa, struct ospf_lsa_net *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_net)))
+    return 0;
+
+  return 1;
+}
+
+#ifdef OSPFv2
+
+static int
+lsa_validate_sum(struct ospf_lsa_header *lsa, struct ospf_lsa_sum *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_sum)))
+    return 0;
+
+  /* First field should have TOS = 0, we ignore other TOS fields */
+  if ((body->metric & LSA_SUM_TOS) != 0)
+    return 0;
+
+  return 1;
+}
+#define lsa_validate_sum_net(A,B) lsa_validate_sum(A,B)
+#define lsa_validate_sum_rt(A,B)  lsa_validate_sum(A,B)
+
+static int
+lsa_validate_ext(struct ospf_lsa_header *lsa, struct ospf_lsa_ext *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_ext)))
+    return 0;
+
+  /* First field should have TOS = 0, we ignore other TOS fields */
+  if ((body->metric & LSA_EXT_TOS) != 0)
+    return 0;
+
+  return 1;
+}
+
+#else /* OSPFv3 */
+
+static inline int
+pxlen(u32 *buf)
+{
+  return *buf >> 24;
+}
+
+static int
+lsa_validate_sum_net(struct ospf_lsa_header *lsa, struct ospf_lsa_sum_net *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_sum_net) + 4))
+    return 0;
+
+  u8 pxl = pxlen(body->prefix);
+  if (pxl > MAX_PREFIX_LENGTH)
+    return 0;
+
+  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_sum_net) + 
+		      IPV6_PREFIX_SPACE(pxl)))
+    return 0;
+
+  return 1;
+}
+
+
+static int
+lsa_validate_sum_rt(struct ospf_lsa_header *lsa, struct ospf_lsa_sum_rt *body)
+{
+  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_sum_rt)))
+    return 0;
+
+  return 1;
+}
+
+static int
+lsa_validate_ext(struct ospf_lsa_header *lsa, struct ospf_lsa_ext *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_ext) + 4))
+    return 0;
+
+  u8 pxl = pxlen(body->rest);
+  if (pxl > MAX_PREFIX_LENGTH)
+    return 0;
+
+  int len = IPV6_PREFIX_SPACE(pxl);
+  if (body->metric & LSA_EXT_FBIT) // forwardinf address
+    len += 16;
+  if (body->metric & LSA_EXT_TBIT) // route tag
+    len += 4;
+  if (*body->rest & 0xFFFF) // referenced LS type field
+    len += 4;
+
+  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_ext) + len))
+    return 0;
+
+  return 1;
+}
+
+static int
+lsa_validate_pxlist(struct ospf_lsa_header *lsa, u32 pxcount, unsigned int offset, u8 *pbuf)
+{
+  unsigned int bound = lsa->length - HDRLEN - 4;
+  u32 i;
+
+  for (i = 0; i < pxcount; i++)
+    {
+      if (offset > bound)
+	return 0;
+
+      u8 pxl = pxlen((u32 *) (pbuf + offset));
+      if (pxl > MAX_PREFIX_LENGTH)
+	return 0;
+  
+      offset += IPV6_PREFIX_SPACE(pxl);
+    }
+
+  if (lsa->length != (HDRLEN + offset))
+    return 0;
+
+  return 1;
+}
+
+static int
+lsa_validate_link(struct ospf_lsa_header *lsa, struct ospf_lsa_link *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_link)))
+    return 0;
+
+  return lsa_validate_pxlist(lsa, body->pxcount, sizeof(struct ospf_lsa_link), (u8 *) body);
+}
+
+static int
+lsa_validate_prefix(struct ospf_lsa_header *lsa, struct ospf_lsa_prefix *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_prefix)))
+    return 0;
+
+  return lsa_validate_pxlist(lsa, body->pxcount, sizeof(struct ospf_lsa_prefix), (u8 *) body);
+}
+
+#endif
+
+
+/**
+ * lsa_validate - check whether given LSA is valid
+ * @lsa: LSA header
+ * @body: pointer to LSA body
+ *
+ * Checks internal structure of given LSA body (minimal length,
+ * consistency). Returns true if valid.
+ */
+
+int
+lsa_validate(struct ospf_lsa_header *lsa, void *body)
+{
+  switch (lsa->type)
+    {
+    case LSA_T_RT:
+      return lsa_validate_rt(lsa, body);
+    case LSA_T_NET:
+      return lsa_validate_net(lsa, body);
+    case LSA_T_SUM_NET:
+      return lsa_validate_sum_net(lsa, body);
+    case LSA_T_SUM_RT:
+      return lsa_validate_sum_rt(lsa, body);
+    case LSA_T_EXT:
+      return lsa_validate_ext(lsa, body);
+#ifdef OSPFv3
+    case LSA_T_LINK:
+      return lsa_validate_link(lsa, body);
+    case LSA_T_PREFIX:
+      return lsa_validate_prefix(lsa, body);
+#endif
+    default:
+      /* In OSPFv3, unknown LSAs are OK,
+	 In OSPFv2, unknown LSAs are already rejected
+      */
+      return 1;
+    }
+}
+
 /**
  * lsa_install_new - install new LSA into database
  * @po: OSPF protocol

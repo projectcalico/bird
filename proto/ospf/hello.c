@@ -45,12 +45,20 @@ void
 ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n, ip_addr faddr)
 {
-  struct ospf_hello_packet *ps = (void *) ps_i;
-  u32 *pnrid;
+  struct proto *p = &ifa->oa->po->proto;
+  char *beg = "Bad OSPF HELLO packet from ", *rec = " received: ";
+  unsigned int size, i, twoway, oldpriority, eligible, peers;
   u32 olddr, oldbdr, oldiface_id, tmp;
-  char *beg = "Bad OSPF hello packet from ", *rec = " received: ";
-  struct proto *p = (struct proto *) ifa->oa->po;
-  unsigned int size = ntohs(ps->ospf_packet.length), i, twoway, oldpriority, eligible = 0, peers;
+  u32 *pnrid;
+
+  size = ntohs(ps_i->length);
+  if (size < sizeof(struct ospf_hello_packet))
+  {
+    log(L_ERR "%s%I -  too short (%u B)", beg, faddr, size);
+    return;
+  }
+
+  struct ospf_hello_packet *ps = (void *) ps_i;
 
   OSPF_TRACE(D_PACKETS, "HELLO packet received from %I via %s%s", faddr,
       (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);

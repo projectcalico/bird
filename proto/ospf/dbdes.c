@@ -53,7 +53,7 @@ static void ospf_dump_dbdes(struct proto *p, struct ospf_dbdes_packet *pkt)
   log(L_TRACE "%s:     ddseq    %u", p->name, ntohl(pkt->ddseq));
 
   struct ospf_lsa_header *plsa = (void *) (pkt + 1);
-  int i, j;
+  unsigned int i, j;
 
   j = (ntohs(op->length) - sizeof(struct ospf_dbdes_packet)) /
     sizeof(struct ospf_lsa_header);
@@ -247,11 +247,17 @@ void
 ospf_dbdes_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n)
 {
-  struct ospf_dbdes_packet *ps = (void *) ps_i;
   struct proto *p = &ifa->oa->po->proto;
   u32 myrid = p->cf->global->router_id;
-  unsigned int size = ntohs(ps->ospf_packet.length);
 
+  unsigned int size = ntohs(ps_i->length);
+  if (size < sizeof(struct ospf_dbdes_packet))
+  {
+    log(L_ERR "Bad OSPF DBDES packet from %I -  too short (%u B)", n->ip, size);
+    return;
+  }
+
+  struct ospf_dbdes_packet *ps = (void *) ps_i;
   u32 ps_ddseq = ntohl(ps->ddseq);
   u32 ps_options = ntoh_opt(ps->options);
   

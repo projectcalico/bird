@@ -438,6 +438,8 @@ struct ospf_lsa_ext
   u32 tag;
 };
 
+#define LSA_SUM_TOS  0xFF000000
+#define LSA_EXT_TOS  0x7F000000
 #define LSA_EXT_EBIT 0x80000000
 
 /* Endianity swap for lsa->type */
@@ -545,6 +547,9 @@ lsa_net_count(struct ospf_lsa_header *lsa)
 
 #ifdef OSPFv3
 
+#define IPV6_PREFIX_SPACE(x) ((((x) + 63) / 32) * 4)
+#define IPV6_PREFIX_WORDS(x) (((x) + 63) / 32)
+
 static inline u32 *
 lsa_get_ipv6_prefix(u32 *buf, ip_addr *addr, int *pxlen, u8 *pxopts, u16 *rest)
 {
@@ -572,6 +577,29 @@ static inline u32 *
 lsa_get_ipv6_addr(u32 *buf, ip_addr *addr)
 {
   *addr = *(ip_addr *) buf;
+  return buf + 4;
+}
+
+static inline u32 *
+put_ipv6_prefix(u32 *buf, ip_addr addr, u8 pxlen, u8 pxopts, u16 lh)
+{
+  *buf++ = ((pxlen << 24) | (pxopts << 16) | lh);
+
+  if (pxlen > 0)
+    *buf++ = _I0(addr);
+  if (pxlen > 32)
+    *buf++ = _I1(addr);
+  if (pxlen > 64)
+    *buf++ = _I2(addr);
+  if (pxlen > 96)
+    *buf++ = _I3(addr);
+  return buf;
+}
+
+static inline u32 *
+put_ipv6_addr(u32 *buf, ip_addr addr)
+{
+  *(ip_addr *) buf = addr;
   return buf + 4;
 }
 

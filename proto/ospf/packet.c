@@ -286,6 +286,7 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
+  /* This is strange! */
   if ((ifa->oa->areaid != 0) && (ntohl(ps->areaid) == 0))
   {
     WALK_LIST(iff, po->iface_list)
@@ -300,17 +301,16 @@ ospf_rx_hook(sock * sk, int size)
 
   DBG("%s: RX_Hook called on interface %s.\n", p->name, sk->iface->name);
 
-  osize = ntohs(ps->length);
-
   if ((unsigned) size < sizeof(struct ospf_packet))
   {
     log(L_ERR "%s%I - too short (%u bytes)", mesg, sk->faddr, size);
     return 1;
   }
 
-  if ((osize > size) || (osize != (4 * (osize / 4))))
+  osize = ntohs(ps->length);
+  if ((osize > size) || ((osize % 4) != 0))
   {
-    log(L_ERR "%s%I - size field does not match (%d/%d)", mesg, sk->faddr, ntohs(ps->length), size );
+    log(L_ERR "%s%I - size field does not match (%d/%d)", mesg, sk->faddr, osize, size);
     return 1;
   }
 
@@ -324,7 +324,7 @@ ospf_rx_hook(sock * sk, int size)
 #ifdef OSPFv2
   if ((ps->autype != htons(OSPF_AUTH_CRYPT)) &&
       (!ipsum_verify(ps, 16, (void *) ps + sizeof(struct ospf_packet),
-		    ntohs(ps->length) - sizeof(struct ospf_packet), NULL)))
+		     osize - sizeof(struct ospf_packet), NULL)))
   {
     log(L_ERR "%s%I - bad checksum", mesg, sk->faddr);
     return 1;
@@ -358,17 +358,17 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
-  if (((unsigned) size > sk->rbsize) || (ntohs(ps->length) > sk->rbsize))
+  if ((unsigned) size > sk->rbsize)
   {
-    log(L_ERR "%s%I - packet is too large (%d-%d vs %d)",
-      mesg, sk->faddr, size, ntohs(ps->length), sk->rbsize);
+    log(L_ERR "%s%I - packet is too large (%d vs %d)",
+	mesg, sk->faddr, size, sk->rbsize);
     return 1;
   }
 
   /* This is deviation from RFC 2328 - neighbours should be identified by
    * IP address on broadcast and NBMA networks.
    */
-  n = find_neigh(ifa, ntohl(((struct ospf_packet *) ps)->routerid));
+  n = find_neigh(ifa, ntohl(ps->routerid));
 
   if(!n && (ps->type != HELLO_P))
   {
