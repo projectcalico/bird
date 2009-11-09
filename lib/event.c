@@ -63,10 +63,6 @@ event *
 ev_new(pool *p)
 {
   event *e = ralloc(p, &ev_class);
-
-  e->hook = NULL;
-  e->data = NULL;
-  e->n.next = NULL;
   return e;
 }
 

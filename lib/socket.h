@@ -53,12 +53,12 @@ int sk_set_ttl(sock *s, int ttl);	/* Set TTL for given socket */
 
 /* Add or remove security associations for given passive socket */
 int sk_set_md5_auth(sock *s, ip_addr a, char *passwd);
+int sk_rx_ready(sock *s);
 
 /* Prepare UDP or IP socket to multicasting. s->iface and s->ttl must be set */
 int sk_setup_multicast(sock *s);	
 int sk_join_group(sock *s, ip_addr maddr);
 int sk_leave_group(sock *s, ip_addr maddr);
-
 
 static inline int
 sk_send_buffer_empty(sock *sk)

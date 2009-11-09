@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
@@ -183,13 +184,14 @@ rdump(void *res)
  *
  * This function is called by the resource classes to create a new
  * resource of the specified class and link it to the given pool.
- * Size of the resource structure is taken from the @size field
- * of the &resclass.
+ * Allocated memory is zeroed. Size of the resource structure is taken
+ * from the @size field of the &resclass.
  */
 void *
 ralloc(pool *p, struct resclass *c)
 {
   resource *r = xmalloc(c->size);
+  bzero(r, c->size);
 
   r->class = c;
   add_tail(&p->inside, &r->n);

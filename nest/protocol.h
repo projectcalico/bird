@@ -12,6 +12,7 @@
 #include "lib/lists.h"
 #include "lib/resource.h"
 #include "lib/timer.h"
+#include "conf/conf.h"
 
 struct iface;
 struct ifa;
@@ -81,6 +82,7 @@ struct proto_config {
   struct proto *proto;			/* Instance we've created */
   char *name;
   unsigned debug, preference, disabled;	/* Generic parameters */
+  u32 router_id;			/* Protocol specific router ID */
   struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
 
@@ -191,6 +193,12 @@ void proto_show(struct symbol *, int);
 struct proto *proto_get_named(struct symbol *, struct protocol *);
 void proto_xxable(char *, int);
 void proto_debug(char *, unsigned int);
+
+static inline u32
+proto_get_router_id(struct proto_config *pc)
+{
+  return pc->router_id ? pc->router_id : pc->global->router_id;
+}
 
 extern list active_proto_list;
 

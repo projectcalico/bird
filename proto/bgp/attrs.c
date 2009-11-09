@@ -996,7 +996,7 @@ bgp_get_neighbor(rte *r)
   eattr *e = ea_find(r->attrs->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
   u32 as;
 
-  if (e && as_path_get_last(e->u.ptr, &as))
+  if (e && as_path_get_first(e->u.ptr, &as))
     return as;
   else
     return ((struct bgp_proto *) r->attrs->proto)->remote_as;
@@ -1191,7 +1191,7 @@ bgp_reconstruct_4b_atts(struct bgp_proto *p, rta *a, struct linpool *pool)
     if (a4)
       log(L_WARN "%s: AS4_AGGREGATOR attribute received, but AGGREGATOR attribute is missing", p->p.name);
 
-  int p2_len = as_path_getlen(p2->u.ptr);
+  int p2_len = as_path_getlen_int(p2->u.ptr, 2);
   int p4_len = p4 ? validate_as4_path(p, p4->u.ptr) : -1;
 
   if (p4 && (p4_len < 0))
@@ -1247,7 +1247,6 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   int errcode;
   byte *z, *attr_start;
   byte seen[256/8];
-  eattr *e;
   ea_list *ea;
   struct adata *ad;
 
@@ -1471,7 +1470,7 @@ bgp_get_route_info(rte *e, byte *buf, ea_list *attrs)
   u32 origas;
 
   buf += bsprintf(buf, " (%d) [", e->pref);
-  if (p && as_path_get_first(p->u.ptr, &origas))
+  if (p && as_path_get_last(p->u.ptr, &origas))
     buf += bsprintf(buf, "AS%u", origas);
   if (o)
     buf += bsprintf(buf, "%c", "ie?"[o->u.data]);

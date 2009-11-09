@@ -22,7 +22,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
 	BGP_PATH, BGP_LOCAL_PREF, BGP_MED, BGP_ORIGIN, BGP_NEXT_HOP,
 	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY, SOURCE, ADDRESS,
 	PASSWORD, RR, RS, CLIENT, CLUSTER, ID, AS4, ADVERTISE, IPV4,
-	CAPABILITIES, LIMIT)
+	CAPABILITIES, LIMIT, PASSIVE)
 
 CF_GRAMMAR
 
@@ -34,7 +34,6 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->hold_time = 240;
      BGP_CFG->connect_retry_time = 120;
      BGP_CFG->initial_hold_time = 240;
-     BGP_CFG->default_med = 0;
      BGP_CFG->compare_path_lengths = 1;
      BGP_CFG->start_delay_time = 5;
      BGP_CFG->error_amnesia_time = 300;
@@ -78,6 +77,7 @@ bgp_proto:
  | bgp_proto ADVERTISE IPV4 bool ';' { BGP_CFG->advertise_ipv4 = $4; }
  | bgp_proto PASSWORD TEXT ';' { BGP_CFG->password = $3; }
  | bgp_proto ROUTE LIMIT expr ';' { BGP_CFG->route_limit = $4; }
+ | bgp_proto PASSIVE bool ';' { BGP_CFG->passive = $3; }
  ;
 
 CF_ADDTO(dynamic_attr, BGP_PATH

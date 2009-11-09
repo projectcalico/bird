@@ -70,6 +70,7 @@
  */
 
 #include "nest/bird.h"
+#include "lib/string.h"
 #include "conf/conf.h"
 #include "filter/filter.h"
 
@@ -177,7 +178,6 @@ trie_add_prefix(struct f_trie *t, struct f_prefix *px)
 {
   int l, h;
   int plen = px->len & LEN_MASK;
-  ip_addr pmask = ipa_mkmask(plen);
 
   /* 'l' and 'h' are lower and upper bounds on accepted
      prefix lengths, both inclusive. 0 <= l, h <= 32 */

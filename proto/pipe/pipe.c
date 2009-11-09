@@ -62,11 +62,14 @@ pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old, ea_lis
       a.eattrs = attrs;
       e = rte_get_temp(&a);
       e->net = nn;
+      e->pflags = 0;
 
       if (p->mode == PIPE_TRANSPARENT)
 	{
 	  /* Copy protocol specific embedded attributes. */
 	  memcpy(&(e->u), &(new->u), sizeof(e->u));
+	  e->pref = new->pref;
+	  e->pflags = new->pflags;
 	}
 
       src = new->attrs->proto;

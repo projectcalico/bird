@@ -427,57 +427,87 @@ rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte
 
   rte_announce(table, RA_ANY, net, new, old, tmpa);
 
-  if (new && rte_better(new, old_best))	/* It's a new optimal route => announce and relink it */
+  
+  if (new && rte_better(new, old_best))
     {
+      /* The first case - the new route is cleary optimal, we link it
+	 at the first position and announce it */
+
       rte_trace_in(D_ROUTES, p, new, "added [best]");
       rte_announce(table, RA_OPTIMAL, net, new, old_best, tmpa);
       new->next = net->routes;
       net->routes = new;
     }
-  else
+  else if (old == old_best)
     {
-      if (old == old_best)		/* It has _replaced_ the old optimal route */
+      /* The second case - the old best route disappeared, we add the
+	 new route (if we have any) to the list (we don't care about
+	 position) and then we elect the new optimal route and relink
+	 that route at the first position and announce it. New optimal
+	 route might be NULL if there is no more routes */
+
+      /* Add the new route to the list */
+      if (new)
 	{
-	  r = new;			/* Find new optimal route and announce it */
-	  for(s=net->routes; s; s=s->next)
-	    if (rte_better(s, r))
-	      r = s;
-	  rte_announce(table, RA_OPTIMAL, net, r, old_best, tmpa);
-	  if (r)			/* Re-link the new optimal route */
-	    {
-	      k = &net->routes;
-	      while (s = *k)
-		{
-		  if (s == r)
-		    {
-		      *k = r->next;
-		      break;
-		    }
-		  k = &s->next;
-		}
-	      r->next = net->routes;
-	      net->routes = r;
-	    }
-	  else if (table->gc_counter++ >= table->config->gc_max_ops &&
-		   table->gc_time + table->config->gc_min_time <= now)
-	    ev_schedule(table->gc_event);
-	}
-      if (new)				/* Link in the new non-optimal route */
-	{
-	  new->next = old_best->next;
-	  old_best->next = new;
 	  rte_trace_in(D_ROUTES, p, new, "added");
+	  new->next = net->routes;
+	  net->routes = new;
 	}
-      else if (old && (p->debug & D_ROUTES))
+
+      /* Find new optimal route */
+      r = NULL;
+      for (s=net->routes; s; s=s->next)
+	if (rte_better(s, r))
+	  r = s;
+
+      /* Announce optimal route */
+      rte_announce(table, RA_OPTIMAL, net, r, old_best, tmpa);
+
+      /* And relink it (if there is any) */
+      if (r)
 	{
-	  if (old != old_best)
-	    rte_trace_in(D_ROUTES, p, old, "removed");
-	  else if (net->routes)
-	    rte_trace_in(D_ROUTES, p, old, "removed [replaced]");
-	  else
-	    rte_trace_in(D_ROUTES, p, old, "removed [sole]");
+	  k = &net->routes;
+	  while (s = *k)
+	    {
+	      if (s == r)
+		{
+		  *k = r->next;
+		  break;
+		}
+	      k = &s->next;
+	    }
+	  r->next = net->routes;
+	  net->routes = r;
 	}
+      else if (table->gc_counter++ >= table->config->gc_max_ops &&
+	       table->gc_time + table->config->gc_min_time <= now)
+	ev_schedule(table->gc_event);
     }
+  else if (new)
+    {
+      /* The third case - the new route is not better than the old
+	 best route (therefore old_best != NULL) and the old best
+	 route was not removed (therefore old_best == net->routes).
+	 We just link the new route after the old best route. */
+
+      ASSERT(net->routes != NULL);
+      new->next = net->routes->next;
+      net->routes->next = new;
+      rte_trace_in(D_ROUTES, p, new, "added");
+    }
+  else if (old && (p->debug & D_ROUTES))
+    {
+      /* Not really a case - the list of routes is correct, we just
+	 log the route removal */
+
+      if (old != old_best)
+	rte_trace_in(D_ROUTES, p, old, "removed");
+      else if (net->routes)
+	rte_trace_in(D_ROUTES, p, old, "removed [replaced]");
+      else
+	rte_trace_in(D_ROUTES, p, old, "removed [sole]");
+    }
+
   if (old)
     {
       if (p->rte_remove)

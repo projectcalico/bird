@@ -19,6 +19,7 @@
  */
 
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
@@ -64,13 +65,9 @@ linpool
 *lp_new(pool *p, unsigned blk)
 {
   linpool *m = ralloc(p, &lp_class);
-  m->ptr = m->end = NULL;
-  m->first = m->current = NULL;
   m->plast = &m->first;
-  m->first_large = NULL;
   m->chunk_size = blk;
   m->threshold = 3*blk/4;
-  m->total = m->total_large = 0;
   return m;
 }
 

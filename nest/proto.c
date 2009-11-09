@@ -313,6 +313,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 		  && nc->preference == oc->preference
 		  && nc->disabled == oc->disabled
 		  && nc->table->table == oc->table->table
+		  && proto_get_router_id(nc) == proto_get_router_id(oc)
 		  && ((type == RECONFIG_SOFT) || filter_same(nc->in_filter, oc->in_filter))
 		  && ((type == RECONFIG_SOFT) || filter_same(nc->out_filter, oc->out_filter))
 		  && p->proto_state != PS_DOWN)
@@ -515,7 +516,9 @@ static void
 proto_fell_down(struct proto *p)
 {
   DBG("Protocol %s down\n", p->name);
-  ASSERT(p->stats.imp_routes == 0);
+
+  if (p->stats.imp_routes != 0)
+    log(L_ERR "Protocol %s is down but still has %d routes", p->name, p->stats.imp_routes);
 
   bzero(&p->stats, sizeof(struct proto_stats));
   rt_unlock_table(p->table);

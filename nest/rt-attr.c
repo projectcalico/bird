@@ -74,7 +74,7 @@ ea__find(ea_list *e, unsigned id)
       if (e->flags & EALF_BISECT)
 	{
 	  l = 0;
-	  r = e->count + 1;
+	  r = e->count - 1;
 	  while (l <= r)
 	    {
 	      m = (l+r) / 2;

@@ -120,7 +120,9 @@ bgp_startup(struct bgp_proto *p)
 {
   BGP_TRACE(D_EVENTS, "Started");
   p->start_state = p->cf->capabilities ? BSS_CONNECT : BSS_CONNECT_NOCAP;
-  bgp_active(p);
+
+  if (!p->cf->passive)
+    bgp_active(p);
 }
 
 static void
@@ -292,7 +294,8 @@ bgp_decision(void *vp)
 
   DBG("BGP: Decision start\n");
   if ((p->p.proto_state == PS_START)
-      && (p->outgoing_conn.state == BS_IDLE))
+      && (p->outgoing_conn.state == BS_IDLE)
+      && (!p->cf->passive))
     bgp_active(p);
 
   if ((p->p.proto_state == PS_STOP)
@@ -428,8 +431,15 @@ bgp_hold_timeout(timer *t)
 {
   struct bgp_conn *conn = t->data;
 
-  DBG("BGP: Hold timeout, closing connection\n");
-  bgp_error(conn, 4, 0, NULL, 0);
+  DBG("BGP: Hold timeout\n");
+
+  /* If there is something in input queue, we are probably congested
+     and perhaps just not processed BGP packets in time. */
+
+  if (sk_rx_ready(conn->sk) > 0)
+    bgp_start_timer(conn->hold_timer, 10);
+  else
+    bgp_error(conn, 4, 0, NULL, 0);
 }
 
 static void
@@ -679,7 +689,7 @@ bgp_start_locked(struct object_lock *lock)
     }
 
   DBG("BGP: Got lock\n");
-  p->local_id = cf->c.global->router_id;
+  p->local_id = proto_get_router_id(&cf->c);
   p->next_hop = cf->multihop ? cf->multihop_via : cf->remote_ip;
   p->neigh = neigh_find(&p->p, &p->next_hop, NEF_STICKY);
 

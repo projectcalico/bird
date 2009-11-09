@@ -1,3 +1,28 @@
+Version 1.1.5 (2009-10-29)
+  o Better scalability of BGP.
+  o New accessors for AS path - first and last.
+  o Allows to set protocol-specific router ID.
+  o Allows import kernel 'onlink' routes.
+  o Endianity check in buildsystem changed.
+
+Version 1.1.4 (2009-10-02)
+  o BGP passive option.
+  o Several minor bugfixes.
+
+Version 1.1.3 (2009-09-11)
+  o Bugfix in core
+  o Bugfix in BGP related to AS2->AS4 conversion.
+
+Version 1.1.2 (2009-08-23)
+  o Allow more kernel routing tables in IPv6.
+  o Bugfix in core
+
+Version 1.1.1 (2009-08-14)
+  o 'more' style paging in BIRD client.
+  o Important core bug fixed.
+  o Portability to non-x86 related bugfixes.
+  o As usual, miscellaneous bugfixes.
+
 Version 1.1.0 (2009-06-28)
   o Parametrized pair and path mask expressions in the filter language.
   o Transparent pipe mode allows to implement BGP route server with

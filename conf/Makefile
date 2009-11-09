@@ -11,7 +11,9 @@ BISON_DEBUG=-t
 #FLEX_DEBUG=-d
 endif
 
-cf-parse.tab.c cf-parse-tab.h: cf-parse.y
+cf-parse.tab.h: cf-parse.tab.c
+
+cf-parse.tab.c: cf-parse.y
 	$(BISON) -bcf-parse -dv -pcf_ $(BISON_DEBUG) cf-parse.y
 
 cf-parse.y: $(conf-fragments) $(conf-src)/gen_parser.m4

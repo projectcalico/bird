@@ -9,6 +9,8 @@
 #ifndef _BIRD_ATTRS_H_
 #define _BIRD_ATTRS_H_
 
+#include <stdint.h>
+
 /* a-path.c */
 
 #define AS_PATH_SET		1	/* Types of path segments */
@@ -28,6 +30,7 @@ int as_path_convert_to_old(struct adata *path, byte *dst, int *new_used);
 int as_path_convert_to_new(struct adata *path, byte *dst, int req_as);
 void as_path_format(struct adata *path, byte *buf, unsigned int size);
 int as_path_getlen(struct adata *path);
+int as_path_getlen_int(struct adata *path, int bs);
 int as_path_get_first(struct adata *path, u32 *orig_as);
 int as_path_get_last(struct adata *path, u32 *last_as);
 int as_path_is_member(struct adata *path, u32 as);

@@ -339,7 +339,10 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
     if (ng && ng->scope)
       a.iface = ng->iface;
     else
-      log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", igate, net->n.prefix, net->n.pxlen);
+      {
+	log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", igate, net->n.prefix, net->n.pxlen);
+	return;
+      }
 
     a.dest = RTD_ROUTER;
     a.gw = igate;

@@ -13,6 +13,7 @@
 #include "lib/resource.h"
 #include "lib/unaligned.h"
 #include "lib/string.h"
+#include "filter/filter.h"
 
 
 /* Global AS4 support, shared by all BGP instances.
@@ -188,6 +189,12 @@ int
 as_path_getlen(struct adata *path)
 {
   int bs = bgp_as4_support ? 4 : 2;
+  return as_path_getlen_int(path, bs);
+}
+
+int
+as_path_getlen_int(struct adata *path, int bs)
+{
   int res = 0;
   u8 *p = path->data;
   u8 *q = p+path->length;
@@ -206,7 +213,7 @@ as_path_getlen(struct adata *path)
 }
 
 int
-as_path_get_first(struct adata *path, u32 *orig_as)
+as_path_get_last(struct adata *path, u32 *orig_as)
 {
   int bs = bgp_as4_support ? 4 : 2;
   int found = 0;
@@ -222,8 +229,7 @@ as_path_get_first(struct adata *path, u32 *orig_as)
 	case AS_PATH_SET:
 	  if (len = *p++)
 	    {
-	      found = 1;
-	      res = get_as(p);
+	      found = 0;
 	      p += bs * len;
 	    }
 	  break;
@@ -239,12 +245,13 @@ as_path_get_first(struct adata *path, u32 *orig_as)
 	}
     }
 
-  *orig_as = res;
+  if (found)
+    *orig_as = res;
   return found;
 }
 
 int
-as_path_get_last(struct adata *path, u32 *last_as)
+as_path_get_first(struct adata *path, u32 *last_as)
 {
   u8 *p = path->data;
 
