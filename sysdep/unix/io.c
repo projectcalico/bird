@@ -782,11 +782,28 @@ int
 sk_set_broadcast(sock *s, int enable)
 {
   if (setsockopt(s->fd, SOL_SOCKET, SO_BROADCAST, &enable, sizeof(enable)) < 0)
-    log(L_ERR "sk_set_broadcast: SO_BROADCAST: %m");
+    {
+      log(L_ERR "sk_set_broadcast: SO_BROADCAST: %m");
+      return -1;
+    }
+
+  return 0;
 }
 
 
 #ifdef IPV6
+
+int
+sk_set_ipv6_checksum(sock *s, int offset)
+{
+  if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_CHECKSUM, &offset, sizeof(offset)) < 0)
+    {
+      log(L_ERR "sk_set_ipv6_checksum: IPV6_CHECKSUM: %m");
+      return -1;
+    }
+
+  return 0;
+}
 
 int
 sk_setup_multicast(sock *s)

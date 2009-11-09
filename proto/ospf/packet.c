@@ -320,7 +320,6 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
-  /* FIXME - handle checksums in OSPFv3  */ 
 #ifdef OSPFv2
   if ((ps->autype != htons(OSPF_AUTH_CRYPT)) &&
       (!ipsum_verify(ps, 16, (void *) ps + sizeof(struct ospf_packet),

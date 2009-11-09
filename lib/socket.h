@@ -60,6 +60,10 @@ int sk_setup_multicast(sock *s);
 int sk_join_group(sock *s, ip_addr maddr);
 int sk_leave_group(sock *s, ip_addr maddr);
 
+#ifdef IPV6
+int sk_set_ipv6_checksum(sock *s, int offset);
+#endif
+
 static inline int
 sk_send_buffer_empty(sock *sk)
 {

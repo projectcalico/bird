@@ -89,6 +89,12 @@ ospf_open_socket(struct ospf_iface *ifa, int mc)
   if (sk_open(ipsk) != 0)
     goto err;
 
+#ifdef OSPFv3
+  /* 12 is an offset of the checksum in an OSPF packet */
+  if (sk_set_ipv6_checksum(ipsk, 12) < 0)
+    goto err;
+#endif
+
   if (mc)
   {
     if (sk_setup_multicast(ipsk) < 0)
