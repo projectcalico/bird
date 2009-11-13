@@ -314,7 +314,8 @@ void
 sysdep_shutdown_done(void)
 {
   unlink(path_control_socket);
-  die("System shutdown completed");
+  log_msg(L_FATAL "System shutdown completed");
+  exit(0);
 }
 
 /*
