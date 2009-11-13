@@ -313,7 +313,7 @@ async_shutdown(void)
 void
 sysdep_shutdown_done(void)
 {
-  unlink(PATH_CONTROL_SOCKET);
+  unlink(path_control_socket);
   die("System shutdown completed");
 }
 
