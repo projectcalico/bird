@@ -731,7 +731,7 @@ interpret(struct f_inst *what)
   case P('a','f'):	/* Get first ASN from AS PATH */
     ONEARG;
     if (v1.type != T_PATH)
-      runtime( "AS Path expected" );
+      runtime( "AS path expected" );
 
     as = 0;
     as_path_get_first(v1.val.ad, &as);
@@ -942,6 +942,8 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case P('i','M'): TWOARGS; break;
   case P('A','p'): TWOARGS; break;
   case P('C','a'): TWOARGS; break;
+  case P('a','f'):
+  case P('a','l'): ONEARG; break;
   default:
     bug( "Unknown instruction %d in same (%c)", f1->code, f1->code & 0xff);
   }
