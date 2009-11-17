@@ -360,20 +360,19 @@ ospf_rt_spfa(struct ospf_area *oa)
       if (rt->options & OPT_RT_V)
 	oa->trcap = 1;
 
-      /* FIXME - in OSPFv3, should we add all routers, or just ABRs an ASBRs? */
-      if ((rt->options & OPT_RT_V) || (rt->options & OPT_RT_E))
-	{
-	  nf.type = RTS_OSPF;
-	  nf.options = rt->options;
-	  nf.metric1 = act->dist;
-	  nf.metric2 = LSINFINITY;
-	  nf.tag = 0;
-	  nf.oa = oa;
-	  nf.ar = act;
-	  nf.nh = act->nh;
-	  nf.ifa = act->nhi;
-	  ri_install(po, ipa_from_rid(act->lsa.rt), MAX_PREFIX_LENGTH, ORT_ROUTER, &nf, NULL);
-	}
+      /* In OSPFv2, just ASBRs and ABRs are needed to add to oa->rtr table */
+      // ((rt->options & OPT_RT_V) || (rt->options & OPT_RT_E))
+
+      nf.type = RTS_OSPF;
+      nf.options = rt->options;
+      nf.metric1 = act->dist;
+      nf.metric2 = LSINFINITY;
+      nf.tag = 0;
+      nf.oa = oa;
+      nf.ar = act;
+      nf.nh = act->nh;
+      nf.ifa = act->nhi;
+      ri_install(po, ipa_from_rid(act->lsa.rt), MAX_PREFIX_LENGTH, ORT_ROUTER, &nf, NULL);
 
 #ifdef OSPFv2
       ospf_rt_spfa_rtlinks(oa, act, act);

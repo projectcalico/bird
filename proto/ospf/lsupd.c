@@ -501,6 +501,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     DBG("Update Type: %u ID: %R RT: %R, Sn: 0x%08x Age: %u, Sum: %u\n",
 	lsatmp.type, lsatmp.id, lsatmp.rt, lsatmp.sn, lsatmp.age, lsatmp.checksum);
 
+    /* FIXME domain should be link id for unknown LSA types with zero Ubit */
     u32 domain = ospf_lsa_domain(lsatmp.type, ifa);
     lsadb = ospf_hash_find_header(po->gr, domain, &lsatmp);
 
