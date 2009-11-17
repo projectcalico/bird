@@ -162,6 +162,7 @@ protocol static {
 
 #protocol bgp {
 #	disabled;
+#	description "My BGP uplink"
 #	local as 65000;
 #	neighbor 62.168.0.130 as 5588;
 #	multihop 20 via 62.168.0.13;

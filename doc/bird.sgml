@@ -307,6 +307,10 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	<tag>export <m/filter/</tag> This is similar to the <cf>import</cf> keyword, except that it
 	works in the direction from the routing table to the protocol. Default: <cf/none/.
 
+	<tag>description "<m/text/"</tag> This is an optional
+	description of the protocol. It is displayed as a part of the
+	output of 'show route all' command.
+
 	<tag>table <m/name/</tag> Connect this protocol to a non-default routing table.
 </descrip>
 
