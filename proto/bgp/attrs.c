@@ -165,6 +165,22 @@ bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
 #endif
 }
 
+static void
+bgp_format_next_hop(eattr *a, byte *buf, int buflen UNUSED)
+{
+  ip_addr *ipp = (ip_addr *) a->u.ptr->data;
+#ifdef IPV6
+  /* in IPv6, we might have two addresses in NEXT HOP */
+  if ((a->u.ptr->length == NEXT_HOP_LENGTH) && ipa_nonzero(ipp[1]))
+    {
+      bsprintf(buf, "%I %I", ipp[0], ipp[1]);
+      return;
+    }
+#endif
+
+  bsprintf(buf, "%I", ipp[0]);
+}
+
 static int
 bgp_check_aggregator(struct bgp_proto *p, byte *a UNUSED, int len)
 {
@@ -234,7 +250,7 @@ static struct attr_desc bgp_attr_table[] = {
   { "as_path", -1, BAF_TRANSITIVE, EAF_TYPE_AS_PATH, 1,				/* BA_AS_PATH */
     NULL, NULL }, /* is checked by validate_as_path() as a special case */
   { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS, 1,			/* BA_NEXT_HOP */
-    bgp_check_next_hop, NULL },
+    bgp_check_next_hop, bgp_format_next_hop },
   { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 1,					/* BA_MULTI_EXIT_DISC */
     NULL, NULL },
   { "local_pref", 4, BAF_TRANSITIVE, EAF_TYPE_INT, 0,				/* BA_LOCAL_PREF */
