@@ -81,6 +81,7 @@ struct proto_config {
   struct protocol *protocol;		/* Protocol */
   struct proto *proto;			/* Instance we've created */
   char *name;
+  char *dsc;
   unsigned debug, preference, disabled;	/* Generic parameters */
   u32 router_id;			/* Protocol specific router ID */
   struct rtable_config *table;		/* Table we're attached to */

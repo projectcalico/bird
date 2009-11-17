@@ -307,6 +307,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 	  if (sym && sym->class == SYM_PROTO && !new->shutdown)
 	    {
 	      /* Found match, let's check if we can smoothly switch to new configuration */
+	      /* No need to check description */
 	      nc = sym->def;
 	      if (!force_reconfig
 		  && nc->protocol == oc->protocol
@@ -702,6 +703,8 @@ proto_do_show(struct proto *p, int verbose)
 	  buf);
   if (verbose)
     {
+      if (p->cf->dsc)
+	cli_msg(-1006, "  Description:    %s", p->cf->dsc);
       cli_msg(-1006, "  Preference:     %d", p->preference);
       cli_msg(-1006, "  Input filter:   %s", filter_name(p->in_filter));
       cli_msg(-1006, "  Output filter:  %s", filter_name(p->out_filter));
