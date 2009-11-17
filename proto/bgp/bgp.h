@@ -24,6 +24,7 @@ struct bgp_config {
   ip_addr source_addr;			/* Source address to use */
   int next_hop_self;			/* Always set next hop to local IP address */
   int compare_path_lengths;		/* Use path lengths when selecting best route */
+  int prefer_older;			/* Prefer older routes according to RFC 5004 */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
   u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */
   int capabilities;			/* Enable capability handshake [RFC3392] */

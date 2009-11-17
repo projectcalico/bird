@@ -1044,7 +1044,6 @@ bgp_rte_better(rte *new, rte *old)
     return 0;
 
   /* RFC 4271 9.1.2.2. c) Compare MED's */
-
   if (bgp_get_neighbor(new) == bgp_get_neighbor(old))
     {
       x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
@@ -1082,11 +1081,18 @@ bgp_rte_better(rte *new, rte *old)
   y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_ORIGINATOR_ID));
   n = x ? x->u.data : new_bgp->remote_id;
   o = y ? y->u.data : old_bgp->remote_id;
+
+  /* RFC 5004 - prefer older routes */
+  /* (if both are external and from different peer) */
+  if ((new_bgp->cf->prefer_older || old_bgp->cf->prefer_older) &&
+      !new_bgp->is_internal && n != o)
+    return 0;
+
+  /* rest of RFC 4271 9.1.2.2. f) */
   if (n < o)
     return 1;
   if (n > o)
     return 0;
-
 
   /* RFC 4271 9.1.2.2. g) Compare peer IP adresses */
   return (ipa_compare(new_bgp->cf->remote_ip, old_bgp->cf->remote_ip) < 0);

@@ -22,7 +22,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
 	BGP_PATH, BGP_LOCAL_PREF, BGP_MED, BGP_ORIGIN, BGP_NEXT_HOP,
 	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY, SOURCE, ADDRESS,
 	PASSWORD, RR, RS, CLIENT, CLUSTER, ID, AS4, ADVERTISE, IPV4,
-	CAPABILITIES, LIMIT, PASSIVE)
+	CAPABILITIES, LIMIT, PASSIVE, PREFER, OLDER)
 
 CF_GRAMMAR
 
@@ -65,6 +65,7 @@ bgp_proto:
  | bgp_proto MULTIHOP expr VIA ipa ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
  | bgp_proto PATH METRIC bool ';' { BGP_CFG->compare_path_lengths = $4; }
+ | bgp_proto PREFER OLDER bool ';' { BGP_CFG->prefer_older = $4; }
  | bgp_proto DEFAULT BGP_MED expr ';' { BGP_CFG->default_med = $4; }
  | bgp_proto DEFAULT BGP_LOCAL_PREF expr ';' { BGP_CFG->default_local_pref = $4; }
  | bgp_proto SOURCE ADDRESS ipa ';' { BGP_CFG->source_addr = $4; }

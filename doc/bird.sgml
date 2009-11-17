@@ -981,6 +981,11 @@ for each neighbor using the following configuration parameters:
 	<tag>path metric <m/switch/</tag> Enable comparison of path lengths
 	when deciding which BGP route is the best one. Default: on.
 
+	<tag>prefer older <m/switch/</tag> Standard route selection algorithm
+	breaks ties by comparing router IDs. This changes the behavior
+	to prefer older routes (when both are external and from different
+	peer). For details, see RFC 5004. Default: off.
+
 	<tag>default bgp_med <m/number/</tag> Value of the Multiple Exit
 	Discriminator to be used during route selection when the MED attribute
 	is missing. Default: 0.
