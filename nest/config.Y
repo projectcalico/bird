@@ -141,7 +141,7 @@ proto_item:
  | EXPORT imexport { this_proto->out_filter = $2; }
  | TABLE rtable { this_proto->table = $2; }
  | ROUTER ID idval { this_proto->router_id = $3; }
- | DESCRIPTION dsc { this_proto->dsc = $2; }
+ | DESCRIPTION TEXT { this_proto->dsc = $2; }
  ;
 
 imexport:

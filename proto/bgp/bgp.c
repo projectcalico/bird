@@ -886,6 +886,10 @@ bgp_check(struct bgp_config *c)
 
   if ((c->local_as == c->remote_as) && (c->rs_client))
     cf_error("Only external neighbor can be RS client");
+
+  /* Different default based on rs_client */
+  if (c->missing_lladdr == 0)
+    c->missing_lladdr = c->rs_client ? MLL_DROP : MLL_SELF;
 }
 
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established", "Close" };

@@ -199,7 +199,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 
 	  if (a_size < 0)
 	    {
-	      log(L_ERR "%s: Attribute list too long, skipping corresponding route group", p->p.name);
+	      log(L_ERR "%s: Attribute list too long, skipping corresponding routes", p->p.name);
 	      bgp_flush_prefixes(p, buck);
 	      rem_node(&buck->send_node);
 	      bgp_free_bucket(p, buck);
@@ -234,9 +234,9 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 {
   struct bgp_proto *p = conn->bgp;
   struct bgp_bucket *buck;
-  int size, second;
+  int size, second, rem_stored;
   int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
-  byte *w, *tmp, *tstart;
+  byte *w, *w_stored, *tmp, *tstart;
   ip_addr *ipp, ip, ip_ll;
   ea_list *ea;
   eattr *nh;
@@ -272,28 +272,25 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	    }
 
 	  DBG("Processing bucket %p\n", buck);
-	  size = bgp_encode_attrs(p, w, buck->eattrs, 2048);
+	  rem_stored = remains;
+	  w_stored = w;
 
+	  size = bgp_encode_attrs(p, w, buck->eattrs, 2048);
 	  if (size < 0)
 	    {
-	      log(L_ERR "%s: Attribute list too long, ignoring corresponding route group", p->p.name);
+	      log(L_ERR "%s: Attribute list too long, skipping corresponding routes", p->p.name);
 	      bgp_flush_prefixes(p, buck);
 	      rem_node(&buck->send_node);
 	      bgp_free_bucket(p, buck);
 	      continue;
 	    }
-
 	  w += size;
 	  remains -= size;
-	  tstart = tmp = bgp_attach_attr_wa(&ea, bgp_linpool, BA_MP_REACH_NLRI, remains-8);
-	  *tmp++ = 0;
-	  *tmp++ = BGP_AF_IPV6;
-	  *tmp++ = 1;
+
+	  /* We have two addresses here in NEXT_HOP eattr. Really.
+	     Unless NEXT_HOP was modified by filter */
 	  nh = ea_find(buck->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
 	  ASSERT(nh);
-
-	  /* We have two addresses here in 'nh'. Really.
-	     Unless NEXT_HOP was modified by filter */
 	  second = (nh->u.ptr->length == NEXT_HOP_LENGTH);
 	  ipp = (ip_addr *) nh->u.ptr->data;
 	  ip = ipp[0];
@@ -322,11 +319,31 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 		    ip_ll = ipp[1];
 		  else
 		    {
-		      ip = p->source_addr;
-		      ip_ll = p->local_link;
+		      switch (p->cf->missing_lladdr)
+			{
+			case MLL_SELF:
+			  ip = p->source_addr;
+			  ip_ll = p->local_link;
+			  break;
+			case MLL_DROP:
+			  log(L_ERR "%s: Missing link-local next hop address, skipping corresponding routes", p->p.name);
+			  w = w_stored;
+			  remains = rem_stored;
+			  bgp_flush_prefixes(p, buck);
+			  rem_node(&buck->send_node);
+			  bgp_free_bucket(p, buck);
+			  continue;
+			case MLL_IGNORE:
+			  break;
+			}
 		    }
 		}
 	    }
+
+	  tstart = tmp = bgp_attach_attr_wa(&ea, bgp_linpool, BA_MP_REACH_NLRI, remains-8);
+	  *tmp++ = 0;
+	  *tmp++ = BGP_AF_IPV6;
+	  *tmp++ = 1;
 
 	  if (ipa_nonzero(ip_ll))
 	    {

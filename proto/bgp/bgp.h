@@ -23,6 +23,7 @@ struct bgp_config {
   ip_addr multihop_via;			/* Multihop: address to route to */
   ip_addr source_addr;			/* Source address to use */
   int next_hop_self;			/* Always set next hop to local IP address */
+  int missing_lladdr;			/* What we will do when we don' know link-local addr, see MLL_* */
   int compare_path_lengths;		/* Use path lengths when selecting best route */
   int prefer_older;			/* Prefer older routes according to RFC 5004 */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
@@ -45,6 +46,10 @@ struct bgp_config {
   unsigned disable_after_error;		/* Disable the protocol when error is detected */
   char *password;			/* Password used for MD5 authentication */
 };
+
+#define MLL_SELF 1
+#define MLL_DROP 2
+#define MLL_IGNORE 3
 
 struct bgp_conn {
   struct bgp_proto *bgp;

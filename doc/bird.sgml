@@ -646,7 +646,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  but <cf>1.0.0.0/16 &tilde; [ 1.0.0.0/8- ]</cf> is false.
 
 	  Cisco-style patterns like <cf>10.0.0.0/8 ge 16 le 24</cf> can be expressed
-	  in Bird as <cf>10.0.0.0/8{16,24}</cf>, <cf>192.168.0.0/16 le 24</cf> as 
+	  in BIRD as <cf>10.0.0.0/8{16,24}</cf>, <cf>192.168.0.0/16 le 24</cf> as 
 	  <cf>192.168.0.0/16{16,24}</cf> and <cf>192.168.0.0/16 ge 24</cf> as
 	  <cf>192.168.0.0/16{24,32}</cf>.
 
@@ -887,12 +887,28 @@ for each neighbor using the following configuration parameters:
 	we should route via our direct neighbor with address <m/ip/.
 	Default: switched off.
 
-	<tag>next hop self</tag> Avoid calculation of the Next Hop attribute
-	and always advertise our own source address (see below) as a next hop.
-	This needs to be used only
-	occasionally to circumvent misconfigurations of other routers.
+	<tag>next hop self</tag> Avoid calculation of the Next Hop
+	attribute and always advertise our own source address (see
+	below) as a next hop.  This needs to be used only occasionally
+	to circumvent misconfigurations of other routers.
 	Default: disabled.
 
+	<tag>missing lladdr self|drop|ignore</tag>Next Hop attribute
+	in BGP-IPv6 sometimes contains just the global IPv6 address,
+	but sometimes it has to contain both global and link-local
+	IPv6 addresses. This option specifies what to do if BIRD have
+	to send both addresses but does not know link-local address.
+	This situation might happen when routes from other protocols
+	are exported to BGP, or when improper updates are received
+	from BGP peers.  <tag/self/ means that BIRD advertises its own
+	local address instead. <tag/drop/ means that BIRD skips that
+	prefixes and logs error. <tag/ignore/ means that BIRD ignores
+	the problem and sends just the global address (and therefore
+	forms improper BGP update). Default: <tag/self/, unless BIRD
+	is configured as a route server (option <tag/rs client/), in
+	that case default is <tag/drop/, because route servers usually
+	does not forward packets ifselves.
+	
 	<tag>source address <m/ip/</tag> Define local address we should use
 	for next hop calculation. Default: the address of the local end
 	of the interface our neighbor is connected to.
@@ -920,7 +936,7 @@ for each neighbor using the following configuration parameters:
 	as a route server client. A route server is used as a
 	replacement for full mesh EBGP routing in Internet exchange
 	points in a similar way to route reflectors used in IBGP routing.
-	Bird does not implement obsoleted RFC 1863, but uses ad-hoc implementation,
+	BIRD does not implement obsoleted RFC 1863, but uses ad-hoc implementation,
 	which behaves like plain EBGP but reduces modifications to advertised route
 	attributes to be transparent (for example does not prepend its AS number to
 	AS PATH attribute and keep MED attribute). Default: disabled.
