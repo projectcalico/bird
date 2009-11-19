@@ -1,7 +1,8 @@
-Version 1.1.6 (2009-11-20)
+Version 1.1.6 (2009-11-19)
   o Implements RFC 5004 - prefer older external routes.
-  o There is a change how route servers handle missing link local
-    addresses in next hop atribute - see 'missing lladdr' option.
+  o There is a change how route servers handle missing IPv6 link
+    local addresses in next hop atribute - see 'missing lladdr'
+    option.
   o Several minor features (description field, parse check option).
   o Several minor bugfixes.
 
