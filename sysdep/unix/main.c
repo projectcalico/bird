@@ -365,7 +365,7 @@ signal_init(void)
  *	Parsing of command-line arguments
  */
 
-static char *opt_list = "c:dD:s:";
+static char *opt_list = "c:dD:ps:";
 
 static void
 usage(void)
@@ -373,6 +373,8 @@ usage(void)
   fprintf(stderr, "Usage: bird [-c <config-file>] [-d] [-D <debug-file>] [-s <control-socket>]\n");
   exit(1);
 }
+
+int parse_and_exit;
 
 static void
 parse_args(int argc, char **argv)
@@ -401,6 +403,9 @@ parse_args(int argc, char **argv)
       case 'D':
 	log_init_debug(optarg);
 	debug_flag |= 2;
+	break;
+      case 'p':
+	parse_and_exit = 1;
 	break;
       case 's':
 	path_control_socket = optarg;
@@ -443,6 +448,9 @@ main(int argc, char **argv)
   proto_build(&proto_unix_iface);
 
   read_config();
+
+  if (parse_and_exit)
+    exit(0);
 
   if (!debug_flag)
     {
