@@ -636,6 +636,7 @@ rte_update(rtable *table, net *net, struct proto *p, struct proto *src, rte *new
 
 drop:
   rte_free(new);
+  rte_recalculate(table, net, p, src, NULL, NULL);
   rte_update_unlock();
 }
 
