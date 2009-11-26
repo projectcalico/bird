@@ -132,7 +132,8 @@ options. The most important ones are:
 	log debugging information to given file instead of stderr.
 
 	<tag>-p</tag>
-	just parse the config file and exit.
+	just parse the config file and exit. Return value is zero if the config file is valid,
+	nonzero if there are some errors.
 
 	<tag>-s <m/name of communication socket/</tag>
 	use given filename for a  socket for communications with the client, default is <it/prefix/<file>/var/run/bird.ctl</file>.

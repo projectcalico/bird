@@ -370,7 +370,7 @@ static char *opt_list = "c:dD:ps:";
 static void
 usage(void)
 {
-  fprintf(stderr, "Usage: bird [-c <config-file>] [-d] [-D <debug-file>] [-s <control-socket>]\n");
+  fprintf(stderr, "Usage: bird [-c <config-file>] [-d] [-D <debug-file>] [-p] [-s <control-socket>]\n");
   exit(1);
 }
 
@@ -434,7 +434,8 @@ main(int argc, char **argv)
     log_init_debug("");
   log_init(debug_flag, 1);
 
-  test_old_bird(path_control_socket);
+  if (!parse_and_exit)
+    test_old_bird(path_control_socket);
 
   DBG("Initializing.\n");
   resource_init();
