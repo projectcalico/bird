@@ -199,6 +199,14 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
   else
     p->stats.exp_withdraws_received++;
 
+  /* This is a tricky part - we don't know whether route 'old' was
+     exported to protocol 'p' or was filtered by the export filter.
+     We try tu run the export filter to know this to have a correct
+     value in 'old' argument of rt_update (and proper filter value)
+
+     FIXME - this is broken because 'configure soft' may change
+     filters but keep routes */
+
   if (old)
     {
       if (p->out_filter == FILTER_REJECT)
@@ -216,6 +224,7 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 	}
     }
 
+  /* FIXME - This is broken because of incorrect 'old' value (see above) */
   if (!new && !old)
     return;
 
@@ -1122,6 +1131,11 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 	    ok = 0;
 	  else if (!ic && d->export_mode > 1)
 	    {
+	      /* FIXME - this shows what should be exported according
+		 to current filters, but not what was really exported.
+		 'configure soft' command may change the export filter
+		 and do not update routes */
+
 	      if (p1->out_filter == FILTER_REJECT ||
 		  p1->out_filter && f_run(p1->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
 		ok = 0;

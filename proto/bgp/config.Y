@@ -23,7 +23,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
 	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY, SOURCE, ADDRESS,
 	PASSWORD, RR, RS, CLIENT, CLUSTER, ID, AS4, ADVERTISE, IPV4,
 	CAPABILITIES, LIMIT, PASSIVE, PREFER, OLDER, MISSING, LLADDR,
-	DROP, IGNORE)
+	DROP, IGNORE, ROUTE, REFRESH)
 
 CF_GRAMMAR
 
@@ -40,6 +40,7 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->error_amnesia_time = 300;
      BGP_CFG->error_delay_time_min = 60;
      BGP_CFG->error_delay_time_max = 300;
+     BGP_CFG->enable_refresh = 1;
      BGP_CFG->enable_as4 = bgp_as4_support;
      BGP_CFG->capabilities = 2;
      BGP_CFG->advertise_ipv4 = 1;
@@ -77,6 +78,7 @@ bgp_proto:
  | bgp_proto ERROR FORGET TIME expr ';' { BGP_CFG->error_amnesia_time = $5; } 
  | bgp_proto ERROR WAIT TIME expr ',' expr ';' { BGP_CFG->error_delay_time_min = $5; BGP_CFG->error_delay_time_max = $7; }
  | bgp_proto DISABLE AFTER ERROR bool ';' { BGP_CFG->disable_after_error = $5; }
+ | bgp_proto ENABLE ROUTE REFRESH bool ';' { BGP_CFG->enable_refresh = $5; }
  | bgp_proto ENABLE AS4 bool ';' { BGP_CFG->enable_as4 = $4; }
  | bgp_proto CAPABILITIES bool ';' { BGP_CFG->capabilities = $3; }
  | bgp_proto ADVERTISE IPV4 bool ';' { BGP_CFG->advertise_ipv4 = $4; }

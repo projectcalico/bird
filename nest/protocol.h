@@ -152,6 +152,9 @@ struct proto {
    *			It can construct a new rte, add private attributes and
    *			decide whether the route shall be imported: 1=yes, -1=no,
    *			0=process it through the import filter set by the user.
+   *	   reload_routes   Request protocol to reload all its routes to the core
+   *			(using rte_update()). Returns: 0=reload cannot be done,
+   *			1= reload is scheduled and will happen (asynchronously).
    */
 
   void (*if_notify)(struct proto *, unsigned flags, struct iface *i);
@@ -161,6 +164,7 @@ struct proto {
   struct ea_list *(*make_tmp_attrs)(struct rte *rt, struct linpool *pool);
   void (*store_tmp_attrs)(struct rte *rt, struct ea_list *attrs);
   int (*import_control)(struct proto *, struct rte **rt, struct ea_list **attrs, struct linpool *pool);
+  int (*reload_routes)(struct proto *);
 
   /*
    *	Routing entry hooks (called only for rte's belonging to this protocol):
@@ -190,6 +194,7 @@ struct proto {
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
 
+void proto_request_feeding(struct proto *p);
 void proto_show(struct symbol *, int);
 struct proto *proto_get_named(struct symbol *, struct protocol *);
 void proto_xxable(char *, int);
@@ -271,6 +276,10 @@ void proto_notify_state(struct proto *p, unsigned state);
  *		HUNGRY/DOWN --> HUNGRY/START --> HUNGRY/UP -->
  *		FEEDING/UP --> HAPPY/UP --> FLUSHING/STOP|DOWN -->
  *		HUNGRY/STOP|DOWN --> HUNGRY/DOWN
+ *
+ *	Sometimes, protocol might switch from HAPPY/UP to FEEDING/UP 
+ *	if it wants to refeed the routes (for example BGP does so
+ *	as a result of received ROUTE-REFRESH request).
  */
 
 #define FS_HUNGRY 0

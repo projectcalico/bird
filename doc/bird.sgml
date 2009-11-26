@@ -482,9 +482,6 @@ This argument can be omitted if there exists only a single instance.
 	number of networks, number of routes before and after filtering). If
 	you use <cf/count/ instead, only the statistics will be printed.
 
-	<tag>enable|disable|restart <m/name/|"<m/pattern/"|all</tag>
-	Enable, disable or restart a given protocol instance, instances matching the <cf><m/pattern/</cf> or <cf/all/ instances.
-
 	<tag>configure [soft] ["<m/config file/"]</tag>
 	Reload configuration from a given file. BIRD will smoothly
 	switch itself to the new configuration, protocols are
@@ -495,6 +492,9 @@ This argument can be omitted if there exists only a single instance.
 	routes (according to old filters) would be still propagated,
 	but new routes would be processed according to the new
 	filters.
+
+	<tag>enable|disable|restart <m/name/|"<m/pattern/"|all</tag>
+	Enable, disable or restart a given protocol instance, instances matching the <cf><m/pattern/</cf> or <cf/all/ instances.
 
 	<tag/down/
 	Shut BIRD down.
@@ -943,6 +943,16 @@ for each neighbor using the following configuration parameters:
 	which behaves like plain EBGP but reduces modifications to advertised route
 	attributes to be transparent (for example does not prepend its AS number to
 	AS PATH attribute and keep MED attribute). Default: disabled.
+
+	<tag>enable route refresh <m/switch/</tag> When BGP speaker
+	changes its import filter, it has to re-examine all routes
+	received from its neighbor against the new filter. As these
+	routes might not be available, there is a BGP protocol
+	extension Route Refresh (specified in RFC 2918) that allows
+	BGP speaker to request re-advertisment of all routes from its
+	neighbor. This option specifies whether BIRD advertises this
+	capability and accepts such requests. Even when disabled, BIRD
+	can send route refresh requests. Default: on.
 
 	<tag>enable as4 <m/switch/</tag> BGP protocol was designed to use 2B AS numbers
 	and was extended later to allow 4B AS number. BIRD supports 4B AS extension,

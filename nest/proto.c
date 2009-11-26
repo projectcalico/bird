@@ -73,6 +73,10 @@ proto_relink(struct proto *p)
   rem_node(&p->n);
   switch (p->core_state)
     {
+    case FS_HUNGRY:
+      l = &inactive_proto_list;
+      break;
+    case FS_FEEDING:
     case FS_HAPPY:
       l = &active_proto_list;
       break;
@@ -80,7 +84,7 @@ proto_relink(struct proto *p)
       l = &flush_proto_list;
       break;
     default:
-      l = &inactive_proto_list;
+      ASSERT(0);
     }
   proto_enqueue(l, p);
 }
@@ -549,7 +553,7 @@ proto_feed_more(void *P)
 }
 
 static void
-proto_feed(void *P)
+proto_feed_initial(void *P)
 {
   struct proto *p = P;
 
@@ -577,13 +581,42 @@ proto_schedule_flush(struct proto *p)
 }
 
 static void
-proto_schedule_feed(struct proto *p)
+proto_schedule_feed(struct proto *p, int initial)
 {
   DBG("%s: Scheduling meal\n", p->name);
   p->core_state = FS_FEEDING;
   proto_relink(p);
-  p->attn->hook = proto_feed;
+  p->attn->hook = initial ? proto_feed_initial : proto_feed_more;
   ev_schedule(p->attn);
+}
+
+/**
+ * proto_request_feeding - request feeding routes to the protocol
+ * @p: given protocol 
+ *
+ * Sometimes it is needed to send again all routes to the
+ * protocol. This is called feeding and can be requested by this
+ * function. This would cause protocol core state transition
+ * to FS_FEEDING (during feeding) and when completed, it will
+ * switch back to FS_HAPPY. This function can be called even
+ * when feeding is already running, in that case it is restarted.
+ */
+void
+proto_request_feeding(struct proto *p)
+{
+  ASSERT(p->proto_state == PS_UP);
+
+  /* If we are already feeding, we want to restart it */
+  if (p->core_state == FS_FEEDING)
+    {
+      /* Unless feeding is in initial state */
+      if (p->attn->hook == proto_feed_initial)
+	return;
+
+      rt_feed_baby_abort(p);
+    }
+
+  proto_schedule_feed(p, 0);
 }
 
 /**
@@ -635,7 +668,7 @@ proto_notify_state(struct proto *p, unsigned ps)
     case PS_UP:
       ASSERT(ops == PS_DOWN || ops == PS_START);
       ASSERT(cs == FS_HUNGRY);
-      proto_schedule_feed(p);
+      proto_schedule_feed(p, 1);
       break;
     case PS_STOP:
       if ((cs = FS_FEEDING) || (cs == FS_HAPPY))
@@ -798,6 +831,7 @@ proto_xxable(char *pattern, int xx)
 	      {
 		cli_msg(-9, "%s: disabled", p->name);
 		p->disabled = 1;
+		proto_rethink_goal(p);
 	      }
 	    break;
 	  case 1:
@@ -807,6 +841,7 @@ proto_xxable(char *pattern, int xx)
 	      {
 		cli_msg(-11, "%s: enabled", p->name);
 		p->disabled = 0;
+		proto_rethink_goal(p);
 	      }
 	    break;
 	  case 2:
@@ -817,13 +852,33 @@ proto_xxable(char *pattern, int xx)
 		p->disabled = 1;
 		proto_rethink_goal(p);
 		p->disabled = 0;
+		proto_rethink_goal(p);
 		cli_msg(-12, "%s: restarted", p->name);
 	      }
 	    break;
+	  case 3:
+	    // FIXME change msg number
+	    if (p->disabled)
+	      cli_msg(-8, "%s: already disabled", p->name);
+	    else if (p->reload_routes && p->reload_routes(p))
+	      cli_msg(-12, "%s: reloading", p->name);
+	    else
+	      cli_msg(-12, "%s: reload failed", p->name);
+	    break;
+	  case 4:
+	    // FIXME change msg number
+	    if (p->disabled)
+	      cli_msg(-8, "%s: already disabled", p->name);
+	    else
+	      {
+		proto_request_feeding(p);
+		cli_msg(-12, "%s: reexport failed", p->name);
+	      }
+	    break;
+
 	  default:
 	    ASSERT(0);
 	  }
-	proto_rethink_goal(p);
       }
   WALK_PROTO_LIST_END;
   if (!cnt)

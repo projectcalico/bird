@@ -64,6 +64,14 @@ bgp_put_cap_ipv4(struct bgp_conn *conn UNUSED, byte *buf)
 #endif
 
 static byte *
+bgp_put_cap_rr(struct bgp_conn *conn UNUSED, byte *buf)
+{
+  *buf++ = 2;		/* Capability 2: Support for route refresh */
+  *buf++ = 0;		/* Capability data length */
+  return buf;
+}
+
+static byte *
 bgp_put_cap_as4(struct bgp_conn *conn, byte *buf)
 {
   *buf++ = 65;		/* Capability 65: Support for 4-octet AS number */
@@ -104,6 +112,9 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
 #ifdef IPV6
   cap = bgp_put_cap_ipv6(conn, cap);
 #endif
+
+  if (p->cf->enable_refresh)
+    cap = bgp_put_cap_rr(conn, cap);
 
   if (conn->want_as4_support)
     cap = bgp_put_cap_as4(conn, cap);
@@ -386,6 +397,24 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 
 #endif
 
+static byte *
+bgp_create_route_refresh(struct bgp_conn *conn, byte *buf)
+{
+  struct bgp_proto *p = conn->bgp;
+  BGP_TRACE(D_PACKETS, "Sending ROUTE-REFRESH");
+
+#ifdef IPV6
+  *buf++ = 0;		/* AFI IPv6 */
+  *buf++ = BGP_AF_IPV6;
+#else
+  *buf++ = 0;		/* AFI IPv4 */
+  *buf++ = BGP_AF_IPV4;
+#endif
+  *buf++ = 0;		/* RFU */
+  *buf++ = 1;		/* and SAFI 1 */
+  return buf;
+}
+
 static void
 bgp_create_header(byte *buf, unsigned int len, unsigned int type)
 {
@@ -446,6 +475,12 @@ bgp_fire_tx(struct bgp_conn *conn)
       s &= ~(1 << PKT_OPEN);
       type = PKT_OPEN;
       end = bgp_create_open(conn, pkt);
+    }
+  else if (s & (1 << PKT_ROUTE_REFRESH))
+    {
+      s &= ~(1 << PKT_ROUTE_REFRESH);
+      type = PKT_ROUTE_REFRESH;
+      end = bgp_create_route_refresh(conn, pkt);
     }
   else if (s & (1 << PKT_UPDATE))
     {
@@ -517,6 +552,11 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 
       switch (opt[0])
 	{
+	case 2:
+	  if (cl != 0)
+	    goto err;
+	  conn->peer_refresh_support = 1;
+	  break;
 	case 65:
 	  if (cl != 4)
 	    goto err;
@@ -1084,6 +1124,30 @@ bgp_rx_keepalive(struct bgp_conn *conn)
     }
 }
 
+static void
+bgp_rx_route_refresh(struct bgp_conn *conn, byte *pkt, int len)
+{
+  struct bgp_proto *p = conn->bgp;
+
+  BGP_TRACE(D_PACKETS, "Got ROUTE-REFRESH");
+
+  if (conn->state != BS_ESTABLISHED)
+    { bgp_error(conn, 5, 0, NULL, 0); return; }
+
+  if (!p->cf->enable_refresh)
+    { bgp_error(conn, 1, 3, pkt+18, 1); return; }
+
+  if (len != (BGP_HEADER_LENGTH + 4))
+    { bgp_error(conn, 1, 2, pkt+16, 2); return; }
+
+  /* FIXME - we ignore AFI/SAFI values, as we support
+     just one value and even an error code for an invalid
+     request is not defined */
+
+  proto_request_feeding(&p->p);
+}
+
+
 /**
  * bgp_rx_packet - handle a received packet
  * @conn: BGP connection
@@ -1103,6 +1167,7 @@ bgp_rx_packet(struct bgp_conn *conn, byte *pkt, unsigned len)
     case PKT_UPDATE:		return bgp_rx_update(conn, pkt, len);
     case PKT_NOTIFICATION:      return bgp_rx_notification(conn, pkt, len);
     case PKT_KEEPALIVE:		return bgp_rx_keepalive(conn);
+    case PKT_ROUTE_REFRESH:	return bgp_rx_route_refresh(conn, pkt, len);
     default:			bgp_error(conn, 1, 3, pkt+18, 1);
     }
 }
