@@ -39,7 +39,7 @@ static void
 finish_iface_config(struct ospf_iface_patt *ip)
 {
   if ((ip->autype != OSPF_AUTH_NONE) || (get_passwords() != NULL))
-    log(L_WARN "Authentication not supported in OSPFv3");
+    cf_error("Authentication not supported in OSPFv3");
 }
 #endif
 
