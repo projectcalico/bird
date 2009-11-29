@@ -776,6 +776,8 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   node *prev, *n;
   int added = 0;
   struct top_hash_entry *act;
+  ip_addr old_nh;
+  struct ospf_iface *old_nhi;
 
   if (en == NULL)
     return;
@@ -798,13 +800,20 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   DBG("     Adding candidate: rt: %R, id: %R, type: %u\n",
       en->lsa.rt, en->lsa.id, en->lsa.type);
 
+  old_nhi = en->nhi;
+  old_nh = en->nh;
+
   en->nhi = NULL;
   en->nh = IPA_NONE;
-
   calc_next_hop(en, par, oa);
 
   if (!en->nhi)
-    return;			/* We cannot find next hop, ignore it */
+    {
+      /* No next hop found, we undo changes and return */
+      en->nhi = old_nhi;
+      en->nh = old_nh;
+      return;
+    }
 
   if (en->color == CANDIDATE)
   {				/* We found a shorter path */
