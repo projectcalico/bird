@@ -585,6 +585,7 @@ proto_schedule_feed(struct proto *p, int initial)
 {
   DBG("%s: Scheduling meal\n", p->name);
   p->core_state = FS_FEEDING;
+  p->refeeding = !initial;
   proto_relink(p);
   p->attn->hook = initial ? proto_feed_initial : proto_feed_more;
   ev_schedule(p->attn);

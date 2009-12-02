@@ -158,7 +158,7 @@ rte_trace_out(unsigned int flag, struct proto *p, rte *e, char *msg)
 }
 
 static inline void
-do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old, ea_list *tmpa, int class)
+do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old, ea_list *tmpa, int class, int refeed)
 {
   struct proto *p = a->proto;
   rte *new0 = new;
@@ -199,15 +199,27 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
   else
     p->stats.exp_withdraws_received++;
 
-  /* This is a tricky part - we don't know whether route 'old' was
-     exported to protocol 'p' or was filtered by the export filter.
-     We try tu run the export filter to know this to have a correct
-     value in 'old' argument of rt_update (and proper filter value)
+  /*
+   * This is a tricky part - we don't know whether route 'old' was
+   * exported to protocol 'p' or was filtered by the export filter.
+   * We try tu run the export filter to know this to have a correct
+   * value in 'old' argument of rt_update (and proper filter value)
+   *
+   * FIXME - this is broken because 'configure soft' may change
+   * filters but keep routes. Refeed is expected to be called after
+   * change of the filters and with old == new, therefore we do not
+   * even try to run the filter on an old route, This may lead to 
+   * 'spurious withdraws' but ensure that there are no 'missing
+   * withdraws'.
+   *
+   * This is not completely safe as there is a window between
+   * reconfiguration and the end of refeed - if a newly filtered
+   * route disappears during this period, proper withdraw is not
+   * sent (because old would be also filtered) and the route is
+   * not refeeded (because it disappeared before that).
+   */
 
-     FIXME - this is broken because 'configure soft' may change
-     filters but keep routes */
-
-  if (old)
+  if (old && !refeed)
     {
       if (p->out_filter == FILTER_REJECT)
 	old = NULL;
@@ -313,7 +325,7 @@ rte_announce(rtable *tab, int type, net *net, rte *new, rte *old, ea_list *tmpa)
     {
       ASSERT(a->proto->core_state == FS_HAPPY || a->proto->core_state == FS_FEEDING);
       if (a->proto->accept_ra_types == type)
-	do_rte_announce(a, type, net, new, old, tmpa, class);
+	do_rte_announce(a, type, net, new, old, tmpa, class, 0);
     }
 }
 
@@ -973,7 +985,7 @@ do_feed_baby(struct proto *p, int type, struct announce_hook *h, net *n, rte *e)
 
   rte_update_lock();
   tmpa = q->make_tmp_attrs ? q->make_tmp_attrs(e, rte_update_pool) : NULL;
-  do_rte_announce(h, type, n, e, NULL, tmpa, ipa_classify(n->n.prefix));
+  do_rte_announce(h, type, n, e, p->refeeding ? e : NULL, tmpa, ipa_classify(n->n.prefix), p->refeeding);
   rte_update_unlock();
 }
 
