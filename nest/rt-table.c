@@ -403,6 +403,26 @@ rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte
     {
       if (old->attrs->proto == src)
 	{
+	  /* If there is the same route in the routing table but from
+	   * a different sender, then there are two paths from the
+	   * source protocol to this routing table through transparent
+	   * pipes, which is not allowed.
+	   *
+	   * We log that and ignore the route. If it is withdraw, we
+	   * ignore it completely (there might be 'spurious withdraws',
+	   * see FIXME in do_rte_announce())
+	   */
+	  if (old->sender != p)
+	    {
+	      if (new)
+		{
+		  log(L_ERR "Pipe collision detected when sending %I/%d to table %s",
+		      net->n.prefix, net->n.pxlen, table->name);
+		  rte_free_quick(new);
+		}
+	      return;
+	    }
+
 	  if (new && rte_same(old, new))
 	    {
 	      /* No changes, ignore the new route */
@@ -597,11 +617,12 @@ rte_update(rtable *table, net *net, struct proto *p, struct proto *src, rte *new
       new->sender = p;
       struct filter *filter = p->in_filter;
 
-	/* Do not filter routes going to the secondary side of the pipe, 
-	   that should only go through export filter.
-	   FIXME Make a better check whether p is really a pipe. */
-      if (p->table != table)
+      /* Do not filter routes going through the pipe, 
+	 they are filtered in the export filter only. */
+#ifdef CONFIG_PIPE
+      if (p->proto == &proto_pipe)
 	filter = FILTER_ACCEPT;
+#endif
 
       p->stats.imp_updates_received++;
       if (!rte_validate(new))
