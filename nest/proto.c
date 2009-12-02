@@ -649,7 +649,7 @@ proto_notify_state(struct proto *p, unsigned ps)
   switch (ps)
     {
     case PS_DOWN:
-      if ((cs = FS_FEEDING) || (cs == FS_HAPPY))
+      if ((cs == FS_FEEDING) || (cs == FS_HAPPY))
 	proto_schedule_flush(p);
 
       neigh_prune(); // FIXME convert neighbors to resource?
@@ -672,7 +672,7 @@ proto_notify_state(struct proto *p, unsigned ps)
       proto_schedule_feed(p, 1);
       break;
     case PS_STOP:
-      if ((cs = FS_FEEDING) || (cs == FS_HAPPY))
+      if ((cs == FS_FEEDING) || (cs == FS_HAPPY))
 	proto_schedule_flush(p);
       break;
     default:
