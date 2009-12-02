@@ -504,11 +504,10 @@ rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte
       net->routes->next = new;
       rte_trace_in(D_ROUTES, p, new, "added");
     }
-  else if (old && (p->debug & D_ROUTES))
-    {
-      /* Not really a case - the list of routes is correct, we just
-	 log the route removal */
 
+  /* Log the route removal */
+  if (!new && old && (p->debug & D_ROUTES))
+    {
       if (old != old_best)
 	rte_trace_in(D_ROUTES, p, old, "removed");
       else if (net->routes)
