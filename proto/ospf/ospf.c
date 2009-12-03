@@ -1049,6 +1049,8 @@ ospf_sh_iface(struct proto *p, char *iff)
  * values
  */
 
+#ifdef OSPFv3
+
 static struct ospf_lsa_header *
 fake_lsa_from_prefix_lsa(struct ospf_lsa_header *dst, struct ospf_lsa_header *src,
 			 struct ospf_lsa_prefix *px)
@@ -1061,6 +1063,8 @@ fake_lsa_from_prefix_lsa(struct ospf_lsa_header *dst, struct ospf_lsa_header *sr
 
   return dst;
 }
+
+#endif
 
 static int
 lsa_compare_for_state(const void *p1, const void *p2)

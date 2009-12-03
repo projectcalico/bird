@@ -635,14 +635,14 @@ static inline int
 check_sum_net_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
 {
   struct ospf_lsa_sum *sum = en->lsa_body;
-  return (fn->pxlen != ipa_mklen(sum->netmask))
+  return fn->pxlen != ipa_mklen(sum->netmask);
 }
 
 static inline int
 check_ext_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
 {
   struct ospf_lsa_ext *ext = en->lsa_body;
-  return (fn->pxlen != ipa_mklen(ext->netmask))
+  return fn->pxlen != ipa_mklen(ext->netmask);
 }
 
 #else /* OSPFv3 */
