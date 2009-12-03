@@ -173,11 +173,11 @@ ospf_lsack_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 	continue;
 
       OSPF_TRACE(D_PACKETS, "Strange LS acknoledgement from %I", n->ip);
-      OSPF_TRACE(D_PACKETS, "Id: %R, Rt: %R, Type: %u",
+      OSPF_TRACE(D_PACKETS, "Id: %R, Rt: %R, Type: 0x%04x",
 		 lsa.id, lsa.rt, lsa.type);
-      OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seqno: 0x%08x, Sum: %u",
+      OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seqno: 0x%08x, Sum: 0x%04x",
 		 en->lsa.age, en->lsa.sn, en->lsa.checksum);
-      OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seqno: 0x%08x, Sum: %u",
+      OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seqno: 0x%08x, Sum: 0x%04x",
 		 lsa.age, lsa.sn, lsa.checksum);
       continue;
     }

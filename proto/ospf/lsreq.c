@@ -28,7 +28,7 @@ static void ospf_dump_lsreq(struct proto *p, struct ospf_lsreq_packet *pkt)
     sizeof(struct ospf_lsreq_header);
 
   for (i = 0; i < j; i++)
-    log(L_TRACE "%s:     LSR      Id: %R, Rt: %R, Type: 0x%x", p->name,
+    log(L_TRACE "%s:     LSR      Id: %R, Rt: %R, Type: 0x%04x", p->name,
 	htonl(pkt->lsh[i].id), htonl(pkt->lsh[i].rt), htonl(pkt->lsh[i].type));
 }
 
