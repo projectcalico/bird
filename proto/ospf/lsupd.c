@@ -449,8 +449,9 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 
     struct ospf_lsa_header *lsa = (void *) (((u8 *) ps) + offset);
     unsigned int lsalen = ntohs(lsa->length);
-
-    if (((offset + lsalen) > size) || ((lsalen % 4) != 0) ||
+    offset += lsalen;
+ 
+    if ((offset > size) || ((lsalen % 4) != 0) ||
 	(lsalen <= sizeof(struct ospf_lsa_header)))
     {
       log(L_WARN "Received LSA from %I with bad length", n->ip);

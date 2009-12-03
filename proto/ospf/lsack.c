@@ -76,9 +76,9 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   {
     no = (struct lsah_n *) HEAD(n->ackl[queue]);
     memcpy(h + i, &no->lsa, sizeof(struct ospf_lsa_header));
-    i++;
-    DBG("Iter %u ID: %R, RT: %R, Type: %u\n", i, ntohl((h + i)->id),
+    DBG("Iter %u ID: %R, RT: %R, Type: %04x\n", i, ntohl((h + i)->id),
 	ntohl((h + i)->rt), (h + i)->type);
+    i++;
     rem_node(NODE no);
     mb_free(no);
     if ((i * sizeof(struct ospf_lsa_header) +
