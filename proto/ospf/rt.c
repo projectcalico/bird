@@ -11,9 +11,9 @@
 static void add_cand(list * l, struct top_hash_entry *en, 
 		     struct top_hash_entry *par, u32 dist,
 		     struct ospf_area *oa);
-static void calc_next_hop(struct ospf_area *oa,
-			  struct top_hash_entry *en,
-			  struct top_hash_entry *par);
+static int calc_next_hop(struct ospf_area *oa,
+			 struct top_hash_entry *en,
+			 struct top_hash_entry *par);
 static void ospf_ext_spf(struct proto_ospf *po);
 static void rt_sync(struct proto_ospf *po);
 
@@ -987,17 +987,22 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
    */
 
   /* FIXME - fix link_back()
+   * NOTE - we should not change link_back when
+   * it is already computed with different way and calc_next_hop()
+   * for current would fail
   if (!link_back(oa, en, par))
     return;
   */
 
+  if (!calc_next_hop(oa, en, par))
+  {
+    log(L_WARN "Cannot find next hop for LSA (Type: %04x, Id: %R, Rt: %R)",
+	en->lsa.type, en->lsa.id, en->lsa.rt);
+    return;
+  }
+
   DBG("     Adding candidate: rt: %R, id: %R, type: %u\n",
       en->lsa.rt, en->lsa.id, en->lsa.type);
-
-  calc_next_hop(oa, en, par);
-
-  if (!en->nhi)
-    return;			/* We cannot find next hop, ignore it */
 
   if (en->color == CANDIDATE)
   {				/* We found a shorter path */
@@ -1049,7 +1054,7 @@ match_dr(struct ospf_iface *ifa, struct top_hash_entry *en)
 #endif
 }
 
-static void
+static int
 calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
 	      struct top_hash_entry *par)
 {
@@ -1058,9 +1063,6 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
 
-  en->nhi = NULL;
-  en->nh = IPA_NONE;
-
   /* 16.1.1. The next hop calculation */
   DBG("     Next hop called.\n");
   if (ipa_equal(par->nh, IPA_NONE))
@@ -1068,57 +1070,58 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
     DBG("     Next hop calculating for id: %R rt: %R type: %u\n",
 	en->lsa.id, en->lsa.rt, en->lsa.type);
 
-    /* The parent vertex is the root */
-    if (par == oa->rt)
+    /* 
+     * There are three cases:
+     * 1) en is a local network (and par is root)
+     * 2) en is a ptp or ptmp neighbor (and par is root)
+     * 3) en is a bcast or nbma neighbor (and par is local network)
+     */
+
+    /* The first case - local network */
+    if ((en->lsa.type == LSA_T_NET) && (par == oa->rt))
     {
-      if (en->lsa.type == LSA_T_NET)
-      {
-	WALK_LIST(ifa, po->iface_list)
-	  if (match_dr(ifa, en))
+      WALK_LIST(ifa, po->iface_list)
+	if (match_dr(ifa, en))
 	  {
-	      en->nhi = ifa;
-	      return;
+	    en->nh = IPA_NONE;
+	    en->nhi = ifa;
+	    return 1;
 	  }
-	return;
-      }
-      else
-      {
-	if ((neigh = find_neigh_noifa(po, en->lsa.rt)) == NULL)
-	  return;
-	en->nhi = neigh->ifa;
-	en->nh = neigh->ip;
-	/* Yes, neighbor is it's own next hop */
-	return;
-      }
+      return 0;
     }
 
-    /* The parent vertex is a network that directly connects the
-       calculating router to the destination router. */
-    if (par->lsa.type == LSA_T_NET)
+    /* 
+     * Remaining cases - local neighbours.
+     * There are two problems with this code:
+     * 1) we use IP address from HELLO packet
+     *    and not the one from LSA (router or link).
+     *    This may break NBMA networks
+     * 2) we use find_neigh_noifa() and does not
+     *    take into account associated iface.
+     *    This breaks neighbors connected by more links.
+     */
+
+    if ((en->lsa.type == LSA_T_RT) && 
+	((par == oa->rt) || (par->lsa.type == LSA_T_NET)))
     {
-      if (en->lsa.type == LSA_T_NET)
-	bug("Parent for net is net?");
-      if ((en->nhi = par->nhi) == NULL)
-	bug("Did not find next hop interface for INSPF lsa!");
+      if ((neigh = find_neigh_noifa(po, en->lsa.rt)) != NULL)
+	{
+	  en->nh = neigh->ip;
+	  en->nhi = neigh->ifa;
+	  return 1;
+	}
+      return 0;
+    }
 
-      if ((neigh = find_neigh_noifa(po, en->lsa.rt)) == NULL)
-	return;
-      en->nhi = neigh->ifa;
-      en->nh = neigh->ip;
-      /* Yes, neighbor is it's own next hop */
-      return;
-    }
-    else
-    {				/* Parent is some RT neighbor */
-      log(L_ERR "Router's parent has no next hop. (EN=%R, PAR=%R)",
-	  en->lsa.id, par->lsa.id);
-      /* I hope this would never happen */
-      return;
-    }
+    /* Probably bug or some race condition, we log it */
+    log(L_ERR "Unexpected case in next hop calculation");
+
+    return 0;
   }
-  en->nhi = par->nhi;
+
   en->nh = par->nh;
-  DBG("     Next hop calculated: %I.\n", en->nh);
+  en->nhi = par->nhi;
+  return 1;
 }
 
 static void
