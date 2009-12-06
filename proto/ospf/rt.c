@@ -439,24 +439,26 @@ ospf_rt_spfa(struct ospf_area *oa)
   }
 }
 
-#if 0
 static int
-link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entry *pre)
+link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry *par)
 {
   u32 i, *rts;
   struct ospf_lsa_net *ln;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_rt_link *rtl, *rr;
+  struct top_hash_entry *tmp;
   struct proto_ospf *po = oa->po;
 
-  if (!pre) return 0;
-  if (!fol) return 0;
-  switch (fol->lsa.type)
+  if (!en || !par) return 0;
+
+  // FIXME lb should be properly set for vlinks */
+  en->lb = IPA_NONE;
+  switch (en->lsa.type)
   {
     case LSA_T_RT:
-      rt = (struct ospf_lsa_rt *) fol->lsa_body;
+      rt = (struct ospf_lsa_rt *) en->lsa_body;
       rr = (struct ospf_lsa_rt_link *) (rt + 1);
-      for (i = 0; i < lsa_rt_count(&fol->lsa); i++)
+      for (i = 0; i < lsa_rt_count(&en->lsa); i++)
       {
 	rtl = (rr + i);
 	switch (rtl->type)
@@ -464,43 +466,44 @@ link_back(struct ospf_area *oa, struct top_hash_entry *fol, struct top_hash_entr
 	case LSART_STUB:
 	  break;
 	case LSART_NET:
-	  if (ospf_hash_find(po->gr, oa->areaid, rtl->id, rtl->id, LSA_T_NET) == pre)
-          {
-            fol->lb = ipa_from_u32(rtl->data);
+#ifdef OSPFv2
+	  /* In OSPFv2, rtl->id is IP addres of DR, Router ID is not known */
+	  tmp = ospf_hash_find_net(po->gr, oa->areaid, rtl->id);
+#else /* OSPFv3 */
+	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->nif, rtl->id, LSA_T_NET);
+#endif
+	  if (tmp == par)
             return 1;
-          }
+
 	  break;
 	case LSART_VLNK:
 	case LSART_PTP:
-	  if (ospf_hash_find(po->gr, oa->areaid, rtl->id, rtl->id, LSA_T_RT) == pre)
-          {
-            fol->lb = ipa_from_u32(rtl->data);
+	  tmp = ospf_hash_find_rt(po->gr, oa->areaid, rtl->id);
+	  if (tmp == par)
             return 1;
-          }
+
 	  break;
 	default:
-	  log("Unknown link type in router lsa. (rid = %R)", fol->lsa.id);
+	  log(L_WARN "Unknown link type in router lsa. (rid = %R)", en->lsa.rt);
 	  break;
 	}
       }
       break;
     case LSA_T_NET:
-      ln = fol->lsa_body;
+      ln = en->lsa_body;
       rts = (u32 *) (ln + 1);
-      for (i = 0; i < lsa_net_count(&fol->lsa); i++)
+      for (i = 0; i < lsa_net_count(&en->lsa); i++)
       {
-	if (ospf_hash_find(po->gr, oa->areaid, *(rts + i), *(rts + i), LSA_T_RT) == pre)
-        {
+	tmp = ospf_hash_find_rt(po->gr, oa->areaid, rts[i]);
+	if (tmp == par)
           return 1;
-        }
       }
       break;
     default:
-      bug("Unknown lsa type. (id = %R)", fol->lsa.id);
+      bug("Unknown lsa type %x.", en->lsa.type);
   }
   return 0;
 }
-#endif
 
 static void
 ospf_rt_sum_tr(struct ospf_area *oa)
@@ -986,13 +989,9 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
    * next hops. I'll start as soon as nest will
    */
 
-  /* FIXME - fix link_back()
-   * NOTE - we should not change link_back when
-   * it is already computed with different way and calc_next_hop()
-   * for current would fail
+  /* We should check whether there is a reverse link from en to par, */
   if (!link_back(oa, en, par))
     return;
-  */
 
   if (!calc_next_hop(oa, en, par))
   {
