@@ -493,6 +493,7 @@ ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
       if (ifa->iface == a->iface)
 	{
 	  schedule_rt_lsa(ifa->oa);
+	  /* Event 5 from RFC5340 4.4.3. */
 	  schedule_link_lsa(ifa);
 	  return;
 	}

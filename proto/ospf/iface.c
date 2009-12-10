@@ -263,6 +263,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 
       hello_timer_hook(ifa->hello_timer);
     }
+    schedule_link_lsa(ifa);
     schedule_rt_lsa(ifa->oa);
     break;
   case ISM_BACKS:
@@ -283,6 +284,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
   case ISM_DOWN:
     ospf_iface_chstate(ifa, OSPF_IS_DOWN);
     ospf_iface_down(ifa);
+    schedule_link_lsa(ifa);
     schedule_rt_lsa(oa);
     break;
   case ISM_LOOP:		/* Useless? */
@@ -387,7 +389,6 @@ ospf_iface_add(struct object_lock *lock)
 
   ifa->state = OSPF_IS_DOWN;
   ospf_iface_sm(ifa, ISM_UP);
-  schedule_link_lsa(ifa);
 }
 
 void
