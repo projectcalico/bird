@@ -45,7 +45,8 @@ void
 ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n, ip_addr faddr)
 {
-  struct proto *p = &ifa->oa->po->proto;
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
   char *beg = "Bad OSPF HELLO packet from ", *rec = " received: ";
   unsigned int size, i, twoway, oldpriority, eligible, peers;
   u32 olddr, oldbdr, oldiface_id, tmp;
@@ -175,7 +176,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   twoway = 0;
   for (i = 0; i < peers; i++)
   {
-    if (ntohl(*(pnrid + i)) == p->cf->global->router_id)
+    if (ntohl(pnrid[i]) == po->router_id)
     {
       DBG("%s: Twoway received from %I\n", p->name, faddr);
       ospf_neigh_sm(n, INM_2WAYREC);
@@ -206,9 +207,9 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   if (n->state >= NEIGHBOR_2WAY)
   {
 #ifdef OSPFv2
-    u32 rid = ipa_to_u32(n->ip);
+    u32 neigh = ipa_to_u32(n->ip);
 #else /* OSPFv3 */
-    u32 rid = p->cf->global->router_id;
+    u32 neigh = n->rid;
 #endif
 
     if (n->priority != oldpriority)
@@ -219,23 +220,23 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       ospf_iface_sm(ifa, ISM_NEICH);
 #endif
 
-    /* Router is declaring itself ad DR and there is no BDR */
-    if ((rid == n->dr) && (n->bdr == 0)
+    /* Neighbor is declaring itself ad DR and there is no BDR */
+    if ((n->dr == neigh) && (n->bdr == 0)
 	&& (n->state != NEIGHBOR_FULL))
       ospf_iface_sm(ifa, ISM_BACKS);
 
     /* Neighbor is declaring itself as BDR */
-    if ((rid == n->bdr) && (n->state != NEIGHBOR_FULL))
+    if ((n->bdr == neigh) && (n->state != NEIGHBOR_FULL))
       ospf_iface_sm(ifa, ISM_BACKS);
 
     /* Neighbor is newly declaring itself as DR or BDR */
-    if (((rid == n->dr) && (n->dr != olddr))
-	|| ((rid == n->bdr) && (n->bdr != oldbdr)))
+    if (((n->dr == neigh) && (n->dr != olddr))
+	|| ((n->bdr == neigh) && (n->bdr != oldbdr)))
       ospf_iface_sm(ifa, ISM_NEICH);
 
     /* Neighbor is no more declaring itself as DR or BDR */
-    if (((rid == olddr) && (n->dr != olddr))
-	|| ((rid == oldbdr) && (n->bdr != oldbdr)))
+    if (((olddr == neigh) && (n->dr != olddr))
+	|| ((oldbdr == neigh) && (n->bdr != oldbdr)))
       ospf_iface_sm(ifa, ISM_NEICH);
   }
 

@@ -424,7 +424,6 @@ originate_rt_lsa(struct ospf_area *oa)
   struct ospf_lsa_header lsa;
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
-  u32 rid = po->proto.cf->global->router_id;
   void *body;
 
   OSPF_TRACE(D_EVENTS, "Originating router-LSA for area %R", oa->areaid);
@@ -436,8 +435,8 @@ originate_rt_lsa(struct ospf_area *oa)
   lsa.options = oa->options;
 #endif
   
-  lsa.id = rid;
-  lsa.rt = rid;
+  lsa.id = po->router_id;
+  lsa.rt = po->router_id;
   lsa.sn = oa->rt ? (oa->rt->lsa.sn + 1) : LSA_INITSEQNO;
   u32 dom = oa->areaid;
 
@@ -473,6 +472,7 @@ static void *
 originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
 		       struct proto_ospf *po)
 {
+  u32 rid = proto_get_router_id(po->proto.cf);
   u16 i = 1;
   struct ospf_neighbor *n;
   struct ospf_lsa_net *net;
@@ -491,7 +491,7 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
   u32 options = 0;
 #endif
 
-  net->routers[0] = po->proto.cf->global->router_id;
+  net->routers[0] = po->router_id;
 
   WALK_LIST(n, ifa->neigh_list)
   {
@@ -532,10 +532,10 @@ void
 originate_net_lsa(struct ospf_iface *ifa)
 {
   struct proto_ospf *po = ifa->oa->po;
-  struct ospf_lsa_header lsa;
-  u32 rid = po->proto.cf->global->router_id;
-  u32 dom = ifa->oa->areaid;
   struct proto *p = &po->proto;
+  struct ospf_lsa_header lsa;
+  u32 dom = ifa->oa->areaid;
+  
   void *body;
 
   OSPF_TRACE(D_EVENTS, "Originating network-LSA for iface %s",
@@ -551,7 +551,7 @@ originate_net_lsa(struct ospf_iface *ifa)
   lsa.id = ifa->iface->index;
 #endif
 
-  lsa.rt = rid;
+  lsa.rt = po->router_id;
   lsa.sn = ifa->net_lsa ? (ifa->net_lsa->lsa.sn + 1) : LSA_INITSEQNO;
 
   body = originate_net_lsa_body(ifa, &lsa.length, po);
@@ -707,7 +707,6 @@ originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
   struct top_hash_entry *en;
-  u32 rid = po->proto.cf->global->router_id;
   u32 dom = oa->areaid;
   struct ospf_lsa_header lsa;
   void *body;
@@ -722,7 +721,7 @@ originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
 #endif
   lsa.type = LSA_T_SUM_NET;
   lsa.id = fibnode_to_lsaid(po, fn);
-  lsa.rt = rid;
+  lsa.rt = po->router_id;
   lsa.sn = LSA_INITSEQNO;
 
   if ((en = ospf_hash_find_header(po->gr, dom, &lsa)) != NULL)
@@ -749,7 +748,6 @@ originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
   struct top_hash_entry *en;
-  u32 rid = po->proto.cf->global->router_id;
   u32 dom = oa->areaid;  
   struct ospf_lsa_header lsa;
   void *body;
@@ -764,7 +762,7 @@ originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 
   lsa.type = LSA_T_SUM_RT;
   /* In OSPFv3, LSA ID is meaningless, but we still use Router ID of ASBR */
   lsa.id = ipa_to_rid(fn->prefix);
-  lsa.rt = rid;
+  lsa.rt = po->router_id;
   lsa.sn = LSA_INITSEQNO;
 
   if ((en = ospf_hash_find_header(po->gr, dom, &lsa)) != NULL)
@@ -793,10 +791,9 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
   struct top_hash_entry *en;
-  u32 rid = po->proto.cf->global->router_id;
   struct ospf_lsa_header lsa;
 
-  lsa.rt = rid;
+  lsa.rt = po->router_id;
   if (type == ORT_NET)
     {
       lsa.id = fibnode_to_lsaid(po, fn);
@@ -971,7 +968,6 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
   struct proto *p = &po->proto;
   struct fib_node *fn = &n->n;
   struct ospf_lsa_header lsa;
-  u32 rid = po->proto.cf->global->router_id;
   struct top_hash_entry *en = NULL;
   void *body;
   struct ospf_area *oa;
@@ -985,7 +981,7 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 #endif
   lsa.type = LSA_T_EXT;
   lsa.id = fibnode_to_lsaid(po, fn);
-  lsa.rt = rid;
+  lsa.rt = po->router_id;
   lsa.sn = LSA_INITSEQNO;
 
   if ((en = ospf_hash_find_header(po->gr, 0, &lsa)) != NULL)
@@ -1021,7 +1017,6 @@ flush_ext_lsa(net *n, struct proto_ospf *po)
 {
   struct proto *p = &po->proto;
   struct fib_node *fn = &n->n;
-  u32 rid = po->proto.cf->global->router_id;
   struct ospf_area *oa;
   struct top_hash_entry *en;
 
@@ -1030,7 +1025,7 @@ flush_ext_lsa(net *n, struct proto_ospf *po)
 
   u32 lsaid = fibnode_to_lsaid(po, fn);
 
-  if (en = ospf_hash_find(po->gr, 0, lsaid, rid, LSA_T_EXT))
+  if (en = ospf_hash_find(po->gr, 0, lsaid, po->router_id, LSA_T_EXT))
     {
       if (check_ext_lsaid_collision(fn, en))
 	{
@@ -1085,7 +1080,6 @@ originate_link_lsa(struct ospf_iface *ifa)
   struct ospf_lsa_header lsa;
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
-  u32 rid = po->proto.cf->global->router_id;
   void *body;
 
   /* FIXME check for vlink and skip that? */
@@ -1094,7 +1088,7 @@ originate_link_lsa(struct ospf_iface *ifa)
   lsa.age = 0;
   lsa.type = LSA_T_LINK;
   lsa.id = ifa->iface->index;
-  lsa.rt = rid;
+  lsa.rt = po->router_id;
   lsa.sn = ifa->link_lsa ? (ifa->link_lsa->lsa.sn + 1) : LSA_INITSEQNO;
   u32 dom = ifa->iface->index;
 
@@ -1127,7 +1121,6 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
   struct ospf_lsa_prefix *lp;
-  u32 rid = po->proto.cf->global->router_id;
   int net_lsa;
   int i = 0;
   u8 flags;
@@ -1136,7 +1129,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
   lp = lsab_allocz(po, sizeof(struct ospf_lsa_prefix));
   lp->ref_type = LSA_T_RT;
   lp->ref_id = 0;
-  lp->ref_rt = rid;
+  lp->ref_rt = po->router_id;
   lp = NULL; /* buffer might be reallocated later */
 
   WALK_LIST(ifa, po->iface_list)
@@ -1190,7 +1183,6 @@ originate_prefix_rt_lsa(struct ospf_area *oa)
 {
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;  
-  u32 rid = po->proto.cf->global->router_id;
   struct ospf_lsa_header lsa;
   void *body;
 
@@ -1199,7 +1191,7 @@ originate_prefix_rt_lsa(struct ospf_area *oa)
   lsa.age = 0;
   lsa.type = LSA_T_PREFIX;
   lsa.id = 0;
-  lsa.rt = rid;
+  lsa.rt = po->router_id;
   lsa.sn = oa->pxr_lsa ? (oa->pxr_lsa->lsa.sn + 1) : LSA_INITSEQNO;
   u32 dom = oa->areaid;
 
@@ -1289,14 +1281,13 @@ originate_prefix_net_lsa_body(struct ospf_iface *ifa, u16 *length)
   struct ospf_lsa_prefix *lp;
   struct ospf_neighbor *n;
   struct top_hash_entry *en;
-  u32 rid = po->proto.cf->global->router_id;
   int pxc, offset;
 
   ASSERT(po->lsab_used == 0);
   lp = lsab_allocz(po, sizeof(struct ospf_lsa_prefix));
   lp->ref_type = LSA_T_NET;
   lp->ref_id = ifa->net_lsa->lsa.id;
-  lp->ref_rt = rid;
+  lp->ref_rt = po->router_id;
   lp = NULL; /* buffer might be reallocated later */
 
   pxc = 0;
@@ -1322,7 +1313,6 @@ originate_prefix_net_lsa(struct ospf_iface *ifa)
 {
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
-  u32 rid = po->proto.cf->global->router_id;
   struct ospf_lsa_header lsa;
   void *body;
 
@@ -1332,7 +1322,7 @@ originate_prefix_net_lsa(struct ospf_iface *ifa)
   lsa.age = 0;
   lsa.type = LSA_T_PREFIX;
   lsa.id = ifa->iface->index;
-  lsa.rt = rid;
+  lsa.rt = po->router_id;
   lsa.sn = ifa->pxn_lsa ? (ifa->pxn_lsa->lsa.sn + 1) : LSA_INITSEQNO;
   u32 dom = ifa->oa->areaid;
 

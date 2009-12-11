@@ -65,8 +65,7 @@ ospf_age(struct proto_ospf *po)
 	flush_lsa(en, po);
       continue;
     }
-    if ((en->lsa.rt == p->cf->global->router_id) &&
-	(en->lsa.age >= LSREFRESHTIME))
+    if ((en->lsa.rt == po->router_id) && (en->lsa.age >= LSREFRESHTIME))
     {
       OSPF_TRACE(D_EVENTS, "Refreshing my LSA: Type: %u, Id: %R, Rt: %R",
 		 en->lsa.type, en->lsa.id, en->lsa.rt);

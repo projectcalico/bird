@@ -13,8 +13,9 @@
 void
 ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
 {
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
   struct ospf_packet *pkt;
-  struct proto *p = (struct proto *) (ifa->oa->po);
 
   pkt = (struct ospf_packet *) buf;
 
@@ -22,7 +23,7 @@ ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
 
   pkt->type = h_type;
 
-  pkt->routerid = htonl(p->cf->global->router_id);
+  pkt->routerid = htonl(po->router_id);
   pkt->areaid = htonl(ifa->oa->areaid);
 
 #ifdef OSPFv3
@@ -345,7 +346,7 @@ ospf_rx_hook(sock * sk, int size)
   }
 #endif
 
-  if (ntohl(ps->routerid) == p->cf->global->router_id)
+  if (ntohl(ps->routerid) == po->router_id)
   {
     log(L_ERR "%s%I - received my own router ID!", mesg, sk->faddr);
     return 1;

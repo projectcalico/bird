@@ -730,6 +730,7 @@ struct proto_ospf
   struct ospf_area *backbone;	/* If exists */
   void *lsab;			/* LSA buffer used when originating router LSAs */
   int lsab_size, lsab_used;
+  u32 router_id;
 };
 
 struct ospf_iface_patt

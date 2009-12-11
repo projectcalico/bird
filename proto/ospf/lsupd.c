@@ -524,7 +524,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     if ((lsadb == NULL) || (lsa_comp(&lsatmp, &lsadb->lsa) == CMP_NEWER))
     {
       struct ospf_iface *ift = NULL;
-      int self = (lsatmp.rt == p->cf->global->router_id);
+      int self = (lsatmp.rt == po->router_id);
 
       DBG("PG143(5): Received LSA is newer\n");
 

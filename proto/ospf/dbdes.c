@@ -247,8 +247,8 @@ void
 ospf_dbdes_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n)
 {
-  struct proto *p = &ifa->oa->po->proto;
-  u32 myrid = p->cf->global->router_id;
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
 
   unsigned int size = ntohs(ps_i->length);
   if (size < sizeof(struct ospf_dbdes_packet))
@@ -278,7 +278,7 @@ ospf_dbdes_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       return;
   case NEIGHBOR_EXSTART:
     if ((ps->imms.bit.m && ps->imms.bit.ms && ps->imms.bit.i)
-	&& (n->rid > myrid) && (size == sizeof(struct ospf_dbdes_packet)))
+	&& (n->rid > po->router_id) && (size == sizeof(struct ospf_dbdes_packet)))
     {
       /* I'm slave! */
       n->dds = ps_ddseq;
@@ -293,7 +293,7 @@ ospf_dbdes_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     }
 
     if (((ps->imms.bit.i == 0) && (ps->imms.bit.ms == 0)) &&
-        (n->rid < myrid) && (n->dds == ps_ddseq))
+        (n->rid < po->router_id) && (n->dds == ps_ddseq))
     {
       /* I'm master! */
       n->options = ps_options;

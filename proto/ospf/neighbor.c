@@ -439,14 +439,13 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 void
 bdr_election(struct ospf_iface *ifa)
 {
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
+  u32 myid = po->router_id;
   struct ospf_neighbor *neigh, *ndr, *nbdr, me;
-  u32 myid;
   int doadj;
-  struct proto *p = &ifa->oa->po->proto;
 
   DBG("(B)DR election.\n");
-
-  myid = p->cf->global->router_id;
 
   me.state = NEIGHBOR_2WAY;
   me.rid = myid;

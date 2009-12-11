@@ -534,9 +534,8 @@ ospf_rt_sum_tr(struct ospf_area *oa)
     if (en->dist == LSINFINITY)
       continue;
 
-    if (en->lsa.rt == p->cf->global->router_id)
+    if (en->lsa.rt == po->router_id)
       continue;
-
 
     if (en->lsa.type == LSA_T_SUM_NET)
     {
@@ -630,7 +629,7 @@ ospf_rt_sum(struct ospf_area *oa)
       continue;
 
     /* Page 169 (2) */
-    if (en->lsa.rt == p->cf->global->router_id)
+    if (en->lsa.rt == po->router_id)
       continue;
 
 
@@ -826,7 +825,7 @@ ospf_ext_spf(struct proto_ospf *po)
       continue;
 
     /* 16.4. (2) */
-    if (en->lsa.rt == p->cf->global->router_id)
+    if (en->lsa.rt == po->router_id)
       continue;
 
     DBG("%s: Working on LSA. ID: %R, RT: %R, Type: %u\n",
