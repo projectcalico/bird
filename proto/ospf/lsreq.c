@@ -18,7 +18,7 @@ static void ospf_dump_lsreq(struct proto *p, struct ospf_lsreq_packet *pkt)
   struct ospf_lsreq_header *plsr = (void *) (pkt + 1);
   int i, j;
 
-  j = (ntohs(op->length) - sizeof(struct ospf_dbdes_packet)) /
+  j = (ntohs(op->length) - sizeof(struct ospf_lsreq_packet)) /
     sizeof(struct ospf_lsreq_header);
 
   for (i = 0; i < j; i++)
