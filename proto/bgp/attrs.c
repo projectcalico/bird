@@ -864,10 +864,12 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   z = bgp_set_attr_wa(ea->attrs+2, pool, BA_NEXT_HOP, NEXT_HOP_LENGTH);
   if (p->cf->next_hop_self ||
       rta->dest != RTD_ROUTER ||
-      (!p->is_internal && (e->attrs->iface != p->neigh->iface)))
+      ipa_equal(e->attrs->gw, IPA_NONE) ||
+      ipa_has_link_scope(rta->gw) ||
+      (!p->is_internal && (rta->iface != p->neigh->iface)))
     set_next_hop(z, p->source_addr);
   else
-    set_next_hop(z, e->attrs->gw);
+    set_next_hop(z, rta->gw);
 
   bgp_set_attr(ea->attrs+3, BA_LOCAL_PREF, 0);
 

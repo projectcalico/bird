@@ -899,12 +899,11 @@ originate_ext_lsa_body(net *n, rte *e, u16 *length, struct proto_ospf *po,
   int size = sizeof(struct ospf_lsa_ext);
   u32 *buf;
 
-  if (!ipa_equal(e->attrs->gw, IPA_NONE))
-  {
-    /* FIXME: check for link-local in OSPFv3 ? */
-    if (ospf_iface_find((struct proto_ospf *) p, e->attrs->iface) != NULL)
-      gw = 1;
-  }
+  if ((e->attrs->dest == RTD_ROUTER) &&
+      !ipa_equal(e->attrs->gw, IPA_NONE) &&
+      !ipa_has_link_scope(e->attrs->gw) &&
+      (ospf_iface_find((struct proto_ospf *) p, e->attrs->iface) != NULL))
+    gw = 1;
 
 #ifdef OSPFv3
   size += IPV6_PREFIX_SPACE(n->n.pxlen);
