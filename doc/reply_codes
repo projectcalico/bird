@@ -42,6 +42,7 @@ Reply codes of BIRD command-line interface
 1014	Show ospf
 1015	Show ospf interface
 1016	Show ospf state/topology
+1017	Show ospf lsadb
 
 8000	Reply too long
 8001	Route not found
