@@ -586,6 +586,11 @@ proto_schedule_feed(struct proto *p, int initial)
   DBG("%s: Scheduling meal\n", p->name);
   p->core_state = FS_FEEDING;
   p->refeeding = !initial;
+
+  /* Hack: reset exp_routes during refeed, and do not decrease it later */
+  if (!initial)
+    p->stats.exp_routes = 0;
+
   proto_relink(p);
   p->attn->hook = initial ? proto_feed_initial : proto_feed_more;
   ev_schedule(p->attn);
@@ -825,7 +830,7 @@ proto_xxable(char *pattern, int xx)
 	cnt++;
 	switch (xx)
 	  {
-	  case 0:
+	  case XX_DISABLE:
 	    if (p->disabled)
 	      cli_msg(-8, "%s: already disabled", p->name);
 	    else
@@ -835,7 +840,8 @@ proto_xxable(char *pattern, int xx)
 		proto_rethink_goal(p);
 	      }
 	    break;
-	  case 1:
+
+	  case XX_ENABLE:
 	    if (!p->disabled)
 	      cli_msg(-10, "%s: already enabled", p->name);
 	    else
@@ -845,7 +851,8 @@ proto_xxable(char *pattern, int xx)
 		proto_rethink_goal(p);
 	      }
 	    break;
-	  case 2:
+
+	  case XX_RESTART:
 	    if (p->disabled)
 	      cli_msg(-8, "%s: already disabled", p->name);
 	    else
@@ -857,24 +864,29 @@ proto_xxable(char *pattern, int xx)
 		cli_msg(-12, "%s: restarted", p->name);
 	      }
 	    break;
-	  case 3:
-	    // FIXME change msg number
+
+	  case XX_RELOAD:
+	  case XX_RELOAD_IN:
+	  case XX_RELOAD_OUT:
 	    if (p->disabled)
-	      cli_msg(-8, "%s: already disabled", p->name);
-	    else if (p->reload_routes && p->reload_routes(p))
-	      cli_msg(-12, "%s: reloading", p->name);
-	    else
-	      cli_msg(-12, "%s: reload failed", p->name);
-	    break;
-	  case 4:
-	    // FIXME change msg number
-	    if (p->disabled)
-	      cli_msg(-8, "%s: already disabled", p->name);
-	    else
 	      {
-		proto_request_feeding(p);
-		cli_msg(-12, "%s: reexport failed", p->name);
+		cli_msg(-8, "%s: already disabled", p->name);
+		break;
 	      }
+
+	    /* re-importing routes */
+	    if (xx != XX_RELOAD_OUT)
+	      if (! (p->reload_routes && p->reload_routes(p)))
+		{
+		  cli_msg(-8006, "%s: reload failed", p->name);
+		  break;
+		}
+		 
+	    /* re-exporting routes */
+	    if (xx != XX_RELOAD_IN)
+	      proto_request_feeding(p);
+
+	    cli_msg(-15, "%s: reloading", p->name);
 	    break;
 
 	  default:

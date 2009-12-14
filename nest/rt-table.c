@@ -165,6 +165,8 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
   rte *old0 = old;
   int ok;
 
+  int fast_exit_hack = 0;
+
   if (new)
     {
       p->stats.exp_updates_received++;
@@ -174,6 +176,7 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 	{
 	  p->stats.exp_updates_rejected++;
 	  drop_reason = "out of scope";
+	  fast_exit_hack = 1;
 	}
       else if ((ok = p->import_control ? p->import_control(p, &new, &tmpa, rte_update_pool) : 0) < 0)
 	{
@@ -198,6 +201,11 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
     }
   else
     p->stats.exp_withdraws_received++;
+
+  /* Hack: This is here to prevent 'spurious withdraws'
+     for loopback addresses during reload. */
+  if (fast_exit_hack)
+    return;
 
   /*
    * This is a tricky part - we don't know whether route 'old' was
@@ -245,9 +253,11 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
   else
     p->stats.exp_withdraws_accepted++;
 
+  /* Hack: We do not decrease exp_routes during refeed, we instead
+     reset exp_routes at the start of refeed. */
   if (new)
     p->stats.exp_routes++;
-  if (old)
+  if (old && !refeed)
     p->stats.exp_routes--;
 
   if (p->debug & D_ROUTES)

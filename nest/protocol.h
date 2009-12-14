@@ -201,6 +201,13 @@ struct proto *proto_get_named(struct symbol *, struct protocol *);
 void proto_xxable(char *, int);
 void proto_debug(char *, unsigned int);
 
+#define XX_DISABLE	0
+#define XX_ENABLE	1
+#define XX_RESTART	2
+#define XX_RELOAD	3
+#define XX_RELOAD_IN	4
+#define XX_RELOAD_OUT	5
+
 static inline u32
 proto_get_router_id(struct proto_config *pc)
 {

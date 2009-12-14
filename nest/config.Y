@@ -45,7 +45,7 @@ CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILT
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
 CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE)
 CF_KEYWORDS(LISTEN, BGP, V6ONLY, ADDRESS, PORT, PASSWORDS, DESCRIPTION)
-CF_KEYWORDS(RELOAD, REFEED)
+CF_KEYWORDS(RELOAD, IN, OUT)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_IA, OSPF_EXT1, OSPF_EXT2, BGP, PIPE)
@@ -438,17 +438,17 @@ echo_size:
  ;
 
 CF_CLI(DISABLE, proto_patt, <protocol> | \"<pattern>\" | all, [[Disable protocol]])
-{ proto_xxable($2, 0); } ;
+{ proto_xxable($2, XX_DISABLE); } ;
 CF_CLI(ENABLE, proto_patt, <protocol> | \"<pattern>\" | all, [[Enable protocol]])
-{ proto_xxable($2, 1); } ;
+{ proto_xxable($2, XX_ENABLE); } ;
 CF_CLI(RESTART, proto_patt, <protocol> | \"<pattern>\" | all, [[Restart protocol]])
-{ proto_xxable($2, 2); } ;
+{ proto_xxable($2, XX_RESTART); } ;
 CF_CLI(RELOAD, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol]])
-{ proto_xxable($2, 3); } ;
-CF_CLI(REFEED, proto_patt, <protocol> | \"<pattern>\" | all, [[Refeed protocol BROKEN]])
-{ proto_xxable($2, 4); } ;
-
-
+{ proto_xxable($2, XX_RELOAD); } ;
+CF_CLI(RELOAD IN, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol (just imported routes)]])
+{ proto_xxable($3, XX_RELOAD_IN); } ;
+CF_CLI(RELOAD OUT, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol (just exported routes)]])
+{ proto_xxable($3, XX_RELOAD_OUT); } ;
 
 CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging]])
 CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging]])
