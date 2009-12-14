@@ -22,8 +22,8 @@ void ospf_dump_lsahdr(struct proto *p, struct ospf_lsa_header *lsa_n)
   struct ospf_lsa_header lsa;
   ntohlsah(lsa_n, &lsa);
 
-  log(L_TRACE "%s:     LSA      Id: %R, Rt: %R, Type: 0x%04x, Age: %u, Seqno: 0x%08x, Sum: 0x%04x",
-      p->name, lsa.id, lsa.rt, lsa.type, lsa.age, lsa.sn, lsa.checksum);
+  log(L_TRACE "%s:     LSA      Type: %04x, Id: %R, Rt: %R, Age: %u, Seq: %08x, Sum: %04x",
+      p->name, lsa.type, lsa.id, lsa.rt, lsa.age, lsa.sn, lsa.checksum);
 }
 
 void ospf_dump_common(struct proto *p, struct ospf_packet *op)
@@ -561,8 +561,8 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 	lsatmp.sn = LSA_MAXSEQNO;
 	lsa->age = htons(LSA_MAXAGE);
 	lsa->sn = htonl(LSA_MAXSEQNO);
-	OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa.");
-	OSPF_TRACE(D_EVENTS, "Type: %d, Id: %R, Rt: %R",
+	OSPF_TRACE(D_EVENTS, "Premature aging self originated LSA.");
+	OSPF_TRACE(D_EVENTS, "Type: %04x, Id: %R, Rt: %R",
 		   lsatmp.type, lsatmp.id, lsatmp.rt);
 	lsasum_check(lsa, (lsa + 1));	/* It also calculates chsum! */
 	lsatmp.checksum = ntohs(lsa->checksum);
@@ -715,6 +715,6 @@ ospf_lsupd_flush_nlsa(struct proto_ospf *po, struct top_hash_entry *en)
   lsa->sn = LSA_MAXSEQNO;
   lsasum_calculate(lsa, en->lsa_body);
   OSPF_TRACE(D_EVENTS, "Premature aging self originated lsa!");
-  OSPF_TRACE(D_EVENTS, "Type: %d, Id: %R, Rt: %R", lsa->type, lsa->id, lsa->rt);
+  OSPF_TRACE(D_EVENTS, "Type: %04x, Id: %R, Rt: %R", lsa->type, lsa->id, lsa->rt);
   ospf_lsupd_flood(po, NULL, NULL, lsa, en->domain, 0);
 }

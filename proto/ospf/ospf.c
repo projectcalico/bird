@@ -117,9 +117,9 @@ ospf_start(struct proto *p)
   struct ospf_area_config *ac;
   struct ospf_area *oa;
 
+  po->router_id = proto_get_router_id(p->cf);
   po->rfc1583 = c->rfc1583;
   po->ebit = 0;
-
   po->tick = c->tick;
   po->disp_timer = tm_new(p->pool);
   po->disp_timer->data = po;
@@ -1527,15 +1527,15 @@ ospf_sh_lsadb(struct proto *p)
 #endif
       }
       cli_msg(-1017, "");
-      cli_msg(-1017,"  Router ID       LS ID          Type   Age   Sequence Checksum");
+      cli_msg(-1017," Type   LS ID           Router           Age  Sequence  Checksum");
 
       last_dscope = dscope;
       last_domain = hea[i]->domain;
     }
 
 
-    cli_msg(-1017,"%-15R %-15R 0x%04x %5u 0x%08x 0x%04x",
-	    lsa->rt, lsa->id, lsa->type, lsa->age, lsa->sn, lsa->checksum);
+    cli_msg(-1017," %04x  %-15R %-15R %5u  %08x    %04x",
+	    lsa->type, lsa->id, lsa->rt, lsa->age, lsa->sn, lsa->checksum);
   }
   cli_msg(0, "");
 }

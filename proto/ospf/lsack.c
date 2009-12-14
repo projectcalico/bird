@@ -172,12 +172,12 @@ ospf_lsack_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       if ((lsa.sn == LSA_MAXSEQNO) && (lsa.age == LSA_MAXAGE))
 	continue;
 
-      OSPF_TRACE(D_PACKETS, "Strange LS acknoledgement from %I", n->ip);
-      OSPF_TRACE(D_PACKETS, "Id: %R, Rt: %R, Type: 0x%04x",
-		 lsa.id, lsa.rt, lsa.type);
-      OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seqno: 0x%08x, Sum: 0x%04x",
+      OSPF_TRACE(D_PACKETS, "Strange LSACK from %I", n->ip);
+      OSPF_TRACE(D_PACKETS, "Type: %04x, Id: %R, Rt: %R",
+		 lsa.type, lsa.id, lsa.rt);
+      OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seq: %08x, Sum: %04x",
 		 en->lsa.age, en->lsa.sn, en->lsa.checksum);
-      OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seqno: 0x%08x, Sum: 0x%04x",
+      OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seq: %08x, Sum: %04x",
 		 lsa.age, lsa.sn, lsa.checksum);
       continue;
     }

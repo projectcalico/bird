@@ -14,7 +14,7 @@ flush_lsa(struct top_hash_entry *en, struct proto_ospf *po)
   struct proto *p = &po->proto;
 
   OSPF_TRACE(D_EVENTS,
-	     "Going to remove node Type: %u, Id: %R, Rt: %R, Age: %u, SN: 0x%x",
+	     "Going to remove LSA Type: %04x, Id: %R, Rt: %R, Age: %u, Seqno: 0x%x",
 	     en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age, en->lsa.sn);
   s_rem_node(SNODE en);
   if (en->lsa_body != NULL)
@@ -143,6 +143,7 @@ ntohlsab(void *n, void *h, u16 type, u16 len)
     hid[i] = ntohl(nid[i]);
 }
 
+/*
 void
 buf_dump(const char *hdr, const byte *buf, int blen)
 {
@@ -171,6 +172,7 @@ buf_dump(const char *hdr, const byte *buf, int blen)
   *bp = 0;
   log(L_WARN "%s\t%s", lhdr, b2);
 }
+*/
 
 #define MODX 4102		/* larges signed value without overflow */
 

@@ -868,8 +868,8 @@ ospf_ext_spf(struct proto_ospf *po)
 
     if (pxlen < 0)
     {
-      log("%s: Invalid mask in LSA. ID: %R, RT: %R, Type: %u",
-	  p->name, en->lsa.id, en->lsa.rt, en->lsa.type);
+      log(L_WARN "%s: Invalid mask in LSA (Type: %04x, Id: %R, Rt: %R)",
+	  p->name, en->lsa.type, en->lsa.id, en->lsa.rt);
       continue;
     }
     nhi = NULL;

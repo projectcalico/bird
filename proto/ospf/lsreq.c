@@ -28,8 +28,8 @@ static void ospf_dump_lsreq(struct proto *p, struct ospf_lsreq_packet *pkt)
     sizeof(struct ospf_lsreq_header);
 
   for (i = 0; i < j; i++)
-    log(L_TRACE "%s:     LSR      Id: %R, Rt: %R, Type: 0x%04x", p->name,
-	htonl(pkt->lsh[i].id), htonl(pkt->lsh[i].rt), htonl(pkt->lsh[i].type));
+    log(L_TRACE "%s:     LSR      Type: %04x, Id: %R, Rt: %R", p->name,
+	htonl(pkt->lsh[i].type), htonl(pkt->lsh[i].id), htonl(pkt->lsh[i].rt));
 }
 
 void
@@ -135,7 +135,7 @@ ospf_lsreq_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     add_tail(&uplist, NODE llsh);
     if (ospf_hash_find(po->gr, dom, hid, hrt, htype) == NULL)
     {
-      log(L_WARN "Received bad LS req from: %I looking: Type: %u, ID: %R, RT: %R",
+      log(L_WARN "Received bad LSREQ from %I: Type: %04x, Id: %R, Rt: %R",
 	  n->ip, htype, hid, hrt);
       ospf_neigh_sm(n, INM_BADLSREQ);
       rfree(upslab);

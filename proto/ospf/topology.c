@@ -472,7 +472,6 @@ static void *
 originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
 		       struct proto_ospf *po)
 {
-  u32 rid = proto_get_router_id(po->proto.cf);
   u16 i = 1;
   struct ospf_neighbor *n;
   struct ospf_lsa_net *net;
