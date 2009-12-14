@@ -884,12 +884,6 @@ bgp_check(struct bgp_config *c)
   if (!c->remote_as)
     cf_error("Neighbor must be configured");
 
-  if (!bgp_as4_support && c->enable_as4)
-    cf_error("AS4 support disabled globally");
-
-  if (!bgp_as4_support && (c->local_as > 0xFFFF))
-    cf_error("Local AS number out of range");
-
   if (!(c->capabilities && c->enable_as4) && (c->remote_as > 0xFFFF))
     cf_error("Neighbor AS number out of range (AS4 not available)");
 

@@ -132,8 +132,6 @@ struct bgp_bucket {
 
 extern struct linpool *bgp_linpool;
 
-extern int bgp_as4_support;
-
 
 void bgp_start_timer(struct timer *t, int value);
 void bgp_check(struct bgp_config *c);

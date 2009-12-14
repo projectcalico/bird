@@ -41,7 +41,7 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->error_delay_time_min = 60;
      BGP_CFG->error_delay_time_max = 300;
      BGP_CFG->enable_refresh = 1;
-     BGP_CFG->enable_as4 = bgp_as4_support;
+     BGP_CFG->enable_as4 = 1;
      BGP_CFG->capabilities = 2;
      BGP_CFG->advertise_ipv4 = 1;
  }

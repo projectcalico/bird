@@ -196,16 +196,8 @@ bgp_format_aggregator(eattr *a, byte *buf, int buflen UNUSED)
   byte *data = ad->data;
   u32 as;
 
-  if (bgp_as4_support)
-    {
-      as = get_u32(data);
-      data += 4;
-    }
-  else
-    {
-      as = get_u16(data);
-      data += 2;
-    }
+  as = get_u32(data);
+  data += 4;
 
   bsprintf(buf, "%d.%d.%d.%d AS%d", data[0], data[1], data[2], data[3], as);
 }
@@ -279,9 +271,8 @@ static struct attr_desc bgp_attr_table[] = {
     NULL, NULL }
 };
 
-/* BA_AS4_PATH is type EAF_TYPE_OPAQUE and not type EAF_TYPE_AS_PATH because
- * EAF_TYPE_AS_PATH is supposed to have different format (2 or 4 B for each ASN)
- * depending on bgp_as4_support variable.
+/* BA_AS4_PATH is type EAF_TYPE_OPAQUE and not type EAF_TYPE_AS_PATH.
+ * It does not matter as this attribute does not appear on routes in the routing table.
  */
 
 #define ATTR_KNOWN(code) ((code) < ARRAY_SIZE(bgp_attr_table) && bgp_attr_table[code].name)
@@ -449,7 +440,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
        * we have to convert our 4B AS_PATH to 2B AS_PATH and send our AS_PATH 
        * as optional AS4_PATH attribute.
        */
-      if ((code == BA_AS_PATH) && bgp_as4_support && (! p->as4_session))
+      if ((code == BA_AS_PATH) && (! p->as4_session))
 	{
 	  len = a->u.ptr->length;
 
@@ -491,7 +482,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 	}
 
       /* The same issue with AGGREGATOR attribute */
-      if ((code == BA_AGGREGATOR) && bgp_as4_support && (! p->as4_session))
+      if ((code == BA_AGGREGATOR) && (! p->as4_session))
 	{
 	  int new_used;
 
@@ -864,14 +855,10 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
     bgp_set_attr_wa(ea->attrs+1, pool, BA_AS_PATH, 0);
   else
     {
-      z = bgp_set_attr_wa(ea->attrs+1, pool, BA_AS_PATH, bgp_as4_support ? 6 : 4);
+      z = bgp_set_attr_wa(ea->attrs+1, pool, BA_AS_PATH, 6);
       z[0] = AS_PATH_SEQUENCE;
       z[1] = 1;				/* 1 AS */
-
-      if (bgp_as4_support)
-	put_u32(z+2, p->local_as);
-      else
-	put_u16(z+2, p->local_as);
+      put_u32(z+2, p->local_as);
     }
 
   z = bgp_set_attr_wa(ea->attrs+2, pool, BA_NEXT_HOP, NEXT_HOP_LENGTH);
@@ -1416,11 +1403,10 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   /* When receiving attributes from non-AS4-aware BGP speaker,
    * we have to reconstruct 4B AS_PATH and AGGREGATOR attributes
    */
-  if (bgp_as4_support && (! bgp->as4_session))
+  if (! bgp->as4_session)
     bgp_reconstruct_4b_atts(bgp, a, pool);
 
-  if (bgp_as4_support)
-    bgp_remove_as4_attrs(bgp, a);
+  bgp_remove_as4_attrs(bgp, a);
 
   /* If the AS path attribute contains our AS, reject the routes */
   if (bgp_as_path_loopy(bgp, a))
