@@ -719,7 +719,8 @@ struct proto_ospf
   unsigned tick;
   struct top_graph *gr;		/* LSA graph */
   slist lsal;			/* List of all LSA's */
-  int calcrt;			/* Routing table calculation scheduled? */
+  int calcrt;			/* Routing table calculation scheduled?
+				   0=no, 1=normal, 2=forced reload */
   int cleanup;                  /* Should I cleanup after RT calculation? */
   list iface_list;		/* Interfaces we really use */
   list area_list;

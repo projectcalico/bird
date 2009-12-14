@@ -77,6 +77,7 @@
 #include "ospf.h"
 
 
+static int ospf_reload_routes(struct proto *p);
 static void ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old UNUSED, ea_list * attrs);
 static void ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a);
 static int ospf_rte_better(struct rte *new, struct rte *old);
@@ -234,9 +235,10 @@ ospf_init(struct proto_config *c)
 {
   struct proto *p = proto_new(c, sizeof(struct proto_ospf));
 
-  p->import_control = ospf_import_control;
   p->make_tmp_attrs = ospf_make_tmp_attrs;
   p->store_tmp_attrs = ospf_store_tmp_attrs;
+  p->import_control = ospf_import_control;
+  p->reload_routes = ospf_reload_routes;
   p->accept_ra_types = RA_OPTIMAL;
   p->rt_notify = ospf_rt_notify;
   p->if_notify = ospf_iface_notify;
@@ -343,6 +345,19 @@ schedule_rtcalc(struct proto_ospf *po)
 
   OSPF_TRACE(D_EVENTS, "Scheduling routing table calculation");
   po->calcrt = 1;
+}
+
+static int
+ospf_reload_routes(struct proto *p)
+{
+  struct proto_ospf *po = (struct proto_ospf *) p;
+
+  if (po->calcrt != 2)
+    OSPF_TRACE(D_EVENTS, "Scheduling routing table calculation with route reload");
+
+  po->calcrt = 2;
+
+  return 1;
 }
 
 /**

@@ -1133,6 +1133,9 @@ rt_sync(struct proto_ospf *po)
   struct area_net *anet;
   int flush;
 
+  /* This is used for forced reload of routes */
+  int reload = (po->calcrt == 2);
+
   OSPF_TRACE(D_EVENTS, "Starting routing table synchronisation");
 
   DBG("Now syncing my rt table with nest's\n");
@@ -1142,7 +1145,7 @@ again1:
   {
     nf = (ort *) nftmp;
     check_sum_lsa(po, nf, ORT_NET);
-    if (memcmp(&nf->n, &nf->o, sizeof(orta)))
+    if (reload || memcmp(&nf->n, &nf->o, sizeof(orta)))
     {				/* Some difference */
       net *ne;
       rta a0;
