@@ -676,6 +676,17 @@ bgp_neigh_notify(neighbor *n)
     }
 }
 
+static int
+bgp_reload_routes(struct proto *P)
+{
+  struct bgp_proto *p = (struct bgp_proto *) P;
+  if (!p->conn || !p->conn->peer_refresh_support)
+    return 0;
+
+  bgp_schedule_packet(p->conn, PKT_ROUTE_REFRESH);
+  return 1;
+}
+
 static void
 bgp_start_locked(struct object_lock *lock)
 {
@@ -792,6 +803,7 @@ bgp_init(struct proto_config *C)
   P->rte_better = bgp_rte_better;
   P->import_control = bgp_import_control;
   P->neigh_notify = bgp_neigh_notify;
+  P->reload_routes = bgp_reload_routes;
   p->cf = c;
   p->local_as = c->local_as;
   p->remote_as = c->remote_as;
@@ -886,6 +898,10 @@ bgp_check(struct bgp_config *c)
 
   if ((c->local_as == c->remote_as) && (c->rs_client))
     cf_error("Only external neighbor can be RS client");
+
+  /* Different default based on rs_client */
+  if (c->missing_lladdr == 0)
+    c->missing_lladdr = c->rs_client ? MLL_DROP : MLL_SELF;
 }
 
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established", "Close" };

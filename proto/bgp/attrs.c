@@ -165,6 +165,22 @@ bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
 #endif
 }
 
+static void
+bgp_format_next_hop(eattr *a, byte *buf, int buflen UNUSED)
+{
+  ip_addr *ipp = (ip_addr *) a->u.ptr->data;
+#ifdef IPV6
+  /* in IPv6, we might have two addresses in NEXT HOP */
+  if ((a->u.ptr->length == NEXT_HOP_LENGTH) && ipa_nonzero(ipp[1]))
+    {
+      bsprintf(buf, "%I %I", ipp[0], ipp[1]);
+      return;
+    }
+#endif
+
+  bsprintf(buf, "%I", ipp[0]);
+}
+
 static int
 bgp_check_aggregator(struct bgp_proto *p, byte *a UNUSED, int len)
 {
@@ -234,7 +250,7 @@ static struct attr_desc bgp_attr_table[] = {
   { "as_path", -1, BAF_TRANSITIVE, EAF_TYPE_AS_PATH, 1,				/* BA_AS_PATH */
     NULL, NULL }, /* is checked by validate_as_path() as a special case */
   { "next_hop", 4, BAF_TRANSITIVE, EAF_TYPE_IP_ADDRESS, 1,			/* BA_NEXT_HOP */
-    bgp_check_next_hop, NULL },
+    bgp_check_next_hop, bgp_format_next_hop },
   { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 1,					/* BA_MULTI_EXIT_DISC */
     NULL, NULL },
   { "local_pref", 4, BAF_TRANSITIVE, EAF_TYPE_INT, 0,				/* BA_LOCAL_PREF */
@@ -1044,7 +1060,6 @@ bgp_rte_better(rte *new, rte *old)
     return 0;
 
   /* RFC 4271 9.1.2.2. c) Compare MED's */
-
   if (bgp_get_neighbor(new) == bgp_get_neighbor(old))
     {
       x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_MULTI_EXIT_DISC));
@@ -1082,11 +1097,18 @@ bgp_rte_better(rte *new, rte *old)
   y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_ORIGINATOR_ID));
   n = x ? x->u.data : new_bgp->remote_id;
   o = y ? y->u.data : old_bgp->remote_id;
+
+  /* RFC 5004 - prefer older routes */
+  /* (if both are external and from different peer) */
+  if ((new_bgp->cf->prefer_older || old_bgp->cf->prefer_older) &&
+      !new_bgp->is_internal && n != o)
+    return 0;
+
+  /* rest of RFC 4271 9.1.2.2. f) */
   if (n < o)
     return 1;
   if (n > o)
     return 0;
-
 
   /* RFC 4271 9.1.2.2. g) Compare peer IP adresses */
   return (ipa_compare(new_bgp->cf->remote_ip, old_bgp->cf->remote_ip) < 0);

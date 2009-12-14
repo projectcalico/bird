@@ -73,6 +73,10 @@ proto_relink(struct proto *p)
   rem_node(&p->n);
   switch (p->core_state)
     {
+    case FS_HUNGRY:
+      l = &inactive_proto_list;
+      break;
+    case FS_FEEDING:
     case FS_HAPPY:
       l = &active_proto_list;
       break;
@@ -80,7 +84,7 @@ proto_relink(struct proto *p)
       l = &flush_proto_list;
       break;
     default:
-      l = &inactive_proto_list;
+      ASSERT(0);
     }
   proto_enqueue(l, p);
 }
@@ -307,6 +311,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 	  if (sym && sym->class == SYM_PROTO && !new->shutdown)
 	    {
 	      /* Found match, let's check if we can smoothly switch to new configuration */
+	      /* No need to check description */
 	      nc = sym->def;
 	      if (!force_reconfig
 		  && nc->protocol == oc->protocol
@@ -548,7 +553,7 @@ proto_feed_more(void *P)
 }
 
 static void
-proto_feed(void *P)
+proto_feed_initial(void *P)
 {
   struct proto *p = P;
 
@@ -576,13 +581,48 @@ proto_schedule_flush(struct proto *p)
 }
 
 static void
-proto_schedule_feed(struct proto *p)
+proto_schedule_feed(struct proto *p, int initial)
 {
   DBG("%s: Scheduling meal\n", p->name);
   p->core_state = FS_FEEDING;
+  p->refeeding = !initial;
+
+  /* Hack: reset exp_routes during refeed, and do not decrease it later */
+  if (!initial)
+    p->stats.exp_routes = 0;
+
   proto_relink(p);
-  p->attn->hook = proto_feed;
+  p->attn->hook = initial ? proto_feed_initial : proto_feed_more;
   ev_schedule(p->attn);
+}
+
+/**
+ * proto_request_feeding - request feeding routes to the protocol
+ * @p: given protocol 
+ *
+ * Sometimes it is needed to send again all routes to the
+ * protocol. This is called feeding and can be requested by this
+ * function. This would cause protocol core state transition
+ * to FS_FEEDING (during feeding) and when completed, it will
+ * switch back to FS_HAPPY. This function can be called even
+ * when feeding is already running, in that case it is restarted.
+ */
+void
+proto_request_feeding(struct proto *p)
+{
+  ASSERT(p->proto_state == PS_UP);
+
+  /* If we are already feeding, we want to restart it */
+  if (p->core_state == FS_FEEDING)
+    {
+      /* Unless feeding is in initial state */
+      if (p->attn->hook == proto_feed_initial)
+	return;
+
+      rt_feed_baby_abort(p);
+    }
+
+  proto_schedule_feed(p, 0);
 }
 
 /**
@@ -614,7 +654,7 @@ proto_notify_state(struct proto *p, unsigned ps)
   switch (ps)
     {
     case PS_DOWN:
-      if ((cs = FS_FEEDING) || (cs == FS_HAPPY))
+      if ((cs == FS_FEEDING) || (cs == FS_HAPPY))
 	proto_schedule_flush(p);
 
       neigh_prune(); // FIXME convert neighbors to resource?
@@ -634,10 +674,10 @@ proto_notify_state(struct proto *p, unsigned ps)
     case PS_UP:
       ASSERT(ops == PS_DOWN || ops == PS_START);
       ASSERT(cs == FS_HUNGRY);
-      proto_schedule_feed(p);
+      proto_schedule_feed(p, 1);
       break;
     case PS_STOP:
-      if ((cs = FS_FEEDING) || (cs == FS_HAPPY))
+      if ((cs == FS_FEEDING) || (cs == FS_HAPPY))
 	proto_schedule_flush(p);
       break;
     default:
@@ -702,6 +742,8 @@ proto_do_show(struct proto *p, int verbose)
 	  buf);
   if (verbose)
     {
+      if (p->cf->dsc)
+	cli_msg(-1006, "  Description:    %s", p->cf->dsc);
       cli_msg(-1006, "  Preference:     %d", p->preference);
       cli_msg(-1006, "  Input filter:   %s", filter_name(p->in_filter));
       cli_msg(-1006, "  Output filter:  %s", filter_name(p->out_filter));
@@ -788,25 +830,29 @@ proto_xxable(char *pattern, int xx)
 	cnt++;
 	switch (xx)
 	  {
-	  case 0:
+	  case XX_DISABLE:
 	    if (p->disabled)
 	      cli_msg(-8, "%s: already disabled", p->name);
 	    else
 	      {
 		cli_msg(-9, "%s: disabled", p->name);
 		p->disabled = 1;
+		proto_rethink_goal(p);
 	      }
 	    break;
-	  case 1:
+
+	  case XX_ENABLE:
 	    if (!p->disabled)
 	      cli_msg(-10, "%s: already enabled", p->name);
 	    else
 	      {
 		cli_msg(-11, "%s: enabled", p->name);
 		p->disabled = 0;
+		proto_rethink_goal(p);
 	      }
 	    break;
-	  case 2:
+
+	  case XX_RESTART:
 	    if (p->disabled)
 	      cli_msg(-8, "%s: already disabled", p->name);
 	    else
@@ -814,13 +860,38 @@ proto_xxable(char *pattern, int xx)
 		p->disabled = 1;
 		proto_rethink_goal(p);
 		p->disabled = 0;
+		proto_rethink_goal(p);
 		cli_msg(-12, "%s: restarted", p->name);
 	      }
 	    break;
+
+	  case XX_RELOAD:
+	  case XX_RELOAD_IN:
+	  case XX_RELOAD_OUT:
+	    if (p->disabled)
+	      {
+		cli_msg(-8, "%s: already disabled", p->name);
+		break;
+	      }
+
+	    /* re-importing routes */
+	    if (xx != XX_RELOAD_OUT)
+	      if (! (p->reload_routes && p->reload_routes(p)))
+		{
+		  cli_msg(-8006, "%s: reload failed", p->name);
+		  break;
+		}
+		 
+	    /* re-exporting routes */
+	    if (xx != XX_RELOAD_IN)
+	      proto_request_feeding(p);
+
+	    cli_msg(-15, "%s: reloading", p->name);
+	    break;
+
 	  default:
 	    ASSERT(0);
 	  }
-	proto_rethink_goal(p);
       }
   WALK_PROTO_LIST_END;
   if (!cnt)

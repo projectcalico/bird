@@ -31,7 +31,7 @@
 #include "pipe.h"
 
 static void
-pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old, ea_list *attrs)
+pipe_send(struct pipe_proto *p, rtable *src_table, rtable *dest, net *n, rte *new, rte *old, ea_list *attrs)
 {
   struct proto *src;
   net *nn;
@@ -80,9 +80,9 @@ pipe_send(struct pipe_proto *p, rtable *dest, net *n, rte *new, rte *old, ea_lis
       src = old->attrs->proto;
     }
 
-  dest->pipe_busy = 1;
+  src_table->pipe_busy = 1;
   rte_update(dest, nn, &p->p, (p->mode == PIPE_OPAQUE) ? &p->p : src, e);
-  dest->pipe_busy = 0;
+  src_table->pipe_busy = 0;
 }
 
 static void
@@ -91,7 +91,7 @@ pipe_rt_notify_pri(struct proto *P, net *net, rte *new, rte *old, ea_list *attrs
   struct pipe_proto *p = (struct pipe_proto *) P;
 
   DBG("PIPE %c> %I/%d\n", (new ? '+' : '-'), net->n.prefix, net->n.pxlen);
-  pipe_send(p, p->peer, net, new, old, attrs);
+  pipe_send(p, p->p.table, p->peer, net, new, old, attrs);
 }
 
 static void
@@ -100,7 +100,7 @@ pipe_rt_notify_sec(struct proto *P, net *net, rte *new, rte *old, ea_list *attrs
   struct pipe_proto *p = ((struct pipe_proto *) P)->phantom;
 
   DBG("PIPE %c< %I/%d\n", (new ? '+' : '-'), net->n.prefix, net->n.pxlen);
-  pipe_send(p, p->p.table, net, new, old, attrs);
+  pipe_send(p, p->peer, p->p.table, net, new, old, attrs);
 }
 
 static int
@@ -134,7 +134,20 @@ pipe_start(struct proto *P)
   ph->p.rt_notify = pipe_rt_notify_sec;
   ph->p.proto_state = PS_UP;
   ph->p.core_state = ph->p.core_goal = FS_HAPPY;
-  ph->p.in_filter = ph->p.out_filter = FILTER_ACCEPT;	/* We do all filtering on the local end */
+
+  /*
+   *  Routes should be filtered in the do_rte_announce() (export
+   *  filter for protocols). Reverse direction is handled by putting
+   *  specified import filter to out_filter field of the phantom
+   *  protocol.
+   *
+   *  in_filter fields are not important, there is an exception in
+   *  rte_update() to ignore it for pipes. We cannot just set
+   *  P->in_filter to FILTER_ACCEPT, because that would break other
+   *  things (reconfiguration, show-protocols command).
+   */
+  ph->p.in_filter = FILTER_ACCEPT;
+  ph->p.out_filter = P->in_filter;
 
   /*
    *  Connect the phantom protocol to the peer routing table, but

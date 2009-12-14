@@ -23,10 +23,13 @@ struct bgp_config {
   ip_addr multihop_via;			/* Multihop: address to route to */
   ip_addr source_addr;			/* Source address to use */
   int next_hop_self;			/* Always set next hop to local IP address */
+  int missing_lladdr;			/* What we will do when we don' know link-local addr, see MLL_* */
   int compare_path_lengths;		/* Use path lengths when selecting best route */
+  int prefer_older;			/* Prefer older routes according to RFC 5004 */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
   u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */
   int capabilities;			/* Enable capability handshake [RFC3392] */
+  int enable_refresh;			/* Enable local support for route refresh [RFC2918] */
   int enable_as4;			/* Enable local support for 4B AS numbers [RFC4893] */
   u32 rr_cluster_id;			/* Route reflector cluster ID, if different from local ID */
   int rr_client;			/* Whether neighbor is RR client of me */
@@ -45,6 +48,10 @@ struct bgp_config {
   char *password;			/* Password used for MD5 authentication */
 };
 
+#define MLL_SELF 1
+#define MLL_DROP 2
+#define MLL_IGNORE 3
+
 struct bgp_conn {
   struct bgp_proto *bgp;
   struct birdsock *sk;
@@ -60,6 +67,7 @@ struct bgp_conn {
   int start_state;			/* protocol start_state snapshot when connection established */
   int want_as4_support;			/* Connection tries to establish AS4 session */
   int peer_as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
+  int peer_refresh_support;		/* Peer supports route refresh [RFC2918] */
   unsigned hold_time, keepalive_time;	/* Times calculated from my and neighbor's requirements */
 };
 
@@ -196,6 +204,7 @@ void bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsi
 #define PKT_UPDATE		0x02
 #define PKT_NOTIFICATION	0x03
 #define PKT_KEEPALIVE		0x04
+#define PKT_ROUTE_REFRESH	0x05
 #define PKT_SCHEDULE_CLOSE	0x1f	/* Used internally to schedule socket close */
 
 /* Attributes */

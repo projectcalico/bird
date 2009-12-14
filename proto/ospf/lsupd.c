@@ -549,27 +549,35 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       /* pg 145 (5f) - premature aging of self originated lsa */
       if (self)
       {
-	struct top_hash_entry *en;
-
 	if ((lsatmp.age == LSA_MAXAGE) && (lsatmp.sn == LSA_MAXSEQNO))
 	{
 	  ospf_lsack_enqueue(n, lsa, ACKL_DIRECT);
 	  continue;
 	}
 
-	lsatmp.age = LSA_MAXAGE;
-	lsatmp.sn = LSA_MAXSEQNO;
-	lsa->age = htons(LSA_MAXAGE);
-	lsa->sn = htonl(LSA_MAXSEQNO);
-	OSPF_TRACE(D_EVENTS, "Premature aging self originated LSA.");
-	OSPF_TRACE(D_EVENTS, "Type: %04x, Id: %R, Rt: %R",
+	OSPF_TRACE(D_EVENTS, "Received old self-originated LSA (Type: %04x, Id: %R, Rt: %R)",
 		   lsatmp.type, lsatmp.id, lsatmp.rt);
-	lsasum_check(lsa, (lsa + 1));	/* It also calculates chsum! */
-	lsatmp.checksum = ntohs(lsa->checksum);
-	ospf_lsupd_flood(po, NULL, lsa, &lsatmp, domain, 0);
-	if (en = ospf_hash_find_header(po->gr, domain, &lsatmp))
-	{ /* FIXME verify hacks */
-	  ospf_lsupd_flood(po, NULL, NULL, &en->lsa, domain, 1);
+
+	if (lsadb)
+	{
+	  OSPF_TRACE(D_EVENTS, "Reflooding new self-originated LSA with newer sequence number");
+	  lsadb->lsa.sn = lsatmp.sn + 1;
+	  lsadb->lsa.age = 0;
+	  lsadb->inst_t = now;
+	  lsadb->ini_age = 0;
+	  lsasum_calculate(&lsadb->lsa, lsadb->lsa_body);
+	  ospf_lsupd_flood(po, NULL, NULL, &lsadb->lsa, domain, 1);
+	}
+	else
+	{
+	  OSPF_TRACE(D_EVENTS, "Premature aging it");
+	  lsatmp.age = LSA_MAXAGE;
+	  lsatmp.sn = LSA_MAXSEQNO;
+	  lsa->age = htons(LSA_MAXAGE);
+	  lsa->sn = htonl(LSA_MAXSEQNO);
+	  lsasum_check(lsa, (lsa + 1));	/* It also calculates chsum! */
+	  lsatmp.checksum = ntohs(lsa->checksum);
+	  ospf_lsupd_flood(po, NULL, lsa, &lsatmp, domain, 0);
 	}
 	continue;
       }
@@ -577,7 +585,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       /* pg 144 (5a) */
       if (lsadb && ((now - lsadb->inst_t) <= MINLSARRIVAL))	/* FIXME: test for flooding? */
       {
-	DBG("I got it in less that MINLSARRIVAL\n");
+	OSPF_TRACE(D_EVENTS, "Skipping LSA received in less that MINLSARRIVAL");
 	sendreq = 0;
 	continue;
       }

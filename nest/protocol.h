@@ -81,6 +81,7 @@ struct proto_config {
   struct protocol *protocol;		/* Protocol */
   struct proto *proto;			/* Instance we've created */
   char *name;
+  char *dsc;
   unsigned debug, preference, disabled;	/* Generic parameters */
   u32 router_id;			/* Protocol specific router ID */
   struct rtable_config *table;		/* Table we're attached to */
@@ -133,6 +134,7 @@ struct proto {
   unsigned core_state;			/* Core state machine (see below) */
   unsigned core_goal;			/* State we want to reach (see below) */
   unsigned reconfiguring;		/* We're shutting down due to reconfiguration */
+  unsigned refeeding;			/* We are refeeding (valid only if core_state == FS_FEEDING) */
   u32 hash_key;				/* Random key used for hashing of neighbors */
   bird_clock_t last_state_change;	/* Time of last state transition */
   char *last_state_name_announced;	/* Last state name we've announced to the user */
@@ -151,6 +153,9 @@ struct proto {
    *			It can construct a new rte, add private attributes and
    *			decide whether the route shall be imported: 1=yes, -1=no,
    *			0=process it through the import filter set by the user.
+   *	   reload_routes   Request protocol to reload all its routes to the core
+   *			(using rte_update()). Returns: 0=reload cannot be done,
+   *			1= reload is scheduled and will happen (asynchronously).
    */
 
   void (*if_notify)(struct proto *, unsigned flags, struct iface *i);
@@ -160,6 +165,7 @@ struct proto {
   struct ea_list *(*make_tmp_attrs)(struct rte *rt, struct linpool *pool);
   void (*store_tmp_attrs)(struct rte *rt, struct ea_list *attrs);
   int (*import_control)(struct proto *, struct rte **rt, struct ea_list **attrs, struct linpool *pool);
+  int (*reload_routes)(struct proto *);
 
   /*
    *	Routing entry hooks (called only for rte's belonging to this protocol):
@@ -189,10 +195,18 @@ struct proto {
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
 
+void proto_request_feeding(struct proto *p);
 void proto_show(struct symbol *, int);
 struct proto *proto_get_named(struct symbol *, struct protocol *);
 void proto_xxable(char *, int);
 void proto_debug(char *, unsigned int);
+
+#define XX_DISABLE	0
+#define XX_ENABLE	1
+#define XX_RESTART	2
+#define XX_RELOAD	3
+#define XX_RELOAD_IN	4
+#define XX_RELOAD_OUT	5
 
 static inline u32
 proto_get_router_id(struct proto_config *pc)
@@ -270,6 +284,10 @@ void proto_notify_state(struct proto *p, unsigned state);
  *		HUNGRY/DOWN --> HUNGRY/START --> HUNGRY/UP -->
  *		FEEDING/UP --> HAPPY/UP --> FLUSHING/STOP|DOWN -->
  *		HUNGRY/STOP|DOWN --> HUNGRY/DOWN
+ *
+ *	Sometimes, protocol might switch from HAPPY/UP to FEEDING/UP 
+ *	if it wants to refeed the routes (for example BGP does so
+ *	as a result of received ROUTE-REFRESH request).
  */
 
 #define FS_HUNGRY 0
