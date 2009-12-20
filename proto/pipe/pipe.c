@@ -114,6 +114,19 @@ pipe_import_control(struct proto *P, rte **ee, ea_list **ea UNUSED, struct linpo
 }
 
 static int
+pipe_reload_routes(struct proto *P)
+{
+  /*
+   * Because the pipe protocol feeds routes from both routing tables
+   * together, both directions are reloaded during refeed and 'reload
+   * out' command works like 'reload' command. For symmetry, we also
+   * request refeed when 'reload in' command is used.
+   */
+  proto_request_feeding(P);
+  return 1;
+}
+
+static int
 pipe_start(struct proto *P)
 {
   struct pipe_proto *p = (struct pipe_proto *) P;
@@ -183,6 +196,7 @@ pipe_init(struct proto_config *C)
   P->accept_ra_types = (p->mode == PIPE_OPAQUE) ? RA_OPTIMAL : RA_ANY;
   P->rt_notify = pipe_rt_notify_pri;
   P->import_control = pipe_import_control;
+  P->reload_routes = pipe_reload_routes;
   return P;
 }
 
@@ -206,12 +220,18 @@ pipe_get_status(struct proto *P, byte *buf)
 }
 
 static int
-pipe_reconfigure(struct proto *p, struct proto_config *new)
+pipe_reconfigure(struct proto *P, struct proto_config *new)
 {
-  struct pipe_config *o = (struct pipe_config *) p->cf;
+  struct pipe_proto *p = (struct pipe_proto *) P;
+  struct pipe_config *o = (struct pipe_config *) P->cf;
   struct pipe_config *n = (struct pipe_config *) new;
 
-  return (o->peer->table == n->peer->table) && (o->mode == n->mode);
+  if ((o->peer->table != n->peer->table) || (o->mode != n->mode))
+    return 0;
+
+  /* Update also the filter in the phantom protocol */
+  p->phantom->p.out_filter = new->in_filter;
+  return 1;
 }
 
 struct protocol proto_pipe = {

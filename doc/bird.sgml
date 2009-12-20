@@ -513,7 +513,9 @@ This argument can be omitted if there exists only a single instance.
 	Re-export always succeeds, but re-import is protocol-dependent
 	and might fail (for example, if BGP neighbor does not support
 	route-refresh extension). In that case, re-export is also
-	skipped.
+	skipped. Note that for the pipe protocol, both directions are
+	always reloaded together (<cf/in/ or <cf/out/ options are
+	ignored in that case).
 
 	<tag/down/
 	Shut BIRD down.
