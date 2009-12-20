@@ -1,3 +1,12 @@
+Version 1.1.7 (2009-12-21)
+  o Implements BGP Route Refresh (RFC 2918).
+  o Implements route reload feature.
+  o Deep changes and bugfixes in pipe protocol.
+  o Bugfix in OSPF premature aging of LSA.
+  o Bugfix in OSPF next hop calculation.
+  o Bugfix in core related to route withdraws.
+  o Several minor bugfixes.
+
 Version 1.1.6 (2009-11-19)
   o Implements RFC 5004 - prefer older external routes.
   o There is a change how route servers handle missing IPv6 link
