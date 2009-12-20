@@ -211,7 +211,7 @@ pipe_reconfigure(struct proto *p, struct proto_config *new)
   struct pipe_config *o = (struct pipe_config *) p->cf;
   struct pipe_config *n = (struct pipe_config *) new;
 
-  return (o->peer == n->peer) && (o->mode == n->mode);
+  return (o->peer->table == n->peer->table) && (o->mode == n->mode);
 }
 
 struct protocol proto_pipe = {
