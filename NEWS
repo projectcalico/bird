@@ -1,6 +1,6 @@
-Version 1.1.7 (2009-12-21)
+Version 1.1.7 (2009-12-20)
   o Implements BGP Route Refresh (RFC 2918).
-  o Implements route reload feature.
+  o Implements route reload command.
   o Deep changes and bugfixes in pipe protocol.
   o Bugfix in OSPF premature aging of LSA.
   o Bugfix in OSPF next hop calculation.
