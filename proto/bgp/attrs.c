@@ -871,7 +871,7 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   else
     set_next_hop(z, rta->gw);
 
-  bgp_set_attr(ea->attrs+3, BA_LOCAL_PREF, 0);
+  bgp_set_attr(ea->attrs+3, BA_LOCAL_PREF, p->cf->default_local_pref);
 
   return 0;				/* Leave decision to the filters */
 }
@@ -1421,7 +1421,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 
   /* If there's no local preference, define one */
   if (!(seen[0] & (1 << BA_LOCAL_PREF)))
-    bgp_attach_attr(&a->eattrs, pool, BA_LOCAL_PREF, 0);
+    bgp_attach_attr(&a->eattrs, pool, BA_LOCAL_PREF, bgp->cf->default_local_pref);
 
   return a;
 

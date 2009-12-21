@@ -1043,9 +1043,12 @@ for each neighbor using the following configuration parameters:
 	Discriminator to be used during route selection when the MED attribute
 	is missing. Default: 0.
 
-	<tag>default bgp_local_pref <m/number/</tag> Value of the Local Preference
-	to be used during route selection when the Local Preference attribute
-	is missing. Default: 0.
+	<tag>default bgp_local_pref <m/number/</tag> A default value
+	for the Local Preference attribute. It is used when a new
+	Local Preference attribute is attached to a route by the BGP
+	protocol itself (for example, if a route is received through
+	eBGP and therefore does not have such attribute). Default: 100
+	(0 in pre-1.2.0 versions of BIRD).
 </descrip>
 
 <sect1>Attributes
