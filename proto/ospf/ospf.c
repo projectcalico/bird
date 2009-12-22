@@ -916,34 +916,13 @@ ospf_sh_neigh(struct proto *p, char *iff)
     return;
   }
 
-  if (iff != NULL)
-  {
-    WALK_LIST(f, po->iface_list)
-    {
-      if (strcmp(iff, f->iface->name) == 0)
-      {
-	ifa = f;
-	break;
-      }
-    }
-    if (ifa == NULL)
-    {
-      cli_msg(0, "");
-      return;
-    }
-    cli_msg(-1013, "%s:", p->name);
-    cli_msg(-1013, "%-12s\t%3s\t%-15s\t%-5s\t%-12s\t%-10s", "Router ID",
-	    "Pri", "     State", "DTime", "Router IP", "Interface");
-    WALK_LIST(n, ifa->neigh_list) ospf_sh_neigh_info(n);
-    cli_msg(0, "");
-    return;
-  }
-
   cli_msg(-1013, "%s:", p->name);
   cli_msg(-1013, "%-12s\t%3s\t%-15s\t%-5s\t%-12s\t%-10s", "Router ID", "Pri",
 	  "     State", "DTime", "Router IP", "Interface");
   WALK_LIST(ifa, po->iface_list)
-    WALK_LIST(n, ifa->neigh_list) ospf_sh_neigh_info(n);
+    if ((iff == NULL) || patmatch(iff, ifa->iface->name))
+      WALK_LIST(n, ifa->neigh_list)
+	ospf_sh_neigh_info(n);
   cli_msg(0, "");
 }
 
@@ -1026,29 +1005,10 @@ ospf_sh_iface(struct proto *p, char *iff)
     return;
   }
 
-  if (iff != NULL)
-  {
-    WALK_LIST(f, po->iface_list)
-    {
-      if (strcmp(iff, f->iface->name) == 0)
-      {
-	ifa = f;
-	break;
-      }
-    }
-
-    if (ifa == NULL)
-    {
-      cli_msg(0, "");
-      return;
-    }
-    cli_msg(-1015, "%s:", p->name);
-    ospf_iface_info(ifa);
-    cli_msg(0, "");
-    return;
-  }
   cli_msg(-1015, "%s:", p->name);
-  WALK_LIST(ifa, po->iface_list) ospf_iface_info(ifa);
+  WALK_LIST(ifa, po->iface_list)
+    if ((iff == NULL) || patmatch(iff, ifa->iface->name))
+      ospf_iface_info(ifa);
   cli_msg(0, "");
 }
 
