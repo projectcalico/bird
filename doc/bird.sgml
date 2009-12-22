@@ -1536,7 +1536,7 @@ Default is <cf/metric of type 2 = 10000/ and <cf/tag = 0/.
 
 <code>
 protocol ospf MyOSPF {
-        rfc1583compatibility yes;
+        rfc1583compat yes;
         tick 2;
 	export filter {
 		if source = RTS_BGP then {
