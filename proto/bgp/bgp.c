@@ -313,6 +313,22 @@ bgp_stop(struct bgp_proto *p, unsigned subcode)
   ev_schedule(p->event);
 }
 
+static inline void
+bgp_conn_set_state(struct bgp_conn *conn, unsigned new_state)
+{
+  if (conn->bgp->p.mrtdump & MD_STATES)
+    mrt_dump_bgp_state_change(conn, conn->state, new_state);
+
+  conn->state = new_state;
+}
+
+void
+bgp_conn_enter_openconfirm_state(struct bgp_conn *conn)
+{
+  /* Really, most of the work is done in bgp_rx_open(). */
+  bgp_conn_set_state(conn, BS_OPENCONFIRM);
+}
+
 void
 bgp_conn_enter_established_state(struct bgp_conn *conn)
 {
@@ -325,7 +341,7 @@ bgp_conn_enter_established_state(struct bgp_conn *conn)
   p->last_error_class = 0;
   p->last_error_code = 0;
   bgp_attr_init(conn->bgp);
-  conn->state = BS_ESTABLISHED;
+  bgp_conn_set_state(conn, BS_ESTABLISHED);
   proto_notify_state(&p->p, PS_UP);
 }
 
@@ -345,7 +361,7 @@ bgp_conn_enter_close_state(struct bgp_conn *conn)
   struct bgp_proto *p = conn->bgp;
   int os = conn->state;
 
-  conn->state = BS_CLOSE;
+  bgp_conn_set_state(conn, BS_CLOSE);
   tm_stop(conn->hold_timer);
   tm_stop(conn->keepalive_timer);
   conn->sk->rx_hook = NULL;
@@ -361,7 +377,7 @@ bgp_conn_enter_idle_state(struct bgp_conn *conn)
   int os = conn->state;
 
   bgp_close_conn(conn);
-  conn->state = BS_IDLE;
+  bgp_conn_set_state(conn, BS_IDLE);
   ev_schedule(p->event);
 
   if (os == BS_ESTABLISHED)
@@ -374,13 +390,14 @@ bgp_send_open(struct bgp_conn *conn)
   conn->start_state = conn->bgp->start_state;
   conn->want_as4_support = conn->bgp->cf->enable_as4 && (conn->start_state != BSS_CONNECT_NOCAP);
   conn->peer_as4_support = 0;	// Default value, possibly changed by receiving capability.
+  conn->advertised_as = 0;
 
   DBG("BGP: Sending open\n");
   conn->sk->rx_hook = bgp_rx;
   conn->sk->tx_hook = bgp_tx;
   tm_stop(conn->connect_retry_timer);
   bgp_schedule_packet(conn, PKT_OPEN);
-  conn->state = BS_OPENSENT;
+  bgp_conn_set_state(conn, BS_OPENSENT);
   bgp_start_timer(conn->hold_timer, conn->bgp->cf->initial_hold_time);
 }
 
@@ -490,7 +507,7 @@ bgp_active(struct bgp_proto *p)
 
   BGP_TRACE(D_EVENTS, "Connect delayed by %d seconds", delay);
   bgp_setup_conn(p, conn);
-  conn->state = BS_ACTIVE;
+  bgp_conn_set_state(conn, BS_ACTIVE);
   bgp_start_timer(conn->connect_retry_timer, delay);
 }
 
@@ -539,7 +556,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   BGP_TRACE(D_EVENTS, "Connecting to %I from local address %I", s->daddr, s->saddr);
   bgp_setup_conn(p, conn);
   bgp_setup_sk(p, conn, s);
-  conn->state = BS_CONNECT;
+  bgp_conn_set_state(conn, BS_CONNECT);
   if (sk_open(s))
     {
       bgp_sock_err(s, 0);

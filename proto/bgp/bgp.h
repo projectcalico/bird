@@ -138,6 +138,7 @@ void bgp_check(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len);
 void bgp_close_conn(struct bgp_conn *c);
 void bgp_update_startup_delay(struct bgp_proto *p);
+void bgp_conn_enter_openconfirm_state(struct bgp_conn *conn);
 void bgp_conn_enter_established_state(struct bgp_conn *conn);
 void bgp_conn_enter_close_state(struct bgp_conn *conn);
 void bgp_conn_enter_idle_state(struct bgp_conn *conn);
@@ -189,6 +190,7 @@ inline static void bgp_attach_attr_ip(struct ea_list **to, struct linpool *pool,
 
 /* packets.c */
 
+void mrt_dump_bgp_state_change(struct bgp_conn *conn, unsigned old, unsigned new);
 void bgp_schedule_packet(struct bgp_conn *conn, int type);
 void bgp_kick_tx(void *vconn);
 void bgp_tx(struct birdsock *sk);
@@ -293,5 +295,11 @@ void bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsi
 
 #define BGP_AF_IPV4		1
 #define BGP_AF_IPV6		2
+
+#ifdef IPV6
+#define BGP_AF BGP_AF_IPV6
+#else
+#define BGP_AF BGP_AF_IPV4
+#endif
 
 #endif

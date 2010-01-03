@@ -82,7 +82,8 @@ struct proto_config {
   struct proto *proto;			/* Instance we've created */
   char *name;
   char *dsc;
-  unsigned debug, preference, disabled;	/* Generic parameters */
+  u32 debug, mrtdump;			/* Debugging bitfields, both use D_* constants */
+  unsigned preference, disabled;	/* Generic parameters */
   u32 router_id;			/* Protocol specific router ID */
   struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
@@ -125,7 +126,8 @@ struct proto {
   struct event *attn;			/* "Pay attention" event */
 
   char *name;				/* Name of this instance (== cf->name) */
-  unsigned debug;			/* Debugging flags */
+  u32 debug;				/* Debugging flags */
+  u32 mrtdump;				/* MRTDump flags */
   unsigned preference;			/* Default route preference */
   int min_scope;			/* Minimal route scope accepted */
   unsigned accept_ra_types;		/* Which types of route announcements are accepted (RA_OPTIMAL or RA_ANY) */
@@ -199,7 +201,7 @@ void proto_request_feeding(struct proto *p);
 void proto_show(struct symbol *, int);
 struct proto *proto_get_named(struct symbol *, struct protocol *);
 void proto_xxable(char *, int);
-void proto_debug(char *, unsigned int);
+void proto_debug(char *, int, unsigned int);
 
 #define XX_DISABLE	0
 #define XX_ENABLE	1
@@ -305,6 +307,13 @@ void proto_notify_state(struct proto *p, unsigned state);
 #define D_IFACES 8		/* [core] Interface events */
 #define D_EVENTS 16		/* Protocol events */
 #define D_PACKETS 32		/* Packets sent/received */
+
+/*
+ *	MRTDump flags
+ */
+
+#define MD_STATES	1		/* Protocol state changes (BGP4MP_MESSAGE_AS4) */
+#define MD_MESSAGES	2		/* Protocol packets (BGP4MP_MESSAGE_AS4) */
 
 /*
  *	Known unique protocol instances as referenced by config routines

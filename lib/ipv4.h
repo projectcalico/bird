@@ -11,6 +11,7 @@
 
 #include "lib/endian.h"
 #include "lib/bitops.h"
+#include "lib/unaligned.h"
 
 #ifdef DEBUGGING
 
@@ -63,6 +64,7 @@ typedef u32 ip_addr;
 /* ipa_pxlen() requires that x != y */
 #define ipa_pxlen(x, y) ipv4_pxlen(_I(x), _I(y))
 #define ipa_getbit(x, y) (_I(x) & (0x80000000 >> (y)))
+#define ipa_put_addr(x, y) ipv4_put_addr(x, y)
 
 #define ip_skip_header(x, y) ipv4_skip_header(x, y)
 
@@ -93,6 +95,11 @@ static inline u32 ipv4_pxlen(u32 a, u32 b)
   return 31 - u32_log2(a ^ b);
 }
 
+static inline byte * ipv4_put_addr(byte *buf, ip_addr a)
+{
+  put_u32(buf, _I(a));
+  return buf+4;
+}
 
 #define IP_PREC_INTERNET_CONTROL 0xc0
 

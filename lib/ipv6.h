@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include "lib/string.h"
 #include "lib/bitops.h"
+#include "lib/unaligned.h"
 
 typedef struct ipv6_addr {
   u32 addr[4];
@@ -68,6 +69,7 @@ typedef struct ipv6_addr {
 /* ipa_pxlen() requires that x != y */
 #define ipa_pxlen(x, y) ipv6_pxlen(x, y)
 #define ipa_getbit(x, y) ipv6_getbit(x, y)
+#define ipa_put_addr(x, y) ipv6_put_addr(x, y)
 #define ipa_absolutize(x,y) ipv6_absolutize(x,y)
 
 /* In IPv6, SOCK_RAW does not return packet header */
@@ -113,6 +115,15 @@ static inline u32 ipv6_pxlen(ip_addr a, ip_addr b)
   i+= (a.addr[i] == b.addr[i]);
   i+= (a.addr[i] == b.addr[i]);
   return 32 * i + 31 - u32_log2(a.addr[i] ^ b.addr[i]);
+}
+
+static inline byte * ipv6_put_addr(byte *buf, ip_addr a)
+{
+  put_u32(buf+0,  _I0(a));
+  put_u32(buf+4,  _I1(a));
+  put_u32(buf+8,  _I2(a));
+  put_u32(buf+12, _I3(a));
+  return buf+16;
 }
 
 /*

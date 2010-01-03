@@ -152,9 +152,12 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 	if ((ifa->type != OSPF_IT_NBMA) && (ifa->ioprob == OSPF_I_OK) &&
 	    ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR)))
 	{
-	  /* FIXME some error handing ? */
-	  sk_join_group(ifa->sk, AllDRouters);
-	  ifa->dr_up = 1;
+	  if (!ifa->dr_up == 0)
+	  {
+	    /* FIXME some error handing ? */
+	    sk_join_group(ifa->sk, AllDRouters);
+	    ifa->dr_up = 1;
+	  }
 	}
 	else if (ifa->dr_up)
 	{

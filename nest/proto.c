@@ -111,6 +111,7 @@ proto_new(struct proto_config *c, unsigned size)
 
   p->cf = c;
   p->debug = c->debug;
+  p->mrtdump = c->mrtdump;
   p->name = c->name;
   p->preference = c->preference;
   p->disabled = c->disabled;
@@ -201,6 +202,7 @@ proto_config_new(struct protocol *pr, unsigned size)
   c->out_filter = FILTER_REJECT;
   c->table = c->global->master_rtc;
   c->debug = new_config->proto_default_debug;
+  c->mrtdump = new_config->proto_default_mrtdump;
   return c;
 }
 
@@ -325,6 +327,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 		{
 		  /* Generic attributes match, try converting them and then ask the protocol */
 		  p->debug = nc->debug;
+		  p->mrtdump = nc->mrtdump;
 		  if (p->proto->reconfigure && p->proto->reconfigure(p, nc))
 		    {
 		      DBG("\t%s: same\n", oc->name);
@@ -901,14 +904,17 @@ proto_xxable(char *pattern, int xx)
 }
 
 void
-proto_debug(char *pattern, unsigned int mask)
+proto_debug(char *pattern, int which, unsigned int mask)
 {
   int cnt = 0;
   WALK_PROTO_LIST(p)
     if (patmatch(pattern, p->name))
       {
 	cnt++;
-	p->debug = mask;
+	if (which == 0)
+	  p->debug = mask;
+	else
+	  p->mrtdump = mask;
       }
   WALK_PROTO_LIST_END;
   if (!cnt)

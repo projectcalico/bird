@@ -947,7 +947,14 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
       t->rbsize = s->rbsize;
       t->tbsize = s->tbsize;
       if (type == SK_TCP)
-	get_sockaddr((sockaddr *) sa, &t->daddr, &t->dport, 1);
+	{
+	  sockaddr lsa;
+	  int lsa_len = sizeof(lsa);
+	  if (getsockname(fd, (struct sockaddr *) &lsa, &lsa_len) == 0)
+	    get_sockaddr(&lsa, &t->saddr, &t->sport, 1);
+
+	  get_sockaddr((sockaddr *) sa, &t->daddr, &t->dport, 1);
+	}
       sk_insert(t);
       if (err = sk_setup(t))
 	{

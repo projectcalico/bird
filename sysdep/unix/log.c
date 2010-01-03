@@ -22,6 +22,7 @@
 
 #include "nest/bird.h"
 #include "nest/cli.h"
+#include "nest/mrtdump.h"
 #include "lib/string.h"
 #include "lib/lists.h"
 #include "lib/unix.h"
@@ -260,4 +261,17 @@ log_init_debug(char *f)
     log(L_ERR "Error opening debug file `%s': %m", f);
   if (dbgf)
     setvbuf(dbgf, NULL, _IONBF, 0);
+}
+
+void
+mrt_dump_message(struct proto *p, u16 type, u16 subtype, byte *buf, u32 len)
+{
+  /* Prepare header */
+  put_u32(buf+0, now_real);
+  put_u16(buf+4, type);
+  put_u16(buf+6, subtype);
+  put_u32(buf+8, len - MRTDUMP_HDR_LENGTH);
+
+  if (p->cf->global->mrtdump_file != -1)
+    write(p->cf->global->mrtdump_file, buf, len);
 }

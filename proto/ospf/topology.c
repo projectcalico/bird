@@ -433,9 +433,11 @@ originate_rt_lsa(struct ospf_area *oa)
   
 #ifdef OSPFv2
   lsa.options = oa->options;
-#endif
-  
   lsa.id = po->router_id;
+#else /* OSPFv3 */
+  lsa.id = 0;
+#endif
+
   lsa.rt = po->router_id;
   lsa.sn = oa->rt ? (oa->rt->lsa.sn + 1) : LSA_INITSEQNO;
   u32 dom = oa->areaid;

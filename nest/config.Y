@@ -45,7 +45,7 @@ CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILT
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
 CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE)
 CF_KEYWORDS(LISTEN, BGP, V6ONLY, ADDRESS, PORT, PASSWORDS, DESCRIPTION)
-CF_KEYWORDS(RELOAD, IN, OUT)
+CF_KEYWORDS(RELOAD, IN, OUT, MRTDUMP, MESSAGES)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_IA, OSPF_EXT1, OSPF_EXT2, BGP, PIPE)
@@ -58,7 +58,7 @@ CF_ENUM(T_ENUM_RTD, RTD_, ROUTER, DEVICE, BLACKHOLE, UNREACHABLE, PROHIBIT)
 %type <r> rtable
 %type <s> optsym
 %type <ra> r_args
-%type <i> echo_mask echo_size debug_mask debug_list debug_flag export_or_preexport
+%type <i> echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport
 %type <t> proto_patt
 
 CF_GRAMMAR
@@ -138,6 +138,7 @@ proto_item:
    }
  | DISABLED bool { this_proto->disabled = $2; }
  | DEBUG debug_mask { this_proto->debug = $2; }
+ | MRTDUMP mrtdump_mask { this_proto->mrtdump = $2; }
  | IMPORT imexport { this_proto->in_filter = $2; }
  | EXPORT imexport { this_proto->out_filter = $2; }
  | TABLE rtable { this_proto->table = $2; }
@@ -165,6 +166,8 @@ debug_default:
    DEBUG PROTOCOLS debug_mask { new_config->proto_default_debug = $3; }
  | DEBUG COMMANDS expr { new_config->cli_debug = $3; }
  ;
+
+/* MRTDUMP PROTOCOLS is in systep/unix/config.Y */
 
 /* Interface patterns */
 
@@ -249,6 +252,24 @@ debug_flag:
  | INTERFACES	{ $$ = D_IFACES; }
  | EVENTS	{ $$ = D_EVENTS; }
  | PACKETS	{ $$ = D_PACKETS; }
+ ;
+
+/* MRTDump flags */
+
+mrtdump_mask:
+   ALL { $$ = ~0; }
+ | OFF { $$ = 0; }
+ | '{' mrtdump_list '}' { $$ = $2; }
+ ;
+
+mrtdump_list:
+   mrtdump_flag
+ | mrtdump_list ',' mrtdump_flag { $$ = $1 | $3; }
+ ;
+
+mrtdump_flag:
+   STATES	{ $$ = MD_STATES; }
+ | MESSAGES	{ $$ = MD_MESSAGES; }
  ;
 
 /* Password lists */
@@ -450,9 +471,14 @@ CF_CLI(RELOAD IN, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protoco
 CF_CLI(RELOAD OUT, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol (just exported routes)]])
 { proto_xxable($3, XX_RELOAD_OUT); } ;
 
-CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging]])
-CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging]])
-{ proto_debug($2, $3); }
+CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging via BIRD logs]])
+CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging via BIRD logs]])
+{ proto_debug($2, 0, $3); }
+ ;
+
+CF_CLI_HELP(MRTDUMP, ..., [[Control protocol debugging via MRTdump files]])
+CF_CLI(MRTDUMP, proto_patt mrtdump_mask, (<protocol> | <pattern> | all) (all | off | { states | messages }), [[Control protocol debugging via MRTdump format]])
+{ proto_debug($2, 1, $3); }
  ;
 
 proto_patt:

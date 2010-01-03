@@ -75,6 +75,7 @@ config_alloc(byte *name)
   linpool *l = lp_new(p, 4080);
   struct config *c = lp_allocz(l, sizeof(struct config));
 
+  c->mrtdump_file = -1; /* Hack, this should be sysdep-specific */
   c->pool = p;
   cfg_mem = c->mem = l;
   c->file_name = cfg_strdup(name);

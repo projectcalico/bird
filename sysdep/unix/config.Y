@@ -63,6 +63,20 @@ log_cat:
  | BUG { $$ = L_BUG[0]; }
  ;
 
+
+CF_ADDTO(conf, mrtdump_base)
+
+mrtdump_base:
+   MRTDUMP PROTOCOLS mrtdump_mask ';' { new_config->proto_default_mrtdump = $3; }
+ | MRTDUMP TEXT ';' {
+     FILE *f = tracked_fopen(new_config->pool, $2, "a");
+     if (!f) cf_error("Unable to open MRTDump file '%s': %m", $2);
+     new_config->mrtdump_file = fileno(f);
+   }
+ ;
+
+
+
 /* Unix specific commands */
 
 CF_CLI_HELP(CONFIGURE, [soft] [\"<file>\"], [[Reload configuration]])

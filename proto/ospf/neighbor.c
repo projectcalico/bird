@@ -623,9 +623,9 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
   if ((n->ifa->type == OSPF_IT_PTP) || (n->ifa->type == OSPF_IT_VLINK))
     pos = "ptp  ";
 
-  cli_msg(-1013, "%-1R\t%3u\t%s/%s\t%-5s\t%-1I\t%-10s", n->rid, n->priority,
-	  ospf_ns[n->state], pos, etime, n->ip,
-          (ifa->type == OSPF_IT_VLINK ? "vlink" : ifa->iface->name));
+  cli_msg(-1013, "%-1R\t%3u\t%s/%s\t%-5s\t%-10s %-1I", n->rid, n->priority,
+	  ospf_ns[n->state], pos, etime,
+          (ifa->type == OSPF_IT_VLINK ? "vlink" : ifa->iface->name), n->ip);
 }
 
 static void

@@ -238,6 +238,14 @@ protocol rip {
 	logging of connects and disconnects, 2 and higher for logging of
 	all client commands). Default: 0.
 
+	<tag>mrtdump "<m/filename/"</tag>
+	Set MRTdump file name. This option must be specified to allow MRTdump feature.
+	Default: no dump file.
+
+	<tag>mrtdump protocols all|off|{ states, messages }</tag>
+	Set global defaults of MRTdump options. See <cf/mrtdump/ in the following section.
+	Default: off.
+
 	<tag>filter <m/name local variables/{ <m/commands/ }</tag> Define a filter. You can learn more about filters
 	in the following chapter. 
 
@@ -301,8 +309,22 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	<cf/events/ for events internal to the protocol and
 	<cf/packets/ for packets sent and received by the protocol. Default: off.
 
-	<tag>router id <m/IPv4 address/</tag> This option can be used to override global
-	router id for a given protocol. Default: uses global router id.
+	<tag>mrtdump all|off|{ states, messages }</tag>
+
+	Set protocol MRTdump flags. MRTdump is a standard binary
+	format for logging information from routing protocols and
+	daemons.  These flags control what kind of information is
+	logged from the protocol to the MRTdump file (which must be
+	specified by global <cf/mrtdump/ option, see the previous
+	section). Although these flags are similar to flags of
+	<cf/debug/ option, their meaning is different and
+	protocol-specific. For BGP protocol, <cf/states/ logs BGP
+	state changes and <cf/messages/ logs received BGP messages.
+	Other protocols does not support MRTdump yet.
+
+	<tag>router id <m/IPv4 address/</tag> This option can be used
+	to override global router id for a given protocol. Default:
+	uses global router id.
 
 	<tag>import all | none | filter <m/name/ | filter { <m/filter commands/ } | where <m/filter expression/</tag> 
 	Specify a filter to be used for filtering routes coming from the protocol to the routing table. <cf/all/ is shorthand for <cf/where true/ and <cf/none/ is shorthand for <cf/where false/. Default: <cf/all/.
