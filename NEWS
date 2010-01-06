@@ -1,3 +1,17 @@
+Version 1.2.0 (2010-01-05)
+  o Implements OSPFv3 (IPv6 support for OSPF). Because the code is
+    shared with OSPFv2 and there were deep changes in it, we suggest
+    caution during upgrade to OSPF users. Some advanced features
+    (like NSSA, vlinks and authentication) are not yet implemented.
+  o Implements MRTdump - binary logging protocol compatible with other
+    routing daemons. Only BGP part of MRTdump is yet implemented.
+  o Changes default value of BGP attribute LOCAL_PREF from 0 to 100.
+    Use 'default bgp_local_pref 0' BGP protocol option for the old
+    behavior. The new value is suggested by RFC 4277.
+  o Changes default mode of pipes from opaque to transparent.
+    Use 'mode opaque' protocol option if the old behavior is needed.
+    Opaque pipe mode is deprecated and might be removed in the future.
+
 Version 1.1.7 (2009-12-20)
   o Implements BGP Route Refresh (RFC 2918).
   o Implements route reload command.

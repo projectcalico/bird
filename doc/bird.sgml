@@ -78,7 +78,7 @@ protocols to be incorporated easily. Among other features, BIRD supports:
 	<item>multiple routing tables
 	<item>the Border Gateway Protocol (BGPv4)
 	<item>the Routing Information Protocol (RIPv2)
-	<item>the Open Shortest Path First protocol (OSPFv2)
+	<item>the Open Shortest Path First protocol (OSPFv2, OSPFv3)
 	<item>a virtual protocol for exchange of routes between different routing tables on a single host
 	<item>a command-line interface allowing on-line control and inspection
 		of status of the daemon
@@ -347,7 +347,7 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	Specifies a set of interfaces on which the protocol is activated with
 	given interface-specific options. A set of interfaces specified by one
 	interface option is described using an interface pattern. The
-	interface pattern consists of a sequence of clauses (separted by
+	interface pattern consists of a sequence of clauses (separated by
 	commas), each clause may contain a mask, a prefix, or both of them. An
 	interface matches the clause if its name matches the mask (if
 	specified) and its address matches the prefix (if specified). Mask is
@@ -508,7 +508,7 @@ This argument can be omitted if there exists only a single instance.
 	Reload configuration from a given file. BIRD will smoothly
 	switch itself to the new configuration, protocols are
 	reconfigured if possible, restarted otherwise. Changes in
-	filters usualy lead to restart of affected protocols. If
+	filters usually lead to restart of affected protocols. If
 	<cf/soft/ option is used, changes in filters does not cause
 	BIRD to restart affected protocols, therefore already accepted
 	routes (according to old filters) would be still propagated,
@@ -991,7 +991,7 @@ for each neighbor using the following configuration parameters:
 	received from its neighbor against the new filter. As these
 	routes might not be available, there is a BGP protocol
 	extension Route Refresh (specified in RFC 2918) that allows
-	BGP speaker to request re-advertisment of all routes from its
+	BGP speaker to request re-advertisement of all routes from its
 	neighbor. This option specifies whether BIRD advertises this
 	capability and accepts such requests. Even when disabled, BIRD
 	can send route refresh requests. Default: on.
@@ -1301,14 +1301,15 @@ protocol kernel {		# Secondary routing table
 <sect1>Introduction
 
 <p>Open Shortest Path First (OSPF) is a quite complex interior gateway
-protocol. The current IPv4 version (OSPFv2) is defined
-in RFC 2328<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2328.txt">. It's a link
-state (a.k.a. shortest path first) protocol -- each router maintains a database
-describing the autonomous system's topology. Each participating router
-has an identical copy of the database and all routers run the same algorithm
-calculating a shortest path tree with themselves as a root.
-OSPF chooses the least cost path as the best path.
-(OSPFv3 - OSPF for IPv6 is not supported yet.)
+protocol. The current IPv4 version (OSPFv2) is defined in RFC
+2328<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2328.txt"> and
+the current IPv6 version (OSPFv3) is defined in RFC 5340<htmlurl
+url="ftp://ftp.rfc-editor.org/in-notes/rfc5340.txt">  It's a link state
+(a.k.a. shortest path first) protocol -- each router maintains a
+database describing the autonomous system's topology. Each participating
+router has an identical copy of the database and all routers run the
+same algorithm calculating a shortest path tree with themselves as a
+root. OSPF chooses the least cost path as the best path.
 
 <p>In OSPF, the autonomous system can be split to several areas in order
 to reduce the amount of resources consumed for exchanging the routing
@@ -1421,7 +1422,7 @@ protocol ospf &lt;name&gt; {
 	 at periodical intervals of <m/num/ seconds. The default value is 1.
 
 	<tag>networks { <m/set/ }</tag>
-         Definition of area IP ranges. This is used in summary lsa origination.
+         Definition of area IP ranges. This is used in summary LSA origination.
 	 Hidden networks are not propagated into other areas.
 
 	<tag>stubnet <m/prefix/ { <m/options/ }</tag>
@@ -1525,7 +1526,7 @@ protocol ospf &lt;name&gt; {
 	<tag>authentication cryptographic</tag>
 	 16-byte long MD5 digest is appended to every packet. For the digest
          generation 16-byte long passwords are used. Those passwords are 
-         not sent via network, so this mechanismus is quite secure.
+         not sent via network, so this mechanism is quite secure.
          Packets can still be read by an attacker.
 
 	<tag>password "<M>text</M>"</tag>
@@ -1754,9 +1755,7 @@ not currently supported. RIPv4 MD5 authentication (RFC 2082<htmlurl url="ftp://f
 
 <p>RIP is a very simple protocol, and it has a lot of shortcomings. Slow
 convergence, big network load and inability to handle larger networks
-makes it pretty much obsolete in IPv4 world. (It is still usable on
-very small networks.) It is widely used in IPv6 networks,
-because there are no good implementations of OSPFv3.
+makes it pretty much obsolete. (It is still usable on very small networks.)
 
 <sect1>Configuration
 
@@ -1896,7 +1895,6 @@ there are still some features which would surely deserve to be
 implemented in future versions of BIRD:
 
 <itemize>
-<item>OSPF for IPv6 networks
 <item>OSPF NSSA areas and opaque LSA's
 <item>Route aggregation and flap dampening
 <item>Generation of IPv6 router advertisements

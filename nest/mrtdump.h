@@ -1,5 +1,5 @@
 /*
- *	BIRD -- Password handling
+ *	BIRD -- MRTdump handling
  *
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
@@ -13,7 +13,11 @@
 
 #define MRTDUMP_HDR_LENGTH	12
 
+/* MRTdump types */
+
 #define BGP4MP			16
+
+/* MRTdump subtypes */
 
 #define BGP4MP_MESSAGE		1
 #define BGP4MP_MESSAGE_AS4	4
