@@ -492,10 +492,6 @@ tm_format_reltime(char *x, bird_clock_t t)
 #define SOL_IPV6 IPPROTO_IPV6
 #endif
 
-#ifndef IPV6_ADD_MEMBERSHIP
-#define IPV6_ADD_MEMBERSHIP IP_ADD_MEMBERSHIP
-#endif
-
 static list sock_list;
 static struct birdsock *current_sock;
 static struct birdsock *stored_sock;
@@ -842,10 +838,9 @@ sk_join_group(sock *s, ip_addr maddr)
   mreq.ipv6mr_interface = s->iface->index;
 #endif
 
-  /* RFC 2553 says IPV6_JOIN_GROUP */
-  if (setsockopt(s->fd, SOL_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+  if (setsockopt(s->fd, SOL_IPV6, IPV6_JOIN_GROUP, &mreq, sizeof(mreq)) < 0)
     {
-      log(L_ERR "sk_join_group: IPV6_ADD_MEMBERSHIP: %m");
+      log(L_ERR "sk_join_group: IPV6_JOIN_GROUP: %m");
       return -1;
     }
 
@@ -865,10 +860,9 @@ sk_leave_group(sock *s, ip_addr maddr)
   mreq.ipv6mr_interface = s->iface->index;
 #endif
 
-  /* RFC 2553 says IPV6_LEAVE_GROUP */
-  if (setsockopt(s->fd, SOL_IPV6, IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+  if (setsockopt(s->fd, SOL_IPV6, IPV6_LEAVE_GROUP, &mreq, sizeof(mreq)) < 0)
     {
-      log(L_ERR "sk_leave_group: IPV6_DROP_MEMBERSHIP: %m");
+      log(L_ERR "sk_leave_group: IPV6_LEAVE_GROUP: %m");
       return -1;
     }
 
