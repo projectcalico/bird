@@ -607,6 +607,7 @@ ospf_iface_info(struct ospf_iface *ifa)
   if (ifa->type == OSPF_IT_VLINK)
   {
     cli_msg(-1015, "Virtual link to %R:", ifa->vid);
+    cli_msg(-1015, "\tPeer IP: %I", ifa->vip);
     cli_msg(-1015, "\tTransit area: %R (%u)", ifa->voa->areaid,
 	    ifa->voa->areaid);
     cli_msg(-1015, "\tInterface: \"%s\"",
