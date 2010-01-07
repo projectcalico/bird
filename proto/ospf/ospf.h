@@ -18,7 +18,6 @@
 			 * normally allocate 2*mtu - (I found one cisco
 			 * sending packets mtu+16)
 			 */
-#define LOCAL_DEBUG 1
 #ifdef LOCAL_DEBUG
 #define OSPF_FORCE_DEBUG 1
 #else
