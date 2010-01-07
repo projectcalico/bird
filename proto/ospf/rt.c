@@ -72,7 +72,7 @@ ri_better(struct proto_ospf *po, orta * new, ort *nefn, orta * old, ort *oefn, i
   if (!rfc1583)
   {
     if ((new->type < RTS_OSPF_EXT1) && (new->oa->areaid == 0)) newtype = RTS_OSPF_IA;
-    if ((old->type < RTS_OSPF_EXT2) && (old->oa->areaid == 0)) oldtype = RTS_OSPF_IA;
+    if ((old->type < RTS_OSPF_EXT1) && (old->oa->areaid == 0)) oldtype = RTS_OSPF_IA;
   }
 
   if (newtype < oldtype)
