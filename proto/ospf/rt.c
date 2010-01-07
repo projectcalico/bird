@@ -475,7 +475,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 	  if (tmp == par)
 	  {
 #ifdef OSPFv2
-	    fol->lb = ipa_from_u32(rtl->data);
+	    en->lb = ipa_from_u32(rtl->data);
 #endif
 	    return 1;
 	  }
