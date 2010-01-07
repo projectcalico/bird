@@ -473,7 +473,12 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->nif, rtl->id, LSA_T_NET);
 #endif
 	  if (tmp == par)
-            return 1;
+	  {
+#ifdef OSPFv2
+	    fol->lb = ipa_from_u32(rtl->data);
+#endif
+	    return 1;
+	  }
 
 	  break;
 	case LSART_VLNK:
