@@ -236,7 +236,8 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 {
   struct ospf_area *oa = ifa->oa;
 
-  DBG("SM on iface %s. Event is '%s'\n", ifa->iface->name, ospf_ism[event]);
+  DBG("SM on %s %s. Event is '%s'\n", (ifa->type == OSPF_IT_VLINK) ? "vlink" : "iface",
+    ifa->iface ? ifa->iface->name : "(none)" , ospf_ism[event]);
 
   switch (event)
   {
