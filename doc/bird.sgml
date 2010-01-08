@@ -1513,7 +1513,7 @@ protocol ospf &lt;name&gt; {
 
 	<tag>strict nonbroadcast <M>switch</M></tag>
 	 If set, don't send hello to any undefined neighbor. This switch
-	 is ignored on on any non-NBMA network. Default is No.
+	 is ignored on any non-NBMA network. Default is No.
 
 	<tag>authentication none</tag>
 	 No passwords are sent in OSPF packets. This is the default value.
