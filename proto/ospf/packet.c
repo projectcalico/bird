@@ -287,7 +287,7 @@ ospf_rx_hook(sock * sk, int size)
     return 1;
   }
 
-  /* This is strange! */
+  /* We receive packets related to vlinks even on non-vlink sockets */
   if ((ifa->oa->areaid != 0) && (ntohl(ps->areaid) == 0))
   {
     WALK_LIST(iff, po->iface_list)

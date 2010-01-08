@@ -69,8 +69,11 @@ ospf_open_socket(struct ospf_iface *ifa, int mc)
   ipsk->dport = OSPF_PROTO;
 
 #ifdef OSPFv2
-  //  ipsk->saddr = ifa->iface->addr->ip;
-  ipsk->saddr = IPA_NONE;
+  /* FIXME - why there is IPA_NONE on multicast sockets ? */
+  if (mc)
+    ipsk->saddr = IPA_NONE;
+  else
+    ipsk->saddr = ifa->iface->addr->ip;
 #else /* OSPFv3 */
   ipsk->saddr = ifa->lladdr;
 #endif

@@ -310,6 +310,7 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
     }
 }
 
+/* 16.1 calculating shortest paths for an area */
 static void
 ospf_rt_spfa(struct ospf_area *oa)
 {
@@ -510,6 +511,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
   return 0;
 }
 
+/* 16.3 examining summary-LSAs in transit areas */
 static void
 ospf_rt_sum_tr(struct ospf_area *oa)
 {
@@ -533,12 +535,14 @@ ospf_rt_sum_tr(struct ospf_area *oa)
     if (en->domain != oa->areaid)
       continue;
 
+    /* 16.3 (1a) */
     if (en->lsa.age == LSA_MAXAGE)
       continue;
 
-    if (en->dist == LSINFINITY)
-      continue;
+    // if (en->dist == LSINFINITY)
+    //   continue;
 
+    /* 16.3 (2) */
     if (en->lsa.rt == po->router_id)
       continue;
 
@@ -583,12 +587,17 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       re = (ort *) fib_find(&bb->rtr, &ip, pxlen);
     }
 
+    /* 16.3 (1b) */ 
+    if (metric == LSINFINITY) 
+      continue; 
+
+    /* 16.3 (3) */
     if (!re) continue;
     if (re->n.oa->areaid != 0) continue;
     if ((re->n.type != RTS_OSPF) && (re->n.type != RTS_OSPF_IA)) continue;
 
+    /* 16.3. (4) */
     abrip = ipa_from_rid(en->lsa.rt);
-
     abr = fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH);
     if (!abr) continue;
 
@@ -605,7 +614,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
   }
 }
   
-
+/* 16.2 calculating inter-area routes */
 static void
 ospf_rt_sum(struct ospf_area *oa)
 {
