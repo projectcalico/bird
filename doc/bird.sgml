@@ -1390,7 +1390,7 @@ protocol ospf &lt;name&gt; {
 			wait &lt;num&gt;;
 			dead count &lt;num&gt;;
 			dead &lt;num&gt;;
-			authentication [none|simple];
+			authentication [none|simple|cryptographics];
 			password "&lt;text&gt;";
 		};
 	};
