@@ -69,11 +69,14 @@ ospf_open_socket(struct ospf_iface *ifa, int mc)
   ipsk->dport = OSPF_PROTO;
 
 #ifdef OSPFv2
-  /* FIXME - why there is IPA_NONE on multicast sockets ? */
-  if (mc)
-    ipsk->saddr = IPA_NONE;
-  else
-    ipsk->saddr = ifa->iface->addr->ip;
+  /*
+   * In Linux IPv4, binding a raw socket to an IP address of an iface causes
+   * that the socket does not receive multicast packets, as they have
+   * different (multicast) destination IP address.
+   *
+   * We want such filter in the vlink (non-mc) socket.
+   */
+  ipsk->saddr = mc ? IPA_NONE : ifa->iface->addr->ip;
 #else /* OSPFv3 */
   ipsk->saddr = ifa->lladdr;
 #endif
