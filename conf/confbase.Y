@@ -60,8 +60,8 @@ CF_DECLS
 %type <t> text_or_none
 
 %nonassoc PREFIX_DUMMY
-%nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ AND OR PO PC
-%left '+' '-'
+%nonassoc '=' '<' '>' '~' '.' GEQ LEQ NEQ PO PC
+%left '+' '-' AND OR
 %left '*' '/' '%'
 %left '!'
 
