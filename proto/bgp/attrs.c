@@ -664,44 +664,8 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
   return b;
 }
 
-static int
-bgp_export_check(struct bgp_proto *p, ea_list *new)
-{
-  eattr *a;
-  struct adata *d;
-
-  /* Check if next hop is valid */
-  a = ea_find(new, EA_CODE(EAP_BGP, BA_NEXT_HOP));
-  if (!a || ipa_equal(p->next_hop, *(ip_addr *)a->u.ptr))
-    {
-      DBG("\tInvalid NEXT_HOP\n");
-      return 0;
-    }
-
-  /* Check if we aren't forbidden to export the route by communities */
-  a = ea_find(new, EA_CODE(EAP_BGP, BA_COMMUNITY));
-  if (a)
-    {
-      d = a->u.ptr;
-      if (int_set_contains(d, BGP_COMM_NO_ADVERTISE))
-	{
-	  DBG("\tNO_ADVERTISE\n");
-	  return 0;
-	}
-      if (!p->is_internal &&
-	  (int_set_contains(d, BGP_COMM_NO_EXPORT) ||
-	   int_set_contains(d, BGP_COMM_NO_EXPORT_SUBCONFED)))
-	{
-	  DBG("\tNO_EXPORT\n");
-	  return 0;
-	}
-    }
-
-  return 1;
-}
-
 static struct bgp_bucket *
-bgp_get_bucket(struct bgp_proto *p, ea_list *attrs, int originate)
+bgp_get_bucket(struct bgp_proto *p, net *n, ea_list *attrs, int originate)
 {
   ea_list *new;
   unsigned i, cnt, hash, code;
@@ -778,12 +742,17 @@ bgp_get_bucket(struct bgp_proto *p, ea_list *attrs, int originate)
   for(i=0; i<ARRAY_SIZE(bgp_mandatory_attrs); i++)
     if (!(seen & (1 << bgp_mandatory_attrs[i])))
       {
-	log(L_ERR "%s: Mandatory attribute %s missing", p->p.name, bgp_attr_table[bgp_mandatory_attrs[i]].name);
+	log(L_ERR "%s: Mandatory attribute %s missing in route %I/%d", p->p.name, bgp_attr_table[bgp_mandatory_attrs[i]].name, n->n.prefix, n->n.pxlen);
 	return NULL;
       }
 
-  if (!bgp_export_check(p, new))
-    return NULL;
+  /* Check if next hop is valid */
+  a = ea_find(new, EA_CODE(EAP_BGP, BA_NEXT_HOP));
+  if (!a || ipa_equal(p->next_hop, *(ip_addr *)a->u.ptr->data))
+    {
+      log(L_ERR "%s: Invalid NEXT_HOP attribute in route %I/%d", p->p.name, n->n.prefix, n->n.pxlen);
+      return NULL;
+    }
 
   /* Create new bucket */
   DBG("Creating bucket.\n");
@@ -813,7 +782,7 @@ bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old UNUSED, ea_list *attrs
 
   if (new)
     {
-      buck = bgp_get_bucket(p, attrs, new->attrs->source != RTS_BGP);
+      buck = bgp_get_bucket(p, n, attrs, new->attrs->source != RTS_BGP);
       if (!buck)			/* Inconsistent attribute list */
 	return;
     }
@@ -963,6 +932,34 @@ bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   return 0;				/* Leave decision to the filters */
 }
 
+static int
+bgp_community_filter(struct bgp_proto *p, rte *e)
+{
+  eattr *a;
+  struct adata *d;
+
+  /* Check if we aren't forbidden to export the route by communities */
+  a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_COMMUNITY));
+  if (a)
+    {
+      d = a->u.ptr;
+      if (int_set_contains(d, BGP_COMM_NO_ADVERTISE))
+	{
+	  DBG("\tNO_ADVERTISE\n");
+	  return 1;
+	}
+      if (!p->is_internal &&
+	  (int_set_contains(d, BGP_COMM_NO_EXPORT) ||
+	   int_set_contains(d, BGP_COMM_NO_EXPORT_SUBCONFED)))
+	{
+	  DBG("\tNO_EXPORT\n");
+	  return 1;
+	}
+    }
+
+  return 0;
+}
+
 int
 bgp_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *pool)
 {
@@ -977,6 +974,9 @@ bgp_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *
       /* We should check here for cluster list loop, because the receiving BGP instance
 	 might have different cluster ID  */
       if (bgp_cluster_list_loopy(p, e->attrs))
+	return -1;
+
+      if (!p->cf->ignore_communities && bgp_community_filter(p, e))
 	return -1;
 
       if (p->local_as == new_bgp->local_as && p->is_internal && new_bgp->is_internal)

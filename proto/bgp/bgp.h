@@ -37,6 +37,7 @@ struct bgp_config {
   int advertise_ipv4;			/* Whether we should add IPv4 capability advertisement to OPEN message */
   u32 route_limit;			/* Number of routes that may be imported, 0 means disable limit */
   int passive;				/* Do not initiate outgoing connection */
+  int ignore_communities;		/* Skip hardwired handling of well-known communities */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
