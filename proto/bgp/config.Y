@@ -23,7 +23,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
 	BGP_ATOMIC_AGGR, BGP_AGGREGATOR, BGP_COMMUNITY, SOURCE, ADDRESS,
 	PASSWORD, RR, RS, CLIENT, CLUSTER, ID, AS4, ADVERTISE, IPV4,
 	CAPABILITIES, LIMIT, PASSIVE, PREFER, OLDER, MISSING, LLADDR,
-	DROP, IGNORE, ROUTE, REFRESH, COMMUNITIES)
+	DROP, IGNORE, ROUTE, REFRESH, INTERPRET, COMMUNITIES)
 
 CF_GRAMMAR
 
@@ -44,6 +44,7 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->enable_as4 = 1;
      BGP_CFG->capabilities = 2;
      BGP_CFG->advertise_ipv4 = 1;
+     BGP_CFG->interpret_communities = 1;
      BGP_CFG->default_local_pref = 100;
  }
  ;
@@ -86,7 +87,7 @@ bgp_proto:
  | bgp_proto PASSWORD TEXT ';' { BGP_CFG->password = $3; }
  | bgp_proto ROUTE LIMIT expr ';' { BGP_CFG->route_limit = $4; }
  | bgp_proto PASSIVE bool ';' { BGP_CFG->passive = $3; }
- | bgp_proto IGNORE COMMUNITIES bool ';' { BGP_CFG->ignore_communities = $4; }
+ | bgp_proto INTERPRET COMMUNITIES bool ';' { BGP_CFG->interpret_communities = $4; }
  ;
 
 CF_ADDTO(dynamic_attr, BGP_PATH

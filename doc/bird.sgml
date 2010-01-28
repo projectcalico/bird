@@ -996,16 +996,17 @@ for each neighbor using the following configuration parameters:
 	capability and accepts such requests. Even when disabled, BIRD
 	can send route refresh requests. Default: on.
 
-	<tag>ignore communities <m/switch/</tag> RFC 1997 demands that
-	BGP speaker should process well-known communities like
+	<tag>interpret communities <m/switch/</tag> RFC 1997 demands
+	that BGP speaker should process well-known communities like
 	no-export (65535, 65281) or no-advertise (65535, 65282). For
 	example, received route carrying a no-adverise community
-	should not be advertised to any of its neighbors. BIRD has
-	such behavior hardwired (it is evaluated when a route is
-	exported to the protocol just before the export filter). This
-	option allows to disable such hardwired processing of
-	well-known communities (in that case, similar behavior can be
-	implemented in the export filter).  Default: off.
+	should not be advertised to any of its neighbors. If this
+	option is enabled (which is by default), BIRD has such
+	behavior automatically (it is evaluated when a route is
+	exported to the protocol just before the export filter).
+	Otherwise, this integrated processing of well-known
+	communities is disabled. In that case, similar behavior can be
+	implemented in the export filter.  Default: on.
 
 	<tag>enable as4 <m/switch/</tag> BGP protocol was designed to use 2B AS numbers
 	and was extended later to allow 4B AS number. BIRD supports 4B AS extension,

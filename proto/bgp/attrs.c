@@ -976,7 +976,7 @@ bgp_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *
       if (bgp_cluster_list_loopy(p, e->attrs))
 	return -1;
 
-      if (!p->cf->ignore_communities && bgp_community_filter(p, e))
+      if (p->cf->interpret_communities && bgp_community_filter(p, e))
 	return -1;
 
       if (p->local_as == new_bgp->local_as && p->is_internal && new_bgp->is_internal)
