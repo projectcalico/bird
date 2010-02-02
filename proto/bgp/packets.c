@@ -1001,6 +1001,10 @@ bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
 
   BGP_TRACE_RL(&rl_rcv_update, D_PACKETS, "Got UPDATE");
 
+  /* Workaround for some BGP implementations that skip initial KEEPALIVE */
+  if (conn->state == BS_OPENCONFIRM)
+    bgp_conn_enter_established_state(conn);
+
   if (conn->state != BS_ESTABLISHED)
     { bgp_error(conn, 5, 0, NULL, 0); return; }
   bgp_start_timer(conn->hold_timer, conn->hold_time);
