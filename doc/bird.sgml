@@ -271,6 +271,31 @@ protocol rip {
 	listen to IPv6 connections only. This is needed if you want to
 	run both bird and bird6 on the same port.
 
+	<tag>timeformat route|protocol|base|log "<m/format1/" [<m/limit> "<m/format2/"]</tag>
+	This option allows to specify a format of date/time used by
+	BIRD.  The first argument specifies for which purpose such
+	format is used. <cf/route/ is a format used in 'show route'
+	command output, <cf/protocol/ is used in 'show protocols'
+	command output, <cf/base/ is used for other commands and
+	<cf/log/ is used in a log file.
+
+	"<m/format1/" is a format string using <i/strftime(3)/
+	notation (see <i/man strftime/ for details). <m/limit> and
+	"<m/format2/" allow to specify the second format string for
+	times in past deeper than <m/limit/ seconds. There are two
+	shorthands: <cf/iso long/ is a ISO 8601 date/time format
+	(YYYY-MM-DD hh:mm:ss) that can be also specified using <cf/"%F
+	%T"/. <cf/iso short/ is a variant of ISO 8601 that uses just
+	the time format (hh:mm:ss) for near times (up to 20 hours in
+	the past) and the date format (YYYY-MM-DD) for far times. This
+	is a shorthand for <cf/"%T" 72000 "%F"/.
+
+	By default, BIRD uses an short, ad-hoc format for <cf/route/
+	and <cf/protocol/ times, and a <cf/iso long/ similar format
+	(DD-MM-YYYY hh:mm:ss) for <cf/base/ and <cf/log/. These
+	defaults are here for a compatibility with older versions
+	and might change in the future.
+
 	<tag>table <m/name/</tag> Create a new routing table. The default
 	routing table is created implicitly, other routing tables have
 	to be added by this command.

@@ -42,6 +42,7 @@ CF_DECLS
   void *g;
   bird_clock_t time;
   struct prefix px;
+  struct timeformat *tf;
 }
 
 %token END CLI_MARKER INVALID_TOKEN

@@ -730,18 +730,18 @@ proto_state_name(struct proto *p)
 static void
 proto_do_show(struct proto *p, int verbose)
 {
-  byte buf[256], reltime[TM_RELTIME_BUFFER_SIZE];
+  byte buf[256], tbuf[TM_DATETIME_BUFFER_SIZE];
 
   buf[0] = 0;
   if (p->proto->get_status)
     p->proto->get_status(p, buf);
-  tm_format_reltime(reltime, p->last_state_change);
-  cli_msg(-1002, "%-8s %-8s %-8s %-5s %-5s  %s",
+  tm_format_datetime(tbuf, &config->tf_proto, p->last_state_change);
+  cli_msg(-1002, "%-8s %-8s %-8s %-5s  %-10s  %s",
 	  p->name,
 	  p->proto->name,
 	  p->table->name,
 	  proto_state_name(p),
-	  reltime,
+	  tbuf,
 	  buf);
   if (verbose)
     {
@@ -782,7 +782,7 @@ proto_show(struct symbol *s, int verbose)
       cli_msg(9002, "%s is not a protocol", s->name);
       return;
     }
-  cli_msg(-2002, "name     proto    table    state since  info");
+  cli_msg(-2002, "name     proto    table    state  since       info");
   if (s)
     proto_do_show(((struct proto_config *)s->def)->proto, verbose);
   else

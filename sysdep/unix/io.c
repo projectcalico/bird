@@ -410,22 +410,21 @@ tm_parse_date(char *x)
   return t;
 }
 
-/**
- * tm_format_date - convert date to textual representation
- * @x: destination buffer of size %TM_DATE_BUFFER_SIZE
- * @t: time
- *
- * This function formats the given relative time value @t to a textual
- * date representation (dd-mm-yyyy) in real time..
- */
-void
-tm_format_date(char *x, bird_clock_t t)
+static void
+tm_format_reltime(char *x, struct tm *tm, bird_clock_t delta)
 {
-  struct tm *tm;
+  static char *month_names[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+				   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
-  tm = localtime(&t);
-  bsprintf(x, "%02d-%02d-%04d", tm->tm_mday, tm->tm_mon+1, tm->tm_year+1900);
+  if (delta < 20*3600)
+    bsprintf(x, "%02d:%02d", tm->tm_hour, tm->tm_min);
+  else if (delta < 360*86400)
+    bsprintf(x, "%s%02d", month_names[tm->tm_mon], tm->tm_mday);
+  else
+    bsprintf(x, "%d", tm->tm_year+1900);
 }
+
+#include "conf/conf.h"
 
 /**
  * tm_format_datetime - convert date and time to textual representation
@@ -436,39 +435,25 @@ tm_format_date(char *x, bird_clock_t t)
  * date/time representation (dd-mm-yyyy hh:mm:ss) in real time.
  */
 void
-tm_format_datetime(char *x, bird_clock_t t)
+tm_format_datetime(char *x, struct timeformat *fmt_spec, bird_clock_t t)
 {
+  const char *fmt_used;
   struct tm *tm;
   bird_clock_t delta = now - t;
   t = now_real - delta;
   tm = localtime(&t);
-  if (strftime(x, TM_DATETIME_BUFFER_SIZE, "%d-%m-%Y %H:%M:%S", tm) == TM_DATETIME_BUFFER_SIZE)
-    strcpy(x, "<too-long>");
-}
 
-/**
- * tm_format_reltime - convert date and time to relative textual representation
- * @x: destination buffer of size %TM_RELTIME_BUFFER_SIZE
- * @t: time
- *
- * This function formats the given relative time value @t to a short
- * textual representation in real time, relative to the current time.
- */
-void
-tm_format_reltime(char *x, bird_clock_t t)
-{
-  struct tm *tm;
-  static char *month_names[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+  if (fmt_spec->fmt1 == NULL)
+    return tm_format_reltime(x, tm, delta);
 
-  bird_clock_t delta = now - t;
-  t = now_real - delta;
-  tm = localtime(&t);
-  if (delta < 20*3600)
-    bsprintf(x, "%02d:%02d", tm->tm_hour, tm->tm_min);
-  else if (delta < 360*86400)
-    bsprintf(x, "%s%02d", month_names[tm->tm_mon], tm->tm_mday);
+  if ((fmt_spec->limit == 0) || (delta < fmt_spec->limit))
+    fmt_used = fmt_spec->fmt1;
   else
-    bsprintf(x, "%d", tm->tm_year+1900);
+    fmt_used = fmt_spec->fmt2;
+
+  int rv = strftime(x, TM_DATETIME_BUFFER_SIZE, fmt_used, tm);
+  if (((rv == 0) && fmt_used[0]) || (rv == TM_DATETIME_BUFFER_SIZE))
+    strcpy(x, "<too-long>");
 }
 
 /**

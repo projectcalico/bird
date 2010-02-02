@@ -80,6 +80,8 @@ config_alloc(byte *name)
   cfg_mem = c->mem = l;
   c->file_name = cfg_strdup(name);
   c->load_time = now;
+  c->tf_base.fmt1 = c->tf_log.fmt1 = "%d-%m-%Y %T";
+
   if (!boot_time)
     boot_time = now;
   return c;

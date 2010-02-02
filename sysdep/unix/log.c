@@ -79,21 +79,13 @@ vlog(int class, char *msg, va_list args)
 	continue;
       if (l->fh)
 	{
-	  time_t now = time(NULL);
-	  struct tm *tm = localtime(&now);
-
 	  if (l->terminal_flag)
 	    fputs("bird: ", l->fh);
 	  else
 	    {
-	      fprintf(l->fh, "%02d-%02d-%04d %02d:%02d:%02d <%s> ",
-		       tm->tm_mday,
-		       tm->tm_mon+1,
-		       tm->tm_year+1900,
-		       tm->tm_hour,
-		       tm->tm_min,
-		       tm->tm_sec,
-		       class_names[class]);
+	      byte tbuf[TM_DATETIME_BUFFER_SIZE];
+	      tm_format_datetime(tbuf, &config->tf_log, now);
+	      fprintf(l->fh, "%s <%s> ", tbuf, class_names[class]);
 	    }
 	  fputs(buf, l->fh);
 	  fputc('\n', l->fh);

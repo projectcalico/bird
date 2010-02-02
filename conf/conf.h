@@ -29,6 +29,11 @@ struct config {
   u32 listen_bgp_flags;			/* Listening BGP socket should use these flags */
   unsigned proto_default_debug;		/* Default protocol debug mask */
   unsigned proto_default_mrtdump;	/* Default protocol mrtdump mask */
+  struct timeformat tf_route;		/* Time format for 'show route' */
+  struct timeformat tf_proto;		/* Time format for 'show protocol' */
+  struct timeformat tf_log;		/* Time format for the logfile */
+  struct timeformat tf_base;		/* Time format for other purposes */
+
   int cli_debug;			/* Tracing of CLI connections and commands */
   char *err_msg;			/* Parser error message */
   int err_lino;				/* Line containing error */
