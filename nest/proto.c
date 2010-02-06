@@ -280,7 +280,7 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   if ((nc->protocol != oc->protocol) ||
       (nc->disabled != oc->disabled) ||
       (nc->table->table != oc->table->table) ||
-      (proto_get_router_id(nc) == proto_get_router_id(oc)))
+      (proto_get_router_id(nc) != proto_get_router_id(oc)))
     return 0;
 
   int import_changed = (type != RECONFIG_SOFT) && ! filter_same(nc->in_filter, oc->in_filter);
@@ -312,10 +312,14 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   p->in_filter = nc->in_filter;
   p->out_filter = nc->out_filter;
 
+  if (import_changed || export_changed)
+    log(L_INFO "Reloading protocol %s", p->name);
+
   if (import_changed && ! p->reload_routes(p))
     {
       /* Now, the protocol is reconfigured. But route reload failed
 	 and we have to do regular protocol restart. */
+      log(L_INFO "Restarting protocol %s", p->name);
       p->disabled = 1;
       proto_rethink_goal(p);
       p->disabled = 0;
@@ -382,13 +386,20 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 		continue;
 
 	      /* Unsuccessful, we will restart it */
-	      DBG("\t%s: power cycling\n", oc->name);
+	      if (!p->disabled && !nc->disabled)
+		log(L_INFO "Restarting protocol %s", p->name);
+	      else if (p->disabled && !nc->disabled)
+		log(L_INFO "Enabling protocol %s", p->name);
+	      else if (!p->disabled && nc->disabled)
+		log(L_INFO "Disabling protocol %s", p->name);
+
 	      PD(p, "Restarting");
 	      p->cf_new = nc;
 	    }
 	  else
 	    {
-	      DBG("\t%s: deleting\n", oc->name);
+	      if (!shutting_down)
+		log(L_INFO "Removing protocol %s", p->name);
 	      PD(p, "Unconfigured");
 	      p->cf_new = NULL;
 	    }
@@ -401,7 +412,8 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
   WALK_LIST(nc, new->protos)
     if (!nc->proto)
       {
-	DBG("\t%s: adding\n", nc->name);
+	if (old_config)		/* Not a first-time configuration */
+	  log(L_INFO "Adding protocol %s", nc->name);
 	proto_init(nc);
       }
   DBG("\tdone\n");
@@ -878,9 +890,10 @@ proto_xxable(char *pattern, int xx)
 	      cli_msg(-8, "%s: already disabled", p->name);
 	    else
 	      {
-		cli_msg(-9, "%s: disabled", p->name);
+		log(L_INFO "Disabling protocol %s", p->name);
 		p->disabled = 1;
 		proto_rethink_goal(p);
+		cli_msg(-9, "%s: disabled", p->name);
 	      }
 	    break;
 
@@ -889,9 +902,10 @@ proto_xxable(char *pattern, int xx)
 	      cli_msg(-10, "%s: already enabled", p->name);
 	    else
 	      {
-		cli_msg(-11, "%s: enabled", p->name);
+		log(L_INFO "Enabling protocol %s", p->name);
 		p->disabled = 0;
 		proto_rethink_goal(p);
+		cli_msg(-11, "%s: enabled", p->name);
 	      }
 	    break;
 
@@ -900,6 +914,7 @@ proto_xxable(char *pattern, int xx)
 	      cli_msg(-8, "%s: already disabled", p->name);
 	    else
 	      {
+		log(L_INFO "Restarting protocol %s", p->name);
 		p->disabled = 1;
 		proto_rethink_goal(p);
 		p->disabled = 0;
@@ -920,6 +935,8 @@ proto_xxable(char *pattern, int xx)
 	    /* If the protocol in not UP, it has no routes */
 	    if (p->proto_state != PS_UP)
 	      break;
+
+	    log(L_INFO "Reloading protocol %s", p->name);
 
 	    /* re-importing routes */
 	    if (xx != XX_RELOAD_OUT)

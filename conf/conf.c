@@ -57,7 +57,7 @@ static jmp_buf conf_jmpbuf;
 
 struct config *config, *new_config, *old_config, *future_config;
 static event *config_event;
-int shutting_down;
+int shutting_down, future_type;
 bird_clock_t boot_time;
 
 /**
@@ -201,6 +201,7 @@ config_do_commit(struct config *c, int type)
   config = new_config = c;
   if (old_config)
     old_config->obstacle_count++;
+
   DBG("sysdep_commit\n");
   force_restart = sysdep_commit(c, old_config);
   DBG("global_commit\n");
@@ -238,8 +239,8 @@ config_done(void *unused UNUSED)
 	break;
       c = future_config;
       future_config = NULL;
-      log(L_INFO "Switching to queued configuration...");
-      if (!config_do_commit(c, RECONFIG_HARD))
+      log(L_INFO "Reconfiguring to queued configuration");
+      if (!config_do_commit(c, future_type))
 	break;
     }
 }
@@ -290,8 +291,13 @@ config_commit(struct config *c, int type)
       else
 	log(L_INFO "Queued new configuration");
       future_config = c;
+      future_type = type;
       return CONF_QUEUED;
     }
+
+  if (!shutting_down)
+    log(L_INFO "Reconfiguring");
+
   if (config_do_commit(c, type))
     {
       config_done(NULL);

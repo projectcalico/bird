@@ -314,7 +314,7 @@ void
 sysdep_shutdown_done(void)
 {
   unlink(path_control_socket);
-  log_msg(L_FATAL "System shutdown completed");
+  log_msg(L_FATAL "Shutdown completed");
   exit(0);
 }
 
@@ -476,6 +476,7 @@ main(int argc, char **argv)
   async_dump_flag = 1;
 #endif
 
+  log(L_INFO "Started");
   DBG("Entering I/O loop.\n");
 
   io_loop();
