@@ -269,6 +269,66 @@ proto_init(struct proto_config *c)
   return q;
 }
 
+static int
+proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config *nc, int type)
+{
+  /* If the protocol is DOWN, we just restart it */
+  if (p->proto_state == PS_DOWN)
+    return 0;
+
+  /* If there is a too big change in core attributes, ... */
+  if ((nc->protocol != oc->protocol) ||
+      (nc->disabled != oc->disabled) ||
+      (nc->table->table != oc->table->table) ||
+      (proto_get_router_id(nc) == proto_get_router_id(oc)))
+    return 0;
+
+  int import_changed = (type != RECONFIG_SOFT) && ! filter_same(nc->in_filter, oc->in_filter);
+  int export_changed = (type != RECONFIG_SOFT) && ! filter_same(nc->out_filter, oc->out_filter);
+
+  /* We treat a change in preferences by reimporting routes */
+  if (nc->preference != oc->preference)
+    import_changed = 1;
+
+  /* If the protocol in not UP, it has no routes and we can ignore such changes */
+  if (p->proto_state != PS_UP)
+    import_changed = export_changed = 0;
+
+  /* Without this hook we cannot reload routes and have to restart the protocol */
+  if (import_changed && ! p->reload_routes)
+    return 0;
+
+  p->debug = nc->debug;
+  p->mrtdump = nc->mrtdump;
+
+  /* Execute protocol specific reconfigure hook */
+  if (! (p->proto->reconfigure && p->proto->reconfigure(p, nc)))
+    return 0;
+
+  DBG("\t%s: same\n", oc->name);
+  PD(p, "Reconfigured");
+  p->cf = nc;
+  p->name = nc->name;
+  p->in_filter = nc->in_filter;
+  p->out_filter = nc->out_filter;
+
+  if (import_changed && ! p->reload_routes(p))
+    {
+      /* Now, the protocol is reconfigured. But route reload failed
+	 and we have to do regular protocol restart. */
+      p->disabled = 1;
+      proto_rethink_goal(p);
+      p->disabled = 0;
+      proto_rethink_goal(p);
+      return 1;
+    }
+
+  if (export_changed)
+    proto_request_feeding(p);
+
+  return 1;
+}
+
 /**
  * protos_commit - commit new protocol configuration
  * @new: new configuration
@@ -315,36 +375,16 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 	      /* Found match, let's check if we can smoothly switch to new configuration */
 	      /* No need to check description */
 	      nc = sym->def;
-	      if (!force_reconfig
-		  && nc->protocol == oc->protocol
-		  && nc->preference == oc->preference
-		  && nc->disabled == oc->disabled
-		  && nc->table->table == oc->table->table
-		  && proto_get_router_id(nc) == proto_get_router_id(oc)
-		  && ((type == RECONFIG_SOFT) || filter_same(nc->in_filter, oc->in_filter))
-		  && ((type == RECONFIG_SOFT) || filter_same(nc->out_filter, oc->out_filter))
-		  && p->proto_state != PS_DOWN)
-		{
-		  /* Generic attributes match, try converting them and then ask the protocol */
-		  p->debug = nc->debug;
-		  p->mrtdump = nc->mrtdump;
-		  if (p->proto->reconfigure && p->proto->reconfigure(p, nc))
-		    {
-		      DBG("\t%s: same\n", oc->name);
-		      PD(p, "Reconfigured");
-		      p->cf = nc;
-		      p->name = nc->name;
-		      p->in_filter = nc->in_filter;
-		      p->out_filter = nc->out_filter;
-		      nc->proto = p;
-		      continue;
-		    }
-		}
-	      /* Unsuccessful, force reconfig */
-	      DBG("\t%s: power cycling\n", oc->name);
-	      PD(p, "Reconfiguration failed, restarting");
-	      p->cf_new = nc;
 	      nc->proto = p;
+
+	      /* We will try to reconfigure protocol p */
+	      if (! force_reconfig && proto_reconfigure(p, oc, nc, type))
+		continue;
+
+	      /* Unsuccessful, we will restart it */
+	      DBG("\t%s: power cycling\n", oc->name);
+	      PD(p, "Restarting");
+	      p->cf_new = nc;
 	    }
 	  else
 	    {
@@ -876,6 +916,10 @@ proto_xxable(char *pattern, int xx)
 		cli_msg(-8, "%s: already disabled", p->name);
 		break;
 	      }
+
+	    /* If the protocol in not UP, it has no routes */
+	    if (p->proto_state != PS_UP)
+	      break;
 
 	    /* re-importing routes */
 	    if (xx != XX_RELOAD_OUT)
