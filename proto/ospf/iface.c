@@ -355,6 +355,9 @@ ospf_open_mc_socket(struct ospf_iface *ifa)
 u8
 ospf_iface_clasify(struct iface * ifa)
 {
+  if (ifa->addr->flags & IA_UNNUMBERED)
+    return OSPF_IT_PTP;
+
   if ((ifa->flags & (IF_MULTIACCESS | IF_MULTICAST)) ==
       (IF_MULTIACCESS | IF_MULTICAST))
     return OSPF_IT_BCAST;
@@ -457,6 +460,16 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
     ifa->type = ospf_iface_clasify(ifa->iface);
   else
     ifa->type = ip->type;
+
+#ifdef OSPFv2
+  if ((ifa->type != OSPF_IT_PTP) && (ifa->type != OSPF_IT_VLINK) &&
+      (ifa->iface->addr->flags & IA_UNNUMBERED))
+  {
+    log(L_WARN "%s: Missing proper IP prefix on interface %s, forcing point-to-point mode",
+	p->name,  iface->name);
+    ifa->type = OSPF_IT_PTP;
+  }
+#endif
 
   init_list(&ifa->neigh_list);
   init_list(&ifa->nbma_list);
