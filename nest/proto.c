@@ -311,6 +311,7 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   p->name = nc->name;
   p->in_filter = nc->in_filter;
   p->out_filter = nc->out_filter;
+  p->preference = nc->preference;
 
   if (import_changed || export_changed)
     log(L_INFO "Reloading protocol %s", p->name);
