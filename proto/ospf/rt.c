@@ -38,6 +38,7 @@ fill_ri(orta * orta)
   orta->ifa = NULL;
   orta->ar = NULL;
   orta->tag = 0;
+  orta->rid = 0;
 }
 
 void
@@ -158,6 +159,7 @@ add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_
   nf.ar = en;
   nf.nh = en->nh;
   nf.ifa = en->nhi;
+  nf.rid = en->lsa.rt;
 
   /* FIXME check nf.ifa on stubs */
   ri_install(oa->po, px, pxlen, ORT_NET, &nf, NULL);
@@ -256,6 +258,7 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 	  nf.ar = act;
 	  nf.nh = act->nh;
 	  nf.ifa = act->nhi;
+	  nf.rid = act->lsa.rt;
 
 	  if (act == oa->rt)
 	    {
@@ -373,6 +376,7 @@ ospf_rt_spfa(struct ospf_area *oa)
       nf.ar = act;
       nf.nh = act->nh;
       nf.ifa = act->nhi;
+      nf.rid = act->lsa.rt;
       ri_install(po, ipa_from_rid(act->lsa.rt), MAX_PREFIX_LENGTH, ORT_ROUTER, &nf, NULL);
 
 #ifdef OSPFv2
@@ -610,6 +614,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
     nf.ar = abr->n.ar;
     nf.nh = abr->n.nh;
     nf.ifa = abr->n.ifa;
+    nf.rid = en->lsa.rt; /* ABR ID */
     ri_install(po, ip, pxlen, type, &nf, NULL);
   }
 }
@@ -719,6 +724,7 @@ ospf_rt_sum(struct ospf_area *oa)
     nf.ar = abr->n.ar;
     nf.nh = abr->n.nh;
     nf.ifa = abr->n.ifa;
+    nf.rid = en->lsa.rt; /* ABR ID */
     ri_install(po, ip, pxlen, type, &nf, NULL);
   }
 }
@@ -961,6 +967,7 @@ ospf_ext_spf(struct proto_ospf *po)
     nfa.ar = nf1->n.ar;
     nfa.nh = nh;
     nfa.ifa = nhi;
+    nfa.rid = en->lsa.rt;
     ri_install(po, ip, pxlen, ORT_NET, &nfa, nfh);
   }
 
@@ -1212,6 +1219,7 @@ again1:
         e->u.ospf.metric1 = nf->n.metric1;
         e->u.ospf.metric2 = nf->n.metric2;
         e->u.ospf.tag = nf->n.tag;
+        e->u.ospf.router_id = nf->n.rid;
         e->pflags = 0;
         e->net = ne;
         e->pref = p->preference;

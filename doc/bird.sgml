@@ -1578,7 +1578,7 @@ protocol ospf &lt;name&gt; {
 
 <sect1>Attributes
 
-<p>OSPF defines three route attributes. Each internal route has a <cf/metric/
+<p>OSPF defines four route attributes. Each internal route has a <cf/metric/.
 Metric is ranging from 1 to infinity (65535).
 External routes use <cf/metric type 1/ or <cf/metric type 2/.
 A <cf/metric of type 1/ is comparable with internal <cf/metric/, a
@@ -1588,6 +1588,8 @@ If you specify both metrics only metric1 is used.
 Each external route can also carry a <cf/tag/ which is a 32-bit
 integer which is used when exporting routes to other protocols;
 otherwise, it doesn't affect routing inside the OSPF domain at all.
+The fourth attribute is a <cf/router_id/ of the router advertising
+that route/network. This attribute is read-only.
 Default is <cf/metric of type 2 = 10000/ and <cf/tag = 0/.
 
 <sect1>Example

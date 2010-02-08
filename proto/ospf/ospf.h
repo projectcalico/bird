@@ -793,6 +793,7 @@ void ospf_sh_state(struct proto *p, int verbose);
 #define EA_OSPF_METRIC1	EA_CODE(EAP_OSPF, 0)
 #define EA_OSPF_METRIC2	EA_CODE(EAP_OSPF, 1)
 #define EA_OSPF_TAG	EA_CODE(EAP_OSPF, 2)
+#define EA_OSPF_ROUTER_ID EA_CODE(EAP_OSPF, 3)
 
 #include "proto/ospf/rt.h"
 #include "proto/ospf/hello.h"

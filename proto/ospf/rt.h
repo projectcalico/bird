@@ -28,8 +28,11 @@ typedef struct orta
   u32 metric2;
   ip_addr nh;			/* Next hop */
   struct ospf_iface *ifa;	/* Outgoing interface */
-  struct top_hash_entry *ar;	/* Advertising router */
+  struct top_hash_entry *ar;	/* Advertising router (or ABR) */
   u32 tag;
+  u32 rid;			/* Router ID of real advertising router */
+  /* For ext-LSA from different area, 'ar' is a type 1 LSA of ABR.
+     Router ID of real advertising router is stored in 'rid'. */
 }
 orta;
 
