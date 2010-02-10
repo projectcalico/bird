@@ -1,3 +1,12 @@
+Version 1.2.1 (2010-02-11)
+  o Option 'interpret communities' allows to override implicit handling
+    of well-known communities.
+  o 'configure' command uses route reload when filters change.
+  o Adds router ID of advertising router as OSPF route attribute.
+  o 'show route' command indicates primary route and shows OSPF Router ID.
+  o Configurable date/time formats.
+  o Several minor bugfixes.
+
 Version 1.2.0 (2010-01-05)
   o Implements OSPFv3 (IPv6 support for OSPF). Because the code is
     shared with OSPFv2 and there were deep changes in it, we suggest
