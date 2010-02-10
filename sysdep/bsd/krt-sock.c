@@ -172,8 +172,10 @@ krt_sock_send(int cmd, rte *e)
     case RTD_DEVICE:
       if(i)
       {
+#ifdef RTF_CLONING
         if (cmd == RTM_ADD && (i->flags & IF_MULTIACCESS) != IF_MULTIACCESS)	/* PTP */
           msg.rtm.rtm_flags |= RTF_CLONING;
+#endif
 
         if(!i->addr) {
           log(L_ERR "KIF: interface \"%s\" has no IP addess", i->name);
