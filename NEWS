@@ -5,6 +5,7 @@ Version 1.2.1 (2010-02-11)
   o Adds router ID of advertising router as OSPF route attribute.
   o 'show route' command indicates primary route and shows OSPF Router ID.
   o Configurable date/time formats.
+  o Symbol names can be enclosed by '' and so include hyphen and start with number.
   o Several minor bugfixes.
 
 Version 1.2.0 (2010-01-05)
