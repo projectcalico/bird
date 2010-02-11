@@ -205,7 +205,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 
   WALK_LIST(ifa, po->iface_list)
   {
-    int master = 0;
+    int net_lsa = 0;
 
     if ((ifa->type == OSPF_IT_VLINK) && (ifa->voa == oa) &&
 	(!EMPTY_LIST(ifa->neigh_list)))
@@ -230,12 +230,11 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	  ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
 	  ln->type = LSART_PTP;
 	  ln->id = neigh->rid;
-	  ln->data = (ifa->iface->addr->flags & IA_UNNUMBERED) ?
-	    ifa->iface->index : ipa_to_u32(ifa->iface->addr->ip);
+	  ln->data = (ifa->addr->flags & IA_UNNUMBERED) ?
+	    ifa->iface->index : ipa_to_u32(ifa->addr->ip);
 	  ln->metric = ifa->cost;
 	  ln->padding = 0;
 	  i++;
-	  master = 1;
 	}
 	break;
 
@@ -246,11 +245,11 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
 	    ln->type = LSART_NET;
 	    ln->id = ipa_to_u32(ifa->drip);
-	    ln->data = ipa_to_u32(ifa->iface->addr->ip);
+	    ln->data = ipa_to_u32(ifa->addr->ip);
 	    ln->metric = ifa->cost;
 	    ln->padding = 0;
 	    i++;
-	    master = 1;
+	    net_lsa = 1;
 	  }
 	break;
 
@@ -261,11 +260,10 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	  ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
 	  ln->type = LSART_VLNK;
 	  ln->id = neigh->rid;
-	  ln->data = ipa_to_u32(ifa->iface->addr->ip);
+	  ln->data = ipa_to_u32(ifa->addr->ip);
 	  ln->metric = ifa->cost;
 	  ln->padding = 0;
 	  i++;
-	  master = 1;
         }
         break;
 
@@ -278,12 +276,11 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
     struct ifa *a;
     WALK_LIST(a, ifa->iface->addrs)
       {
-	if (((a == ifa->iface->addr) && master) ||
+	if (((a == ifa->addr) && net_lsa) ||
 	    (a->flags & IA_SECONDARY) ||
 	    (a->flags & IA_UNNUMBERED) ||
 	    configured_stubnet(oa, a))
 	  continue;
-
 
 	ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
 	ln->type = LSART_STUB;
@@ -483,7 +480,7 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
 		 + nodes * sizeof(u32));
 
 #ifdef OSPFv2
-  net->netmask = ipa_mkmask(ifa->iface->addr->pxlen);
+  net->netmask = ipa_mkmask(ifa->addr->pxlen);
 #endif
 
 #ifdef OSPFv3
@@ -547,7 +544,7 @@ originate_net_lsa(struct ospf_iface *ifa)
 
 #ifdef OSPFv2
   lsa.options = ifa->oa->options;
-  lsa.id = ipa_to_u32(ifa->iface->addr->ip);
+  lsa.id = ipa_to_u32(ifa->addr->ip);
 #else /* OSPFv3 */
   lsa.id = ifa->iface->index;
 #endif
@@ -749,12 +746,13 @@ originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
   struct top_hash_entry *en;
-  u32 dom = oa->areaid;  
+  u32 dom = oa->areaid;
+  u32 rid = ipa_to_rid(fn->prefix);
   struct ospf_lsa_header lsa;
   void *body;
 
   OSPF_TRACE(D_EVENTS, "Originating rt-summary-LSA for %R (metric %d)",
-	     lsa.id, metric);
+	     rid, metric);
 
   lsa.age = 0;
 #ifdef OSPFv2
@@ -762,7 +760,7 @@ originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 
 #endif
   lsa.type = LSA_T_SUM_RT;
   /* In OSPFv3, LSA ID is meaningless, but we still use Router ID of ASBR */
-  lsa.id = ipa_to_rid(fn->prefix);
+  lsa.id = rid;
   lsa.rt = po->router_id;
   lsa.sn = LSA_INITSEQNO;
 
@@ -1052,7 +1050,7 @@ originate_link_lsa_body(struct ospf_iface *ifa, u16 *length)
   ASSERT(po->lsab_used == 0);
   ll = lsab_allocz(po, sizeof(struct ospf_lsa_link));
   ll->options = ifa->oa->options | (ifa->priority << 24);
-  ll->lladdr = ifa->lladdr;
+  ll->lladdr = ifa->addr->ip;
   ll = NULL; /* buffer might be reallocated later */
 
   struct ifa *a;

@@ -472,7 +472,7 @@ CF_CLI(RELOAD OUT, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protoc
 { proto_xxable($3, XX_RELOAD_OUT); } ;
 
 CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging via BIRD logs]])
-CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging via BIRD logs]])
+CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | interfaces | events | packets }), [[Control protocol debugging via BIRD logs]])
 { proto_debug($2, 0, $3); }
  ;
 

@@ -478,7 +478,9 @@ ospf_shutdown(struct proto *p)
   OSPF_TRACE(D_EVENTS, "Shutdown requested");
 
   /* And send to all my neighbors 1WAY */
-  WALK_LIST(ifa, po->iface_list) ospf_iface_shutdown(ifa);
+  WALK_LIST(ifa, po->iface_list)
+    if (ifa->state > OSPF_IS_DOWN)
+      ospf_iface_shutdown(ifa);
 
   return PS_DOWN;
 }
@@ -1209,7 +1211,7 @@ show_lsa_sum_net(struct top_hash_entry *he)
   lsa_get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
 #endif
 
-  cli_msg(-1016, "\t\txnetwork %I/%d", ip, pxlen);
+  cli_msg(-1016, "\t\txnetwork %I/%d metric %u", ip, pxlen, ls->metric);
 }
 
 static inline void
@@ -1227,7 +1229,7 @@ show_lsa_sum_rt(struct top_hash_entry *he)
   options = ls->options & OPTIONS_MASK;
 #endif
 
-  cli_msg(-1016, "\t\txrouter %R", dst_rid);
+  cli_msg(-1016, "\t\txrouter %R metric %u", dst_rid, ls->metric);
 }
 
 

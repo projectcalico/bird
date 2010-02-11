@@ -58,15 +58,15 @@ rxbufsize(struct ospf_iface *ifa)
   }
 }
 
-static sock *
-ospf_open_socket(struct ospf_iface *ifa, int mc)
+static int
+ospf_sk_open(struct ospf_iface *ifa, int mc)
 {
-  sock *ipsk;
+  sock *sk;
   struct proto *p = &ifa->oa->po->proto;
 
-  ipsk = sk_new(p->pool);
-  ipsk->type = SK_IP;
-  ipsk->dport = OSPF_PROTO;
+  sk = sk_new(p->pool);
+  sk->type = SK_IP;
+  sk->dport = OSPF_PROTO;
 
 #ifdef OSPFv2
   /*
@@ -76,45 +76,93 @@ ospf_open_socket(struct ospf_iface *ifa, int mc)
    *
    * We want such filter in the vlink (non-mc) socket.
    */
-  ipsk->saddr = mc ? IPA_NONE : ifa->iface->addr->ip;
+  sk->saddr = mc ? IPA_NONE : ifa->addr->ip;
 #else /* OSPFv3 */
-  ipsk->saddr = ifa->lladdr;
+  sk->saddr = ifa->addr->ip; /* link-local addr */
 #endif
 
-  ipsk->tos = IP_PREC_INTERNET_CONTROL;
-  ipsk->ttl = 1;
+  sk->tos = IP_PREC_INTERNET_CONTROL;
+  sk->ttl = 1;
   if (ifa->type == OSPF_IT_VLINK)
-    ipsk->ttl = 255;
-  ipsk->rx_hook = ospf_rx_hook;
-  ipsk->tx_hook = ospf_tx_hook;
-  ipsk->err_hook = ospf_err_hook;
-  ipsk->iface = ifa->iface;
-  ipsk->rbsize = rxbufsize(ifa);
-  ipsk->tbsize = ifa->iface->mtu;
-  ipsk->data = (void *) ifa;
-  if (sk_open(ipsk) != 0)
+    sk->ttl = 255;
+  sk->rx_hook = ospf_rx_hook;
+  sk->tx_hook = ospf_tx_hook;
+  sk->err_hook = ospf_err_hook;
+  sk->iface = ifa->iface;
+  sk->rbsize = rxbufsize(ifa);
+  sk->tbsize = ifa->iface->mtu;
+  sk->data = (void *) ifa;
+  sk->flags = SKF_LADDR_RX;
+
+  if (sk_open(sk) != 0)
     goto err;
 
 #ifdef OSPFv3
   /* 12 is an offset of the checksum in an OSPF packet */
-  if (sk_set_ipv6_checksum(ipsk, 12) < 0)
+  if (sk_set_ipv6_checksum(sk, 12) < 0)
     goto err;
 #endif
 
-  if (mc)
-  {
-    if (sk_setup_multicast(ipsk) < 0)
-      goto err;
+  if (mc && (sk_setup_multicast(sk) < 0))
+    goto err;
 
-    if (sk_join_group(ipsk, AllSPFRouters) < 0)
-      goto err;
-  }
-
-  return ipsk;
+  ifa->sk = sk;
+  ifa->sk_spf = 0;
+  ifa->sk_dr = 0;
+  return 1;
 
  err:
-  rfree(ipsk);
-  return NULL;
+  rfree(sk);
+  return 0;
+}
+
+static inline void
+ospf_sk_join_spf(struct ospf_iface *ifa)
+{
+  if (ifa->sk_spf)
+    return;
+
+  sk_join_group(ifa->sk, AllSPFRouters);
+  ifa->sk_spf = 1;
+}
+
+static inline void
+ospf_sk_join_dr(struct ospf_iface *ifa)
+{
+  if (ifa->sk_dr)
+    return;
+
+  sk_join_group(ifa->sk, AllDRouters);
+  ifa->sk_dr = 1;
+}
+
+static inline void
+ospf_sk_leave_spf(struct ospf_iface *ifa)
+{
+  if (!ifa->sk_spf)
+    return;
+
+  sk_leave_group(ifa->sk, AllSPFRouters);
+  ifa->sk_spf = 0;
+}
+
+static inline void
+ospf_sk_leave_dr(struct ospf_iface *ifa)
+{
+  if (!ifa->sk_dr)
+    return;
+
+  sk_leave_group(ifa->sk, AllDRouters);
+  ifa->sk_dr = 0;
+}
+
+static inline void
+ospf_sk_close(struct ospf_iface *ifa)
+{
+  ASSERT(ifa->sk);
+
+  rfree(ifa->sk);
+  ifa->sk = NULL;
 }
 
 
@@ -144,9 +192,9 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 		 "Changing state of virtual link %R from \"%s\" into \"%s\".",
 		 ifa->vid, ospf_is[oldstate], ospf_is[state]);
       if (state == OSPF_IS_PTP)
-      {
-        ifa->sk = ospf_open_socket(ifa, 0);
-      }
+	ospf_sk_open(ifa, 0);
+      if (state == OSPF_IS_DOWN)
+	ospf_sk_close(ifa);
     }
     else
     {
@@ -157,19 +205,10 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
       {
 	if ((ifa->type != OSPF_IT_NBMA) && (ifa->ioprob == OSPF_I_OK) &&
 	    ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR)))
-	{
-	  if (!ifa->dr_up == 0)
-	  {
-	    /* FIXME some error handing ? */
-	    sk_join_group(ifa->sk, AllDRouters);
-	    ifa->dr_up = 1;
-	  }
-	}
-	else if (ifa->dr_up)
-	{
-	  sk_leave_group(ifa->sk, AllDRouters);
-	  ifa->dr_up = 0;
-	}
+	  ospf_sk_join_dr(ifa);
+	else
+	  ospf_sk_leave_dr(ifa);
+
 	if ((oldstate == OSPF_IS_DR) && (ifa->net_lsa != NULL))
 	{
 	  ifa->net_lsa->lsa.age = LSA_MAXAGE;
@@ -182,6 +221,7 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 	  ifa->net_lsa = NULL;
 	}
       }
+      // FIXME flushling of link LSA
     }
   }
 }
@@ -194,13 +234,15 @@ ospf_iface_down(struct ospf_iface *ifa)
   struct proto *p = &po->proto;
   struct ospf_iface *iff;
 
+  OSPF_TRACE(D_EVENTS, "Removing interface %s", ifa->iface->name);
+
   /* First of all kill all the related vlinks */
   if (ifa->type != OSPF_IT_VLINK)
   {
     WALK_LIST(iff, po->iface_list)
     {
       if ((iff->type == OSPF_IT_VLINK) && (iff->iface == ifa->iface))
-        ospf_iface_down(iff);
+	ospf_iface_sm(iff, ISM_DOWN);
     }
   }
 
@@ -210,9 +252,6 @@ ospf_iface_down(struct ospf_iface *ifa)
     ospf_neigh_remove(n);
   }
 
-  rfree(ifa->sk);
-  ifa->sk = NULL;
-
   if (ifa->type == OSPF_IT_VLINK)
   {
     ifa->iface = NULL;
@@ -220,6 +259,7 @@ ospf_iface_down(struct ospf_iface *ifa)
   }
   else
   {
+    ospf_sk_close(ifa);
     rfree(ifa->wait_timer);
     rfree(ifa->hello_timer);
     rfree(ifa->poll_timer);
@@ -294,63 +334,22 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
   case ISM_DOWN:
     ospf_iface_chstate(ifa, OSPF_IS_DOWN);
     ospf_iface_down(ifa);
-    schedule_link_lsa(ifa);
     schedule_rt_lsa(oa);
     break;
-  case ISM_LOOP:		/* Useless? */
+    /*
+  case ISM_LOOP:
     ospf_iface_chstate(ifa, OSPF_IS_LOOP);
-    ospf_iface_down(ifa);
-    schedule_rt_lsa(ifa->oa);
     break;
   case ISM_UNLOOP:
     ospf_iface_chstate(ifa, OSPF_IS_DOWN);
-    schedule_rt_lsa(ifa->oa);
     break;
+    */
   default:
     bug("OSPF_I_SM - Unknown event?");
     break;
   }
 
 }
-
-#if 0
-static sock *
-ospf_open_mc_socket(struct ospf_iface *ifa)
-{
-  sock *mcsk;
-  struct proto *p = &ifa->oa->po->proto;
-
-  mcsk = sk_new(p->pool);
-  mcsk->type = SK_IP_MC;
-  mcsk->sport = 0;
-  mcsk->dport = OSPF_PROTO;
-
-#ifdef OSPFv2
-  mcsk->saddr = AllSPFRouters;
-#else /* OSPFv3 */
-  // mcsk->saddr = AllSPFRouters;
-  mcsk->saddr = ifa->lladdr;
-#endif
-
-  mcsk->daddr = AllSPFRouters;
-  mcsk->tos = IP_PREC_INTERNET_CONTROL;
-  mcsk->ttl = 1;
-  mcsk->rx_hook = ospf_rx_hook;
-  mcsk->tx_hook = ospf_tx_hook;
-  mcsk->err_hook = ospf_err_hook;
-  mcsk->iface = ifa->iface;
-  mcsk->rbsize = rxbufsize(ifa);
-  mcsk->tbsize = ifa->iface->mtu;
-  mcsk->data = (void *) ifa;
-  if (sk_open(mcsk) != 0)
-  {
-    DBG("%s: SK_OPEN: mc open failed.\n", p->name);
-    return (NULL);
-  }
-  DBG("%s: SK_OPEN: mc opened.\n", p->name);
-  return (mcsk);
-}
-#endif
 
 u8
 ospf_iface_clasify(struct iface * ifa)
@@ -390,12 +389,15 @@ ospf_iface_add(struct object_lock *lock)
 
   ifa->ioprob = OSPF_I_OK;
 
-  ifa->sk = ospf_open_socket(ifa, ifa->type != OSPF_IT_NBMA);
-  if (ifa->sk == NULL)
+  ospf_sk_open(ifa, 1);
+  if (ifa->type != OSPF_IT_NBMA)
+    ospf_sk_join_spf(ifa);
+
+  if (0)
   {
-    log("%s: Huh? could not open ip socket on interface %s?", p->name,
+    log(L_ERR "%s: Huh? could not open ip socket on interface %s?", p->name,
 	iface->name);
-    log("%s: Declaring as stub.", p->name);
+    log(L_ERR "%s: Declaring as stub.", p->name);
     ifa->stub = 1;
     ifa->ioprob += OSPF_I_IP;
   }
@@ -414,6 +416,9 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
   struct object_lock *lock;
   struct ospf_area *oa;
 
+  if (ip->type != OSPF_IT_VLINK)
+    OSPF_TRACE(D_EVENTS, "Adding interface %s", iface->name);
+
   ifa = mb_allocz(p->pool, sizeof(struct ospf_iface));
   ifa->iface = iface;
 
@@ -431,12 +436,13 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
 #ifdef OSPFv2
   ifa->autype = ip->autype;
   ifa->passwords = ip->passwords;
+  ifa->addr = iface->addr;
 #endif
 
 #ifdef OSPFv3
   ifa->instance_id = ip->instance_id;
 
-  ifa->lladdr = IPA_NONE;
+  ifa->addr = NULL;
 
   /* Find link-local address */
   if (ifa->type != OSPF_IT_VLINK)
@@ -445,11 +451,11 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface,
       WALK_LIST(a, iface->addrs)
 	if (a->scope == SCOPE_LINK)
 	  {
-	    ifa->lladdr = a->ip;
+	    ifa->addr = a;
 	    break;
 	  }
 
-      if (! ipa_nonzero(ifa->lladdr))
+      if (! ifa->addr)
 	log(L_WARN "%s: Missing link local address on interface %s", p->name,  iface->name);
     }
 #endif
@@ -594,19 +600,13 @@ ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
     }
 
     if (ip)
-    {
-      OSPF_TRACE(D_EVENTS, "Using interface %s.", iface->name);
       ospf_iface_new(po, iface, ac, ip);
-    }
   }
 
   if (flags & IF_CHANGE_DOWN)
   {
     if ((ifa = ospf_iface_find((struct proto_ospf *) p, iface)) != NULL)
-    {
-      OSPF_TRACE(D_EVENTS, "Killing interface %s.", iface->name);
       ospf_iface_sm(ifa, ISM_DOWN);
-    }
   }
 
   if (flags & IF_CHANGE_MTU)
@@ -666,4 +666,5 @@ ospf_iface_shutdown(struct ospf_iface *ifa)
 {
   init_list(&ifa->neigh_list);
   hello_timer_hook(ifa->hello_timer);
+  ospf_sk_close(ifa);
 }

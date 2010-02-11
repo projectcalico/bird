@@ -21,6 +21,13 @@ set_inaddr(struct in6_addr *ia, ip_addr a)
   memcpy(ia, &a, sizeof(a));
 }
 
+static inline void
+get_inaddr(ip_addr *a, struct in6_addr *ia)
+{
+  memcpy(a, ia, sizeof(*a));
+  ipa_ntoh(*a);
+}
+
 #else
 
 #include <net/if.h>
@@ -30,6 +37,13 @@ set_inaddr(struct in_addr *ia, ip_addr a)
 {
   ipa_hton(a);
   memcpy(&ia->s_addr, &a, sizeof(a));
+}
+
+static inline void
+get_inaddr(ip_addr *a, struct in_addr *ia)
+{
+  memcpy(a, &ia->s_addr, sizeof(*a));
+  ipa_ntoh(*a);
 }
 
 /*
@@ -209,3 +223,76 @@ sk_set_md5_auth_int(sock *s, sockaddr *sa, char *passwd)
 
   return rv;
 }
+
+
+#ifndef IPV6
+
+/* RX/TX packet info handling for IPv4 */
+/* Mostly similar to standardized IPv6 code */
+
+#define CMSG_RX_SPACE CMSG_SPACE(sizeof(struct in_pktinfo))
+#define CMSG_TX_SPACE CMSG_SPACE(sizeof(struct in_pktinfo))
+
+static char *
+sysio_register_cmsgs(sock *s)
+{
+  int ok = 1;
+  if ((s->flags & SKF_LADDR_RX) &&
+      setsockopt(s->fd, IPPROTO_IP, IP_PKTINFO, &ok, sizeof(ok)) < 0)
+    return "IP_PKTINFO";
+
+  return NULL;
+}
+
+static void
+sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
+{
+  struct cmsghdr *cm;
+  struct in_pktinfo *pi = NULL;
+
+  if (!(s->flags & SKF_LADDR_RX))
+    return;
+
+  for (cm = CMSG_FIRSTHDR(msg); cm != NULL; cm = CMSG_NXTHDR(msg, cm))
+    {
+      if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_PKTINFO)
+	pi = (struct in_pktinfo *) CMSG_DATA(cm);
+    }
+
+  if (!pi)
+    {
+      s->laddr = IPA_NONE;
+      s->lifindex = 0;
+      return;
+    }
+
+  get_inaddr(&s->laddr, &pi->ipi_addr);
+  s->lifindex = pi->ipi_ifindex;
+  return;
+}
+
+
+void
+sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg)
+{
+  struct cmsghdr *cm;
+  struct in_pktinfo *pi;
+
+  if (!(s->flags & SKF_LADDR_TX))
+    {
+      msg->msg_controllen = 0;
+      return;
+    }
+
+  cm = CMSG_FIRSTHDR(msg);
+  cm->cmsg_level = IPPROTO_IP;
+  cm->cmsg_type = IP_PKTINFO;
+  cm->cmsg_len = CMSG_LEN(sizeof(*pi));
+
+  pi = (struct in_pktinfo *) CMSG_DATA(cm);
+  set_inaddr(&pi->ipi_spec_dst, s->saddr);
+  pi->ipi_ifindex = s->iface ? s->iface->index : 0;
+
+  msg->msg_controllen = cm->cmsg_len;
+}
+#endif

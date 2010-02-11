@@ -159,6 +159,7 @@ struct ospf_iface
 {
   node n;
   struct iface *iface;		/* Nest's iface */
+  struct ifa *addr;
   struct ospf_area *oa;
   struct object_lock *lock;
   sock *sk;			/* IP socket (for DD ...) */
@@ -192,7 +193,6 @@ struct ospf_iface
   u32 dr_iface_id;		/* if drid is valid, this is iface_id of DR (for connecting network) */
   u8 instance_id;		/* Used to differentiate between more OSPF
 				   instances on one interface */
-  ip_addr lladdr;		/* Used link-local addr */
 #endif
 
   u8 type;			/* OSPF view of type */
@@ -237,9 +237,10 @@ struct ospf_iface
 #endif
   int fadj;				/* Number of full adjacent neigh */
   list nbma_list;
-  u8 priority;				/* A router priority for DR election */
+  u8 priority;			/* A router priority for DR election */
   u8 ioprob;
-  u8 dr_up;				/* Socket is a member of DRouters group */
+  u8 sk_spf;			/* Socket is a member of SPFRouters group */
+  u8 sk_dr; 			/* Socket is a member of DRouters group */
   u32 rxbuf;
 };
 
@@ -675,8 +676,8 @@ struct ospf_neighbor
 #define ISM_WAITF 1		/* Wait timer fired */
 #define ISM_BACKS 2		/* Backup seen */
 #define ISM_NEICH 3		/* Neighbor change */
-#define ISM_LOOP 4		/* Loop indicated */
-#define ISM_UNLOOP 5		/* Unloop indicated */
+// #define ISM_LOOP 4		/* Loop indicated */
+// #define ISM_UNLOOP 5		/* Unloop indicated */
 #define ISM_DOWN 6		/* Interface down */
 
 /* Definitions for neighbor state machine */

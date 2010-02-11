@@ -266,9 +266,10 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 
 	      WALK_LIST(iff, po->iface_list)	/* Try to find corresponding interface */
 		{
+		  // FIXME this is broken
 		  if (iff->iface && (iff->type != OSPF_IT_VLINK) &&
-		      (rtl->id == (ipa_to_u32(ipa_mkmask(iff->iface->addr->pxlen))
-				   & ipa_to_u32(iff->iface->addr->prefix))))	/* No VLINK and IP must match */
+		      (rtl->id == (ipa_to_u32(ipa_mkmask(iff->addr->pxlen))
+				   & ipa_to_u32(iff->addr->prefix))))	/* No VLINK and IP must match */
 		    {
 		      nf.ifa = iff;
 		      break;
@@ -428,6 +429,7 @@ ospf_rt_spfa(struct ospf_area *oa)
           OSPF_TRACE(D_EVENTS, "Vlink peer %R found", tmp->lsa.id);
           ospf_iface_sm(iface, ISM_DOWN);
           iface->iface = tmp->nhi->iface;
+	  iface->addr = iface->iface->addr;
           iface->vip = tmp->lb;
           ospf_iface_sm(iface, ISM_UP);
         }
@@ -437,7 +439,7 @@ ospf_rt_spfa(struct ospf_area *oa)
         if (iface->state > OSPF_IS_DOWN)
         {
           OSPF_TRACE(D_EVENTS, "Vlink peer %R lost", iface->vid);
-          ospf_iface_sm(iface, ISM_DOWN);
+	  ospf_iface_sm(iface, ISM_DOWN);
         }
       }
     }
@@ -569,7 +571,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       metric = ls->metric & METRIC_MASK;
       options = 0;
       type = ORT_NET;
-      re = (ort *) fib_find(&po->rtf, &ip, pxlen);
+      re = fib_find(&po->rtf, &ip, pxlen);
     }
     else if (en->lsa.type == LSA_T_SUM_RT)
     {
@@ -588,7 +590,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       metric = ls->metric & METRIC_MASK;
       options |= ORTA_ASBR;
       type = ORT_ROUTER;
-      re = (ort *) fib_find(&bb->rtr, &ip, pxlen);
+      re = fib_find(&bb->rtr, &ip, pxlen);
     }
 
     /* 16.3 (1b) */ 
@@ -596,14 +598,14 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       continue; 
 
     /* 16.3 (3) */
-    if (!re) continue;
+    if (!re || !re->n.type) continue;
     if (re->n.oa->areaid != 0) continue;
     if ((re->n.type != RTS_OSPF) && (re->n.type != RTS_OSPF_IA)) continue;
 
     /* 16.3. (4) */
     abrip = ipa_from_rid(en->lsa.rt);
     abr = fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH);
-    if (!abr) continue;
+    if (!abr || !abr->n.type) continue;
 
     nf.type = re->n.type;
     nf.options = options;
@@ -711,7 +713,9 @@ ospf_rt_sum(struct ospf_area *oa)
 
     /* Page 169 (4) */
     abrip = ipa_from_rid(en->lsa.rt);
-    if (!(abr = (ort *) fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH))) continue;
+
+    abr = (ort *) fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH);
+    if (!abr || !abr->n.type) continue;
     if (abr->n.metric1 == LSINFINITY) continue;
     if (!(abr->n.options & ORTA_ABR)) continue;
 
@@ -901,7 +905,7 @@ ospf_ext_spf(struct proto_ospf *po)
     WALK_LIST(atmp, po->area_list)
     {
       nfh = fib_find(&atmp->rtr, &rtid, MAX_PREFIX_LENGTH);
-      if (nfh == NULL) continue;
+      if (!nfh || !nfh->n.type) continue;    
       if (nf1 == NULL) nf1 = nfh;
       else if (ri_better(po, &nfh->n, NULL, &nf1->n, NULL, po->rfc1583)) nf1 = nfh;
     }
