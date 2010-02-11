@@ -334,4 +334,18 @@ struct announce_hook {
 
 struct announce_hook *proto_add_announce_hook(struct proto *, struct rtable *);
 
+/*
+ *	Some pipe-specific nest hacks
+ */
+
+#ifdef CONFIG_PIPE
+
+static inline int proto_is_pipe(struct proto *p)
+{ return p->proto == &proto_pipe; }
+
+struct rtable *pipe_get_peer_table(struct proto *p);
+
+#endif
+
+
 #endif

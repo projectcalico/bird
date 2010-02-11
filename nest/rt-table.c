@@ -642,7 +642,7 @@ rte_update(rtable *table, net *net, struct proto *p, struct proto *src, rte *new
       /* Do not filter routes going through the pipe, 
 	 they are filtered in the export filter only. */
 #ifdef CONFIG_PIPE
-      if (p->proto == &proto_pipe)
+      if (proto_is_pipe(p))
 	filter = FILTER_ACCEPT;
 #endif
 

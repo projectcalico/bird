@@ -138,6 +138,9 @@ pipe_start(struct proto *P)
    *  end of the pipe (we need to do this in order to get different
    *  filters and announce functions and it unfortunately involves
    *  a couple of magic trickery).
+   *
+   *  The phantom protocol is used ONLY in announce hooks and
+   *  therefore in do_rte_announce() function.
    */
   ph = mb_alloc(P->pool, sizeof(struct pipe_proto));
   memcpy(ph, p, sizeof(struct pipe_proto));
@@ -170,18 +173,8 @@ pipe_start(struct proto *P)
    */
   a = proto_add_announce_hook(P, p->peer);
   a->proto = &ph->p;
-  rt_lock_table(p->peer);
 
   return PS_UP;
-}
-
-static int
-pipe_shutdown(struct proto *P)
-{
-  struct pipe_proto *p = (struct pipe_proto *) P;
-
-  rt_unlock_table(p->peer);
-  return PS_DOWN;
 }
 
 static struct proto *
@@ -234,13 +227,19 @@ pipe_reconfigure(struct proto *P, struct proto_config *new)
   return 1;
 }
 
+struct rtable *
+pipe_get_peer_table(struct proto *P)
+{
+  struct pipe_proto *p = (struct pipe_proto *) P;
+  return p->peer;
+}
+
 struct protocol proto_pipe = {
   name:		"Pipe",
   template:	"pipe%d",
   postconfig:	pipe_postconfig,
   init:		pipe_init,
   start:	pipe_start,
-  shutdown:	pipe_shutdown,
   reconfigure:	pipe_reconfigure,
   get_status:	pipe_get_status,
 };
