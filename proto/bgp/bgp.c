@@ -55,6 +55,8 @@
 
 #undef LOCAL_DEBUG
 
+#include <errno.h>
+
 #include "nest/bird.h"
 #include "nest/iface.h"
 #include "nest/protocol.h"
@@ -614,6 +616,15 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
   return 0;
 }
 
+static void
+bgp_listen_sock_err(sock *sk, int err)
+{
+  if (err == ECONNABORTED)
+    log(L_WARN "BGP: Incoming connection aborted");
+  else
+    log(L_ERR "BGP: Error on incoming socket: %M", err);
+}
+
 static sock *
 bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags)
 {
@@ -627,9 +638,10 @@ bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags)
   s->rbsize = BGP_RX_BUFFER_SIZE;
   s->tbsize = BGP_TX_BUFFER_SIZE;
   s->rx_hook = bgp_incoming_connection;
+  s->err_hook = bgp_listen_sock_err;
   if (sk_open(s))
     {
-      log(L_ERR "Unable to open incoming BGP socket");
+      log(L_ERR "BGP: Unable to open incoming socket");
       rfree(s);
       return NULL;
     }

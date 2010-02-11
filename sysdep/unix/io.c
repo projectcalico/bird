@@ -947,7 +947,6 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
     }
   else if (errno != EINTR && errno != EAGAIN)
     {
-      log(L_ERR "accept: %m");
       s->err_hook(s, errno);
     }
   return 0;
