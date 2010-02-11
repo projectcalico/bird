@@ -55,8 +55,6 @@
 
 #undef LOCAL_DEBUG
 
-#include <errno.h>
-
 #include "nest/bird.h"
 #include "nest/iface.h"
 #include "nest/protocol.h"

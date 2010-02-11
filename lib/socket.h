@@ -9,6 +9,8 @@
 #ifndef _BIRD_SOCKET_H_
 #define _BIRD_SOCKET_H_
 
+#include <errno.h>
+
 #include "lib/resource.h"
 
 typedef struct birdsock {
