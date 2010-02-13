@@ -234,6 +234,13 @@ pipe_get_peer_table(struct proto *P)
   return p->peer;
 }
 
+struct proto_stats *
+pipe_get_peer_stats(struct proto *P)
+{
+  struct pipe_proto *p = (struct pipe_proto *) P;
+  return &p->phantom->p.stats;
+}
+
 struct protocol proto_pipe = {
   name:		"Pipe",
   template:	"pipe%d",

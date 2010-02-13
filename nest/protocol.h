@@ -344,6 +344,7 @@ static inline int proto_is_pipe(struct proto *p)
 { return p->proto == &proto_pipe; }
 
 struct rtable *pipe_get_peer_table(struct proto *p);
+struct proto_stats *pipe_get_peer_stats(struct proto *p);
 
 #endif
 
