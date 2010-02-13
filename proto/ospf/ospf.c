@@ -78,7 +78,7 @@
 
 
 static int ospf_reload_routes(struct proto *p);
-static void ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old UNUSED, ea_list * attrs);
+static void ospf_rt_notify(struct proto *p, struct rtable *table UNUSED, net * n, rte * new, rte * old UNUSED, ea_list * attrs);
 static void ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a);
 static int ospf_rte_better(struct rte *new, struct rte *old);
 static int ospf_rte_same(struct rte *new, struct rte *old);
@@ -484,8 +484,7 @@ ospf_shutdown(struct proto *p)
 }
 
 static void
-ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old UNUSED,
-	       ea_list * attrs)
+ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * old UNUSED, ea_list * attrs)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
 

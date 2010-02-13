@@ -133,11 +133,6 @@ proto_init_instance(struct proto *p)
   p->attn = ev_new(p->pool);
   p->attn->data = p;
   rt_lock_table(p->table);
-
-#ifdef CONFIG_PIPE
-  if (proto_is_pipe(p))
-    rt_lock_table(pipe_get_peer_table(p));
-#endif
 }
 
 /**

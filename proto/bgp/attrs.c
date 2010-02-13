@@ -772,7 +772,7 @@ bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck)
 }
 
 void
-bgp_rt_notify(struct proto *P, net *n, rte *new, rte *old UNUSED, ea_list *attrs)
+bgp_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old UNUSED, ea_list *attrs)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
   struct bgp_bucket *buck;

@@ -742,7 +742,8 @@ krt_scan(timer *t UNUSED)
  */
 
 static void
-krt_notify(struct proto *P, net *net, rte *new, rte *old, struct ea_list *attrs UNUSED)
+krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
+	   rte *new, rte *old, struct ea_list *attrs UNUSED)
 {
   struct krt_proto *p = (struct krt_proto *) P;
 

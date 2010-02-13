@@ -161,12 +161,22 @@ static inline void
 do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old, ea_list *tmpa, int class, int refeed)
 {
   struct proto *p = a->proto;
+  struct filter *filter = p->out_filter;
   struct proto_stats *stats = &p->stats;
   rte *new0 = new;
   rte *old0 = old;
   int ok;
 
   int fast_exit_hack = 0;
+
+#ifdef CONFIG_PIPE
+  /* The secondary direction of the pipe */
+  if (proto_is_pipe(p) && (p->table != a->table))
+    {
+      filter = p->in_filter;
+      stats = pipe_get_peer_stats(p);
+    }
+#endif
 
   if (new)
     {
@@ -186,8 +196,8 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 	}
       else if (ok)
 	rte_trace_out(D_FILTERS, p, new, "forced accept by protocol");
-      else if (p->out_filter == FILTER_REJECT ||
-	       p->out_filter && f_run(p->out_filter, &new, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
+      else if (filter == FILTER_REJECT ||
+	       filter && f_run(filter, &new, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
 	{
 	  stats->exp_updates_filtered++;
 	  drop_reason = "filtered out";
@@ -230,13 +240,13 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 
   if (old && !refeed)
     {
-      if (p->out_filter == FILTER_REJECT)
+      if (filter == FILTER_REJECT)
 	old = NULL;
       else
 	{
 	  ea_list *tmpb = p->make_tmp_attrs ? p->make_tmp_attrs(old, rte_update_pool) : NULL;
 	  ok = p->import_control ? p->import_control(p, &old, &tmpb, rte_update_pool) : 0;
-	  if (ok < 0 || (!ok && p->out_filter && f_run(p->out_filter, &old, &tmpb, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
+	  if (ok < 0 || (!ok && filter && f_run(filter, &old, &tmpb, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
 	    {
 	      if (old != old0)
 		rte_free(old);
@@ -271,18 +281,18 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 	rte_trace_out(D_ROUTES, p, old, "removed");
     }
   if (!new)
-    p->rt_notify(p, net, NULL, old, NULL);
+    p->rt_notify(p, a->table, net, NULL, old, NULL);
   else if (tmpa)
     {
       ea_list *t = tmpa;
       while (t->next)
 	t = t->next;
       t->next = new->attrs->eattrs;
-      p->rt_notify(p, net, new, old, tmpa);
+      p->rt_notify(p, a->table, net, new, old, tmpa);
       t->next = NULL;
     }
   else
-    p->rt_notify(p, net, new, old, new->attrs->eattrs);
+    p->rt_notify(p, a->table, net, new, old, new->attrs->eattrs);
   if (new && new != new0)	/* Discard temporary rte's */
     rte_free(new);
   if (old && old != old0)

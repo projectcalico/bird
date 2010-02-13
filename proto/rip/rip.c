@@ -864,7 +864,8 @@ rip_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
  * own), so store it into our data structures. 
  */
 static void
-rip_rt_notify(struct proto *p, struct network *net, struct rte *new, struct rte *old, struct ea_list *attrs)
+rip_rt_notify(struct proto *p, struct rtable *table UNUSED, struct network *net,
+	      struct rte *new, struct rte *old, struct ea_list *attrs)
 {
   CHK_MAGIC;
 
