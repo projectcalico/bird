@@ -164,6 +164,11 @@ val_compare(struct f_val v1, struct f_val v2)
   }
 }
 
+int 
+tree_compare(const void *p1, const void *p2)
+{
+  return val_compare((* (struct f_tree **) p1)->from, (* (struct f_tree **) p2)->from);
+}
 
 void
 f_prefix_get_bounds(struct f_prefix *px, int *l, int *h)
