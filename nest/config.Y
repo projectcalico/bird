@@ -59,7 +59,7 @@ CF_ENUM(T_ENUM_RTD, RTD_, ROUTER, DEVICE, BLACKHOLE, UNREACHABLE, PROHIBIT)
 %type <s> optsym
 %type <ra> r_args
 %type <i> echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport
-%type <t> proto_patt
+%type <ps> proto_patt proto_patt2
 
 CF_GRAMMAR
 
@@ -324,11 +324,11 @@ CF_CLI_HELP(SHOW, ..., [[Show status information]])
 CF_CLI(SHOW STATUS,,, [[Show router status]])
 { cmd_show_status(); } ;
 
-CF_CLI(SHOW PROTOCOLS, optsym, [<name>], [[Show routing protocols]])
-{ proto_show($3, 0); } ;
+CF_CLI(SHOW PROTOCOLS, proto_patt2, [<protocol> | \"<pattern>\"], [[Show routing protocols]])
+{ proto_apply_cmd($3, proto_cmd_show, 0); } ;
 
-CF_CLI(SHOW PROTOCOLS ALL, optsym, [<name>], [[Show routing protocol details]])
-{ proto_show($4, 1); } ;
+CF_CLI(SHOW PROTOCOLS ALL, proto_patt2, [<protocol> | \"<pattern>\"], [[Show routing protocol details]])
+{ proto_apply_cmd($4, proto_cmd_show, 1); } ;
 
 optsym:
    SYM
@@ -459,33 +459,38 @@ echo_size:
  ;
 
 CF_CLI(DISABLE, proto_patt, <protocol> | \"<pattern>\" | all, [[Disable protocol]])
-{ proto_xxable($2, XX_DISABLE); } ;
+{ proto_apply_cmd($2, proto_cmd_disable, 0); } ;
 CF_CLI(ENABLE, proto_patt, <protocol> | \"<pattern>\" | all, [[Enable protocol]])
-{ proto_xxable($2, XX_ENABLE); } ;
+{ proto_apply_cmd($2, proto_cmd_enable, 0); } ;
 CF_CLI(RESTART, proto_patt, <protocol> | \"<pattern>\" | all, [[Restart protocol]])
-{ proto_xxable($2, XX_RESTART); } ;
+{ proto_apply_cmd($2, proto_cmd_restart, 0); } ;
 CF_CLI(RELOAD, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol]])
-{ proto_xxable($2, XX_RELOAD); } ;
+{ proto_apply_cmd($2, proto_cmd_reload, CMD_RELOAD); } ;
 CF_CLI(RELOAD IN, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol (just imported routes)]])
-{ proto_xxable($3, XX_RELOAD_IN); } ;
+{ proto_apply_cmd($3, proto_cmd_reload, CMD_RELOAD_IN); } ;
 CF_CLI(RELOAD OUT, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol (just exported routes)]])
-{ proto_xxable($3, XX_RELOAD_OUT); } ;
+{ proto_apply_cmd($3, proto_cmd_reload, CMD_RELOAD_OUT); } ;
 
 CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging via BIRD logs]])
 CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging via BIRD logs]])
-{ proto_debug($2, 0, $3); }
- ;
+{ proto_apply_cmd($2, proto_cmd_debug, $3); } ;
 
 CF_CLI_HELP(MRTDUMP, ..., [[Control protocol debugging via MRTdump files]])
 CF_CLI(MRTDUMP, proto_patt mrtdump_mask, (<protocol> | <pattern> | all) (all | off | { states | messages }), [[Control protocol debugging via MRTdump format]])
-{ proto_debug($2, 1, $3); }
- ;
+{ proto_apply_cmd($2, proto_cmd_mrtdump, $3); } ;
 
 proto_patt:
-   SYM { $$ = $1->name; }
- | ALL { $$ = "*"; }
- | TEXT
+   SYM  { $$.ptr = $1; $$.patt = 0; }
+ | ALL  { $$.ptr = NULL; $$.patt = 1; }
+ | TEXT { $$.ptr = $1; $$.patt = 1; }
  ;
+
+proto_patt2:
+   SYM  { $$.ptr = $1; $$.patt = 0; }
+ |      { $$.ptr = NULL; $$.patt = 1; }
+ | TEXT { $$.ptr = $1; $$.patt = 1; }
+ ;
+
 
 CF_CODE
 

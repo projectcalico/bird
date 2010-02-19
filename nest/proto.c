@@ -25,12 +25,6 @@ static pool *proto_pool;
 static list protocol_list;
 static list proto_list;
 
-#define WALK_PROTO_LIST(p) do {							\
-	node *nn;								\
-	WALK_LIST(nn, proto_list) {						\
-		struct proto *p = SKIP_BACK(struct proto, glob_node, nn);
-#define WALK_PROTO_LIST_END } } while(0)
-
 #define PD(pr, msg, args...) do { if (pr->debug & D_STATES) { log(L_TRACE "%s: " msg, pr->name , ## args); } } while(0)
 
 list active_proto_list;
@@ -847,10 +841,14 @@ proto_do_show_pipe_stats(struct proto *p)
 	  s1->imp_withdraws_ignored, s1->imp_withdraws_accepted);
 }
 
-static void
-proto_do_show(struct proto *p, int verbose)
+void
+proto_cmd_show(struct proto *p, unsigned int verbose, int cnt)
 {
   byte buf[256], tbuf[TM_DATETIME_BUFFER_SIZE];
+
+  /* First protocol - show header */
+  if (!cnt)
+    cli_msg(-2002, "name     proto    table    state  since       info");
 
   buf[0] = 0;
   if (p->proto->get_status)
@@ -886,23 +884,134 @@ proto_do_show(struct proto *p, int verbose)
 }
 
 void
-proto_show(struct symbol *s, int verbose)
+proto_cmd_disable(struct proto *p, unsigned int arg UNUSED, int cnt UNUSED)
 {
-  if (s && s->class != SYM_PROTO)
+  if (p->disabled)
+    {
+      cli_msg(-8, "%s: already disabled", p->name);
+      return;
+    }
+
+  log(L_INFO "Disabling protocol %s", p->name);
+  p->disabled = 1;
+  proto_rethink_goal(p);
+  cli_msg(-9, "%s: disabled", p->name);
+}
+
+void
+proto_cmd_enable(struct proto *p, unsigned int arg UNUSED, int cnt UNUSED)
+{
+  if (!p->disabled)
+    {
+      cli_msg(-10, "%s: already enabled", p->name);
+      return;
+    }
+
+  log(L_INFO "Enabling protocol %s", p->name);
+  p->disabled = 0;
+  proto_rethink_goal(p);
+  cli_msg(-11, "%s: enabled", p->name);
+}
+
+void
+proto_cmd_restart(struct proto *p, unsigned int arg UNUSED, int cnt UNUSED)
+{
+  if (p->disabled)
+    {
+      cli_msg(-8, "%s: already disabled", p->name);
+      return;
+    }
+
+  log(L_INFO "Restarting protocol %s", p->name);
+  p->disabled = 1;
+  proto_rethink_goal(p);
+  p->disabled = 0;
+  proto_rethink_goal(p);
+  cli_msg(-12, "%s: restarted", p->name);
+}
+
+void
+proto_cmd_reload(struct proto *p, unsigned int dir, int cnt UNUSED)
+{
+  if (p->disabled)
+    {
+      cli_msg(-8, "%s: already disabled", p->name);
+      return;
+    }
+
+  /* If the protocol in not UP, it has no routes */
+  if (p->proto_state != PS_UP)
+    return;
+
+  log(L_INFO "Reloading protocol %s", p->name);
+
+  /* re-importing routes */
+  if (dir != CMD_RELOAD_OUT)
+    if (! (p->reload_routes && p->reload_routes(p)))
+      {
+	cli_msg(-8006, "%s: reload failed", p->name);
+	return;
+      }
+		 
+  /* re-exporting routes */
+  if (dir != CMD_RELOAD_IN)
+    proto_request_feeding(p);
+
+  cli_msg(-15, "%s: reloading", p->name);
+}
+
+void
+proto_cmd_debug(struct proto *p, unsigned int mask, int cnt UNUSED)
+{
+  p->debug = mask;
+}
+
+void
+proto_cmd_mrtdump(struct proto *p, unsigned int mask, int cnt UNUSED)
+{
+  p->mrtdump = mask;
+}
+
+static void
+proto_apply_cmd_symbol(struct symbol *s, void (* cmd)(struct proto *, unsigned int, int), unsigned int arg)
+{
+  if (s->class != SYM_PROTO)
     {
       cli_msg(9002, "%s is not a protocol", s->name);
       return;
     }
-  cli_msg(-2002, "name     proto    table    state  since       info");
-  if (s)
-    proto_do_show(((struct proto_config *)s->def)->proto, verbose);
-  else
-    {
-      WALK_PROTO_LIST(p)
-	proto_do_show(p, verbose);
-      WALK_PROTO_LIST_END;
-    }
+
+  cmd(((struct proto_config *)s->def)->proto, arg, 0);
   cli_msg(0, "");
+}
+
+static void
+proto_apply_cmd_patt(char *patt, void (* cmd)(struct proto *, unsigned int, int), unsigned int arg)
+{
+  int cnt = 0;
+
+  node *nn;
+  WALK_LIST(nn, proto_list)
+    {
+      struct proto *p = SKIP_BACK(struct proto, glob_node, nn);
+
+      if (!patt || patmatch(patt, p->name))
+	cmd(p, arg, cnt++);
+    }
+
+  if (!cnt)
+    cli_msg(8003, "No protocols match");
+  else
+    cli_msg(0, "");
+}
+
+void
+proto_apply_cmd(struct proto_spec ps, void (* cmd)(struct proto *, unsigned int, int), unsigned int arg)
+{
+  if (ps.patt)
+    proto_apply_cmd_patt(ps.ptr, cmd, arg);
+  else
+    proto_apply_cmd_symbol(ps.ptr, cmd, arg);
 }
 
 struct proto *
@@ -932,113 +1041,4 @@ proto_get_named(struct symbol *sym, struct protocol *pr)
 	cf_error("There is no %s protocol running", pr->name);
     }
   return p;
-}
-
-void
-proto_xxable(char *pattern, int xx)
-{
-  int cnt = 0;
-  WALK_PROTO_LIST(p)
-    if (patmatch(pattern, p->name))
-      {
-	cnt++;
-	switch (xx)
-	  {
-	  case XX_DISABLE:
-	    if (p->disabled)
-	      cli_msg(-8, "%s: already disabled", p->name);
-	    else
-	      {
-		log(L_INFO "Disabling protocol %s", p->name);
-		p->disabled = 1;
-		proto_rethink_goal(p);
-		cli_msg(-9, "%s: disabled", p->name);
-	      }
-	    break;
-
-	  case XX_ENABLE:
-	    if (!p->disabled)
-	      cli_msg(-10, "%s: already enabled", p->name);
-	    else
-	      {
-		log(L_INFO "Enabling protocol %s", p->name);
-		p->disabled = 0;
-		proto_rethink_goal(p);
-		cli_msg(-11, "%s: enabled", p->name);
-	      }
-	    break;
-
-	  case XX_RESTART:
-	    if (p->disabled)
-	      cli_msg(-8, "%s: already disabled", p->name);
-	    else
-	      {
-		log(L_INFO "Restarting protocol %s", p->name);
-		p->disabled = 1;
-		proto_rethink_goal(p);
-		p->disabled = 0;
-		proto_rethink_goal(p);
-		cli_msg(-12, "%s: restarted", p->name);
-	      }
-	    break;
-
-	  case XX_RELOAD:
-	  case XX_RELOAD_IN:
-	  case XX_RELOAD_OUT:
-	    if (p->disabled)
-	      {
-		cli_msg(-8, "%s: already disabled", p->name);
-		break;
-	      }
-
-	    /* If the protocol in not UP, it has no routes */
-	    if (p->proto_state != PS_UP)
-	      break;
-
-	    log(L_INFO "Reloading protocol %s", p->name);
-
-	    /* re-importing routes */
-	    if (xx != XX_RELOAD_OUT)
-	      if (! (p->reload_routes && p->reload_routes(p)))
-		{
-		  cli_msg(-8006, "%s: reload failed", p->name);
-		  break;
-		}
-		 
-	    /* re-exporting routes */
-	    if (xx != XX_RELOAD_IN)
-	      proto_request_feeding(p);
-
-	    cli_msg(-15, "%s: reloading", p->name);
-	    break;
-
-	  default:
-	    ASSERT(0);
-	  }
-      }
-  WALK_PROTO_LIST_END;
-  if (!cnt)
-    cli_msg(8003, "No protocols match");
-  else
-    cli_msg(0, "");
-}
-
-void
-proto_debug(char *pattern, int which, unsigned int mask)
-{
-  int cnt = 0;
-  WALK_PROTO_LIST(p)
-    if (patmatch(pattern, p->name))
-      {
-	cnt++;
-	if (which == 0)
-	  p->debug = mask;
-	else
-	  p->mrtdump = mask;
-      }
-  WALK_PROTO_LIST_END;
-  if (!cnt)
-    cli_msg(8003, "No protocols match");
-  else
-    cli_msg(0, "");
 }

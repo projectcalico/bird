@@ -195,21 +195,30 @@ struct proto {
   /* Hic sunt protocol-specific data */
 };
 
+struct proto_spec {
+  void *ptr;
+  int patt;
+};
+
+
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size);
-
 void proto_request_feeding(struct proto *p);
-void proto_show(struct symbol *, int);
-struct proto *proto_get_named(struct symbol *, struct protocol *);
-void proto_xxable(char *, int);
-void proto_debug(char *, int, unsigned int);
 
-#define XX_DISABLE	0
-#define XX_ENABLE	1
-#define XX_RESTART	2
-#define XX_RELOAD	3
-#define XX_RELOAD_IN	4
-#define XX_RELOAD_OUT	5
+void proto_cmd_show(struct proto *, unsigned int, int);
+void proto_cmd_disable(struct proto *, unsigned int, int);
+void proto_cmd_enable(struct proto *, unsigned int, int);
+void proto_cmd_restart(struct proto *, unsigned int, int);
+void proto_cmd_reload(struct proto *, unsigned int, int);
+void proto_cmd_debug(struct proto *, unsigned int, int);
+void proto_cmd_mrtdump(struct proto *, unsigned int, int);
+
+void proto_apply_cmd(struct proto_spec ps, void (* cmd)(struct proto *, unsigned int, int), unsigned int arg);
+struct proto *proto_get_named(struct symbol *, struct protocol *);
+
+#define CMD_RELOAD	0
+#define CMD_RELOAD_IN	1
+#define CMD_RELOAD_OUT	2
 
 static inline u32
 proto_get_router_id(struct proto_config *pc)
