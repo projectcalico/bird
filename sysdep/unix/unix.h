@@ -17,6 +17,7 @@ void async_config(void);
 void async_dump(void);
 void async_shutdown(void);
 void cmd_reconfig(char *name, int type);
+void cmd_shutdown(void);
 
 /* io.c */
 

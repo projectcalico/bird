@@ -311,10 +311,12 @@ update_state(void)
     }
 
   if (nstate == STATE_PROMPT)
-    if (input_initialized)
-      input_reveal();
-    else
-      input_init();
+    {
+      if (input_initialized)
+	input_reveal();
+      else
+	input_init();
+    }
 
   if (nstate != STATE_PROMPT)
     input_hide();
@@ -372,6 +374,8 @@ server_connect(void)
     die("fcntl: %m");
 }
 
+#define PRINTF(LEN, PARGS...) do { if (!skip_input) len = printf(PARGS); } while(0)
+
 static void
 server_got_reply(char *x)
 {
@@ -379,15 +383,15 @@ server_got_reply(char *x)
   int len = 0;
 
   if (*x == '+')			/* Async reply */
-    skip_input || (len = printf(">>> %s\n", x+1));
+    PRINTF(len, ">>> %s\n", x+1);
   else if (x[0] == ' ')			/* Continuation */
-    skip_input || (len = printf("%s%s\n", verbose ? "     " : "", x+1));
+    PRINTF(len, "%s%s\n", verbose ? "     " : "", x+1);
   else if (strlen(x) > 4 &&
 	   sscanf(x, "%d", &code) == 1 && code >= 0 && code < 10000 &&
 	   (x[4] == ' ' || x[4] == '-'))
     {
       if (code)
-	skip_input || (len = printf("%s\n", verbose ? x : x+5));
+	PRINTF(len, "%s\n", verbose ? x : x+5);
       if (x[4] == ' ')
       {
 	nstate = STATE_PROMPT;
@@ -396,7 +400,7 @@ server_got_reply(char *x)
       }
     }
   else
-    skip_input || (len = printf("??? <%s>\n", x));
+    PRINTF(len, "??? <%s>\n", x);
 
   if (skip_input)
     return;

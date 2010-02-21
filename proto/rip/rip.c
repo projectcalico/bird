@@ -752,6 +752,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
     return NULL;
   }
   /* On dummy, we just return non-working socket, so that user gets error every time anyone requests table */
+  return rif;
 }
 
 static void
@@ -956,7 +957,7 @@ rip_rte_insert(net *net UNUSED, rte *rte)
 static void
 rip_rte_remove(net *net UNUSED, rte *rte)
 {
-  struct proto *p = rte->attrs->proto;
+  // struct proto *p = rte->attrs->proto;
   CHK_MAGIC;
   DBG( "rip_rte_remove: %p\n", rte );
   rem_node( &rte->u.rip.garbage );

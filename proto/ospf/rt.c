@@ -226,7 +226,7 @@ process_prefixes(struct ospf_area *oa)
 static void
 ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct top_hash_entry *en)
 {
-  struct proto *p = &oa->po->proto;
+  // struct proto *p = &oa->po->proto;
   struct proto_ospf *po = oa->po;
   orta nf;
   u32 i;
@@ -519,7 +519,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 static void
 ospf_rt_sum_tr(struct ospf_area *oa)
 {
-  struct proto *p = &oa->po->proto;
+  // struct proto *p = &oa->po->proto;
   struct proto_ospf *po = oa->po;
   struct ospf_area *bb = po->backbone;
   ip_addr ip, abrip;
@@ -1077,8 +1077,8 @@ static int
 calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
 	      struct top_hash_entry *par)
 {
+  // struct proto *p = &oa->po->proto;
   struct ospf_neighbor *neigh;
-  struct proto *p = &oa->po->proto;
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
 

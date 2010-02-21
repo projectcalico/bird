@@ -72,7 +72,7 @@ int ipv4_classify(u32);
 u32 ipv4_class_mask(u32);
 byte *ipv4_skip_header(byte *, int *);
 
-static inline int ipv4_has_link_scope(u32 a)
+static inline int ipv4_has_link_scope(u32 a UNUSED)
 {
   return 0;
 }

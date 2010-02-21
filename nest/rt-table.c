@@ -158,7 +158,7 @@ rte_trace_out(unsigned int flag, struct proto *p, rte *e, char *msg)
 }
 
 static inline void
-do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old, ea_list *tmpa, int class, int refeed)
+do_rte_announce(struct announce_hook *a, int type UNUSED, net *net, rte *new, rte *old, ea_list *tmpa, int class, int refeed)
 {
   struct proto *p = a->proto;
   struct filter *filter = p->out_filter;
@@ -196,8 +196,8 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
 	}
       else if (ok)
 	rte_trace_out(D_FILTERS, p, new, "forced accept by protocol");
-      else if (filter == FILTER_REJECT ||
-	       filter && f_run(filter, &new, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
+      else if ((filter == FILTER_REJECT) ||
+	       (filter && f_run(filter, &new, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
 	{
 	  stats->exp_updates_filtered++;
 	  drop_reason = "filtered out";
@@ -329,7 +329,7 @@ do_rte_announce(struct announce_hook *a, int type, net *net, rte *new, rte *old,
  * the protocol gets called.
  */
 static void
-rte_announce(rtable *tab, int type, net *net, rte *new, rte *old, ea_list *tmpa)
+rte_announce(rtable *tab, unsigned type, net *net, rte *new, rte *old, ea_list *tmpa)
 {
   struct announce_hook *a;
   int class = ipa_classify(net->n.prefix);
@@ -1203,8 +1203,8 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 		 'configure soft' command may change the export filter
 		 and do not update routes */
 
-	      if (p1->out_filter == FILTER_REJECT ||
-		  p1->out_filter && f_run(p1->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)
+	      if ((p1->out_filter == FILTER_REJECT) ||
+		  (p1->out_filter && f_run(p1->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
 		ok = 0;
 	    }
 	}

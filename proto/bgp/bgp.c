@@ -203,7 +203,7 @@ bgp_start_timer(timer *t, int value)
 void
 bgp_close_conn(struct bgp_conn *conn)
 {
-  struct bgp_proto *p = conn->bgp;
+  // struct bgp_proto *p = conn->bgp;
 
   DBG("BGP: Closing connection\n");
   conn->packets_to_send = 0;
@@ -237,7 +237,7 @@ bgp_update_startup_delay(struct bgp_proto *p)
 
   DBG("BGP: Updating startup delay\n");
 
-  if (p->last_proto_error && ((now - p->last_proto_error) >= cf->error_amnesia_time))
+  if (p->last_proto_error && ((now - p->last_proto_error) >= (int) cf->error_amnesia_time))
     p->startup_delay = 0;
 
   p->last_proto_error = now;
@@ -492,7 +492,7 @@ bgp_setup_conn(struct bgp_proto *p, struct bgp_conn *conn)
 }
 
 static void
-bgp_setup_sk(struct bgp_proto *p, struct bgp_conn *conn, sock *s)
+bgp_setup_sk(struct bgp_conn *conn, sock *s)
 {
   s->data = conn;
   s->err_hook = bgp_sock_err;
@@ -555,7 +555,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   s->tx_hook = bgp_connected;
   BGP_TRACE(D_EVENTS, "Connecting to %I from local address %I", s->daddr, s->saddr);
   bgp_setup_conn(p, conn);
-  bgp_setup_sk(p, conn, s);
+  bgp_setup_sk(conn, s);
   bgp_conn_set_state(conn, BS_CONNECT);
   if (sk_open(s))
     {
@@ -601,7 +601,7 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
 	      goto err;
 
 	    bgp_setup_conn(p, &p->incoming_conn);
-	    bgp_setup_sk(p, &p->incoming_conn, sk);
+	    bgp_setup_sk(&p->incoming_conn, sk);
 	    sk_set_ttl(sk, p->cf->multihop ? : 1);
 	    bgp_send_open(&p->incoming_conn);
 	    return 0;
@@ -615,7 +615,7 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
 }
 
 static void
-bgp_listen_sock_err(sock *sk, int err)
+bgp_listen_sock_err(sock *sk UNUSED, int err)
 {
   if (err == ECONNABORTED)
     log(L_WARN "BGP: Incoming connection aborted");

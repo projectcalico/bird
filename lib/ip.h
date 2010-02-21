@@ -46,7 +46,7 @@ char *ip_scope_text(unsigned);
 
 struct prefix {
   ip_addr addr;
-  int len;
+  unsigned int len;
 };
 
 #define ip_is_prefix(a,l) (!ipa_nonzero(ipa_and(a, ipa_not(ipa_mkmask(l)))))

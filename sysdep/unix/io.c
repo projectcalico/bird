@@ -70,7 +70,8 @@ static struct resclass rf_class = {
   "FILE",
   sizeof(struct rfile),
   rf_free,
-  rf_dump
+  rf_dump,
+  NULL
 };
 
 void *
@@ -195,7 +196,8 @@ static struct resclass tm_class = {
   "Timer",
   sizeof(timer),
   tm_free,
-  tm_dump
+  tm_dump,
+  NULL
 };
 
 /**
@@ -564,7 +566,8 @@ static struct resclass sk_class = {
   "Socket",
   sizeof(sock),
   sk_free,
-  sk_dump
+  sk_dump,
+  NULL
 };
 
 /**
@@ -640,7 +643,7 @@ fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
 }
 
 static inline void
-fill_in_sockifa(sockaddr *sa, struct iface *ifa)
+fill_in_sockifa(sockaddr *sa UNUSED, struct iface *ifa UNUSED)
 {
 }
 
@@ -1492,7 +1495,6 @@ io_loop(void)
 	    {
 	      sock *s = current_sock;
 	      int e;
-	      int steps;
 
 	      if ((s->type < SK_MAGIC) && FD_ISSET(s->fd, &rd) && s->rx_hook)
 		{

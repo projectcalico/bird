@@ -51,7 +51,7 @@ proto_enqueue(list *l, struct proto *p)
 static void
 proto_relink(struct proto *p)
 {
-  list *l;
+  list *l = NULL;
 
   if (p->debug & D_STATES)
     {

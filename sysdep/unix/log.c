@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "nest/bird.h"
 #include "nest/cli.h"

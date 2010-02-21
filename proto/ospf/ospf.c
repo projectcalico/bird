@@ -224,9 +224,11 @@ ospf_dump(struct proto *p)
     }
   }
 
+  /*
   OSPF_TRACE(D_EVENTS, "LSA graph dump start:");
   ospf_top_dump(po->gr, p);
   OSPF_TRACE(D_EVENTS, "LSA graph dump finished");
+  */
   neigh_dump_all();
 }
 
@@ -500,7 +502,7 @@ ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * ol
 }
 
 static void
-ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
+ospf_ifa_notify(struct proto *p, unsigned flags UNUSED, struct ifa *a)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
   struct ospf_iface *ifa;
@@ -915,7 +917,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 void
 ospf_sh_neigh(struct proto *p, char *iff)
 {
-  struct ospf_iface *ifa = NULL, *f;
+  struct ospf_iface *ifa = NULL;
   struct ospf_neighbor *n;
   struct proto_ospf *po = (struct proto_ospf *) p;
 
@@ -1006,7 +1008,7 @@ void
 ospf_sh_iface(struct proto *p, char *iff)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
-  struct ospf_iface *ifa = NULL, *f;
+  struct ospf_iface *ifa = NULL;
 
   if (p->proto_state != PS_UP)
   {
@@ -1193,7 +1195,6 @@ show_lsa_network(struct top_hash_entry *he)
 static inline void
 show_lsa_sum_net(struct top_hash_entry *he)
 {
-  struct ospf_lsa_header *lsa = &(he->lsa);
   ip_addr ip;
   int pxlen;
 
@@ -1217,7 +1218,7 @@ show_lsa_sum_rt(struct top_hash_entry *he)
   u32 dst_rid, options;
 
 #ifdef OSPFv2
-  struct ospf_lsa_sum *ls = he->lsa_body;
+  //  struct ospf_lsa_sum *ls = he->lsa_body;
   dst_rid = he->lsa.id;
   options = 0;
 #else /* OSPFv3 */
@@ -1235,7 +1236,6 @@ show_lsa_external(struct top_hash_entry *he)
 {
   struct ospf_lsa_header *lsa = &(he->lsa);
   struct ospf_lsa_ext *ext = he->lsa_body;
-  struct ospf_lsa_ext_tos *et = (struct ospf_lsa_ext_tos *) (ext + 1);
   char str_via[STD_ADDRESS_P_LENGTH + 8] = "";
   char str_tag[16] = "";
   ip_addr ip, rt_fwaddr;
@@ -1493,8 +1493,6 @@ ospf_sh_lsadb(struct proto *p)
     
     if ((dscope != last_dscope) || (hea[i]->domain != last_domain))
     {
-      struct iface *ifa;
-
       cli_msg(-1017, "");
       switch (dscope)
       {
@@ -1506,7 +1504,7 @@ ospf_sh_lsadb(struct proto *p)
 	  break;
 #ifdef OSPFv3
 	case LSA_SCOPE_LINK:
-	  ifa = if_find_by_index(hea[i]->domain);
+	  struct iface *ifa = if_find_by_index(hea[i]->domain);
 	  cli_msg(-1017, "Link %s", (ifa != NULL) ? ifa->name : "?");
 	  break;
 #endif

@@ -47,7 +47,7 @@ bgp_check_origin(struct bgp_proto *p UNUSED, byte *a, int len UNUSED)
 }
 
 static void
-bgp_format_origin(eattr *a, byte *buf, int buflen)
+bgp_format_origin(eattr *a, byte *buf, int buflen UNUSED)
 {
   static char *bgp_origin_names[] = { "IGP", "EGP", "Incomplete" };
 
@@ -257,14 +257,14 @@ static struct attr_desc bgp_attr_table[] = {
     NULL, NULL },
   { "cluster_list", -1, BAF_OPTIONAL, EAF_TYPE_INT_SET, 0,			/* BA_CLUSTER_LIST */
     bgp_check_cluster_list, bgp_format_cluster_list }, 
-  { NULL, },									/* BA_DPA */
-  { NULL, },									/* BA_ADVERTISER */
-  { NULL, },									/* BA_RCID_PATH */
+  { .name = NULL },								/* BA_DPA */
+  { .name = NULL },									/* BA_ADVERTISER */
+  { .name = NULL },									/* BA_RCID_PATH */
   { "mp_reach_nlri", -1, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,			/* BA_MP_REACH_NLRI */
     bgp_check_reach_nlri, NULL },
   { "mp_unreach_nlri", -1, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,			/* BA_MP_UNREACH_NLRI */
     bgp_check_unreach_nlri, NULL },
-  { NULL, },									/* BA_EXTENDED_COMM */
+  {  .name = NULL },									/* BA_EXTENDED_COMM */
   { "as4_path", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_AS4_PATH */
     NULL, NULL },
   { "as4_aggregator", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,	/* BA_AS4_PATH */

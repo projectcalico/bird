@@ -168,7 +168,7 @@ pipe_get_status(struct proto *P, byte *buf)
 static int
 pipe_reconfigure(struct proto *P, struct proto_config *new)
 {
-  struct pipe_proto *p = (struct pipe_proto *) P;
+  // struct pipe_proto *p = (struct pipe_proto *) P;
   struct pipe_config *o = (struct pipe_config *) P->cf;
   struct pipe_config *n = (struct pipe_config *) new;
 
