@@ -213,7 +213,7 @@ void proto_cmd_reload(struct proto *, unsigned int, int);
 void proto_cmd_debug(struct proto *, unsigned int, int);
 void proto_cmd_mrtdump(struct proto *, unsigned int, int);
 
-void proto_apply_cmd(struct proto_spec ps, void (* cmd)(struct proto *, unsigned int, int), unsigned int arg);
+void proto_apply_cmd(struct proto_spec ps, void (* cmd)(struct proto *, unsigned int, int), int restricted, unsigned int arg);
 struct proto *proto_get_named(struct symbol *, struct protocol *);
 
 #define CMD_RELOAD	0

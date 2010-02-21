@@ -107,7 +107,7 @@ CF_CLI(CONFIGURE SOFT, cfg_name, [\"<file>\"], [[Reload configuration and ignore
 { cmd_reconfig($3, RECONFIG_SOFT); } ;
 
 CF_CLI(DOWN,,, [[Shut the daemon down]])
-{ cli_msg(7, "Shutdown requested"); order_shutdown(); } ;
+{ cmd_shutdown(); } ;
 
 cfg_name:
    /* empty */ { $$ = NULL; }

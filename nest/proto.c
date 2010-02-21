@@ -1006,8 +1006,12 @@ proto_apply_cmd_patt(char *patt, void (* cmd)(struct proto *, unsigned int, int)
 }
 
 void
-proto_apply_cmd(struct proto_spec ps, void (* cmd)(struct proto *, unsigned int, int), unsigned int arg)
+proto_apply_cmd(struct proto_spec ps, void (* cmd)(struct proto *, unsigned int, int),
+		int restricted, unsigned int arg)
 {
+  if (restricted && cli_access_restricted())
+    return;
+
   if (ps.patt)
     proto_apply_cmd_patt(ps.ptr, cmd, arg);
   else

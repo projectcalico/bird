@@ -25,8 +25,10 @@
 #include "client/client.h"
 #include "sysdep/unix/unix.h"
 
-static char *opt_list = "s:v";
+static char *opt_list = "s:vr";
 static int verbose;
+static char *init_cmd;
+static int once;
 
 static char *server_path = PATH_CONTROL_SOCKET;
 static int server_fd;
@@ -49,7 +51,7 @@ static int num_lines, skip_input, interactive;
 static void
 usage(void)
 {
-  fprintf(stderr, "Usage: birdc [-s <control-socket>] [-v]\n");
+  fprintf(stderr, "Usage: birdc [-s <control-socket>] [-v] [-r]\n");
   exit(1);
 }
 
@@ -67,11 +69,36 @@ parse_args(int argc, char **argv)
       case 'v':
 	verbose++;
 	break;
+      case 'r':
+	init_cmd = "restrict";
+	break;
       default:
 	usage();
       }
+
+  /* If some arguments are not options, we take it as commands */
   if (optind < argc)
-    usage();
+    {
+      char *tmp;
+      int i;
+      int len = 0;
+
+      if (init_cmd)
+	usage();
+
+      for (i = optind; i < argc; i++)
+	len += strlen(argv[i]) + 1;
+
+      tmp = init_cmd = malloc(len);
+      for (i = optind; i < argc; i++)
+	{
+	  strcpy(tmp, argv[i]);
+	  tmp += strlen(tmp);
+	  *tmp++ = ' ';
+	}
+
+      once = 1;
+    }
 }
 
 /*** Input ***/
@@ -266,6 +293,22 @@ update_state(void)
 {
   if (nstate == cstate)
     return;
+
+  if (init_cmd)
+    {
+      /* First transition - client received hello from BIRD
+	 and there is waiting initial command */
+      submit_server_command(init_cmd);
+      init_cmd = NULL;
+      return;
+    }
+
+  if (!init_cmd && once)
+    {
+      /* Initial command is finished and we want to exit */
+      cleanup();
+      exit(0);
+    }
 
   if (nstate == STATE_PROMPT)
     if (input_initialized)

@@ -45,7 +45,7 @@ CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILT
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
 CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE)
 CF_KEYWORDS(LISTEN, BGP, V6ONLY, ADDRESS, PORT, PASSWORDS, DESCRIPTION)
-CF_KEYWORDS(RELOAD, IN, OUT, MRTDUMP, MESSAGES)
+CF_KEYWORDS(RELOAD, IN, OUT, MRTDUMP, MESSAGES, RESTRICT)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_IA, OSPF_EXT1, OSPF_EXT2, BGP, PIPE)
@@ -325,10 +325,10 @@ CF_CLI(SHOW STATUS,,, [[Show router status]])
 { cmd_show_status(); } ;
 
 CF_CLI(SHOW PROTOCOLS, proto_patt2, [<protocol> | \"<pattern>\"], [[Show routing protocols]])
-{ proto_apply_cmd($3, proto_cmd_show, 0); } ;
+{ proto_apply_cmd($3, proto_cmd_show, 0, 0); } ;
 
 CF_CLI(SHOW PROTOCOLS ALL, proto_patt2, [<protocol> | \"<pattern>\"], [[Show routing protocol details]])
-{ proto_apply_cmd($4, proto_cmd_show, 1); } ;
+{ proto_apply_cmd($4, proto_cmd_show, 0, 1); } ;
 
 optsym:
    SYM
@@ -459,25 +459,28 @@ echo_size:
  ;
 
 CF_CLI(DISABLE, proto_patt, <protocol> | \"<pattern>\" | all, [[Disable protocol]])
-{ proto_apply_cmd($2, proto_cmd_disable, 0); } ;
+{ proto_apply_cmd($2, proto_cmd_disable, 1, 0); } ;
 CF_CLI(ENABLE, proto_patt, <protocol> | \"<pattern>\" | all, [[Enable protocol]])
-{ proto_apply_cmd($2, proto_cmd_enable, 0); } ;
+{ proto_apply_cmd($2, proto_cmd_enable, 1, 0); } ;
 CF_CLI(RESTART, proto_patt, <protocol> | \"<pattern>\" | all, [[Restart protocol]])
-{ proto_apply_cmd($2, proto_cmd_restart, 0); } ;
+{ proto_apply_cmd($2, proto_cmd_restart, 1, 0); } ;
 CF_CLI(RELOAD, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol]])
-{ proto_apply_cmd($2, proto_cmd_reload, CMD_RELOAD); } ;
+{ proto_apply_cmd($2, proto_cmd_reload, 1, CMD_RELOAD); } ;
 CF_CLI(RELOAD IN, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol (just imported routes)]])
-{ proto_apply_cmd($3, proto_cmd_reload, CMD_RELOAD_IN); } ;
+{ proto_apply_cmd($3, proto_cmd_reload, 1, CMD_RELOAD_IN); } ;
 CF_CLI(RELOAD OUT, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protocol (just exported routes)]])
-{ proto_apply_cmd($3, proto_cmd_reload, CMD_RELOAD_OUT); } ;
+{ proto_apply_cmd($3, proto_cmd_reload, 1, CMD_RELOAD_OUT); } ;
 
 CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging via BIRD logs]])
 CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging via BIRD logs]])
-{ proto_apply_cmd($2, proto_cmd_debug, $3); } ;
+{ proto_apply_cmd($2, proto_cmd_debug, 1, $3); } ;
 
 CF_CLI_HELP(MRTDUMP, ..., [[Control protocol debugging via MRTdump files]])
 CF_CLI(MRTDUMP, proto_patt mrtdump_mask, (<protocol> | <pattern> | all) (all | off | { states | messages }), [[Control protocol debugging via MRTdump format]])
-{ proto_apply_cmd($2, proto_cmd_mrtdump, $3); } ;
+{ proto_apply_cmd($2, proto_cmd_mrtdump, 1, $3); } ;
+
+CF_CLI(RESTRICT,,,[[Restrict current CLI session to safe commands]])
+{ this_cli->restricted = 1; cli_msg(16, "Access restricted"); } ;
 
 proto_patt:
    SYM  { $$.ptr = $1; $$.patt = 0; }
