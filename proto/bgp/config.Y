@@ -59,7 +59,7 @@ bgp_proto:
      BGP_CFG->remote_ip = $3;
      BGP_CFG->remote_as = $5;
    }
- | bgp_proto RR CLUSTER ID expr ';' { BGP_CFG->rr_cluster_id = $5; }
+ | bgp_proto RR CLUSTER ID idval ';' { BGP_CFG->rr_cluster_id = $5; }
  | bgp_proto RR CLIENT ';' { BGP_CFG->rr_client = 1; }
  | bgp_proto RS CLIENT ';' { BGP_CFG->rs_client = 1; }
  | bgp_proto HOLD TIME expr ';' { BGP_CFG->hold_time = $4; }
