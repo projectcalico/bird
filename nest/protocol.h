@@ -130,7 +130,6 @@ struct proto {
   u32 debug;				/* Debugging flags */
   u32 mrtdump;				/* MRTDump flags */
   unsigned preference;			/* Default route preference */
-  int min_scope;			/* Minimal route scope accepted */
   unsigned accept_ra_types;		/* Which types of route announcements are accepted (RA_OPTIMAL or RA_ANY) */
   unsigned disabled;			/* Manually disabled */
   unsigned proto_state;			/* Protocol state machine (see below) */

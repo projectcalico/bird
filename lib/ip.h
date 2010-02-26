@@ -50,6 +50,10 @@ struct prefix {
 };
 
 #define ip_is_prefix(a,l) (!ipa_nonzero(ipa_and(a, ipa_not(ipa_mkmask(l)))))
+#define ipa_zero(x) (!ipa_nonzero(x))
+
+static inline int ipa_classify_net(ip_addr a)
+{ return ipa_zero(a) ? (IADDR_HOST | SCOPE_UNIVERSE) : ipa_classify(a); }
 
 /*
  *	Conversions between internal and string representation

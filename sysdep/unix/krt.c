@@ -558,32 +558,30 @@ krt_got_route(struct krt_proto *p, rte *e)
   rte *old;
   net *net = e->net;
   int verdict;
-#ifdef KRT_ALLOW_LEARN
-  int src = e->u.krt.src;
-#endif
 
-#ifdef CONFIG_AUTO_ROUTES
-  if (e->attrs->dest == RTD_DEVICE)
+#ifdef KRT_ALLOW_LEARN
+  switch (e->u.krt.src)
     {
-      /* It's a device route. Probably a kernel-generated one. */
+    case KRT_SRC_KERNEL:
       verdict = KRF_IGNORE;
       goto sentenced;
-    }
-#endif
 
-#ifdef KRT_ALLOW_LEARN
-  if (src == KRT_SRC_ALIEN)
-    {
+    case KRT_SRC_REDIRECT:
+      verdict = KRF_DELETE;
+      goto sentenced;
+
+    case  KRT_SRC_ALIEN:
       if (KRT_CF->learn)
 	krt_learn_scan(p, e);
       else
 	{
-	  krt_trace_in_rl(&rl_alien_ignored, p, e, "alien route, ignored");
+	  krt_trace_in_rl(&rl_alien_ignored, p, e, "[alien] ignored");
 	  rte_free(e);
 	}
       return;
     }
 #endif
+  /* The rest is for KRT_SRC_BIRD (or KRT_SRC_UNKNOWN) */
 
   if (net->n.flags & KRF_VERDICT_MASK)
     {
@@ -605,7 +603,7 @@ krt_got_route(struct krt_proto *p, rte *e)
   else
     verdict = KRF_DELETE;
 
-sentenced:
+ sentenced:
   krt_trace_in(p, e, ((char *[]) { "?", "seen", "will be updated", "will be removed", "ignored" }) [verdict]);
   net->n.flags = (net->n.flags & ~KRF_VERDICT_MASK) | verdict;
   if (verdict == KRF_UPDATE || verdict == KRF_DELETE)
@@ -680,19 +678,24 @@ krt_prune(struct krt_proto *p)
 }
 
 void
-krt_got_route_async(struct krt_proto *p, rte *e, int new UNUSED)
+krt_got_route_async(struct krt_proto *p, rte *e, int new)
 {
   net *net = e->net;
-  int src = e->u.krt.src;
 
-  switch (src)
+  switch (e->u.krt.src)
     {
     case KRT_SRC_BIRD:
       ASSERT(0);			/* Should be filtered by the back end */
+
     case KRT_SRC_REDIRECT:
-      DBG("It's a redirect, kill him! Kill! Kill!\n");
-      krt_set_notify(p, net, NULL, e);
+      if (new)
+	{
+	  krt_trace_in(p, e, "[redirect] deleting");
+	  krt_set_notify(p, net, NULL, e);
+	}
+      /* If !new, it is probably echo of our deletion */
       break;
+
 #ifdef KRT_ALLOW_LEARN
     case KRT_SRC_ALIEN:
       if (KRT_CF->learn)
@@ -878,7 +881,6 @@ krt_init(struct proto_config *c)
 
   p->p.accept_ra_types = RA_OPTIMAL;
   p->p.rt_notify = krt_notify;
-  p->p.min_scope = SCOPE_HOST;
   return &p->p;
 }
 

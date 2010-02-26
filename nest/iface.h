@@ -97,6 +97,7 @@ typedef struct neighbor {
 } neighbor;
 
 #define NEF_STICKY 1
+#define NEF_ONLINK 2
 
 neighbor *neigh_find(struct proto *, ip_addr *, unsigned flags);
 neighbor *neigh_find2(struct proto *p, ip_addr *a, struct iface *ifa, unsigned flags);

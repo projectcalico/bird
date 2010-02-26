@@ -663,7 +663,6 @@ get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port, int check)
 static char *
 sk_set_ttl_int(sock *s)
 {
-  int one = 1;
 #ifdef IPV6
   if (setsockopt(s->fd, SOL_IPV6, IPV6_UNICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
     return "IPV6_UNICAST_HOPS";
@@ -671,6 +670,7 @@ sk_set_ttl_int(sock *s)
   if (setsockopt(s->fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
     return "IP_TTL";
 #ifdef CONFIG_UNIX_DONTROUTE
+  int one = 1;
   if (s->ttl == 1 && setsockopt(s->fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
     return "SO_DONTROUTE";
 #endif 

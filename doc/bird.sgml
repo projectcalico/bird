@@ -824,7 +824,14 @@ defined by using the <cf>defined( <m>attribute</m> )</cf> operator.
 	Network the route is talking about. Read-only. (See the chapter about routing tables.)
 
 	<tag><m/enum/ scope</tag>
-	Address scope of the network (<cf/SCOPE_HOST/ for addresses local to this host, <cf/SCOPE_LINK/ for those specific for a physical link, <cf/SCOPE_SITE/ and <cf/SCOPE_ORGANIZATION/ for private addresses, <cf/SCOPE_UNIVERSE/ for globally visible addresses).
+	The scope of the route. Possible values: <cf/SCOPE_HOST/ for
+	routes local to this host, <cf/SCOPE_LINK/ for those specific
+	for a physical link, <cf/SCOPE_SITE/ and
+	<cf/SCOPE_ORGANIZATION/ for private routes and
+	<cf/SCOPE_UNIVERSE/ for globally visible routes. This
+	attribute is not interpreted by BIRD and can be used to mark
+	routes in filters. The default value for new routes is
+	<cf/SCOPE_UNIVERSE/.
 
 	<tag><m/int/ preference</tag>
 	Preference of the route. Valid values are 0-65535. (See the chapter about routing tables.)
@@ -842,7 +849,11 @@ defined by using the <cf>defined( <m>attribute</m> )</cf> operator.
 	what protocol has told me about this route. Possible values: <cf/RTS_DUMMY/, <cf/RTS_STATIC/, <cf/RTS_INHERIT/, <cf/RTS_DEVICE/, <cf/RTS_STATIC_DEVICE/, <cf/RTS_REDIRECT/, <cf/RTS_RIP/, <cf/RTS_OSPF/, <cf/RTS_OSPF_IA/, <cf/RTS_OSPF_EXT/, <cf/RTS_BGP/, <cf/RTS_PIPE/.
 
 	<tag><m/enum/ cast</tag>
-	Route type (<cf/RTC_UNICAST/ for normal routes, <cf/RTC_BROADCAST/, <cf/RTC_MULTICAST/, <cf/RTC_ANYCAST/ for broadcast, multicast and anycast routes). Read-only.
+
+	Route type (Currently <cf/RTC_UNICAST/ for normal routes,
+	<cf/RTC_BROADCAST/, <cf/RTC_MULTICAST/, <cf/RTC_ANYCAST/ will
+	be used in the future for broadcast, multicast and anycast
+	routes). Read-only.
 
 	<tag><m/enum/ dest</tag>
 	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_NETWORK/ for routing to a directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silently discarded, <cf/RTD_UNREACHABLE/, <cf/RTD_PROHIBIT/ for packets that should be returned with ICMP host unreachable / ICMP administratively prohibited messages). Read-only.

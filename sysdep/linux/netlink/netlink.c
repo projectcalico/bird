@@ -52,7 +52,6 @@ struct nl_sock
 static struct nl_sock nl_scan = {.fd = -1};	/* Netlink socket for synchronous scan */
 static struct nl_sock nl_req  = {.fd = -1};	/* Netlink socket for requests */
 
-
 static void
 nl_open_sock(struct nl_sock *nl)
 {
@@ -555,23 +554,7 @@ krt_set_notify(struct krt_proto *p, net *n UNUSED, rte *new, rte *old)
     nl_send_route(p, new, 1);
 }
 
-static struct iface *
-krt_temp_iface(struct krt_proto *p, unsigned index)
-{
-  struct iface *i, *j;
-
-  WALK_LIST(i, p->scan.temp_ifs)
-    if (i->index == index)
-      return i;
-  i = mb_allocz(p->p.pool, sizeof(struct iface));
-  if (j = if_find_by_index(index))
-    strcpy(i->name, j->name);
-  else
-    strcpy(i->name, "?");
-  i->index = index;
-  add_tail(&p->scan.temp_ifs, &i->n);
-  return i;
-}
+#define SKIP(ARG...) do { DBG("KRT: Ignoring route - " ARG); return; } while(0)
 
 static void
 nl_parse_route(struct nlmsghdr *h, int scan)
@@ -599,31 +582,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 #endif
       (a[RTA_GATEWAY] && RTA_PAYLOAD(a[RTA_GATEWAY]) != sizeof(ip_addr)))
     {
-      log(L_ERR "nl_parse_route: Malformed message received");
-      return;
-    }
-
-  p = nl_table_map[i->rtm_table];	/* Do we know this table? */
-  if (!p)
-    return;
-
-#ifdef IPV6
-  if (a[RTA_IIF])
-    {
-      DBG("KRT: Ignoring route with IIF set\n");
-      return;
-    }
-#else
-  if (i->rtm_tos != 0)			/* We don't support TOS */
-    {
-      DBG("KRT: Ignoring route with TOS %02x\n", i->rtm_tos);
-      return;
-    }
-#endif
-
-  if (scan && !new)
-    {
-      DBG("KRT: Ignoring route deletion\n");
+      log(L_ERR "KRT: Malformed message received");
       return;
     }
 
@@ -634,33 +593,57 @@ nl_parse_route(struct nlmsghdr *h, int scan)
     }
   else
     dst = IPA_NONE;
+
   if (a[RTA_OIF])
     memcpy(&oif, RTA_DATA(a[RTA_OIF]), sizeof(oif));
   else
     oif = ~0;
 
-  DBG("Got %I/%d, type=%d, oif=%d, table=%d, prid=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, i->rtm_protocol, p->p.name);
+  DBG("KRT: Got %I/%d, type=%d, oif=%d, table=%d, prid=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, i->rtm_protocol, p->p.name);
+
+  p = nl_table_map[i->rtm_table];	/* Do we know this table? */
+  if (!p)
+    SKIP("unknown table %d", i->rtm_table);
+
+#ifdef IPV6
+  if (a[RTA_IIF])
+    SKIP("IIF set\n");
+#else
+  if (i->rtm_tos != 0)			/* We don't support TOS */
+    SKIP("TOS %02x\n", i->rtm_tos);
+#endif
+
+  if (scan && !new)
+    SKIP("RTM_DELROUTE in scan\n");
+
+  int c = ipa_classify_net(dst);
+  if ((c < 0) || !(c & IADDR_HOST) || ((c & IADDR_SCOPE_MASK) <= SCOPE_LINK))
+    SKIP("strange class/scope\n");
+
+  // ignore rtm_scope, it is not a real scope
+  // if (i->rtm_scope != RT_SCOPE_UNIVERSE)
+  //   SKIP("scope %u\n", i->rtm_scope);
 
   switch (i->rtm_protocol)
     {
+    case RTPROT_UNSPEC:
+      SKIP("proto unspec\n");
+
     case RTPROT_REDIRECT:
       src = KRT_SRC_REDIRECT;
       break;
+
     case RTPROT_KERNEL:
-      DBG("Route originated in kernel, ignoring\n");
+      src = KRT_SRC_KERNEL;
       return;
+
     case RTPROT_BIRD:
-#ifdef IPV6
-    case RTPROT_BOOT:
-      /* Current Linux kernels don't remember rtm_protocol for IPv6 routes and supply RTPROT_BOOT instead */
-#endif
       if (!scan)
-	{
-	  DBG("Echo of our own route, ignoring\n");
-	  return;
-	}
+	SKIP("echo\n");
       src = KRT_SRC_BIRD;
       break;
+
+    case RTPROT_BOOT:
     default:
       src = KRT_SRC_ALIEN;
     }
@@ -679,52 +662,48 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   switch (i->rtm_type)
     {
     case RTN_UNICAST:
-      if (oif == ~0U)
+      ra.iface = if_find_by_index(oif);
+      if (!ra.iface)
 	{
-	  log(L_ERR "KRT: Mysterious route with no OIF (%I/%d)", net->n.prefix, net->n.pxlen);
+	  log(L_ERR "KRT: Received route %I/%d with unknown ifindex %u",
+	      net->n.prefix, net->n.pxlen, oif);
 	  return;
 	}
+
       if (a[RTA_GATEWAY])
 	{
-	  struct iface *ifa = if_find_by_index(oif);
 	  neighbor *ng;
 	  ra.dest = RTD_ROUTER;
 	  memcpy(&ra.gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ra.gw));
 	  ipa_ntoh(ra.gw);
 
-	  if (i->rtm_flags & RTNH_F_ONLINK)
+	  ng = neigh_find2(&p->p, &ra.gw, ra.iface,
+			   (i->rtm_flags & RTNH_F_ONLINK) ? NEF_ONLINK : 0);
+	  if (!ng || (ng->scope == SCOPE_HOST))
 	    {
-	      /* route with 'onlink' attribute */
-	      ra.iface = if_find_by_index(oif);
-	      if (ra.iface == NULL)
-		{
-		  log(L_WARN "Kernel told us to use unknown interface %u for %I/%d",
-		      oif, net->n.prefix, net->n.pxlen);
-		  return;
-		}
-	    }
-	  else
-	    {
-	      ng = neigh_find2(&p->p, &ra.gw, ifa, 0);
-	      if (ng && ng->scope)
-		{
-		  if (ng->iface != ifa)
-		    log(L_WARN "KRT: Route with unexpected iface for %I/%d", net->n.prefix, net->n.pxlen);
-		  ra.iface = ng->iface;
-		}
-	      else
-		{
-		  log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", ra.gw, net->n.prefix, net->n.pxlen);
-		  return;
-		}
-
+	      log(L_ERR "KRT: Received route %I/%d with strange next-hop %I",
+		  net->n.prefix, net->n.pxlen, ra.gw);
+	      return;
 	    }
 	}
       else
 	{
 	  ra.dest = RTD_DEVICE;
-	  ra.iface = krt_temp_iface(p, oif);
+
+	  /*
+	   * In Linux IPv6, 'native' device routes have proto
+	   * RTPROT_BOOT and not RTPROT_KERNEL (which they have in
+	   * IPv4 and which is expected). We cannot distinguish
+	   * 'native' and user defined device routes, so we ignore all
+	   * such device routes and for consistency, we have the same
+	   * behavior in IPv4. Anyway, users should use RTPROT_STATIC
+	   * for their 'alien' routes.
+	   */
+
+	  if (i->rtm_protocol == RTPROT_BOOT)
+	    src = KRT_SRC_KERNEL;
 	}
+
       break;
     case RTN_BLACKHOLE:
       ra.dest = RTD_BLACKHOLE;
@@ -737,13 +716,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
       break;
     /* FIXME: What about RTN_THROW? */
     default:
-      DBG("KRT: Ignoring route with type=%d\n", i->rtm_type);
-      return;
-    }
-
-  if (i->rtm_scope != RT_SCOPE_UNIVERSE)
-    {
-      DBG("KRT: Ignoring route with scope=%d\n", i->rtm_scope);
+      SKIP("type %d\n", i->rtm_type);
       return;
     }
 

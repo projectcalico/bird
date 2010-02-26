@@ -170,7 +170,7 @@ static void
 process_prefixes(struct ospf_area *oa)
 {
   struct proto_ospf *po = oa->po;
-  struct proto *p = &po->proto;
+  // struct proto *p = &po->proto;
   struct top_hash_entry *en, *src;
   struct ospf_lsa_prefix *px;
   ip_addr pxa;
@@ -228,7 +228,6 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 {
   // struct proto *p = &oa->po->proto;
   struct proto_ospf *po = oa->po;
-  orta nf;
   u32 i;
 
   struct ospf_lsa_rt *rt = en->lsa_body;
@@ -249,6 +248,7 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 	   */
 	  DBG("\n");
 
+	  orta nf;
 	  nf.type = RTS_OSPF;
 	  nf.options = 0;
 	  nf.metric1 = act->dist + rtl->metric;
@@ -571,7 +571,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       type = ORT_NET;
       re = (ort *) fib_find(&po->rtf, &ip, pxlen);
     }
-    else if (en->lsa.type == LSA_T_SUM_RT)
+    else // en->lsa.type == LSA_T_SUM_RT
     {
 #ifdef OSPFv2
       struct ospf_lsa_sum *ls = en->lsa_body;

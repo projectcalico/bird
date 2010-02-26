@@ -33,6 +33,10 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
       !iface_patt_find(&P->iface_list, ad->iface))
     /* Empty list is automagically treated as "*" */
     return;
+
+  if (ad->scope <= SCOPE_LINK)
+    return;
+
   if (c & IF_CHANGE_DOWN)
     {
       net *n;
@@ -56,7 +60,7 @@ dev_ifa_notify(struct proto *p, unsigned c, struct ifa *ad)
       bzero(&A, sizeof(A));
       A.proto = p;
       A.source = RTS_DEVICE;
-      A.scope = ad->scope;
+      A.scope = SCOPE_UNIVERSE;
       A.cast = RTC_UNICAST;
       A.dest = RTD_DEVICE;
       A.iface = ad->iface;
@@ -76,7 +80,6 @@ dev_init(struct proto_config *c)
   struct proto *p = proto_new(c, sizeof(struct proto));
 
   p->ifa_notify = dev_ifa_notify;
-  p->min_scope = SCOPE_HOST;
   return p;
 }
 
