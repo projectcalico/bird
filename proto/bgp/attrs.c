@@ -1070,16 +1070,6 @@ bgp_rte_better(rte *new, rte *old)
   /* Skipping RFC 4271 9.1.2.2. e) */
   /* We don't have interior distances */
 
-  /* RFC 4456 9. b) Compare cluster list lengths */
-  x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_CLUSTER_LIST));
-  y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_CLUSTER_LIST));
-  n = x ? int_set_get_size(x->u.ptr) : 0;
-  o = y ? int_set_get_size(y->u.ptr) : 0;
-  if (n < o)
-    return 1;
-  if (n > o)
-    return 0;
-
   /* RFC 4271 9.1.2.2. f) Compare BGP identifiers */
   /* RFC 4456 9. a) Use ORIGINATOR_ID instead of local neighor ID */
   x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_ORIGINATOR_ID));
@@ -1094,6 +1084,16 @@ bgp_rte_better(rte *new, rte *old)
     return 0;
 
   /* rest of RFC 4271 9.1.2.2. f) */
+  if (n < o)
+    return 1;
+  if (n > o)
+    return 0;
+
+  /* RFC 4456 9. b) Compare cluster list lengths */
+  x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_CLUSTER_LIST));
+  y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_CLUSTER_LIST));
+  n = x ? int_set_get_size(x->u.ptr) : 0;
+  o = y ? int_set_get_size(y->u.ptr) : 0;
   if (n < o)
     return 1;
   if (n > o)
