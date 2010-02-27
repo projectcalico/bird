@@ -139,15 +139,6 @@ kif_shutdown(struct proto *P)
   krt_if_shutdown(p);
   kif_proto = NULL;
 
-  if_start_update();	/* Remove all interfaces */
-  if_end_update();
-  /*
-   *  FIXME: Is it really a good idea?  It causes routes to be flushed,
-   *  but at the same time it avoids sending of these deletions to the kernel,
-   *  because krt thinks the kernel itself has already removed the route
-   *  when downing the interface.  Sad.
-   */
-
   return PS_DOWN;
 }
 

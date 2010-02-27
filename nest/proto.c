@@ -740,6 +740,8 @@ proto_notify_state(struct proto *p, unsigned ps)
     }
 }
 
+extern struct protocol proto_unix_iface;
+
 static void
 proto_flush_all(void *unused UNUSED)
 {
@@ -748,6 +750,11 @@ proto_flush_all(void *unused UNUSED)
   rt_prune_all();
   while ((p = HEAD(flush_proto_list))->n.next)
     {
+      /* This will flush interfaces in the same manner
+	 like rt_prune_all() flushes routes */
+      if (p->proto == &proto_unix_iface)
+	if_flush_ifaces(p);
+
       DBG("Flushing protocol %s\n", p->name);
       p->core_state = FS_HUNGRY;
       proto_relink(p);
