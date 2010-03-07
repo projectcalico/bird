@@ -1039,7 +1039,7 @@ for each neighbor using the following configuration parameters:
 	should not be advertised to any of its neighbors. If this
 	option is enabled (which is by default), BIRD has such
 	behavior automatically (it is evaluated when a route is
-	exported to the protocol just before the export filter).
+	exported to the BGP protocol just before the export filter).
 	Otherwise, this integrated processing of well-known
 	communities is disabled. In that case, similar behavior can be
 	implemented in the export filter.  Default: on.
