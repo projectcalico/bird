@@ -508,15 +508,20 @@ krt_read_addr(struct ks_msg *msg)
   memcpy(&ifa.brd, &ibrd, sizeof(ip_addr));
 
   scope = ipa_classify(ifa.ip);
-
-  ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
-
   if (scope < 0)
   {
     log(L_ERR "KIF: Invalid interface address %I for %s", ifa.ip, iface->name);
     return;
   }
   ifa.scope = scope & IADDR_SCOPE_MASK;
+
+  if (iface->flags & IF_MULTIACCESS)
+    ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
+  else         /* PtP iface */
+  {
+    ifa.flags |= IA_UNNUMBERED;
+    ifa.prefix = ifa.opposite = ifa.brd;
+  }
 
   if (new)
     ifa_update(&ifa);
