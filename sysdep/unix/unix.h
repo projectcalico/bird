@@ -9,6 +9,8 @@
 #ifndef _BIRD_UNIX_H_
 #define _BIRD_UNIX_H_
 
+#include <sys/socket.h>
+
 struct pool;
 
 /* main.c */
@@ -17,6 +19,7 @@ void async_config(void);
 void async_dump(void);
 void async_shutdown(void);
 void cmd_reconfig(char *name, int type);
+void cmd_shutdown(void);
 
 /* io.c */
 
@@ -28,10 +31,12 @@ volatile int async_shutdown_flag;
 #define BIRD_PF PF_INET6
 #define BIRD_AF AF_INET6
 typedef struct sockaddr_in6 sockaddr;
+static inline int sa_family_check(sockaddr *sa) { return sa->sin6_family == AF_INET6; }
 #else
 #define BIRD_PF PF_INET
 #define BIRD_AF AF_INET
 typedef struct sockaddr_in sockaddr;
+static inline int sa_family_check(sockaddr *sa) { return sa->sin_family == AF_INET; }
 #endif
 
 #ifndef SUN_LEN

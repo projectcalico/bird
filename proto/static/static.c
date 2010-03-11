@@ -125,11 +125,12 @@ static_shutdown(struct proto *p)
   struct static_config *c = (void *) p->cf;
   struct static_route *r;
 
-  DBG("Static: prepare for landing!\n");
+  /* Just reset the flag, the routes will be flushed by the nest */
   WALK_LIST(r, c->iface_routes)
-    static_remove(p, r);
+    r->installed = 0;
   WALK_LIST(r, c->other_routes)
-    static_remove(p, r);
+    r->installed = 0;
+
   return PS_DOWN;
 }
 
@@ -294,7 +295,7 @@ static_show_rt(struct static_route *r)
   switch (r->dest)
     {
     case RTD_ROUTER:	bsprintf(via, "via %I", r->via); break;
-    case RTD_DEVICE:	bsprintf(via, "to %s", r->if_name); break;
+    case RTD_DEVICE:	bsprintf(via, "dev %s", r->if_name); break;
     case RTD_BLACKHOLE:	bsprintf(via, "blackhole"); break;
     case RTD_UNREACHABLE:	bsprintf(via, "unreachable"); break;
     case RTD_PROHIBIT:	bsprintf(via, "prohibited"); break;

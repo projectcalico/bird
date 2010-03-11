@@ -48,8 +48,8 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
   char *beg = "OSPF: Bad HELLO packet from ";
-  unsigned int size, i, twoway, oldpriority, eligible, peers;
-  u32 olddr, oldbdr, oldiface_id, tmp;
+  unsigned int size, i, twoway, eligible, peers;
+  u32 tmp;
   u32 *pnrid;
 
   size = ntohs(ps_i->length);
@@ -169,11 +169,11 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   if (!twoway)
     ospf_neigh_sm(n, INM_1WAYREC);
 
-  olddr = n->dr;
-  oldbdr = n->bdr;
-  oldpriority = n->priority;
+  u32 olddr = n->dr;
+  u32 oldbdr = n->bdr;
+  u32 oldpriority = n->priority;
 #ifdef OSPFv3
-  oldiface_id = n->iface_id;
+  u32 oldiface_id = n->iface_id;
 #endif
 
   n->dr = ntohl(ps->dr);

@@ -400,7 +400,7 @@ ea_format(eattr *e, byte *buf)
       switch (e->type & EAF_TYPE_MASK)
 	{
 	case EAF_TYPE_INT:
-	  bsprintf(buf, "%d", e->u.data);
+	  bsprintf(buf, "%u", e->u.data);
 	  break;
 	case EAF_TYPE_OPAQUE:
 	  for(i=0; i<ad->length; i++)

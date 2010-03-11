@@ -33,38 +33,7 @@
 #include "lib/string.h"
 #include "lib/socket.h"
 
-#ifdef IPV6
-#define HOST_MASK 128
-#else
-#define HOST_MASK 32
-#endif
-
 int rt_sock = 0;
-
-#define CHECK_FAMILY(sa) \
-  ((((struct sockaddr *)sa)->sa_family) == BIRD_AF)
-
-static struct iface *
-krt_temp_iface_index(struct krt_proto *p, unsigned index)
-{
-  struct iface *i, *j;
-
-  WALK_LIST(i, p->scan.temp_ifs)
-    if (i->index == index)
-      return i;
-  i = mb_allocz(p->p.pool, sizeof(struct iface));
-  if (j = if_find_by_index(index))
-  {
-    strcpy(i->name, j->name);
-    i->addr = j->addr;
-  }
-  else
-    strcpy(i->name, "?");
-  i->index = index;
-  add_tail(&p->scan.temp_ifs, &i->n);
-  return i;
-}
-
 
 int
 krt_capable(rte *e)
@@ -83,7 +52,7 @@ krt_capable(rte *e)
      || a->dest == RTD_UNREACHABLE
 #endif
 #ifdef RTF_BLACKHOLE
-     || a->dest == RTD_BLACKHOLE	/* FIXME Prohibited? */
+     || a->dest == RTD_BLACKHOLE
 #endif
      );
 }
@@ -95,6 +64,13 @@ krt_capable(rte *e)
         if (msg.rtm.rtm_addrs & (w)) {\
           l = ROUNDUP(((struct sockaddr *)&(u))->sa_len);\
           memmove(body, &(u), l); body += l;}
+
+#define GETADDR(p, F) \
+  bzero(p, sizeof(*p));\
+  if ((addrs & (F)) && ((struct sockaddr *)body)->sa_len) {\
+    unsigned int l = ROUNDUP(((struct sockaddr *)body)->sa_len);\
+    memcpy(p, body, (l > sizeof(*p) ? sizeof(*p) : l));\
+    body += l;}
 
 static void
 krt_sock_send(int cmd, rte *e)
@@ -108,7 +84,7 @@ krt_sock_send(int cmd, rte *e)
   char *body = (char *)msg.buf;
   sockaddr gate, mask, dst;
 
-  DBG("krt-sock: send %I/%d via %I", net->n.prefix, net->n.pxlen, a->gw);
+  DBG("krt-sock: send %I/%d via %I\n", net->n.prefix, net->n.pxlen, a->gw);
 
   fill_in_sockaddr(&dst, net->n.prefix, 0);
   fill_in_sockaddr(&mask, ipa_mkmask(net->n.pxlen), 0);
@@ -119,9 +95,9 @@ krt_sock_send(int cmd, rte *e)
   msg.rtm.rtm_type = cmd;
   msg.rtm.rtm_seq = msg_seq++;
   msg.rtm.rtm_addrs = RTA_DST;
-  msg.rtm.rtm_flags = RTF_UP;
+  msg.rtm.rtm_flags = RTF_UP | RTF_PROTO1;
 
-  if (net->n.pxlen == HOST_MASK)
+  if (net->n.pxlen == MAX_PREFIX_LENGTH)
   {
     msg.rtm.rtm_flags |= RTF_HOST;
   }
@@ -200,12 +176,12 @@ krt_sock_send(int cmd, rte *e)
   msg.rtm.rtm_msglen = l;
 
   if ((l = write(rt_sock, (char *)&msg, l)) < 0) {
-          log(L_ERR "KIF: error writting route to socket (%I/%d)", net->n.prefix, net->n.pxlen);
+    log(L_ERR "KIF: Error sending route %I/%d to kernel", net->n.prefix, net->n.pxlen);
   }
 }
 
 void
-krt_set_notify(struct krt_proto *p UNUSED, net *net UNUSED, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p UNUSED, net *net, rte *new, rte *old)
 {
   if (old)
     {
@@ -258,68 +234,87 @@ krt_set_start(struct krt_proto *x, int first UNUSED)
     bug("krt-sock: sk_open failed");
 }
 
+#define SKIP(ARG...) do { DBG("KRT: Ignoring route - " ARG); return; } while(0)
+
 static void
 krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
 {
-  sockaddr gate, mask, dst;
   rta a;
   rte *e;
   net *net;
+  sockaddr dst, gate, mask;
   ip_addr idst, igate, imask;
   void *body = (char *)msg->buf;
   int new = (msg->rtm.rtm_type == RTM_ADD);
   int src;
+  char *errmsg = "KRT: Invalid route received";
   int flags = msg->rtm.rtm_flags;
   int addrs = msg->rtm.rtm_addrs;
-  int masklen = -1;
 
-  if (!(flags & RTF_UP))
-  {
-    DBG("Down.\n");
-    return;
-  }
+  if (!(flags & RTF_UP) && scan)
+    SKIP("not up in scan\n");
 
-  if (flags & RTF_HOST)
-    masklen = HOST_MASK;
+  if (!(flags & RTF_DONE) && !scan)
+    SKIP("not done in async\n");
 
-  if(!CHECK_FAMILY(body)) return;
+  if (flags & RTF_LLINFO)
+    SKIP("link-local\n");
 
-  if(msg->rtm.rtm_flags & RTF_LLINFO) return;	/* ARPs etc. */
+  GETADDR(&dst, RTA_DST);
+  GETADDR(&gate, RTA_GATEWAY);
+  GETADDR(&mask, RTA_NETMASK);
 
-#define GETADDR(p, F) \
-  bzero(p, sizeof(*p));\
-  if ((addrs & (F)) && ((struct sockaddr *)body)->sa_len) {\
-    unsigned int l = ROUNDUP(((struct sockaddr *)body)->sa_len);\
-    memcpy(p, body, (l > sizeof(*p) ? sizeof(*p) : l));\
-    body += l;}
+  if (sa_family_check(&dst))
+    get_sockaddr(&dst, &idst, NULL, 0);
+  else
+    SKIP("invalid DST");
 
-  GETADDR (&dst, RTA_DST);
-  GETADDR (&gate, RTA_GATEWAY);
-  GETADDR (&mask, RTA_NETMASK);
+  /* We will check later whether we have valid gateway addr */
+  if (sa_family_check(&gate))
+    get_sockaddr(&gate, &igate, NULL, 0);
+  else
+    igate = IPA_NONE;
 
-  idst = IPA_NONE;
-  igate = IPA_NONE;
-  imask = IPA_NONE;
-
-  get_sockaddr(&dst, &idst, NULL, 0);
-  if(CHECK_FAMILY(&gate)) get_sockaddr(&gate, &igate, NULL, 0);
+  /* We do not test family for RTA_NETMASK, because BSD sends us
+     some strange values, but interpreting them as IPv4/IPv6 works */
   get_sockaddr(&mask, &imask, NULL, 0);
 
-  if (masklen < 0) masklen = ipa_mklen(imask);
+  int c = ipa_classify_net(idst);
+  if ((c < 0) || !(c & IADDR_HOST) || ((c & IADDR_SCOPE_MASK) <= SCOPE_LINK))
+    SKIP("strange class/scope\n");
+
+  int pxlen = (flags & RTF_HOST) ? MAX_PREFIX_LENGTH : ipa_mklen(imask);
+  if (pxlen < 0)
+    { log(L_ERR "%s (%I) - netmask %I", errmsg, idst, imask); return; }
+
+  if ((flags & RTF_GATEWAY) && ipa_zero(igate))
+    { log(L_ERR "%s (%I/%d) - missing gateway", errmsg, idst, pxlen); return; }
+
+  u32 self_mask = RTF_PROTO1;
+  u32 alien_mask = RTF_STATIC | RTF_PROTO1;
+
+#ifdef RTF_PROTO2
+  alien_mask |= RTF_PROTO2;
+#endif
+
+#ifdef RTF_PROTO3
+  alien_mask |= RTF_PROTO3;
+#endif
 
   if (flags & (RTF_DYNAMIC | RTF_MODIFIED))
-  {
-    log(L_WARN "krt: Ignoring redirect to %I/%d via %I", idst, masklen, igate);
-    return;
-  }
+    src = KRT_SRC_REDIRECT;
+  else if (flags & self_mask)
+    {
+      if (!scan)
+	SKIP("echo\n");
+      src = KRT_SRC_BIRD;
+    }
+  else if (flags & alien_mask)
+    src = KRT_SRC_ALIEN;
+  else
+    src = KRT_SRC_KERNEL;
 
-  if (masklen < 0)
-  {
-    log(L_WARN "krt: Got invalid route from kernel!");
-    return;
-  }
-
-  net = net_get(p->p.table, idst, masklen);
+  net = net_get(p->p.table, idst, pxlen);
 
   bzero(&a, sizeof(a));
 
@@ -333,56 +328,56 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
   a.iface = NULL;
   a.eattrs = NULL;
 
-  a.dest = RTD_NONE;
-
-  if (flags & RTF_GATEWAY)
-  {
-    neighbor *ng = neigh_find(&p->p, &igate, 0);
-    if (ng && ng->scope)
-      a.iface = ng->iface;
-    else
-      {
-	log(L_WARN "Kernel told us to use non-neighbor %I for %I/%d", igate, net->n.prefix, net->n.pxlen);
-	return;
-      }
-
-    a.dest = RTD_ROUTER;
-    a.gw = igate;
-  }
-  else
-  {
-    a.dest = RTD_DEVICE;
-    a.gw = IPA_NONE;
-    a.iface = krt_temp_iface_index(p, msg->rtm.rtm_index);
-  }
+  /* reject/blackhole routes have also set RTF_GATEWAY,
+     we wil check them first. */
 
 #ifdef RTF_REJECT
   if(flags & RTF_REJECT) {
     a.dest = RTD_UNREACHABLE;
-    a.gw = IPA_NONE;
+    goto done;
   }
 #endif
 
 #ifdef RTF_BLACKHOLE
   if(flags & RTF_BLACKHOLE) {
     a.dest = RTD_BLACKHOLE;
-    a.gw = IPA_NONE;
+    goto done;
   }
 #endif
 
-  if (a.dest == RTD_NONE)
+  a.iface = if_find_by_index(msg->rtm.rtm_index);
+  if (!a.iface)
+    {
+      log(L_ERR "KRT: Received route %I/%d with unknown ifindex %u",
+	  net->n.prefix, net->n.pxlen, msg->rtm.rtm_index);
+      return;
+    }
+
+  if (flags & RTF_GATEWAY)
   {
-    log(L_WARN "Kernel reporting unknown route type to %I/%d", net->n.prefix, net->n.pxlen);
-    return;
+    neighbor *ng;
+    a.dest = RTD_ROUTER;
+    a.gw = igate;
+
+    ng = neigh_find2(&p->p, &a.gw, a.iface, 0);
+    if (!ng || (ng->scope == SCOPE_HOST))
+      {
+	log(L_ERR "KRT: Received route %I/%d with strange next-hop %I",
+	    net->n.prefix, net->n.pxlen, a.gw);
+	return;
+      }
   }
+  else
+    a.dest = RTD_DEVICE;
 
-  src = KRT_SRC_UNKNOWN;	/* FIXME */
-
+ done:
   e = rte_get_temp(&a);
   e->net = net;
   e->u.krt.src = src;
-  //e->u.krt.proto = i->rtm_protocol;
-  //e->u.krt.type = i->rtm_type;
+
+  /* These are probably too Linux-specific */
+  e->u.krt.proto = 0;
+  e->u.krt.type = 0;
   e->u.krt.metric = 0;
 
   if (scan)
@@ -471,6 +466,10 @@ krt_read_addr(struct ks_msg *msg)
   int scope, masklen = -1;
   int new = (ifam->ifam_type == RTM_NEWADDR);
 
+  /* Strange messages with zero (invalid) ifindex appear on OpenBSD */
+  if (ifam->ifam_index == 0)
+    return;
+
   if(!(iface = if_find_by_index(ifam->ifam_index)))
   {
     log(L_ERR "KIF: Received address message for unknown interface %d", ifam->ifam_index);
@@ -486,7 +485,9 @@ krt_read_addr(struct ks_msg *msg)
   GETADDR (&null, RTA_AUTHOR);
   GETADDR (&brd, RTA_BRD);
 
-  if(!CHECK_FAMILY(&addr)) return; /* Some other family address */
+  /* Some other family address */
+  if (!sa_family_check(&addr))
+    return;
 
   get_sockaddr(&addr, &iaddr, NULL, 0);
   get_sockaddr(&mask, &imask, NULL, 0);
@@ -507,15 +508,20 @@ krt_read_addr(struct ks_msg *msg)
   memcpy(&ifa.brd, &ibrd, sizeof(ip_addr));
 
   scope = ipa_classify(ifa.ip);
-
-  ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
-
   if (scope < 0)
   {
     log(L_ERR "KIF: Invalid interface address %I for %s", ifa.ip, iface->name);
     return;
   }
   ifa.scope = scope & IADDR_SCOPE_MASK;
+
+  if (iface->flags & IF_MULTIACCESS)
+    ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
+  else         /* PtP iface */
+  {
+    ifa.flags |= IA_UNNUMBERED;
+    ifa.prefix = ifa.opposite = ifa.brd;
+  }
 
   if (new)
     ifa_update(&ifa);
@@ -593,27 +599,27 @@ krt_sysctl_scan(struct proto *p, pool *pool, byte **buf, size_t *bl, int cmd)
   mib[4] = cmd;
   mib[5] = 0;
 
-  if( sysctl(mib, 6 , NULL , &needed, NULL, 0) < 0)
+  if (sysctl(mib, 6 , NULL , &needed, NULL, 0) < 0)
   {
     die("RT scan...");
   }
 
   obl = *bl;
 
-  while(needed > *bl) *bl *= 2;
-  while(needed < (*bl/2)) *bl /= 2;
+  while (needed > *bl) *bl *= 2;
+  while (needed < (*bl/2)) *bl /= 2;
 
-  if( (obl!=*bl) || !*buf)
+  if ((obl!=*bl) || !*buf)
   {
-    if(*buf) mb_free(*buf);
-    if( (*buf = mb_alloc(pool, *bl)) == NULL ) die("RT scan buf alloc");
+    if (*buf) mb_free(*buf);
+    if ((*buf = mb_alloc(pool, *bl)) == NULL) die("RT scan buf alloc");
   }
 
   on = needed;
 
-  if( sysctl(mib, 6 , *buf, &needed, NULL, 0) < 0)
+  if (sysctl(mib, 6 , *buf, &needed, NULL, 0) < 0)
   {
-    if(on != needed) return; 	/* The buffer size changed since last sysctl */
+    if (on != needed) return; 	/* The buffer size changed since last sysctl */
     die("RT scan 2");
   }
 
@@ -624,22 +630,23 @@ krt_sysctl_scan(struct proto *p, pool *pool, byte **buf, size_t *bl, int cmd)
   }
 }
 
+static byte *krt_buffer = NULL;
+static byte *kif_buffer = NULL;
+static size_t krt_buflen = 32768;
+static size_t kif_buflen = 4096;
+
 void
 krt_scan_fire(struct krt_proto *p)
 {
-  static byte *buf = NULL;
-  static size_t bl = 32768;
-  krt_sysctl_scan((struct proto *)p , p->krt_pool, &buf, &bl, NET_RT_DUMP);
+  krt_sysctl_scan((struct proto *)p, p->krt_pool, &krt_buffer, &krt_buflen, NET_RT_DUMP);
 }
 
 void
 krt_if_scan(struct kif_proto *p)
 {
-  static byte *buf = NULL;
-  static size_t bl = 4096;
   struct proto *P = (struct proto *)p;
   if_start_update();
-  krt_sysctl_scan(P, P->pool, &buf, &bl, NET_RT_IFLIST);
+  krt_sysctl_scan(P, P->pool, &kif_buffer, &kif_buflen, NET_RT_IFLIST);
   if_end_update();
 }
 
@@ -652,7 +659,9 @@ krt_set_construct(struct krt_config *c UNUSED)
 void
 krt_set_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
 {
-} 
+  mb_free(krt_buffer);
+  krt_buffer = NULL;
+}
 
 void
 krt_if_io_init(void)
@@ -672,5 +681,7 @@ krt_if_start(struct kif_proto *p UNUSED)
 void
 krt_if_shutdown(struct kif_proto *p UNUSED)
 {
+  mb_free(kif_buffer);
+  kif_buffer = NULL;
 }
 

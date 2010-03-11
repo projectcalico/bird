@@ -705,7 +705,7 @@ struct ospf_area
   struct top_hash_entry *pxr_lsa; /* Originated prefix LSA */
   list cand;			/* List of candidates for RT calc. */
   struct fib net_fib;		/* Networks to advertise or not */
-  int stub;
+  unsigned stub;
   int trcap;			/* Transit capability? */
   u32 options;			/* Optional features */
   struct proto_ospf *po;
@@ -782,13 +782,14 @@ void schedule_net_lsa(struct ospf_iface *ifa);
 #ifdef OSPFv3
 void schedule_link_lsa(struct ospf_iface *ifa);
 #else
-static inline void schedule_link_lsa(struct ospf_iface *ifa) {}
+static inline void schedule_link_lsa(struct ospf_iface *ifa UNUSED) {}
 #endif
 
 void ospf_sh_neigh(struct proto *p, char *iff);
 void ospf_sh(struct proto *p);
 void ospf_sh_iface(struct proto *p, char *iff);
 void ospf_sh_state(struct proto *p, int verbose);
+void ospf_sh_lsadb(struct proto *p);
 
 
 #define EA_OSPF_METRIC1	EA_CODE(EAP_OSPF, 0)

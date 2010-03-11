@@ -273,16 +273,17 @@ fprefix_set:
  ;
 
 switch_body: /* EMPTY */ { $$ = NULL; }
- | set_item ':' cmds switch_body {
-     $$ = $1;
-     $$->data = $3;
-     $$->left = $4;
+ | switch_body set_item ':' cmds  {
+     $$ = $2;
+     $$->data = $4;
+     $$->left = $1;
    }
- | ELSE ':' cmds {
+ | switch_body ELSE ':' cmds {
      $$ = f_new_tree(); 
      $$->from.type = T_VOID; 
      $$->to.type = T_VOID;
-     $$->data = $3;
+     $$->data = $4;
+     $$->left = $1;
    }
  ;
 

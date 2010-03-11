@@ -14,7 +14,6 @@ void
 ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
 {
   struct proto_ospf *po = ifa->oa->po;
-  struct proto *p = &po->proto;
   struct ospf_packet *pkt;
 
   pkt = (struct ospf_packet *) buf;
@@ -282,7 +281,7 @@ ospf_rx_hook(sock *sk, int size)
   /* Initially, the packet is associated with the 'master' iface */
   struct ospf_iface *ifa = sk->data;
   struct proto_ospf *po = ifa->oa->po;
-  struct proto *p = &po->proto;
+  // struct proto *p = &po->proto;
 
   int src_local = ifa_match_addr(ifa->addr, sk->faddr);
   int dst_local = ipa_equal(sk->laddr, ifa->addr->ip);

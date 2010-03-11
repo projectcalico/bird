@@ -141,6 +141,9 @@ cmd_reconfig(char *name, int type)
 {
   struct config *conf;
 
+  if (cli_access_restricted())
+    return;
+
   if (!name)
     name = config_name;
   cli_msg(-2, "Reading configuration from %s", name);
@@ -302,6 +305,16 @@ cli_init_unix(void)
 /*
  *	Shutdown
  */
+
+void
+cmd_shutdown(void)
+{
+  if (cli_access_restricted())
+    return;
+
+  cli_msg(7, "Shutdown requested");
+  order_shutdown();
+}
 
 void
 async_shutdown(void)

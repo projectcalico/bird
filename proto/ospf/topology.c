@@ -741,7 +741,7 @@ originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
 }
 
 void
-originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 options)
+originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 options UNUSED)
 {
   struct proto_ospf *po = oa->po;
   struct proto *p = &po->proto;
@@ -897,7 +897,6 @@ originate_ext_lsa_body(net *n, rte *e, u16 *length, struct proto_ospf *po,
   u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
   int gw = 0;
   int size = sizeof(struct ospf_lsa_ext);
-  u32 *buf;
 
   if ((e->attrs->dest == RTD_ROUTER) &&
       !ipa_equal(e->attrs->gw, IPA_NONE) &&
@@ -925,7 +924,7 @@ originate_ext_lsa_body(net *n, rte *e, u16 *length, struct proto_ospf *po,
   ext->fwaddr = gw ? e->attrs->gw : IPA_NONE;
   ext->tag = tag;
 #else /* OSPFv3 */
-  buf = ext->rest;
+  u32 *buf = ext->rest;
   buf = put_ipv6_prefix(buf, n->n.prefix, n->n.pxlen, 0, 0);
 
   if (gw)
@@ -1015,7 +1014,6 @@ flush_ext_lsa(net *n, struct proto_ospf *po)
 {
   struct proto *p = &po->proto;
   struct fib_node *fn = &n->n;
-  struct ospf_area *oa;
   struct top_hash_entry *en;
 
   OSPF_TRACE(D_EVENTS, "Flushing AS-external-LSA for %I/%d",
@@ -1649,10 +1647,11 @@ ospf_hash_delete(struct top_graph *f, struct top_hash_entry *e)
   bug("ospf_hash_delete() called for invalid node");
 }
 
+/*
 static void
 ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
 {
-  /*
+
   struct ospf_lsa_rt *rt = NULL;
   struct ospf_lsa_rt_link *rr = NULL;
   struct ospf_lsa_net *ln = NULL;
@@ -1686,7 +1685,6 @@ ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
     default:
       break;
     }
-  */
 }
 
 void
@@ -1702,6 +1700,7 @@ ospf_top_dump(struct top_graph *f, struct proto *p)
       ospf_dump_lsa(e, p);
   }
 }
+*/
 
 /* This is very inefficient, please don't call it often */
 

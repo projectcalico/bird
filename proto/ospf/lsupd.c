@@ -290,8 +290,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
 	htonlsah(hh, lh);
 	help = (u8 *) (lh + 1);
 	en = ospf_hash_find_header(po->gr, domain, hh);
-	htonlsab(en->lsa_body, help, hh->type, hh->length
-		 - sizeof(struct ospf_lsa_header));
+	htonlsab(en->lsa_body, help, hh->length - sizeof(struct ospf_lsa_header));
       }
 
       len = sizeof(struct ospf_lsupd_packet) + ntohs(lh->length);
@@ -384,8 +383,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
     }
     htonlsah(&(en->lsa), pktpos);
     pktpos = pktpos + sizeof(struct ospf_lsa_header);
-    htonlsab(en->lsa_body, pktpos, en->lsa.type, en->lsa.length
-	     - sizeof(struct ospf_lsa_header));
+    htonlsab(en->lsa_body, pktpos, en->lsa.length - sizeof(struct ospf_lsa_header));
     pktpos = pktpos + en->lsa.length - sizeof(struct ospf_lsa_header);
     len += en->lsa.length;
     lsano++;
@@ -627,8 +625,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 
       /* pg 144 (5d) */
       void *body = mb_alloc(p->pool, lsatmp.length - sizeof(struct ospf_lsa_header));
-      ntohlsab(lsa + 1, body, lsatmp.type,
-	       lsatmp.length - sizeof(struct ospf_lsa_header));
+      ntohlsab(lsa + 1, body, lsatmp.length - sizeof(struct ospf_lsa_header));
 
       /* We will do validation check after flooding and
 	 acknowledging given LSA to minimize problems

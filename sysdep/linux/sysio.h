@@ -101,7 +101,7 @@ struct ip_mreqn
 #define fill_mreq_ifa fill_mreq
 #define fill_mreq_grp fill_mreq
 
-static inline fill_mreq(struct ip_mreqn *m, struct iface *ifa, ip_addr maddr)
+static inline void fill_mreq(struct ip_mreqn *m, struct iface *ifa, ip_addr maddr)
 {
   bzero(m, sizeof(*m));
   m->imr_ifindex = ifa->index;

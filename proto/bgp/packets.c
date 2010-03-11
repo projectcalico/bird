@@ -44,7 +44,6 @@ static byte *
 mrt_put_bgp4_hdr(byte *buf, struct bgp_conn *conn, int as4)
 {
   struct bgp_proto *p = conn->bgp;
-  ip_addr local_addr;
 
   if (as4)
     {
@@ -614,7 +613,7 @@ bgp_tx(sock *sk)
 void
 bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 {
-  struct bgp_proto *p = conn->bgp;
+  // struct bgp_proto *p = conn->bgp;
   int cl;
 
   while (len > 0)
@@ -915,7 +914,6 @@ bgp_do_rx_update(struct bgp_conn *conn,
   rta *a = NULL;
   ip_addr prefix;
   net *n;
-  rte e;
   int err = 0, pxlen;
 
   p->mp_reach_len = 0;
@@ -937,8 +935,6 @@ bgp_do_rx_update(struct bgp_conn *conn,
 
   DO_NLRI(mp_reach)
     {
-      int i;
-
       /* Create fake NEXT_HOP attribute */
       if (len < 1 || (*x != 16 && *x != 32) || len < *x + 2)
 	goto bad;

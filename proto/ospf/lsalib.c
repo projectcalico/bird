@@ -122,22 +122,22 @@ ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
 }
 
 void
-htonlsab(void *h, void *n, u16 type, u16 len)
+htonlsab(void *h, void *n, u16 len)
 {
   u32 *hid = h;
   u32 *nid = n;
-  int i;
+  unsigned i;
 
   for (i = 0; i < (len / sizeof(u32)); i++)
     nid[i] = htonl(hid[i]);
 }
 
 void
-ntohlsab(void *n, void *h, u16 type, u16 len)
+ntohlsab(void *n, void *h, u16 len)
 {
   u32 *nid = n;
   u32 *hid = h;
-  int i;
+  unsigned i;
 
   for (i = 0; i < (len / sizeof(u32)); i++)
     hid[i] = ntohl(nid[i]);
@@ -185,11 +185,10 @@ void
 lsasum_calculate(struct ospf_lsa_header *h, void *body)
 {
   u16 length = h->length;
-  u16 type = h->type;
 
   //  log(L_WARN "Checksum %R %R %d start (len %d)", h->id, h->rt, h->type, length);
   htonlsah(h, h);
-  htonlsab(body, body, type, length - sizeof(struct ospf_lsa_header));
+  htonlsab(body, body, length - sizeof(struct ospf_lsa_header));
 
   /*
   char buf[1024];
@@ -203,7 +202,7 @@ lsasum_calculate(struct ospf_lsa_header *h, void *body)
   //  log(L_WARN "Checksum result %4x", h->checksum);
 
   ntohlsah(h, h);
-  ntohlsab(body, body, type, length - sizeof(struct ospf_lsa_header));
+  ntohlsab(body, body, length - sizeof(struct ospf_lsa_header));
 }
 
 /*
@@ -325,7 +324,7 @@ lsa_validate_rt(struct ospf_lsa_header *lsa, struct ospf_lsa_rt *body)
 }
 
 static int
-lsa_validate_net(struct ospf_lsa_header *lsa, struct ospf_lsa_net *body)
+lsa_validate_net(struct ospf_lsa_header *lsa, struct ospf_lsa_net *body UNUSED)
 {
   if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_net)))
     return 0;

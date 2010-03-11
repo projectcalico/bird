@@ -70,7 +70,8 @@ static struct resclass rf_class = {
   "FILE",
   sizeof(struct rfile),
   rf_free,
-  rf_dump
+  rf_dump,
+  NULL
 };
 
 void *
@@ -195,7 +196,8 @@ static struct resclass tm_class = {
   "Timer",
   sizeof(timer),
   tm_free,
-  tm_dump
+  tm_dump,
+  NULL
 };
 
 /**
@@ -564,7 +566,8 @@ static struct resclass sk_class = {
   "Socket",
   sizeof(sock),
   sk_free,
-  sk_dump
+  sk_dump,
+  NULL
 };
 
 /**
@@ -640,7 +643,7 @@ fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port)
 }
 
 static inline void
-fill_in_sockifa(sockaddr *sa, struct iface *ifa)
+fill_in_sockifa(sockaddr *sa UNUSED, struct iface *ifa UNUSED)
 {
 }
 
@@ -660,7 +663,6 @@ get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port, int check)
 static char *
 sk_set_ttl_int(sock *s)
 {
-  int one = 1;
 #ifdef IPV6
   if (setsockopt(s->fd, SOL_IPV6, IPV6_UNICAST_HOPS, &s->ttl, sizeof(s->ttl)) < 0)
     return "IPV6_UNICAST_HOPS";
@@ -668,6 +670,7 @@ sk_set_ttl_int(sock *s)
   if (setsockopt(s->fd, SOL_IP, IP_TTL, &s->ttl, sizeof(s->ttl)) < 0)
     return "IP_TTL";
 #ifdef CONFIG_UNIX_DONTROUTE
+  int one = 1;
   if (s->ttl == 1 && setsockopt(s->fd, SOL_SOCKET, SO_DONTROUTE, &one, sizeof(one)) < 0)
     return "SO_DONTROUTE";
 #endif 
@@ -1012,7 +1015,6 @@ sk_passive_connected(sock *s, struct sockaddr *sa, int al, int type)
     }
   else if (errno != EINTR && errno != EAGAIN)
     {
-      log(L_ERR "accept: %m");
       s->err_hook(s, errno);
     }
   return 0;
@@ -1602,7 +1604,6 @@ io_loop(void)
 	    {
 	      sock *s = current_sock;
 	      int e;
-	      int steps;
 
 	      if ((s->type < SK_MAGIC) && FD_ISSET(s->fd, &rd) && s->rx_hook)
 		{

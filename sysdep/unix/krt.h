@@ -83,6 +83,7 @@ void krt_got_route_async(struct krt_proto *p, struct rte *e, int new);
 #define KRT_SRC_BIRD	 0	/* Our route (not passed in async mode) */
 #define KRT_SRC_REDIRECT 1	/* Redirect route, delete it */
 #define KRT_SRC_ALIEN	 2	/* Route installed by someone else */
+#define KRT_SRC_KERNEL	 3	/* Kernel routes, are ignored by krt syncer */
 
 extern struct protocol proto_unix_iface;
 

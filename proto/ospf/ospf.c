@@ -78,7 +78,7 @@
 
 
 static int ospf_reload_routes(struct proto *p);
-static void ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old UNUSED, ea_list * attrs);
+static void ospf_rt_notify(struct proto *p, struct rtable *table UNUSED, net * n, rte * new, rte * old UNUSED, ea_list * attrs);
 static void ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a);
 static int ospf_rte_better(struct rte *new, struct rte *old);
 static int ospf_rte_same(struct rte *new, struct rte *old);
@@ -224,9 +224,11 @@ ospf_dump(struct proto *p)
     }
   }
 
+  /*
   OSPF_TRACE(D_EVENTS, "LSA graph dump start:");
   ospf_top_dump(po->gr, p);
   OSPF_TRACE(D_EVENTS, "LSA graph dump finished");
+  */
   neigh_dump_all();
 }
 
@@ -486,8 +488,7 @@ ospf_shutdown(struct proto *p)
 }
 
 static void
-ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old UNUSED,
-	       ea_list * attrs)
+ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * old UNUSED, ea_list * attrs)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
 
@@ -503,7 +504,7 @@ ospf_rt_notify(struct proto *p, net * n, rte * new, rte * old UNUSED,
 }
 
 static void
-ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
+ospf_ifa_notify(struct proto *p, unsigned flags UNUSED, struct ifa *a)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
   struct ospf_iface *ifa;
@@ -918,7 +919,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 void
 ospf_sh_neigh(struct proto *p, char *iff)
 {
-  struct ospf_iface *ifa = NULL, *f;
+  struct ospf_iface *ifa = NULL;
   struct ospf_neighbor *n;
   struct proto_ospf *po = (struct proto_ospf *) p;
 
@@ -1009,7 +1010,7 @@ void
 ospf_sh_iface(struct proto *p, char *iff)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
-  struct ospf_iface *ifa = NULL, *f;
+  struct ospf_iface *ifa = NULL;
 
   if (p->proto_state != PS_UP)
   {
@@ -1196,7 +1197,6 @@ show_lsa_network(struct top_hash_entry *he)
 static inline void
 show_lsa_sum_net(struct top_hash_entry *he)
 {
-  struct ospf_lsa_header *lsa = &(he->lsa);
   ip_addr ip;
   int pxlen;
 
@@ -1236,9 +1236,7 @@ show_lsa_sum_rt(struct top_hash_entry *he)
 static inline void
 show_lsa_external(struct top_hash_entry *he)
 {
-  struct ospf_lsa_header *lsa = &(he->lsa);
   struct ospf_lsa_ext *ext = he->lsa_body;
-  struct ospf_lsa_ext_tos *et = (struct ospf_lsa_ext_tos *) (ext + 1);
   char str_via[STD_ADDRESS_P_LENGTH + 8] = "";
   char str_tag[16] = "";
   ip_addr ip, rt_fwaddr;
@@ -1248,7 +1246,7 @@ show_lsa_external(struct top_hash_entry *he)
   rt_metric = ext->metric & METRIC_MASK;
   ebit = ext->metric & LSA_EXT_EBIT;
 #ifdef OSPFv2
-  ip = ipa_and(ipa_from_u32(lsa->id), ext->netmask);
+  ip = ipa_and(ipa_from_u32(he->lsa.id), ext->netmask);
   pxlen = ipa_mklen(ext->netmask);
   rt_fwaddr = ext->fwaddr;
   rt_fwaddr_valid = !ipa_equal(rt_fwaddr, IPA_NONE);
@@ -1285,10 +1283,7 @@ show_lsa_external(struct top_hash_entry *he)
 static inline void
 show_lsa_prefix(struct top_hash_entry *he, struct ospf_lsa_header *olsa)
 {
-  struct ospf_lsa_header *lsa = &(he->lsa);
   struct ospf_lsa_prefix *px = he->lsa_body;
-  struct ospf_lsa_ext *ext = he->lsa_body;
-  char *msg;
   ip_addr pxa;
   int pxlen;
   u8 pxopts;
@@ -1496,8 +1491,6 @@ ospf_sh_lsadb(struct proto *p)
     
     if ((dscope != last_dscope) || (hea[i]->domain != last_domain))
     {
-      struct iface *ifa;
-
       cli_msg(-1017, "");
       switch (dscope)
       {
@@ -1509,8 +1502,10 @@ ospf_sh_lsadb(struct proto *p)
 	  break;
 #ifdef OSPFv3
 	case LSA_SCOPE_LINK:
-	  ifa = if_find_by_index(hea[i]->domain);
-	  cli_msg(-1017, "Link %s", (ifa != NULL) ? ifa->name : "?");
+	  {
+	    struct iface *ifa = if_find_by_index(hea[i]->domain);
+	    cli_msg(-1017, "Link %s", (ifa != NULL) ? ifa->name : "?");
+	  }
 	  break;
 #endif
       }
