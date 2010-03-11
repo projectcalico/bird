@@ -258,7 +258,7 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
       p->name, ifa->iface->name);
 
   /* Now we should send a hello packet */
-  pkt = ospf_tx_buffer();
+  pkt = ospf_tx_buffer(ifa);
   op = &pkt->ospf_packet;
 
   /* Now fill ospf_hello header */

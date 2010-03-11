@@ -255,55 +255,6 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
  
 #endif
 
-static struct ospf_iface *
-find_matching_iface(struct ospf_packet *ps, unsigned ifindex, ip_addr faddr)
-{
-  u32 areaid = ntohl(ps->areaid);
-  u32 rid = ntohl(ps->routerid);
-  node *nd;
-
-  /* First, we will try to match real ifaces */
-
-  WALK_LIST(nd, ospf_ifaces)
-    {
-      struct ospf_iface *ifa = SKIP_BACK(struct ospf_iface, sk_node, nd);
-      struct ifa *addr = ifa->addr;
-
-      if ((ifa->iface->index == ifindex) &&
-	  (ifa->oa->areaid == areaid) && 
-#ifdef OSPFv2
-	  ((addr->flags & IA_UNNUMBERED) ?
-	   ipa_equal(faddr, addr->opposite) :
-	   ipa_in_net(faddr, addr->prefix, addr->pxlen))
-#else /* OSPFv3 */
-	  (ifa->instance_id == ps->instance_id)
-#endif
-	  )
-	return ifa;
-    }
-
-  /* Second, we will try to match vlinks */
-
-  if (areaid != 0)
-    return NULL;
-
-  /* FIXME: There should be some more checks to distinquish parallel
-     vlinks to the same ABR. */
-
-  WALK_LIST(nd, ospf_vlinks)
-    {
-      struct ospf_iface *ifa = SKIP_BACK(struct ospf_iface, sk_node, nd);
-
-      if ((ifa->vid == rid)
-#ifdef OSPFv3
-	  && (ifa->instance_id == ps->instance_id)
-#endif
-	  )
-	return ifa;
-    }
-
-  return NULL;
-}
 
 /**
  * ospf_rx_hook
@@ -319,9 +270,47 @@ ospf_rx_hook(sock *sk, int size)
 {
   char *mesg = "OSPF: Bad packet from ";
 
-  DBG("OSPF: RX_Hook called (from %I)\n", sk->faddr);
+  /* We want just packets from sk->iface. Unfortunately, on BSD we
+     cannot filter out other packets at kernel level and we receive
+     all packets on all sockets */
+  if (sk->lifindex != sk->iface->index)
+    return 1;
 
-  /* First, we check packet size, checksum, and the protocol version */
+  DBG("OSPF: RX hook called (iface %s, src %I, dst %I)\n",
+      sk->iface->name, sk->faddr, sk->laddr);
+
+  /* Initially, the packet is associated with the 'master' iface */
+  struct ospf_iface *ifa = sk->data;
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
+
+  int src_local = ifa_match_addr(ifa->addr, sk->faddr);
+  int dst_local = ipa_equal(sk->laddr, ifa->addr->ip);
+  int dst_mcast = ipa_equal(sk->laddr, AllSPFRouters) || ipa_equal(sk->laddr, AllDRouters);
+
+#ifdef OSPFv2
+  /* First, we eliminate packets with strange address combinations.
+   * In OSPFv2, they might be for other ospf_ifaces (with different IP
+   * prefix) on the same real iface, so we don't log it. We enforce
+   * that (src_local || dst_local), therefore we are eliminating all
+   * such cases. 
+   */
+  if (dst_mcast && !src_local)
+    return 1;
+  if (!dst_mcast && !dst_local)
+    return 1;
+
+#else /* OSPFv3 */
+
+  /* In OSPFv3, src_local and dst_local mean link-local. 
+   * RFC 5340 says that local (non-vlink) packets use
+   * link-local src address, but does not enforce it. Strange.
+   */
+  if (dst_mcast && !src_local)
+    log(L_WARN "OSPF: Received multicast packet from %I (not link-local)", sk->faddr);
+#endif
+
+  /* Second, we check packet size, checksum, and the protocol version */
   struct ospf_packet *ps = (struct ospf_packet *) ip_skip_header(sk->rbuf, &size);
 
   if (ps == NULL)
@@ -366,38 +355,78 @@ ospf_rx_hook(sock *sk, int size)
 #endif
 
 
-  /* Now, we would like to associate the packet with an OSPF iface */
-  struct ospf_iface *ifa = find_matching_iface(ps, sk->lifindex, sk->faddr);
-  if (ifa == NULL)
+  /* Third, we resolve associated iface and handle vlinks. */
+
+  u32 areaid = ntohl(ps->areaid);
+  u32 rid = ntohl(ps->routerid);
+
+  if ((areaid == ifa->oa->areaid)
+#ifdef OSPFv3
+      && (ps->instance_id != ifa->instance_id)
+#endif
+      )
   {
-    /* We limit logging of unmatched packets as it may be perfectly OK */
-    if (unmatched_count < 8)
+    /* It is real iface, source should be local (in OSPFv2) */
+#ifdef OSPFv2
+    if (!src_local)
+      return 1;
+#endif
+  }
+  else if (dst_mcast || (areaid != 0))
+  {
+    /* Obvious mismatch */
+
+#ifdef OSPFv2
+    /* We ignore mismatch in OSPFv3, because there might be
+       other instance with different instance ID */
+    log(L_ERR "%s%I - area does not match (%R vs %R)",
+	mesg, sk->faddr, areaid, ifa->oa->areaid);
+#endif
+    return 1;
+  }
+  else
+  {
+    /* Some vlink? */
+    struct ospf_iface *iff = NULL;
+
+    WALK_LIST(iff, po->iface_list)
     {
-      struct iface *ifc = if_find_by_index(sk->lifindex);
-      log(L_WARN "OSPF: Received unmatched packet (src %I, iface %s, rtid %R, area %R)",
-	  sk->faddr, ifc ? ifc->name : "?", ntohl(ps->routerid), ntohl(ps->areaid));
-      unmatched_count++;
+      if ((iff->type == OSPF_IT_VLINK) && 
+	  (iff->voa == ifa->oa) &&
+#ifdef OSPFv3
+	  (iff->instance_id == ps->instance_id) &&
+#endif
+	  (iff->vid == rid))
+	{
+	  /* Vlink should be UP */
+	  if (iff->state != OSPF_IS_PTP)
+	    return 1;
+	  
+	  ifa = iff;
+	  goto found;
+	}
     }
 
+#ifdef OSPFv2
+    log(L_WARN "OSPF: Received packet for uknown vlink (ID %R, IP %I)", rid, sk->faddr);
+#endif
     return 1;
   }
 
-  struct proto_ospf *po = ifa->oa->po;
-  struct proto *p = &po->proto;
-
+ found:
   if (ifa->stub)	    /* This shouldn't happen */
     return 1;
 
   if (ipa_equal(sk->laddr, AllDRouters) && (ifa->sk_dr == 0))
     return 1;
 
-  if (ntohl(ps->routerid) == po->router_id)
+  if (rid == po->router_id)
   {
     log(L_ERR "%s%I - received my own router ID!", mesg, sk->faddr);
     return 1;
   }
 
-  if (ntohl(ps->routerid) == 0)
+  if (rid == 0)
   {
     log(L_ERR "%s%I - router id = 0.0.0.0", mesg, sk->faddr);
     return 1;
@@ -406,7 +435,7 @@ ospf_rx_hook(sock *sk, int size)
   /* This is deviation from RFC 2328 - neighbours should be identified by
    * IP address on broadcast and NBMA networks.
    */
-  struct ospf_neighbor *n = find_neigh(ifa, ntohl(ps->routerid));
+  struct ospf_neighbor *n = find_neigh(ifa, rid);
 
   if(!n && (ps->type != HELLO_P))
   {

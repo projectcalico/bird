@@ -82,9 +82,6 @@ ospf_sk_open(struct ospf_iface *ifa, int mc)
 #endif
 
   sk->tos = IP_PREC_INTERNET_CONTROL;
-  sk->ttl = 1;
-  if (ifa->type == OSPF_IT_VLINK)
-    sk->ttl = 255;
   sk->rx_hook = ospf_rx_hook;
   sk->tx_hook = ospf_tx_hook;
   sk->err_hook = ospf_err_hook;
@@ -191,10 +188,12 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
       OSPF_TRACE(D_EVENTS,
 		 "Changing state of virtual link %R from \"%s\" into \"%s\".",
 		 ifa->vid, ospf_is[oldstate], ospf_is[state]);
+      /*
       if (state == OSPF_IS_PTP)
 	ospf_sk_open(ifa, 0);
       if (state == OSPF_IS_DOWN)
 	ospf_sk_close(ifa);
+      */
     }
     else
     {

@@ -44,7 +44,7 @@ ospf_lsreq_send(struct ospf_neighbor *n)
   int i, j;
   struct proto *p = &n->ifa->oa->po->proto;
 
-  pk = ospf_tx_buffer();
+  pk = ospf_tx_buffer(n->ifa);
   op = &pk->ospf_packet;
 
   ospf_pkt_fill_hdr(n->ifa, pk, LSREQ_P);

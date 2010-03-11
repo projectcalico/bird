@@ -269,7 +269,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
       struct ospf_packet *op;
       struct ospf_lsa_header *lh;
 
-      pk = ospf_tx_buffer();
+      pk = ospf_tx_buffer(ifa);
       op = &pk->ospf_packet;
 
       ospf_pkt_fill_hdr(ifa, pk, LSUPD_P);
@@ -350,7 +350,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 
   DBG("LSupd: 1st packet\n");
 
-  pk= ospf_tx_buffer();
+  pk= ospf_tx_buffer(n->ifa);
   op = &pk->ospf_packet;
 
   ospf_pkt_fill_hdr(n->ifa, pk, LSUPD_P);

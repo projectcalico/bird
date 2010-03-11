@@ -93,7 +93,7 @@ ospf_dbdes_send(struct ospf_neighbor *n, int next)
   {
   case NEIGHBOR_EXSTART:	/* Send empty packets */
     n->myimms.bit.i = 1;
-    pkt = ospf_tx_buffer();
+    pkt = ospf_tx_buffer(ifa);
     op = &pkt->ospf_packet;
     ospf_pkt_fill_hdr(ifa, pkt, DBDES_P);
     pkt->iface_mtu = htons(ifa->iface->mtu);
@@ -185,7 +185,7 @@ ospf_dbdes_send(struct ospf_neighbor *n, int next)
     }
 
     /* Copy last sent packet again */
-    pkt = ospf_tx_buffer();
+    pkt = ospf_tx_buffer(ifa);
     memcpy(pkt, n->ldbdes, length);
 
     OSPF_PACKET(ospf_dump_dbdes, pkt, "DBDES packet sent to %I via %s", n->ip, ifa->iface->name);

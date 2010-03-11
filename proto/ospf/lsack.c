@@ -66,7 +66,7 @@ ospf_lsack_send(struct ospf_neighbor *n, int queue)
   if (EMPTY_LIST(n->ackl[queue]))
     return;
 
-  pk = ospf_tx_buffer();
+  pk = ospf_tx_buffer(ifa);
   op = &pk->ospf_packet;
 
   ospf_pkt_fill_hdr(n->ifa, pk, LSACK_P);
