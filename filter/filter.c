@@ -605,41 +605,44 @@ interpret(struct f_inst *what)
 	e = ea_find( (*f_tmp_attrs), what->a2.i );
       if ((!e) && (f_flags & FF_FORCE_TMPATTR))
 	e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
-      
-      switch (what->aux & EAF_TYPE_MASK) {
-      case EAF_TYPE_INT:
-	if (!e) {
-	  res.type = T_VOID;
+
+      if (!e) {
+	/* A special case: undefined int_set looks like empty int_set */
+	if ((what->aux & EAF_TYPE_MASK) == EAF_TYPE_INT_SET) {
+	  res.type = T_CLIST;
+	  res.val.ad = adata_empty(f_pool);
 	  break;
 	}
+	/* Undefined value */
+	res.type = T_VOID;
+	break;
+      }
+
+      switch (what->aux & EAF_TYPE_MASK) {
+      case EAF_TYPE_INT:
+      case EAF_TYPE_ROUTER_ID:
 	res.type = T_INT;
 	res.val.i = e->u.data;
 	break;
+      case EAF_TYPE_OPAQUE:
+	res.type = T_ENUM_EMPTY;
+	res.val.i = 0;
+	break;
       case EAF_TYPE_IP_ADDRESS:
-	if (!e) {
-	  res.type = T_VOID;
-	  break;
-	}
 	res.type = T_IP;
 	struct adata * ad = e->u.ptr;
 	res.val.px.ip = * (ip_addr *) ad->data;
 	break;
       case EAF_TYPE_AS_PATH:
-	if (!e) {
-	  res.type = T_VOID;
-	  break;
-	}
         res.type = T_PATH;
 	res.val.ad = e->u.ptr;
 	break;
       case EAF_TYPE_INT_SET:
-	if (!e) {
-	  res.type = T_CLIST;
-	  res.val.ad = adata_empty(f_pool);
-	  break;
-	}
 	res.type = T_CLIST;
 	res.val.ad = e->u.ptr;
+	break;
+      case EAF_TYPE_UNDEF:
+	res.type = T_VOID;
 	break;
       default:
 	bug("Unknown type in e,a");
@@ -659,9 +662,13 @@ interpret(struct f_inst *what)
       l->attrs[0].type = what->aux | EAF_ORIGINATED;
       switch (what->aux & EAF_TYPE_MASK) {
       case EAF_TYPE_INT:
+      case EAF_TYPE_ROUTER_ID:
 	if (v1.type != T_INT)
 	  runtime( "Setting int attribute to non-int value" );
 	l->attrs[0].u.data = v1.val.i;
+	break;
+      case EAF_TYPE_OPAQUE:
+	runtime( "Setting opaque attribute is not allowed" );
 	break;
       case EAF_TYPE_IP_ADDRESS:
 	if (v1.type != T_IP)
