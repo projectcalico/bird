@@ -272,24 +272,20 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
         break;
       }
 
-    /* Now we will originate stub areas for interfaces addresses */
-    struct ifa *a;
-    WALK_LIST(a, ifa->iface->addrs)
-      {
-	if (((a == ifa->addr) && net_lsa) ||
-	    (a->flags & IA_SECONDARY) ||
-	    (a->flags & IA_UNNUMBERED) ||
-	    configured_stubnet(oa, a))
-	  continue;
+    /* Now we will originate stub area if there is no primary */
+    if (net_lsa ||
+	(ifa->type == OSPF_IT_VLINK) ||
+	(ifa->addr->flags & IA_UNNUMBERED) ||
+	configured_stubnet(oa, ifa->addr))
+      continue;
 
-	ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
-	ln->type = LSART_STUB;
-	ln->id = ipa_to_u32(a->prefix);
-	ln->data = ipa_to_u32(ipa_mkmask(a->pxlen));
-	ln->metric = ifa->cost;
-	ln->padding = 0;
-	i++;
-      }
+    ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
+    ln->type = LSART_STUB;
+    ln->id = ipa_to_u32(ifa->addr->prefix);
+    ln->data = ipa_to_u32(ipa_mkmask(ifa->addr->pxlen));
+    ln->metric = ifa->cost;
+    ln->padding = 0;
+    i++;
   }
 
   struct ospf_stubnet_config *sn;
@@ -898,6 +894,7 @@ originate_ext_lsa_body(net *n, rte *e, u16 *length, struct proto_ospf *po,
   int gw = 0;
   int size = sizeof(struct ospf_lsa_ext);
 
+  // FIXME check for gw should be per ifa, not per iface
   if ((e->attrs->dest == RTD_ROUTER) &&
       !ipa_equal(e->attrs->gw, IPA_NONE) &&
       !ipa_has_link_scope(e->attrs->gw) &&

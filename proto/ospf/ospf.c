@@ -79,7 +79,6 @@
 
 static int ospf_reload_routes(struct proto *p);
 static void ospf_rt_notify(struct proto *p, struct rtable *table UNUSED, net * n, rte * new, rte * old UNUSED, ea_list * attrs);
-static void ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a);
 static int ospf_rte_better(struct rte *new, struct rte *old);
 static int ospf_rte_same(struct rte *new, struct rte *old);
 static void ospf_disp(timer *timer);
@@ -196,7 +195,7 @@ ospf_start(struct proto *p)
 	  oa->options = OPT_R | OPT_E | OPT_V6;
 #endif
 	}
-        ospf_iface_new(po, NULL, ac, ipatt);
+        ospf_iface_new(po, NULL, NULL, ac, ipatt);
       }
     }
   }
@@ -504,27 +503,6 @@ ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * ol
 }
 
 static void
-ospf_ifa_notify(struct proto *p, unsigned flags UNUSED, struct ifa *a)
-{
-  struct proto_ospf *po = (struct proto_ospf *) p;
-  struct ospf_iface *ifa;
-  
-  if ((a->flags & IA_SECONDARY) || (a->flags & IA_UNNUMBERED))
-    return;
-
-  WALK_LIST(ifa, po->iface_list)
-    {
-      if (ifa->iface == a->iface)
-	{
-	  schedule_rt_lsa(ifa->oa);
-	  /* Event 5 from RFC5340 4.4.3. */
-	  schedule_link_lsa(ifa);
-	  return;
-	}
-    }
-}
-
-static void
 ospf_get_status(struct proto *p, byte * buf)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
@@ -714,12 +692,17 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 
     WALK_LIST(ifa, po->iface_list)
     {
+      /* FIXME: better handling of vlinks */
+      if (ifa->iface == NULL)
+        continue;
+
+      /* FIXME: better matching of interface_id in OSPFv3 */
       if (oldip = (struct ospf_iface_patt *)
-	  iface_patt_find(&oldac->patt_list, ifa->iface))
+	  iface_patt_find(&oldac->patt_list, ifa->iface, ifa->addr))
       {
 	/* Now reconfigure interface */
 	if (!(newip = (struct ospf_iface_patt *)
-	      iface_patt_find(&newac->patt_list, ifa->iface)))
+	      iface_patt_find(&newac->patt_list, ifa->iface, ifa->addr)))
 	  return 0;
 
 	/* HELLO TIMER */
@@ -785,9 +768,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	  ifa->stub = newip->stub;
 	  OSPF_TRACE(D_EVENTS, "Interface %s is now stub.", ifa->iface->name);
 	}
-	if ((oldip->stub != 0) && (newip->stub == 0) &&
-	    ((ifa->ioprob & OSPF_I_IP) == 0) &&
-	    (((ifa->ioprob & OSPF_I_MC) == 0) || (ifa->type == OSPF_IT_NBMA)))
+	if ((oldip->stub != 0) && (newip->stub == 0) && (ifa->ioprob == OSPF_I_OK))
 	{
 	  ifa->stub = newip->stub;
 	  OSPF_TRACE(D_EVENTS,

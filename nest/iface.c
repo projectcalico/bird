@@ -566,8 +566,8 @@ if_init(void)
  *	Interface Pattern Lists
  */
 
-static int
-iface_patt_match(struct iface_patt *ifp, struct iface *i)
+int
+iface_patt_match(struct iface_patt *ifp, struct iface *i, struct ifa *a)
 {
   struct iface_patt_node *p;
 
@@ -588,8 +588,9 @@ iface_patt_match(struct iface_patt *ifp, struct iface *i)
 	    continue;
 	}
 
+      // FIXME there should be check for prefix in prefix. (?)
       if (p->pxlen)
-	if (!i->addr || !ipa_in_net(i->addr->ip, p->prefix, p->pxlen))
+	if (!a || !ipa_in_net(a->ip, p->prefix, p->pxlen))
 	  continue;
 
       return pos;
@@ -599,12 +600,12 @@ iface_patt_match(struct iface_patt *ifp, struct iface *i)
 }
 
 struct iface_patt *
-iface_patt_find(list *l, struct iface *i)
+iface_patt_find(list *l, struct iface *i, struct ifa *a)
 {
   struct iface_patt *p;
 
   WALK_LIST(p, *l)
-    if (iface_patt_match(p, i))
+    if (iface_patt_match(p, i, a))
       return p;
 
   return NULL;

@@ -254,8 +254,8 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
     return;			/* Don't send any packet on stub iface */
 
   p = (struct proto *) (ifa->oa->po);
-  DBG("%s: Hello/Poll timer fired on interface %s.\n",
-      p->name, ifa->iface->name);
+  DBG("%s: Hello/Poll timer fired on interface %s with IP %I\n",
+      p->name, ifa->iface->name, ifa->addr->ip);
 
   /* Now we should send a hello packet */
   pkt = ospf_tx_buffer(ifa);

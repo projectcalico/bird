@@ -171,7 +171,8 @@ struct ospf_iface
   u32 dead;			/* after "deadint" missing hellos is router dead */
   u32 vid;			/* Id of peer of virtual link */
   ip_addr vip;			/* IP of peer of virtual link */
-  struct ospf_area *voa;	/* Area wich the vlink goes through */
+  struct ospf_iface *vifa;	/* OSPF iface which the vlink goes through */
+  struct ospf_area *voa;	/* OSPF area which the vlink goes through */
   u16 inftransdelay;		/* The estimated number of seconds it takes to
 				   transmit a Link State Update Packet over this
 				   interface.  LSAs contained in the update */
@@ -203,9 +204,6 @@ struct ospf_iface
 #define OSPF_IT_UNDEF 4
   u8 strictnbma;		/* Can I talk with unknown neighbors? */
   u8 stub;			/* Inactive interface */
-#define OSPF_I_OK 0		/* Everything OK */
-#define OSPF_I_MC 1		/* I didn't open MC socket */
-#define OSPF_I_IP 2		/* I didn't open IP socet */
   u8 state;			/* Interface state machine */
 #define OSPF_IS_DOWN 0		/* Not working */
 #define OSPF_IS_LOOP 1		/* Should never happen */
@@ -239,6 +237,9 @@ struct ospf_iface
   list nbma_list;
   u8 priority;			/* A router priority for DR election */
   u8 ioprob;
+#define OSPF_I_OK 0		/* Everything OK */
+#define OSPF_I_SK 1		/* Socket open failed */
+#define OSPF_I_LL 2		/* Missing link-local address (OSPFv3) */
   u8 sk_spf;			/* Socket is a member of SPFRouters group */
   u8 sk_dr; 			/* Socket is a member of DRouters group */
   u32 rxbuf;

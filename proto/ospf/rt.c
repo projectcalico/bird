@@ -424,12 +424,14 @@ ospf_rt_spfa(struct ospf_area *oa)
       if ((tmp = ospf_hash_find_rt(po->gr, oa->areaid, iface->vid)) &&
 	  (!ipa_equal(tmp->lb, IPA_NONE)))
       {
-        if ((iface->state != OSPF_IS_PTP) || (iface->iface != tmp->nhi->iface) || (!ipa_equal(iface->vip, tmp->lb)))
+        if ((iface->state != OSPF_IS_PTP) || (iface->vifa != tmp->nhi) || (!ipa_equal(iface->vip, tmp->lb)))
         {
           OSPF_TRACE(D_EVENTS, "Vlink peer %R found", tmp->lsa.id);
           ospf_iface_sm(iface, ISM_DOWN);
+	  iface->vifa = tmp->nhi;
           iface->iface = tmp->nhi->iface;
-	  iface->addr = iface->iface->addr;
+	  iface->addr = tmp->nhi->addr;
+	  iface->sk = tmp->nhi->sk;
           iface->vip = tmp->lb;
           ospf_iface_sm(iface, ISM_UP);
         }

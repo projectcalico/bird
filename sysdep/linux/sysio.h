@@ -62,18 +62,18 @@ get_inaddr(ip_addr *a, struct in_addr *ia)
 
 #define MREQ_IFA struct in_addr
 #define MREQ_GRP struct ip_mreq
-static inline void fill_mreq_ifa(struct in_addr *m, struct iface *ifa, UNUSED ip_addr maddr)
+static inline void fill_mreq_ifa(struct in_addr *m, struct iface *ifa UNUSED, ip_addr saddr, ip_addr maddr UNUSED)
 {
-  set_inaddr(m, ifa->addr->ip);
+  set_inaddr(m, saddr);
 }
 
-static inline void fill_mreq_grp(struct ip_mreq *m, struct iface *ifa, ip_addr maddr)
+static inline void fill_mreq_grp(struct ip_mreq *m, struct iface *ifa, ip_addr saddr, ip_addr maddr)
 {
   bzero(m, sizeof(*m));
 #ifdef CONFIG_LINUX_MC_MREQ_BIND
   m->imr_interface.s_addr = INADDR_ANY;
 #else
-  set_inaddr(&m->imr_interface, ifa->addr->ip);
+  set_inaddr(&m->imr_interface, saddr);
 #endif
   set_inaddr(&m->imr_multiaddr, maddr);
 }
@@ -101,11 +101,11 @@ struct ip_mreqn
 #define fill_mreq_ifa fill_mreq
 #define fill_mreq_grp fill_mreq
 
-static inline void fill_mreq(struct ip_mreqn *m, struct iface *ifa, ip_addr maddr)
+static inline void fill_mreq(struct ip_mreqn *m, struct iface *ifa, ip_addr saddr, ip_addr maddr)
 {
   bzero(m, sizeof(*m));
   m->imr_ifindex = ifa->index;
-  set_inaddr(&m->imr_address, ifa->addr->ip);
+  set_inaddr(&m->imr_address, saddr);
   set_inaddr(&m->imr_multiaddr, maddr);
 }
 #endif
@@ -123,7 +123,7 @@ sysio_setup_multicast(sock *s)
     return "IP_MULTICAST_TTL";
 
   /* This defines where should we send _outgoing_ multicasts */
-  fill_mreq_ifa(&m, s->iface, IPA_NONE);
+  fill_mreq_ifa(&m, s->iface, s->saddr, IPA_NONE);
   if (setsockopt(s->fd, SOL_IP, IP_MULTICAST_IF, &m, sizeof(m)) < 0)
     return "IP_MULTICAST_IF";
 
@@ -145,7 +145,7 @@ sysio_join_group(sock *s, ip_addr maddr)
   MREQ_GRP m;
 
   /* And this one sets interface for _receiving_ multicasts from */
-  fill_mreq_grp(&m, s->iface, maddr);
+  fill_mreq_grp(&m, s->iface, s->saddr, maddr);
   if (setsockopt(s->fd, SOL_IP, IP_ADD_MEMBERSHIP, &m, sizeof(m)) < 0)
     return "IP_ADD_MEMBERSHIP";
 
@@ -158,7 +158,7 @@ sysio_leave_group(sock *s, ip_addr maddr)
   MREQ_GRP m;
 
   /* And this one sets interface for _receiving_ multicasts from */
-  fill_mreq_grp(&m, s->iface, maddr);
+  fill_mreq_grp(&m, s->iface, s->saddr, maddr);
   if (setsockopt(s->fd, SOL_IP, IP_DROP_MEMBERSHIP, &m, sizeof(m)) < 0)
     return "IP_DROP_MEMBERSHIP";
 
