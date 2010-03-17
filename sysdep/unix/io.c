@@ -1075,7 +1075,7 @@ bad_no_log:
   return -1;
 }
 
-int
+void
 sk_open_unix(sock *s, char *name)
 {
   int fd;
@@ -1084,15 +1084,13 @@ sk_open_unix(sock *s, char *name)
 
   fd = socket(AF_UNIX, SOCK_STREAM, 0);
   if (fd < 0)
-    die("sk_open_unix: socket: %m");
+    ERR("socket");
   s->fd = fd;
   if (err = sk_setup(s))
     goto bad;
   unlink(name);
- 
-  if (strlen(name) >= sizeof(sa.sun_path))
-    die("sk_open_unix: path too long");
 
+  /* Path length checked in test_old_bird() */
   sa.sun_family = AF_UNIX;
   strcpy(sa.sun_path, name);
   if (bind(fd, (struct sockaddr *) &sa, SUN_LEN(&sa)) < 0)
@@ -1100,13 +1098,11 @@ sk_open_unix(sock *s, char *name)
   if (listen(fd, 8))
     ERR("listen");
   sk_insert(s);
-  return 0;
+  return;
 
-bad:
+ bad:
   log(L_ERR "sk_open_unix: %s: %m", err);
-  close(fd);
-  s->fd = -1;
-  return -1;
+  die("Unable to create control socket %s", name);
 }
 
 static int
@@ -1519,9 +1515,10 @@ test_old_bird(char *path)
   struct sockaddr_un sa;
 
   fd = socket(AF_UNIX, SOCK_STREAM, 0);
-
   if (fd < 0)
     die("Cannot create socket: %m");
+  if (strlen(path) >= sizeof(sa.sun_path))
+    die("Socket path too long");
   bzero(&sa, sizeof(sa));
   sa.sun_family = AF_UNIX;
   strcpy(sa.sun_path, path);

@@ -298,8 +298,7 @@ cli_init_unix(void)
   s->type = SK_UNIX_PASSIVE;
   s->rx_hook = cli_connect;
   s->rbsize = 1024;
-  if (sk_open_unix(s, path_control_socket) < 0)
-    die("Unable to create control socket %s", path_control_socket);
+  sk_open_unix(s, path_control_socket);
 }
 
 /*
@@ -457,6 +456,9 @@ main(int argc, char **argv)
   rt_init();
   if_init();
 
+  if (!parse_and_exit)
+    cli_init_unix();
+
   protos_build();
   proto_build(&proto_unix_kernel);
   proto_build(&proto_unix_iface);
@@ -482,8 +484,6 @@ main(int argc, char **argv)
     }
 
   signal_init();
-
-  cli_init_unix();
 
 #ifdef LOCAL_DEBUG
   async_dump_flag = 1;
