@@ -172,7 +172,14 @@ function_params:
 
 function_body:
    decls '{' cmds '}' {
-     $$ = $3;
+     if ($1) {
+       /* Prepend instruction to clear local variables */
+       $$ = f_new_inst();
+       $$->code = P('c','v');
+       $$->a1.p = $1;
+       $$->next = $3;
+     } else
+       $$ = $3;
    }
  ;
 

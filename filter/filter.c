@@ -473,27 +473,10 @@ interpret(struct f_inst *what)
   case 's':
     ARG(v2, a2.p);
     sym = what->a1.p;
-    switch (res.type = v2.type) {
-    case T_VOID: runtime( "Can't assign void values" );
-    case T_ENUM:
-    case T_BOOL:
-    case T_INT:
-    case T_PAIR:
-    case T_STRING:
-    case T_IP:
-    case T_PREFIX:
-    case T_PREFIX_SET:
-    case T_SET:
-    case T_PATH:
-    case T_PATH_MASK:
-    case T_CLIST:
-      if (sym->class != (SYM_VARIABLE | v2.type))
-	runtime( "Assigning to variable of incompatible type" );
-      * (struct f_val *) sym->def = v2; 
-      break;
-    default:
-      bug( "Set to invalid type" );
-    }
+    if ((sym->class != (SYM_VARIABLE | v2.type)) &&
+	(v2.type != T_VOID))
+      runtime( "Assigning to variable of incompatible type" );
+    * (struct f_val *) sym->def = v2; 
     break;
 
     /* some constants have value in a2, some in *a1.p, strange. */
@@ -766,6 +749,10 @@ interpret(struct f_inst *what)
       return res;
     res.type &= ~T_RETURN;    
     break;
+  case P('c','v'):	/* Clear local variables */
+    for (sym = what->a1.p; sym != NULL; sym = sym->aux2)
+      ((struct f_val *) sym->def)->type = T_VOID;
+    break;
   case P('S','W'):
     ONEARG;
     {
@@ -948,6 +935,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
 	       return 0; 
 	     f2->a2.p = f1->a2.p;
 	     break;
+  case P('c','v'): break; /* internal instruction */ 
   case P('S','W'): ONEARG; if (!same_tree(f1->a2.p, f2->a2.p)) return 0; break;
   case P('i','M'): TWOARGS; break;
   case P('A','p'): TWOARGS; break;
