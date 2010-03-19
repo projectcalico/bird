@@ -588,12 +588,20 @@ iface_patt_match(struct iface_patt *ifp, struct iface *i, struct ifa *a)
 	    continue;
 	}
 
-      // FIXME there should be check for prefix in prefix. (?)
-      if (p->pxlen)
-	if (!a || !ipa_in_net(a->ip, p->prefix, p->pxlen))
-	  continue;
+      if (p->pxlen == 0)
+	return pos;
 
-      return pos;
+      if (!a)
+	continue;
+
+      if (ipa_in_net(a->ip, p->prefix, p->pxlen))
+	return pos;
+
+      if ((a->flags & IA_UNNUMBERED) &&
+	  ipa_in_net(a->opposite, p->prefix, p->pxlen))
+	return pos;
+	  
+      continue;
     }
 
   return 0;
