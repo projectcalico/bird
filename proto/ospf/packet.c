@@ -140,13 +140,6 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
     return 0;
   }
 
-  if (n && (ifa != n->ifa))
-  {
-    OSPF_TRACE(D_PACKETS, "OSPF_auth: received packet from strange interface (%s/%s)",
-      ifa->iface->name, n->ifa->iface->name);
-    return 0;
-  }
-
   switch(ifa->autype)
   {
     case OSPF_AUTH_NONE:
@@ -178,16 +171,10 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
         return 0;
       }
 
-      if (ntohs(pkt->length) + OSPF_AUTH_CRYPT_SIZE != size)
+      if (ntohs(pkt->length) + OSPF_AUTH_CRYPT_SIZE > size)
       {
         OSPF_TRACE(D_PACKETS, "OSPF_auth: size mismatch (%d vs %d)",
 	  ntohs(pkt->length) + OSPF_AUTH_CRYPT_SIZE, size);
-        return 0;
-      }
-
-      if (pkt->u.md5.zero)
-      {
-        OSPF_TRACE(D_PACKETS, "OSPF_auth: \"zero\" area is non-zero");
         return 0;
       }
 
