@@ -443,7 +443,12 @@ rte_recalculate(rtable *table, net *net, struct proto *p, struct proto *src, rte
 	      stats->imp_updates_ignored++;
 	      rte_trace_in(D_ROUTES, p, new, "ignored");
 	      rte_free_quick(new);
-	      old->lastmod = now;
+#ifdef CONFIG_RIP
+	      /* lastmod is used internally by RIP as the last time
+		 when the route was received. */
+	      if (src->proto == &proto_rip)
+		old->lastmod = now;
+#endif
 	      return;
 	    }
 	  *k = old->next;
