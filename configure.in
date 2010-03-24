@@ -55,16 +55,27 @@ AC_SEARCH_LIBS(clock_gettime,[c rt posix4])
 
 AC_CANONICAL_HOST
 
-AC_MSG_CHECKING([what CFLAGS should we use])
+# Store this value because ac_test_CFLAGS is overwritten by AC_PROG_CC
 if test "$ac_test_CFLAGS" != set ; then
-	CFLAGS="$CFLAGS -Wall -Wstrict-prototypes -Wno-pointer-sign -Wno-parentheses"
+	bird_cflags_default=yes
 fi
-AC_MSG_RESULT($CFLAGS)
 
 AC_PROG_CC
 if test -z "$GCC" ; then
 	AC_MSG_ERROR([This program requires the GNU C Compiler.])
 fi
+
+AC_MSG_CHECKING([what CFLAGS should we use])
+if test "$bird_cflags_default" == yes ; then
+	BIRD_CHECK_GCC_OPTIONS
+
+	CFLAGS="$CFLAGS -Wall -Wstrict-prototypes -Wno-parentheses"
+	if test "$bird_cv_c_option_no_pointer_sign" == yes ; then
+		CFLAGS="$CFLAGS -Wno-pointer-sign"
+	fi
+fi
+AC_MSG_RESULT($CFLAGS)
+
 
 AC_PROG_CPP
 AC_PROG_INSTALL
