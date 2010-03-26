@@ -685,7 +685,7 @@ static char *
 sk_setup(sock *s)
 {
   int fd = s->fd;
-  char *err;
+  char *err = NULL;
 
   if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
     ERR("fcntl(O_NONBLOCK)");
@@ -704,9 +704,8 @@ sk_setup(sock *s)
 
   if (s->ttl >= 0)
     err = sk_set_ttl_int(s);
-  else
-    err = NULL;
 
+  sysio_register_cmsgs(s);
 bad:
   return err;
 }
@@ -855,6 +854,72 @@ sk_leave_group(sock *s, ip_addr maddr)
     }
 
   return 0;
+}
+
+/* PKTINFO handling is also standardized in IPv6 */
+#define CMSG_RX_SPACE CMSG_SPACE(sizeof(struct in6_pktinfo))
+
+static char *
+sysio_register_cmsgs(sock *s)
+{
+  int ok = 1;
+  if ((s->flags & SKF_LADDR_RX) &&
+      setsockopt(s->fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &ok, sizeof(ok)) < 0)
+    return "IPV6_RECVPKTINFO";
+
+  return NULL;
+}
+
+void
+sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
+{
+  struct cmsghdr *cm;
+  struct in6_pktinfo *pi = NULL;
+
+  if (!(s->flags & SKF_LADDR_RX))
+    return;
+
+  for (cm = CMSG_FIRSTHDR(msg); cm != NULL; cm = CMSG_NXTHDR(msg, cm))
+    {
+      if (cm->cmsg_level == IPPROTO_IPV6 && cm->cmsg_type == IPV6_PKTINFO)
+	pi = (struct in6_pktinfo *) CMSG_DATA(cm);
+    }
+
+  if (!pi)
+    {
+      s->laddr = IPA_NONE;
+      s->lifindex = 0;
+      return;
+    }
+
+  get_inaddr(&s->laddr, &pi->ipi6_addr);
+  s->lifindex = pi->ipi6_ifindex;
+  return;
+}
+
+void
+sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg)
+{
+  struct cmsghdr *cm;
+  struct in6_pktinfo *pi;
+
+  if (!(s->flags & SKF_LADDR_TX))
+    {
+      msg->msg_controllen = 0;
+      return;
+    }
+
+  cm = CMSG_FIRSTHDR(msg);
+  cm->cmsg_level = IPPROTO_IPV6;
+  cm->cmsg_type = PIV6_PKTINFO;
+  cm->cmsg_len = CMSG_LEN(sizeof(*pi));
+
+  pi = (struct in6_pktinfo *) CMSG_DATA(cm);
+  set_inaddr(&pi->ipi6_addr, s->saddr);
+  pi->ipi6_ifindex = s->iface ? s->iface->index : 0;
+
+  msg->msg_controllen = cmsg->cmsg_len;
+  return;
 }
 
 #else /* IPV4 */
@@ -1105,6 +1170,8 @@ sk_open_unix(sock *s, char *name)
   die("Unable to create control socket %s", name);
 }
 
+static inline void reset_tx_buffer(sock *s) { s->ttx = s->tpos = s->tbuf; }
+
 static int
 sk_maybe_write(sock *s)
 {
@@ -1122,7 +1189,7 @@ sk_maybe_write(sock *s)
 	    {
 	      if (errno != EINTR && errno != EAGAIN)
 		{
-                  s->ttx = s->tpos;	/* empty tx buffer */
+		  reset_tx_buffer(s);
 		  s->err_hook(s, errno);
 		  return -1;
 		}
@@ -1130,30 +1197,44 @@ sk_maybe_write(sock *s)
 	    }
 	  s->ttx += e;
 	}
-      s->ttx = s->tpos = s->tbuf;
+      reset_tx_buffer(s);
       return 1;
     case SK_UDP:
     case SK_IP:
       {
-	sockaddr sa;
-
 	if (s->tbuf == s->tpos)
 	  return 1;
 
-	fill_in_sockaddr(&sa, s->faddr, s->fport);
+	sockaddr sa;
+	fill_in_sockaddr(&sa, s->daddr, s->dport);
 	fill_in_sockifa(&sa, s->iface);
-	e = sendto(s->fd, s->tbuf, s->tpos - s->tbuf, 0, (struct sockaddr *) &sa, sizeof(sa));
+
+	struct iovec iov = {s->tbuf, s->tpos - s->tbuf};
+	byte cmsg_buf[CMSG_TX_SPACE];
+
+	struct msghdr msg = {
+	  .msg_name = &sa,
+	  .msg_namelen = sizeof(sa),
+	  .msg_iov = &iov,
+	  .msg_iovlen = 1,
+	  .msg_control = cmsg_buf,
+	  .msg_controllen = sizeof(cmsg_buf),
+	  .msg_flags = 0};
+
+	sysio_prepare_tx_cmsgs(s, &msg);
+	e = sendmsg(s->fd, &msg, 0);
+
 	if (e < 0)
 	  {
 	    if (errno != EINTR && errno != EAGAIN)
 	      {
-                s->ttx = s->tpos;	/* empty tx buffer */
+		reset_tx_buffer(s);
 		s->err_hook(s, errno);
 		return -1;
 	      }
 	    return 0;
 	  }
-	s->tpos = s->tbuf;
+	reset_tx_buffer(s);
 	return 1;
       }
     default:
@@ -1199,8 +1280,6 @@ sk_rx_ready(sock *s)
 int
 sk_send(sock *s, unsigned len)
 {
-  s->faddr = s->daddr;
-  s->fport = s->dport;
   s->ttx = s->tbuf;
   s->tpos = s->tbuf + len;
   return sk_maybe_write(s);
@@ -1219,12 +1298,27 @@ sk_send(sock *s, unsigned len)
 int
 sk_send_to(sock *s, unsigned len, ip_addr addr, unsigned port)
 {
-  s->faddr = addr;
-  s->fport = port;
+  s->daddr = addr;
+  s->dport = port;
   s->ttx = s->tbuf;
   s->tpos = s->tbuf + len;
   return sk_maybe_write(s);
 }
+
+/*
+int
+sk_send_full(sock *s, unsigned len, struct iface *ifa,
+	     ip_addr saddr, ip_addr daddr, unsigned dport)
+{
+  s->iface = ifa;
+  s->saddr = saddr;
+  s->daddr = daddr;
+  s->dport = dport;
+  s->ttx = s->tbuf;
+  s->tpos = s->tbuf + len;
+  return sk_maybe_write(s);
+}
+*/
 
 static int
 sk_read(sock *s)
@@ -1271,8 +1365,21 @@ sk_read(sock *s)
     default:
       {
 	sockaddr sa;
-	int al = sizeof(sa);
-	int e = recvfrom(s->fd, s->rbuf, s->rbsize, 0, (struct sockaddr *) &sa, &al);
+	int e;
+
+	struct iovec iov = {s->rbuf, s->rbsize};
+	byte cmsg_buf[CMSG_RX_SPACE];
+
+	struct msghdr msg = {
+	  .msg_name = &sa,
+	  .msg_namelen = sizeof(sa),
+	  .msg_iov = &iov,
+	  .msg_iovlen = 1,
+	  .msg_control = cmsg_buf,
+	  .msg_controllen = sizeof(cmsg_buf),
+	  .msg_flags = 0};
+
+	e = recvmsg(s->fd, &msg, 0);
 
 	if (e < 0)
 	  {
@@ -1282,6 +1389,8 @@ sk_read(sock *s)
 	  }
 	s->rpos = s->rbuf + e;
 	get_sockaddr(&sa, &s->faddr, &s->fport, 1);
+	sysio_process_rx_cmsgs(s, &msg);
+
 	s->rx_hook(s, e);
 	return 1;
       }

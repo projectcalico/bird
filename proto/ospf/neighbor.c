@@ -449,13 +449,12 @@ bdr_election(struct ospf_iface *ifa)
   me.state = NEIGHBOR_2WAY;
   me.rid = myid;
   me.priority = ifa->priority;
+  me.ip = ifa->addr->ip;
 
 #ifdef OSPFv2
-  me.ip = ifa->iface->addr->ip;
   me.dr = ipa_to_u32(ifa->drip);
   me.bdr = ipa_to_u32(ifa->bdrip);
 #else /* OSPFv3 */
-  me.ip = ifa->lladdr;
   me.dr = ifa->drid;
   me.bdr = ifa->bdrid;
   me.iface_id = ifa->iface->index;

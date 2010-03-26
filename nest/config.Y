@@ -181,8 +181,8 @@ iface_patt_node_init:
 
 iface_patt_node_body:
    TEXT { this_ipn->pattern = $1; this_ipn->prefix = IPA_NONE; this_ipn->pxlen = 0; }
- | prefix { this_ipn->pattern = NULL; this_ipn->prefix = $1.addr; this_ipn->pxlen = $1.len; }
- | TEXT prefix { this_ipn->pattern = $1; this_ipn->prefix = $2.addr; this_ipn->pxlen = $2.len; }
+ | prefix_or_ipa { this_ipn->pattern = NULL; this_ipn->prefix = $1.addr; this_ipn->pxlen = $1.len; }
+ | TEXT prefix_or_ipa { this_ipn->pattern = $1; this_ipn->prefix = $2.addr; this_ipn->pxlen = $2.len; }
  ;
 
 iface_negate:
@@ -472,7 +472,7 @@ CF_CLI(RELOAD OUT, proto_patt, <protocol> | \"<pattern>\" | all, [[Reload protoc
 { proto_apply_cmd($3, proto_cmd_reload, 1, CMD_RELOAD_OUT); } ;
 
 CF_CLI_HELP(DEBUG, ..., [[Control protocol debugging via BIRD logs]])
-CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | events | packets }), [[Control protocol debugging via BIRD logs]])
+CF_CLI(DEBUG, proto_patt debug_mask, (<protocol> | <pattern> | all) (all | off | { states | routes | filters | interfaces | events | packets }), [[Control protocol debugging via BIRD logs]])
 { proto_apply_cmd($2, proto_cmd_debug, 1, $3); } ;
 
 CF_CLI_HELP(MRTDUMP, ..., [[Control protocol debugging via MRTdump files]])

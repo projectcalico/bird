@@ -83,6 +83,15 @@ struct iface *if_find_by_index(unsigned);
 struct iface *if_find_by_name(char *);
 void ifa_recalc_all_primary_addresses(void);
 
+static inline int
+ifa_match_addr(struct ifa *ifa, ip_addr addr)
+{
+  if (ifa->flags & IA_UNNUMBERED)
+    return ipa_equal(addr, ifa->opposite);
+  else
+    return ipa_in_net(addr, ifa->prefix, ifa->pxlen);
+}
+
 /* The Neighbor Cache */
 
 typedef struct neighbor {
@@ -135,7 +144,8 @@ struct iface_patt {
   /* Protocol-specific data follow after this structure */
 };
 
-struct iface_patt *iface_patt_find(list *, struct iface *);
+int iface_patt_match(struct iface_patt *ifp, struct iface *i, struct ifa *a);
+struct iface_patt *iface_patt_find(list *l, struct iface *i, struct ifa *a);
 int iface_patts_equal(list *, list *, int (*)(struct iface_patt *, struct iface_patt *));
 
 #endif

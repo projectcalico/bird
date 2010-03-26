@@ -42,6 +42,32 @@
  * and deletion. Each LSA is kept in two pieces: header and body. Both of them are
  * kept in the endianity of the CPU.
  *
+ * In OSPFv2 specification, it is implied that there is one IP prefix
+ * for each physical network/interface (unless it is an ptp link). But
+ * in modern systems, there might be more independent IP prefixes
+ * associated with an interface.  To handle this situation, we have
+ * one &ospf_iface for each active IP prefix (instead for each active
+ * iface); This behaves like virtual interface for the purpose of OSPF.
+ * If we receive packet, we associate it with a proper virtual interface
+ * mainly according to its source address.
+ *
+ * OSPF keeps one socket per &ospf_iface. This allows us (compared to
+ * one socket approach) to evade problems with a limit of multicast
+ * groups per socket and with sending multicast packets to appropriate
+ * interface in a portable way. The socket is associated with
+ * underlying physical iface and should not receive packets received
+ * on other ifaces (unfortunately, this is not true on
+ * BSD). Generally, one packet can be received by more sockets (for
+ * example, if there are more &ospf_iface on one physical iface),
+ * therefore we explicitly filter received packets according to
+ * src/dst IP address and received iface.
+ *
+ * Vlinks are implemented using particularly degenerate form of
+ * &ospf_iface, which has several exceptions: it does not have its
+ * iface or socket (it copies these from 'parent' &ospf_iface) and it
+ * is present in iface list even when down (it is not freed in
+ * ospf_iface_down()).
+ *
  * The heart beat of ospf is ospf_disp(). It is called at regular intervals
  * (&proto_ospf->tick). It is responsible for aging and flushing of LSAs in
  * the database, for routing table calculaction and it call area_disp() of every
@@ -79,7 +105,6 @@
 
 static int ospf_reload_routes(struct proto *p);
 static void ospf_rt_notify(struct proto *p, struct rtable *table UNUSED, net * n, rte * new, rte * old UNUSED, ea_list * attrs);
-static void ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a);
 static int ospf_rte_better(struct rte *new, struct rte *old);
 static int ospf_rte_same(struct rte *new, struct rte *old);
 static void ospf_disp(timer *timer);
@@ -196,7 +221,7 @@ ospf_start(struct proto *p)
 	  oa->options = OPT_R | OPT_E | OPT_V6;
 #endif
 	}
-        ospf_iface_new(po, NULL, ac, ipatt);
+        ospf_iface_new(po, NULL, NULL, ac, ipatt);
       }
     }
   }
@@ -480,7 +505,9 @@ ospf_shutdown(struct proto *p)
   OSPF_TRACE(D_EVENTS, "Shutdown requested");
 
   /* And send to all my neighbors 1WAY */
-  WALK_LIST(ifa, po->iface_list) ospf_iface_shutdown(ifa);
+  WALK_LIST(ifa, po->iface_list)
+    if (ifa->state > OSPF_IS_DOWN)
+      ospf_iface_shutdown(ifa);
 
   return PS_DOWN;
 }
@@ -499,27 +526,6 @@ ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * ol
     originate_ext_lsa(n, new, po, attrs);
   else
     flush_ext_lsa(n, po);
-}
-
-static void
-ospf_ifa_notify(struct proto *p, unsigned flags UNUSED, struct ifa *a)
-{
-  struct proto_ospf *po = (struct proto_ospf *) p;
-  struct ospf_iface *ifa;
-  
-  if ((a->flags & IA_SECONDARY) || (a->flags & IA_UNNUMBERED))
-    return;
-
-  WALK_LIST(ifa, po->iface_list)
-    {
-      if (ifa->iface == a->iface)
-	{
-	  schedule_rt_lsa(ifa->oa);
-	  /* Event 5 from RFC5340 4.4.3. */
-	  schedule_link_lsa(ifa);
-	  return;
-	}
-    }
 }
 
 static void
@@ -712,12 +718,17 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 
     WALK_LIST(ifa, po->iface_list)
     {
+      /* FIXME: better handling of vlinks */
+      if (ifa->iface == NULL)
+        continue;
+
+      /* FIXME: better matching of interface_id in OSPFv3 */
       if (oldip = (struct ospf_iface_patt *)
-	  iface_patt_find(&oldac->patt_list, ifa->iface))
+	  iface_patt_find(&oldac->patt_list, ifa->iface, ifa->addr))
       {
 	/* Now reconfigure interface */
 	if (!(newip = (struct ospf_iface_patt *)
-	      iface_patt_find(&newac->patt_list, ifa->iface)))
+	      iface_patt_find(&newac->patt_list, ifa->iface, ifa->addr)))
 	  return 0;
 
 	/* HELLO TIMER */
@@ -778,18 +789,17 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	}
 
 	/* stub */
-	if ((oldip->stub == 0) && (newip->stub != 0))
+	int old_stub = ospf_iface_stubby(oldip, ifa->addr);
+	int new_stub = ospf_iface_stubby(newip, ifa->addr);
+	if (!old_stub && new_stub)
 	{
-	  ifa->stub = newip->stub;
+	  ifa->stub = 1;
 	  OSPF_TRACE(D_EVENTS, "Interface %s is now stub.", ifa->iface->name);
 	}
-	if ((oldip->stub != 0) && (newip->stub == 0) &&
-	    ((ifa->ioprob & OSPF_I_IP) == 0) &&
-	    (((ifa->ioprob & OSPF_I_MC) == 0) || (ifa->type == OSPF_IT_NBMA)))
+	if (old_stub && !new_stub && (ifa->ioprob == OSPF_I_OK))
 	{
-	  ifa->stub = newip->stub;
-	  OSPF_TRACE(D_EVENTS,
-		     "Interface %s is no longer stub.", ifa->iface->name);
+	  ifa->stub = 0;
+	  OSPF_TRACE(D_EVENTS, "Interface %s is no longer stub.", ifa->iface->name);
 	}
 
 #ifdef OSPFv2	
@@ -1209,7 +1219,7 @@ show_lsa_sum_net(struct top_hash_entry *he)
   lsa_get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
 #endif
 
-  cli_msg(-1016, "\t\txnetwork %I/%d", ip, pxlen);
+  cli_msg(-1016, "\t\txnetwork %I/%d metric %u", ip, pxlen, ls->metric);
 }
 
 static inline void
@@ -1218,7 +1228,7 @@ show_lsa_sum_rt(struct top_hash_entry *he)
   u32 dst_rid, options;
 
 #ifdef OSPFv2
-  //  struct ospf_lsa_sum *ls = he->lsa_body;
+  struct ospf_lsa_sum *ls = he->lsa_body;
   dst_rid = he->lsa.id;
   options = 0;
 #else /* OSPFv3 */
@@ -1227,7 +1237,7 @@ show_lsa_sum_rt(struct top_hash_entry *he)
   options = ls->options & OPTIONS_MASK;
 #endif
 
-  cli_msg(-1016, "\t\txrouter %R", dst_rid);
+  cli_msg(-1016, "\t\txrouter %R metric %u", dst_rid, ls->metric);
 }
 
 

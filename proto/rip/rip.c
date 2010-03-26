@@ -761,7 +761,7 @@ rip_real_if_add(struct object_lock *lock)
   struct iface *iface = lock->iface;
   struct proto *p = lock->data;
   struct rip_interface *rif;
-  struct iface_patt *k = iface_patt_find(&P_CF->iface_list, iface);
+  struct iface_patt *k = iface_patt_find(&P_CF->iface_list, iface, iface->addr);
 
   if (!k)
     bug("This can not happen! It existed few seconds ago!" );
@@ -790,7 +790,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
     }
   }
   if (c & IF_CHANGE_UP) {
-    struct iface_patt *k = iface_patt_find(&P_CF->iface_list, iface);
+    struct iface_patt *k = iface_patt_find(&P_CF->iface_list, iface, iface->addr);
     struct object_lock *lock;
     struct rip_patt *PATT = (struct rip_patt *) k;
 
