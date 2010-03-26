@@ -423,7 +423,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
   ifa->strictnbma = ip->strictnbma;
   ifa->waitint = ip->waitint;
   ifa->dead = (ip->dead == 0) ? ip->deadc * ifa->helloint : ip->dead;
-  ifa->stub = ip->stub;
+  ifa->stub = ospf_iface_stubby(ip, addr);
   ifa->ioprob = OSPF_I_OK;
   ifa->rxbuf = ip->rxbuf;
 

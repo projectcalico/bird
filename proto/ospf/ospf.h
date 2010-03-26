@@ -772,6 +772,25 @@ struct ospf_iface_patt
 #endif
 };
 
+#if defined(OSPFv2) && !defined(CONFIG_MC_PROPER_SRC)
+static inline int
+ospf_iface_stubby(struct ospf_iface_patt *ip, struct ifa *addr)
+{
+  /*
+   * We cannot properly support multiple OSPF ifaces on real iface
+   * with multiple prefixes, therefore we force OSPF ifaces with
+   * non-primary IP prefixes to be stub.
+   */
+  return ip->stub || !(addr->flags & IA_PRIMARY);
+}
+#else
+static inline int
+ospf_iface_stubby(struct ospf_iface_patt *ip, struct ifa *addr UNUSED)
+{
+  return ip->stub;
+}
+#endif
+
 int ospf_import_control(struct proto *p, rte **new, ea_list **attrs,
 			struct linpool *pool);
 struct ea_list *ospf_make_tmp_attrs(struct rte *rt, struct linpool *pool);

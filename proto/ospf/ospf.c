@@ -763,16 +763,17 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	}
 
 	/* stub */
-	if ((oldip->stub == 0) && (newip->stub != 0))
+	int old_stub = ospf_iface_stubby(oldip, ifa->addr);
+	int new_stub = ospf_iface_stubby(newip, ifa->addr);
+	if (!old_stub && new_stub)
 	{
-	  ifa->stub = newip->stub;
+	  ifa->stub = 1;
 	  OSPF_TRACE(D_EVENTS, "Interface %s is now stub.", ifa->iface->name);
 	}
-	if ((oldip->stub != 0) && (newip->stub == 0) && (ifa->ioprob == OSPF_I_OK))
+	if (old_stub && !new_stub && (ifa->ioprob == OSPF_I_OK))
 	{
-	  ifa->stub = newip->stub;
-	  OSPF_TRACE(D_EVENTS,
-		     "Interface %s is no longer stub.", ifa->iface->name);
+	  ifa->stub = 0;
+	  OSPF_TRACE(D_EVENTS, "Interface %s is no longer stub.", ifa->iface->name);
 	}
 
 #ifdef OSPFv2	
