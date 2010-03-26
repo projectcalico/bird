@@ -42,6 +42,32 @@
  * and deletion. Each LSA is kept in two pieces: header and body. Both of them are
  * kept in the endianity of the CPU.
  *
+ * In OSPFv2 specification, it is implied that there is one IP prefix
+ * for each physical network/interface (unless it is an ptp link). But
+ * in modern systems, there might be more independent IP prefixes
+ * associated with an interface.  To handle this situation, we have
+ * one &ospf_iface for each active IP prefix (instead for each active
+ * iface); This behaves like virtual interface for the purpose of OSPF.
+ * If we receive packet, we associate it with a proper virtual interface
+ * mainly according to its source address.
+ *
+ * OSPF keeps one socket per &ospf_iface. This allows us (compared to
+ * one socket approach) to evade problems with a limit of multicast
+ * groups per socket and with sending multicast packets to appropriate
+ * interface in a portable way. The socket is associated with
+ * underlying physical iface and should not receive packets received
+ * on other ifaces (unfortunately, this is not true on
+ * BSD). Generally, one packet can be received by more sockets (for
+ * example, if there are more &ospf_iface on one physical iface),
+ * therefore we explicitly filter received packets according to
+ * src/dst IP address and received iface.
+ *
+ * Vlinks are implemented using particularly degenerate form of
+ * &ospf_iface, which has several exceptions: it does not have its
+ * iface or socket (it copies these from 'parent' &ospf_iface) and it
+ * is present in iface list even when down (it is not freed in
+ * ospf_iface_down()).
+ *
  * The heart beat of ospf is ospf_disp(). It is called at regular intervals
  * (&proto_ospf->tick). It is responsible for aging and flushing of LSAs in
  * the database, for routing table calculaction and it call area_disp() of every

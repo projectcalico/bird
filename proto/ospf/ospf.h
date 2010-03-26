@@ -159,7 +159,7 @@ struct ospf_iface
 {
   node n;
   struct iface *iface;		/* Nest's iface */
-  struct ifa *addr;
+  struct ifa *addr;		/* IP prefix associated with that OSPF iface */
   struct ospf_area *oa;
   struct object_lock *lock;
   sock *sk;			/* IP socket (for DD ...) */

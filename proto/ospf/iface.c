@@ -97,6 +97,27 @@ ospf_sk_open(struct ospf_iface *ifa)
     goto err;
 #endif
 
+  /*
+   * For OSPFv2: When sending a packet, it is important to have a
+   * proper source address. We expect that when we send one-hop
+   * unicast packets, OS chooses a source address according to the
+   * destination address (to be in the same prefix). We also expect
+   * that when we send multicast packets, OS uses the source address
+   * from sk->saddr registered to OS by sk_setup_multicast(). This
+   * behavior is needed to implement multiple virtual ifaces (struct
+   * ospf_iface) on one physical iface and is signalized by
+   * CONFIG_MC_PROPER_SRC.
+   *
+   * If this behavior is not available (for example on BSD), we create
+   * non-stub iface just for the primary IP address (see
+   * ospf_iface_stubby()) and we expect OS to use primary IP address
+   * as a source address for both unicast and multicast packets.
+   *
+   * FIXME: the primary IP address is currently just the
+   * lexicographically smallest address on an interface, it should be
+   * signalized by sysdep code which one is really the primary.
+   */
+
   sk->saddr = ifa->addr->ip;
   if (sk_setup_multicast(sk) < 0)
     goto err;
