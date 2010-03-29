@@ -671,6 +671,11 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  65535. Literals of this type are written as <cf/(1234,5678)/. The same syntax can also be
 	  used to construct a pair from two arbitrary integer expressions (for example <cf/(1+2,a)/).
 
+	<tag/quad/ This is a dotted quad of numbers used to represent
+	  router IDs (and others).  Each component can have a value
+	  from 0 to 255. Literals of this type are written like IPv4
+	  addresses.
+
 	<tag/string/ This is a string of characters. There are no ways to modify strings in
 	  filters. You can pass them between functions, assign them to variables of type <cf/string/, print
 	  such variables, but you can't concatenate two strings. String literals
@@ -688,9 +693,9 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  <cf/.ip/ which extracts the IP address from the pair, and <cf/.len/, which separates prefix
 	  length from the pair. So <cf>1.2.0.0/16.pxlen = 16</cf> is true.
 
-	<tag/int|ip|prefix|pair|enum set/
+	<tag/int|pair|quad|ip|prefix|enum set/
 	  Filters recognize four types of sets. Sets are similar to strings: you can pass them around
-	  but you can't modify them. Literals of type <cf>set int</cf> look like <cf>
+	  but you can't modify them. Literals of type <cf>int set</cf> look like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
 	  sets.
 
@@ -756,15 +761,16 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  and integer variables, for example <tt>[= * 4 (1+2) a =]</tt>.
 	  There is also old syntax that uses / .. / instead of [= .. =] and ? instead of *.
 
-	<tag/clist/ 
-	  Community list is similar to set of pairs,
-	  except that unlike other sets, it can be modified.
-	  There exist no literals of this type.
-	  There are two special operators on clists:
+	<tag/clist/
+	  Clist is similar to a set, except that unlike other sets, it
+	  can be modified. The type is used for community list (a set
+	  of pairs) and for cluster list (a set of quads). There exist
+	  no literals of this type. There are two special operators on
+	  clists:
 
-          <cf>add(<m/C/,<m/P/)</cf> adds pair <m/P/ to clist <m/C/ and returns the result.
+          <cf>add(<m/C/,<m/P/)</cf> adds pair (or quad) <m/P/ to clist <m/C/ and returns the result.
 
-          <cf>delete(<m/C/,<m/P/)</cf> deletes pair <m/P/ from clist <m/C/ and returns the result.
+          <cf>delete(<m/C/,<m/P/)</cf> deletes pair (or quad) <m/P/ from clist <m/C/ and returns the result.
 
           Statement <cf><m/C/ = add(<m/C/, <m/P/);</cf> can be shortened to
           <cf><m/C/.add(<m/P/);</cf> if <m/C/ is appropriate route attribute
@@ -779,7 +785,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 Special operators include <cf/&tilde;/ for "is element of a set" operation - it can be
 used on element and set of elements of the same type (returning true if element is contained in the given set), or
 on two strings (returning true if first string matches a shell-like pattern stored in second string) or on IP and prefix (returning true if IP is within the range defined by that prefix), or on
-prefix and prefix (returning true if first prefix is more specific than second one) or on bgppath and bgpmask (returning true if the path matches the mask) or on pair and clist (returning true if the community is element of the community list).
+prefix and prefix (returning true if first prefix is more specific than second one) or on bgppath and bgpmask (returning true if the path matches the mask) or on pair and clist (returning true if the pair (or quad) is element of the clist).
 
 
 <sect>Control structures
@@ -818,6 +824,8 @@ if 1234 = i then printn "."; else {
 attributes just like it accesses variables. Attempts to access undefined
 attribute result in a runtime error; you can check if an attribute is
 defined by using the <cf>defined( <m>attribute</m> )</cf> operator.
+One notable exception to this rule are attributes of clist type, where
+undefined value is regarded as empty clist for most purposes.
 
 <descrip>
 	<tag><m/prefix/ net</tag>
@@ -1176,6 +1184,14 @@ with `<tt/O/') are optional.
 	policy information like "don't export to USA peers". As each AS can define
 	its own routing policy, it also has a complete freedom about which community
 	attributes it defines and what will their semantics be.
+
+	<tag>quad <cf/bgp_originator_id/ [O]</tag> This attribute is created by the
+	route reflector when reflecting the route and contains the router ID of the
+	originator of the route in the local AS.
+
+	<tag>clist <cf/bgp_cluster_list/ [O]</tag> This attribute contains a list
+	of cluster IDs of route reflectors. Each route reflector prepends its
+	cluster ID when reflecting the route.
 </descrip>
 
 <sect1>Example
@@ -1595,13 +1611,16 @@ External routes use <cf/metric type 1/ or <cf/metric type 2/.
 A <cf/metric of type 1/ is comparable with internal <cf/metric/, a
 <cf/metric of type 2/ is always longer
 than any <cf/metric of type 1/ or any <cf/internal metric/.
+<cf/Internal metric/ or <cf/metric of type 1/ is stored in attribute
+<cf/ospf_metric1/, <cf/metric type 2/ is stored in attribute <cf/ospf_metric2/.
 If you specify both metrics only metric1 is used.
-Each external route can also carry a <cf/tag/ which is a 32-bit
-integer which is used when exporting routes to other protocols;
+
+Each external route can also carry attribute <cf/ospf_tag/ which is a
+32-bit integer which is used when exporting routes to other protocols;
 otherwise, it doesn't affect routing inside the OSPF domain at all.
-The fourth attribute is a <cf/router_id/ of the router advertising
-that route/network. This attribute is read-only.
-Default is <cf/metric of type 2 = 10000/ and <cf/tag = 0/.
+The fourth attribute <cf/ospf_router_id/ is a router ID of the router
+advertising that route/network. This attribute is read-only. Default
+is <cf/ospf_metric2 = 10000/ and <cf/ospf_tag = 0/.
 
 <sect1>Example
 

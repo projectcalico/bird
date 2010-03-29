@@ -333,7 +333,7 @@ ospf_build_attrs(ea_list * next, struct linpool *pool, u32 m1, u32 m2,
   l->attrs[2].u.data = tag;
   l->attrs[3].id = EA_OSPF_ROUTER_ID;
   l->attrs[3].flags = 0;
-  l->attrs[3].type = EAF_TYPE_INT | EAF_TEMP;
+  l->attrs[3].type = EAF_TYPE_ROUTER_ID | EAF_TEMP;
   l->attrs[3].u.data = rid;
   return l;
 }
@@ -598,11 +598,11 @@ ospf_get_attr(eattr * a, byte * buf, int buflen UNUSED)
     bsprintf(buf, "metric2");
     return GA_NAME;
   case EA_OSPF_TAG:
-    bsprintf(buf, "tag: %08x (%u)", a->u.data, a->u.data);
+    bsprintf(buf, "tag: 0x%08x", a->u.data);
     return GA_FULL;
- case EA_OSPF_ROUTER_ID:
-   bsprintf(buf, "router_id: %R (%u)", a->u.data, a->u.data);
-    return GA_FULL;
+  case EA_OSPF_ROUTER_ID:
+    bsprintf(buf, "router_id");
+    return GA_NAME;
   default:
     return GA_UNKNOWN;
   }

@@ -65,6 +65,7 @@ pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
     if ((!m1) || (!m2))
       return !((!m1) && (!m2));
 
+    /* FIXME: buggy, should return -1, 0, 1; but it doesn't matter */
     if ((m1->kind != m2->kind) || (m1->val != m2->val)) return 1;
     m1 = m1->next;
     m2 = m2->next;
@@ -111,6 +112,13 @@ pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
   *buf = 0;
 }
 
+static inline int int_cmp(int i1, int i2)
+{
+  if (i1 == i2) return 0;
+  if (i1 < i2) return -1;
+  else return 1;
+}
+
 /**
  * val_compare - compare two values
  * @v1: first value
@@ -133,6 +141,14 @@ val_compare(struct f_val v1, struct f_val v2)
     return 1;
 
   if (v1.type != v2.type) {
+#ifndef IPV6
+    /* IP->Quad implicit conversion */
+    if ((v1.type == T_QUAD) && (v2.type == T_IP))
+      return int_cmp(v1.val.i, ipa_to_u32(v2.val.px.ip));
+    if ((v1.type == T_IP) && (v2.type == T_QUAD))
+      return int_cmp(ipa_to_u32(v1.val.px.ip), v2.val.i);
+#endif
+
     debug( "Types do not match in val_compare\n" );
     return CMP_ERROR;
   }
@@ -141,9 +157,8 @@ val_compare(struct f_val v1, struct f_val v2)
   case T_INT:
   case T_BOOL:
   case T_PAIR:
-    if (v1.val.i == v2.val.i) return 0;
-    if (v1.val.i < v2.val.i) return -1;
-    return 1;
+  case T_QUAD:
+    return int_cmp(v1.val.i, v2.val.i);
   case T_IP:
     return ipa_compare(v1.val.px.ip, v2.val.px.ip);
   case T_PREFIX:
@@ -196,8 +211,13 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
 {
   if ((v1.type == T_PATH) && (v2.type == T_PATH_MASK))
     return as_path_match(v1.val.ad, v2.val.path_mask);
-  if ((v1.type == T_PAIR) && (v2.type == T_CLIST))
+  if (((v1.type == T_PAIR) || (v1.type == T_QUAD)) && (v2.type == T_CLIST))
     return int_set_contains(v2.val.ad, v1.val.i);
+#ifndef IPV6
+  /* IP->Quad implicit conversion */
+  if ((v1.type == T_IP) && (v2.type == T_CLIST))
+    return int_set_contains(v2.val.ad, ipa_to_u32(v1.val.px.ip));
+#endif
   if ((v1.type == T_STRING) && (v2.type == T_STRING))
     return patmatch(v2.val.s, v1.val.s);
 
@@ -235,8 +255,9 @@ val_in_range(struct f_val v1, struct f_val v2)
     switch (v1.type) {
     case T_ENUM:
     case T_INT:
+    case T_PAIR:
+    case T_QUAD:
     case T_IP:
-    case T_PREFIX:
       {
 	struct f_tree *n;
 	n = find_tree(v2.val.t, v1);
@@ -280,6 +301,7 @@ val_print(struct f_val v)
   case T_IP: PRINTF( "%I", v.val.px.ip ); break;
   case T_PREFIX: PRINTF( "%I/%d", v.val.px.ip, v.val.px.len ); break;
   case T_PAIR: PRINTF( "(%d,%d)", v.val.i >> 16, v.val.i & 0xffff ); break;
+  case T_QUAD: PRINTF( "%R", v.val.i ); break;
   case T_PREFIX_SET: trie_print(v.val.ti, buf, 2040); break;
   case T_SET: tree_print( v.val.t ); PRINTF( "\n" ); break;
   case T_ENUM: PRINTF( "(enum %x)%d", v.type, v.val.i ); break;
@@ -355,7 +377,7 @@ static struct f_val
 interpret(struct f_inst *what)
 {
   struct symbol *sym;
-  struct f_val v1, v2, res;
+  struct f_val v1, v2, res, *vp;
   unsigned u1, u2;
   int i;
   u32 as;
@@ -435,11 +457,11 @@ interpret(struct f_inst *what)
 /* Relational operators */
 
 #define COMPARE(x) \
-    TWOARGS_C; \
-    res.type = T_BOOL; \
+    TWOARGS; \
     i = val_compare(v1, v2); \
     if (i==CMP_ERROR) \
-      runtime( "Error in comparison" ); \
+      runtime( "Can't compare values of incompatible types" ); \
+    res.type = T_BOOL; \
     res.val.i = (x); \
     break;
 
@@ -473,10 +495,19 @@ interpret(struct f_inst *what)
   case 's':
     ARG(v2, a2.p);
     sym = what->a1.p;
-    if ((sym->class != (SYM_VARIABLE | v2.type)) &&
-	(v2.type != T_VOID))
+    vp = sym->def;
+    if ((sym->class != (SYM_VARIABLE | v2.type)) && (v2.type != T_VOID)) {
+#ifndef IPV6
+      /* IP->Quad implicit conversion */
+      if ((sym->class == (SYM_VARIABLE | T_QUAD)) && (v2.type == T_IP)) {
+	vp->type = T_QUAD;
+	vp->val.i = ipa_to_u32(v2.val.px.ip);
+	break;
+      }
+#endif
       runtime( "Assigning to variable of incompatible type" );
-    * (struct f_val *) sym->def = v2; 
+    }
+    *vp = v2; 
     break;
 
     /* some constants have value in a2, some in *a1.p, strange. */
@@ -597,8 +628,11 @@ interpret(struct f_inst *what)
 
       switch (what->aux & EAF_TYPE_MASK) {
       case EAF_TYPE_INT:
-      case EAF_TYPE_ROUTER_ID:
 	res.type = T_INT;
+	res.val.i = e->u.data;
+	break;
+      case EAF_TYPE_ROUTER_ID:
+	res.type = T_QUAD;
 	res.val.i = e->u.data;
 	break;
       case EAF_TYPE_OPAQUE:
@@ -808,13 +842,21 @@ interpret(struct f_inst *what)
       v1.val.ad = adata_empty(f_pool);
     else if (v1.type != T_CLIST)
       runtime("Can't add/delete to non-clist");
-    if (v2.type != T_PAIR)
+
+    if ((v2.type == T_PAIR) || (v2.type == T_QUAD))
+      i = v2.val.i;
+#ifndef IPV6
+    /* IP->Quad implicit conversion */
+    else if (v2.type == T_IP)
+      i = ipa_to_u32(v2.val.px.ip);
+#endif
+    else
       runtime("Can't add/delete non-pair");
 
     res.type = T_CLIST;
     switch (what->aux) {
-    case 'a': res.val.ad = int_set_add(f_pool, v1.val.ad, v2.val.i); break;
-    case 'd': res.val.ad = int_set_del(f_pool, v1.val.ad, v2.val.i); break;
+    case 'a': res.val.ad = int_set_add(f_pool, v1.val.ad, i); break;
+    case 'd': res.val.ad = int_set_del(f_pool, v1.val.ad, i); break;
     default: bug("unknown Ca operation");
     }
     break;
