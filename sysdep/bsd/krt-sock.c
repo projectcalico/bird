@@ -515,6 +515,14 @@ krt_read_addr(struct ks_msg *msg)
   }
   ifa.scope = scope & IADDR_SCOPE_MASK;
 
+  /* BSD returns some scope/interface ID as a part of link-local address */
+  if (scope == (IADDR_HOST | SCOPE_LINK))
+  {
+    /* Clean up that */
+    _I0(ifa.ip) = 0xfe800000;
+    _I1(ifa.ip) = 0x00000000;
+  }
+
   if (iface->flags & IF_MULTIACCESS)
     ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
   else         /* PtP iface */
