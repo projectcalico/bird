@@ -6,6 +6,8 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#include <net/if.h>
+
 #ifdef IPV6
 
 #ifndef IPV6_UNICAST_HOPS
@@ -28,9 +30,18 @@ get_inaddr(ip_addr *a, struct in6_addr *ia)
   ipa_ntoh(*a);
 }
 
-#else
+static inline char *
+sysio_bind_to_iface(sock *s)
+{
+  struct ifreq ifr;
+  strcpy(ifr.ifr_name, s->iface->name);
+  if (setsockopt(s->fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
+    return "SO_BINDTODEVICE";
 
-#include <net/if.h>
+  return NULL;
+}
+
+#else
 
 static inline void
 set_inaddr(struct in_addr *ia, ip_addr a)

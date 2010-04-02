@@ -876,6 +876,9 @@ sk_setup_multicast(sock *s)
   if (setsockopt(s->fd, SOL_IPV6, IPV6_MULTICAST_IF, &index, sizeof(index)) < 0)
     ERR("IPV6_MULTICAST_IF");
 
+  if (err = sysio_bind_to_iface(s))
+    goto bad;
+
   return 0;
 
 bad:

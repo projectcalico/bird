@@ -22,6 +22,14 @@ get_inaddr(ip_addr *a, struct in6_addr *ia)
   ipa_ntoh(*a);
 }
 
+static inline char *
+sysio_bind_to_iface(sock *s)
+{
+  /* Unfortunately not available */
+  return NULL;
+}
+
+
 #else
 
 #include <net/if.h>

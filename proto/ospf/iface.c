@@ -66,17 +66,7 @@ ospf_sk_open(struct ospf_iface *ifa)
   sk = sk_new(p->pool);
   sk->type = SK_IP;
   sk->dport = OSPF_PROTO;
-
-#ifdef OSPFv2
-  /*
-   * In Linux IPv4, binding a raw socket to an IP address of an iface causes
-   * that the socket does not receive multicast packets, as they have
-   * different (multicast) destination IP address.
-   */
   sk->saddr = IPA_NONE;
-#else /* OSPFv3 */
-  sk->saddr = ifa->addr->ip; /* link-local addr */
-#endif
 
   sk->tos = IP_PREC_INTERNET_CONTROL;
   sk->rx_hook = ospf_rx_hook;
