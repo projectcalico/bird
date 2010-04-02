@@ -146,6 +146,46 @@ ri_install(struct proto_ospf *po, ip_addr prefix, int pxlen, int dest,
   }
 }
 
+#ifdef OSPFv2
+
+static struct ospf_iface *
+find_stub_src(struct ospf_area *oa, ip_addr px, int pxlen)
+{
+  struct ospf_iface *iff;
+  struct ifa *addr;
+
+  WALK_LIST(iff, oa->po->iface_list)
+    if ((iff->type != OSPF_IT_VLINK) &&
+	(iff->oa == oa) &&
+	ipa_equal(iff->addr->px, px) && 
+	(iff->addr->pxlen == pxlen))
+      return iff;
+
+  return NULL;
+}
+
+#else /* OSPFv3 */
+
+static struct ospf_iface *
+find_stub_src(struct ospf_area *oa, ip_addr px, int pxlen)
+{
+  struct ospf_iface *iff;
+  struct ifa *a;
+
+  WALK_LIST(iff, oa->po->iface_list)
+    if ((iff->type != OSPF_IT_VLINK) &&
+	(iff->oa == oa))
+      WALK_LIST(a, iff->iface->addrs)
+	if (ipa_equal(a->prefix, px) && 
+	    (a->pxlen == pxlen) &&
+	    !(a->flags & IA_SECONDARY))
+	  return iff;
+
+  return NULL;
+}
+
+#endif
+
 static void
 add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_hash_entry *en)
 {
@@ -161,7 +201,21 @@ add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_
   nf.ifa = en->nhi;
   nf.rid = en->lsa.rt;
 
-  /* FIXME check nf.ifa on stubs */
+  if (en == oa->rt)
+  {
+    /* 
+     * Local stub networks does not have proper iface in en->nhi
+     * (because they all have common top_hash_entry en).
+     * We have to find iface responsible for that stub network.
+     * Some stubnets does not have any iface. Ignore them.
+     */
+
+    nf.ifa = find_stub_src(oa, px, pxlen);
+
+    if (!nf.ifa)
+      return;
+  }
+
   ri_install(oa->po, px, pxlen, ORT_NET, &nf, NULL);
 }
 
@@ -243,45 +297,10 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 	{
 #ifdef OSPFv2
 	case LSART_STUB:
-	  /*
-	   * This violates rfc2328! But it is mostly harmless.
-	   */
-	  DBG("\n");
-
-	  orta nf;
-	  nf.type = RTS_OSPF;
-	  nf.options = 0;
-	  nf.metric1 = act->dist + rtl->metric;
-	  nf.metric2 = LSINFINITY;
-	  nf.tag = 0;
-	  nf.oa = oa;
-	  nf.ar = act;
-	  nf.nh = act->nh;
-	  nf.ifa = act->nhi;
-	  nf.rid = act->lsa.rt;
-
-	  if (act == oa->rt)
-	    {
-	      struct ospf_iface *iff;
-
-	      WALK_LIST(iff, po->iface_list)	/* Try to find corresponding interface */
-		{
-		  // FIXME this is broken
-		  if (iff->iface && (iff->type != OSPF_IT_VLINK) &&
-		      (rtl->id == (ipa_to_u32(ipa_mkmask(iff->addr->pxlen))
-				   & ipa_to_u32(iff->addr->prefix))))	/* No VLINK and IP must match */
-		    {
-		      nf.ifa = iff;
-		      break;
-		    }
-		}
-	    }
-
-	  if (!nf.ifa)
-	    continue;
-
-	  ri_install(po, ipa_from_u32(rtl->id),
-		     ipa_mklen(ipa_from_u32(rtl->data)), ORT_NET, &nf, NULL);
+	  /* This violates RFC 2328! But it is mostly harmless. */
+	  add_network(oa, ipa_from_u32(rtl->id),
+		      ipa_mklen(ipa_from_u32(rtl->data)),
+		      act->dist + rtl->metric, act);
 	  break;
 #endif
 
@@ -292,21 +311,18 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 #else /* OSPFv3 */
 	  tmp = ospf_hash_find(po->gr, oa->areaid, rtl->nif, rtl->id, LSA_T_NET);
 #endif
-	  if (tmp == NULL)
-	    DBG("Not found!\n");
-	  else
-	    DBG("Found. :-)\n");
 	  break;
 
 	case LSART_VLNK:
 	case LSART_PTP:
 	  tmp = ospf_hash_find_rt(po->gr, oa->areaid, rtl->id);
-	  DBG("PTP found.\n");
 	  break;
+
 	default:
 	  log("Unknown link type in router lsa. (rid = %R)", act->lsa.id);
 	  break;
 	}
+
       if (tmp)
 	DBG("Going to add cand, Mydist: %u, Req: %u\n",
 	    tmp->dist, act->dist + rtl->metric);
