@@ -158,6 +158,7 @@ if $CC -Wall -Wno-pointer-sign conftest.c >&AS_MESSAGE_LOG_FD 2>&1 ; then
 else
 	bird_cv_c_option_no_pointer_sign=no
 fi
+rm -rf conftest* a.out
 ])])
 
 # BIRD_CHECK_PROG_FLAVOR_GNU(PROGRAM-PATH, IF-SUCCESS, [IF-FAILURE])

@@ -150,18 +150,18 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
   // log(L_WARN "RX %I %d", s->laddr, s->lifindex);
 }
 
-
-void
-sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg)
+/* Unfortunately, IP_SENDSRCADDR does not work for raw IP sockets on BSD kernels */
+static void
+sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 {
   struct cmsghdr *cm;
   struct in_addr *sa;
 
   if (!(s->flags & SKF_LADDR_TX))
-    {
-      msg->msg_controllen = 0;
-      return;
-    }
+    return;
+
+  msg->msg_control = cbuf;
+  msg->msg_controllen = cbuflen;
 
   if (s->iface)
     {

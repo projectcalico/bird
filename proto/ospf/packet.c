@@ -348,7 +348,7 @@ ospf_rx_hook(sock *sk, int size)
 
   if ((areaid == ifa->oa->areaid)
 #ifdef OSPFv3
-      && (ps->instance_id != ifa->instance_id)
+      && (ps->instance_id == ifa->instance_id)
 #endif
       )
   {

@@ -66,11 +66,11 @@ if test -z "$GCC" ; then
 fi
 
 AC_MSG_CHECKING([what CFLAGS should we use])
-if test "$bird_cflags_default" == yes ; then
+if test "$bird_cflags_default" = yes ; then
 	BIRD_CHECK_GCC_OPTIONS
 
 	CFLAGS="$CFLAGS -Wall -Wstrict-prototypes -Wno-parentheses"
-	if test "$bird_cv_c_option_no_pointer_sign" == yes ; then
+	if test "$bird_cv_c_option_no_pointer_sign" = yes ; then
 		CFLAGS="$CFLAGS -Wno-pointer-sign"
 	fi
 fi

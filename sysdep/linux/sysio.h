@@ -272,17 +272,17 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
 }
 
 
-void
-sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg)
+static void
+sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 {
   struct cmsghdr *cm;
   struct in_pktinfo *pi;
 
   if (!(s->flags & SKF_LADDR_TX))
-    {
-      msg->msg_controllen = 0;
-      return;
-    }
+    return;
+
+  msg->msg_control = cbuf;
+  msg->msg_controllen = cbuflen;
 
   cm = CMSG_FIRSTHDR(msg);
   cm->cmsg_level = IPPROTO_IP;

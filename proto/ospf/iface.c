@@ -662,31 +662,31 @@ ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
       WALK_LIST(ac, cf->area_list)
       {
 	u32 found_new[8] = {};
-	struct iface_patt *p;
+	struct iface_patt *pt;
 
-	WALK_LIST(p, ac->patt_list)
+	WALK_LIST(pt, ac->patt_list)
 	{
-	  if (iface_patt_match(p, i, a))
+	  if (iface_patt_match(pt, a->iface, a))
 	  {
-	    struct ospf_iface_patt *ip = (struct ospf_iface_patt *) p;
+	    struct ospf_iface_patt *ipt = (struct ospf_iface_patt *) pt;
 
 	    /* If true, we already assigned that IID and we skip
 	       this to implement first-match behavior */
-	    if (iflag_test(found_new, ip->instance_id))
+	    if (iflag_test(found_new, ipt->instance_id))
 	      continue;
 
 	    /* If true, we already assigned that in a different area,
 	       we log collision */
-	    if (iflag_test(found_all, ip->instance_id))
+	    if (iflag_test(found_all, ipt->instance_id))
 	    {
 	      log(L_WARN "%s: Interface %s (IID %d) matches for multiple areas",
-		  p->name,  a->iface->name, ip->instance_id);
+		  p->name,  a->iface->name, ipt->instance_id);
 	      continue;
 	    }
 
-	    iflag_set(found_all, ip->instance_id);
-	    iflag_set(found_new, ip->instance_id);
-	    ospf_iface_new(po, a->iface, a, ac, ip);
+	    iflag_set(found_all, ipt->instance_id);
+	    iflag_set(found_new, ipt->instance_id);
+	    ospf_iface_new(po, a->iface, a, ac, ipt);
 	  }
 	}
       }

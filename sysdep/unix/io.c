@@ -660,6 +660,77 @@ get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port, int check)
 
 #endif
 
+
+#ifdef IPV6
+
+/* PKTINFO handling is also standardized in IPv6 */
+#define CMSG_RX_SPACE CMSG_SPACE(sizeof(struct in6_pktinfo))
+#define CMSG_TX_SPACE CMSG_SPACE(sizeof(struct in6_pktinfo))
+
+static char *
+sysio_register_cmsgs(sock *s)
+{
+  int ok = 1;
+  if ((s->flags & SKF_LADDR_RX) &&
+      setsockopt(s->fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &ok, sizeof(ok)) < 0)
+    return "IPV6_RECVPKTINFO";
+
+  return NULL;
+}
+
+static void
+sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
+{
+  struct cmsghdr *cm;
+  struct in6_pktinfo *pi = NULL;
+
+  if (!(s->flags & SKF_LADDR_RX))
+    return;
+
+  for (cm = CMSG_FIRSTHDR(msg); cm != NULL; cm = CMSG_NXTHDR(msg, cm))
+    {
+      if (cm->cmsg_level == IPPROTO_IPV6 && cm->cmsg_type == IPV6_PKTINFO)
+	pi = (struct in6_pktinfo *) CMSG_DATA(cm);
+    }
+
+  if (!pi)
+    {
+      s->laddr = IPA_NONE;
+      s->lifindex = 0;
+      return;
+    }
+
+  get_inaddr(&s->laddr, &pi->ipi6_addr);
+  s->lifindex = pi->ipi6_ifindex;
+  return;
+}
+
+static void
+sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
+{
+  struct cmsghdr *cm;
+  struct in6_pktinfo *pi;
+
+  if (!(s->flags & SKF_LADDR_TX))
+    return;
+
+  msg->msg_control = cbuf;
+  msg->msg_controllen = cbuflen;
+
+  cm = CMSG_FIRSTHDR(msg);
+  cm->cmsg_level = IPPROTO_IPV6;
+  cm->cmsg_type = IPV6_PKTINFO;
+  cm->cmsg_len = CMSG_LEN(sizeof(*pi));
+
+  pi = (struct in6_pktinfo *) CMSG_DATA(cm);
+  set_inaddr(&pi->ipi6_addr, s->saddr);
+  pi->ipi6_ifindex = s->iface ? s->iface->index : 0;
+
+  msg->msg_controllen = cm->cmsg_len;
+  return;
+}
+#endif
+
 static char *
 sk_set_ttl_int(sock *s)
 {
@@ -856,71 +927,6 @@ sk_leave_group(sock *s, ip_addr maddr)
   return 0;
 }
 
-/* PKTINFO handling is also standardized in IPv6 */
-#define CMSG_RX_SPACE CMSG_SPACE(sizeof(struct in6_pktinfo))
-
-static char *
-sysio_register_cmsgs(sock *s)
-{
-  int ok = 1;
-  if ((s->flags & SKF_LADDR_RX) &&
-      setsockopt(s->fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &ok, sizeof(ok)) < 0)
-    return "IPV6_RECVPKTINFO";
-
-  return NULL;
-}
-
-void
-sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
-{
-  struct cmsghdr *cm;
-  struct in6_pktinfo *pi = NULL;
-
-  if (!(s->flags & SKF_LADDR_RX))
-    return;
-
-  for (cm = CMSG_FIRSTHDR(msg); cm != NULL; cm = CMSG_NXTHDR(msg, cm))
-    {
-      if (cm->cmsg_level == IPPROTO_IPV6 && cm->cmsg_type == IPV6_PKTINFO)
-	pi = (struct in6_pktinfo *) CMSG_DATA(cm);
-    }
-
-  if (!pi)
-    {
-      s->laddr = IPA_NONE;
-      s->lifindex = 0;
-      return;
-    }
-
-  get_inaddr(&s->laddr, &pi->ipi6_addr);
-  s->lifindex = pi->ipi6_ifindex;
-  return;
-}
-
-void
-sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg)
-{
-  struct cmsghdr *cm;
-  struct in6_pktinfo *pi;
-
-  if (!(s->flags & SKF_LADDR_TX))
-    {
-      msg->msg_controllen = 0;
-      return;
-    }
-
-  cm = CMSG_FIRSTHDR(msg);
-  cm->cmsg_level = IPPROTO_IPV6;
-  cm->cmsg_type = PIV6_PKTINFO;
-  cm->cmsg_len = CMSG_LEN(sizeof(*pi));
-
-  pi = (struct in6_pktinfo *) CMSG_DATA(cm);
-  set_inaddr(&pi->ipi6_addr, s->saddr);
-  pi->ipi6_ifindex = s->iface ? s->iface->index : 0;
-
-  msg->msg_controllen = cmsg->cmsg_len;
-  return;
-}
 
 #else /* IPV4 */
 
@@ -1216,12 +1222,9 @@ sk_maybe_write(sock *s)
 	  .msg_name = &sa,
 	  .msg_namelen = sizeof(sa),
 	  .msg_iov = &iov,
-	  .msg_iovlen = 1,
-	  .msg_control = cmsg_buf,
-	  .msg_controllen = sizeof(cmsg_buf),
-	  .msg_flags = 0};
+	  .msg_iovlen = 1};
 
-	sysio_prepare_tx_cmsgs(s, &msg);
+	sysio_prepare_tx_cmsgs(s, &msg, cmsg_buf, sizeof(cmsg_buf));
 	e = sendmsg(s->fd, &msg, 0);
 
 	if (e < 0)
