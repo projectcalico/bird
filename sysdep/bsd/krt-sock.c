@@ -83,12 +83,9 @@ krt_sock_send(int cmd, rte *e)
   struct ks_msg msg;
   char *body = (char *)msg.buf;
   sockaddr gate, mask, dst;
+  ip_addr gw;
 
   DBG("krt-sock: send %I/%d via %I\n", net->n.prefix, net->n.pxlen, a->gw);
-
-  fill_in_sockaddr(&dst, net->n.prefix, 0);
-  fill_in_sockaddr(&mask, ipa_mkmask(net->n.pxlen), 0);
-  fill_in_sockaddr(&gate, a->gw, 0);
 
   bzero(&msg,sizeof (struct rt_msghdr));
   msg.rtm.rtm_version = RTM_VERSION;
@@ -132,6 +129,18 @@ krt_sock_send(int cmd, rte *e)
       }
     }
   }
+
+  gw = a->gw;
+
+#ifdef IPV6
+  /* Embed interface ID to link-local address */
+  if (ipa_has_link_scope(gw))
+    _I0(gw) = 0xfe800000 | (i->index & 0x0000ffff);
+#endif
+
+  fill_in_sockaddr(&dst, net->n.prefix, 0);
+  fill_in_sockaddr(&mask, ipa_mkmask(net->n.pxlen), 0);
+  fill_in_sockaddr(&gate, gw, 0);
 
   switch (a->dest)
   {
@@ -359,6 +368,12 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
     a.dest = RTD_ROUTER;
     a.gw = igate;
 
+#ifdef IPV6
+    /* Clean up embedded interface ID returned in link-local address */
+    if (ipa_has_link_scope(a.gw))
+      _I0(a.gw) = 0xfe800000;
+#endif
+
     ng = neigh_find2(&p->p, &a.gw, a.iface, 0);
     if (!ng || (ng->scope == SCOPE_HOST))
       {
@@ -515,13 +530,11 @@ krt_read_addr(struct ks_msg *msg)
   }
   ifa.scope = scope & IADDR_SCOPE_MASK;
 
-  /* BSD returns some scope/interface ID as a part of link-local address */
-  if (scope == (IADDR_HOST | SCOPE_LINK))
-  {
-    /* Clean up that */
+#ifdef IPV6
+  /* Clean up embedded interface ID returned in link-local address */
+  if (ipa_has_link_scope(ifa.ip))
     _I0(ifa.ip) = 0xfe800000;
-    _I1(ifa.ip) = 0x00000000;
-  }
+#endif
 
   if (iface->flags & IF_MULTIACCESS)
     ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
