@@ -569,12 +569,7 @@ krt_read_msg(struct proto *p, struct ks_msg *msg, int scan)
     case RTM_DELADDR:
       krt_read_addr(msg);
       break;
-#ifdef RTM_IFANNOUNCE
-    case RTM_IFANNOUNCE:	/* FIXME: We should handle it */
-      break;
-#endif /* RTM_IFANNOUNCE */
     default:
-        log(L_ERR "Unprocessed RTM_type: %d", msg->rtm.rtm_type);
       break;
   }
 }
