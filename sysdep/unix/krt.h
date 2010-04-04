@@ -47,6 +47,7 @@ struct krt_config {
   int persist;			/* Keep routes when we exit */
   int scan_time;		/* How often we re-scan routes */
   int learn;			/* Learn routes from other sources */
+  int devroutes;		/* Allow export of device routes */
 };
 
 struct krt_proto {

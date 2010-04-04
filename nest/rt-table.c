@@ -167,8 +167,6 @@ do_rte_announce(struct announce_hook *a, int type UNUSED, net *net, rte *new, rt
   rte *old0 = old;
   int ok;
 
-  int fast_exit_hack = 0;
-
 #ifdef CONFIG_PIPE
   /* The secondary direction of the pipe */
   if (proto_is_pipe(p) && (p->table != a->table))
@@ -206,11 +204,6 @@ do_rte_announce(struct announce_hook *a, int type UNUSED, net *net, rte *new, rt
     }
   else
     stats->exp_withdraws_received++;
-
-  /* Hack: This is here to prevent 'spurious withdraws'
-     for loopback addresses during reload. */
-  if (fast_exit_hack)
-    return;
 
   /*
    * This is a tricky part - we don't know whether route 'old' was

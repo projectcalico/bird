@@ -95,7 +95,7 @@ Czech Republic as a student project. It can be freely distributed under the term
 Public License.
 
 <p>BIRD has been designed to work on all UNIX-like systems. It has been developed and
-tested under Linux 2.0 to 2.4, and then ported to FreeBSD and NetBSD, porting to other
+tested under Linux 2.0 to 2.6, and then ported to FreeBSD, NetBSD and OpenBSD, porting to other
 systems (even non-UNIX ones) should be relatively easy due to its highly modular architecture.
 
 <sect>Installing BIRD
@@ -454,16 +454,19 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 <chapt>Remote control
 
 <p>You can use the command-line client <file>birdc</file> to talk with
-a running BIRD. Communication is done using a <file/bird.ctl/ UNIX domain
-socket (unless changed with the <tt/-s/ option given to both the server and
-the client). The commands can perform simple actions such as enabling/disabling
-of protocols, telling BIRD to show various information, telling it to
-show routing table filtered by filter, or asking BIRD to
-reconfigure. Press <tt/?/ at any time to get online help. Option
+a running BIRD. Communication is done using a <file/bird.ctl/ UNIX
+domain socket (unless changed with the <tt/-s/ option given to both
+the server and the client). The commands can perform simple actions
+such as enabling/disabling of protocols, telling BIRD to show various
+information, telling it to show routing table filtered by filter, or
+asking BIRD to reconfigure. Press <tt/?/ at any time to get online
+help. Option <tt/-r/ can be used to enable a restricted mode of BIRD
+client, which allows just read-only commands (<cf/show .../). Option
 <tt/-v/ can be passed to the client, to make it dump numeric return
-codes along with the messages. You do not necessarily need to use <file/birdc/ to talk to BIRD, your
-own applications could do that, too -- the format of communication between
-BIRD and <file/birdc/ is stable (see the programmer's documentation).
+codes along with the messages. You do not necessarily need to use
+<file/birdc/ to talk to BIRD, your own applications could do that, too
+-- the format of communication between BIRD and <file/birdc/ is stable
+(see the programmer's documentation).
 
 Many commands have the <m/name/ of the protocol instance as an argument.
 This argument can be omitted if there exists only a single instance.
@@ -864,7 +867,7 @@ undefined value is regarded as empty clist for most purposes.
 	routes). Read-only.
 
 	<tag><m/enum/ dest</tag>
-	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_NETWORK/ for routing to a directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silently discarded, <cf/RTD_UNREACHABLE/, <cf/RTD_PROHIBIT/ for packets that should be returned with ICMP host unreachable / ICMP administratively prohibited messages). Read-only.
+	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_DEVICE/ for routing to a directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silently discarded, <cf/RTD_UNREACHABLE/, <cf/RTD_PROHIBIT/ for packets that should be returned with ICMP host unreachable / ICMP administratively prohibited messages). Read-only.
 </descrip>
 
 <p>There also exist some protocol-specific attributes which are described in the corresponding protocol sections.
@@ -1273,10 +1276,15 @@ protocol device {
 directly connected networks according to the list of interfaces provided
 by the kernel via the Device protocol.
 
-<p>It's highly recommended to include this protocol in your configuration
-unless you want to use BIRD as a route server or a route reflector, that is
-on a machine which doesn't forward packets itself and only participates in
-distribution of routing information.
+<p>The question is whether it is a good idea to have such device
+routes in BIRD routing table. OS kernel usually handles device routes
+for directly connected networks by itself so we don't need (and don't
+want) to export these routes to the kernel protocol. OSPF protocol
+creates device routes for its interfaces itself and BGP protocol is
+usually used for exporting aggregate routes. Although there are some
+use cases that use the direct protocol (like abusing eBGP as an IGP
+routing protocol), in most cases it is not needed to have these device
+routes in BIRD routing table and to use the direct protocol.
 
 <p>The only configurable thing about direct is what interfaces it watches:
 
@@ -1302,13 +1310,23 @@ protocol direct {
 <sect>Kernel
 
 <p>The Kernel protocol is not a real routing protocol. Instead of communicating
-the with other routers in the network, it performs synchronization of BIRD's routing
+with other routers in the network, it performs synchronization of BIRD's routing
 tables with the OS kernel. Basically, it sends all routing table updates to the kernel
 and from time to time it scans the kernel tables to see whether some routes have
 disappeared (for example due to unnoticed up/down transition of an interface)
 or whether an `alien' route has been added by someone else (depending on the
-<cf/learn/ switch, such routes are either deleted or accepted to our
+<cf/learn/ switch, such routes are either ignored or accepted to our
 table).
+
+<p>Unfortunately, there is one thing that makes the routing table
+synchronization a bit more complicated. In the kernel routing table
+there are also device routes for directly connected networks. These
+routes are usually managed by OS itself (as a part of IP address
+configuration) and we don't want to touch that.  They are completely
+ignored during the scan of the kernel tables and also the export of
+device routes from BIRD tables to kernel routing tables is restricted
+to prevent accidental interference. This restriction can be disabled using
+<cf/device routes/ switch.
 
 <p>If your OS supports only a single routing table, you can configure only one
 instance of the Kernel protocol. If it supports multiple tables (in order to
@@ -1327,6 +1345,14 @@ kernel table.
 	routing tables by other routing daemons or by the system administrator.
 	This is possible only on systems which support identification of route
 	authorship.
+
+	<tag>device routes <m/switch/</tag> Enable export of device
+	routes to the kernel routing table. By default, such routes
+	are rejected (with the exception of explicitly configured
+	device routes from the static protocol) regardless of the
+	export filter to protect device routes in kernel routing table
+	(managed by OS itself) from accidental overwriting or erasing.
+
 	<tag>kernel table <m/number/</tag> Select which kernel table should
 	this particular instance of the Kernel protocol work with. Available
 	only on systems supporting multiple routing tables.

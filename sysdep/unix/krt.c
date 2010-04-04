@@ -734,6 +734,25 @@ krt_scan(timer *t UNUSED)
 /*
  *	Updates
  */
+static int
+krt_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *pool)
+{
+  struct krt_proto *p = (struct krt_proto *) P;
+  rte *e = *new;
+
+  if (e->attrs->proto == P)
+    return -1;
+
+  if (!KRT_CF->devroutes && 
+      (e->attrs->dest == RTD_DEVICE) && 
+      (e->attrs->source != RTS_STATIC_DEVICE))
+    return -1;
+
+  if (!krt_capable(e))
+    return -1;
+
+  return 0;
+}
 
 static void
 krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
@@ -743,8 +762,6 @@ krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
 
   if (shutting_down)
     return;
-  if (new && (!krt_capable(new) || new->attrs->source == RTS_INHERIT))
-    new = NULL;
   if (!(net->n.flags & KRF_INSTALLED))
     old = NULL;
   if (new)
@@ -871,6 +888,7 @@ krt_init(struct proto_config *c)
   struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
 
   p->p.accept_ra_types = RA_OPTIMAL;
+  p->p.import_control = krt_import_control;
   p->p.rt_notify = krt_notify;
   return &p->p;
 }

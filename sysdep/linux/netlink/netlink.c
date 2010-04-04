@@ -460,20 +460,14 @@ krt_capable(rte *e)
 {
   rta *a = e->attrs;
 
-  if (a->cast != RTC_UNICAST
-#if 0
-      && a->cast != RTC_ANYCAST
-#endif
-      )
+  if (a->cast != RTC_UNICAST)
     return 0;
-  if (a->source == RTS_DEVICE)	/* Kernel takes care of device routes itself */
-    return 0;
+
   switch (a->dest)
     {
     case RTD_ROUTER:
       if (ipa_has_link_scope(a->gw) && (a->iface == NULL))
 	return 0;
-
     case RTD_DEVICE:
     case RTD_BLACKHOLE:
     case RTD_UNREACHABLE:

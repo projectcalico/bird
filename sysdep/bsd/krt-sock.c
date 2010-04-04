@@ -40,10 +40,6 @@ krt_capable(rte *e)
 {
   rta *a = e->attrs;
 
-#ifdef CONFIG_AUTO_ROUTES
-  if (a->source == RTS_DEVICE)
-    return 0;
-#endif
   return
     a->cast == RTC_UNICAST &&
     (a->dest == RTD_ROUTER
@@ -163,7 +159,7 @@ krt_sock_send(int cmd, rte *e)
 #endif
 
         if(!i->addr) {
-          log(L_ERR "KIF: interface \"%s\" has no IP addess", i->name);
+          log(L_ERR "KRT: interface %s has no IP addess", i->name);
           return;
         }
 
@@ -185,7 +181,7 @@ krt_sock_send(int cmd, rte *e)
   msg.rtm.rtm_msglen = l;
 
   if ((l = write(rt_sock, (char *)&msg, l)) < 0) {
-    log(L_ERR "KIF: Error sending route %I/%d to kernel", net->n.prefix, net->n.pxlen);
+    log(L_ERR "KRT: Error sending route %I/%d to kernel", net->n.prefix, net->n.pxlen);
   }
 }
 
