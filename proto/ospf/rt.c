@@ -152,12 +152,11 @@ static struct ospf_iface *
 find_stub_src(struct ospf_area *oa, ip_addr px, int pxlen)
 {
   struct ospf_iface *iff;
-  struct ifa *addr;
 
   WALK_LIST(iff, oa->po->iface_list)
     if ((iff->type != OSPF_IT_VLINK) &&
 	(iff->oa == oa) &&
-	ipa_equal(iff->addr->px, px) && 
+	ipa_equal(iff->addr->prefix, px) && 
 	(iff->addr->pxlen == pxlen))
       return iff;
 

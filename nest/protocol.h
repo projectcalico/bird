@@ -51,6 +51,7 @@ struct protocol {
   void (*get_status)(struct proto *, byte *buf); /* Get instance status (for `show protocols' command) */
   void (*get_route_info)(struct rte *, byte *buf, struct ea_list *attrs); /* Get route information (for `show route' command) */
   int (*get_attr)(struct eattr *, byte *buf, int buflen);	/* ASCIIfy dynamic attribute (returns GA_*) */
+  void (*show_proto_info)(struct proto *);	/* Show protocol info (for `show protocols all' command) */
 };
 
 void protos_build(void);

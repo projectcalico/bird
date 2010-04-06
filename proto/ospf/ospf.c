@@ -1533,15 +1533,16 @@ ospf_sh_lsadb(struct proto *p)
 
 
 struct protocol proto_ospf = {
-  name:"OSPF",
-  template:"ospf%d",
-  attr_class:EAP_OSPF,
-  init:ospf_init,
-  dump:ospf_dump,
-  start:ospf_start,
-  shutdown:ospf_shutdown,
-  get_route_info:ospf_get_route_info,
-  get_attr:ospf_get_attr,
-  get_status:ospf_get_status,
-  reconfigure:ospf_reconfigure
+  name:			"OSPF",
+  template:		"ospf%d",
+  attr_class:		EAP_OSPF,
+  init:			ospf_init,
+  dump:			ospf_dump,
+  start:		ospf_start,
+  shutdown:		ospf_shutdown,
+  reconfigure:		ospf_reconfigure,
+  get_status:		ospf_get_status,
+  get_attr:		ospf_get_attr,
+  get_route_info:	ospf_get_route_info
+  // show_proto_info:	ospf_sh
 };

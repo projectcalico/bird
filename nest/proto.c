@@ -871,6 +871,8 @@ proto_cmd_show(struct proto *p, unsigned int verbose, int cnt)
     {
       if (p->cf->dsc)
 	cli_msg(-1006, "  Description:    %s", p->cf->dsc);
+      if (p->cf->router_id)
+	cli_msg(-1006, "  Router ID:      %R", p->cf->router_id);
       cli_msg(-1006, "  Preference:     %d", p->preference);
       cli_msg(-1006, "  Input filter:   %s", filter_name(p->in_filter));
       cli_msg(-1006, "  Output filter:  %s", filter_name(p->out_filter));
@@ -884,6 +886,9 @@ proto_cmd_show(struct proto *p, unsigned int verbose, int cnt)
 #endif
 	    proto_do_show_stats(p);
 	}
+
+      if (p->proto->show_proto_info)
+	p->proto->show_proto_info(p);
 
       cli_msg(-1006, "");
     }
