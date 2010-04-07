@@ -15,6 +15,7 @@ struct pool;
 
 /* main.c */
 
+extern char *bird_name;
 void async_config(void);
 void async_dump(void);
 void async_shutdown(void);
@@ -60,9 +61,8 @@ void krt_io_init(void);
 
 /* log.c */
 
-void log_init(int debug, int init);
 void log_init_debug(char *);		/* Initialize debug dump to given file (NULL=stderr, ""=off) */
-void log_switch(int debug, struct list *);
+void log_switch(int debug, list *l, char *); /* Use l=NULL for initial switch */
 
 struct log_config {
   node n;

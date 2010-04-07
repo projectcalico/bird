@@ -219,9 +219,10 @@ protocol rip {
 <sect>Global options
 
 <p><descrip>
-	<tag>log "<m/filename/"|syslog|stderr all|{ <m/list of classes/ }</tag> 
+	<tag>log "<m/filename/"|syslog [name <m/name/]|stderr all|{ <m/list of classes/ }</tag> 
 	Set logging of messages having the given class (either <cf/all/ or <cf/{
-	error, trace }/ etc.) into selected destination. Classes are:
+	error, trace }/ etc.) into selected destination (a file specified as a filename string,
+	syslog with optional name argument, or the stderr output). Classes are:
 	<cf/info/, <cf/warning/, <cf/error/ and <cf/fatal/ for messages about local problems,
 	<cf/debug/ for debugging messages, 
 	<cf/trace/ when you want to know what happens in the network, 

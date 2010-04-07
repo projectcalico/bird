@@ -83,7 +83,7 @@ sysdep_preconfig(struct config *c)
 int
 sysdep_commit(struct config *new, struct config *old UNUSED)
 {
-  log_switch(debug_flag, &new->logfiles);
+  log_switch(debug_flag, &new->logfiles, new->syslog_name);
   return 0;
 }
 
@@ -378,21 +378,36 @@ signal_init(void)
  */
 
 static char *opt_list = "c:dD:ps:";
+static int parse_and_exit;
+char *bird_name;
 
 static void
 usage(void)
 {
-  fprintf(stderr, "Usage: bird [-c <config-file>] [-d] [-D <debug-file>] [-p] [-s <control-socket>]\n");
+  fprintf(stderr, "Usage: %s [-c <config-file>] [-d] [-D <debug-file>] [-p] [-s <control-socket>]\n", bird_name);
   exit(1);
 }
 
-int parse_and_exit;
+static inline char *
+get_bird_name(char *s, char *def)
+{
+  char *t;
+  if (!s)
+    return def;
+  t = strrchr(s, '/');
+  if (!t)
+    return s;
+  if (!t[1])
+    return def;
+  return t+1;
+}
 
 static void
 parse_args(int argc, char **argv)
 {
   int c;
 
+  bird_name = get_bird_name(argv[0], "bird");
   if (argc == 2)
     {
       if (!strcmp(argv[1], "--version"))
@@ -444,7 +459,7 @@ main(int argc, char **argv)
   parse_args(argc, argv);
   if (debug_flag == 1)
     log_init_debug("");
-  log_init(debug_flag, 1);
+  log_switch(debug_flag, NULL, NULL);
 
   if (!parse_and_exit)
     test_old_bird(path_control_socket);
