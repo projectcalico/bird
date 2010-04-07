@@ -706,6 +706,7 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
   return;
 }
 
+/*
 static void
 sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 {
@@ -730,6 +731,7 @@ sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
   msg->msg_controllen = cm->cmsg_len;
   return;
 }
+*/
 #endif
 
 static char *
@@ -1220,7 +1222,7 @@ sk_maybe_write(sock *s)
 	fill_in_sockifa(&sa, s->iface);
 
 	struct iovec iov = {s->tbuf, s->tpos - s->tbuf};
-	byte cmsg_buf[CMSG_TX_SPACE];
+	// byte cmsg_buf[CMSG_TX_SPACE];
 
 	struct msghdr msg = {
 	  .msg_name = &sa,
@@ -1228,7 +1230,7 @@ sk_maybe_write(sock *s)
 	  .msg_iov = &iov,
 	  .msg_iovlen = 1};
 
-	sysio_prepare_tx_cmsgs(s, &msg, cmsg_buf, sizeof(cmsg_buf));
+	// sysio_prepare_tx_cmsgs(s, &msg, cmsg_buf, sizeof(cmsg_buf));
 	e = sendmsg(s->fd, &msg, 0);
 
 	if (e < 0)

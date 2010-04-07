@@ -159,6 +159,7 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
 }
 
 /* Unfortunately, IP_SENDSRCADDR does not work for raw IP sockets on BSD kernels */
+/*
 static void
 sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 {
@@ -174,7 +175,6 @@ sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
   if (s->iface)
     {
       struct in_addr m;
-//      set_inaddr(&m, s->iface->addr->ip);
       set_inaddr(&m, s->saddr);
       setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_IF, &m, sizeof(m));
     }
@@ -189,6 +189,7 @@ sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 
   msg->msg_controllen = cm->cmsg_len;
 }
+*/
 
 #endif
 

@@ -116,11 +116,11 @@ else
 				;;
 		ipv6:netbsd*)	sysdesc=bsd-v6
 				CPPFLAGS="$CPPFLAGS -I/usr/pkg/include"
-				LDFLAGS="$LDFLAGS -L/usr/pkg/lib"
+				LDFLAGS="$LDFLAGS -L/usr/pkg/lib -R/usr/pkg/lib"
 				;;
 		ipv4:netbsd*)	sysdesc=bsd
 				CPPFLAGS="$CPPFLAGS -I/usr/pkg/include"
-				LDFLAGS="$LDFLAGS -L/usr/pkg/lib"
+				LDFLAGS="$LDFLAGS -L/usr/pkg/lib -R/usr/pkg/lib"
 				;;
 		ipv6:freebsd*)	sysdesc=bsd-v6
 				;;

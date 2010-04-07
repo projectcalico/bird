@@ -282,7 +282,7 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
   return;
 }
 
-
+/*
 static void
 sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 {
@@ -306,4 +306,6 @@ sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 
   msg->msg_controllen = cm->cmsg_len;
 }
+*/
+
 #endif
