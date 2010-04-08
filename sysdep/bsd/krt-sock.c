@@ -381,6 +381,11 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
     ng = neigh_find2(&p->p, &a.gw, a.iface, 0);
     if (!ng || (ng->scope == SCOPE_HOST))
       {
+	/* Ignore routes with next-hop 127.0.0.1, host routes with such
+	   next-hop appear on OpenBSD for address aliases. */
+        if (ipa_classify(a.gw) == (IADDR_HOST | SCOPE_HOST))
+          return;
+
 	log(L_ERR "KRT: Received route %I/%d with strange next-hop %I",
 	    net->n.prefix, net->n.pxlen, a.gw);
 	return;
