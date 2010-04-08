@@ -515,6 +515,10 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
       flags = a->flags & (BAF_OPTIONAL | BAF_TRANSITIVE | BAF_PARTIAL);
       len = bgp_get_attr_len(a);
 
+      /* Skip empty int sets */ 
+      if (((a->type & EAF_TYPE_MASK) == EAF_TYPE_INT_SET) && (len == 0))
+	continue; 
+
       if (remains < len + 4)
 	goto err_no_buffer;
 
