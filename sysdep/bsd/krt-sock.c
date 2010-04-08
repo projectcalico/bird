@@ -296,7 +296,7 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
     { log(L_ERR "%s (%I/%d) - missing gateway", errmsg, idst, pxlen); return; }
 
   u32 self_mask = RTF_PROTO1;
-  u32 alien_mask = RTF_STATIC | RTF_PROTO1;
+  u32 alien_mask = RTF_STATIC | RTF_PROTO1 | RTF_GATEWAY;
 
 #ifdef RTF_PROTO2
   alien_mask |= RTF_PROTO2;
@@ -304,6 +304,14 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
 
 #ifdef RTF_PROTO3
   alien_mask |= RTF_PROTO3;
+#endif
+
+#ifdef RTF_REJECT
+  alien_mask |= RTF_REJECT;
+#endif
+
+#ifdef RTF_BLACKHOLE
+  alien_mask |= RTF_BLACKHOLE;
 #endif
 
   if (flags & (RTF_DYNAMIC | RTF_MODIFIED))
