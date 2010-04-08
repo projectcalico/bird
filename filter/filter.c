@@ -621,6 +621,12 @@ interpret(struct f_inst *what)
 	e = ea_find( (*f_rte)->attrs->eattrs, what->a2.i );
 
       if (!e) {
+	/* A special case: undefined int_set looks like empty int_set */
+	if ((what->aux & EAF_TYPE_MASK) == EAF_TYPE_INT_SET) {
+	  res.type = T_CLIST;
+	  res.val.ad = adata_empty(f_pool);
+	  break;
+	}
 	/* Undefined value */
 	res.type = T_VOID;
 	break;
@@ -836,11 +842,7 @@ interpret(struct f_inst *what)
 
   case P('C','a'):	/* Community list add or delete */
     TWOARGS;
-
-    /* Replace undefined value with empty community list */ 
-    if (v1.type == T_VOID)
-      v1.val.ad = adata_empty(f_pool);
-    else if (v1.type != T_CLIST)
+    if (v1.type != T_CLIST)
       runtime("Can't add/delete to non-clist");
 
     if ((v2.type == T_PAIR) || (v2.type == T_QUAD))
