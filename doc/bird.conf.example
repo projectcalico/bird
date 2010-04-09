@@ -17,10 +17,10 @@
 #define '1a-a1' = (30+40);
 
 # Define a route filter...
-filter test_filter {
-	if net ~ 10.0.0.0/16 then accept;
-	else reject;
-}
+#filter test_filter {
+#	if net ~ 10.0.0.0/16 then accept;
+#	else reject;
+#}
 
 #filter sink { reject; }
 #filter okay { accept; }
@@ -34,9 +34,9 @@ filter test_filter {
 # The direct protocol automatically generates device routes to
 # all network interfaces. Can exist in as many instances as you wish
 # if you want to populate multiple routing tables with device routes.
-protocol direct {
+#protocol direct {
 #	interface "-eth*", "*";	# Restrict network interfaces it works with
-}
+#}
 
 # This pseudo-protocol performs synchronization between BIRD's routing
 # tables and the kernel. If your kernel supports multiple routing tables
