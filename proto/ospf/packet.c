@@ -76,6 +76,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
       }
       password_cpy(pkt->u.password, passwd->password, sizeof(union ospf_auth));
     case OSPF_AUTH_NONE:
+      pkt->checksum = 0;
       pkt->checksum = ipsum_calculate(pkt, sizeof(struct ospf_packet) -
                                   sizeof(union ospf_auth), (pkt + 1),
 				  ntohs(pkt->length) -
