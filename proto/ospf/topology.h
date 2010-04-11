@@ -23,6 +23,9 @@ struct top_hash_entry
   ip_addr nh;			/* Next hop */
   ip_addr lb;			/* Link back */
   struct ospf_iface *nhi;	/* Next hop interface */
+#ifdef OSPFv3
+  u32 lb_id;			/* Interface ID of link back iface (for bcast or NBMA networks) */
+#endif
   u32 dist;			/* Distance from the root */
   u16 ini_age;
   u8 color;

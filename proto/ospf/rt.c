@@ -477,6 +477,9 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 
   // FIXME lb should be properly set for vlinks */
   en->lb = IPA_NONE;
+#ifdef OSPFv3
+  en->lb_id = 0;
+#endif
   switch (en->lsa.type)
   {
     case LSA_T_RT:
@@ -500,6 +503,8 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 	  {
 #ifdef OSPFv2
 	    en->lb = ipa_from_u32(rtl->data);
+#else /* OSPFv3 */
+	    en->lb_id = rtl->lif;
 #endif
 	    return 1;
 	  }
@@ -1099,14 +1104,15 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
 	      struct top_hash_entry *par)
 {
   // struct proto *p = &oa->po->proto;
-  struct ospf_neighbor *neigh;
+  struct ospf_neighbor *neigh, *m;
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
 
   /* 16.1.1. The next hop calculation */
   DBG("     Next hop called.\n");
-  if (ipa_equal(par->nh, IPA_NONE))
+  if (ipa_zero(par->nh))
   {
+    u32 rid = en->lsa.rt;
     DBG("     Next hop calculating for id: %R rt: %R type: %u\n",
 	en->lsa.id, en->lsa.rt, en->lsa.type);
 
@@ -1130,32 +1136,73 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
       return 0;
     }
 
-    /* 
-     * Remaining cases - local neighbours.
-     * There are two problems with this code:
-     * 1) we use IP address from HELLO packet
-     *    and not the one from LSA (router or link).
-     *    This may break NBMA networks
-     * 2) we use find_neigh_noifa() and does not
-     *    take into account associated iface.
-     *    This breaks neighbors connected by more links.
-     */
-
-    if ((en->lsa.type == LSA_T_RT) && 
-	((par == oa->rt) || (par->lsa.type == LSA_T_NET)))
+    /* The second case - ptp or ptmp neighbor */
+    if ((en->lsa.type == LSA_T_RT) && (par == oa->rt))
     {
-      if ((neigh = find_neigh_noifa(po, en->lsa.rt)) != NULL)
+      /*
+       * We don't know which iface was used to reach this neighbor
+       * (there might be more parallel ifaces) so we will find
+       * the best PTP iface with given fully adjacent neighbor.
+       */
+      neigh = NULL;
+      WALK_LIST(ifa, po->iface_list)
+	if (ifa->type == OSPF_IT_PTP)
 	{
-	  en->nh = neigh->ip;
-	  en->nhi = neigh->ifa;
-	  return 1;
+	  m = find_neigh(ifa, rid);
+	  if (m && (m->state == NEIGHBOR_FULL))
+	  {
+	    if (!neigh || (m->ifa->cost < neigh->ifa->cost))
+	      neigh = m;
+	  }
 	}
-      return 0;
+
+      if (!neigh)
+	return 0;
+
+      en->nh = neigh->ip;
+      en->nhi = neigh->ifa;
+      return 1;
     }
 
+    /* The third case - bcast or nbma neighbor */
+    if ((en->lsa.type == LSA_T_RT) && (par->lsa.type == LSA_T_NET))
+    {
+      /* par->nhi should be defined from parent's calc_next_hop() */
+      if (!par->nhi)
+	goto bad;
+
+#ifdef OSPFv2
+      /*
+       * In this case, next-hop is the same as link-back, which is
+       * already computed in link_back().
+       */
+      if (ipa_zero(en->lb))
+	goto bad;
+
+      en->nh = en->lb;
+      en->nhi = par->nhi;
+      return 1;
+
+#else /* OSPFv3 */
+      /*
+       * Next-hop is taken from lladdr field of Link-LSA, en->lb_id
+       * is computed in link_back().
+       */
+      struct top_hash_entry *llsa;
+      llsa = ospf_hash_find(po->gr, par->nhi->iface->index, en->lb_id, rid, LSA_T_LINK);
+
+      if (!llsa)
+	return 0;
+
+      en->nh = llsa->lladdr;
+      en->nhi = par->nhi;
+      return 1;
+#endif
+    }
+
+  bad:
     /* Probably bug or some race condition, we log it */
     log(L_ERR "Unexpected case in next hop calculation");
-
     return 0;
   }
 

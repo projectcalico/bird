@@ -536,27 +536,6 @@ find_neigh(struct ospf_iface *ifa, u32 rid)
   return NULL;
 }
 
-
-/* Find a closest neighbor which is at least 2-Way */
-struct ospf_neighbor *
-find_neigh_noifa(struct proto_ospf *po, u32 rid)
-{
-  struct ospf_neighbor *n = NULL, *m;
-  struct ospf_iface *ifa;
-
-  WALK_LIST(ifa, po->iface_list) if ((m = find_neigh(ifa, rid)) != NULL)
-  {
-    if (m->state >= NEIGHBOR_2WAY)
-    {
-      if (n == NULL)
-	n = m;
-      else if (m->ifa->cost < n->ifa->cost)
-	n = m;
-    }
-  }
-  return n;
-}
-
 struct ospf_area *
 ospf_find_area(struct proto_ospf *po, u32 aid)
 {
