@@ -7,6 +7,10 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/* Unfortunately, some glibc versions hide parts of RFC 3542 API
+   if _GNU_SOURCE is not defined. */
+#define _GNU_SOURCE 1
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
