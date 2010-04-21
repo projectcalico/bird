@@ -164,7 +164,6 @@ ospf_vlink_start: VIRTUAL LINK idval
   add_tail(&this_area->vlink_list, NODE this_ipatt);
   init_list(&this_ipatt->ipn_list);
   OSPF_PATT->vid = $3;
-  OSPF_PATT->cost = COST_D;
   OSPF_PATT->helloint = HELLOINT_D;
   OSPF_PATT->rxmtint = RXMTINT_D;
   OSPF_PATT->inftransdelay = INFTRANSDELAY_D;

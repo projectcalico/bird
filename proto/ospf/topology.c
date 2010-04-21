@@ -1114,6 +1114,8 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
   struct ospf_lsa_prefix *lp;
+  struct ifa *vlink_addr = NULL;
+  int host_addr = 0;
   int net_lsa;
   int i = 0;
   u8 flags;
@@ -1139,10 +1141,15 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
     struct ifa *a;
     WALK_LIST(a, ifa->iface->addrs)
       {
-	if (((a->pxlen < MAX_PREFIX_LENGTH) && net_lsa) ||
-	    (a->flags & IA_SECONDARY) ||
+	if ((a->flags & IA_SECONDARY) ||
 	    (a->flags & IA_UNNUMBERED) ||
-	    (a->scope <= SCOPE_LINK) ||
+	    (a->scope <= SCOPE_LINK))
+	  continue;
+
+	if (!vlink_addr)
+	  vlink_addr = a;
+
+	if (((a->pxlen < MAX_PREFIX_LENGTH) && net_lsa) ||
 	    configured_stubnet(oa, a))
 	  continue;
 
@@ -1150,10 +1157,20 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	put_ipv6_prefix(lsab_alloc(po, IPV6_PREFIX_SPACE(a->pxlen)),
 			a->ip, a->pxlen, flags, ifa->cost);
 	i++;
+
+	if (flags & OPT_PX_LA)
+	  host_addr = 1;
       }
   }
 
-  /* FIXME Handle vlinks? see RFC5340, page 38 */
+  /* If there are some configured vlinks, add some global address,
+     which will be used as a vlink endpoint. */
+  if (!EMPTY_LIST(oa->ac->vlink_list) && !host_addr && vlink_addr)
+  {
+    put_ipv6_prefix(lsab_alloc(po, IPV6_PREFIX_SPACE(MAX_PREFIX_LENGTH)),
+		    vlink_addr->ip, MAX_PREFIX_LENGTH, OPT_PX_LA, 0);
+    i++;
+  }
 
   struct ospf_stubnet_config *sn;
   WALK_LIST(sn, oa->ac->stubnet_list)
@@ -1227,6 +1244,7 @@ prefix_advance(u32 *buf)
   return buf + IPV6_PREFIX_WORDS(pxl);
 }
 
+/* FIXME eliminate items wit LA bit set? see 4.4.3.9 */
 static void
 add_prefix(struct proto_ospf *po, u32 *px, int offset, int *pxc)
 {

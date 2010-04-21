@@ -260,6 +260,7 @@ ospf_iface_down(struct ospf_iface *ifa)
     ifa->iface = NULL;
     ifa->addr = NULL;
     ifa->sk = NULL;
+    ifa->cost = 0;
     ifa->vip = IPA_NONE;
     return;
   }
@@ -445,27 +446,6 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
 
 #ifdef OSPFv3
   ifa->instance_id = ip->instance_id;
-
-  /*
-  addr = NULL;
-  if (ifa->type != OSPF_IT_VLINK)
-    {
-      struct ifa *a;
-      WALK_LIST(a, iface->addrs)
-	if (a->scope == SCOPE_LINK)
-	  {
-	    addr = a;
-	    break;
-	  }
-
-      if (!addr)
-      {
-	log(L_ERR "%s: Missing link-local address on interface %s, declaring as stub", p->name,  iface->name);
-	ifa->ioprob = OSPF_I_LL;
-	ifa->stub = 1;
-      }
-    }
-  */
 #endif
 
   if (ip->type == OSPF_IT_UNDEF)
