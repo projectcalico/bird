@@ -373,8 +373,7 @@ nl_parse_addr(struct nlmsghdr *h)
   memcpy(&ifa.ip, RTA_DATA(a[IFA_LOCAL] ? : a[IFA_ADDRESS]), sizeof(ifa.ip));
   ipa_ntoh(ifa.ip);
   ifa.pxlen = i->ifa_prefixlen;
-  if (i->ifa_prefixlen > BITS_PER_IP_ADDRESS ||
-      i->ifa_prefixlen == BITS_PER_IP_ADDRESS - 1)
+  if (i->ifa_prefixlen > BITS_PER_IP_ADDRESS)
     {
       log(L_ERR "KIF: Invalid prefix length for interface %s: %d", ifi->name, i->ifa_prefixlen);
       new = 0;
