@@ -681,6 +681,10 @@ ospf_rt_sum(struct ospf_area *oa)
     if (!(abr->n.options & ORTA_ABR))
       continue;
 
+    /* This check is not mentioned in RFC 2328 */
+    if (abr->n.type != RTS_OSPF)
+      continue;
+
     /* 16.2. (5) */
     orta nf = {
       .type = RTS_OSPF_IA,
@@ -966,6 +970,9 @@ ospf_ext_spf(struct proto_ospf *po)
       nfa.metric2 = LSINFINITY;
     }
 
+    /* Mark the LSA as reachable */
+    en->color = INSPF;
+
     /* Whether the route is preferred in route selection according to 16.4.1 */
     nfa.options = epath_preferred(&nf2->n) ? ORTA_PREF : 0;
 
@@ -1045,8 +1052,6 @@ ospf_rt_spf(struct proto_ospf *po)
   struct area_net *anet;
 
   if (po->areano == 0) return;
-
-  po->cleanup = 1;
 
   OSPF_TRACE(D_EVENTS, "Starting routing table calculation");
 

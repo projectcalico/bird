@@ -804,5 +804,4 @@ ospf_iface_shutdown(struct ospf_iface *ifa)
 {
   init_list(&ifa->neigh_list);
   hello_timer_hook(ifa->hello_timer);
-  ospf_sk_close(ifa);
 }

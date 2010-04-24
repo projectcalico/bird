@@ -45,19 +45,16 @@ ospf_age(struct proto_ospf *po)
   struct top_hash_entry *en, *nxt;
   int flush = can_flush_lsa(po);
 
-  if (po->cleanup) OSPF_TRACE(D_EVENTS, "Running ospf_age cleanup");
-
   WALK_SLIST_DELSAFE(en, nxt, po->lsal)
   {
-    if (po->cleanup)
+    if (po->calcrt)
     {
+      /* Cleanup before ospf_rt_spf() */
       en->color = OUTSPF;
       en->dist = LSINFINITY;
       en->nhi = NULL;
       en->nh = IPA_NONE;
       en->lb = IPA_NONE;
-      DBG("Infinitying Type: %u, Id: %R, Rt: %R\n", en->lsa.type,
-	  en->lsa.id, en->lsa.rt);
     }
     if (en->lsa.age == LSA_MAXAGE)
     {
@@ -88,7 +85,6 @@ ospf_age(struct proto_ospf *po)
 	en->lsa.age = LSA_MAXAGE;
     }
   }
-  po->cleanup = 0;
 }
 
 void
