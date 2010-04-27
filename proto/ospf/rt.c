@@ -1300,10 +1300,15 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
        * Next-hop is taken from lladdr field of Link-LSA, en->lb_id
        * is computed in link_back().
        */
-      struct top_hash_entry *llsa;
-      llsa = ospf_hash_find(po->gr, par->nhi->iface->index, en->lb_id, rid, LSA_T_LINK);
+      struct top_hash_entry *lhe;
+      lhe = ospf_hash_find(po->gr, par->nhi->iface->index, en->lb_id, rid, LSA_T_LINK);
 
-      if (!llsa || ipa_zero(llsa->lladdr))
+      if (!lhe)
+	return 0;
+
+      struct ospf_lsa_link *llsa = lhe->lsa_body;
+      
+      if (ipa_zero(llsa->lladdr))
 	return 0;
 
       en->nh = llsa->lladdr;
