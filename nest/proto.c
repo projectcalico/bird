@@ -807,6 +807,7 @@ proto_do_show_stats(struct proto *p)
 	  s->exp_withdraws_received, s->exp_withdraws_accepted);
 }
 
+#ifdef CONFIG_PIPE
 static void
 proto_do_show_pipe_stats(struct proto *p)
 {
@@ -846,6 +847,7 @@ proto_do_show_pipe_stats(struct proto *p)
 	  s1->exp_withdraws_received, s1->imp_withdraws_invalid,
 	  s1->imp_withdraws_ignored, s1->imp_withdraws_accepted);
 }
+#endif
 
 void
 proto_cmd_show(struct proto *p, unsigned int verbose, int cnt)
