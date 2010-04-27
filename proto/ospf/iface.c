@@ -361,7 +361,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 u8
 ospf_iface_clasify(struct iface *ifa, struct ifa *addr)
 {
-  if (addr->flags & IA_UNNUMBERED)
+  if (ipa_nonzero(addr->opposite))
     return OSPF_IT_PTP;
 
   if ((ifa->flags & (IF_MULTIACCESS | IF_MULTICAST)) ==

@@ -546,7 +546,17 @@ krt_read_addr(struct ks_msg *msg)
 #endif
 
   if (iface->flags & IF_MULTIACCESS)
+  {
     ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
+
+    if (i->ifa_prefixlen == BITS_PER_IP_ADDRESS - 1)
+      ifa.opposite = ipa_opposite_m1(ifa.ip);
+
+#ifndef IPV6
+    if (i->ifa_prefixlen == BITS_PER_IP_ADDRESS - 2)
+      ifa.opposite = ipa_opposite_m2(ifa.ip);
+#endif
+  }
   else         /* PtP iface */
   {
     ifa.flags |= IA_UNNUMBERED;

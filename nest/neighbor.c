@@ -75,9 +75,13 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
 	{
 	  if (ipa_in_net(*a, b->prefix, b->pxlen))
 	    {
-	      if (ipa_equal(*a, b->prefix) ||	/* Network address */
-		  ipa_equal(*a, b->brd))	/* Broadcast */
+#ifndef IPV6
+	      if ((b->pxlen < (BITS_PER_IP_ADDRESS - 1)) &&
+		  (ipa_equal(*a, b->prefix) ||	/* Network address */
+		   ipa_equal(*a, b->brd)))	/* Broadcast */
 		return -1;
+#endif
+
 	      return b->scope;
 	    }
 	}
