@@ -21,8 +21,11 @@ struct top_hash_entry
   void *lsa_body;
   bird_clock_t inst_t;		/* Time of installation into DB */
   ip_addr nh;			/* Next hop */
-  ip_addr lb;			/* Link back */
-  struct ospf_iface *nhi;	/* Next hop interface */
+  ip_addr lb;			/* In OSPFv2, link back address. In OSPFv3, any global address in the area useful for vlinks */
+  struct ospf_iface *nhi;	/* Next hop interface - valid only in ospf_rt_spf()*/
+#ifdef OSPFv3
+  u32 lb_id;			/* Interface ID of link back iface (for bcast or NBMA networks) */
+#endif
   u32 dist;			/* Distance from the root */
   u16 ini_age;
   u8 color;

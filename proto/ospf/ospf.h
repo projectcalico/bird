@@ -722,7 +722,6 @@ struct proto_ospf
   slist lsal;			/* List of all LSA's */
   int calcrt;			/* Routing table calculation scheduled?
 				   0=no, 1=normal, 2=forced reload */
-  int cleanup;                  /* Should I cleanup after RT calculation? */
   list iface_list;		/* Interfaces we really use */
   list area_list;
   int areano;			/* Number of area I belong to */
@@ -808,7 +807,7 @@ static inline void schedule_link_lsa(struct ospf_iface *ifa UNUSED) {}
 void ospf_sh_neigh(struct proto *p, char *iff);
 void ospf_sh(struct proto *p);
 void ospf_sh_iface(struct proto *p, char *iff);
-void ospf_sh_state(struct proto *p, int verbose);
+void ospf_sh_state(struct proto *p, int verbose, int reachable);
 void ospf_sh_lsadb(struct proto *p);
 
 

@@ -76,6 +76,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
       }
       password_cpy(pkt->u.password, passwd->password, sizeof(union ospf_auth));
     case OSPF_AUTH_NONE:
+      pkt->checksum = 0;
       pkt->checksum = ipsum_calculate(pkt, sizeof(struct ospf_packet) -
                                   sizeof(union ospf_auth), (pkt + 1),
 				  ntohs(pkt->length) -
@@ -240,6 +241,19 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
 { return 1; }
  
 #endif
+
+#ifdef OSPFv2
+static inline struct ospf_neighbor *
+find_neigh_by_ip(struct ospf_iface *ifa, ip_addr ip)
+{
+  struct ospf_neighbor *n;
+  WALK_LIST(n, ifa->neigh_list)
+    if (ipa_equal(n->ip, ip))
+      return n;
+  return NULL;
+}
+#endif
+
 
 
 /**
@@ -418,10 +432,16 @@ ospf_rx_hook(sock *sk, int size)
     return 1;
   }
 
-  /* This is deviation from RFC 2328 - neighbours should be identified by
-   * IP address on broadcast and NBMA networks.
-   */
+#ifdef OSPFv2
+  /* In OSPFv2, neighbors are identified by either IP or Router ID, base on network type */
+  struct ospf_neighbor *n;
+  if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
+    n = find_neigh_by_ip(ifa, sk->faddr);
+  else
+    n = find_neigh(ifa, rid);
+#else
   struct ospf_neighbor *n = find_neigh(ifa, rid);
+#endif
 
   if(!n && (ps->type != HELLO_P))
   {

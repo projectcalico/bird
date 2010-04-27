@@ -7,6 +7,10 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+/* Unfortunately, some glibc versions hide parts of RFC 3542 API
+   if _GNU_SOURCE is not defined. */
+#define _GNU_SOURCE 1
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -667,6 +671,16 @@ get_sockaddr(struct sockaddr_in *sa, ip_addr *a, unsigned *port, int check)
 /* PKTINFO handling is also standardized in IPv6 */
 #define CMSG_RX_SPACE CMSG_SPACE(sizeof(struct in6_pktinfo))
 #define CMSG_TX_SPACE CMSG_SPACE(sizeof(struct in6_pktinfo))
+
+/*
+ * RFC 2292 uses IPV6_PKTINFO for both the socket option and the cmsg
+ * type, RFC 3542 changed the socket option to IPV6_RECVPKTINFO. If we
+ * don't have IPV6_RECVPKTINFO we suppose the OS implements the older
+ * RFC and we use IPV6_PKTINFO.
+ */
+#ifndef IPV6_RECVPKTINFO
+#define IPV6_RECVPKTINFO IPV6_PKTINFO
+#endif
 
 static char *
 sysio_register_cmsgs(sock *s)

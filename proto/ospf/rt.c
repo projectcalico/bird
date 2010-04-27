@@ -14,7 +14,6 @@ static void add_cand(list * l, struct top_hash_entry *en,
 static int calc_next_hop(struct ospf_area *oa,
 			 struct top_hash_entry *en,
 			 struct top_hash_entry *par);
-static void ospf_ext_spf(struct proto_ospf *po);
 static void rt_sync(struct proto_ospf *po);
 
 /* In ospf_area->rtr we store paths to routers, but we use RID (and not IP address)
@@ -31,14 +30,13 @@ fill_ri(orta * orta)
 {
   orta->type = RTS_DUMMY;
   orta->options = 0;
-  orta->oa = NULL;
   orta->metric1 = LSINFINITY;
   orta->metric2 = LSINFINITY;
-  orta->nh = IPA_NONE;
-  orta->ifa = NULL;
-  orta->ar = NULL;
   orta->tag = 0;
   orta->rid = 0;
+  orta->oa = NULL;
+  orta->ifa = NULL;
+  orta->nh = IPA_NONE;
 }
 
 void
@@ -47,58 +45,58 @@ ospf_rt_initort(struct fib_node *fn)
   ort *ri = (ort *) fn;
   fill_ri(&ri->n);
   memcpy(&ri->o, &ri->n, sizeof(orta));
-  ri->efn = NULL;
+}
+
+/* Whether the ASBR or the forward address destination is preferred in AS external route selection
+   according to 16.4.1. */
+static inline int
+epath_preferred(orta *ep)
+{
+  return (ep->type == RTS_OSPF) && (ep->oa->areaid != 0);
 }
 
 /* If new is better return 1 */
-
-/* 
- * This is hard to understand:
- * If rfc1583 is set to 1, it work likes normal route_better()
- * But if it is set to 0, it prunes number of AS boundary
- * routes before it starts the router decision
- */
 static int
-ri_better(struct proto_ospf *po, orta * new, ort *nefn, orta * old, ort *oefn, int rfc1583)
+ri_better(struct proto_ospf *po, orta *new, orta *old)
 {
-  int newtype = new->type;
-  int oldtype = old->type;
-
   if (old->type == RTS_DUMMY)
     return 1;
 
   if (old->metric1 == LSINFINITY)
     return 1;
 
-  if (!rfc1583)
-  {
-    if ((new->type < RTS_OSPF_EXT1) && (new->oa->areaid == 0)) newtype = RTS_OSPF_IA;
-    if ((old->type < RTS_OSPF_EXT1) && (old->oa->areaid == 0)) oldtype = RTS_OSPF_IA;
-  }
-
-  if (newtype < oldtype)
+  if (new->type < old->type)
     return 1;
 
-  if (newtype > oldtype)
+  if (new->type > old->type)
     return 0;
 
-  /* Same type */
-  if (new->type == RTS_OSPF_EXT2)
+  if (new->metric1 < old->metric1)
+    return 1;
+
+  if (new->metric1 > old->metric1)
+    return 0;
+
+  return 0;
+}
+
+
+/* 16.4. (3), return 1 if new is better */
+static int
+ri_better_asbr(struct proto_ospf *po, orta *new, orta *old)
+{
+  /* We know that the old ASBB is valid */
+
+  if (!po->rfc1583)
   {
-    if (new->metric2 < old->metric2) return 1;
-    if (new->metric2 > old->metric2) return 0;
-  }
+    int new_pref = epath_preferred(new);
+    int old_pref = epath_preferred(old);
 
-  if (((new->type == RTS_OSPF_EXT2) || (new->type == RTS_OSPF_EXT1)) && (!po->rfc1583))
-  {
-    newtype = nefn->n.type;
-    oldtype = oefn->n.type;
+    if (new_pref > old_pref)
+      return 1;
 
-    if (nefn->n.oa->areaid == 0) newtype = RTS_OSPF_IA;
-    if (oefn->n.oa->areaid == 0) oldtype = RTS_OSPF_IA;
-
-    if (newtype < oldtype) return 1;
-    if (newtype > oldtype) return 0;
+    if (new_pref < old_pref)
+      return 0;
   }
 
   if (new->metric1 < old->metric1)
@@ -107,44 +105,100 @@ ri_better(struct proto_ospf *po, orta * new, ort *nefn, orta * old, ort *oefn, i
   if (new->metric1 > old->metric1)
     return 0;
 
-  if (new->oa->areaid > old->oa->areaid) return 1;	/* Larger AREAID is preffered */
+  /* Larger area ID is preferred */
+  if (new->oa->areaid > old->oa->areaid)
+    return 1;
 
-  return 0;			/* Old is shorter or same */
+  return 0;
 }
 
-static void
-ri_install(struct proto_ospf *po, ip_addr prefix, int pxlen, int dest,
-	   orta * new, ort * ipath)
+/* 16.4. (6), return 1 if new is better */
+static int
+ri_better_ext(struct proto_ospf *po, orta *new, orta *old)
 {
-  struct ospf_area *oa = new->oa;
-  ort *old;
+  if (old->type == RTS_DUMMY)
+    return 1;
 
-  if (dest == ORT_NET)
-  {
-    struct area_net *anet;
-    old = (ort *) fib_get(&po->rtf, &prefix, pxlen);
-    if (ri_better(po, new, ipath, &old->n, old->efn, 1))
-    {
-      memcpy(&old->n, new, sizeof(orta));
-      old->efn = ipath;
-      if ((new->type == RTS_OSPF) && (anet = (struct area_net *)fib_route(&oa->net_fib, prefix, pxlen)))
-      {
-        anet->active = 1;
-        if (new->metric1 > anet->metric) anet->metric = new->metric1;
-      }
-    }
-  }
-  else
-  {
-    old = (ort *) fib_get(&oa->rtr, &prefix, pxlen);
+  if (old->metric1 == LSINFINITY)
+    return 1;
 
-    if (ri_better(po, new, ipath, &old->n, old->efn, 1))
-    {
-      memcpy(&old->n, new, sizeof(orta));
-      old->efn = ipath;
-    }
+  /* 16.4. (6a) */
+  if (new->type < old->type)
+    return 1;
+
+  if (new->type > old->type)
+    return 0;
+
+  /* 16.4. (6b), same type */
+  if (new->type == RTS_OSPF_EXT2)
+  {
+    if (new->metric2 < old->metric2)
+      return 1;
+
+    if (new->metric2 > old->metric2)
+      return 0;
   }
+
+  /* 16.4. (6c) */
+  if (!po->rfc1583)
+  {
+    u32 new_pref = new->options & ORTA_PREF;
+    u32 old_pref = old->options & ORTA_PREF;
+
+    if (new_pref > old_pref)
+      return 1;
+
+    if (new_pref < old_pref)
+      return 0;
+  }
+
+  /* 16.4. (6d) */
+  if (new->metric1 < old->metric1)
+    return 1;
+
+  if (new->metric1 > old->metric1)
+    return 0;
+
+  return 0;
 }
+
+static inline void
+ri_install_net(struct proto_ospf *po, ip_addr prefix, int pxlen, orta *new)
+{
+  ort *old = (ort *) fib_get(&po->rtf, &prefix, pxlen);
+  if (ri_better(po, new, &old->n))
+    memcpy(&old->n, new, sizeof(orta));
+}
+
+static inline void
+ri_install_rt(struct ospf_area *oa, u32 rid, orta *new)
+{
+  ip_addr addr = ipa_from_rid(rid);
+  ort *old = (ort *) fib_get(&oa->rtr, &addr, MAX_PREFIX_LENGTH);
+  if (ri_better(oa->po, new, &old->n))
+    memcpy(&old->n, new, sizeof(orta));
+}
+
+static inline void
+ri_install_ext(struct proto_ospf *po, ip_addr prefix, int pxlen, orta *new)
+{
+  ort *old = (ort *) fib_get(&po->rtf, &prefix, pxlen);
+  if (ri_better_ext(po, new, &old->n))
+    memcpy(&old->n, new, sizeof(orta));
+}
+
+static inline void
+update_anet(struct ospf_area *oa, ip_addr prefix, int pxlen, u32 metric)
+{
+  struct area_net *anet = (struct area_net *) fib_route(&oa->net_fib, prefix, pxlen);
+  if (!anet)
+    return;
+  
+  anet->active = 1;
+  if (metric > anet->metric)
+    anet->metric = metric;
+}
+
 
 #ifdef OSPFv2
 
@@ -188,17 +242,17 @@ find_stub_src(struct ospf_area *oa, ip_addr px, int pxlen)
 static void
 add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_hash_entry *en)
 {
-  orta nf;
-  nf.type = RTS_OSPF;
-  nf.options = 0;
-  nf.metric1 = metric;
-  nf.metric2 = LSINFINITY;
-  nf.tag = 0;
-  nf.oa = oa;
-  nf.ar = en;
-  nf.nh = en->nh;
-  nf.ifa = en->nhi;
-  nf.rid = en->lsa.rt;
+  orta nf = {
+    .type = RTS_OSPF,
+    .options = 0,
+    .metric1 = metric,
+    .metric2 = LSINFINITY,
+    .tag = 0,
+    .rid = en->lsa.rt,
+    .oa = oa,
+    .ifa = en->nhi,
+    .nh = en->nh
+  };
 
   if (en == oa->rt)
   {
@@ -210,12 +264,14 @@ add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_
      */
 
     nf.ifa = find_stub_src(oa, px, pxlen);
+    nf.nh = IPA_NONE;
 
     if (!nf.ifa)
       return;
   }
 
-  ri_install(oa->po, px, pxlen, ORT_NET, &nf, NULL);
+  ri_install_net(oa->po, px, pxlen, &nf);
+  update_anet(oa, px, pxlen, metric);
 }
 
 #ifdef OSPFv3
@@ -255,6 +311,10 @@ process_prefixes(struct ospf_area *oa)
     if (!src)
       continue;
 
+    /* Reachable in SPF */
+    if (src->color != INSPF)
+      continue;
+
     if (src->lsa.age == LSA_MAXAGE)
       continue;
 
@@ -268,6 +328,10 @@ process_prefixes(struct ospf_area *oa)
 
 	if (pxopts & OPT_PX_NU)
 	  continue;
+
+	/* Store the first global address to use it later as a vlink endpoint */
+	if ((pxopts & OPT_PX_LA) && ipa_zero(src->lb))
+	  src->lb = pxa;
 
 	add_network(oa, pxa, pxlen, src->dist + metric, src);
       }
@@ -329,7 +393,7 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
     }
 }
 
-/* 16.1 calculating shortest paths for an area */
+/* RFC 2328 16.1. calculating shortest paths for an area */
 static void
 ospf_rt_spfa(struct ospf_area *oa)
 {
@@ -337,10 +401,8 @@ ospf_rt_spfa(struct ospf_area *oa)
   struct proto_ospf *po = oa->po;
   struct ospf_lsa_rt *rt;
   struct ospf_lsa_net *ln;
-  struct ospf_iface *iface;
   struct top_hash_entry *act, *tmp;
   u32 i, *rts;
-  orta nf;
   node *n;
 
   if (oa->rt == NULL)
@@ -380,20 +442,27 @@ ospf_rt_spfa(struct ospf_area *oa)
       if (rt->options & OPT_RT_V)
 	oa->trcap = 1;
 
-      /* In OSPFv2, just ASBRs and ABRs are needed to add to oa->rtr table */
-      // ((rt->options & OPT_RT_V) || (rt->options & OPT_RT_E))
-
-      nf.type = RTS_OSPF;
-      nf.options = rt->options;
-      nf.metric1 = act->dist;
-      nf.metric2 = LSINFINITY;
-      nf.tag = 0;
-      nf.oa = oa;
-      nf.ar = act;
-      nf.nh = act->nh;
-      nf.ifa = act->nhi;
-      nf.rid = act->lsa.rt;
-      ri_install(po, ipa_from_rid(act->lsa.rt), MAX_PREFIX_LENGTH, ORT_ROUTER, &nf, NULL);
+      /*
+       * In OSPFv3, all routers are added to per-area routing
+       * tables. But we use it just for ASBRs and ABRs. For the
+       * purpose of the last step in SPF - prefix-LSA processing in
+       * process_prefixes(), we use information stored in LSA db.
+       */
+      if ((rt->options & OPT_RT_E) || (rt->options & OPT_RT_B))
+      {
+	orta nf = {
+	  .type = RTS_OSPF,
+	  .options = rt->options,
+	  .metric1 = act->dist,
+	  .metric2 = LSINFINITY,
+	  .tag = 0,
+	  .rid = act->lsa.rt,
+	  .oa = oa,
+	  .ifa = act->nhi,
+	  .nh = act->nh
+	};
+	ri_install_rt(oa, act->lsa.rt, &nf);
+      }
 
 #ifdef OSPFv2
       ospf_rt_spfa_rtlinks(oa, act, act);
@@ -430,37 +499,6 @@ ospf_rt_spfa(struct ospf_area *oa)
 #ifdef OSPFv3
   process_prefixes(oa);
 #endif
-
-  /* Find new/lost VLINK peers */
-  WALK_LIST(iface, po->iface_list)
-  {
-    if ((iface->type == OSPF_IT_VLINK) && (iface->voa == oa))
-    {
-      if ((tmp = ospf_hash_find_rt(po->gr, oa->areaid, iface->vid)) &&
-	  (!ipa_equal(tmp->lb, IPA_NONE)))
-      {
-        if ((iface->state != OSPF_IS_PTP) || (iface->vifa != tmp->nhi) || (!ipa_equal(iface->vip, tmp->lb)))
-        {
-          OSPF_TRACE(D_EVENTS, "Vlink peer %R found", tmp->lsa.id);
-          ospf_iface_sm(iface, ISM_DOWN);
-	  iface->vifa = tmp->nhi;
-          iface->iface = tmp->nhi->iface;
-	  iface->addr = tmp->nhi->addr;
-	  iface->sk = tmp->nhi->sk;
-          iface->vip = tmp->lb;
-          ospf_iface_sm(iface, ISM_UP);
-        }
-      }
-      else
-      {
-        if (iface->state > OSPF_IS_DOWN)
-        {
-          OSPF_TRACE(D_EVENTS, "Vlink peer %R lost", iface->vid);
-	  ospf_iface_sm(iface, ISM_DOWN);
-        }
-      }
-    }
-  }
 }
 
 static int
@@ -475,8 +513,13 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 
   if (!en || !par) return 0;
 
-  // FIXME lb should be properly set for vlinks */
+  /* In OSPFv2, en->lb is set here. In OSPFv3, en->lb is just cleared here,
+     it is set in process_prefixes() to any global addres in the area */
+
   en->lb = IPA_NONE;
+#ifdef OSPFv3
+  en->lb_id = 0;
+#endif
   switch (en->lsa.type)
   {
     case LSA_T_RT:
@@ -500,6 +543,8 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 	  {
 #ifdef OSPFv2
 	    en->lb = ipa_from_u32(rtl->data);
+#else /* OSPFv3 */
+	    en->lb_id = rtl->lif;
 #endif
 	    return 1;
 	  }
@@ -534,7 +579,133 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
   return 0;
 }
 
-/* 16.3 examining summary-LSAs in transit areas */
+  
+/* RFC 2328 16.2. calculating inter-area routes */
+static void
+ospf_rt_sum(struct ospf_area *oa)
+{
+  struct proto_ospf *po = oa->po;
+  struct proto *p = &po->proto;
+  struct top_hash_entry *en;
+  ip_addr ip = IPA_NONE;
+  u32 dst_rid = 0;
+  u32 metric, options;
+  struct area_net *anet;
+  ort *abr;
+  int pxlen = -1, type = -1;
+
+  OSPF_TRACE(D_EVENTS, "Starting routing table calculation for inter-area (area %R)", oa->areaid);
+
+  WALK_SLIST(en, po->lsal)
+  {
+    if ((en->lsa.type != LSA_T_SUM_RT) && (en->lsa.type != LSA_T_SUM_NET))
+      continue;
+
+    if (en->domain != oa->areaid)
+      continue;
+
+    /* 16.2. (1a) */
+    if (en->lsa.age == LSA_MAXAGE)
+      continue;
+
+    /* 16.2. (2) */
+    if (en->lsa.rt == po->router_id)
+      continue;
+
+
+    if (en->lsa.type == LSA_T_SUM_NET)
+    {
+      struct ospf_area *oaa;
+      int skip = 0;
+
+#ifdef OSPFv2
+      struct ospf_lsa_sum *ls = en->lsa_body;
+      pxlen = ipa_mklen(ls->netmask);
+      ip = ipa_and(ipa_from_u32(en->lsa.id), ls->netmask);
+#else /* OSPFv3 */
+      u8 pxopts;
+      u16 rest;
+      struct ospf_lsa_sum_net *ls = en->lsa_body;
+      lsa_get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
+
+      if (pxopts & OPT_PX_NU)
+	continue;
+#endif
+
+      metric = ls->metric & METRIC_MASK;
+      options = 0;
+      type = ORT_NET;
+
+      /* 16.2. (3) */
+      WALK_LIST(oaa, po->area_list)
+      {
+        if ((anet = fib_find(&oaa->net_fib, &ip, pxlen)) && anet->active)
+	{
+	  skip = 1;
+	  break;
+	}
+      }
+      if (skip)
+	continue;
+    }
+    else /* LSA_T_SUM_RT */
+    {
+#ifdef OSPFv2
+      struct ospf_lsa_sum *ls = en->lsa_body;
+      dst_rid = en->lsa.id;
+      options = 0;
+#else /* OSPFv3 */
+      struct ospf_lsa_sum_rt *ls = en->lsa_body;
+      dst_rid = ls->drid; 
+      options = ls->options & OPTIONS_MASK;
+#endif
+
+      metric = ls->metric & METRIC_MASK;
+      options |= ORTA_ASBR;
+      type = ORT_ROUTER;
+    }
+
+    /* 16.2. (1b) */
+    if (metric == LSINFINITY)
+      continue;
+
+    /* 16.2. (4) */
+    ip_addr abrip = ipa_from_rid(en->lsa.rt);
+    abr = (ort *) fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH);
+    if (!abr || !abr->n.type)
+      continue;
+
+    if (abr->n.metric1 == LSINFINITY)
+      continue;
+
+    if (!(abr->n.options & ORTA_ABR))
+      continue;
+
+    /* This check is not mentioned in RFC 2328 */
+    if (abr->n.type != RTS_OSPF)
+      continue;
+
+    /* 16.2. (5) */
+    orta nf = {
+      .type = RTS_OSPF_IA,
+      .options = options,
+      .metric1 = abr->n.metric1 + metric,
+      .metric2 = LSINFINITY,
+      .tag = 0,
+      .rid = en->lsa.rt, /* ABR ID */
+      .oa = oa,
+      .ifa = abr->n.ifa,
+      .nh = abr->n.nh
+    };
+
+    if (type == ORT_NET)
+      ri_install_net(po, ip, pxlen, &nf);
+    else
+      ri_install_rt(oa, dst_rid, &nf);
+  }
+}
+
+/* RFC 2328 16.3. examining summary-LSAs in transit areas */
 static void
 ospf_rt_sum_tr(struct ospf_area *oa)
 {
@@ -546,7 +717,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
   u32 dst_rid, metric, options;
   int pxlen = -1, type = -1;
   ort *re = NULL, *abr;
-  orta nf;
+
 
   if (!bb) return;
 
@@ -561,9 +732,6 @@ ospf_rt_sum_tr(struct ospf_area *oa)
     /* 16.3 (1a) */
     if (en->lsa.age == LSA_MAXAGE)
       continue;
-
-    // if (en->dist == LSINFINITY)
-    //   continue;
 
     /* 16.3 (2) */
     if (en->lsa.rt == po->router_id)
@@ -615,221 +783,46 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       continue; 
 
     /* 16.3 (3) */
-    if (!re || !re->n.type) continue;
-    if (re->n.oa->areaid != 0) continue;
-    if ((re->n.type != RTS_OSPF) && (re->n.type != RTS_OSPF_IA)) continue;
+    if (!re || !re->n.type)
+      continue;
+
+    if (re->n.oa->areaid != 0)
+      continue;
+
+    if ((re->n.type != RTS_OSPF) && (re->n.type != RTS_OSPF_IA))
+      continue;
 
     /* 16.3. (4) */
     abrip = ipa_from_rid(en->lsa.rt);
     abr = fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH);
-    if (!abr || !abr->n.type) continue;
+    if (!abr || !abr->n.type)
+      continue;
 
-    nf.type = re->n.type;
-    nf.options = options;
-    nf.metric1 = abr->n.metric1 + metric;
-    nf.metric2 = LSINFINITY;
-    nf.tag = 0;
-    nf.oa = oa;
-    nf.ar = abr->n.ar;
-    nf.nh = abr->n.nh;
-    nf.ifa = abr->n.ifa;
-    nf.rid = en->lsa.rt; /* ABR ID */
-    ri_install(po, ip, pxlen, type, &nf, NULL);
+    metric = abr->n.metric1 + metric; /* IAC */
+
+    /* 16.3. (5) */
+    if (metric <= re->n.metric1)
+    {
+      /* We want to replace the next-hop even if the metric is equal
+	 to replace a virtual next-hop through vlink with a real one */
+      re->n.metric1 = metric;
+      re->n.nh = abr->n.nh;
+      re->n.ifa = abr->n.ifa;
+    }
   }
 }
-  
-/* 16.2 calculating inter-area routes */
+
+/* RFC 2328 G.3 - incomplete resolution of virtual next hops */
 static void
-ospf_rt_sum(struct ospf_area *oa)
+ospf_cleanup_vlinks(struct proto_ospf *po)
 {
-  struct proto_ospf *po = oa->po;
-  struct proto *p = &po->proto;
-  struct top_hash_entry *en;
-  ip_addr ip, abrip;	/* abrIP is actually ID */
-  u32 dst_rid, metric, options;
-  struct area_net *anet;
-  orta nf;
-  ort *abr;
-  int pxlen = -1, type = -1;
-
-  OSPF_TRACE(D_EVENTS, "Starting routing table calculation for inter-area (area %R)", oa->areaid);
-
-  WALK_SLIST(en, po->lsal)
-  {
-    if ((en->lsa.type != LSA_T_SUM_RT) && (en->lsa.type != LSA_T_SUM_NET))
-      continue;
-
-    if (en->domain != oa->areaid)
-      continue;
-
-    /* Page 169 (1) */
-    if (en->lsa.age == LSA_MAXAGE)
-      continue;
-
-    /* Page 169 (2) */
-    if (en->lsa.rt == po->router_id)
-      continue;
-
-
-    if (en->lsa.type == LSA_T_SUM_NET)
-    {
-      struct ospf_area *oaa;
-      int skip = 0;
-
-#ifdef OSPFv2
-      struct ospf_lsa_sum *ls = en->lsa_body;
-      pxlen = ipa_mklen(ls->netmask);
-      ip = ipa_and(ipa_from_u32(en->lsa.id), ls->netmask);
-#else /* OSPFv3 */
-      u8 pxopts;
-      u16 rest;
-      struct ospf_lsa_sum_net *ls = en->lsa_body;
-      lsa_get_ipv6_prefix(ls->prefix, &ip, &pxlen, &pxopts, &rest);
-
-      if (pxopts & OPT_PX_NU)
-	continue;
-#endif
-
-      metric = ls->metric & METRIC_MASK;
-      options = 0;
-      type = ORT_NET;
-
-      /* Page 169 (3) */
-      WALK_LIST(oaa, po->area_list)
-      {
-        if ((anet = fib_find(&oaa->net_fib, &ip, pxlen)) && anet->active)
-	{
-	  skip = 1;
-	  break;
-	}
-      }
-      if (skip) continue;
-    }
-    else
-    {
-#ifdef OSPFv2
-      struct ospf_lsa_sum *ls = en->lsa_body;
-      dst_rid = en->lsa.id;
-      options = 0;
-#else /* OSPFv3 */
-      struct ospf_lsa_sum_rt *ls = en->lsa_body;
-      dst_rid = ls->drid; 
-      options = ls->options & OPTIONS_MASK;
-#endif
-
-      ip = ipa_from_rid(dst_rid);
-      pxlen = MAX_PREFIX_LENGTH;
-      metric = ls->metric & METRIC_MASK;
-      options |= ORTA_ASBR;
-      type = ORT_ROUTER;
-    }
-
-    /* Page 169 (1) */
-    if (metric == LSINFINITY)
-      continue;
-
-    /* Page 169 (4) */
-    abrip = ipa_from_rid(en->lsa.rt);
-
-    abr = (ort *) fib_find(&oa->rtr, &abrip, MAX_PREFIX_LENGTH);
-    if (!abr || !abr->n.type) continue;
-    if (abr->n.metric1 == LSINFINITY) continue;
-    if (!(abr->n.options & ORTA_ABR)) continue;
-
-    nf.type = RTS_OSPF_IA;
-    nf.options = options;
-    nf.metric1 = abr->n.metric1 + metric;
-    nf.metric2 = LSINFINITY;
-    nf.tag = 0;
-    nf.oa = oa;
-    nf.ar = abr->n.ar;
-    nf.nh = abr->n.nh;
-    nf.ifa = abr->n.ifa;
-    nf.rid = en->lsa.rt; /* ABR ID */
-    ri_install(po, ip, pxlen, type, &nf, NULL);
-  }
-}
-
-/**
- * ospf_rt_spf - calculate internal routes
- * @po: OSPF protocol
- *
- * Calculation of internal paths in an area is described in 16.1 of RFC 2328.
- * It's based on Dijkstra's shortest path tree algorithms.
- * This function is invoked from ospf_disp().
- */
-void
-ospf_rt_spf(struct proto_ospf *po)
-{
-  struct proto *p = &po->proto;
-  struct ospf_area *oa;
-  ort *ri;
-  struct area_net *anet;
-
-  if (po->areano == 0) return;
-
-  po->cleanup = 1;
-
-  OSPF_TRACE(D_EVENTS, "Starting routing table calculation");
-
-  /* 16. (1) - Invalidate old routing table */
   FIB_WALK(&po->rtf, nftmp)
   {
-    ri = (ort *) nftmp;
-    memcpy(&ri->o, &ri->n, sizeof(orta));	/* Backup old data */
-    fill_ri(&ri->n);
+    ort *nf = (ort *) nftmp;
+    if (nf->n.type && (nf->n.ifa->type == OSPF_IT_VLINK))
+      fill_ri(&nf->n);
   }
   FIB_WALK_END;
-
-
-  WALK_LIST(oa, po->area_list)
-  {
-    FIB_WALK(&oa->rtr, nftmp)
-    {
-      ri = (ort *) nftmp;
-      memcpy(&ri->o, &ri->n, sizeof(orta));	/* Backup old data */
-      fill_ri(&ri->n);
-    }
-    FIB_WALK_END;
-
-    FIB_WALK(&oa->net_fib, nftmp)
-    {
-      anet = (struct area_net *) nftmp;
-      anet->active = 0;
-      anet->metric = 1;
-    }
-    FIB_WALK_END;
-
-    /* 16. (2) */
-    ospf_rt_spfa(oa);
-  }
-
-  /* 16. (3) */
-  if ((po->areano == 1) || (!po->backbone))
-  {
-    ospf_rt_sum(HEAD(po->area_list));
-  }
-  else
-  {
-    ospf_rt_sum(po->backbone);
-  }
-
-  /* 16. (4) */
-  WALK_LIST(oa, po->area_list)
-  {
-    if (oa->trcap && (oa->areaid != 0))
-    {
-      ospf_rt_sum_tr(oa);
-      break;
-    }
-  }
-
-  /* 16. (5) */
-  ospf_ext_spf(po);
-
-  rt_sync(po);
-
-  po->calcrt = 0;
 }
 
 /**
@@ -843,7 +836,7 @@ ospf_rt_spf(struct proto_ospf *po)
 static void
 ospf_ext_spf(struct proto_ospf *po)
 {
-  ort *nf1, *nf2, *nfh;
+  ort *nf1, *nf2;
   orta nfa;
   struct top_hash_entry *en;
   struct proto *p = &po->proto;
@@ -852,7 +845,6 @@ ospf_ext_spf(struct proto_ospf *po)
   ip_addr ip, nh, rtid, rt_fwaddr;
   struct ospf_iface *nhi = NULL;
   u32 br_metric, rt_metric, rt_tag;
-  neighbor *nn;
   struct ospf_area *atmp;
 
   OSPF_TRACE(D_EVENTS, "Starting routing table calculation for ext routes");
@@ -862,6 +854,7 @@ ospf_ext_spf(struct proto_ospf *po)
     /* 16.4. (1) */
     if (en->lsa.type != LSA_T_EXT)
       continue;
+
     if (en->lsa.age == LSA_MAXAGE)
       continue;
 
@@ -921,52 +914,47 @@ ospf_ext_spf(struct proto_ospf *po)
     nf1 = NULL;
     WALK_LIST(atmp, po->area_list)
     {
-      nfh = fib_find(&atmp->rtr, &rtid, MAX_PREFIX_LENGTH);
-      if (!nfh || !nfh->n.type) continue;    
-      if (nf1 == NULL) nf1 = nfh;
-      else if (ri_better(po, &nfh->n, NULL, &nf1->n, NULL, po->rfc1583)) nf1 = nfh;
+      ort *nfh = fib_find(&atmp->rtr, &rtid, MAX_PREFIX_LENGTH);
+      if (!nfh || !nfh->n.type)
+	continue;
+
+      if (nfh->n.metric1 == LSINFINITY)
+	continue;
+
+      if (!nf1 || ri_better_asbr(po, &nfh->n, &nf1->n))
+	nf1 = nfh;
     }
 
     if (!nf1)
       continue;			/* No AS boundary router found */
-
-    if (nf1->n.metric1 == LSINFINITY)
-      continue;			/* distance is INF */
 
     if (!(nf1->n.options & ORTA_ASBR))
       continue;			/* It is not ASBR */
 
     if (!rt_fwaddr_valid)
     {
+      nf2 = nf1;
       nh = nf1->n.nh;
       nhi = nf1->n.ifa;
-      nfh = nf1;
       br_metric = nf1->n.metric1;
     }
     else
     {
+      /* FIXME: what about more specific dummy route? */
       nf2 = fib_route(&po->rtf, rt_fwaddr, MAX_PREFIX_LENGTH);
-
-      if (!nf2)
-      {
-	DBG("Cannot find network route (GW=%I)\n", rt_fwaddr);
+      if (!nf2) /* nf2->n.type is checked later */
 	continue;
-      }
 
-      if ((nn = neigh_find(p, &rt_fwaddr, 0)) != NULL)
-      {
-	nh = rt_fwaddr;
-	nhi = ospf_iface_find(po, nn->iface);
-      }
-      else
-      {
-	nh = nf2->n.nh;
-	nhi = nf2->n.ifa;
-      }
+      if (nf2->n.metric1 == LSINFINITY)
+        continue;
 
+      if ((nf2->n.type != RTS_OSPF) && (nf2->n.type != RTS_OSPF_IA))
+	continue;
+
+      /* If nh is zero, it is a device route */
+      nh = ipa_nonzero(nf2->n.nh) ? nf2->n.nh : rt_fwaddr;
+      nhi = nf2->n.ifa;
       br_metric = nf2->n.metric1;
-      if (br_metric == LSINFINITY)
-        continue;			/* distance is INF */
     }
 
     if (ebit)
@@ -982,16 +970,145 @@ ospf_ext_spf(struct proto_ospf *po)
       nfa.metric2 = LSINFINITY;
     }
 
-    nfa.options = 0;
+    /* Mark the LSA as reachable */
+    en->color = INSPF;
+
+    /* Whether the route is preferred in route selection according to 16.4.1 */
+    nfa.options = epath_preferred(&nf2->n) ? ORTA_PREF : 0;
+
     nfa.tag = rt_tag;
-    nfa.oa = (po->backbone == NULL) ? HEAD(po->area_list) : po->backbone;
-    nfa.ar = nf1->n.ar;
-    nfa.nh = nh;
-    nfa.ifa = nhi;
     nfa.rid = en->lsa.rt;
-    ri_install(po, ip, pxlen, ORT_NET, &nfa, nfh);
+    nfa.oa = nf1->n.oa; /* undefined in RFC 2328 */
+    nfa.ifa = nhi;
+    nfa.nh = nh;
+
+    ri_install_ext(po, ip, pxlen, &nfa);
+  }
+}
+
+/* RFC 2328 16.7. p2 - find new/lost vlink endpoints */
+static void
+ospf_check_vlinks(struct proto_ospf *po)
+{
+  struct proto *p = &po->proto;
+
+  struct ospf_iface *iface;
+  WALK_LIST(iface, po->iface_list)
+  {
+    if (iface->type == OSPF_IT_VLINK)
+    {
+      struct top_hash_entry *tmp;
+      tmp = ospf_hash_find_rt(po->gr, iface->voa->areaid, iface->vid);
+
+      if (tmp && (tmp->color == INSPF)
+	  && (tmp->dist < LSINFINITY)
+	  && ipa_nonzero(tmp->lb))
+      {
+        if ((iface->state != OSPF_IS_PTP)
+	    || (iface->vifa != tmp->nhi)
+	    || !ipa_equal(iface->vip, tmp->lb))
+        {
+          OSPF_TRACE(D_EVENTS, "Vlink peer %R found", tmp->lsa.id);
+          ospf_iface_sm(iface, ISM_DOWN);
+	  iface->vifa = tmp->nhi;
+          iface->iface = tmp->nhi->iface;
+	  iface->addr = tmp->nhi->addr;
+	  iface->sk = tmp->nhi->sk;
+	  iface->cost = tmp->dist;
+          iface->vip = tmp->lb;
+          ospf_iface_sm(iface, ISM_UP);
+        }
+	else if ((iface->state == OSPF_IS_PTP) && (iface->cost != tmp->dist))
+	{
+	  iface->cost = tmp->dist;
+	  schedule_rt_lsa(po->backbone);
+	}
+      }
+      else
+      {
+        if (iface->state > OSPF_IS_DOWN)
+        {
+          OSPF_TRACE(D_EVENTS, "Vlink peer %R lost", iface->vid);
+	  ospf_iface_sm(iface, ISM_DOWN);
+        }
+      }
+    }
+  }
+}
+/**
+ * ospf_rt_spf - calculate internal routes
+ * @po: OSPF protocol
+ *
+ * Calculation of internal paths in an area is described in 16.1 of RFC 2328.
+ * It's based on Dijkstra's shortest path tree algorithms.
+ * This function is invoked from ospf_disp().
+ */
+void
+ospf_rt_spf(struct proto_ospf *po)
+{
+  struct proto *p = &po->proto;
+  struct ospf_area *oa;
+  ort *ri;
+  struct area_net *anet;
+
+  if (po->areano == 0) return;
+
+  OSPF_TRACE(D_EVENTS, "Starting routing table calculation");
+
+  /* 16. (1) - Invalidate old routing table */
+  FIB_WALK(&po->rtf, nftmp)
+  {
+    ri = (ort *) nftmp;
+    memcpy(&ri->o, &ri->n, sizeof(orta));	/* Backup old data */
+    fill_ri(&ri->n);
+  }
+  FIB_WALK_END;
+
+
+  WALK_LIST(oa, po->area_list)
+  {
+    FIB_WALK(&oa->rtr, nftmp)
+    {
+      ri = (ort *) nftmp;
+      memcpy(&ri->o, &ri->n, sizeof(orta));	/* Backup old data */
+      fill_ri(&ri->n);
+    }
+    FIB_WALK_END;
+
+    FIB_WALK(&oa->net_fib, nftmp)
+    {
+      anet = (struct area_net *) nftmp;
+      anet->active = 0;
+      anet->metric = 1;
+    }
+    FIB_WALK_END;
+
+    /* 16. (2) */
+    ospf_rt_spfa(oa);
   }
 
+  /* 16. (3) */
+  if ((po->areano == 1) || (!po->backbone))
+    ospf_rt_sum(HEAD(po->area_list));
+  else
+    ospf_rt_sum(po->backbone);
+
+  /* 16. (4) */
+  WALK_LIST(oa, po->area_list)
+    if (oa->trcap && (oa->areaid != 0))
+      ospf_rt_sum_tr(oa);
+
+  /* G.3 */
+  if (po->backbone && po->backbone->rt &&
+      (((struct ospf_lsa_rt *) po->backbone->rt->lsa_body)->options & OPT_RT_V))
+    ospf_cleanup_vlinks(po);
+
+  /* 16. (5) */
+  ospf_ext_spf(po);
+
+  rt_sync(po);
+
+  po->calcrt = 0;
 }
 
 /* Add LSA into list of candidates in Dijkstra's algorithm */
@@ -1026,7 +1143,7 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   if (dist >= en->dist)
     return;
   /*
-   * FIXME The line above (=) is not a bug, but we don't support multiple
+   * The line above (=) is not a bug, but we don't support multiple
    * next hops. I'll start as soon as nest will
    */
 
@@ -1099,14 +1216,15 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
 	      struct top_hash_entry *par)
 {
   // struct proto *p = &oa->po->proto;
-  struct ospf_neighbor *neigh;
+  struct ospf_neighbor *neigh, *m;
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
 
   /* 16.1.1. The next hop calculation */
   DBG("     Next hop called.\n");
-  if (ipa_equal(par->nh, IPA_NONE))
+  if (ipa_zero(par->nh))
   {
+    u32 rid = en->lsa.rt;
     DBG("     Next hop calculating for id: %R rt: %R type: %u\n",
 	en->lsa.id, en->lsa.rt, en->lsa.type);
 
@@ -1130,32 +1248,73 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
       return 0;
     }
 
-    /* 
-     * Remaining cases - local neighbours.
-     * There are two problems with this code:
-     * 1) we use IP address from HELLO packet
-     *    and not the one from LSA (router or link).
-     *    This may break NBMA networks
-     * 2) we use find_neigh_noifa() and does not
-     *    take into account associated iface.
-     *    This breaks neighbors connected by more links.
-     */
-
-    if ((en->lsa.type == LSA_T_RT) && 
-	((par == oa->rt) || (par->lsa.type == LSA_T_NET)))
+    /* The second case - ptp or ptmp neighbor */
+    if ((en->lsa.type == LSA_T_RT) && (par == oa->rt))
     {
-      if ((neigh = find_neigh_noifa(po, en->lsa.rt)) != NULL)
+      /*
+       * We don't know which iface was used to reach this neighbor
+       * (there might be more parallel ifaces) so we will find
+       * the best PTP iface with given fully adjacent neighbor.
+       */
+      neigh = NULL;
+      WALK_LIST(ifa, po->iface_list)
+	if ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_VLINK))
 	{
-	  en->nh = neigh->ip;
-	  en->nhi = neigh->ifa;
-	  return 1;
+	  m = find_neigh(ifa, rid);
+	  if (m && (m->state == NEIGHBOR_FULL))
+	  {
+	    if (!neigh || (m->ifa->cost < neigh->ifa->cost))
+	      neigh = m;
+	  }
 	}
-      return 0;
+
+      if (!neigh)
+	return 0;
+
+      en->nh = neigh->ip;
+      en->nhi = neigh->ifa;
+      return 1;
     }
 
+    /* The third case - bcast or nbma neighbor */
+    if ((en->lsa.type == LSA_T_RT) && (par->lsa.type == LSA_T_NET))
+    {
+      /* par->nhi should be defined from parent's calc_next_hop() */
+      if (!par->nhi)
+	goto bad;
+
+#ifdef OSPFv2
+      /*
+       * In this case, next-hop is the same as link-back, which is
+       * already computed in link_back().
+       */
+      if (ipa_zero(en->lb))
+	goto bad;
+
+      en->nh = en->lb;
+      en->nhi = par->nhi;
+      return 1;
+
+#else /* OSPFv3 */
+      /*
+       * Next-hop is taken from lladdr field of Link-LSA, en->lb_id
+       * is computed in link_back().
+       */
+      struct top_hash_entry *llsa;
+      llsa = ospf_hash_find(po->gr, par->nhi->iface->index, en->lb_id, rid, LSA_T_LINK);
+
+      if (!llsa || ipa_zero(llsa->lladdr))
+	return 0;
+
+      en->nh = llsa->lladdr;
+      en->nhi = par->nhi;
+      return 1;
+#endif
+    }
+
+  bad:
     /* Probably bug or some race condition, we log it */
     log(L_ERR "Unexpected case in next hop calculation");
-
     return 0;
   }
 
@@ -1189,75 +1348,62 @@ again1:
     check_sum_lsa(po, nf, ORT_NET);
     if (reload || memcmp(&nf->n, &nf->o, sizeof(orta)))
     {				/* Some difference */
-      net *ne;
-      rta a0;
-      rte *e;
+      net *ne = net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
 
-      bzero(&a0, sizeof(a0));
+      rta a0 = {
+	.proto = p,
+	.source = nf->n.type,
+	.scope = SCOPE_UNIVERSE,
+	.cast = RTC_UNICAST
+      };
 
-      a0.proto = p;
-      a0.source = nf->n.type;
-      a0.scope = SCOPE_UNIVERSE;
-      a0.cast = RTC_UNICAST;
-      a0.dest = RTD_ROUTER;
-      a0.flags = 0;
-      a0.aflags = 0;
-      a0.iface = NULL;
-      if (nf->n.ifa) a0.iface = nf->n.ifa->iface;
-      a0.gw = nf->n.nh;
+      if (!nf->n.type)
+	goto remove1;
 
-      if (ipa_nonzero(nf->n.nh) && (!neigh_find2(p, &nf->n.nh, nf->n.ifa->iface, 0)))
+      /* The distance is unreachable (or farther) */
+      if (nf->n.metric1 >= LSINFINITY)
+	goto remove1;
+
+      a0.iface = nf->n.ifa->iface;
+      if (ipa_nonzero(nf->n.nh))
       {
-        int found = 0;
-        struct ospf_iface *ifa;
-        struct top_hash_entry *en;
-        OSPF_TRACE(D_EVENTS, "Trying to find correct next hop %I/%d via %I", nf->fn.prefix, nf->fn.pxlen, nf->n.nh);
-        WALK_LIST(ifa, po->iface_list)
-        {
-          if ((ifa->type == OSPF_IT_VLINK) && ipa_equal(ifa->vip, nf->n.nh))
-          {
-            if ((en = ospf_hash_find_rt(po->gr, ifa->voa->areaid, ifa->vid))
-		&& (!ipa_equal(en->nh, IPA_NONE)))
-            {
-              a0.gw = en->nh;
-              found = 1;
-            }
-            break;
-          }
-        }
-        if (!found) nf->n.metric1 = LSINFINITY; /* Delete it */
-      }
+	neighbor *ng;
+	a0.dest = RTD_ROUTER;
+	a0.gw = nf->n.nh;
 
-      if (ipa_equal(nf->n.nh, IPA_NONE)) a0.dest = RTD_DEVICE;
-
-      if (!a0.iface)	/* Still no match? Can this really happen? */
-        nf->n.metric1 = LSINFINITY;
-
-      ne = net_get(p->table, nf->fn.prefix, nf->fn.pxlen);
-      if (nf->n.metric1 < LSINFINITY)
-      {
-        e = rte_get_temp(&a0);
-        e->u.ospf.metric1 = nf->n.metric1;
-        e->u.ospf.metric2 = nf->n.metric2;
-        e->u.ospf.tag = nf->n.tag;
-        e->u.ospf.router_id = nf->n.rid;
-        e->pflags = 0;
-        e->net = ne;
-        e->pref = p->preference;
-        DBG("Mod rte type %d - %I/%d via %I on iface %s, met %d\n",
-	  a0.source, nf->fn.prefix, nf->fn.pxlen, a0.gw, a0.iface ? a0.iface->name : "(none)", nf->n.metric1);
-	rte_update(p->table, ne, p, p, e);
+	ng = neigh_find2(p, &a0.gw, a0.iface, 0);
+	if (!ng || (ng->scope == SCOPE_HOST))
+	  goto remove1;
       }
       else
-      {
-        rte_update(p->table, ne, p, p, NULL);
-        FIB_ITERATE_PUT(&fit, nftmp);
-        fib_delete(fib, nftmp);
-        goto again1;
-      }
+	a0.dest = RTD_DEVICE;
+
+      /* Add the route */
+      rte *e = rte_get_temp(&a0);
+      e->u.ospf.metric1 = nf->n.metric1;
+      e->u.ospf.metric2 = nf->n.metric2;
+      e->u.ospf.tag = nf->n.tag;
+      e->u.ospf.router_id = nf->n.rid;
+      e->pflags = 0;
+      e->net = ne;
+      e->pref = p->preference;
+      DBG("Mod rte type %d - %I/%d via %I on iface %s, met %d\n",
+	  a0.source, nf->fn.prefix, nf->fn.pxlen, a0.gw, a0.iface ? a0.iface->name : "(none)", nf->n.metric1);
+      rte_update(p->table, ne, p, p, e);
+      goto cont1;
+    
+    remove1:
+      /* Remove the route */
+      rte_update(p->table, ne, p, p, NULL);
+      FIB_ITERATE_PUT(&fit, nftmp);
+      fib_delete(fib, nftmp);
+      goto again1;
     }
   }
+  cont1:
   FIB_ITERATE_END(nftmp);
+
+  ospf_check_vlinks(po);
 
   WALK_LIST(oa, po->area_list)
   {
@@ -1291,7 +1437,8 @@ again2:
       {
         int fl = flush;
 
-        if (oaa == oa) continue;
+        if (oaa == oa)
+	  continue;
 
 	if ((oa == po->backbone) && oaa->trcap) fl = 1;
 

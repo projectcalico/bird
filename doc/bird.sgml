@@ -490,13 +490,18 @@ This argument can be omitted if there exists only a single instance.
 	<tag>show ospf neighbors [<m/name/] ["<m/interface/"]</tag>
 	Show a list of OSPF neighbors and a state of adjacency to them.
 
-	<tag>show ospf state [<m/name/]</tag>
-	Show detailed information about OSPF areas based on a content of link-state database.
-	It shows network topology,  aggregated networks and routers from other areas and external routes.
+	<tag>show ospf state [all] [<m/name/]</tag>
+	Show detailed information about OSPF areas based on a content
+	of the link-state database. It shows network topology, stub
+	networks, aggregated networks and routers from other areas and
+	external routes. The command shows information about reachable
+	network nodes, use option <cf/all/ to show information about
+	all network nodes in the link-state database.
 
-	<tag>show ospf topology [<m/name/]</tag>
-	Show a topology of OSPF areas based on a content of link-state database.
-	It is just a stripped-down version of 'show ospf state'.
+	<tag>show ospf topology [all] [<m/name/]</tag>
+	Show a topology of OSPF areas based on a content of the
+	link-state database.  It is just a stripped-down version of
+	'show ospf state'.
 
 	<tag>show static [<m/name/]</tag>
 	Show detailed information about static routes.
