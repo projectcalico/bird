@@ -1024,6 +1024,23 @@ ospf_rt_abr(struct proto_ospf *po)
   ospf_check_vlinks(po);
 }
 
+/* Like fib_route(), but ignores dummy rt entries */
+static void *
+ospf_fib_route(struct fib *f, ip_addr a, int len)
+{
+  ip_addr a0;
+  ort *nf;
+
+  while (len >= 0)
+  {
+    a0 = ipa_and(a, ipa_mkmask(len));
+    nf = fib_find(f, &a0, len);
+    if (nf && nf->n.type)
+      return nf;
+    len--;
+  }
+  return NULL;
+}
 
 /* RFC 2328 16.4. calculating external routes */
 static void
@@ -1124,9 +1141,8 @@ ospf_ext_spf(struct proto_ospf *po)
     }
     else
     {
-      /* FIXME: what about more specific dummy route? */
-      nf2 = fib_route(&po->rtf, rt_fwaddr, MAX_PREFIX_LENGTH);
-      if (!nf2) /* nf2->n.type is checked later */
+      nf2 = ospf_fib_route(&po->rtf, rt_fwaddr, MAX_PREFIX_LENGTH);
+      if (!nf2)
 	continue;
 
       if ((nf2->n.type != RTS_OSPF) && (nf2->n.type != RTS_OSPF_IA))
