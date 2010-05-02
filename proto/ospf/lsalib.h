@@ -13,8 +13,8 @@
 #ifdef CPU_BIG_ENDIAN
 static inline void htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n) { *n = *h; };
 static inline void ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h) { *h = *n; };
-static inline void htonlsab(void *h, void *n, u16 len) { memcpy(n, h, len); };
-static inline void ntohlsab(void *n, void *h, u16 len) { memcpy(h, n, len); };
+static inline void htonlsab(void *h, void *n, u16 len) { ASSERT(h != n); memcpy(n, h, len); };
+static inline void ntohlsab(void *n, void *h, u16 len) { ASSERT(n != h); memcpy(h, n, len); };
 static inline void htonlsab1(void *h, u16 len) { };
 static inline void ntohlsab1(void *n, u16 len) { };
 #else

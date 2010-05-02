@@ -1050,6 +1050,7 @@ static struct {
   { 2, 5, "Authentication failure" },
   { 2, 6, "Unacceptable hold time" },
   { 2, 7, "Required capability missing" }, /* [RFC3392] */
+  { 2, 8, "No supported AFI/SAFI" }, /* This error msg is nonstandard */
   { 3, 0, "Invalid UPDATE message" },
   { 3, 1, "Malformed attribute list" },
   { 3, 2, "Unrecognized well-known attribute" },

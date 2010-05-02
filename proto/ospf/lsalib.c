@@ -240,7 +240,7 @@ lsasum_check(struct ospf_lsa_header *h, void *body)
     c1 %= 255;
   }
 
-  x = ((length - LSA_CHECKSUM_OFFSET) * c0 - c1) % 255;
+  x = (int)((length - LSA_CHECKSUM_OFFSET) * c0 - c1) % 255;
   if (x <= 0)
     x += 255;
   y = 510 - c0 - x;

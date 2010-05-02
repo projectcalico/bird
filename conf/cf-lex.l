@@ -77,6 +77,9 @@ int (*cf_read_hook)(byte *buf, unsigned int max);
 %}
 
 %option noyywrap
+%option noinput
+%option nounput
+%option noreject
 
 %x COMMENT CCOMM CLI
 
@@ -110,7 +113,7 @@ WHITE [ \t]
 #endif
 }
 
-0x{DIGIT}+ {
+0x{XIGIT}+ {
   char *e;
   long int l;
   errno = 0;
