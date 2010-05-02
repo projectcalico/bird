@@ -95,7 +95,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   }
 
   tmp = !(ps->options & OPT_E);
-  if (tmp != ifa->oa->stub)
+  if (tmp != !!ifa->oa->stub)
   {
     log(L_ERR "%s%I - stub area flag mismatch (%d)", beg, faddr, tmp);
     return;

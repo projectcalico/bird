@@ -47,11 +47,34 @@ orta;
 
 typedef struct ort
 {
+  /*
+   * We use fn.x0 to mark persistent rt entries, that are needed for summary
+   * LSAs that don't have 'proper' rt entry (area networks + default to stubs)
+   * to keep uid stable (used for LSA ID in OSPFv3 - see fibnode_to_lsaid()).
+   */
   struct fib_node fn;
   orta n;
   orta o;
 }
 ort;
+
+/*
+ * Invariants for structs top_hash_entry (nodes of LSA db)
+ * enforced by SPF calculation for final nodes (color == INSPF):
+ * - only router, network and AS-external LSAs
+ * - lsa.age < LSA_MAXAGE
+ * - dist < LSINFINITY (or 2*LSINFINITY for ext-LSAs)
+ * - nhi are non-NULL unless the node is oa->rt (calculating router itself)
+ * - beware, nhi is not valid after SPF calculation
+ * - nh is IFA_NONE iff the node is a local network
+ *
+ * Invariants for structs orta nodes of fib tables po->rtf, oa->rtr:
+ * - nodes may be invalid (fn.type == 0), in that case other invariants don't hold
+ * - n.metric1 may be at most a small multiple of LSINFINITY,
+ *   therefore sums do not overflow
+ * - n.oa and n.ifa are always non-NULL
+ * - oa->rtr does not contain calculating router itself
+ */
 
 void ospf_rt_spf(struct proto_ospf *po);
 void ospf_rt_initort(struct fib_node *fn);

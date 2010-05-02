@@ -142,6 +142,7 @@ ospf_start(struct proto *p)
   struct ospf_config *c = (struct ospf_config *) (p->cf);
   struct ospf_area_config *ac;
   struct ospf_area *oa;
+  int vlinks = 0;
 
   po->router_id = proto_get_router_id(p->cf);
   po->rfc1583 = c->rfc1583;
@@ -188,6 +189,9 @@ ospf_start(struct proto *p)
       oa->stub = 0;
     }
 
+    if (!EMPTY_LIST(ac->vlink_list))
+      vlinks = 1;
+
 #ifdef OSPFv2
     oa->options = (oa->stub ? 0 : OPT_E);
 #else /* OSPFv3 */
@@ -195,35 +199,32 @@ ospf_start(struct proto *p)
 #endif
   }
 
-  /* Add all virtual links as interfaces */
+  /* ABR is always in the backbone */
+  if (((po->areano > 1) || vlinks) && !po->backbone)
   {
-    struct ospf_iface_patt *ipatt;
-    WALK_LIST(ac, c->area_list)
-    {
-      WALK_LIST(ipatt, ac->vlink_list)
-      {
-        if(!po->backbone)
-	{
-          oa = mb_allocz(p->pool, sizeof(struct ospf_area));
-          add_tail(&po->area_list, NODE oa);
-          po->areano++;
-          oa->stub = 0;
-          oa->areaid = 0;
-          oa->rt = NULL;
-          oa->po = po;
-	  fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 16, ospf_area_initfib);
-          fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
-          po->backbone = oa;
+    oa = mb_allocz(p->pool, sizeof(struct ospf_area));
+    add_tail(&po->area_list, NODE oa);
+    po->areano++;
+    oa->stub = 0;
+    oa->areaid = 0;
+    oa->rt = NULL;
+    oa->po = po;
+    fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 16, ospf_area_initfib);
+    fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
+    po->backbone = oa;
 #ifdef OSPFv2
-	  oa->options = OPT_E;
+    oa->options = OPT_E;
 #else /* OSPFv3 */
-	  oa->options = OPT_R | OPT_E | OPT_V6;
+    oa->options = OPT_R | OPT_E | OPT_V6;
 #endif
-	}
-        ospf_iface_new(po, NULL, NULL, ac, ipatt);
-      }
-    }
   }
+
+  /* Add all virtual links as interfaces */
+  struct ospf_iface_patt *ipatt;
+  WALK_LIST(ac, c->area_list)
+    WALK_LIST(ipatt, ac->vlink_list)
+    ospf_iface_new(po, NULL, NULL, ac, ipatt);
+
   return PS_UP;
 }
 
@@ -635,9 +636,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   struct nbma_node *nb1, *nb2, *nbnx;
   struct ospf_area *oa = NULL;
   int found, olddead, newdead;
-  struct area_net_config *anc;
-  struct area_net *an;
-
+  
   if (po->rfc1583 != new->rfc1583)
     return 0;
 
@@ -690,26 +689,8 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
       schedule_rt_lsa(oa);
 
     /* Change net_list */
-    FIB_WALK(&oa->net_fib, nf)	/* First check if some networks are deleted */
-    {
-      found = 0;
-      WALK_LIST(anc, newac->net_list)
-      {
-        if (ipa_equal(anc->px.addr, nf->prefix) && (anc->px.len == nf->pxlen))
-	{
-	  found = 1;
-	  break;
-	}
-	if (!found) flush_sum_lsa(oa, nf, ORT_NET);	/* And flush them */
-      }
-    }
-    FIB_WALK_END;
-
-    WALK_LIST(anc, newac->net_list)	/* Second add new networks */
-    {
-      an = fib_get(&oa->net_fib, &anc->px.addr, anc->px.len);
-      an->hidden = anc->hidden;
-    }
+    fib_free(&oa->net_fib);
+    add_area_nets(oa, newac);
 
     if (!iface_patts_equal(&oldac->patt_list, &newac->patt_list,
 			   (void *) ospf_patt_compare))

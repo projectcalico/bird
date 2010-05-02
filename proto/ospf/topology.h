@@ -67,13 +67,15 @@ void originate_net_lsa(struct ospf_iface *ifa);
 void update_net_lsa(struct ospf_iface *ifa);
 void update_link_lsa(struct ospf_iface *ifa);
 int can_flush_lsa(struct proto_ospf *po);
-int max_ext_lsa(unsigned pxlen);
+
+void originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric);
+void originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 options UNUSED);
+void flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type);
+
 void originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 		       struct ea_list *attrs);
 void flush_ext_lsa(net *n, struct proto_ospf *po);
-void check_sum_lsa(struct proto_ospf *po, ort *nf, int);
-void originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric, u32 options);
-void flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type);
+
 
 #ifdef OSPFv2
 struct top_hash_entry * ospf_hash_find_net(struct top_graph *f, u32 domain, u32 lsa);

@@ -236,11 +236,11 @@ ospf_iface_down(struct ospf_iface *ifa)
   struct proto *p = &po->proto;
   struct ospf_iface *iff;
 
-  OSPF_TRACE(D_EVENTS, "Removing interface %s", ifa->iface->name);
-
-  /* First of all kill all the related vlinks */
   if (ifa->type != OSPF_IT_VLINK)
   {
+    OSPF_TRACE(D_EVENTS, "Removing interface %s", ifa->iface->name);
+
+    /* First of all kill all the related vlinks */
     WALK_LIST(iff, po->iface_list)
     {
       if ((iff->type == OSPF_IT_VLINK) && (iff->vifa == ifa))

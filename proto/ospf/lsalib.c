@@ -47,15 +47,6 @@ ospf_age(struct proto_ospf *po)
 
   WALK_SLIST_DELSAFE(en, nxt, po->lsal)
   {
-    if (po->calcrt)
-    {
-      /* Cleanup before ospf_rt_spf() */
-      en->color = OUTSPF;
-      en->dist = LSINFINITY;
-      en->nhi = NULL;
-      en->nh = IPA_NONE;
-      en->lb = IPA_NONE;
-    }
     if (en->lsa.age == LSA_MAXAGE)
     {
       if (flush)

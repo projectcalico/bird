@@ -81,10 +81,14 @@ fibnode_to_lsaid(struct proto_ospf *po, struct fib_node *fn)
 static inline u32
 fibnode_to_lsaid(struct proto_ospf *po, struct fib_node *fn)
 {
-  /* In OSPFv3, it is simpler. There is not a requirement
-     for membership of the result in input network, so we
-     just use hash-based unique ID. */
-
+  /*
+   * In OSPFv3, it is simpler. There is not a requirement for
+   * membership of the result in the input network, so we just use a
+   * hash-based unique ID of a routing table entry for a route that
+   * originated given LSA. For ext-LSA, it is an imported route in the
+   * nest's routing table (p->table). For summary-LSA, it is a
+   * 'source' route in the protocol internal routing table (po->rtf).
+   */
   return fn->uid;
 }
 
@@ -769,17 +773,6 @@ originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 
   ospf_lsupd_flood(po, NULL, NULL, &lsa, dom, 1);
 }
 
-
-void
-originate_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type, int metric, u32 options)
-{
-  if (type == ORT_NET)
-    originate_sum_net_lsa(oa, fn, metric);
-  else
-    originate_sum_rt_lsa(oa, fn, metric, options);
-}
-
-
 void
 flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
 {
@@ -820,65 +813,6 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
       ospf_lsupd_flood(po, NULL, NULL, &en->lsa, oa->areaid, 1);
       if (can_flush_lsa(po)) flush_lsa(en, po);
     }
-}
-
-
-void
-check_sum_lsa(struct proto_ospf *po, ort *nf, int dest)
-{
-  struct ospf_area *oa;
-  int flush, mlen;
-  ip_addr ip;
-
-  if (po->areano < 2) return;
-
-  if ((nf->n.type > RTS_OSPF_IA) && (nf->o.type > RTS_OSPF_IA)) return;
-
-#ifdef LOCAL_DEBUG
-  DBG("Checking...dest = %d, %I/%d\n", dest, nf->fn.prefix, nf->fn.pxlen);
-  if (nf->n.oa) DBG("New: met=%d, oa=%d\n", nf->n.metric1, nf->n.oa->areaid);
-  if (nf->o.oa) DBG("Old: met=%d, oa=%d\n", nf->o.metric1, nf->o.oa->areaid);
-#endif
-
-  WALK_LIST(oa, po->area_list)
-  {
-    flush = 0;
-    if ((nf->n.metric1 >= LSINFINITY) || (nf->n.type > RTS_OSPF_IA))
-      flush = 1;
-    if ((dest == ORT_ROUTER) && (!(nf->n.options & ORTA_ASBR)))
-      flush = 1;
-    if ((!nf->n.oa) || (nf->n.oa->areaid == oa->areaid))
-      flush = 1;
-
-    if (nf->n.ifa) {
-      if (nf->n.ifa->oa->areaid == oa->areaid)
-        flush = 1;
-      }
-    else flush = 1;
-
-    /* Don't send summary into stub areas
-     * We send just default route (and later) */
-    if (oa->stub)
-      flush = 1;
-    
-    mlen = nf->fn.pxlen;
-    ip = ipa_and(nf->fn.prefix, ipa_mkmask(mlen));
-
-    if ((oa == po->backbone) && (nf->n.type == RTS_OSPF_IA))
-      flush = 1;	/* Only intra-area can go to the backbone */
-
-    if ((!flush) && (dest == ORT_NET) && fib_route(&nf->n.oa->net_fib, ip, mlen))
-    {
-      /* The route fits into area networks */
-      flush = 1;
-      if ((nf->n.oa == po->backbone) && (oa->trcap)) flush = 0;
-    }
-
-    if (flush)
-      flush_sum_lsa(oa, &nf->fn, dest);
-    else
-      originate_sum_lsa(oa, &nf->fn, dest, nf->n.metric1, nf->n.options);
-  }
 }
 
 
