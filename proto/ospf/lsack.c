@@ -183,9 +183,6 @@ ospf_lsack_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
     DBG("Deleting LS Id: %R RT: %R Type: %u from LS Retl for neighbor %R\n",
 	lsa.id, lsa.rt, lsa.type, n->rid);
     s_rem_node(SNODE en);
-    if (en->lsa_body != NULL)
-      mb_free(en->lsa_body);
-    en->lsa_body = NULL;
     ospf_hash_delete(n->lsrth, en);
   }
 }

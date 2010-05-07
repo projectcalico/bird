@@ -241,9 +241,6 @@ ospf_lsupd_flood(struct proto_ospf *po,
 	if ((en = ospf_hash_find_header(nn->lsrth, domain, hh)) != NULL)
 	{
 	  s_rem_node(SNODE en);
-	  if (en->lsa_body != NULL)
-	    mb_free(en->lsa_body);
-	  en->lsa_body = NULL;
 	  ospf_hash_delete(nn->lsrth, en);
 	}
       }
@@ -585,6 +582,23 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 	continue;
       }
 
+      /* Remove old from all ret lists */
+      /* pg 144 (5c) */
+      /* Must be done before (5b), otherwise it also removes the new entries from (5b) */
+      if (lsadb)
+	WALK_LIST(ift, po->iface_list)
+	  WALK_LIST(ntmp, ift->neigh_list)
+      {
+	struct top_hash_entry *en;
+	if (ntmp->state > NEIGHBOR_EXSTART)
+	  if ((en = ospf_hash_find_header(ntmp->lsrth, domain, &lsadb->lsa)) != NULL)
+	  {
+	    s_rem_node(SNODE en);
+	    ospf_hash_delete(ntmp->lsrth, en);
+	  }
+      }
+
+      /* pg 144 (5b) */
       if (ospf_lsupd_flood(po, n, lsa, &lsatmp, domain, 1) == 0)
       {
 	DBG("Wasn't flooded back\n");	/* ps 144(5e), pg 153 */
@@ -595,24 +609,6 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 	}
 	else
 	  ospf_lsack_enqueue(n, lsa, ACKL_DELAY);
-      }
-
-      /* Remove old from all ret lists */
-      /* pg 144 (5c) */
-      if (lsadb)
-	WALK_LIST(ift, po->iface_list)
-	  WALK_LIST(ntmp, ift->neigh_list)
-      {
-	struct top_hash_entry *en;
-	if (ntmp->state > NEIGHBOR_EXSTART)
-	  if ((en = ospf_hash_find_header(ntmp->lsrth, domain, &lsadb->lsa)) != NULL)
-	  {
-	    s_rem_node(SNODE en);
-	    if (en->lsa_body != NULL)
-	      mb_free(en->lsa_body);
-	    en->lsa_body = NULL;
-	    ospf_hash_delete(ntmp->lsrth, en);
-	  }
       }
 
       if ((lsatmp.age == LSA_MAXAGE) && (lsatmp.sn == LSA_MAXSEQNO)
@@ -661,10 +657,8 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       {
 	/* pg145 (7a) */
 	s_rem_node(SNODE en);
-	if (en->lsa_body != NULL)
-	  mb_free(en->lsa_body);
-	en->lsa_body = NULL;
 	ospf_hash_delete(n->lsrth, en);
+
 	if (ifa->state == OSPF_IS_BACKUP)
 	{
 	  if (n->rid == ifa->drid)
