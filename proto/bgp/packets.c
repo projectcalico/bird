@@ -594,7 +594,7 @@ bgp_kick_tx(void *vconn)
   struct bgp_conn *conn = vconn;
 
   DBG("BGP: kicking TX\n");
-  while (bgp_fire_tx(conn))
+  while (bgp_fire_tx(conn) > 0)
     ;
 }
 
@@ -604,7 +604,7 @@ bgp_tx(sock *sk)
   struct bgp_conn *conn = sk->data;
 
   DBG("BGP: TX hook\n");
-  while (bgp_fire_tx(conn))
+  while (bgp_fire_tx(conn) > 0)
     ;
 }
 

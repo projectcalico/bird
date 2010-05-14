@@ -1216,7 +1216,8 @@ sk_maybe_write(sock *s)
 	      if (errno != EINTR && errno != EAGAIN)
 		{
 		  reset_tx_buffer(s);
-		  s->err_hook(s, errno);
+		  /* EPIPE is just a connection close notification during TX */
+		  s->err_hook(s, (errno != EPIPE) ? errno : 0);
 		  return -1;
 		}
 	      return 0;
