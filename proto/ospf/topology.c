@@ -637,11 +637,19 @@ check_sum_net_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
 }
 
 static inline int
-check_ext_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
+check_sum_lsa_same(struct top_hash_entry *en, u32 metric)
 {
-  struct ospf_lsa_ext *ext = en->lsa_body;
-  return fn->pxlen != ipa_mklen(ext->netmask);
+  /* Netmask already checked in check_sum_net_lsaid_collision() */
+  struct ospf_lsa_sum *sum = en->lsa_body;
+  return (sum->metric == metric);
 }
+
+#define check_sum_net_lsa_same(en,metric) \
+  check_sum_lsa_same(en, metric)
+
+#define check_sum_rt_lsa_same(en,drid,metric,options) \
+  check_sum_lsa_same(en, metric)
+
 
 #else /* OSPFv3 */
 
@@ -672,16 +680,11 @@ check_sum_net_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
 }
 
 static inline int
-check_ext_lsaid_collision(struct fib_node *fn, struct top_hash_entry *en)
+check_sum_net_lsa_same(struct top_hash_entry *en, u32 metric)
 {
-  struct ospf_lsa_ext *ext = en->lsa_body;
-  ip_addr prefix;
-  int pxlen;
-  u8 pxopts;
-  u16 rest;
-
-  lsa_get_ipv6_prefix(ext->rest, &prefix, &pxlen, &pxopts, &rest);
-  return (fn->pxlen != pxlen) || !ipa_equal(fn->prefix, prefix);
+  /* Prefix already checked in check_sum_net_lsaid_collision() */
+  struct ospf_lsa_sum_net *sum = en->lsa_body;
+  return (sum->metric == metric);
 }
 
 static inline void *
@@ -690,11 +693,18 @@ originate_sum_rt_lsa_body(struct proto_ospf *po, u16 *length, u32 drid, u32 metr
   struct ospf_lsa_sum_rt *sum = mb_alloc(po->proto.pool, sizeof(struct ospf_lsa_sum_rt));
   *length = sizeof(struct ospf_lsa_header) + sizeof(struct ospf_lsa_sum_rt);
 
-  sum->options = options & OPTIONS_MASK;
+  sum->options = options;
   sum->metric = metric;
   sum->drid = drid;
 
   return sum;
+}
+
+static inline int
+check_sum_rt_lsa_same(struct top_hash_entry *en, u32 drid, u32 metric, u32 options)
+{
+  struct ospf_lsa_sum_rt *sum = en->lsa_body;
+  return (sum->options == options) && (sum->metric == metric) && (sum->drid == drid);
 }
 
 #endif
@@ -725,11 +735,14 @@ originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
   if ((en = ospf_hash_find_header(po->gr, dom, &lsa)) != NULL)
   {
     if (check_sum_net_lsaid_collision(fn, en))
-      {
-	log(L_ERR, "%s: LSAID collision for %I/%d",
-	    p->name, fn->prefix, fn->pxlen);
-	return;
-      }
+    {
+      log(L_ERR, "%s: LSAID collision for %I/%d",
+	  p->name, fn->prefix, fn->pxlen);
+      return;
+    }
+
+    if (check_sum_net_lsa_same(en, metric))
+      return;
 
     lsa.sn = en->lsa.sn + 1;
   }
@@ -764,8 +777,15 @@ originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 
   lsa.rt = po->router_id;
   lsa.sn = LSA_INITSEQNO;
 
+  options &= OPTIONS_MASK;
+
   if ((en = ospf_hash_find_header(po->gr, dom, &lsa)) != NULL)
+  {
+    if (check_sum_rt_lsa_same(en, lsa.id, metric, options))
+      return;
+
     lsa.sn = en->lsa.sn + 1;
+  }
 
   body = originate_sum_rt_lsa_body(po, &lsa.length, lsa.id, metric, options);
   lsasum_calculate(&lsa, body);
@@ -815,64 +835,113 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
     }
 }
 
-
-static void *
-originate_ext_lsa_body(net *n, rte *e, u16 *length, struct proto_ospf *po,
-		       struct ea_list *attrs)
-{
-  struct proto *p = &po->proto;
-  struct ospf_lsa_ext *ext;
-  u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, LSINFINITY);
-  u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 10000);
-  u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
-  int gw = 0;
-  int size = sizeof(struct ospf_lsa_ext);
-
-  // FIXME check for gw should be per ifa, not per iface
-  if ((e->attrs->dest == RTD_ROUTER) &&
-      !ipa_equal(e->attrs->gw, IPA_NONE) &&
-      !ipa_has_link_scope(e->attrs->gw) &&
-      (ospf_iface_find((struct proto_ospf *) p, e->attrs->iface) != NULL))
-    gw = 1;
-
-#ifdef OSPFv3
-  size += IPV6_PREFIX_SPACE(n->n.pxlen);
-
-  if (gw)
-    size += 16;
-  
-  if (tag)
-    size += 4;
-#endif
-  
-  ext = mb_alloc(p->pool, size);
-  *length = sizeof(struct ospf_lsa_header) + size;
-
-  ext->metric = (m1 != LSINFINITY) ? m1 : (m2 | LSA_EXT_EBIT); 
-
 #ifdef OSPFv2
+
+static inline void *
+originate_ext_lsa_body(struct proto_ospf *po, u16 *length, net *n,
+		       u32 metric, ip_addr fwaddr, u32 tag)
+{
+  struct ospf_lsa_ext *ext = mb_alloc(po->proto.pool, sizeof(struct ospf_lsa_ext));
+  *length = sizeof(struct ospf_lsa_header) + sizeof(struct ospf_lsa_ext);
+
+  ext->metric = metric; 
   ext->netmask = ipa_mkmask(n->n.pxlen);
-  ext->fwaddr = gw ? e->attrs->gw : IPA_NONE;
+  ext->fwaddr = fwaddr;
   ext->tag = tag;
-#else /* OSPFv3 */
-  u32 *buf = ext->rest;
-  buf = put_ipv6_prefix(buf, n->n.prefix, n->n.pxlen, 0, 0);
-
-  if (gw)
-    {
-      ext->metric |= LSA_EXT_FBIT;
-      buf = put_ipv6_addr(buf, e->attrs->gw);
-    }
-
-  if (tag)
-    {
-      ext->metric |= LSA_EXT_TBIT;
-      *buf++ = tag;
-    }
-#endif
 
   return ext;
 }
+
+/*
+ * check_ext_lsa() combines functions of check_*_lsaid_collision() and
+ * check_*_lsa_same(). 'en' is existing ext LSA, and rest parameters
+ * are parameters of new ext route.  Function returns -1 if there is
+ * LSAID collision, returns 1 if the existing LSA is the same and
+ * returns 0 otherwise (in that case, we need to originate a new LSA).
+ *
+ * Really, checking for the same parameters is not as important as in
+ * summary LSA origination, because in most cases the duplicate
+ * external route propagation would be stopped by the nest. But there
+ * are still some cases (route reload, the same route propagated through
+ * different protocol) so it is also done here.
+ */
+
+static inline int
+check_ext_lsa(struct top_hash_entry *en, struct fib_node *fn, u32 metric, ip_addr fwaddr, u32 tag)
+{
+  struct ospf_lsa_ext *ext = en->lsa_body;
+
+  /* LSAID collision */
+  if  (fn->pxlen != ipa_mklen(ext->netmask))
+    return -1;
+
+  return (ext->metric == metric) && (ext->tag == tag) && (ext->fwaddr == fwaddr);
+}
+
+#else /* OSPFv3 */
+
+static inline void *
+originate_ext_lsa_body(struct proto_ospf *po, u16 *length, net *n,
+		       u32 metric, ip_addr fwaddr, u32 tag)
+{
+  int size = sizeof(struct ospf_lsa_ext)
+    + IPV6_PREFIX_SPACE(n->n.pxlen)
+    + (ipa_nonzero(fwaddr) ? 16 : 0)
+    + (tag ? 4 : 0);
+
+  struct ospf_lsa_ext *ext = mb_alloc(po->proto.pool, size);
+  *length = sizeof(struct ospf_lsa_header) + size;
+
+  ext->metric = metric;
+
+  u32 *buf = ext->rest;
+  buf = put_ipv6_prefix(buf, n->n.prefix, n->n.pxlen, 0, 0);
+
+  if (ipa_nonzero(fwaddr))
+  {
+    ext->metric |= LSA_EXT_FBIT;
+    buf = put_ipv6_addr(buf, fwaddr);
+  }
+
+  if (tag)
+  {
+    ext->metric |= LSA_EXT_TBIT;
+    *buf++ = tag;
+  }
+
+  return ext;
+}
+
+static inline int
+check_ext_lsa(struct top_hash_entry *en, struct fib_node *fn, u32 metric, ip_addr fwaddr, u32 tag)
+{
+  struct ospf_lsa_ext *ext = en->lsa_body;
+  ip_addr prefix;
+  int pxlen;
+  u8 pxopts;
+  u16 rest;
+
+  u32 *buf = lsa_get_ipv6_prefix(ext->rest, &prefix, &pxlen, &pxopts, &rest);
+
+  /* LSAID collision */
+  if ((fn->pxlen != pxlen) || !ipa_equal(fn->prefix, prefix))
+    return -1;
+
+  u32 rt_metric = ext->metric & METRIC_MASK;
+  ip_addr rt_fwaddr = IPA_NONE;
+  u32 rt_tag = 0;
+
+  if (ext->metric & LSA_EXT_FBIT)
+    buf = lsa_get_ipv6_addr(buf, &rt_fwaddr);
+
+  if (ext->metric & LSA_EXT_TBIT)
+    rt_tag = *buf++;
+
+  return (rt_metric == metric) && ipa_equal(rt_fwaddr, fwaddr) && (rt_tag == tag);
+}
+
+
+#endif
 
 /**
  * originate_ext_lsa - new route received from nest and filters
@@ -882,9 +951,7 @@ originate_ext_lsa_body(net *n, rte *e, u16 *length, struct proto_ospf *po,
  * @attrs: list of extended attributes
  *
  * If I receive a message that new route is installed, I try to originate an
- * external LSA. The LSA header of such LSA does not contain information about
- * prefix length, so if I have to originate multiple LSAs for route with
- * different prefixes I try to increment prefix id to find a "free" one.
+ * external LSA.
  *
  * The function also sets flag ebit. If it's the first time, the new router lsa
  * origination is necessary.
@@ -912,19 +979,36 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
   lsa.rt = po->router_id;
   lsa.sn = LSA_INITSEQNO;
 
-  if ((en = ospf_hash_find_header(po->gr, 0, &lsa)) != NULL)
-    {
-      if (check_ext_lsaid_collision(fn, en))
-	{
-	  log(L_ERR, "%s: LSAID collision for %I/%d",
-	      p->name, fn->prefix, fn->pxlen);
-	  return;
-	}
+  /* Compute LSA content */
+  u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, LSINFINITY);
+  u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 10000);
+  u32 metric = (m1 != LSINFINITY) ? m1 : (m2 | LSA_EXT_EBIT);
+  u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
+  ip_addr gw = IPA_NONE;
+  // FIXME check for gw should be per ifa, not per iface
+  if ((e->attrs->dest == RTD_ROUTER) &&
+      ipa_nonzero(e->attrs->gw) &&
+      !ipa_has_link_scope(e->attrs->gw) &&
+      (ospf_iface_find((struct proto_ospf *) p, e->attrs->iface) != NULL))
+    gw = e->attrs->gw;
 
-      lsa.sn = en->lsa.sn + 1;
+  if ((en = ospf_hash_find_header(po->gr, 0, &lsa)) != NULL)
+  {
+    int rv = check_ext_lsa(en, fn, metric, gw, tag);
+    if (rv < 0)
+    {
+      log(L_ERR, "%s: LSAID collision for %I/%d",
+	  p->name, fn->prefix, fn->pxlen);
+      return;
     }
 
-  body = originate_ext_lsa_body(n, e, &lsa.length, po, attrs);
+    if (rv > 0)
+      return;
+
+    lsa.sn = en->lsa.sn + 1;
+  }
+
+  body = originate_ext_lsa_body(po, &lsa.length, n, metric, gw, tag);
   lsasum_calculate(&lsa, body);
 
   en = lsa_install_new(po, &lsa, 0, body);
@@ -954,7 +1038,7 @@ flush_ext_lsa(net *n, struct proto_ospf *po)
 
   if (en = ospf_hash_find(po->gr, 0, lsaid, po->router_id, LSA_T_EXT))
     {
-      if (check_ext_lsaid_collision(fn, en))
+      if (check_ext_lsa(en, fn, 0, IPA_NONE, 0) < 0)
 	{
 	  log(L_ERR, "%s: LSAID collision for %I/%d",
 	      p->name, fn->prefix, fn->pxlen);
