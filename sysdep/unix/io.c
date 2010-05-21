@@ -117,7 +117,8 @@ tracked_fopen(pool *p, char *name, char *mode)
 static list near_timers, far_timers;
 static bird_clock_t first_far_timer = TIME_INFINITY;
 
-bird_clock_t now, now_real;
+/* now must be different from 0, because 0 is a special value in timer->expires */
+bird_clock_t now = 1, now_real;
 
 static void
 update_times_plain(void)
