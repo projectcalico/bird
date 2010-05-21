@@ -340,7 +340,12 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 	{
 #ifdef OSPFv2
 	case LSART_STUB:
-	  /* This violates RFC 2328! But it is mostly harmless. */
+	  /*
+	   * RFC 2328 in 16.1. (2a) says to handle stub networks in an
+	   * second phase after the SPF for an area is calculated. We get
+	   * the same result by handing them here because add_network()
+	   * will keep the best (not the first) found route.
+	   */
 	  add_network(oa, ipa_from_u32(rtl->id),
 		      ipa_mklen(ipa_from_u32(rtl->data)),
 		      act->dist + rtl->metric, act);
