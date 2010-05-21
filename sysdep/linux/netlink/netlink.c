@@ -98,7 +98,9 @@ nl_request_dump(int cmd)
   req.nh.nlmsg_type = cmd;
   req.nh.nlmsg_len = sizeof(req);
   req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-  req.g.rtgen_family = BIRD_PF;
+  /* Is it important which PF_* is used for link-level interface scan?
+     It seems that some information is available only when PF_INET is used. */
+  req.g.rtgen_family = (cmd == RTM_GETLINK) ? PF_INET : BIRD_PF;
   nl_send(&nl_scan, &req.nh);
 }
 
