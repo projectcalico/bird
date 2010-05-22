@@ -230,6 +230,76 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
   return CMP_ERROR;
 }
 
+static int
+clist_set_type(struct f_tree *set, struct f_val *v)
+{
+ switch (set->from.type) {
+  case T_PAIR:
+    v->type = T_PAIR;
+    return 1;
+  case T_QUAD:
+#ifndef IPV6
+  case T_IP:
+#endif
+    v->type = T_QUAD;
+    return 1;
+    break;
+  default:
+    v->type = T_VOID;
+    return 0;
+  }
+}
+
+static int
+clist_match_set(struct adata *clist, struct f_tree *set)
+{
+  if (!clist)
+    return 0;
+
+  struct f_val v;
+  if (!clist_set_type(set, &v))
+    return CMP_ERROR;
+
+  u32 *l = (u32 *) clist->data;
+  u32 *end = l + clist->length/4;
+  while (l < end) {
+    v.val.i = *l++;
+    if (find_tree(set, v))
+      return 1;
+  }
+  return 0;
+}
+
+static struct adata *
+clist_del_matching(struct linpool *pool, struct adata *clist, struct f_tree *set)
+{
+  if (!clist)
+    return NULL;
+
+  struct f_val v;
+  clist_set_type(set, &v);
+
+  u32 tmp[clist->length/4];
+  u32 *l = (u32 *) clist->data;
+  u32 *k = tmp;
+  u32 *end = l + clist->length/4;
+
+  while (l < end) {
+    v.val.i = *l++;
+    if (!find_tree(set, v))
+      *k++ = v.val.i;
+  }
+
+  int nl = (k - tmp) * 4;
+  if (nl == clist->length)
+    return clist;
+
+  struct adata *res = lp_alloc(pool, sizeof(struct adata) + nl);
+  res->length = nl;
+  memcpy(res->data, tmp, nl);
+  return res;
+}
+
 /**
  * val_in_range - implement |~| operator
  * @v1: element
@@ -250,6 +320,9 @@ val_in_range(struct f_val v1, struct f_val v2)
   
   if ((v1.type == T_PREFIX) && (v2.type == T_PREFIX_SET))
     return trie_match_prefix(v2.val.ti, &v1.val.px);
+
+  if ((v1.type == T_CLIST) && (v2.type == T_SET))
+    return clist_match_set(v1.val.ad, v2.val.t);
 
   if (v2.type == T_SET)
     switch (v1.type) {
@@ -845,6 +918,7 @@ interpret(struct f_inst *what)
     if (v1.type != T_CLIST)
       runtime("Can't add/delete to non-clist");
 
+    struct f_val dummy;
     if ((v2.type == T_PAIR) || (v2.type == T_QUAD))
       i = v2.val.i;
 #ifndef IPV6
@@ -852,6 +926,8 @@ interpret(struct f_inst *what)
     else if (v2.type == T_IP)
       i = ipa_to_u32(v2.val.px.ip);
 #endif
+    else if ((v2.type == T_SET) && (what->aux == 'd') && clist_set_type(v2.val.t, &dummy))
+      what->aux = 'D';
     else
       runtime("Can't add/delete non-pair");
 
@@ -859,6 +935,7 @@ interpret(struct f_inst *what)
     switch (what->aux) {
     case 'a': res.val.ad = int_set_add(f_pool, v1.val.ad, i); break;
     case 'd': res.val.ad = int_set_del(f_pool, v1.val.ad, i); break;
+    case 'D': res.val.ad = clist_del_matching(f_pool, v1.val.ad, v2.val.t); break;
     default: bug("unknown Ca operation");
     }
     break;

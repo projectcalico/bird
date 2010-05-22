@@ -243,7 +243,13 @@ set_atom:
  ; 
 
 set_item:
-   set_atom { 
+   '(' NUM ',' '*' ')' { 
+	$$ = f_new_tree(); 
+	$$->from.type = $$->to.type = T_PAIR;
+	$$->from.val.i = make_pair($2, 0); 
+	$$->to.val.i = make_pair($2, 0xffff);
+   }
+ | set_atom { 
 	$$ = f_new_tree(); 
 	$$->from = $1; 
 	$$->to = $1;
