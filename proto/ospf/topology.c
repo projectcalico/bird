@@ -137,6 +137,22 @@ lsab_end(struct proto_ospf *po)
   return ((byte *) po->lsab) + po->lsab_used;
 }
 
+static s32
+get_seqnum(struct top_hash_entry *en)
+{
+  if (!en)
+    return LSA_INITSEQNO;
+
+  if (en->lsa.sn == LSA_MAXSEQNO)
+  {
+    log(L_WARN, "OSPF: Premature origination of LSA (Type: %04x, Id: %R, Rt: %R)",
+	en->lsa.type, en->lsa.id, en->lsa.rt);
+    return LSA_INITSEQNO;
+  }
+
+  return en->lsa.sn++;
+}
+
 
 static int
 configured_stubnet(struct ospf_area *oa, struct ifa *a)
@@ -436,7 +452,7 @@ originate_rt_lsa(struct ospf_area *oa)
 #endif
 
   lsa.rt = po->router_id;
-  lsa.sn = oa->rt ? (oa->rt->lsa.sn + 1) : LSA_INITSEQNO;
+  lsa.sn = get_seqnum(oa->rt);
   u32 dom = oa->areaid;
 
   body = originate_rt_lsa_body(oa, &lsa.length);
@@ -550,7 +566,7 @@ originate_net_lsa(struct ospf_iface *ifa)
 #endif
 
   lsa.rt = po->router_id;
-  lsa.sn = ifa->net_lsa ? (ifa->net_lsa->lsa.sn + 1) : LSA_INITSEQNO;
+  lsa.sn = get_seqnum(ifa->net_lsa);
 
   body = originate_net_lsa_body(ifa, &lsa.length, po);
   lsasum_calculate(&lsa, body);
@@ -730,7 +746,6 @@ originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
   lsa.type = LSA_T_SUM_NET;
   lsa.id = fibnode_to_lsaid(po, fn);
   lsa.rt = po->router_id;
-  lsa.sn = LSA_INITSEQNO;
 
   if ((en = ospf_hash_find_header(po->gr, dom, &lsa)) != NULL)
   {
@@ -743,9 +758,8 @@ originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
 
     if (check_sum_net_lsa_same(en, metric))
       return;
-
-    lsa.sn = en->lsa.sn + 1;
   }
+  lsa.sn = get_seqnum(en);
 
   body = originate_sum_net_lsa_body(po, &lsa.length, fn, metric);
   lsasum_calculate(&lsa, body);
@@ -775,17 +789,14 @@ originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 
   /* In OSPFv3, LSA ID is meaningless, but we still use Router ID of ASBR */
   lsa.id = rid;
   lsa.rt = po->router_id;
-  lsa.sn = LSA_INITSEQNO;
 
   options &= OPTIONS_MASK;
-
   if ((en = ospf_hash_find_header(po->gr, dom, &lsa)) != NULL)
   {
     if (check_sum_rt_lsa_same(en, lsa.id, metric, options))
       return;
-
-    lsa.sn = en->lsa.sn + 1;
   }
+  lsa.sn = get_seqnum(en);
 
   body = originate_sum_rt_lsa_body(po, &lsa.length, lsa.id, metric, options);
   lsasum_calculate(&lsa, body);
@@ -977,7 +988,6 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
   lsa.type = LSA_T_EXT;
   lsa.id = fibnode_to_lsaid(po, fn);
   lsa.rt = po->router_id;
-  lsa.sn = LSA_INITSEQNO;
 
   /* Compute LSA content */
   u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, LSINFINITY);
@@ -1004,9 +1014,8 @@ originate_ext_lsa(net * n, rte * e, struct proto_ospf *po,
 
     if (rv > 0)
       return;
-
-    lsa.sn = en->lsa.sn + 1;
   }
+  lsa.sn = get_seqnum(en);
 
   body = originate_ext_lsa_body(po, &lsa.length, n, metric, gw, tag);
   lsasum_calculate(&lsa, body);
@@ -1100,7 +1109,7 @@ originate_link_lsa(struct ospf_iface *ifa)
   lsa.type = LSA_T_LINK;
   lsa.id = ifa->iface->index;
   lsa.rt = po->router_id;
-  lsa.sn = ifa->link_lsa ? (ifa->link_lsa->lsa.sn + 1) : LSA_INITSEQNO;
+  lsa.sn = get_seqnum(ifa->link_lsa);
   u32 dom = ifa->iface->index;
 
   body = originate_link_lsa_body(ifa, &lsa.length);
@@ -1220,7 +1229,7 @@ originate_prefix_rt_lsa(struct ospf_area *oa)
   lsa.type = LSA_T_PREFIX;
   lsa.id = 0;
   lsa.rt = po->router_id;
-  lsa.sn = oa->pxr_lsa ? (oa->pxr_lsa->lsa.sn + 1) : LSA_INITSEQNO;
+  lsa.sn = get_seqnum(oa->pxr_lsa);
   u32 dom = oa->areaid;
 
   body = originate_prefix_rt_lsa_body(oa, &lsa.length);
@@ -1352,7 +1361,7 @@ originate_prefix_net_lsa(struct ospf_iface *ifa)
   lsa.type = LSA_T_PREFIX;
   lsa.id = ifa->iface->index;
   lsa.rt = po->router_id;
-  lsa.sn = ifa->pxn_lsa ? (ifa->pxn_lsa->lsa.sn + 1) : LSA_INITSEQNO;
+  lsa.sn = get_seqnum(ifa->pxn_lsa);
   u32 dom = ifa->oa->areaid;
 
   body = originate_prefix_net_lsa_body(ifa, &lsa.length);
