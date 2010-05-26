@@ -453,6 +453,10 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
   else
     ifa->type = ip->type;
 
+  /* a loopback/dummy address */
+  if ((addr->pxlen == MAX_PREFIX_LENGTH) && ipa_zero(addr->opposite))
+    ifa->stub = 1;
+
 #ifdef OSPFv2
   if ((ifa->type != OSPF_IT_PTP) && (ifa->type != OSPF_IT_VLINK) &&
       (addr->flags & IA_UNNUMBERED))

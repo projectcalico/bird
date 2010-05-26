@@ -382,10 +382,17 @@ nl_parse_addr(struct nlmsghdr *h)
     }
   if (i->ifa_prefixlen == BITS_PER_IP_ADDRESS)
     {
-      ifa.flags |= IA_UNNUMBERED;
-      memcpy(&ifa.opposite, RTA_DATA(a[IFA_ADDRESS]), sizeof(ifa.opposite));
-      ipa_ntoh(ifa.opposite);
-      ifa.prefix = ifa.brd = ifa.opposite;
+      ip_addr addr;
+      memcpy(&addr, RTA_DATA(a[IFA_ADDRESS]), sizeof(addr));
+      ipa_ntoh(addr);
+      ifa.prefix = ifa.brd = addr;
+
+      /* It is either a peer address, or loopback/dummy address */
+      if (!ipa_equal(ifa.ip, addr))
+	{
+	  ifa.flags |= IA_UNNUMBERED;
+	  ifa.opposite = addr;
+	}
     }
   else
     {
