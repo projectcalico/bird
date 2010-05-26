@@ -244,14 +244,12 @@ add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_
      * Local stub networks does not have proper iface in en->nhi
      * (because they all have common top_hash_entry en).
      * We have to find iface responsible for that stub network.
-     * Some stubnets does not have any iface. Ignore them.
+     * Configured stubnets does not have any iface. They will
+     * be removed in rt_sync().
      */
 
     nf.ifa = find_stub_src(oa, px, pxlen);
     nf.nh = IPA_NONE;
-
-    if (!nf.ifa)
-      return;
   }
 
   ri_install_net(oa->po, px, pxlen, &nf);
@@ -813,7 +811,7 @@ decide_sum_lsa(struct ospf_area *oa, ort *nf, int dest)
     return 0;
 
   /* 12.4.3 p4 */
-  if (nf->n.ifa->oa->areaid == oa->areaid)
+  if (nf->n.ifa && (nf->n.ifa->oa->areaid == oa->areaid))
     return 0;
 
   /* 12.4.3 p5 */
@@ -961,7 +959,7 @@ ospf_rt_abr(struct proto_ospf *po)
 
 
     /* RFC 2328 G.3 - incomplete resolution of virtual next hops */
-    if (nf->n.type && (nf->n.ifa->type == OSPF_IT_VLINK))
+    if (nf->n.type && nf->n.ifa && (nf->n.ifa->type == OSPF_IT_VLINK))
       reset_ri(&nf->n);
 
 
@@ -1151,6 +1149,10 @@ ospf_ext_spf(struct proto_ospf *po)
 	continue;
 
       if ((nf2->n.type != RTS_OSPF) && (nf2->n.type != RTS_OSPF_IA))
+	continue;
+
+      /* Next-hop is a part of a configured stubnet */
+      if (!nf2->n.ifa)
 	continue;
 
       /* If nh is zero, it is a device route */
@@ -1538,6 +1540,10 @@ again1:
 
     if (po->areano > 1)
       check_sum_net_lsa(po, nf);
+
+    /* Remove configured stubnets */
+    if (!nf->n.ifa)
+      reset_ri(&nf->n);
 
     if (reload || memcmp(&nf->n, &nf->o, sizeof(orta)))
     {

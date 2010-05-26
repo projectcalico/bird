@@ -72,7 +72,9 @@ ort;
  * - nodes may be invalid (fn.type == 0), in that case other invariants don't hold
  * - n.metric1 may be at most a small multiple of LSINFINITY,
  *   therefore sums do not overflow
- * - n.oa and n.ifa are always non-NULL
+ * - n.oa is always non-NULL
+ * - n.ifa is always non-NULL with one exception - configured stubnet
+     nodes (in po->rtf). In that case, n.nh is IFA_NONE.
  * - oa->rtr does not contain calculating router itself
  */
 
