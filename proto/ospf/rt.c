@@ -854,7 +854,7 @@ static inline void
 check_sum_net_lsa(struct proto_ospf *po, ort *nf)
 {
   struct area_net *anet = NULL;
-  struct ospf_area *anet_oa;
+  struct ospf_area *anet_oa = NULL;
 
   /* RT entry marked as area network */
   if (nf->fn.x0)
