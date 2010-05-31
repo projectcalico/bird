@@ -275,6 +275,7 @@ void bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsi
 #define BEM_NEIGHBOR_LOST	1
 #define BEM_INVALID_NEXT_HOP	2
 #define BEM_INVALID_MD5		3	/* MD5 authentication kernel request failed (possibly not supported) */
+#define BEM_NO_SOCKET		4
 
 /* Automatic shutdown error codes */
 

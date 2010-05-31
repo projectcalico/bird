@@ -97,6 +97,15 @@ bgp_open(struct bgp_proto *p)
   if (!bgp_listen_sk)
     bgp_listen_sk = bgp_setup_listen_sk(cfg->listen_bgp_addr, cfg->listen_bgp_port, cfg->listen_bgp_flags);
 
+  if (!bgp_listen_sk)
+    {
+      bgp_counter--;
+      p->p.disabled = 1;
+      bgp_store_error(p, NULL, BE_MISC, BEM_NO_SOCKET);
+      proto_notify_state(&p->p, PS_DOWN);
+      return -1;
+    }
+
   if (!bgp_linpool)
     bgp_linpool = lp_new(&root_pool, 4080);
 
@@ -630,14 +639,14 @@ bgp_listen_sock_err(sock *sk UNUSED, int err)
   if (err == ECONNABORTED)
     log(L_WARN "BGP: Incoming connection aborted");
   else
-    log(L_ERR "BGP: Error on incoming socket: %M", err);
+    log(L_ERR "BGP: Error on listening socket: %M", err);
 }
 
 static sock *
 bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags)
 {
   sock *s = sk_new(&root_pool);
-  DBG("BGP: Creating incoming socket\n");
+  DBG("BGP: Creating listening socket\n");
   s->type = SK_TCP_PASSIVE;
   s->saddr = addr;
   s->sport = port ? port : BGP_PORT;
@@ -649,7 +658,7 @@ bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags)
   s->err_hook = bgp_listen_sock_err;
   if (sk_open(s))
     {
-      log(L_ERR "BGP: Unable to open incoming socket");
+      log(L_ERR "BGP: Unable to open listening socket");
       rfree(s);
       return NULL;
     }
@@ -937,7 +946,7 @@ bgp_check(struct bgp_config *c)
 
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established", "Close" };
 static char *bgp_err_classes[] = { "", "Error: ", "Socket: ", "Received: ", "BGP Error: ", "Automatic shutdown: ", ""};
-static char *bgp_misc_errors[] = { "", "Neighbor lost", "Invalid next hop", "Kernel MD5 auth failed" };
+static char *bgp_misc_errors[] = { "", "Neighbor lost", "Invalid next hop", "Kernel MD5 auth failed", "No listening socket" };
 static char *bgp_auto_errors[] = { "", "Route limit exceeded"};
 
 static const char *
