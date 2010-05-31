@@ -1,3 +1,8 @@
+Version 1.2.3 (2010-06-01)
+  o Pattern matching for community lists.
+  o Many fixes in OSPF protocol (esp. in multi-areas and vlinks).
+  o Several minor bugfixes.
+
 Version 1.2.2 (2010-04-10)
   o Much better BSD kernel support (IPv6, alien routes, ...).
   o Deep OSPF socket changes, fixes OSPFv2/v3 behavior on BSD.
