@@ -76,6 +76,7 @@ static struct resclass rf_class = {
   sizeof(struct rfile),
   rf_free,
   rf_dump,
+  NULL,
   NULL
 };
 
@@ -203,6 +204,7 @@ static struct resclass tm_class = {
   sizeof(timer),
   tm_free,
   tm_dump,
+  NULL,
   NULL
 };
 
@@ -573,6 +575,7 @@ static struct resclass sk_class = {
   sizeof(sock),
   sk_free,
   sk_dump,
+  NULL,
   NULL
 };
 

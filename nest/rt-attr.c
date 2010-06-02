@@ -54,8 +54,9 @@
 #include "lib/resource.h"
 #include "lib/string.h"
 
+pool *rta_pool;
+
 static slab *rta_slab;
-static pool *rta_pool;
 
 struct protocol *attr_class_to_protocol[EAP_MAX];
 

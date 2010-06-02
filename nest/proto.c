@@ -20,7 +20,7 @@
 #include "nest/cli.h"
 #include "filter/filter.h"
 
-static pool *proto_pool;
+pool *proto_pool;
 
 static list protocol_list;
 static list proto_list;

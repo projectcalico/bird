@@ -43,10 +43,11 @@
 #include "lib/string.h"
 #include "lib/alloca.h"
 
+pool *rt_table_pool;
+
 static slab *rte_slab;
 static linpool *rte_update_pool;
 
-static pool *rt_table_pool;
 static list routing_tables;
 
 static void rt_format_via(rte *e, byte *via);
