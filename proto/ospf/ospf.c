@@ -126,7 +126,7 @@ add_area_nets(struct ospf_area *oa, struct ospf_area_config *ac)
     struct area_net_config *anet;
     struct area_net *antmp;
 
-    fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 16, ospf_area_initfib);
+    fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 0, ospf_area_initfib);
 
     WALK_LIST(anet, ac->net_list)
     {
@@ -159,7 +159,7 @@ ospf_start(struct proto *p)
   po->lsab = mb_alloc(p->pool, po->lsab_size);
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
-  fib_init(&po->rtf, p->pool, sizeof(ort), 16, ospf_rt_initort);
+  fib_init(&po->rtf, p->pool, sizeof(ort), 0, ospf_rt_initort);
   po->areano = 0;
   po->gr = ospf_top_new(p->pool);
   s_init_list(&(po->lsal));
@@ -180,7 +180,7 @@ ospf_start(struct proto *p)
     oa->rt = NULL;
     oa->po = po;
     add_area_nets(oa, ac);
-    fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
+    fib_init(&oa->rtr, p->pool, sizeof(ort), 0, ospf_rt_initort);
 
     if (oa->areaid == 0)
     {
@@ -209,8 +209,8 @@ ospf_start(struct proto *p)
     oa->areaid = 0;
     oa->rt = NULL;
     oa->po = po;
-    fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 16, ospf_area_initfib);
-    fib_init(&oa->rtr, p->pool, sizeof(ort), 16, ospf_rt_initort);
+    fib_init(&oa->net_fib, p->pool, sizeof(struct area_net), 0, ospf_area_initfib);
+    fib_init(&oa->rtr, p->pool, sizeof(ort), 0, ospf_rt_initort);
     po->backbone = oa;
 #ifdef OSPFv2
     oa->options = OPT_E;
