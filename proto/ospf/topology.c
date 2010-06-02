@@ -886,7 +886,7 @@ check_ext_lsa(struct top_hash_entry *en, struct fib_node *fn, u32 metric, ip_add
   if  (fn->pxlen != ipa_mklen(ext->netmask))
     return -1;
 
-  return (ext->metric == metric) && (ext->tag == tag) && (ext->fwaddr == fwaddr);
+  return (ext->metric == metric) && (ext->tag == tag) && ipa_equal(ext->fwaddr,fwaddr);
 }
 
 #else /* OSPFv3 */
