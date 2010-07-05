@@ -244,7 +244,6 @@ krt_set_start(struct krt_proto *x, int first UNUSED)
 static void
 krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
 {
-  rta a;
   rte *e;
   net *net;
   sockaddr dst, gate, mask;
@@ -329,17 +328,12 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
 
   net = net_get(p->p.table, idst, pxlen);
 
-  bzero(&a, sizeof(a));
-
-  a.proto = &p->p;
-  a.source = RTS_INHERIT;
-  a.scope = SCOPE_UNIVERSE;
-  a.cast = RTC_UNICAST;
-  a.flags = a.aflags = 0;
-  a.from = IPA_NONE;
-  a.gw = IPA_NONE;
-  a.iface = NULL;
-  a.eattrs = NULL;
+  rta a = {
+    .proto = &p->p,
+    .source = RTS_INHERIT,
+    .scope = SCOPE_UNIVERSE,
+    .cast = RTC_UNICAST
+  };
 
   /* reject/blackhole routes have also set RTF_GATEWAY,
      we wil check them first. */

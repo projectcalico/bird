@@ -570,7 +570,6 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   struct rtattr *a[RTA_CACHEINFO+1];
   int new = h->nlmsg_type == RTM_NEWROUTE;
   ip_addr dst;
-  rta ra;
   rte *e;
   net *net;
   u32 oif;
@@ -655,15 +654,13 @@ nl_parse_route(struct nlmsghdr *h, int scan)
     }
 
   net = net_get(p->p.table, dst, i->rtm_dst_len);
-  ra.proto = &p->p;
-  ra.source = RTS_INHERIT;
-  ra.scope = SCOPE_UNIVERSE;
-  ra.cast = RTC_UNICAST;
-  ra.flags = ra.aflags = 0;
-  ra.from = IPA_NONE;
-  ra.gw = IPA_NONE;
-  ra.iface = NULL;
-  ra.eattrs = NULL;
+
+  rta ra = {
+    .proto = &p->p,
+    .source = RTS_INHERIT,
+    .scope = SCOPE_UNIVERSE,
+    .cast = RTC_UNICAST
+  };
 
   switch (i->rtm_type)
     {

@@ -802,26 +802,26 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 } while (0)
 
 static inline int
-bgp_get_nexthop(struct bgp_proto *bgp, rta *a)
+bgp_set_next_hop(struct bgp_proto *p, rta *a)
 {
-  neighbor *neigh;
-  ip_addr nexthop;
   struct eattr *nh = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
-  ASSERT(nh);
-  nexthop = *(ip_addr *) nh->u.ptr->data;
-  neigh = neigh_find(&bgp->p, &nexthop, 0);
-  if (neigh)
+  ip_addr nexthop = *(ip_addr *) nh->u.ptr->data;
+
+  if (!p->is_internal) /* FIXME better option
+ */
     {
-      if (neigh->scope == SCOPE_HOST)
-	{
-	  DBG("BGP: Loop!\n");
-	  return 0;
-	}
+      neighbor *ng = neigh_find(&p->p, &nexthop, 0) ? : p->neigh;
+      if (ng->scope == SCOPE_HOST)
+	return 0;
+
+      a->dest = RTD_ROUTER;
+      a->gw = ng->addr;
+      a->iface = ng->iface;
+      a->hostentry = NULL;
     }
   else
-    neigh = bgp->neigh;
-  a->gw = neigh->addr;
-  a->iface = neigh->iface;
+    rta_set_recursive_next_hop(p->p.table, a, p->igp_table, &nexthop);
+
   return 1;
 }
 
@@ -853,7 +853,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
     return;
 
   a0 = bgp_decode_attrs(conn, attrs, attr_len, bgp_linpool, nlri_len);
-  if (a0 && nlri_len && bgp_get_nexthop(p, a0))
+  if (a0 && nlri_len && bgp_set_next_hop(p, a0))
     {
       a = rta_lookup(a0);
       while (nlri_len)

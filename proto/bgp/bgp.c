@@ -786,6 +786,8 @@ bgp_start(struct proto *P)
   p->incoming_conn.state = BS_IDLE;
   p->neigh = NULL;
 
+  rt_lock_table(p->igp_table);
+
   p->event = ev_new(p->p.pool);
   p->event->hook = bgp_decision;
   p->event->data = p;
@@ -837,6 +839,19 @@ bgp_shutdown(struct proto *P)
   return p->p.proto_state;
 }
 
+static void
+bgp_cleanup(struct proto *P)
+{
+  struct bgp_proto *p = (struct bgp_proto *) P;
+  rt_unlock_table(p->igp_table);
+}
+
+static rtable *
+get_igp_table(struct bgp_config *cf)
+{
+  return cf->igp_table ? cf->igp_table->table : cf->c.table->table;
+}
+
 static struct proto *
 bgp_init(struct proto_config *C)
 {
@@ -854,6 +869,7 @@ bgp_init(struct proto_config *C)
   p->local_as = c->local_as;
   p->remote_as = c->remote_as;
   p->is_internal = (c->local_as == c->remote_as);
+  p->igp_table = get_igp_table(c);
   return P;
 }
 
@@ -1065,7 +1081,8 @@ bgp_reconfigure(struct proto *P, struct proto_config *C)
 		     // password item is last and must be checked separately
 		     OFFSETOF(struct bgp_config, password) - sizeof(struct proto_config))
     && ((!old->password && !new->password)
-	|| (old->password && new->password && !strcmp(old->password, new->password)));
+	|| (old->password && new->password && !strcmp(old->password, new->password)))
+    && (get_igp_table(old) == get_igp_table(new));
 
   /* We should update our copy of configuration ptr as old configuration will be freed */
   if (same)
@@ -1081,6 +1098,7 @@ struct protocol proto_bgp = {
   init:			bgp_init,
   start:		bgp_start,
   shutdown:		bgp_shutdown,
+  cleanup:		bgp_cleanup,
   reconfigure:		bgp_reconfigure,
   get_status:		bgp_get_status,
   get_attr:		bgp_get_attr,

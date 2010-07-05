@@ -47,6 +47,7 @@ struct bgp_config {
   unsigned error_delay_time_max;
   unsigned disable_after_error;		/* Disable the protocol when error is detected */
   char *password;			/* Password used for MD5 authentication */
+  struct rtable_config *igp_table;	/* Table used for recursive next hop lookups */
 };
 
 #define MLL_SELF 1
@@ -92,6 +93,7 @@ struct bgp_proto {
   struct neighbor *neigh;		/* Neighbor entry corresponding to next_hop */
   ip_addr local_addr;			/* Address of the local end of the link to next_hop */
   ip_addr source_addr;			/* Address used as advertised next hop, usually local_addr */
+  rtable *igp_table;			/* Table used for recursive next hop lookups */
   struct event *event;			/* Event for respawning and shutting process */
   struct timer *startup_timer;		/* Timer used to delay protocol startup due to previous errors (startup_delay) */
   struct bgp_bucket **bucket_hash;	/* Hash table of attribute buckets */

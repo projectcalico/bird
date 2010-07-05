@@ -1265,15 +1265,13 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
   ea_list *ea;
   struct adata *ad;
 
+  bzero(a, sizeof(rta));
   a->proto = &bgp->p;
   a->source = RTS_BGP;
   a->scope = SCOPE_UNIVERSE;
   a->cast = RTC_UNICAST;
-  a->dest = RTD_ROUTER;
-  a->flags = 0;
-  a->aflags = 0;
+  /* a->dest = RTD_ROUTER;  -- set in bgp_set_next_hop() */
   a->from = bgp->cf->remote_ip;
-  a->eattrs = NULL;
 
   /* Parse the attributes */
   bzero(seen, sizeof(seen));

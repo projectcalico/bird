@@ -671,6 +671,7 @@ rta_lookup(rta *o)
   r = rta_copy(o);
   r->hash_key = h;
   r->aflags = RTAF_CACHED;
+  rt_lock_hostentry(r->hostentry);
   rta_insert(r);
 
   if (++rta_cache_count > rta_cache_limit)
@@ -688,6 +689,7 @@ rta__free(rta *a)
   if (a->next)
     a->next->pprev = a->pprev;
   a->aflags = 0;		/* Poison the entry */
+  rt_unlock_hostentry(a->hostentry);
   ea_free(a->eattrs);
   sl_free(rta_slab, a);
 }

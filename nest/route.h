@@ -129,20 +129,42 @@ typedef struct rtable {
   list hooks;				/* List of announcement hooks */
   int pipe_busy;			/* Pipe loop detection */
   int use_count;			/* Number of protocols using this table */
+  struct hostcache *hostcache;
   struct rtable_config *config;		/* Configuration of this table */
   struct config *deleted;		/* Table doesn't exist in current configuration,
 					 * delete as soon as use_count becomes 0 and remove
 					 * obstacle from this routing table.
 					 */
-  struct event *gc_event;		/* Garbage collector event */
+  struct event *rt_event;		/* Routing table event */
   int gc_counter;			/* Number of operations since last GC */
   bird_clock_t gc_time;			/* Time of last GC */
+  byte gc_scheduled;			/* GC is scheduled */
+  byte hcu_scheduled;			/* Hostcache update is scheduled */
+  byte nhu_state;			/* Next Hop Update state */
+  struct fib_iterator nhu_fit;		/* Next Hop Update FIB iterator */
 } rtable;
 
 typedef struct network {
   struct fib_node n;			/* FIB flags reserved for kernel syncer */
   struct rte *routes;			/* Available routes for this network */
 } net;
+
+struct hostcache {
+  struct fib htable;
+  list hostentries;
+  byte update_hostcache;
+};
+
+struct hostentry {
+  struct fib_node fn;
+  node ln;
+  unsigned uc;				/* Use count */
+  struct iface *iface;			/* Chosen outgoing interface */
+  ip_addr gw;				/* Chosen next hop */
+  byte dest;				/* Chosen route destination type (RTD_...) */
+  byte pxlen;				/* Pxlen from net that matches route */
+  struct rtable *tab;
+};
 
 typedef struct rte {
   struct rte *next;
@@ -207,7 +229,6 @@ void rt_dump(rtable *);
 void rt_dump_all(void);
 int rt_feed_baby(struct proto *p);
 void rt_feed_baby_abort(struct proto *p);
-void rt_prune(rtable *tab);
 void rt_prune_all(void);
 struct rtable_config *rt_new_table(struct symbol *s);
 
@@ -248,6 +269,7 @@ typedef struct rta {
   u16 hash_key;				/* Hash over important fields */
   ip_addr gw;				/* Next hop */
   ip_addr from;				/* Advertising router */
+  struct hostentry *hostentry;		/* Hostentry for recursive next-hops */
   struct iface *iface;			/* Outgoing interface */
   struct ea_list *eattrs;		/* Extended Attribute chain */
 } rta;
@@ -357,6 +379,25 @@ static inline void rta_free(rta *r) { if (r && !--r->uc) rta__free(r); }
 void rta_dump(rta *);
 void rta_dump_all(void);
 void rta_show(struct cli *, rta *, ea_list *);
+void rta_set_recursive_next_hop(rtable *dep, rta *a, rtable *tab, ip_addr *gw);
+
+/*
+ * rta_set_recursive_next_hop() acquires hostentry from hostcache and
+ * fills rta->hostentry field.  New hostentry has zero use
+ * count. Cached rta locks its hostentry (increases its use count),
+ * uncached rta does not lock it. Hostentry with zero use count is
+ * removed asynchronously during host cache update, therefore it is
+ * safe to hold such hostentry temorarily. There is no need to hold
+ * a lock for hostentry->dep table, because that table contains routes
+ * responsible for that hostentry, and therefore is non-empty if given
+ * hostentry has non-zero use count. The protocol responsible for routes
+ * with recursive next hops should also hold a lock for a table governing
+ * that routes (argument tab to rta_set_recursive_next_hop()).
+ */
+
+static inline void rt_lock_hostentry(struct hostentry *he) { if (he) he->uc++; }
+static inline void rt_unlock_hostentry(struct hostentry *he) { if (he) he->uc--; }
+
 
 extern struct protocol *attr_class_to_protocol[EAP_MAX];
 
