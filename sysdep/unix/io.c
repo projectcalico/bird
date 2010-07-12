@@ -1004,6 +1004,11 @@ sk_leave_group(sock *s, ip_addr maddr)
 static void
 sk_tcp_connected(sock *s)
 {
+  sockaddr lsa;
+  int lsa_len = sizeof(lsa);
+  if (getsockname(s->fd, (struct sockaddr *) &lsa, &lsa_len) == 0)
+    get_sockaddr(&lsa, &s->saddr, &s->sport, 1);
+
   s->type = SK_TCP;
   sk_alloc_bufs(s);
   s->tx_hook(s);

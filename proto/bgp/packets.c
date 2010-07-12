@@ -58,7 +58,7 @@ mrt_put_bgp4_hdr(byte *buf, struct bgp_conn *conn, int as4)
       buf+=4;
     }
 
-  put_u16(buf+0, p->neigh->iface->index);
+  put_u16(buf+0, p->neigh ? p->neigh->iface->index : 0);
   put_u16(buf+2, BGP_AF);
   buf+=4;
   buf = ipa_put_addr(buf, conn->sk ? conn->sk->daddr : IPA_NONE);
@@ -402,7 +402,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	       */
 
 	      n = neigh_find(&p->p, &ip, 0);
-	      if (n && n->iface == p->neigh->iface)
+	      if (n && p->neigh && n->iface == p->neigh->iface)
 		{
 		  if (second && ipa_nonzero(ipp[1]))
 		    ip_ll = ipp[1];

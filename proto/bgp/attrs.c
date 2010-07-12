@@ -752,7 +752,7 @@ bgp_get_bucket(struct bgp_proto *p, net *n, ea_list *attrs, int originate)
 
   /* Check if next hop is valid */
   a = ea_find(new, EA_CODE(EAP_BGP, BA_NEXT_HOP));
-  if (!a || ipa_equal(p->next_hop, *(ip_addr *)a->u.ptr->data))
+  if (!a || ipa_equal(p->cf->remote_ip, *(ip_addr *)a->u.ptr->data))
     {
       log(L_ERR "%s: Invalid NEXT_HOP attribute in route %I/%d", p->p.name, n->n.prefix, n->n.pxlen);
       return NULL;
@@ -808,7 +808,6 @@ bgp_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old UN
   bgp_schedule_packet(p->conn, PKT_UPDATE);
 }
 
-
 static int
 bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *pool)
 {
@@ -834,12 +833,14 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
       put_u32(z+2, p->local_as);
     }
 
+  /* iBGP -> use gw, eBGP multi-hop -> use source_addr,
+     eBGP single-hop -> use gw if on the same iface */
   z = bgp_set_attr_wa(ea->attrs+2, pool, BA_NEXT_HOP, NEXT_HOP_LENGTH);
   if (p->cf->next_hop_self ||
       rta->dest != RTD_ROUTER ||
-      ipa_equal(e->attrs->gw, IPA_NONE) ||
+      ipa_equal(rta->gw, IPA_NONE) ||
       ipa_has_link_scope(rta->gw) ||
-      (!p->is_internal && (rta->iface != p->neigh->iface)))
+      (!p->is_internal && (!p->neigh || (rta->iface != p->neigh->iface))))
     set_next_hop(z, p->source_addr);
   else
     set_next_hop(z, rta->gw);
@@ -904,8 +905,11 @@ bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
 	bgp_attach_attr(attrs, pool, BA_MULTI_EXIT_DISC, 0);
     }
 
+  /* iBGP -> keep next_hop, eBGP multi-hop -> use source_addr,
+     eBGP single-hop -> keep next_hop if on the same iface */
   a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
-  if (a && !p->cf->next_hop_self && (p->is_internal || (!p->is_internal && e->attrs->iface == p->neigh->iface)))
+  if (a && !p->cf->next_hop_self && 
+      (p->is_internal || (p->neigh && (e->attrs->iface == p->neigh->iface))))
     {
       /* Leave the original next hop attribute, will check later where does it point */
     }

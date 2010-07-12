@@ -20,7 +20,6 @@ struct bgp_config {
   u32 local_as, remote_as;
   ip_addr remote_ip;
   int multihop;				/* Number of hops if multihop */
-  ip_addr multihop_via;			/* Multihop: address to route to */
   ip_addr source_addr;			/* Source address to use */
   int next_hop_self;			/* Always set next hop to local IP address */
   int missing_lladdr;			/* What we will do when we don' know link-local addr, see MLL_* */
@@ -89,10 +88,8 @@ struct bgp_proto {
   struct bgp_conn outgoing_conn;	/* Outgoing connection we're working with */
   struct bgp_conn incoming_conn;	/* Incoming connection we have neither accepted nor rejected yet */
   struct object_lock *lock;		/* Lock for neighbor connection */
-  ip_addr next_hop;			/* Either the peer or multihop_via */
-  struct neighbor *neigh;		/* Neighbor entry corresponding to next_hop */
-  ip_addr local_addr;			/* Address of the local end of the link to next_hop */
-  ip_addr source_addr;			/* Address used as advertised next hop, usually local_addr */
+  struct neighbor *neigh;		/* Neighbor entry corresponding to remote ip, NULL if multihop */
+  ip_addr source_addr;			/* Local address used as an advertised next hop */
   rtable *igp_table;			/* Table used for recursive next hop lookups */
   struct event *event;			/* Event for respawning and shutting process */
   struct timer *startup_timer;		/* Timer used to delay protocol startup due to previous errors (startup_delay) */
@@ -109,7 +106,7 @@ struct bgp_proto {
 #ifdef IPV6
   byte *mp_reach_start, *mp_unreach_start; /* Multiprotocol BGP attribute notes */
   unsigned mp_reach_len, mp_unreach_len;
-  ip_addr local_link;			/* Link-level version of local_addr */
+  ip_addr local_link;			/* Link-level version of source_addr */
 #endif
 };
 

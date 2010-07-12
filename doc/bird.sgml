@@ -272,7 +272,7 @@ protocol rip {
 	listen to IPv6 connections only. This is needed if you want to
 	run both bird and bird6 on the same port.
 
-	<tag>timeformat route|protocol|base|log "<m/format1/" [<m/limit> "<m/format2/"]</tag>
+	<tag>timeformat route|protocol|base|log "<m/format1/" [<m/limit/ "<m/format2/"]</tag>
 	This option allows to specify a format of date/time used by
 	BIRD.  The first argument specifies for which purpose such
 	format is used. <cf/route/ is a format used in 'show route'
@@ -280,8 +280,8 @@ protocol rip {
 	command output, <cf/base/ is used for other commands and
 	<cf/log/ is used in a log file.
 
-	"<m/format1/" is a format string using <i/strftime(3)/
-	notation (see <i/man strftime/ for details). <m/limit> and
+	"<m/format1/" is a format string using <it/strftime(3)/
+	notation (see <it/man strftime/ for details). <m/limit> and
 	"<m/format2/" allow to specify the second format string for
 	times in past deeper than <m/limit/ seconds. There are two
 	shorthands: <cf/iso long/ is a ISO 8601 date/time format
@@ -976,10 +976,13 @@ This allows to set routing policy and all the other parameters differently
 for each neighbor using the following configuration parameters:
 
 <descrip>
-	<tag>local as <m/number/</tag> Define which AS we are part of. (Note that
-	contrary to other IP routers, BIRD is able to act as a router located
-	in multiple AS'es simultaneously, but in such cases you need to tweak
-	the BGP paths manually in the filters to get consistent behavior.)
+	<tag>local <m/[ip]/] as <m/number/</tag> Define which AS we
+	are part of. (Note that contrary to other IP routers, BIRD is
+	able to act as a router located in multiple AS'es
+	simultaneously, but in such cases you need to tweak the BGP
+	paths manually in the filters to get consistent behavior.)
+	Optional <cf/ip/ argument specifies a source address,
+	equivalent to the <cf/source address/ option (see below).
 	This parameter is mandatory.
 
 	<tag>neighbor <m/ip/ as <m/number/</tag> Define neighboring router
@@ -988,16 +991,27 @@ for each neighbor using the following configuration parameters:
 	of your router's interfaces. In case the neighbor is in the same AS
 	as we are, we automatically switch to iBGP. This parameter is mandatory.
 
-	<tag>multihop <m/number/ via <m/ip/</tag> Configure multihop BGP to a
-	neighbor which is connected at most <m/number/ hops far and to which
-	we should route via our direct neighbor with address <m/ip/.
+	<tag>multihop <m/[number]/]</tag> Configure multihop BGP
+	session to a neighbor that isn't directly connected.
+	Accurately, this option should be used if the configured
+	neighbor IP address does not match with any local network
+	subnets. Such IP address have to be reachable through system
+	routing table. For multihop BGP it is recommended to
+	explicitly configure <cf/source address/ to have it
+	stable. Optional <cf/number/ argument can be used to limit TTL
+	(the number of hops).
 	Default: switched off.
 
+	<tag>source address <m/ip/</tag> Define local address we
+	should use for next hop calculation and as a source address
+	for the BGP session. Default: the address of the local
+	end of the interface our neighbor is connected to.
+
 	<tag>next hop self</tag> Avoid calculation of the Next Hop
-	attribute and always advertise our own source address (see
-	below) as a next hop.  This needs to be used only occasionally
-	to circumvent misconfigurations of other routers.
-	Default: disabled.
+	attribute and always advertise our own source address as a
+	next hop.  This needs to be used only occasionally to
+	circumvent misconfigurations of other routers.  Default:
+	disabled.
 
 	<tag>missing lladdr self|drop|ignore</tag>Next Hop attribute
 	in BGP-IPv6 sometimes contains just the global IPv6 address,
@@ -1015,10 +1029,6 @@ for each neighbor using the following configuration parameters:
 	that case default is <cf/drop/, because route servers usually
 	does not forward packets ifselves.
 	
-	<tag>source address <m/ip/</tag> Define local address we should use
-	for next hop calculation. Default: the address of the local end
-	of the interface our neighbor is connected to.
-
 	<tag>password <m/string/</tag> Use this password for MD5 authentication
 	of BGP sessions. Default: no authentication. Password has to be set by
 	external utility (e.g. setkey(8)) on BSD systems.

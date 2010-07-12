@@ -54,6 +54,7 @@ bgp_proto:
    bgp_proto_start proto_name '{'
  | bgp_proto proto_item ';'
  | bgp_proto LOCAL AS expr ';' { BGP_CFG->local_as = $4; }
+ | bgp_proto LOCAL ipa AS expr ';' { BGP_CFG->source_addr = $3; BGP_CFG->local_as = $5; }
  | bgp_proto NEIGHBOR ipa AS expr ';' {
      if (ipa_nonzero(BGP_CFG->remote_ip)) cf_error("Only one neighbor per BGP instance is allowed");
 
@@ -67,7 +68,8 @@ bgp_proto:
  | bgp_proto STARTUP HOLD TIME expr ';' { BGP_CFG->initial_hold_time = $5; }
  | bgp_proto CONNECT RETRY TIME expr ';' { BGP_CFG->connect_retry_time = $5; }
  | bgp_proto KEEPALIVE TIME expr ';' { BGP_CFG->keepalive_time = $4; }
- | bgp_proto MULTIHOP expr VIA ipa ';' { BGP_CFG->multihop = $3; BGP_CFG->multihop_via = $5; }
+ | bgp_proto MULTIHOP ';' { BGP_CFG->multihop = 64; }
+ | bgp_proto MULTIHOP expr ';' { BGP_CFG->multihop = $3; }
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
  | bgp_proto MISSING LLADDR SELF ';' { BGP_CFG->missing_lladdr = MLL_SELF; }
  | bgp_proto MISSING LLADDR DROP ';' { BGP_CFG->missing_lladdr = MLL_DROP; }
