@@ -951,6 +951,8 @@ bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code)
 void
 bgp_check(struct bgp_config *c)
 {
+  int internal = (c->local_as == c->remote_as);
+
   if (!c->local_as)
     cf_error("Local AS number must be set");
 
@@ -960,15 +962,22 @@ bgp_check(struct bgp_config *c)
   if (!(c->capabilities && c->enable_as4) && (c->remote_as > 0xFFFF))
     cf_error("Neighbor AS number out of range (AS4 not available)");
 
-  if ((c->local_as != c->remote_as) && (c->rr_client))
+  if (!internal && c->rr_client)
     cf_error("Only internal neighbor can be RR client");
 
-  if ((c->local_as == c->remote_as) && (c->rs_client))
+  if (internal && c->rs_client)
     cf_error("Only external neighbor can be RS client");
 
+  if (c->multihop && (c->gw_mode == GW_DIRECT))
+    cf_error("Multihop BGP cannot use direct gateway mode");
+
   /* Different default based on rs_client */
-  if (c->missing_lladdr == 0)
+  if (!c->missing_lladdr)
     c->missing_lladdr = c->rs_client ? MLL_DROP : MLL_SELF;
+
+  /* Different default for gw_mode */
+  if (!c->gw_mode)
+    c->gw_mode = (c->multihop || internal) ? GW_RECURSIVE : GW_DIRECT;
 }
 
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established", "Close" };

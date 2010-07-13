@@ -807,8 +807,7 @@ bgp_set_next_hop(struct bgp_proto *p, rta *a)
   struct eattr *nh = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
   ip_addr nexthop = *(ip_addr *) nh->u.ptr->data;
 
-  if (!p->is_internal) /* FIXME better option
- */
+  if (p->cf->gw_mode == GW_DIRECT)
     {
       neighbor *ng = neigh_find(&p->p, &nexthop, 0) ? : p->neigh;
       if (ng->scope == SCOPE_HOST)
@@ -819,7 +818,7 @@ bgp_set_next_hop(struct bgp_proto *p, rta *a)
       a->iface = ng->iface;
       a->hostentry = NULL;
     }
-  else
+  else /* GW_RECURSIVE */
     rta_set_recursive_next_hop(p->p.table, a, p->igp_table, &nexthop);
 
   return 1;

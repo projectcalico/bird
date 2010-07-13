@@ -1028,6 +1028,24 @@ for each neighbor using the following configuration parameters:
 	is configured as a route server (option <cf/rs client/), in
 	that case default is <cf/drop/, because route servers usually
 	does not forward packets ifselves.
+
+	<tag>gateway direct|recursive</tag>For received routes, their
+	<cf/gw/ (immediate next hop) attribute is computed from
+	received <cf/bgp_next_hop/ attribute. This option specifies
+	how it is computed. Direct mode means that the IP address from
+	<cf/bgp_next_hop/ is used if it is directly reachable,
+	otherwise the neighbor IP address is used. Recursive mode
+	means that the gateway is computed by a IGP routing table
+	lookup for the IP address from <cf/bgp_next_hop/. Recursive
+	mode is the behavior specified by the BGP standard. Direct
+	mode is simpler, does not require any routes in a routing
+	table, and was used in older versions of BIRD, but does not
+	handle well nontrivial iBGP setups and multihop. Default:
+	<cf/direct/ for singlehop eBGP, <cf/recursive/ otherwise.
+
+	<tag>igp table <m/name/</tag> Specifies a table that is used
+	in a recursive gateway mode for computing <cf/gw/ attributes.
+	Default: the same as the table BGP is connected to.
 	
 	<tag>password <m/string/</tag> Use this password for MD5 authentication
 	of BGP sessions. Default: no authentication. Password has to be set by
