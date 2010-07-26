@@ -1287,11 +1287,106 @@ rt_feed_baby_abort(struct proto *p)
     }
 }
 
-static void
-hostentry_init(struct fib_node *fn)
+
+static inline unsigned
+ptr_hash(void *ptr)
 {
-  ((struct hostentry *) fn)->uc = 0;
-  ((struct hostentry *) fn)->tab = NULL;
+  uintptr_t p = (uintptr_t) ptr;
+  return p ^ (p << 8) ^ (p >> 16);
+}
+
+static inline unsigned
+hc_hash(ip_addr a, rtable *dep)
+{
+  return (ipa_hash(a) ^ ptr_hash(dep)) & 0xffff;
+}
+
+static inline void
+hc_insert(struct hostcache *hc, struct hostentry *he)
+{
+  unsigned int k = he->hash_key >> hc->hash_shift;
+  he->next = hc->hash_table[k];
+  hc->hash_table[k] = he;
+}
+
+static inline void
+hc_remove(struct hostcache *hc, struct hostentry *he)
+{
+  struct hostentry **hep;
+  unsigned int k = he->hash_key >> hc->hash_shift;
+
+  for (hep = &hc->hash_table[k]; *hep != he; hep = &(*hep)->next);
+  *hep = he->next;
+}
+
+#define HC_DEF_ORDER 10
+#define HC_HI_MARK *4
+#define HC_HI_STEP 2
+#define HC_HI_ORDER 16			/* Must be at most 16 */
+#define HC_LO_MARK /5
+#define HC_LO_STEP 2
+#define HC_LO_ORDER 10
+
+static void
+hc_alloc_table(struct hostcache *hc, unsigned order)
+{
+  unsigned hsize = 1 << order;
+  hc->hash_order = order;
+  hc->hash_shift = 16 - order;
+  hc->hash_max = (order >= HC_HI_ORDER) ? ~0 : (hsize HC_HI_MARK);
+  hc->hash_min = (order <= HC_LO_ORDER) ?  0 : (hsize HC_LO_MARK);
+
+  hc->hash_table = mb_allocz(rt_table_pool, hsize * sizeof(struct hostentry *));
+}
+
+static void
+hc_resize(struct hostcache *hc, unsigned new_order)
+{
+  unsigned old_size = 1 << hc->hash_order;
+  struct hostentry **old_table = hc->hash_table;
+  struct hostentry *he, *hen;
+  int i;
+
+  hc_alloc_table(hc, new_order);
+  for (i = 0; i < old_size; i++)
+    for (he = old_table[i]; he != NULL; he=hen)
+      {
+	hen = he->next;
+	hc_insert(hc, he);
+      }
+  mb_free(old_table);
+}
+
+static struct hostentry *
+hc_new_hostentry(struct hostcache *hc, ip_addr a, rtable *dep, unsigned k)
+{
+  struct hostentry *he = sl_alloc(hc->slab);
+
+  he->addr = a;
+  he->tab = dep;
+  he->hash_key = k;
+  he->uc = 0;
+
+  add_tail(&hc->hostentries, &he->ln);
+  hc_insert(hc, he);
+
+  hc->hash_items++;
+  if (hc->hash_items > hc->hash_max)
+    hc_resize(hc, hc->hash_order + HC_HI_STEP);
+
+  return he;
+}
+
+static void
+hc_delete_hostentry(struct hostcache *hc, struct hostentry *he)
+{
+  rem_node(&he->ln);
+  hc_remove(hc, he);
+  sl_free(hc->slab, he);
+
+  hc->hash_items--;
+  if (hc->hash_items < hc->hash_min)
+    hc_resize(hc, hc->hash_order - HC_LO_STEP);
 }
 
 static void
@@ -1299,7 +1394,11 @@ rt_init_hostcache(rtable *tab)
 {
   struct hostcache *hc = mb_allocz(rt_table_pool, sizeof(struct hostcache));
   init_list(&hc->hostentries);
-  fib_init(&hc->htable, rt_table_pool, sizeof(struct hostentry), 0, hostentry_init);
+
+  hc->hash_items = 0;
+  hc_alloc_table(hc, HC_DEF_ORDER);
+  hc->slab = sl_new(rt_table_pool, sizeof(struct hostentry));
+
   tab->hostcache = hc;
 }
 
@@ -1316,7 +1415,8 @@ rt_free_hostcache(rtable *tab)
 	log(L_ERR "Hostcache is not empty in table %s", tab->name);
     }
 
-  fib_free(&hc->htable);
+  rfree(hc->slab);
+  mb_free(hc->hash_table);
   mb_free(hc);
 }
 
@@ -1332,7 +1432,7 @@ rt_notify_hostcache(rtable *tab, net *net)
   WALK_LIST(n, hc->hostentries)
     {
       struct hostentry *he = SKIP_BACK(struct hostentry, ln, n);
-      if (ipa_in_net(he->fn.prefix, net->n.prefix, net->n.pxlen) &&
+      if (ipa_in_net(he->addr, net->n.prefix, net->n.pxlen) &&
 	  (he->pxlen <= net->n.pxlen))
 	{
 	  rt_schedule_hcu(tab);
@@ -1360,18 +1460,18 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
   ip_addr old_gw = he->gw;
   byte old_dest = he->dest;
 
-  net *n = fib_route(&tab->fib, he->fn.prefix, MAX_PREFIX_LENGTH);
+  net *n = fib_route(&tab->fib, he->addr, MAX_PREFIX_LENGTH);
   if (n && n->routes)
     {
       rta *a = n->routes->attrs;
 
       if (a->dest == RTD_DEVICE)
 	{
-	  if (if_local_addr(he->fn.prefix, a->iface))
+	  if (if_local_addr(he->addr, a->iface))
 	    {
 	      /* The host address is a local address, this is not valid */
 	      log(L_WARN "Next hop address %I is a local address of iface %s",
-		  he->fn.prefix, a->iface->name);
+		  he->addr, a->iface->name);
 	      he->iface = NULL;
 	      he->gw = IPA_NONE;
 	      he->dest = RTD_UNREACHABLE;
@@ -1380,7 +1480,7 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
 	    {
 	      /* The host is directly reachable, us it as a gateway */
 	      he->iface = a->iface;
-	      he->gw = he->fn.prefix;
+	      he->gw = he->addr;
 	      he->dest = RTD_ROUTER;
 	    }
 	}
@@ -1419,9 +1519,7 @@ rt_update_hostcache(rtable *tab)
       he = SKIP_BACK(struct hostentry, ln, n);
       if (!he->uc)
 	{
-	  /* Delete a hostentry */
-	  rem_node(&he->ln);
-	  fib_delete(&hc->htable, he);
+	  hc_delete_hostentry(hc, he);
 	  continue;
 	}
 
@@ -1433,30 +1531,28 @@ rt_update_hostcache(rtable *tab)
 }
 
 static struct hostentry *
-rt_find_hostentry(rtable *tab, ip_addr *a, rtable *dep)
+rt_find_hostentry(rtable *tab, ip_addr a, rtable *dep)
 {
   struct hostentry *he;
 
   if (!tab->hostcache)
     rt_init_hostcache(tab);
 
-  he = fib_get(&tab->hostcache->htable, a, MAX_PREFIX_LENGTH);
-  if (!he->tab)
-    {
-      /* New entry */
-      add_tail(&tab->hostcache->hostentries, &he->ln);
-      he->tab = dep;
+  unsigned int k = hc_hash(a, dep);
+  struct hostcache *hc = tab->hostcache;
+  for (he = hc->hash_table[k >> hc->hash_shift]; he != NULL; he = he->next)
+    if (ipa_equal(he->addr, a) && (he->tab == dep))
+      return he;
 
-      rt_update_hostentry(tab, he);
-    }
-
+  he = hc_new_hostentry(hc, a, dep, k);
+  rt_update_hostentry(tab, he);
   return he;
 }
 
 void
 rta_set_recursive_next_hop(rtable *dep, rta *a, rtable *tab, ip_addr *gw)
 {
-  rta_apply_hostentry(a, rt_find_hostentry(tab, gw, dep));
+  rta_apply_hostentry(a, rt_find_hostentry(tab, *gw, dep));
 }
 
 /*

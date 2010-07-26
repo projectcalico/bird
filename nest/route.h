@@ -150,20 +150,27 @@ typedef struct network {
 } net;
 
 struct hostcache {
-  struct fib htable;
+  slab *slab;				/* Slab holding all hostentries */
+  struct hostentry **hash_table;	/* Hash table for hostentries */
+  unsigned hash_order, hash_shift;
+  unsigned hash_max, hash_min;
+  unsigned hash_items;
+
   list hostentries;
   byte update_hostcache;
 };
 
 struct hostentry {
-  struct fib_node fn;
   node ln;
+  ip_addr addr;				/* IP of host, part of key */
+  struct rtable *tab;			/* Dependent table, part of key*/
+  struct hostentry *next;		/* Next in hash chain */
+  unsigned hash_key;			/* Hash key */
   unsigned uc;				/* Use count */
   struct iface *iface;			/* Chosen outgoing interface */
   ip_addr gw;				/* Chosen next hop */
   byte dest;				/* Chosen route destination type (RTD_...) */
   byte pxlen;				/* Pxlen from net that matches route */
-  struct rtable *tab;
 };
 
 typedef struct rte {
