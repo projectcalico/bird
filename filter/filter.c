@@ -186,7 +186,7 @@ tree_compare(const void *p1, const void *p2)
 }
 
 void
-f_prefix_get_bounds(struct f_prefix *px, int *l, int *h)
+fprefix_get_bounds(struct f_prefix *px, int *l, int *h)
 {
   *l = *h = px->len & LEN_MASK;
 
@@ -319,7 +319,7 @@ val_in_range(struct f_val v1, struct f_val v2)
     return res;
   
   if ((v1.type == T_PREFIX) && (v2.type == T_PREFIX_SET))
-    return trie_match_prefix(v2.val.ti, &v1.val.px);
+    return trie_match_fprefix(v2.val.ti, &v1.val.px);
 
   if ((v1.type == T_CLIST) && (v2.type == T_SET))
     return clist_match_set(v1.val.ad, v2.val.t);

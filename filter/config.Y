@@ -284,8 +284,8 @@ fprefix:
  ;
 
 fprefix_set:
-   fprefix { $$ = f_new_trie(); trie_add_prefix($$, &($1.val.px)); }
- | fprefix_set ',' fprefix { $$ = $1; trie_add_prefix($$, &($3.val.px)); }
+   fprefix { $$ = f_new_trie(cfg_mem); trie_add_fprefix($$, &($1.val.px)); }
+ | fprefix_set ',' fprefix { $$ = $1; trie_add_fprefix($$, &($3.val.px)); }
  ;
 
 switch_body: /* EMPTY */ { $$ = NULL; }
