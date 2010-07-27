@@ -1399,6 +1399,9 @@ rt_init_hostcache(rtable *tab)
   hc_alloc_table(hc, HC_DEF_ORDER);
   hc->slab = sl_new(rt_table_pool, sizeof(struct hostentry));
 
+  hc->lp = lp_new(rt_table_pool, 1008);
+  hc->trie = f_new_trie(hc->lp);
+
   tab->hostcache = hc;
 }
 
@@ -1416,6 +1419,7 @@ rt_free_hostcache(rtable *tab)
     }
 
   rfree(hc->slab);
+  rfree(hc->lp);
   mb_free(hc->hash_table);
   mb_free(hc);
 }
@@ -1428,17 +1432,8 @@ rt_notify_hostcache(rtable *tab, net *net)
   if (tab->hcu_scheduled)
     return;
 
-  node *n;
-  WALK_LIST(n, hc->hostentries)
-    {
-      struct hostentry *he = SKIP_BACK(struct hostentry, ln, n);
-      if (ipa_in_net(he->addr, net->n.prefix, net->n.pxlen) &&
-	  (he->pxlen <= net->n.pxlen))
-	{
-	  rt_schedule_hcu(tab);
-	  return;
-	}
-    }
+  if (trie_match_prefix(hc->trie, net->n.prefix, net->n.pxlen))
+    rt_schedule_hcu(tab);
 }
 
 static int
@@ -1459,11 +1454,13 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
   struct iface *old_iface = he->iface;
   ip_addr old_gw = he->gw;
   byte old_dest = he->dest;
+  int pxlen = 0;
 
   net *n = fib_route(&tab->fib, he->addr, MAX_PREFIX_LENGTH);
   if (n && n->routes)
     {
       rta *a = n->routes->attrs;
+      pxlen = n->n.pxlen;
 
       if (a->dest == RTD_DEVICE)
 	{
@@ -1491,8 +1488,6 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
 	  he->gw = a->gw;
 	  he->dest = a->dest;
 	}
-
-      he->pxlen = n->n.pxlen;
     }
   else
     {
@@ -1500,9 +1495,10 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
       he->iface = NULL;
       he->gw = IPA_NONE;
       he->dest = RTD_UNREACHABLE;
-
-      he->pxlen = 0;
     }
+
+  /* Add a prefix range to the trie */
+  trie_add_prefix(tab->hostcache->trie, he->addr, MAX_PREFIX_LENGTH, pxlen, MAX_PREFIX_LENGTH);
 
   return hostentry_diff(he, old_iface, old_gw, old_dest);
 }
@@ -1513,6 +1509,10 @@ rt_update_hostcache(rtable *tab)
   struct hostcache *hc = tab->hostcache;
   struct hostentry *he;
   node *n, *x;
+
+  /* Reset the trie */
+  lp_flush(hc->lp);
+  hc->trie = f_new_trie(hc->lp);
 
   WALK_LIST_DELSAFE(n, x, hc->hostentries)
     {

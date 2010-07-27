@@ -155,8 +155,9 @@ struct hostcache {
   unsigned hash_order, hash_shift;
   unsigned hash_max, hash_min;
   unsigned hash_items;
-
-  list hostentries;
+  linpool *lp;				/* Linpool for trie */
+  struct f_trie *trie;			/* Trie of prefixes that might affect hostentries */
+  list hostentries;			/* List of all hostentries */
   byte update_hostcache;
 };
 
@@ -170,7 +171,6 @@ struct hostentry {
   struct iface *iface;			/* Chosen outgoing interface */
   ip_addr gw;				/* Chosen next hop */
   byte dest;				/* Chosen route destination type (RTD_...) */
-  byte pxlen;				/* Pxlen from net that matches route */
 };
 
 typedef struct rte {

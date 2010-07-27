@@ -114,8 +114,8 @@ attach_node(struct f_trie_node *parent, struct f_trie_node *child)
  * @h: prefix upper bound
  *
  * Adds prefix (prefix pattern) @px/@plen to trie @t.  @l and @h are lower
- * and upper bounds on accepted prefix lengths, both inclusive. 0 <=
- * l, h <= 32 (128 for IPv6).
+ * and upper bounds on accepted prefix lengths, both inclusive.
+ * 0 <= l, h <= 32 (128 for IPv6).
  */
 
 void
