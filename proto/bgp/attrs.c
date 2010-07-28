@@ -1023,6 +1023,15 @@ bgp_rte_better(rte *new, rte *old)
   eattr *x, *y;
   u32 n, o;
 
+  /* RFC 4271 9.1.2.1. Route resolvability test */
+  /* non-NULL iface means it is either RTD_ROUTER or RTD_DEVICE route */
+  n = new->attrs->iface != NULL;
+  o = old->attrs->iface != NULL;
+  if (n > o)
+    return 1;
+  if (n < o)
+    return 0;
+
   /* Start with local preferences */
   x = ea_find(new->attrs->eattrs, EA_CODE(EAP_BGP, BA_LOCAL_PREF));
   y = ea_find(old->attrs->eattrs, EA_CODE(EAP_BGP, BA_LOCAL_PREF));
