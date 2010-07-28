@@ -163,7 +163,9 @@ struct hostcache {
 
 struct hostentry {
   node ln;
-  ip_addr addr;				/* IP of host, part of key */
+  ip_addr addr;				/* IP address of host, part of key */
+  ip_addr link;				/* (link-local) IP address of host, used as gw
+					   if host is directly attached */
   struct rtable *tab;			/* Dependent table, part of key*/
   struct hostentry *next;		/* Next in hash chain */
   unsigned hash_key;			/* Hash key */
@@ -386,7 +388,7 @@ static inline void rta_free(rta *r) { if (r && !--r->uc) rta__free(r); }
 void rta_dump(rta *);
 void rta_dump_all(void);
 void rta_show(struct cli *, rta *, ea_list *);
-void rta_set_recursive_next_hop(rtable *dep, rta *a, rtable *tab, ip_addr *gw);
+void rta_set_recursive_next_hop(rtable *dep, rta *a, rtable *tab, ip_addr *gw, ip_addr *ll);
 
 /*
  * rta_set_recursive_next_hop() acquires hostentry from hostcache and

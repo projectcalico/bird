@@ -1358,11 +1358,12 @@ hc_resize(struct hostcache *hc, unsigned new_order)
 }
 
 static struct hostentry *
-hc_new_hostentry(struct hostcache *hc, ip_addr a, rtable *dep, unsigned k)
+hc_new_hostentry(struct hostcache *hc, ip_addr a, ip_addr ll, rtable *dep, unsigned k)
 {
   struct hostentry *he = sl_alloc(hc->slab);
 
   he->addr = a;
+  he->link = ll;
   he->tab = dep;
   he->hash_key = k;
   he->uc = 0;
@@ -1475,9 +1476,9 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
       	    }
 	  else
 	    {
-	      /* The host is directly reachable, us it as a gateway */
+	      /* The host is directly reachable, use link as a gateway */
 	      he->iface = a->iface;
-	      he->gw = he->addr;
+	      he->gw = he->link;
 	      he->dest = RTD_ROUTER;
 	    }
 	}
@@ -1531,7 +1532,7 @@ rt_update_hostcache(rtable *tab)
 }
 
 static struct hostentry *
-rt_find_hostentry(rtable *tab, ip_addr a, rtable *dep)
+rt_find_hostentry(rtable *tab, ip_addr a, ip_addr ll, rtable *dep)
 {
   struct hostentry *he;
 
@@ -1544,15 +1545,15 @@ rt_find_hostentry(rtable *tab, ip_addr a, rtable *dep)
     if (ipa_equal(he->addr, a) && (he->tab == dep))
       return he;
 
-  he = hc_new_hostentry(hc, a, dep, k);
+  he = hc_new_hostentry(hc, a, ll, dep, k);
   rt_update_hostentry(tab, he);
   return he;
 }
 
 void
-rta_set_recursive_next_hop(rtable *dep, rta *a, rtable *tab, ip_addr *gw)
+rta_set_recursive_next_hop(rtable *dep, rta *a, rtable *tab, ip_addr *gw, ip_addr *ll)
 {
-  rta_apply_hostentry(a, rt_find_hostentry(tab, *gw, dep));
+  rta_apply_hostentry(a, rt_find_hostentry(tab, *gw, *ll, dep));
 }
 
 /*

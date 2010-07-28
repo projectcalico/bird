@@ -805,11 +805,17 @@ static inline int
 bgp_set_next_hop(struct bgp_proto *p, rta *a)
 {
   struct eattr *nh = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
-  ip_addr nexthop = *(ip_addr *) nh->u.ptr->data;
+  ip_addr *nexthop = (ip_addr *) nh->u.ptr->data;
+
+#ifdef IPV6
+  int second = (nh->u.ptr->length == NEXT_HOP_LENGTH);
+#else
+  int second = 0;
+#endif
 
   if (p->cf->gw_mode == GW_DIRECT)
     {
-      neighbor *ng = neigh_find(&p->p, &nexthop, 0) ? : p->neigh;
+      neighbor *ng = neigh_find(&p->p, nexthop, 0) ? : p->neigh;
       if (ng->scope == SCOPE_HOST)
 	return 0;
 
@@ -819,7 +825,7 @@ bgp_set_next_hop(struct bgp_proto *p, rta *a)
       a->hostentry = NULL;
     }
   else /* GW_RECURSIVE */
-    rta_set_recursive_next_hop(p->p.table, a, p->igp_table, &nexthop);
+    rta_set_recursive_next_hop(p->p.table, a, p->igp_table, nexthop, nexthop + second);
 
   return 1;
 }
