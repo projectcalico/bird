@@ -173,6 +173,7 @@ struct hostentry {
   struct iface *iface;			/* Chosen outgoing interface */
   ip_addr gw;				/* Chosen next hop */
   byte dest;				/* Chosen route destination type (RTD_...) */
+  u32 igp_metric;			/* Chosen route IGP metric */
 };
 
 typedef struct rte {
@@ -276,6 +277,7 @@ typedef struct rta {
   byte flags;				/* Route flags (RTF_...), now unused */
   byte aflags;				/* Attribute cache flags (RTAF_...) */
   u16 hash_key;				/* Hash over important fields */
+  u32 igp_metric;			/* IGP metric to next hop (for iBGP routes) */
   ip_addr gw;				/* Next hop */
   ip_addr from;				/* Advertising router */
   struct hostentry *hostentry;		/* Hostentry for recursive next-hops */
@@ -310,6 +312,9 @@ typedef struct rta {
 #define RTD_NONE 5			/* Invalid RTD */
 
 #define RTAF_CACHED 1			/* This is a cached rta */
+
+#define IGP_METRIC_UNKNOWN 0x80000000	/* Default igp_metric used when no other
+					   protocol-specific metric is availabe */
 
 /*
  *	Extended Route Attributes

@@ -25,6 +25,7 @@ struct bgp_config {
   int missing_lladdr;			/* What we will do when we don' know link-local addr, see MLL_* */
   int gw_mode;				/* How we compute route gateway from next_hop attr, see GW_* */
   int compare_path_lengths;		/* Use path lengths when selecting best route */
+  int igp_metric;			/* Use IGP metrics when selecting best route */
   int prefer_older;			/* Prefer older routes according to RFC 5004 */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
   u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */

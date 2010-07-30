@@ -584,9 +584,11 @@ rta_same(rta *x, rta *y)
 	  x->cast == y->cast &&
 	  x->dest == y->dest &&
 	  x->flags == y->flags &&
+	  x->igp_metric == y->igp_metric &&
 	  ipa_equal(x->gw, y->gw) &&
 	  ipa_equal(x->from, y->from) &&
 	  x->iface == y->iface &&
+	  x->hostentry == y->hostentry &&
 	  ea_same(x->eattrs, y->eattrs));
 }
 

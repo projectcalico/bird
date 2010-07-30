@@ -59,6 +59,24 @@ static void rt_prune(rtable *tab);
 
 static inline void rt_schedule_gc(rtable *tab);
 
+/* Like fib_route(), but skips empty net entries */
+static net *
+net_route(rtable *tab, ip_addr a, int len)
+{
+  ip_addr a0;
+  net *n;
+
+  while (len >= 0)
+    {
+      a0 = ipa_and(a, ipa_mkmask(len));
+      n = fib_find(&tab->fib, &a0, len);
+      if (n && n->routes)
+	return n;
+      len--;
+    }
+  return NULL;
+}
+
 static void
 rte_init(struct fib_node *N)
 {
@@ -945,16 +963,18 @@ rt_preconfig(struct config *c)
  */
 
 static inline int
-hostentry_diff(struct hostentry *he, struct iface *iface, ip_addr gw, byte dest)
+hostentry_diff(struct hostentry *he, struct iface *iface, ip_addr gw,
+	       byte dest, u32 igp_metric)
 {
-  return (he->iface != iface) || !ipa_equal(he->gw, gw) || (he->dest != dest);
+  return (he->iface != iface) || !ipa_equal(he->gw, gw) ||
+    (he->dest != dest) || (he->igp_metric != igp_metric);
 }
 
 static inline int
 rta_next_hop_outdated(rta *a)
 {
   struct hostentry *he = a->hostentry;
-  return he && hostentry_diff(he, a->iface, a->gw, a->dest);
+  return he && hostentry_diff(he, a->iface, a->gw, a->dest, a->igp_metric);
 }
 
 static inline void
@@ -964,6 +984,7 @@ rta_apply_hostentry(rta *a, struct hostentry *he)
   a->iface = he->iface;
   a->gw = he->gw;
   a->dest = he->dest;
+  a->igp_metric = he->igp_metric;
 }
 
 static inline rte *
@@ -1449,16 +1470,36 @@ if_local_addr(ip_addr a, struct iface *i)
   return 0;
 }
 
+static u32 
+rt_get_igp_metric(rte *rt)
+{
+  rta *a = rt->attrs;
+  if ((a->source == RTS_OSPF) ||
+      (a->source == RTS_OSPF_IA) ||
+      (a->source == RTS_OSPF_EXT1))
+    return rt->u.ospf.metric1;
+
+  if (a->source == RTS_RIP)
+    return rt->u.rip.metric;
+
+  /* Device routes */
+  if (a->dest != RTD_ROUTER)
+    return 0;
+
+  return IGP_METRIC_UNKNOWN;
+}
+
 static int
 rt_update_hostentry(rtable *tab, struct hostentry *he)
 {
   struct iface *old_iface = he->iface;
   ip_addr old_gw = he->gw;
   byte old_dest = he->dest;
+  u32 old_metric = he->igp_metric;
   int pxlen = 0;
 
-  net *n = fib_route(&tab->fib, he->addr, MAX_PREFIX_LENGTH);
-  if (n && n->routes)
+  net *n = net_route(tab, he->addr, MAX_PREFIX_LENGTH);
+  if (n)
     {
       rta *a = n->routes->attrs;
       pxlen = n->n.pxlen;
@@ -1489,6 +1530,8 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
 	  he->gw = a->gw;
 	  he->dest = a->dest;
 	}
+
+      he->igp_metric = he->iface ? rt_get_igp_metric(n->routes) : 0;
     }
   else
     {
@@ -1496,12 +1539,13 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
       he->iface = NULL;
       he->gw = IPA_NONE;
       he->dest = RTD_UNREACHABLE;
+      he->igp_metric = 0;
     }
 
   /* Add a prefix range to the trie */
   trie_add_prefix(tab->hostcache->trie, he->addr, MAX_PREFIX_LENGTH, pxlen, MAX_PREFIX_LENGTH);
 
-  return hostentry_diff(he, old_iface, old_gw, old_dest);
+  return hostentry_diff(he, old_iface, old_gw, old_dest, old_metric);
 }
 
 static void
@@ -1730,9 +1774,9 @@ rt_show(struct rt_show_data *d)
   else
     {
       if (d->show_for)
-	n = fib_route(&d->table->fib, d->prefix, d->pxlen);
+	n = net_route(d->table, d->prefix, d->pxlen);
       else
-	n = fib_find(&d->table->fib, &d->prefix, d->pxlen);
+	n = net_find(d->table, d->prefix, d->pxlen);
       if (n)
 	{
 	  rt_show_net(this_cli, n, d);

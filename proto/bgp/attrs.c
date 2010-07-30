@@ -1084,8 +1084,13 @@ bgp_rte_better(rte *new, rte *old)
   if (new_bgp->is_internal < old_bgp->is_internal)
     return 1;
 
-  /* Skipping RFC 4271 9.1.2.2. e) */
-  /* We don't have interior distances */
+  /* RFC 4271 9.1.2.2. e) Compare IGP metrics */
+  n = new_bgp->cf->igp_metric ? new->attrs->igp_metric : 0;
+  o = old_bgp->cf->igp_metric ? old->attrs->igp_metric : 0;
+  if (n < o)
+    return 1;
+  if (n > o)
+    return 0;
 
   /* RFC 4271 9.1.2.2. f) Compare BGP identifiers */
   /* RFC 4456 9. a) Use ORIGINATOR_ID instead of local neighor ID */
@@ -1494,7 +1499,18 @@ bgp_get_route_info(rte *e, byte *buf, ea_list *attrs)
   eattr *o = ea_find(attrs, EA_CODE(EAP_BGP, BA_ORIGIN));
   u32 origas;
 
-  buf += bsprintf(buf, " (%d) [", e->pref);
+  buf += bsprintf(buf, " (%d", e->pref);
+  if (e->attrs->hostentry)
+    {
+      if (!e->attrs->iface)
+	buf += bsprintf(buf, "/-");
+      else if (e->attrs->igp_metric >= IGP_METRIC_UNKNOWN)
+	buf += bsprintf(buf, "/?");
+      else
+	buf += bsprintf(buf, "/%d", e->attrs->igp_metric);
+    }
+  buf += bsprintf(buf, ") [");
+
   if (p && as_path_get_last(p->u.ptr, &origas))
     buf += bsprintf(buf, "AS%u", origas);
   if (o)

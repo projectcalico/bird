@@ -38,6 +38,7 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->connect_retry_time = 120;
      BGP_CFG->initial_hold_time = 240;
      BGP_CFG->compare_path_lengths = 1;
+     BGP_CFG->igp_metric = 1;
      BGP_CFG->start_delay_time = 5;
      BGP_CFG->error_amnesia_time = 300;
      BGP_CFG->error_delay_time_min = 60;
@@ -78,6 +79,7 @@ bgp_proto:
  | bgp_proto GATEWAY DIRECT ';' { BGP_CFG->gw_mode = GW_DIRECT; }
  | bgp_proto GATEWAY RECURSIVE ';' { BGP_CFG->gw_mode = GW_RECURSIVE; }
  | bgp_proto PATH METRIC bool ';' { BGP_CFG->compare_path_lengths = $4; }
+ | bgp_proto IGP METRIC bool ';' { BGP_CFG->igp_metric = $4; }
  | bgp_proto PREFER OLDER bool ';' { BGP_CFG->prefer_older = $4; }
  | bgp_proto DEFAULT BGP_MED expr ';' { BGP_CFG->default_med = $4; }
  | bgp_proto DEFAULT BGP_LOCAL_PREF expr ';' { BGP_CFG->default_local_pref = $4; }

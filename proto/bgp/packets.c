@@ -823,6 +823,7 @@ bgp_set_next_hop(struct bgp_proto *p, rta *a)
       a->gw = ng->addr;
       a->iface = ng->iface;
       a->hostentry = NULL;
+      a->igp_metric = 0;
     }
   else /* GW_RECURSIVE */
     rta_set_recursive_next_hop(p->p.table, a, p->igp_table, nexthop, nexthop + second);
