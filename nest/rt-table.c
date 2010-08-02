@@ -1473,6 +1473,11 @@ if_local_addr(ip_addr a, struct iface *i)
 static u32 
 rt_get_igp_metric(rte *rt)
 {
+  eattr *ea = ea_find(rt->attrs->eattrs, EA_GEN_IGP_METRIC);
+
+  if (ea)
+    return ea->u.data;
+
   rta *a = rt->attrs;
   if ((a->source == RTS_OSPF) ||
       (a->source == RTS_OSPF_IA) ||

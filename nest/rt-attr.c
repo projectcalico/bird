@@ -362,6 +362,18 @@ ea_free(ea_list *o)
     }
 }
 
+static int
+get_generic_attr(eattr *a, byte **buf, int buflen UNUSED)
+{
+  if (a->id == EA_GEN_IGP_METRIC)
+    {
+      *buf += bsprintf(*buf, "igp_metric");
+      return GA_NAME;
+    }
+ 
+  return GA_UNKNOWN;
+}
+
 /**
  * ea_format - format an &eattr for printing
  * @e: attribute to be formatted
@@ -392,6 +404,9 @@ ea_format(eattr *e, byte *buf)
     }
   else if (EA_PROTO(e->id))
     buf += bsprintf(buf, "%02x.", EA_PROTO(e->id));
+  else 
+    status = get_generic_attr(e, &buf, end - buf);
+
   if (status < GA_NAME)
     buf += bsprintf(buf, "%02x", EA_ID(e->id));
   if (status < GA_FULL)

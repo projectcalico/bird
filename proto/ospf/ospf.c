@@ -467,7 +467,11 @@ ospf_import_control(struct proto *p, rte ** new, ea_list ** attrs,
 
   if (p == e->attrs->proto)
     return -1;			/* Reject our own routes */
-  *attrs = ospf_build_attrs(*attrs, pool, LSINFINITY, 10000, 0, 0);
+
+  eattr *ea = ea_find(e->attrs->eattrs, EA_GEN_IGP_METRIC);
+  u32 m1 = (ea && (ea->u.data < LSINFINITY)) ? ea->u.data : LSINFINITY;
+
+  *attrs = ospf_build_attrs(*attrs, pool, m1, 10000, 0, 0);
   return 0;			/* Leave decision to the filters */
 }
 
