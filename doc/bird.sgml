@@ -882,6 +882,14 @@ undefined value is regarded as empty clist for most purposes.
 
 	<tag><m/enum/ dest</tag>
 	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_DEVICE/ for routing to a directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silently discarded, <cf/RTD_UNREACHABLE/, <cf/RTD_PROHIBIT/ for packets that should be returned with ICMP host unreachable / ICMP administratively prohibited messages). Read-only.
+
+	<tag><m/int/ igp_metric</tag>
+	The optional attribute that can be used to specify a distance
+	to the network for routes that do not have a native protocol
+	metric attribute (like <cf/ospf_metric1/ for OSPF routes). It
+	is used mainly by BGP to compare internal distances to boundary
+	routers (see below). It is also used when the route is exported
+	to OSPF as a default value for OSPF type 1 metric.
 </descrip>
 
 <p>There also exist some protocol-specific attributes which are described in the corresponding protocol sections.
@@ -916,12 +924,16 @@ making it possible to implement any routing policy at any router in the
 network, the only restriction being that if a router advertises a route,
 it must accept and forward packets according to it.
 
-<p>BGP works in terms of autonomous systems (often abbreviated as AS). Each
-AS is a part of the network with common management and common routing policy. It is identified by a unique 16-bit number.
-Routers within each AS usually communicate with each other using either a interior routing
-protocol (such as OSPF or RIP) or an interior variant of BGP (called iBGP).
-Boundary routers at the border of the AS communicate with their peers
-in the neighboring AS'es via exterior BGP (eBGP).
+<p>BGP works in terms of autonomous systems (often abbreviated as
+AS). Each AS is a part of the network with common management and
+common routing policy. It is identified by a unique 16-bit number
+(ASN).  Routers within each AS usually exchange AS-internal routing
+information with each other using an interior gateway protocol (IGP,
+such as OSPF or RIP). Boundary routers at the border of
+the AS communicate global (inter-AS) network reachability information with
+their neighbors in the neighboring AS'es via exterior BGP (eBGP) and
+redistribute received information to other routers in the AS via
+interior BGP (iBGP).
 
 <p>Each BGP router sends to its neighbors updates of the parts of its
 routing table it wishes to export along with complete path information
@@ -962,12 +974,24 @@ among them and so on.
 <itemize>
 	<item>Prefer route with the highest Local Preference attribute.
 	<item>Prefer route with the shortest AS path.
-	<item>Prefer IGP origin over EGP and EGP over incomplete.
+	<item>Prefer IGP origin over EGP and EGP origin over incomplete.
 	<item>Prefer the lowest value of the Multiple Exit Discriminator.
-	<item>Prefer internal routes over external ones.
+	<item>Prefer routes received via eBGP over ones received via iBGP.
+	<item>Prefer routes with lower internal distance to a boundary router.
 	<item>Prefer the route with the lowest value of router ID of the
 	advertising router.
 </itemize>
+
+<sect1>IGP routing table
+
+<p>BGP is mainly concerned with global network reachability and with
+routes to other autonomous systems. When such routes are redistributed
+to routers in the AS via BGP, they contain IP addresses of a boundary
+routers (in route attribute NEXT_HOP). BGP depends on existing IGP
+routing table with AS-internal routes to determine immediate next hops
+for routes and to know their internal distances to boundary routers
+for the purpose of BGP route selection. In BIRD, there is usually
+one routing table used for both IGP routes and BGP routes.
 
 <sect1>Configuration
 
@@ -1035,7 +1059,7 @@ for each neighbor using the following configuration parameters:
 	how it is computed. Direct mode means that the IP address from
 	<cf/bgp_next_hop/ is used if it is directly reachable,
 	otherwise the neighbor IP address is used. Recursive mode
-	means that the gateway is computed by a IGP routing table
+	means that the gateway is computed by an IGP routing table
 	lookup for the IP address from <cf/bgp_next_hop/. Recursive
 	mode is the behavior specified by the BGP standard. Direct
 	mode is simpler, does not require any routes in a routing
@@ -1044,8 +1068,8 @@ for each neighbor using the following configuration parameters:
 	<cf/direct/ for singlehop eBGP, <cf/recursive/ otherwise.
 
 	<tag>igp table <m/name/</tag> Specifies a table that is used
-	in a recursive gateway mode for computing <cf/gw/ attributes.
-	Default: the same as the table BGP is connected to.
+	as an IGP routing table. Default: the same as the table BGP is
+	connected to.
 	
 	<tag>password <m/string/</tag> Use this password for MD5 authentication
 	of BGP sessions. Default: no authentication. Password has to be set by
@@ -1156,6 +1180,9 @@ for each neighbor using the following configuration parameters:
 
 	<tag>path metric <m/switch/</tag> Enable comparison of path lengths
 	when deciding which BGP route is the best one. Default: on.
+
+	<tag>igp metric <m/switch/</tag> Enable comparison of internal
+ 	distances to boundary routers during best route selection. Default: on.
 
 	<tag>prefer older <m/switch/</tag> Standard route selection algorithm
 	breaks ties by comparing router IDs. This changes the behavior
