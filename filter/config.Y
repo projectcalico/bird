@@ -228,7 +228,7 @@ fipa:
  ;
 
 set_atom:
-   NUM   { $$.type = T_INT; $$.val.i = $1; }
+   expr   { $$.type = T_INT; $$.val.i = $1; }
  | RTRID { $$.type = T_QUAD; $$.val.i = $1; }
  | fipa  { $$ = $1; }
  | ENUM  {  $$.type = $1 >> 16; $$.val.i = $1 & 0xffff; }
