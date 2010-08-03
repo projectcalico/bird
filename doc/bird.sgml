@@ -706,9 +706,21 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  Filters recognize four types of sets. Sets are similar to strings: you can pass them around
 	  but you can't modify them. Literals of type <cf>int set</cf> look like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
-	  sets. For pair sets, expressions like <cf/(123,*)/ can be used to denote ranges (in
+	  sets.
+	  For pair sets, expressions like <cf/(123,*)/ can be used to denote ranges (in
 	  that case <cf/(123,0)..(123,65535)/). You can also use <cf/(123,5..100/ for range
 	  <cf/(123,5)..(123,100)/.
+	  You can also use expressions for both, pair sets and int sets. However it must
+	  be possible to evaluate these expressions before daemon boots. So you can use
+	  only constants inside them. E.g.
+	<code>
+	 define one=1;
+	 int set odds;
+	 pair set ps;
+
+	 odds = [ one, (2+1), (6-one), (2*2*2-1), 9, 11 ]; 
+	 ps = [ (1,(one+one)), (3,4)..(4,8), (5,*), (6,3..6) ];
+	</code>
 
 	  Sets of prefixes are special: their literals does not allow ranges, but allows
 	  prefix patterns that are written as <cf><M>ipaddress</M>/<M>pxlen</M>{<M>low</M>,<M>high</M>}</cf>.
