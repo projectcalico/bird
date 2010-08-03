@@ -1509,7 +1509,16 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
       rta *a = n->routes->attrs;
       pxlen = n->n.pxlen;
 
-      if (a->dest == RTD_DEVICE)
+      if (a->hostentry)
+	{
+	  /* Recursive route should not depend on another recursive route */
+	  log(L_WARN "Next hop address %I resolvable through recursive route for %I/%d",
+	      he->addr, n->n.prefix, n->n.pxlen);
+	  he->iface = NULL;
+	  he->gw = IPA_NONE;
+	  he->dest = RTD_UNREACHABLE;
+	}
+      else if (a->dest == RTD_DEVICE)
 	{
 	  if (if_local_addr(he->addr, a->iface))
 	    {
