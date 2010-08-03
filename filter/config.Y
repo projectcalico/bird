@@ -45,7 +45,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 
 %type <x> term block cmds cmds_int cmd function_body constant print_one print_list var_list var_listn dynamic_attr static_attr function_call symbol dpair bgp_path_expr
 %type <f> filter filter_body where_filter
-%type <i> type break_command cpair
+%type <i> type break_command
 %type <e> set_item set_items switch_body
 %type <trie> fprefix_set
 %type <v> set_atom fprefix fprefix_s fipa
@@ -221,13 +221,6 @@ block:
  ;
 
 /*
- * Simple types, their bison value is int
- */
-cpair:
-   '(' NUM ',' NUM ')' { $$ = make_pair($2, $4); }
- ;
-
-/*
  * Complex types, their bison value is struct f_val
  */
 fipa:
@@ -237,13 +230,30 @@ fipa:
 set_atom:
    NUM   { $$.type = T_INT; $$.val.i = $1; }
  | RTRID { $$.type = T_QUAD; $$.val.i = $1; }
- | cpair { $$.type = T_PAIR; $$.val.i = $1; }
  | fipa  { $$ = $1; }
  | ENUM  {  $$.type = $1 >> 16; $$.val.i = $1 & 0xffff; }
  ; 
 
 set_item:
-   '(' NUM ',' '*' ')' { 
+   '(' expr ',' expr ')' {
+	$$ = f_new_tree(); 
+	$$->from.type = $$->to.type = T_PAIR;
+	$$->from.val.i = make_pair($2, $4); 
+	$$->to.val.i = make_pair($2, $4);
+   }
+ | '(' expr ',' expr '.' '.' expr ')' { 
+	$$ = f_new_tree(); 
+	$$->from.type = $$->to.type = T_PAIR;
+	$$->from.val.i = make_pair($2, $4); 
+	$$->to.val.i = make_pair($2, $7);
+   }
+ | '(' expr ',' expr ')' '.' '.' '(' expr ',' expr ')' { 
+	$$ = f_new_tree(); 
+	$$->from.type = $$->to.type = T_PAIR;
+	$$->from.val.i = make_pair($2, $4); 
+	$$->to.val.i = make_pair($9, $11);
+   }
+ |  '(' expr ',' '*' ')' { 
 	$$ = f_new_tree(); 
 	$$->from.type = $$->to.type = T_PAIR;
 	$$->from.val.i = make_pair($2, 0); 

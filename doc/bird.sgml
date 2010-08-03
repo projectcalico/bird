@@ -707,7 +707,8 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  but you can't modify them. Literals of type <cf>int set</cf> look like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
 	  sets. For pair sets, expressions like <cf/(123,*)/ can be used to denote ranges (in
-	  that case <cf/(123,0)..(123,65535)/).
+	  that case <cf/(123,0)..(123,65535)/). You can also use <cf/(123,5..100/ for range
+	  <cf/(123,5)..(123,100)/.
 
 	  Sets of prefixes are special: their literals does not allow ranges, but allows
 	  prefix patterns that are written as <cf><M>ipaddress</M>/<M>pxlen</M>{<M>low</M>,<M>high</M>}</cf>.
