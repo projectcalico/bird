@@ -962,7 +962,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
       len -= *x + 2;
       x += *x + 2;
 
-      if (bgp_get_nexthop(p, a0))
+      if (bgp_set_next_hop(p, a0))
 	{
 	  a = rta_lookup(a0);
 	  while (len)
