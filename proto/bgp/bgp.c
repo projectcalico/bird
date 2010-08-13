@@ -973,7 +973,7 @@ bgp_check(struct bgp_config *c)
 
   /* Different default based on rs_client */
   if (!c->missing_lladdr)
-    c->missing_lladdr = c->rs_client ? MLL_DROP : MLL_SELF;
+    c->missing_lladdr = c->rs_client ? MLL_IGNORE : MLL_SELF;
 
   /* Different default for gw_mode */
   if (!c->gw_mode)
