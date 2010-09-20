@@ -264,53 +264,38 @@ trie_same(struct f_trie *t1, struct f_trie *t2)
   return (t1->zero == t2->zero) && trie_node_same(&t1->root, &t2->root);
 }
 
-static int
-trie_node_print(struct f_trie_node *t, char *buf, int blen)
+static void
+trie_node_print(struct f_trie_node *t, char **sep)
 {
   if (t == NULL)
-    return 0;
+    return;
 
-  int old_blen = blen;
-  int wb = 0; // bsnprintf(buf, blen, "%I/%d accept %I\n", t->addr, t->plen, t->accept);
-debug("%I/%d accept %I\n", t->addr, t->plen, t->accept);
-
-  if ((wb < 0) || ((blen - wb) < 10))
+  if (ipa_nonzero(t->accept))
     {
-      bsnprintf(buf, blen, "...\n");
-      return -1;
+      logn("%s%I/%d{%I}", *sep, t->addr, t->plen, t->accept);
+      *sep = ", ";
     }
 
-  buf += wb;
-  blen -= wb;
-
-  wb = trie_node_print(t->c[0], buf, blen);
-  if (wb < 0)
-    return -1;
-
-  buf += wb;
-  blen -= wb;
-
-  wb = trie_node_print(t->c[1], buf, blen);
-  if (wb < 0)
-    return -1;
-
-  blen -= wb;
-
-  return (old_blen - blen);
+  trie_node_print(t->c[0], sep);
+  trie_node_print(t->c[1], sep);
 }
 
 /**
  * trie_print
  * @t: trie to be printed
- * @buf: buffer
- * @blen: buffer length
  *
- * Prints the trie to the buffer, using at most blen bytes.
- * Returns the number of used bytes, or -1 if there is not
- * enough space in the buffer.
+ * Prints the trie to the log buffer.
  */
-int
-trie_print(struct f_trie *t, char *buf, int blen)
+void
+trie_print(struct f_trie *t)
 {
-  return trie_node_print(&t->root, buf, blen);
+  char *sep = "";
+  logn("[");
+  if (t->zero)
+    {
+      logn("0.0.0.0/0");
+      sep = ", ";
+    }
+  trie_node_print(&t->root, &sep);
+  logn("]");
 }

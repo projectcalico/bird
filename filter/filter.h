@@ -74,7 +74,7 @@ struct f_trie *f_new_trie(linpool *lp);
 void trie_add_prefix(struct f_trie *t, ip_addr px, int plen, int l, int h);
 int trie_match_prefix(struct f_trie *t, ip_addr px, int plen);
 int trie_same(struct f_trie *t1, struct f_trie *t2);
-int trie_print(struct f_trie *t, char *buf, int blen);
+void trie_print(struct f_trie *t);
 
 void fprefix_get_bounds(struct f_prefix *px, int *l, int *h);
 
@@ -107,7 +107,6 @@ int i_same(struct f_inst *f1, struct f_inst *f2);
 
 int val_compare(struct f_val v1, struct f_val v2);
 int tree_compare(const void *p1, const void *p2);
-void val_print(struct f_val v);
 
 #define F_NOP 0
 #define F_NONL 1

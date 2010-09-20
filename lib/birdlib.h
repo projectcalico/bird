@@ -41,8 +41,11 @@ struct rate_limit {
 };
 
 #define log log_msg
+void log_reset(void);
+void log_commit(int class);
 void log_msg(char *msg, ...);
 void log_rl(struct rate_limit *rl, char *msg, ...);
+void logn(char *msg, ...);
 void die(char *msg, ...) NORET;
 void bug(char *msg, ...) NORET;
 
