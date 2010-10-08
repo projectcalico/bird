@@ -1150,10 +1150,7 @@ f_eval_asn(struct f_inst *expr)
 {
   /* Called as a part of another interpret call, therefore no log_reset() */
   struct f_val res = interpret(expr);
-  if (res.type != T_INT)
-    cf_error("Can't operate with value of non-integer type in AS path mask constructor");
- 
-  return res.val.i;
+  return (res.type == T_INT) ? res.val.i : 0;
 }
 
 /**
