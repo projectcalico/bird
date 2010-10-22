@@ -408,7 +408,7 @@ ospf_rx_hook(sock *sk, int size)
     }
 
 #ifdef OSPFv2
-    log(L_WARN "OSPF: Received packet for uknown vlink (ID %R, IP %I)", rid, sk->faddr);
+    log(L_WARN "OSPF: Received packet for unknown vlink (ID %R, IP %I)", rid, sk->faddr);
 #endif
     return 1;
   }
@@ -445,14 +445,14 @@ ospf_rx_hook(sock *sk, int size)
 
   if(!n && (ps->type != HELLO_P))
   {
-    log(L_WARN "OSPF: Received non-hello packet from uknown neighbor (src %I, iface %s)",
+    log(L_WARN "OSPF: Received non-hello packet from unknown neighbor (src %I, iface %s)",
 	sk->faddr, ifa->iface->name);
     return 1;
   }
 
   if (!ospf_pkt_checkauth(n, ifa, ps, size))
   {
-    log(L_ERR "%s%I - authentification failed", mesg, sk->faddr);
+    log(L_ERR "%s%I - authentication failed", mesg, sk->faddr);
     return 1;
   }
 
