@@ -94,9 +94,16 @@ protocols to be incorporated easily. Among other features, BIRD supports:
 Czech Republic as a student project. It can be freely distributed under the terms of the GNU General
 Public License.
 
-<p>BIRD has been designed to work on all UNIX-like systems. It has been developed and
-tested under Linux 2.0 to 2.6, and then ported to FreeBSD, NetBSD and OpenBSD, porting to other
-systems (even non-UNIX ones) should be relatively easy due to its highly modular architecture.
+<p>BIRD has been designed to work on all UNIX-like systems. It has
+been developed and tested under Linux 2.0 to 2.6, and then ported to
+FreeBSD, NetBSD and OpenBSD, porting to other systems (even non-UNIX
+ones) should be relatively easy due to its highly modular
+architecture.
+
+<p>BIRD supports either IPv4 or IPv6 protocol, but have to be compiled
+separately for each one. Therefore, a dualstack router would run two
+instances of BIRD (one for IPv4 and one for IPv6), with completely
+separate setups (configuration files, tools ...).
 
 <sect>Installing BIRD
 
@@ -2115,5 +2122,5 @@ LocalWords:  OS'es AS's multicast nolisten misconfigured UID blackhole MRTD MTU
 LocalWords:  uninstalls ethernets IP binutils ANYCAST anycast dest RTD ICMP rfc
 LocalWords:  compat multicasts nonbroadcast pointopoint loopback sym stats
 LocalWords:  Perl SIGHUP dd mm yy HH MM SS EXT IA UNICAST multihop Discriminator txt
-LocalWords:  proto wildcard
+LocalWords:  proto wildcard Ondrej Filip
 -->
