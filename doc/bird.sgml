@@ -270,14 +270,15 @@ protocol rip {
 
 	<tag>router id <m/IPv4 address/</tag> Set BIRD's router ID. It's a world-wide unique identification of your router, usually one of router's IPv4 addresses. Default: in IPv4 version, the lowest IP address of a non-loopback interface. In IPv6 version, this option is mandatory. 
 
-	<tag>listen bgp [address <m/address/] [port <m/port/] [v6only]</tag>
+	<tag>listen bgp [address <m/address/] [port <m/port/] [dual]</tag>
 	This option allows to specify address and port where BGP
 	protocol should listen. It is global option as listening
 	socket is common to all BGP instances. Default is to listen on
 	all addresses (0.0.0.0) and port 179. In IPv6 mode, option
-	<cf/v6only/ can be used to specify that BGP socket should
-	listen to IPv6 connections only. This is needed if you want to
-	run both bird and bird6 on the same port.
+	<cf/dual/ can be used to specify that BGP socket should accept
+	both IPv4 and IPv6 connections (but even in that case, BIRD
+	would accept IPv6 routes only). Such behavior was default in
+	older versions of BIRD.
 
 	<tag>timeformat route|protocol|base|log "<m/format1/" [<m/limit/ "<m/format2/"]</tag>
 	This option allows to specify a format of date/time used by

@@ -658,7 +658,7 @@ bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags)
   s->type = SK_TCP_PASSIVE;
   s->saddr = addr;
   s->sport = port ? port : BGP_PORT;
-  s->flags = flags;
+  s->flags = flags ? 0 : SKF_V6ONLY;
   s->tos = IP_PREC_INTERNET_CONTROL;
   s->rbsize = BGP_RX_BUFFER_SIZE;
   s->tbsize = BGP_TX_BUFFER_SIZE;
