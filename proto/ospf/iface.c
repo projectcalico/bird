@@ -721,7 +721,7 @@ ospf_iface_change_mtu(struct proto_ospf *po, struct ospf_iface *ifa)
     if (ntohs(op->length) <= ifa->iface->mtu)	/* If the packet in old buffer is bigger, let it filled by zeros */
       memcpy(n->ldbdes, op, ifa->iface->mtu);	/* If the packet is old is same or smaller, copy it */
 
-    rfree(op);
+    mb_free(op);
   }
 }
 
