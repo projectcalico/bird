@@ -74,7 +74,7 @@ ospf_sk_open(struct ospf_iface *ifa)
   sk->err_hook = ospf_err_hook;
   sk->iface = ifa->iface;
   sk->rbsize = rxbufsize(ifa);
-  sk->tbsize = ifa->iface->mtu;
+  sk->tbsize = rxbufsize(ifa);
   sk->data = (void *) ifa;
   sk->flags = SKF_LADDR_RX;
 
@@ -709,7 +709,7 @@ ospf_iface_change_mtu(struct proto_ospf *po, struct ospf_iface *ifa)
   if (ifa->sk)
   {
     ifa->sk->rbsize = rxbufsize(ifa);
-    ifa->sk->tbsize = ifa->iface->mtu;
+    ifa->sk->tbsize = rxbufsize(ifa);
     sk_reallocate(ifa->sk);
   }
 
