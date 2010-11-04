@@ -297,7 +297,7 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
   pp = (u32 *) (((u8 *) pkt) + sizeof(struct ospf_hello_packet));
   WALK_LIST(neigh, ifa->neigh_list)
   {
-    if ((i+1) * sizeof(u32) + sizeof(struct ospf_hello_packet) > ospf_pkt_maxsize(ifa))
+    if ((i+1) * sizeof(u32) + sizeof(struct ospf_hello_packet) > ospf_pkt_bufsize(ifa))
     {
       OSPF_TRACE(D_PACKETS, "Too many neighbors on the interface!");
       break;

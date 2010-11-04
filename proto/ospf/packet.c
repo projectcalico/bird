@@ -39,18 +39,16 @@ ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type)
 unsigned
 ospf_pkt_maxsize(struct ospf_iface *ifa)
 {
-  /* For virtual links use mtu=576, can be mtu < 576? */
   unsigned mtu = (ifa->type == OSPF_IT_VLINK) ? OSPF_VLINK_MTU : ifa->iface->mtu;
-  unsigned add = 0;
+  unsigned headers = SIZE_OF_IP_HEADER;
 
 #ifdef OSPFv2
-  add = ((ifa->autype == OSPF_AUTH_CRYPT) ? OSPF_AUTH_CRYPT_SIZE : 0);
+  if (ifa->autype == OSPF_AUTH_CRYPT)
+    headers += OSPF_AUTH_CRYPT_SIZE;
 #endif
 
-  return ((mtu <=  ifa->iface->mtu) ? mtu : ifa->iface->mtu) -
-  SIZE_OF_IP_HEADER - add;
+  return mtu - headers;
 }
-
 
 #ifdef OSPFv2
 

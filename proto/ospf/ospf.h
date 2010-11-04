@@ -10,7 +10,6 @@
 #define _BIRD_OSPF_H_
 
 #define MAXNETS 10
-#define OSPF_VLINK_MTU 576	/* RFC2328 - A.1 */
 #define OSPF_MAX_PKT_SIZE 65536
 			/*
                          * RFC 2328 says, maximum packet size is 65535
@@ -53,11 +52,13 @@ do { if ((p->debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
 #ifndef IPV6
 #define OSPFv2 1
 #define OSPF_VERSION 2
+#define OSPF_VLINK_MTU 576			/* RFC 2328 A.1 */
 #define AllSPFRouters ipa_from_u32(0xe0000005)	/* 224.0.0.5 */
 #define AllDRouters ipa_from_u32(0xe0000006)	/* 224.0.0.6 */
 #else
 #define OSPFv3 1
 #define OSPF_VERSION 3
+#define OSPF_VLINK_MTU 1280			/* RFC 5340 A.1 */
 #define AllSPFRouters _MI(0xFF020000, 0, 0, 5)	/* FF02::5 */
 #define AllDRouters   _MI(0xFF020000, 0, 0, 6)	/* FF02::6 */
 #endif
