@@ -205,6 +205,7 @@ ospf_start(struct proto *p)
     oa = mb_allocz(p->pool, sizeof(struct ospf_area));
     add_tail(&po->area_list, NODE oa);
     po->areano++;
+    oa->ac = NULL;
     oa->stub = 0;
     oa->areaid = 0;
     oa->rt = NULL;

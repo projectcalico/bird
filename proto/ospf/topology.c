@@ -157,6 +157,9 @@ get_seqnum(struct top_hash_entry *en)
 static int
 configured_stubnet(struct ospf_area *oa, struct ifa *a)
 {
+  if (!oa->ac)
+    return 0;
+
   struct ospf_stubnet_config *sn;
   WALK_LIST(sn, oa->ac->stubnet_list)
     {
@@ -309,8 +312,9 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
   }
 
   struct ospf_stubnet_config *sn;
-  WALK_LIST(sn, oa->ac->stubnet_list)
-    if (!sn->hidden)
+  if (oa->ac)
+    WALK_LIST(sn, oa->ac->stubnet_list)
+      if (!sn->hidden)
       {
 	ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
 	ln->type = LSART_STUB;
@@ -1197,7 +1201,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 
   /* If there are some configured vlinks, add some global address,
      which will be used as a vlink endpoint. */
-  if (!EMPTY_LIST(oa->ac->vlink_list) && !host_addr && vlink_addr)
+  if (oa->ac && !EMPTY_LIST(oa->ac->vlink_list) && !host_addr && vlink_addr)
   {
     put_ipv6_prefix(lsab_alloc(po, IPV6_PREFIX_SPACE(MAX_PREFIX_LENGTH)),
 		    vlink_addr->ip, MAX_PREFIX_LENGTH, OPT_PX_LA, 0);
@@ -1205,8 +1209,9 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
   }
 
   struct ospf_stubnet_config *sn;
-  WALK_LIST(sn, oa->ac->stubnet_list)
-    if (!sn->hidden)
+  if (oa->ac)
+    WALK_LIST(sn, oa->ac->stubnet_list)
+      if (!sn->hidden)
       {
 	flags = (sn->px.len < MAX_PREFIX_LENGTH) ? 0 : OPT_PX_LA;
 	put_ipv6_prefix(lsab_alloc(po, IPV6_PREFIX_SPACE(sn->px.len)),

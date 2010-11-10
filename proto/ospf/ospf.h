@@ -701,7 +701,7 @@ struct ospf_area
 {
   node n;
   u32 areaid;
-  struct ospf_area_config *ac;	/* Related area config */
+  struct ospf_area_config *ac;	/* Related area config, might be NULL */
   int origrt;			/* Rt lsa origination scheduled? */
   struct top_hash_entry *rt;	/* My own router LSA */
   struct top_hash_entry *pxr_lsa; /* Originated prefix LSA */
