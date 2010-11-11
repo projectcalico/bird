@@ -278,6 +278,28 @@ neigh_if_down(struct iface *i)
     }
 }
 
+/**
+ * neigh_if_link - notify neighbor cache about interface link change
+ * @i: the interface in question
+ *
+ * Notify the neighbor cache that an interface changed link state.
+ * All owners of neighbor entries connected to this interface are
+ * notified.
+ */
+
+void
+neigh_if_link(struct iface *i)
+{
+  node *x, *y;
+
+  WALK_LIST_DELSAFE(x, y, i->neighbors)
+    {
+      neighbor *n = SKIP_BACK(neighbor, if_n, x);
+      if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
+	n->proto->neigh_notify(n);
+    }
+}
+
 static inline void
 neigh_prune_one(neighbor *n)
 {

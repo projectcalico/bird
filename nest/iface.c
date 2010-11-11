@@ -117,7 +117,7 @@ if_what_changed(struct iface *i, struct iface *j)
 {
   unsigned c;
 
-  if (((i->flags ^ j->flags) & ~(IF_UP | IF_SHUTDOWN | IF_UPDATED | IF_ADMIN_UP | IF_TMP_DOWN | IF_JUST_CREATED))
+  if (((i->flags ^ j->flags) & ~(IF_UP | IF_SHUTDOWN | IF_UPDATED | IF_ADMIN_UP | IF_LINK_UP | IF_TMP_DOWN | IF_JUST_CREATED))
       || i->index != j->index)
     return IF_CHANGE_TOO_MUCH;
   c = 0;
@@ -213,6 +213,10 @@ if_notify_change(unsigned c, struct iface *i)
 	a->flags = (i->flags & ~IA_FLAGS) | (a->flags & IA_FLAGS);
 	ifa_notify_change(IF_CHANGE_UP, a);
       }
+
+  if ((c & (IF_CHANGE_UP | IF_CHANGE_DOWN | IF_CHANGE_LINK)) == IF_CHANGE_LINK)
+    neigh_if_link(i);
+
   if (c & IF_CHANGE_DOWN)
     neigh_if_down(i);
 }

@@ -12,11 +12,12 @@ CF_HDR
 
 CF_DEFINES
 
+#define STATIC_CFG ((struct static_config *) this_proto)
 static struct static_route *this_srt;
 
 CF_DECLS
 
-CF_KEYWORDS(STATIC, ROUTE, VIA, DROP, REJECT, PROHIBIT, PREFERENCE)
+CF_KEYWORDS(STATIC, ROUTE, VIA, DROP, REJECT, PROHIBIT, PREFERENCE, CHECK, LINK)
 
 CF_GRAMMAR
 
@@ -31,12 +32,13 @@ static_proto_start: proto_start STATIC {
 static_proto:
    static_proto_start proto_name '{'
  | static_proto proto_item ';'
+ | static_proto CHECK LINK ';' { STATIC_CFG->check = STATIC_CHECK_LINK; }
  | static_proto stat_route ';'
  ;
 
 stat_route0: ROUTE prefix {
      this_srt = cfg_allocz(sizeof(struct static_route));
-     add_tail(&((struct static_config *) this_proto)->other_routes, &this_srt->n);
+     add_tail(&STATIC_CFG->other_routes, &this_srt->n);
      this_srt->net = $2.addr;
      this_srt->masklen = $2.len;
   }
@@ -51,7 +53,7 @@ stat_route:
       this_srt->dest = RTD_DEVICE;
       this_srt->if_name = $3;
       rem_node(&this_srt->n);
-      add_tail(&((struct static_config *) this_proto)->iface_routes, &this_srt->n);
+      add_tail(&STATIC_CFG->iface_routes, &this_srt->n);
    }
  | stat_route0 DROP { this_srt->dest = RTD_BLACKHOLE; }
  | stat_route0 REJECT { this_srt->dest = RTD_UNREACHABLE; }

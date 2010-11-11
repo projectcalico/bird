@@ -64,6 +64,20 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
   r->installed = 1;
 }
 
+static int
+static_decide(struct static_config *cf, struct static_route *r)
+{
+  struct iface *ifa = r->neigh->iface;
+
+  if (!ifa)
+    return 0;
+
+  if ((cf->check == STATIC_CHECK_LINK) && !(ifa->flags & IF_LINK_UP))
+    return 0;
+
+  return 1;
+}
+
 static void
 static_remove(struct proto *p, struct static_route *r)
 {
@@ -80,7 +94,7 @@ static_remove(struct proto *p, struct static_route *r)
 }
 
 static void
-static_add(struct proto *p, struct static_route *r)
+static_add(struct proto *p, struct static_config *cf, struct static_route *r)
 {
   DBG("static_add(%I/%d,%d)\n", r->net, r->masklen, r->dest);
   switch (r->dest)
@@ -93,8 +107,10 @@ static_add(struct proto *p, struct static_route *r)
 	    r->chain = n->data;
 	    n->data = r;
 	    r->neigh = n;
-	    if (n->iface)
+	    if (static_decide(cf, r))
 	      static_install(p, r, n->iface);
+	    else
+	      static_remove(p, r);
 	  }
 	else
 	  log(L_ERR "Static route destination %I is invalid. Ignoring.", r->via);
@@ -115,7 +131,7 @@ static_start(struct proto *p)
 
   DBG("Static: take off!\n");
   WALK_LIST(r, c->other_routes)
-    static_add(p, r);
+    static_add(p, c, r);
   return PS_UP;
 }
 
@@ -142,7 +158,7 @@ static_neigh_notify(struct neighbor *n)
 
   DBG("Static: neighbor notify for %I: iface %p\n", n->addr, n->iface);
   for(r=n->data; r; r=r->chain)
-    if (n->iface)
+    if (static_decide((struct static_config *) p->cf, r))
       static_install(p, r, n->iface);
     else
       static_remove(p, r);
@@ -249,13 +265,13 @@ static_match(struct proto *p, struct static_route *r, struct static_config *n)
   WALK_LIST(t, n->iface_routes)
     if (static_same_net(r, t))
       {
-	t->installed = static_same_dest(r, t);
+	t->installed = r->installed && static_same_dest(r, t);
 	return;
       }
   WALK_LIST(t, n->other_routes)
     if (static_same_net(r, t))
       {
-	t->installed = static_same_dest(r, t);
+	t->installed = r->installed && static_same_dest(r, t);
 	return;
       }
   static_remove(p, r);
@@ -282,7 +298,7 @@ static_reconfigure(struct proto *p, struct proto_config *new)
 	static_install(p, r, ifa);
     }
   WALK_LIST(r, n->other_routes)
-    static_add(p, r);
+    static_add(p, n, r);
 
   return 1;
 }

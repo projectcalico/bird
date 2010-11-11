@@ -125,6 +125,7 @@ void neigh_dump_all(void);
 void neigh_prune(void);
 void neigh_if_up(struct iface *);
 void neigh_if_down(struct iface *);
+void neigh_if_link(struct iface *);
 void neigh_init(struct pool *);
 
 /*
