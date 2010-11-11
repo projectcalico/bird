@@ -456,7 +456,9 @@ krt_read_ifinfo(struct ks_msg *msg)
   f.flags = 0;
 
   if (fl & IFF_UP)
-    f.flags |= IF_LINK_UP;
+    f.flags |= IF_ADMIN_UP;
+  if (ifm->ifm_data.ifi_link_state != LINK_STATE_DOWN)
+    f.flags |= IF_LINK_UP;          /* up or unknown */
   if (fl & IFF_LOOPBACK)            /* Loopback */
     f.flags |= IF_MULTIACCESS | IF_LOOPBACK | IF_IGNORE;
   else if (fl & IFF_POINTOPOINT)    /* PtP */

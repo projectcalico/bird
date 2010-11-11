@@ -78,12 +78,12 @@ scan_ifs(struct ifreq *r, int cnt)
 	faulty:
 	  log(L_ERR "%s(%s): %m", err, i.name);
 	bad:
-	  i.flags = (i.flags & ~IF_LINK_UP) | IF_ADMIN_DOWN;
+	  i.flags = (i.flags & ~IF_ADMIN_UP) | IF_SHUTDOWN;
 	  continue;
 	}
       fl = r->ifr_flags;
       if (fl & IFF_UP)
-	i.flags |= IF_LINK_UP;
+	i.flags |= IF_ADMIN_UP;
 
       if (ioctl(if_scan_sock, SIOCGIFNETMASK, r) < 0)
 	{ err = "SIOCGIFNETMASK"; goto faulty; }

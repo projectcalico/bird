@@ -67,13 +67,13 @@ if_dump(struct iface *i)
   struct ifa *a;
 
   debug("IF%d: %s", i->index, i->name);
-  if (i->flags & IF_ADMIN_DOWN)
-    debug(" ADMIN-DOWN");
+  if (i->flags & IF_SHUTDOWN)
+    debug(" SHUTDOWN");
   if (i->flags & IF_UP)
     debug(" UP");
   else
     debug(" DOWN");
-  if (i->flags & IF_LINK_UP)
+  if (i->flags & IF_ADMIN_UP)
     debug(" LINK-UP");
   if (i->flags & IF_MULTIACCESS)
     debug(" MA");
@@ -117,12 +117,14 @@ if_what_changed(struct iface *i, struct iface *j)
 {
   unsigned c;
 
-  if (((i->flags ^ j->flags) & ~(IF_UP | IF_ADMIN_DOWN | IF_UPDATED | IF_LINK_UP | IF_TMP_DOWN | IF_JUST_CREATED))
+  if (((i->flags ^ j->flags) & ~(IF_UP | IF_SHUTDOWN | IF_UPDATED | IF_ADMIN_UP | IF_TMP_DOWN | IF_JUST_CREATED))
       || i->index != j->index)
     return IF_CHANGE_TOO_MUCH;
   c = 0;
   if ((i->flags ^ j->flags) & IF_UP)
     c |= (i->flags & IF_UP) ? IF_CHANGE_DOWN : IF_CHANGE_UP;
+  if ((i->flags ^ j->flags) & IF_LINK_UP)
+    c |= IF_CHANGE_LINK;
   if (i->mtu != j->mtu)
     c |= IF_CHANGE_MTU;
   return c;
@@ -169,6 +171,7 @@ if_send_notify(struct proto *p, unsigned c, struct iface *i)
 	    (c & IF_CHANGE_UP) ? "goes up" :
 	    (c & IF_CHANGE_DOWN) ? "goes down" :
 	    (c & IF_CHANGE_MTU) ? "changes MTU" :
+	    (c & IF_CHANGE_LINK) ? "changes link" :
 	    (c & IF_CHANGE_CREATE) ? "created" :
 	    "sends unknown event");
       p->if_notify(p, c, i);
@@ -217,8 +220,8 @@ if_notify_change(unsigned c, struct iface *i)
 static unsigned
 if_recalc_flags(struct iface *i, unsigned flags)
 {
-  if ((flags & (IF_ADMIN_DOWN | IF_TMP_DOWN)) ||
-      !(flags & IF_LINK_UP) ||
+  if ((flags & (IF_SHUTDOWN | IF_TMP_DOWN)) ||
+      !(flags & IF_ADMIN_UP) ||
       !i->addr)
     flags &= ~IF_UP;
   else
@@ -325,7 +328,7 @@ if_end_update(void)
   WALK_LIST(i, iface_list)
     {
       if (!(i->flags & IF_UPDATED))
-	if_change_flags(i, (i->flags & ~IF_LINK_UP) | IF_ADMIN_DOWN);
+	if_change_flags(i, (i->flags & ~IF_ADMIN_UP) | IF_SHUTDOWN);
       else
 	{
 	  WALK_LIST_DELSAFE(a, b, i->addrs)
@@ -535,8 +538,8 @@ auto_router_id(void)
 
   j = NULL;
   WALK_LIST(i, iface_list)
-    if ((i->flags & IF_LINK_UP) &&
-	!(i->flags & (IF_IGNORE | IF_ADMIN_DOWN)) &&
+    if ((i->flags & IF_ADMIN_UP) &&
+	!(i->flags & (IF_IGNORE | IF_SHUTDOWN)) &&
 	i->addr &&
 	!(i->addr->flags & IA_UNNUMBERED) &&
 	(!j || ipa_to_u32(i->addr->ip) < ipa_to_u32(j->addr->ip)))
@@ -694,6 +697,9 @@ if_show(void)
 
   WALK_LIST(i, iface_list)
     {
+      if (i->flags & IF_SHUTDOWN)
+	continue;
+
       cli_msg(-1001, "%s %s (index=%d)", i->name, (i->flags & IF_UP) ? "up" : "DOWN", i->index);
       if (!(i->flags & IF_MULTIACCESS))
 	type = "PtP";
@@ -703,7 +709,7 @@ if_show(void)
 	      type,
 	      (i->flags & IF_BROADCAST) ? " Broadcast" : "",
 	      (i->flags & IF_MULTICAST) ? " Multicast" : "",
-	      (i->flags & IF_ADMIN_DOWN) ? "Down" : "Up",
+	      (i->flags & IF_ADMIN_UP) ? "Up" : "Down",
 	      (i->flags & IF_LINK_UP) ? "Up" : "Down",
 	      (i->flags & IF_LOOPBACK) ? " Loopback" : "",
 	      (i->flags & IF_IGNORE) ? " Ignored" : "",

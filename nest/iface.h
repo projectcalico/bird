@@ -39,14 +39,15 @@ struct iface {
   list neighbors;			/* All neighbors on this interface */
 };
 
-#define IF_UP 1				/* IF_LINK_UP and IP address known */
+#define IF_UP 1				/* IF_ADMIN_UP and IP address known */
 #define IF_MULTIACCESS 2
 #define IF_BROADCAST 4
 #define IF_MULTICAST 8
-#define IF_ADMIN_DOWN 0x10
+#define IF_SHUTDOWN 0x10		/* Interface disappeared */
 #define IF_LOOPBACK 0x20
 #define IF_IGNORE 0x40			/* Not to be used by routing protocols (loopbacks etc.) */
-#define IF_LINK_UP 0x80
+#define IF_ADMIN_UP 0x80		/* Administrative up (e.q. IFF_UP in Linux) */
+#define IF_LINK_UP 0x100		/* Link available (e.q. IFF_LOWER_UP in Linux) */
 
 #define IA_PRIMARY 0x10000		/* This address is primary */
 #define IA_SECONDARY 0x20000		/* This address has been reported as secondary by the kernel */
@@ -63,6 +64,7 @@ struct iface {
 #define IF_CHANGE_DOWN 2
 #define IF_CHANGE_MTU 4
 #define IF_CHANGE_CREATE 8		/* Seen this interface for the first time */
+#define IF_CHANGE_LINK 0x10
 #define IF_CHANGE_TOO_MUCH 0x40000000	/* Used internally */
 
 void if_init(void);

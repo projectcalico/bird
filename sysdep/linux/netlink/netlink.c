@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-#include <net/if.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <errno.h>
@@ -27,11 +26,16 @@
 #include "conf/conf.h"
 
 #include <asm/types.h>
+#include <linux/if.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
 #ifndef MSG_TRUNC			/* Hack: Several versions of glibc miss this one :( */
 #define MSG_TRUNC 0x20
+#endif
+
+#ifndef IFF_LOWER_UP
+#define IFF_LOWER_UP 0x10000
 #endif
 
 /*
@@ -281,6 +285,8 @@ nl_parse_link(struct nlmsghdr *h, int scan)
   u32 mtu;
   unsigned int fl;
 
+  debug("nl_parse_link %d\n", new); 
+
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(IFLA_RTA(i), a, sizeof(a)))
     return;
   if (!a[IFLA_IFNAME] || RTA_PAYLOAD(a[IFLA_IFNAME]) < 2 ||
@@ -293,6 +299,8 @@ nl_parse_link(struct nlmsghdr *h, int scan)
   name = RTA_DATA(a[IFLA_IFNAME]);
   memcpy(&mtu, RTA_DATA(a[IFLA_MTU]), sizeof(u32));
 
+  debug("nl_parse_link name %s index %d flags %x\n", name, i->ifi_index, i->ifi_flags);
+
   ifi = if_find_by_index(i->ifi_index);
   if (!new)
     {
@@ -300,7 +308,7 @@ nl_parse_link(struct nlmsghdr *h, int scan)
       if (ifi && !scan)
 	{
 	  memcpy(&f, ifi, sizeof(struct iface));
-	  f.flags |= IF_ADMIN_DOWN;
+	  f.flags |= IF_SHUTDOWN;
 	  if_update(&f);
 	}
     }
@@ -319,6 +327,8 @@ nl_parse_link(struct nlmsghdr *h, int scan)
       f.flags = 0;
       fl = i->ifi_flags;
       if (fl & IFF_UP)
+	f.flags |= IF_ADMIN_UP;
+      if (fl & IFF_LOWER_UP)
 	f.flags |= IF_LINK_UP;
       if (fl & IFF_LOOPBACK)		/* Loopback */
 	f.flags |= IF_MULTIACCESS | IF_LOOPBACK | IF_IGNORE;
