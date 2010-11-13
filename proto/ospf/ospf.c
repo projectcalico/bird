@@ -269,7 +269,7 @@ ospf_init(struct proto_config *c)
   p->reload_routes = ospf_reload_routes;
   p->accept_ra_types = RA_OPTIMAL;
   p->rt_notify = ospf_rt_notify;
-  p->if_notify = ospf_iface_notify;
+  p->if_notify = ospf_if_notify;
   p->ifa_notify = ospf_ifa_notify;
   p->rte_better = ospf_rte_better;
   p->rte_same = ospf_rte_same;
@@ -728,7 +728,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	}
 
 	/* POLL TIMER */
-	if (oldip->pollint != newip->pollint)
+	if ((oldip->pollint != newip->pollint) && ifa->poll_timer)
 	{
 	  ifa->pollint = newip->helloint;
 	  ifa->poll_timer->recurrent = ifa->pollint;
@@ -756,6 +756,15 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 		     "Changing rxbuf interface %s from %d to %d",
 		     ifa->iface->name, oldip->rxbuf, newip->rxbuf);
 	  ospf_iface_change_mtu(po, ifa);
+	}
+
+	/* LINK */
+	if (oldip->use_link != newip->use_link)
+	{
+	  ifa->use_link = newip->use_link;
+
+	  if (!(ifa->iface->flags & IF_LINK_UP))
+	    ospf_iface_sm(ifa, ifa->use_link ? ISM_LOOP : ISM_UNLOOP);
 	}
 
 	/* strict nbma */
@@ -819,7 +828,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	}
 
 	/* WAIT */
-	if (oldip->waitint != newip->waitint)
+	if ((oldip->waitint != newip->waitint) && ifa->wait_timer)
 	{
 	  ifa->waitint = newip->waitint;
 	  if (ifa->wait_timer->expires != 0)
@@ -890,7 +899,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	  }
 	  if (!found)
 	  {
-	    nb1 = mb_alloc(p->pool, sizeof(struct nbma_node));
+	    nb1 = mb_alloc(ifa->pool, sizeof(struct nbma_node));
 	    nb1->ip = nb2->ip;
 	    nb1->eligible = nb2->eligible;
 	    add_tail(&ifa->nbma_list, NODE nb1);

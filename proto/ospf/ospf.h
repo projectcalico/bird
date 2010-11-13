@@ -162,7 +162,7 @@ struct ospf_iface
   struct iface *iface;		/* Nest's iface */
   struct ifa *addr;		/* IP prefix associated with that OSPF iface */
   struct ospf_area *oa;
-  struct object_lock *lock;
+  pool *pool;
   sock *sk;			/* IP socket (for DD ...) */
   list neigh_list;		/* List of neigbours */
   u32 cost;			/* Cost of iface */
@@ -187,8 +187,8 @@ struct ospf_iface
 #endif
 
   ip_addr drip;			/* Designated router */
-  u32 drid;
   ip_addr bdrip;		/* Backup DR */
+  u32 drid;
   u32 bdrid;
 
 #ifdef OSPFv3
@@ -207,7 +207,7 @@ struct ospf_iface
   u8 stub;			/* Inactive interface */
   u8 state;			/* Interface state machine */
 #define OSPF_IS_DOWN 0		/* Not working */
-#define OSPF_IS_LOOP 1		/* Should never happen */
+#define OSPF_IS_LOOP 1		/* Iface with no link */
 #define OSPF_IS_WAITING 2	/* Waiting for Wait timer */
 #define OSPF_IS_PTP 3		/* PTP operational */
 #define OSPF_IS_DROTHER 4	/* I'm on BCAST or NBMA and I'm not DR */
@@ -243,7 +243,8 @@ struct ospf_iface
 #define OSPF_I_LL 2		/* Missing link-local address (OSPFv3) */
   u8 sk_spf;			/* Socket is a member of SPFRouters group */
   u8 sk_dr; 			/* Socket is a member of DRouters group */
-  u32 rxbuf;
+  u16 rxbuf;			/* Buffer size */
+  u8 use_link;			/* Whether iface link change is used */
 };
 
 struct ospf_md5
@@ -678,8 +679,8 @@ struct ospf_neighbor
 #define ISM_WAITF 1		/* Wait timer fired */
 #define ISM_BACKS 2		/* Backup seen */
 #define ISM_NEICH 3		/* Neighbor change */
-// #define ISM_LOOP 4		/* Loop indicated */
-// #define ISM_UNLOOP 5		/* Unloop indicated */
+#define ISM_LOOP 4		/* Link down */
+#define ISM_UNLOOP 5		/* Link up */
 #define ISM_DOWN 6		/* Interface down */
 
 /* Definitions for neighbor state machine */
@@ -751,7 +752,8 @@ struct ospf_iface_patt
   u32 strictnbma;
   u32 stub;
   u32 vid;
-  u32 rxbuf;
+  u16 rxbuf;
+  u8 use_link;
 #define OSPF_RXBUF_NORMAL 0
 #define OSPF_RXBUF_LARGE 1
 #define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */

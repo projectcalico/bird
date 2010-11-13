@@ -192,13 +192,14 @@ ospf_iface_item:
  | TYPE POINTOPOINT { OSPF_PATT->type = OSPF_IT_PTP ; }
  | STRICT NONBROADCAST bool { OSPF_PATT->strictnbma = $3 ; }
  | STUB bool { OSPF_PATT->stub = $2 ; }
+ | LINK bool { OSPF_PATT->use_link = $2 ; }
  | NEIGHBORS '{' ipa_list '}'
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
  | AUTHENTICATION CRYPTOGRAPHIC { OSPF_PATT->autype = OSPF_AUTH_CRYPT ; }
  | RX BUFFER LARGE { OSPF_PATT->rxbuf = OSPF_RXBUF_LARGE ; } 
  | RX BUFFER NORMAL { OSPF_PATT->rxbuf = OSPF_RXBUF_NORMAL ; } 
- | RX BUFFER expr { OSPF_PATT->rxbuf = $3 ; if ($3 < OSPF_RXBUF_MINSIZE) cf_error("Buffer size is too small") ; } 
+ | RX BUFFER expr { OSPF_PATT->rxbuf = $3 ; if (($3 < OSPF_RXBUF_MINSIZE) || ($3 > OSPF_MAX_PKT_SIZE)) cf_error("Buffer size must be in range 256-65535"); } 
  | password_list
  ;
 
@@ -275,6 +276,7 @@ ospf_iface_start:
   OSPF_PATT->type = OSPF_IT_UNDEF;
   OSPF_PATT->strictnbma = 0;
   OSPF_PATT->stub = 0;
+  OSPF_PATT->use_link = 1;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype = OSPF_AUTH_NONE;
   reset_passwords();

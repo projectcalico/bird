@@ -241,9 +241,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
     if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
 
-    /* BIRD does not support interface loops */
-    ASSERT(ifa->state != OSPF_IS_LOOP);
-
     switch (ifa->type)
       {
       case OSPF_IT_PTP:	/* RFC2328 - 12.4.1.1 */
@@ -303,11 +300,24 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
       continue;
 
     ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
-    ln->type = LSART_STUB;
-    ln->id = ipa_to_u32(ifa->addr->prefix);
-    ln->data = ipa_to_u32(ipa_mkmask(ifa->addr->pxlen));
-    ln->metric = ifa->cost;
-    ln->padding = 0;
+    if (ifa->state == OSPF_IS_LOOP)
+    {
+      /* Host stub entry */
+      ln->type = LSART_STUB;
+      ln->id = ipa_to_u32(ifa->addr->ip);
+      ln->data = 0xffffffff;
+      ln->metric = 0;
+      ln->padding = 0;
+    }
+    else 
+    {
+      /* Network stub entry */
+      ln->type = LSART_STUB;
+      ln->id = ipa_to_u32(ifa->addr->prefix);
+      ln->data = ipa_to_u32(ipa_mkmask(ifa->addr->pxlen));
+      ln->metric = ifa->cost;
+      ln->padding = 0;
+    }
     i++;
   }
 
@@ -383,9 +393,6 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 
     if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
-
-    /* BIRD does not support interface loops */
-    ASSERT(ifa->state != OSPF_IS_LOOP);
 
     /* RFC5340 - 4.4.3.2 */
     switch (ifa->type)
@@ -1144,6 +1151,13 @@ update_link_lsa(struct ospf_iface *ifa)
   ifa->origlink = 0;
 }
 
+static inline void
+lsa_put_prefix(struct proto_ospf *po, ip_addr prefix, u32 pxlen, u32 cost)
+{
+  put_ipv6_prefix(lsab_alloc(po, IPV6_PREFIX_SPACE(pxlen)), prefix, pxlen,
+		  (pxlen < MAX_PREFIX_LENGTH) ? 0 : OPT_PX_LA, cost);
+}
+
 static void *
 originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 {
@@ -1154,7 +1168,6 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
   int host_addr = 0;
   int net_lsa;
   int i = 0;
-  u8 flags;
 
   ASSERT(po->lsab_used == 0);
   lp = lsab_allocz(po, sizeof(struct ospf_lsa_prefix));
@@ -1189,12 +1202,14 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    configured_stubnet(oa, a))
 	  continue;
 
-	flags = (a->pxlen < MAX_PREFIX_LENGTH) ? 0 : OPT_PX_LA;
-	put_ipv6_prefix(lsab_alloc(po, IPV6_PREFIX_SPACE(a->pxlen)),
-			a->ip, a->pxlen, flags, ifa->cost);
+	if (ifa->state == OSPF_IS_LOOP)
+	  lsa_put_prefix(po, a->ip, MAX_PREFIX_LENGTH, 0);
+	else
+	  lsa_put_prefix(po, a->prefix, a->pxlen, ifa->cost);
 	i++;
 
-	if (flags & OPT_PX_LA)
+	if ((ifa->state == OSPF_IS_LOOP) ||
+	    (a->pxlen == MAX_PREFIX_LENGTH))
 	  host_addr = 1;
       }
   }
@@ -1203,8 +1218,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
      which will be used as a vlink endpoint. */
   if (oa->ac && !EMPTY_LIST(oa->ac->vlink_list) && !host_addr && vlink_addr)
   {
-    put_ipv6_prefix(lsab_alloc(po, IPV6_PREFIX_SPACE(MAX_PREFIX_LENGTH)),
-		    vlink_addr->ip, MAX_PREFIX_LENGTH, OPT_PX_LA, 0);
+    lsa_put_prefix(po, vlink_addr->ip, MAX_PREFIX_LENGTH, 0);
     i++;
   }
 
@@ -1213,9 +1227,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
     WALK_LIST(sn, oa->ac->stubnet_list)
       if (!sn->hidden)
       {
-	flags = (sn->px.len < MAX_PREFIX_LENGTH) ? 0 : OPT_PX_LA;
-	put_ipv6_prefix(lsab_alloc(po, IPV6_PREFIX_SPACE(sn->px.len)),
-			sn->px.addr, sn->px.len, flags, sn->cost);
+	lsa_put_prefix(po, sn->px.addr, sn->px.len, sn->cost);
 	i++;
       }
 

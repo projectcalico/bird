@@ -60,10 +60,7 @@ rxbufsize(struct ospf_iface *ifa)
 static int
 ospf_sk_open(struct ospf_iface *ifa)
 {
-  sock *sk;
-  struct proto *p = &ifa->oa->po->proto;
-
-  sk = sk_new(p->pool);
+  sock *sk = sk_new(ifa->pool);
   sk->type = SK_IP;
   sk->dport = OSPF_PROTO;
   sk->saddr = IPA_NONE;
@@ -162,72 +159,6 @@ ospf_sk_leave_dr(struct ospf_iface *ifa)
   ifa->sk_dr = 0;
 }
 
-static inline void
-ospf_sk_close(struct ospf_iface *ifa)
-{
-  ASSERT(ifa->sk);
-
-  rfree(ifa->sk);
-  ifa->sk = NULL;
-}
-
-
-/**
- * ospf_iface_chstate - handle changes of interface state
- * @ifa: OSPF interface
- * @state: new state
- *
- * Many actions must be taken according to interface state changes. New network
- * LSAs must be originated, flushed, new multicast sockets to listen for messages for
- * %ALLDROUTERS have to be opened, etc.
- */
-void
-ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
-{
-  struct proto_ospf *po = ifa->oa->po;
-  struct proto *p = &po->proto;
-  u8 oldstate = ifa->state;
-
-  if (oldstate != state)
-  {
-    ifa->state = state;
-
-    if (ifa->type == OSPF_IT_VLINK)
-    {
-      OSPF_TRACE(D_EVENTS,
-		 "Changing state of virtual link %R from \"%s\" into \"%s\".",
-		 ifa->vid, ospf_is[oldstate], ospf_is[state]);
-    }
-    else
-    {
-      OSPF_TRACE(D_EVENTS,
-		 "Changing state of iface: %s from \"%s\" into \"%s\".",
-		 ifa->iface->name, ospf_is[oldstate], ospf_is[state]);
-      if (ifa->iface->flags & IF_MULTICAST)
-      {
-	if ((ifa->type != OSPF_IT_NBMA) && (ifa->ioprob == OSPF_I_OK) &&
-	    ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR)))
-	  ospf_sk_join_dr(ifa);
-	else
-	  ospf_sk_leave_dr(ifa);
-
-	if ((oldstate == OSPF_IS_DR) && (ifa->net_lsa != NULL))
-	{
-	  ifa->net_lsa->lsa.age = LSA_MAXAGE;
-	  if (state >= OSPF_IS_WAITING)
-	  {
-	    ospf_lsupd_flush_nlsa(po, ifa->net_lsa);
-	  }
-	  if (can_flush_lsa(po))
-	    flush_lsa(ifa->net_lsa, po);
-	  ifa->net_lsa = NULL;
-	}
-      }
-      // FIXME flushling of link LSA
-    }
-  }
-}
-
 static void
 ospf_iface_down(struct ospf_iface *ifa)
 {
@@ -254,6 +185,15 @@ ospf_iface_down(struct ospf_iface *ifa)
     ospf_neigh_remove(n);
   }
 
+  if (ifa->hello_timer)
+    tm_stop(ifa->hello_timer);
+
+  if (ifa->poll_timer)
+    tm_stop(ifa->poll_timer);
+
+  if (ifa->wait_timer)
+    tm_stop(ifa->wait_timer);
+
   if (ifa->type == OSPF_IT_VLINK)
   {
     ifa->vifa = NULL;
@@ -262,18 +202,70 @@ ospf_iface_down(struct ospf_iface *ifa)
     ifa->sk = NULL;
     ifa->cost = 0;
     ifa->vip = IPA_NONE;
+  }
+}
+
+
+static void
+ospf_iface_remove(struct ospf_iface *ifa)
+{
+  ospf_iface_sm(ifa, ISM_DOWN);
+  rem_node(NODE ifa);
+  rfree(ifa->pool);
+}
+
+/**
+ * ospf_iface_chstate - handle changes of interface state
+ * @ifa: OSPF interface
+ * @state: new state
+ *
+ * Many actions must be taken according to interface state changes. New network
+ * LSAs must be originated, flushed, new multicast sockets to listen for messages for
+ * %ALLDROUTERS have to be opened, etc.
+ */
+void
+ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
+{
+  struct proto_ospf *po = ifa->oa->po;
+  struct proto *p = &po->proto;
+  u8 oldstate = ifa->state;
+
+  if (oldstate == state)
     return;
-  }
+
+  ifa->state = state;
+
+  if (ifa->type == OSPF_IT_VLINK)
+    OSPF_TRACE(D_EVENTS, "Changing state of virtual link %R from %s to %s",
+	       ifa->vid, ospf_is[oldstate], ospf_is[state]);
   else
+    OSPF_TRACE(D_EVENTS, "Changing state of iface %s from %s to %s",
+	       ifa->iface->name, ospf_is[oldstate], ospf_is[state]);
+
+  if (ifa->type == OSPF_IT_BCAST)
   {
-    ospf_sk_close(ifa);
-    rfree(ifa->wait_timer);
-    rfree(ifa->hello_timer);
-    rfree(ifa->poll_timer);
-    rfree(ifa->lock);
-    rem_node(NODE ifa);
-    mb_free(ifa);
+    if ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR))
+      ospf_sk_join_dr(ifa);
+    else
+      ospf_sk_leave_dr(ifa);
   }
+
+  if ((oldstate == OSPF_IS_DR) && (ifa->net_lsa != NULL))
+  {
+    ifa->net_lsa->lsa.age = LSA_MAXAGE;
+    if (state >= OSPF_IS_WAITING)
+      ospf_lsupd_flush_nlsa(po, ifa->net_lsa);
+
+    if (can_flush_lsa(po))
+      flush_lsa(ifa->net_lsa, po);
+    ifa->net_lsa = NULL;
+  }
+
+  if ((oldstate > OSPF_IS_LOOP) && (state <= OSPF_IS_LOOP))
+    ospf_iface_down(ifa);
+
+  schedule_rt_lsa(ifa->oa);
+  // FIXME flushling of link LSA
 }
 
 /**
@@ -281,21 +273,22 @@ ospf_iface_down(struct ospf_iface *ifa)
  * @ifa: OSPF interface
  * @event: event comming to state machine
  *
- * This fully respects 9.3 of RFC 2328 except we don't use %LOOP state of
- * interface.
+ * This fully respects 9.3 of RFC 2328 except we have slightly
+ * different handling of %DOWN and %LOOP state. We remove intefaces
+ * that are %DOWN. %DOWN state is used when an interface is waiting
+ * for a lock. %LOOP state is used when an interface does not have a
+ * link.
  */
 void
 ospf_iface_sm(struct ospf_iface *ifa, int event)
 {
-  struct ospf_area *oa = ifa->oa;
-
   DBG("SM on %s %s. Event is '%s'\n", (ifa->type == OSPF_IT_VLINK) ? "vlink" : "iface",
     ifa->iface ? ifa->iface->name : "(none)" , ospf_ism[event]);
 
   switch (event)
   {
   case ISM_UP:
-    if (ifa->state == OSPF_IS_DOWN)
+    if (ifa->state <= OSPF_IS_LOOP)
     {
       /* Now, nothing should be adjacent */
       if ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_VLINK))
@@ -319,10 +312,10 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 	tm_start(ifa->poll_timer, ifa->pollint);
 
       hello_timer_hook(ifa->hello_timer);
+      schedule_link_lsa(ifa);
     }
-    schedule_link_lsa(ifa);
-    schedule_rt_lsa(ifa->oa);
     break;
+
   case ISM_BACKS:
   case ISM_WAITF:
     if (ifa->state == OSPF_IS_WAITING)
@@ -330,6 +323,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
       bdr_election(ifa);
     }
     break;
+
   case ISM_NEICH:
     if ((ifa->state == OSPF_IS_DROTHER) || (ifa->state == OSPF_IS_DR) ||
 	(ifa->state == OSPF_IS_BACKUP))
@@ -338,19 +332,22 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
       schedule_rt_lsa(ifa->oa);
     }
     break;
+
+  case ISM_LOOP:
+    if (ifa->sk && ifa->use_link)
+      ospf_iface_chstate(ifa, OSPF_IS_LOOP);
+    break;
+
+  case ISM_UNLOOP:
+    /* Immediate go UP */
+    if (ifa->state == OSPF_IS_LOOP)
+      ospf_iface_sm(ifa, ISM_UP);
+    break;
+
   case ISM_DOWN:
     ospf_iface_chstate(ifa, OSPF_IS_DOWN);
-    ospf_iface_down(ifa);
-    schedule_rt_lsa(oa);
     break;
-    /*
-  case ISM_LOOP:
-    ospf_iface_chstate(ifa, OSPF_IS_LOOP);
-    break;
-  case ISM_UNLOOP:
-    ospf_iface_chstate(ifa, OSPF_IS_DOWN);
-    break;
-    */
+
   default:
     bug("OSPF_I_SM - Unknown event?");
     break;
@@ -391,8 +388,6 @@ ospf_iface_add(struct object_lock *lock)
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
 
-  ifa->lock = lock;
-
   if (ospf_sk_open(ifa))
   {
     if (ifa->type != OSPF_IT_NBMA)
@@ -405,8 +400,8 @@ ospf_iface_add(struct object_lock *lock)
     ifa->stub = 1;
   }
 
-  ifa->state = OSPF_IS_DOWN;
-  ospf_iface_sm(ifa, ISM_UP);
+  /* Do iface UP, unless there is no link and we use link detection */
+  ospf_iface_sm(ifa, (ifa->use_link && !(ifa->iface->flags & IF_LINK_UP)) ? ISM_LOOP : ISM_UP);
 }
 
 void
@@ -414,6 +409,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
 	       struct ospf_area_config *ac, struct ospf_iface_patt *ip)
 {
   struct proto *p = &po->proto;
+  struct pool *pool = rp_new(p->pool, "OSPF Interface");
   struct ospf_iface *ifa;
   struct nbma_node *nbma, *nb;
   struct object_lock *lock;
@@ -422,9 +418,10 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
   if (ip->type != OSPF_IT_VLINK)
     OSPF_TRACE(D_EVENTS, "Adding interface %s", iface->name);
 
-  ifa = mb_allocz(p->pool, sizeof(struct ospf_iface));
+  ifa = mb_allocz(pool, sizeof(struct ospf_iface));
   ifa->iface = iface;
   ifa->addr = addr;
+  ifa->pool = pool;
 
   ifa->cost = ip->cost;
   ifa->rxmtint = ip->rxmtint;
@@ -438,6 +435,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
   ifa->stub = ospf_iface_stubby(ip, addr);
   ifa->ioprob = OSPF_I_OK;
   ifa->rxbuf = ip->rxbuf;
+  ifa->use_link = ip->use_link;
 
 #ifdef OSPFv2
   ifa->autype = ip->autype;
@@ -475,40 +473,41 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
     if (!ipa_in_net(nb->ip, addr->prefix, addr->pxlen))
       continue;
 
-    nbma = mb_alloc(p->pool, sizeof(struct nbma_node));
+    nbma = mb_alloc(pool, sizeof(struct nbma_node));
     nbma->ip = nb->ip;
     nbma->eligible = nb->eligible;
     add_tail(&ifa->nbma_list, NODE nbma);
   }
 
-  /* Add hello timer */
-  ifa->hello_timer = tm_new(p->pool);
+  DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
+  ifa->hello_timer = tm_new(pool);
   ifa->hello_timer->data = ifa;
   ifa->hello_timer->randomize = 0;
   ifa->hello_timer->hook = hello_timer_hook;
   ifa->hello_timer->recurrent = ifa->helloint;
-  DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
 
   if (ifa->type == OSPF_IT_NBMA)
   {
-    ifa->poll_timer = tm_new(p->pool);
+    DBG("%s: Installing poll timer. (%u)\n", p->name, ifa->pollint);
+    ifa->poll_timer = tm_new(pool);
     ifa->poll_timer->data = ifa;
     ifa->poll_timer->randomize = 0;
     ifa->poll_timer->hook = poll_timer_hook;
     ifa->poll_timer->recurrent = ifa->pollint;
-    DBG("%s: Installing poll timer. (%u)\n", p->name, ifa->pollint);
   }
-  else
-    ifa->poll_timer = NULL;
 
-  ifa->wait_timer = tm_new(p->pool);
-  ifa->wait_timer->data = ifa;
-  ifa->wait_timer->randomize = 0;
-  ifa->wait_timer->hook = wait_timer_hook;
-  ifa->wait_timer->recurrent = 0;
-  DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
-  add_tail(&((struct proto_ospf *) p)->iface_list, NODE ifa);
+  if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
+  {
+    DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
+    ifa->wait_timer = tm_new(pool);
+    ifa->wait_timer->data = ifa;
+    ifa->wait_timer->randomize = 0;
+    ifa->wait_timer->hook = wait_timer_hook;
+    ifa->wait_timer->recurrent = 0;
+  }
+
   ifa->state = OSPF_IS_DOWN;
+  add_tail(&po->iface_list, NODE ifa);
 
   ifa->oa = NULL;
   WALK_LIST(oa, po->area_list)
@@ -539,7 +538,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
    * Therefore, we store such info to lock->addr field.
    */
 
-  lock = olock_new(p->pool);
+  lock = olock_new(pool);
 #ifdef OSPFv2
   lock->addr = ifa->addr->prefix;
 #else /* OSPFv3 */
@@ -597,7 +596,7 @@ ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
     WALK_LIST_DELSAFE(ifa, ifx, po->iface_list)
     {
       if ((ifa->type != OSPF_IT_VLINK) && (ifa->addr == a))
-	ospf_iface_sm(ifa, ISM_DOWN);
+	ospf_iface_remove(ifa);
       /* See a note in ospf_iface_notify() */
     }
   }
@@ -675,7 +674,7 @@ ospf_ifa_notify(struct proto *p, unsigned flags, struct ifa *a)
       WALK_LIST_DELSAFE(ifa, ifx, po->iface_list)
       {
 	if ((ifa->type != OSPF_IT_VLINK) && (ifa->addr == a))
-	  ospf_iface_sm(ifa, ISM_DOWN);
+	  ospf_iface_remove(ifa);
 	/* See a note in ospf_iface_notify() */
       }
     }
@@ -725,34 +724,42 @@ ospf_iface_change_mtu(struct proto_ospf *po, struct ospf_iface *ifa)
   }
 }
 
+static void
+ospf_iface_notify(struct proto_ospf *po, unsigned flags, struct ospf_iface *ifa)
+{
+  if (flags & IF_CHANGE_DOWN)
+  {
+    ospf_iface_remove(ifa);
+    return;
+  }
+
+  if (flags & IF_CHANGE_LINK)
+    ospf_iface_sm(ifa, (ifa->iface->flags & IF_LINK_UP) ? ISM_UNLOOP : ISM_LOOP);
+
+  if (flags & IF_CHANGE_MTU)
+    ospf_iface_change_mtu(po, ifa);
+}
+
 void
-ospf_iface_notify(struct proto *p, unsigned flags, struct iface *iface)
+ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
     
-  DBG("%s: If notify called\n", p->name);
   if (iface->flags & IF_IGNORE)
     return;
 
-  if (flags & IF_CHANGE_DOWN)
-  {
-    struct ospf_iface *ifa, *ifx;
-    WALK_LIST_DELSAFE(ifa, ifx, po->iface_list)
-      if ((ifa->type != OSPF_IT_VLINK) && (ifa->iface == iface))
-	ospf_iface_sm(ifa, ISM_DOWN);
+  /* Going up means that there are no such ifaces yet */ 
+  if (flags & IF_CHANGE_UP)
+    return;
 
-    /* We use here that even shutting down iface also shuts down
-       the vlinks, but vlinks are not freed and stays in the
-       iface_list even when down */
-  }
+  struct ospf_iface *ifa, *ifx;
+  WALK_LIST_DELSAFE(ifa, ifx, po->iface_list)
+    if ((ifa->type != OSPF_IT_VLINK) && (ifa->iface == iface))
+      ospf_iface_notify(po, flags, ifa);
 
-  if (flags & IF_CHANGE_MTU)
-  {
-    struct ospf_iface *ifa;
-    WALK_LIST(ifa, po->iface_list)
-      if ((ifa->type != OSPF_IT_VLINK) && (ifa->iface == iface))
-	ospf_iface_change_mtu(po, ifa);
-  }
+  /* We use here that even shutting down iface also shuts down
+     the vlinks, but vlinks are not freed and stays in the
+     iface_list even when down */
 }
 
 void
