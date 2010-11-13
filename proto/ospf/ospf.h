@@ -10,13 +10,15 @@
 #define _BIRD_OSPF_H_
 
 #define MAXNETS 10
-#define OSPF_MAX_PKT_SIZE 65536
-			/*
-                         * RFC 2328 says, maximum packet size is 65535
-			 * This could be too much for small systems, so I
-			 * normally allocate 2*mtu - (I found one cisco
-			 * sending packets mtu+16)
-			 */
+#define OSPF_MAX_PKT_SIZE 65535
+/*
+ * RFC 2328 says, maximum packet size is 65535 (IP packet size
+ * limit). Really a bit less for OSPF, because this contains also IP
+ * header. This could be too much for small systems, so I normally
+ * allocate 2*mtu (i found one cisco sending packets mtu+16). OSPF
+ * packets are almost always sent small enough to not be fragmented.
+ */
+
 #ifdef LOCAL_DEBUG
 #define OSPF_FORCE_DEBUG 1
 #else
