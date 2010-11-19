@@ -285,8 +285,6 @@ nl_parse_link(struct nlmsghdr *h, int scan)
   u32 mtu;
   unsigned int fl;
 
-  debug("nl_parse_link %d\n", new); 
-
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(IFLA_RTA(i), a, sizeof(a)))
     return;
   if (!a[IFLA_IFNAME] || RTA_PAYLOAD(a[IFLA_IFNAME]) < 2 ||
@@ -298,8 +296,6 @@ nl_parse_link(struct nlmsghdr *h, int scan)
     }
   name = RTA_DATA(a[IFLA_IFNAME]);
   memcpy(&mtu, RTA_DATA(a[IFLA_MTU]), sizeof(u32));
-
-  debug("nl_parse_link name %s index %d flags %x\n", name, i->ifi_index, i->ifi_flags);
 
   ifi = if_find_by_index(i->ifi_index);
   if (!new)
