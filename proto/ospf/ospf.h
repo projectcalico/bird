@@ -246,7 +246,7 @@ struct ospf_iface
   u8 sk_spf;			/* Socket is a member of SPFRouters group */
   u8 sk_dr; 			/* Socket is a member of DRouters group */
   u16 rxbuf;			/* Buffer size */
-  u8 use_link;			/* Whether iface link change is used */
+  u8 check_link;		/* Whether iface link change is used */
 };
 
 struct ospf_md5
@@ -755,7 +755,7 @@ struct ospf_iface_patt
   u32 stub;
   u32 vid;
   u16 rxbuf;
-  u8 use_link;
+  u8 check_link;
 #define OSPF_RXBUF_NORMAL 0
 #define OSPF_RXBUF_LARGE 1
 #define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */

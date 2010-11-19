@@ -284,6 +284,7 @@ can_do_adj(struct ospf_neighbor *n)
     switch (ifa->state)
     {
     case OSPF_IS_DOWN:
+    case OSPF_IS_LOOP:
       bug("%s: Iface %s in down state?", p->name, ifa->iface->name);
       break;
     case OSPF_IS_WAITING:

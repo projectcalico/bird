@@ -247,7 +247,7 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
   else
     ifa = (struct ospf_iface *) timer->data;
 
-  if (ifa->state == OSPF_IS_DOWN)
+  if (ifa->state <= OSPF_IS_LOOP)
     return;
 
   if (ifa->stub)

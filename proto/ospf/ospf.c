@@ -759,12 +759,12 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	}
 
 	/* LINK */
-	if (oldip->use_link != newip->use_link)
+	if (oldip->check_link != newip->check_link)
 	{
-	  ifa->use_link = newip->use_link;
+	  ifa->check_link = newip->check_link;
 
 	  if (!(ifa->iface->flags & IF_LINK_UP))
-	    ospf_iface_sm(ifa, ifa->use_link ? ISM_LOOP : ISM_UNLOOP);
+	    ospf_iface_sm(ifa, ifa->check_link ? ISM_LOOP : ISM_UNLOOP);
 	}
 
 	/* strict nbma */

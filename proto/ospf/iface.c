@@ -334,7 +334,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
     break;
 
   case ISM_LOOP:
-    if (ifa->sk && ifa->use_link)
+    if (ifa->sk && ifa->check_link)
       ospf_iface_chstate(ifa, OSPF_IS_LOOP);
     break;
 
@@ -401,7 +401,7 @@ ospf_iface_add(struct object_lock *lock)
   }
 
   /* Do iface UP, unless there is no link and we use link detection */
-  ospf_iface_sm(ifa, (ifa->use_link && !(ifa->iface->flags & IF_LINK_UP)) ? ISM_LOOP : ISM_UP);
+  ospf_iface_sm(ifa, (ifa->check_link && !(ifa->iface->flags & IF_LINK_UP)) ? ISM_LOOP : ISM_UP);
 }
 
 void
@@ -435,7 +435,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
   ifa->stub = ospf_iface_stubby(ip, addr);
   ifa->ioprob = OSPF_I_OK;
   ifa->rxbuf = ip->rxbuf;
-  ifa->use_link = ip->use_link;
+  ifa->check_link = ip->check_link;
 
 #ifdef OSPFv2
   ifa->autype = ip->autype;

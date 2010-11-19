@@ -72,7 +72,7 @@ static_decide(struct static_config *cf, struct static_route *r)
   if (!ifa)
     return 0;
 
-  if ((cf->check == STATIC_CHECK_LINK) && !(ifa->flags & IF_LINK_UP))
+  if (cf->check_link && !(ifa->flags & IF_LINK_UP))
     return 0;
 
   return 1;

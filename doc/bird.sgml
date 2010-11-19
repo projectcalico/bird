@@ -1675,7 +1675,7 @@ protocol ospf &lt;name&gt; {
 	<tag>rx buffer <M>num</M></tag>
 	 This sets the size of buffer used for receiving packets. The buffer should
 	 be bigger than maximal size of any packets. Value NORMAL (default)
-	 means 2*MTU, value LARGE means maximal allowed packet - 65536.
+	 means 2*MTU, value LARGE means maximal allowed packet - 65535.
 
 	<tag>type broadcast</tag>
 	 BIRD detects a type of a connected network automatically, but sometimes it's
@@ -1694,6 +1694,14 @@ protocol ospf &lt;name&gt; {
 	<tag>strict nonbroadcast <M>switch</M></tag>
 	 If set, don't send hello to any undefined neighbor. This switch
 	 is ignored on any non-NBMA network. Default is No.
+
+	<tag>check link <M>switch</M></tag>
+	 if set, a hardware link state (reported by OS) is taken into
+	 consideration. When a link disappears (e.g. an ethernet cable is
+	 unplugged), neighbors are immediately considered unreachable
+	 and only the address of the iface (instead of whole network
+	 prefix) is propagated. It is possible that some hardware
+	 drivers or platforms do not implement this feature. Default: off.
 
 	<tag>authentication none</tag>
 	 No passwords are sent in OSPF packets. This is the default value.
@@ -2045,8 +2053,8 @@ the next hop of the route is not a neighbor at the moment), Static just
 uninstalls the route from the table it is connected to and adds it again as soon
 as the destination becomes adjacent again.
 
-<p>The Static protocol has no configuration options. Instead, the
-definition of the protocol contains a list of static routes:
+<p>The Static protocol does not have many configuration options. The
+definition of the protocol contains mainly a list of static routes:
 
 <descrip>
 	<tag>route <m/prefix/ via <m/ip/</tag> Static route through
@@ -2056,6 +2064,14 @@ definition of the protocol contains a list of static routes:
 	<tag>route <m/prefix/ drop|reject|prohibit</tag> Special routes
 	specifying to drop the packet, return it as unreachable or return
 	it as administratively prohibited.
+
+	<tag>check link <M>switch</M></tag>
+	The only option of the static protocol. If set, hardware link
+	states of network interfaces are taken into consideration.
+	When link disappears (e.g. ethernet cable is unplugged),
+	static routes directing to that interface are removed. It is
+	possible that some hardware drivers or platforms do not
+	implement this feature. Default: off.
 </descrip>
 
 <p>Static routes have no specific attributes.

@@ -13,11 +13,9 @@ struct static_config {
   struct proto_config c;
   list iface_routes;		/* Routes to search on interface events */
   list other_routes;		/* Routes hooked to neighbor cache and reject routes */
-  int check;			/* Condition for route install */
+  int check_link;		/* Whether iface link state is used */
 };
 
-#define STATIC_CHECK_NONE 0
-#define STATIC_CHECK_LINK 1
 
 void static_init_config(struct static_config *);
 

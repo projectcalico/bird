@@ -32,7 +32,7 @@ static_proto_start: proto_start STATIC {
 static_proto:
    static_proto_start proto_name '{'
  | static_proto proto_item ';'
- | static_proto CHECK LINK ';' { STATIC_CFG->check = STATIC_CHECK_LINK; }
+ | static_proto CHECK LINK bool ';' { STATIC_CFG->check_link = $4; }
  | static_proto stat_route ';'
  ;
 
