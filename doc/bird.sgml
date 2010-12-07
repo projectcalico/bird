@@ -1525,6 +1525,7 @@ on nonbroadcast networks.
 protocol ospf &lt;name&gt; {
 	rfc1583compat &lt;switch&gt;;
 	tick &lt;num&gt;;
+	ecmp &lt;switch&gt; [limit &lt;num&gt;];
 	area &lt;id&gt; {
 		stub cost &lt;num&gt;;
                 networks {
@@ -1550,6 +1551,8 @@ protocol ospf &lt;name&gt; {
 			rx buffer [normal|large|&lt;num&gt;];
 			type [broadcast|nonbroadcast|pointopoint];
 			strict nonbroadcast &lt;switch&gt;;
+			check link &lt;switch&gt;;
+			ecmp weight &lt;num&gt;;
 			authentication [none|simple|cryptographic];
 			password "&lt;text&gt;";
 			password "&lt;text&gt;" {
@@ -1583,23 +1586,31 @@ protocol ospf &lt;name&gt; {
 	 calculation with RFC 1583<htmlurl
 	 url="ftp://ftp.rfc-editor.org/in-notes/rfc1583.txt">. Default
 	 value is no.
-	
-	<tag>area <M>id</M></tag>
-	 This defines an OSPF area with given area ID (an integer or an IPv4
-	 address, similarly to a router ID).
-	 The most important area is
-	 the backbone (ID 0) to which every other area must be connected.
-
-	<tag>stub cost <M>num</M></tag>
-	 No external (except default) routes are flooded into stub areas.
-         Setting this value marks area stub with defined cost of default route.
-	 Default value is no. (Area is not stub.)
 
 	<tag>tick <M>num</M></tag>
 	 The routing table calculation and clean-up of areas' databases
          is not performed when a single link state
 	 change arrives. To lower the CPU utilization, it's processed later
 	 at periodical intervals of <m/num/ seconds. The default value is 1.
+
+	<tag>ecmp <M>switch</M> [limit <M>number</M>]</tag>
+	 This option specifies whether OSPF is allowed to generate
+	 ECMP (equal-cost multipath) routes. Such routes are used when
+	 there are several directions to the destination, each with
+	 the same (computed) cost. This option also allows to specify
+	 a limit on maximal number of nexthops in one route. By
+	 default, ECMP is disabled.  If enabled, default value of the
+	 limit is 16.
+
+	<tag>area <M>id</M></tag>
+	 This defines an OSPF area with given area ID (an integer or an IPv4
+	 address, similarly to a router ID). The most important area is
+	 the backbone (ID 0) to which every other area must be connected.
+
+	<tag>stub cost <M>num</M></tag>
+	 No external (except default) routes are flooded into stub areas.
+         Setting this value marks area stub with defined cost of default route.
+	 Default value is no. (Area is not stub.)
 
 	<tag>networks { <m/set/ }</tag>
          Definition of area IP ranges. This is used in summary LSA origination.
@@ -1693,15 +1704,20 @@ protocol ospf &lt;name&gt; {
 
 	<tag>strict nonbroadcast <M>switch</M></tag>
 	 If set, don't send hello to any undefined neighbor. This switch
-	 is ignored on any non-NBMA network. Default is No.
+	 is ignored on any non-NBMA network. Default value is no.
 
 	<tag>check link <M>switch</M></tag>
-	 if set, a hardware link state (reported by OS) is taken into
+	 If set, a hardware link state (reported by OS) is taken into
 	 consideration. When a link disappears (e.g. an ethernet cable is
 	 unplugged), neighbors are immediately considered unreachable
 	 and only the address of the iface (instead of whole network
 	 prefix) is propagated. It is possible that some hardware
-	 drivers or platforms do not implement this feature. Default: off.
+	 drivers or platforms do not implement this feature. Default value is no.
+
+	<tag>ecmp weight <M>num</M></tag>
+	 When ECMP (multipath) routes are allowed, this value specifies
+	 a relative weight used for nexthops going through the iface.
+	 Allowed values are 1-256. Default value is 1.
 
 	<tag>authentication none</tag>
 	 No passwords are sent in OSPF packets. This is the default value.
@@ -2059,6 +2075,9 @@ definition of the protocol contains mainly a list of static routes:
 <descrip>
 	<tag>route <m/prefix/ via <m/ip/</tag> Static route through
 	a neighboring router.
+	<tag>route <m/prefix/ multipath via <m/ip/ [weight <m/num/] [via ...]</tag>
+	Static multipath route. Contains several nexthops (gateways), possibly
+ 	with their weights.
 	<tag>route <m/prefix/ via <m/"interface"/</tag> Static device
 	route through an interface to hosts on a directly connected network.
 	<tag>route <m/prefix/ drop|reject|prohibit</tag> Special routes
@@ -2082,6 +2101,10 @@ definition of the protocol contains mainly a list of static routes:
 protocol static {
 	table testable;			 # Connect to a non-default routing table
 	route 0.0.0.0/0 via 62.168.0.13; # Default route
+	route 10.0.0.0/8 multipath	 # Multipath route
+		via 62.168.0.14 weight 2
+		via 62.168.1.10
+		via 62.168.1.11;
 	route 62.168.0.0/25 reject;	 # Sink route
 	route 10.2.0.0/24 via "arc0";	 # Secondary network
 }
