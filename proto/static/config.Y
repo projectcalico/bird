@@ -13,11 +13,13 @@ CF_HDR
 CF_DEFINES
 
 #define STATIC_CFG ((struct static_config *) this_proto)
-static struct static_route *this_srt;
+static struct static_route *this_srt, *this_srt_nh, *last_srt_nh;
 
 CF_DECLS
 
 CF_KEYWORDS(STATIC, ROUTE, VIA, DROP, REJECT, PROHIBIT, PREFERENCE, CHECK, LINK)
+CF_KEYWORDS(MULTIPATH, WEIGHT)
+
 
 CF_GRAMMAR
 
@@ -44,6 +46,25 @@ stat_route0: ROUTE prefix {
   }
  ;
 
+stat_multipath1:
+   VIA ipa {
+     last_srt_nh = this_srt_nh;
+     this_srt_nh = cfg_allocz(sizeof(struct static_route));
+     this_srt_nh->dest = RTD_NONE;
+     this_srt_nh->via = $2;
+     this_srt_nh->if_name = (void *) this_srt; /* really */
+   }
+ | stat_multipath1 WEIGHT expr {
+     this_srt_nh->masklen = $3 - 1; /* really */
+     if (($3<1) || ($3>256)) cf_error("Weight must be in range 1-256"); 
+   }
+ ;
+
+stat_multipath:
+   stat_multipath1 { this_srt->mp_next = this_srt_nh; }
+ | stat_multipath stat_multipath1 { last_srt_nh->mp_next = this_srt_nh; }
+ ;
+
 stat_route:
    stat_route0 VIA ipa {
       this_srt->dest = RTD_ROUTER;
@@ -54,6 +75,9 @@ stat_route:
       this_srt->if_name = $3;
       rem_node(&this_srt->n);
       add_tail(&STATIC_CFG->iface_routes, &this_srt->n);
+   }
+ | stat_route0 MULTIPATH stat_multipath {
+      this_srt->dest = RTD_MULTIPATH;
    }
  | stat_route0 DROP { this_srt->dest = RTD_BLACKHOLE; }
  | stat_route0 REJECT { this_srt->dest = RTD_UNREACHABLE; }

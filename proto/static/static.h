@@ -28,8 +28,12 @@ struct static_route {
   ip_addr via;				/* Destination router */
   struct neighbor *neigh;
   byte *if_name;			/* Name for RTD_DEVICE routes */
+  struct static_route *mp_next;		/* Nexthops for RTD_MULTIPATH routes */
   int installed;			/* Installed in master table */
 };
+
+/* Dummy nodes (parts of multipath route) abuses masklen field for weight
+   and if_name field for a ptr to the master (RTD_MULTIPATH) node. */
 
 void static_show(struct proto *);
 
