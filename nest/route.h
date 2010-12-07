@@ -170,7 +170,7 @@ struct hostentry {
   struct hostentry *next;		/* Next in hash chain */
   unsigned hash_key;			/* Hash key */
   unsigned uc;				/* Use count */
-  struct iface *iface;			/* Chosen outgoing interface */
+  struct rta *src;			/* Source rta entry */
   ip_addr gw;				/* Chosen next hop */
   byte dest;				/* Chosen route destination type (RTD_...) */
   u32 igp_metric;			/* Chosen route IGP metric */
@@ -266,6 +266,14 @@ void rt_show(struct rt_show_data *);
  *	construction of BGP route attribute lists.
  */
 
+/* Multipath next-hop */
+struct mpnh {
+  ip_addr gw;				/* Next hop */
+  struct iface *iface;			/* Outgoing interface */
+  struct mpnh *next;
+  unsigned char weight;
+};
+
 typedef struct rta {
   struct rta *next, **pprev;		/* Hash chain */
   struct proto *proto;			/* Protocol instance that originally created the route */
@@ -282,6 +290,7 @@ typedef struct rta {
   ip_addr from;				/* Advertising router */
   struct hostentry *hostentry;		/* Hostentry for recursive next-hops */
   struct iface *iface;			/* Outgoing interface */
+  struct mpnh *nexthops;		/* Next-hops for multipath routes */
   struct ea_list *eattrs;		/* Extended Attribute chain */
 } rta;
 
@@ -309,7 +318,8 @@ typedef struct rta {
 #define RTD_BLACKHOLE 2			/* Silently drop packets */
 #define RTD_UNREACHABLE 3		/* Reject as unreachable */
 #define RTD_PROHIBIT 4			/* Administratively prohibited */
-#define RTD_NONE 5			/* Invalid RTD */
+#define RTD_MULTIPATH 5			/* Multipath route (nexthops != NULL) */
+#define RTD_NONE 6			/* Invalid RTD */
 
 #define RTAF_CACHED 1			/* This is a cached rta */
 
@@ -387,6 +397,10 @@ void ea_format(eattr *e, byte *buf);
 #define EA_FORMAT_BUF_SIZE 256
 ea_list *ea_append(ea_list *to, ea_list *what);
 
+int mpnh__same(struct mpnh *x, struct mpnh *y); /* Compare multipath nexthops */
+static inline int mpnh_same(struct mpnh *x, struct mpnh *y)
+{ return (x == y) || mpnh__same(x, y); }
+
 void rta_init(void);
 rta *rta_lookup(rta *);			/* Get rta equivalent to this one, uc++ */
 static inline rta *rta_clone(rta *r) { r->uc++; return r; }
@@ -403,12 +417,14 @@ void rta_set_recursive_next_hop(rtable *dep, rta *a, rtable *tab, ip_addr *gw, i
  * count. Cached rta locks its hostentry (increases its use count),
  * uncached rta does not lock it. Hostentry with zero use count is
  * removed asynchronously during host cache update, therefore it is
- * safe to hold such hostentry temorarily. There is no need to hold
- * a lock for hostentry->dep table, because that table contains routes
- * responsible for that hostentry, and therefore is non-empty if given
- * hostentry has non-zero use count. The protocol responsible for routes
- * with recursive next hops should also hold a lock for a table governing
- * that routes (argument tab to rta_set_recursive_next_hop()).
+ * safe to hold such hostentry temorarily. Hostentry holds a lock for
+ * a 'source' rta, mainly to share multipath nexthops. There is no
+ * need to hold a lock for hostentry->dep table, because that table
+ * contains routes responsible for that hostentry, and therefore is
+ * non-empty if given hostentry has non-zero use count. The protocol
+ * responsible for routes with recursive next hops should also hold a
+ * lock for a table governing that routes (argument tab to
+ * rta_set_recursive_next_hop()).
  */
 
 static inline void rt_lock_hostentry(struct hostentry *he) { if (he) he->uc++; }

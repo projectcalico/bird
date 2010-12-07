@@ -963,28 +963,30 @@ rt_preconfig(struct config *c)
  */
 
 static inline int
-hostentry_diff(struct hostentry *he, struct iface *iface, ip_addr gw,
-	       byte dest, u32 igp_metric)
-{
-  return (he->iface != iface) || !ipa_equal(he->gw, gw) ||
-    (he->dest != dest) || (he->igp_metric != igp_metric);
-}
-
-static inline int
 rta_next_hop_outdated(rta *a)
 {
   struct hostentry *he = a->hostentry;
-  return he && hostentry_diff(he, a->iface, a->gw, a->dest, a->igp_metric);
+
+  if (!he)
+    return 0;
+
+  if (!he->src)
+    return a->dest != RTD_UNREACHABLE;
+
+  return (a->iface != he->src->iface) || !ipa_equal(a->gw, he->gw) ||
+    (a->dest != he->dest) || (a->igp_metric != he->igp_metric) ||
+    !mpnh_same(a->nexthops, he->src->nexthops);
 }
 
 static inline void
 rta_apply_hostentry(rta *a, struct hostentry *he)
 {
   a->hostentry = he;
-  a->iface = he->iface;
+  a->iface = he->src ? he->src->iface : NULL;
   a->gw = he->gw;
   a->dest = he->dest;
   a->igp_metric = he->igp_metric;
+  a->nexthops = he->src ? he->src->nexthops : NULL;
 }
 
 static inline rte *
@@ -1388,6 +1390,7 @@ hc_new_hostentry(struct hostcache *hc, ip_addr a, ip_addr ll, rtable *dep, unsig
   he->tab = dep;
   he->hash_key = k;
   he->uc = 0;
+  he->src = NULL;
 
   add_tail(&hc->hostentries, &he->ln);
   hc_insert(hc, he);
@@ -1402,6 +1405,8 @@ hc_new_hostentry(struct hostcache *hc, ip_addr a, ip_addr ll, rtable *dep, unsig
 static void
 hc_delete_hostentry(struct hostcache *hc, struct hostentry *he)
 {
+  rta_free(he->src);
+
   rem_node(&he->ln);
   hc_remove(hc, he);
   sl_free(hc->slab, he);
@@ -1436,6 +1441,8 @@ rt_free_hostcache(rtable *tab)
   WALK_LIST(n, hc->hostentries)
     {
       struct hostentry *he = SKIP_BACK(struct hostentry, ln, n);
+      rta_free(he->src);
+
       if (he->uc)
 	log(L_ERR "Hostcache is not empty in table %s", tab->name);
     }
@@ -1488,7 +1495,7 @@ rt_get_igp_metric(rte *rt)
     return rt->u.rip.metric;
 
   /* Device routes */
-  if (a->dest != RTD_ROUTER)
+  if ((a->dest != RTD_ROUTER) && (a->dest != RTD_MULTIPATH))
     return 0;
 
   return IGP_METRIC_UNKNOWN;
@@ -1497,11 +1504,14 @@ rt_get_igp_metric(rte *rt)
 static int
 rt_update_hostentry(rtable *tab, struct hostentry *he)
 {
-  struct iface *old_iface = he->iface;
-  ip_addr old_gw = he->gw;
-  byte old_dest = he->dest;
-  u32 old_metric = he->igp_metric;
+  rta *old_src = he->src;
   int pxlen = 0;
+
+  /* Reset the hostentry */ 
+  he->src = NULL;
+  he->gw = IPA_NONE;
+  he->dest = RTD_UNREACHABLE;
+  he->igp_metric = 0;
 
   net *n = net_route(tab, he->addr, MAX_PREFIX_LENGTH);
   if (n)
@@ -1513,53 +1523,41 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
 	{
 	  /* Recursive route should not depend on another recursive route */
 	  log(L_WARN "Next hop address %I resolvable through recursive route for %I/%d",
-	      he->addr, n->n.prefix, n->n.pxlen);
-	  he->iface = NULL;
-	  he->gw = IPA_NONE;
-	  he->dest = RTD_UNREACHABLE;
+	      he->addr, n->n.prefix, pxlen);
+	  goto done;
 	}
-      else if (a->dest == RTD_DEVICE)
+
+      if (a->dest == RTD_DEVICE)
 	{
 	  if (if_local_addr(he->addr, a->iface))
 	    {
 	      /* The host address is a local address, this is not valid */
 	      log(L_WARN "Next hop address %I is a local address of iface %s",
 		  he->addr, a->iface->name);
-	      he->iface = NULL;
-	      he->gw = IPA_NONE;
-	      he->dest = RTD_UNREACHABLE;
+	      goto done;
       	    }
-	  else
-	    {
-	      /* The host is directly reachable, use link as a gateway */
-	      he->iface = a->iface;
-	      he->gw = he->link;
-	      he->dest = RTD_ROUTER;
-	    }
+
+	  /* The host is directly reachable, use link as a gateway */
+	  he->gw = he->link;
+	  he->dest = RTD_ROUTER;
 	}
       else
 	{
 	  /* The host is reachable through some route entry */
-	  he->iface = a->iface;
 	  he->gw = a->gw;
 	  he->dest = a->dest;
 	}
 
-      he->igp_metric = he->iface ? rt_get_igp_metric(n->routes) : 0;
-    }
-  else
-    {
-      /* The host is unreachable */
-      he->iface = NULL;
-      he->gw = IPA_NONE;
-      he->dest = RTD_UNREACHABLE;
-      he->igp_metric = 0;
+      he->src = rta_clone(a);
+      he->igp_metric = rt_get_igp_metric(n->routes);
     }
 
+ done:
   /* Add a prefix range to the trie */
   trie_add_prefix(tab->hostcache->trie, he->addr, MAX_PREFIX_LENGTH, pxlen, MAX_PREFIX_LENGTH);
 
-  return hostentry_diff(he, old_iface, old_gw, old_dest, old_metric);
+  rta_free(old_src);
+  return old_src != he->src;
 }
 
 static void
@@ -1630,6 +1628,7 @@ rt_format_via(rte *e, byte *via)
     case RTD_BLACKHOLE:	bsprintf(via, "blackhole"); break;
     case RTD_UNREACHABLE:	bsprintf(via, "unreachable"); break;
     case RTD_PROHIBIT:	bsprintf(via, "prohibited"); break;
+    case RTD_MULTIPATH:	bsprintf(via, "multipath"); break;
     default:		bsprintf(via, "???");
     }
 }
@@ -1641,6 +1640,7 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d, ea_list *tm
   byte tm[TM_DATETIME_BUFFER_SIZE], info[256];
   rta *a = e->attrs;
   int primary = (e->net->routes == e);
+  struct mpnh *nh;
 
   rt_format_via(e, via);
   tm_format_datetime(tm, &config->tf_route, e->lastmod);
@@ -1663,6 +1663,8 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d, ea_list *tm
     bsprintf(info, " (%d)", e->pref);
   cli_printf(c, -1007, "%-18s %s [%s %s%s]%s%s", ia, via, a->proto->name,
 	     tm, from, primary ? " *" : "", info);
+  for (nh = a->nexthops; nh; nh = nh->next)
+    cli_printf(c, -1007, "\tvia %I on %s weight %d", nh->gw, nh->iface->name, nh->weight + 1);
   if (d->verbose)
     rta_show(c, a, tmpa);
 }

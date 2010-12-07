@@ -1015,6 +1015,13 @@ bgp_get_neighbor(rte *r)
     return ((struct bgp_proto *) r->attrs->proto)->remote_as;
 }
 
+static inline int
+rte_resolvable(rte *rt)
+{
+  int rd = rt->attrs->dest;  
+  return (rd == RTD_ROUTER) || (rd == RTD_DEVICE) || (rd == RTD_MULTIPATH);
+}
+
 int
 bgp_rte_better(rte *new, rte *old)
 {
@@ -1024,9 +1031,8 @@ bgp_rte_better(rte *new, rte *old)
   u32 n, o;
 
   /* RFC 4271 9.1.2.1. Route resolvability test */
-  /* non-NULL iface means it is either RTD_ROUTER or RTD_DEVICE route */
-  n = new->attrs->iface != NULL;
-  o = old->attrs->iface != NULL;
+  n = rte_resolvable(new);
+  o = rte_resolvable(old);
   if (n > o)
     return 1;
   if (n < o)
@@ -1502,7 +1508,7 @@ bgp_get_route_info(rte *e, byte *buf, ea_list *attrs)
   buf += bsprintf(buf, " (%d", e->pref);
   if (e->attrs->hostentry)
     {
-      if (!e->attrs->iface)
+      if (!rte_resolvable(e))
 	buf += bsprintf(buf, "/-");
       else if (e->attrs->igp_metric >= IGP_METRIC_UNKNOWN)
 	buf += bsprintf(buf, "/?");
