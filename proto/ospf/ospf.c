@@ -147,6 +147,7 @@ ospf_start(struct proto *p)
   po->router_id = proto_get_router_id(p->cf);
   po->rfc1583 = c->rfc1583;
   po->ebit = 0;
+  po->ecmp = c->ecmp;
   po->tick = c->tick;
   po->disp_timer = tm_new(p->pool);
   po->disp_timer->data = po;
@@ -157,6 +158,7 @@ ospf_start(struct proto *p)
   po->lsab_size = 256;
   po->lsab_used = 0;
   po->lsab = mb_alloc(p->pool, po->lsab_size);
+  po->nhpool = lp_new(p->pool, 12*sizeof(struct mpnh));
   init_list(&(po->iface_list));
   init_list(&(po->area_list));
   fib_init(&po->rtf, p->pool, sizeof(ort), 0, ospf_rt_initort);
@@ -514,6 +516,13 @@ ospf_shutdown(struct proto *p)
     if (ifa->state > OSPF_IS_DOWN)
       ospf_iface_shutdown(ifa);
 
+  /* Cleanup locked rta entries */
+  FIB_WALK(&po->rtf, nftmp)
+  {
+    rta_free(((ort *) nftmp)->old_rta);
+  }
+  FIB_WALK_END;
+
   return PS_DOWN;
 }
 
@@ -648,6 +657,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   schedule_rtcalc(po);
 
   po->tick = new->tick;
+  po->ecmp = new->ecmp;
   po->disp_timer->recurrent = po->tick;
   tm_start(po->disp_timer, 1);
 
@@ -765,6 +775,14 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 
 	  if (!(ifa->iface->flags & IF_LINK_UP))
 	    ospf_iface_sm(ifa, ifa->check_link ? ISM_LOOP : ISM_UNLOOP);
+	}
+
+	/* ECMP weight */
+	if (oldip->ecmp_weight != newip->ecmp_weight)
+	{
+	  ifa->ecmp_weight = newip->ecmp_weight;
+	  OSPF_TRACE(D_EVENTS, "Changing ECMP weight of interface %s from %d to %d",
+		     ifa->iface->name, (int)oldip->ecmp_weight + 1, (int)newip->ecmp_weight + 1);
 	}
 
 	/* strict nbma */

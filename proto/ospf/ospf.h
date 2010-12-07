@@ -74,6 +74,7 @@ do { if ((p->debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
 #define DEFAULT_OSPFTICK 1
 #define DEFAULT_RFC1583 0	/* compatibility with rfc1583 */
 #define DEFAULT_STUB_COST 1000
+#define DEFAULT_ECMP_LIMIT 16
 
 
 struct ospf_config
@@ -81,6 +82,7 @@ struct ospf_config
   struct proto_config c;
   unsigned tick;
   int rfc1583;
+  int ecmp;
   list area_list;
 };
 
@@ -247,6 +249,7 @@ struct ospf_iface
   u8 sk_dr; 			/* Socket is a member of DRouters group */
   u16 rxbuf;			/* Buffer size */
   u8 check_link;		/* Whether iface link change is used */
+  u8 ecmp_weight;		/* Weight used for ECMP */
 };
 
 struct ospf_md5
@@ -730,11 +733,13 @@ struct proto_ospf
   list area_list;
   int areano;			/* Number of area I belong to */
   struct fib rtf;		/* Routing table */
-  int rfc1583;			/* RFC1583 compatibility */
-  int ebit;			/* Did I originate any ext lsa? */
+  byte rfc1583;			/* RFC1583 compatibility */
+  byte ebit;			/* Did I originate any ext lsa? */
+  byte ecmp;			/* Maximal number of nexthops in ECMP route, or 0 */
   struct ospf_area *backbone;	/* If exists */
   void *lsab;			/* LSA buffer used when originating router LSAs */
   int lsab_size, lsab_used;
+  linpool *nhpool;		/* Linpool used for next hops computed in SPF */
   u32 router_id;
 };
 
@@ -756,6 +761,7 @@ struct ospf_iface_patt
   u32 vid;
   u16 rxbuf;
   u8 check_link;
+  u8 ecmp_weight;
 #define OSPF_RXBUF_NORMAL 0
 #define OSPF_RXBUF_LARGE 1
 #define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */

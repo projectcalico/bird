@@ -436,6 +436,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
   ifa->ioprob = OSPF_I_OK;
   ifa->rxbuf = ip->rxbuf;
   ifa->check_link = ip->check_link;
+  ifa->ecmp_weight = ip->ecmp_weight;
 
 #ifdef OSPFv2
   ifa->autype = ip->autype;
@@ -795,6 +796,8 @@ ospf_iface_info(struct ospf_iface *ifa)
 	  ifa->stub ? "(stub)" : "");
   cli_msg(-1015, "\tPriority: %u", ifa->priority);
   cli_msg(-1015, "\tCost: %u", ifa->cost);
+  if (ifa->oa->po->ecmp)
+    cli_msg(-1015, "\tECMP weight: %d", ((int) ifa->ecmp_weight) + 1);
   cli_msg(-1015, "\tHello timer: %u", ifa->helloint);
 
   if (ifa->type == OSPF_IT_NBMA)

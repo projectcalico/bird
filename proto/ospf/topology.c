@@ -1674,14 +1674,12 @@ ospf_hash_get(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
   e = sl_alloc(f->hash_slab);
   e->color = OUTSPF;
   e->dist = LSINFINITY;
-  e->nhi = NULL;
-  e->nh = IPA_NONE;
+  e->nhs = NULL;
   e->lb = IPA_NONE;
   e->lsa.id = lsa;
   e->lsa.rt = rtr;
   e->lsa.type = type;
   e->lsa_body = NULL;
-  e->nhi = NULL;
   e->domain = domain;
   e->next = *ee;
   *ee = e;
