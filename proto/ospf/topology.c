@@ -119,7 +119,7 @@ lsab_allocz(struct proto_ospf *po, unsigned size)
 static inline void *
 lsab_flush(struct proto_ospf *po)
 {
-  void *r = mb_alloc(po->proto.pool, po->lsab_size);
+  void *r = mb_alloc(po->proto.pool, po->lsab_used);
   memcpy(r, po->lsab, po->lsab_used);
   po->lsab_used = 0;
   return r;
