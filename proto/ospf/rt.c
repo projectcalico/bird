@@ -517,6 +517,13 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 
   if (!en || !par) return 0;
 
+  /* We should check whether there is a link back from en to par,
+     this is used in SPF calc (RFC 2328 16.1. (2b)). According to RFC 2328
+     note 23, we don't have to find the same link that is used for par
+     to en, any link is enough. This we do for ptp links. For net-rt
+     links, we have to find the same link to compute proper lb/lb_id,
+     which may be later used as the next hop. */
+
   /* In OSPFv2, en->lb is set here. In OSPFv3, en->lb is just cleared here,
      it is set in process_prefixes() to any global addres in the area */
 
@@ -556,6 +563,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
 	  break;
 	case LSART_VLNK:
 	case LSART_PTP:
+	  /* Not necessary the same link, see RFC 2328 [23] */
 	  tmp = ospf_hash_find_rt(po->gr, oa->areaid, rtl->id);
 	  if (tmp == par)
             return 1;
