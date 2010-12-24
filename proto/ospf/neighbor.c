@@ -276,6 +276,7 @@ can_do_adj(struct ospf_neighbor *n)
   switch (ifa->type)
   {
   case OSPF_IT_PTP:
+  case OSPF_IT_PTMP:
   case OSPF_IT_VLINK:
     i = 1;
     break;
@@ -531,9 +532,19 @@ struct ospf_neighbor *
 find_neigh(struct ospf_iface *ifa, u32 rid)
 {
   struct ospf_neighbor *n;
+  WALK_LIST(n, ifa->neigh_list)
+    if (n->rid == rid)
+      return n;
+  return NULL;
+}
 
-  WALK_LIST(n, ifa->neigh_list) if (n->rid == rid)
-    return n;
+struct ospf_neighbor *
+find_neigh_by_ip(struct ospf_iface *ifa, ip_addr ip)
+{
+  struct ospf_neighbor *n;
+  WALK_LIST(n, ifa->neigh_list)
+    if (ipa_equal(n->ip, ip))
+      return n;
   return NULL;
 }
 
@@ -543,7 +554,7 @@ ospf_find_area(struct proto_ospf *po, u32 aid)
   struct ospf_area *oa;
   WALK_LIST(oa, po->area_list)
     if (((struct ospf_area *) oa)->areaid == aid)
-    return oa;
+      return oa;
   return NULL;
 }
 
@@ -566,6 +577,13 @@ ospf_neigh_remove(struct ospf_neighbor *n)
 {
   struct ospf_iface *ifa = n->ifa;
   struct proto *p = &ifa->oa->po->proto;
+
+  if ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_PTMP))
+  {
+    struct nbma_node *nn = find_nbma_node(ifa, n->ip);
+    if (nn)
+      nn->found = 0;
+  }
 
   s_get(&(n->dbsi));
   neigh_chstate(n, NEIGHBOR_DOWN);
@@ -596,9 +614,10 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
 
   if (n->rid == ifa->drid)
     pos = "dr   ";
-  if (n->rid == ifa->bdrid)
+  else if (n->rid == ifa->bdrid)
     pos = "bdr  ";
-  if ((n->ifa->type == OSPF_IT_PTP) || (n->ifa->type == OSPF_IT_VLINK))
+  else if ((n->ifa->type == OSPF_IT_PTP) || (n->ifa->type == OSPF_IT_PTMP) ||
+	   (n->ifa->type == OSPF_IT_VLINK))
     pos = "ptp  ";
 
   cli_msg(-1013, "%-1R\t%3u\t%s/%s\t%-5s\t%-10s %-1I", n->rid, n->priority,

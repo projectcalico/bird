@@ -241,24 +241,26 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
     if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
 
+    /* RFC2328 - 12.4.1.1-4 */
     switch (ifa->type)
       {
-      case OSPF_IT_PTP:	/* RFC2328 - 12.4.1.1 */
-	neigh = (struct ospf_neighbor *) HEAD(ifa->neigh_list);
-	if ((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state == NEIGHBOR_FULL))
-	{
-	  ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
-	  ln->type = LSART_PTP;
-	  ln->id = neigh->rid;
-	  ln->data = (ifa->addr->flags & IA_UNNUMBERED) ?
-	    ifa->iface->index : ipa_to_u32(ifa->addr->ip);
-	  ln->metric = ifa->cost;
-	  ln->padding = 0;
-	  i++;
-	}
+      case OSPF_IT_PTP:
+      case OSPF_IT_PTMP:
+	WALK_LIST(neigh, ifa->neigh_list)
+	  if (neigh->state == NEIGHBOR_FULL)
+	  {
+	    ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
+	    ln->type = LSART_PTP;
+	    ln->id = neigh->rid;
+	    ln->data = (ifa->addr->flags & IA_UNNUMBERED) ?
+	      ifa->iface->index : ipa_to_u32(ifa->addr->ip);
+	    ln->metric = ifa->cost;
+	    ln->padding = 0;
+	    i++;
+	  }
 	break;
 
-      case OSPF_IT_BCAST: /* RFC2328 - 12.4.1.2 */
+      case OSPF_IT_BCAST:
       case OSPF_IT_NBMA:
 	if (bcast_net_active(ifa))
 	  {
@@ -273,7 +275,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	  }
 	break;
 
-      case OSPF_IT_VLINK: /* RFC2328 - 12.4.1.3 */
+      case OSPF_IT_VLINK:
 	neigh = (struct ospf_neighbor *) HEAD(ifa->neigh_list);
 	if ((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state == NEIGHBOR_FULL) && (ifa->cost <= 0xffff))
 	{
@@ -300,7 +302,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
       continue;
 
     ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
-    if (ifa->state == OSPF_IS_LOOP)
+    if ((ifa->state == OSPF_IS_LOOP) || (ifa->type == OSPF_IT_PTMP))
     {
       /* Host stub entry */
       ln->type = LSART_STUB;
@@ -398,9 +400,10 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
     switch (ifa->type)
       {
       case OSPF_IT_PTP:
-	neigh = (struct ospf_neighbor *) HEAD(ifa->neigh_list);
-	if ((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state == NEIGHBOR_FULL))
-	  add_lsa_rt_link(po, ifa, LSART_PTP, neigh->iface_id, neigh->rid);
+      case OSPF_IT_PTMP:
+	WALK_LIST(neigh, ifa->neigh_list)
+	  if (neigh->state == NEIGHBOR_FULL)
+	    add_lsa_rt_link(po, ifa, LSART_PTP, neigh->iface_id, neigh->rid);
 	break;
 
       case OSPF_IT_BCAST:
@@ -1202,7 +1205,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    configured_stubnet(oa, a))
 	  continue;
 
-	if (ifa->state == OSPF_IS_LOOP)
+	if ((ifa->state == OSPF_IS_LOOP) || (ifa->type == OSPF_IT_PTMP))
 	  lsa_put_prefix(po, a->ip, MAX_PREFIX_LENGTH, 0);
 	else
 	  lsa_put_prefix(po, a->prefix, a->pxlen, ifa->cost);

@@ -1341,12 +1341,13 @@ static inline int
 match_rtlink(struct ospf_iface *ifa, struct ospf_lsa_rt_link *rtl)
 {
 #ifdef OSPFv2
-  return (ifa->type == OSPF_IT_PTP) && (ifa->cost == rtl->metric) &&
+  return ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_PTMP)) &&
+    (ifa->cost == rtl->metric) &&
     (((ifa->addr->flags & IA_UNNUMBERED) ? ifa->iface->index :
       ipa_to_u32(ifa->addr->ip)) == rtl->data);
 #else /* OSPFv3 */
-  return (ifa->type == OSPF_IT_PTP) && (ifa->cost == rtl->metric) &&
-    (ifa->iface->index == rtl->lif);
+  return ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_PTMP)) &&
+    (ifa->cost == rtl->metric) && (ifa->iface->index == rtl->lif);
 #endif
 }
 

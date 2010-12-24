@@ -48,7 +48,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
   char *beg = "OSPF: Bad HELLO packet from ";
-  unsigned int size, i, twoway, eligible, peers;
+  unsigned int size, i, twoway, peers;
   u32 tmp;
   u32 *pnrid;
 
@@ -103,37 +103,30 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 
   if (!n)
   {
-    if ((ifa->type == OSPF_IT_NBMA))
+    if ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_PTMP))
     {
-      struct nbma_node *nn;
-      int found = 0;
+      struct nbma_node *nn = find_nbma_node(ifa, faddr);
 
-      WALK_LIST(nn, ifa->nbma_list)
-      {
-	if (ipa_equal(faddr, nn->ip))
-	{
-	  found = 1;
-	  break;
-	}
-      }
-      if ((found == 0) && (ifa->strictnbma))
+      if (!nn && ifa->strictnbma)
       {
 	log(L_WARN "Ignoring new neighbor: %I on %s", faddr,
 	    ifa->iface->name);
 	return;
       }
-      if (found)
+
+      if (nn && (ifa->type == OSPF_IT_NBMA) &&
+	  (((ps->priority == 0) && nn->eligible) ||
+	   ((ps->priority > 0) && !nn->eligible)))
       {
-	eligible = nn->eligible;
-	if (((ps->priority == 0) && eligible)
-	    || ((ps->priority > 0) && (eligible == 0)))
-	{
-	  log(L_ERR "Eligibility mismatch for neighbor: %I on %s",
-	      faddr, ifa->iface->name);
-	  return;
-	}
+	log(L_ERR "Eligibility mismatch for neighbor: %I on %s",
+	    faddr, ifa->iface->name);
+	return;
       }
+
+      if (nn)
+	nn->found = 1;
     }
+
     OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s", faddr,
 	       ifa->iface->name);
 
@@ -239,7 +232,7 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
   struct ospf_neighbor *neigh, *n1;
   u16 length;
   u32 *pp;
-  int i, send;
+  int i;
   struct nbma_node *nb;
 
   if (timer == NULL)
@@ -311,53 +304,56 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
 
   switch(ifa->type)
   {
-    case OSPF_IT_NBMA:
-      if (timer == NULL)		/* Response to received hello */
-      {
-        ospf_send_to(ifa, dirn->ip);
-      }
-      else
-      {
-        int toall = 0;
-        int meeli = 0;
-        if (ifa->state > OSPF_IS_DROTHER)
-          toall = 1;
-        if (ifa->priority > 0)
-          meeli = 1;
+  case OSPF_IT_BCAST:
+  case OSPF_IT_PTP:
+    ospf_send_to(ifa, AllSPFRouters);
+    break;
+
+  case OSPF_IT_NBMA:
+    if (timer == NULL)		/* Response to received hello */
+    {
+      ospf_send_to(ifa, dirn->ip);
+      break;
+    }
+
+    int to_all = ifa->state > OSPF_IS_DROTHER;
+    int me_elig = ifa->priority > 0;
  
-        WALK_LIST(nb, ifa->nbma_list)
-        {
-          send = 1;
-          WALK_LIST(n1, ifa->neigh_list)
-          {
-            if (ipa_equal(nb->ip, n1->ip))
-            {
-              send = 0;
-              break;
-            }
-          }
-          if ((poll == 1) && (send))
-          {
-            if (toall || (meeli && nb->eligible))
-              ospf_send_to(ifa, nb->ip);
-          }
-        }
-        if (poll == 0)
-        {
-          WALK_LIST(n1, ifa->neigh_list)
-          {
-            if (toall || (n1->rid == ifa->drid) || (n1->rid == ifa->bdrid) ||
-                (meeli && (n1->priority > 0)))
-              ospf_send_to(ifa, n1->ip);
-          }
-        }
-      }
-      break;
-    case OSPF_IT_VLINK:
-      ospf_send_to(ifa, ifa->vip);
-      break;
-    default:
-      ospf_send_to(ifa, AllSPFRouters);
+    if (poll)			/* Poll timer */
+    {
+      WALK_LIST(nb, ifa->nbma_list)
+	if (!nb->found && (to_all || (me_elig && nb->eligible)))
+	  ospf_send_to(ifa, nb->ip);
+    }
+    else			/* Hello timer */
+    {
+      WALK_LIST(n1, ifa->neigh_list)
+	if (to_all || (me_elig && (n1->priority > 0)) ||
+	    (n1->rid == ifa->drid) || (n1->rid == ifa->bdrid))
+	  ospf_send_to(ifa, n1->ip);
+    }
+    break;
+
+  case OSPF_IT_PTMP:
+    WALK_LIST(n1, ifa->neigh_list)
+      ospf_send_to(ifa, n1->ip);
+
+    WALK_LIST(nb, ifa->nbma_list)
+      if (!nb->found)
+	ospf_send_to(ifa, nb->ip);
+
+    /* If there is no other target, we also send HELLO packet to the other end */
+    if (ipa_nonzero(ifa->addr->opposite) && !ifa->strictnbma &&
+	EMPTY_LIST(ifa->neigh_list) && EMPTY_LIST(ifa->nbma_list))
+      ospf_send_to(ifa, ifa->addr->opposite);
+    break;
+
+  case OSPF_IT_VLINK:
+    ospf_send_to(ifa, ifa->vip);
+    break;
+
+  default:
+    bug("Bug in ospf_hello_send()");
   }
 
   OSPF_TRACE(D_PACKETS, "HELLO packet sent via %s%s",

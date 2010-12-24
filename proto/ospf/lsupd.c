@@ -304,6 +304,13 @@ ospf_lsupd_flood(struct proto_ospf *po,
 
       switch (ifa->type)
       {
+      case OSPF_IT_BCAST:
+	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR))
+	  ospf_send_to(ifa, AllSPFRouters);
+	else
+	  ospf_send_to(ifa, AllDRouters);
+	break;
+
       case OSPF_IT_NBMA:
 	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR))
 	  ospf_send_to_agt(ifa, NEIGHBOR_EXCHANGE);
@@ -311,16 +318,20 @@ ospf_lsupd_flood(struct proto_ospf *po,
 	  ospf_send_to_bdr(ifa);
 	break;
 
+      case OSPF_IT_PTP:
+	ospf_send_to(ifa, AllSPFRouters);
+	break;
+
+      case OSPF_IT_PTMP:
+	ospf_send_to_agt(ifa, NEIGHBOR_EXCHANGE);
+	break;
+
       case OSPF_IT_VLINK:
 	ospf_send_to(ifa, ifa->vip);
 	break;
 
       default:
-	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR) ||
-	    (ifa->type == OSPF_IT_PTP))
-	  ospf_send_to(ifa, AllSPFRouters);
-	else
-	  ospf_send_to(ifa, AllDRouters);
+	bug("Bug in ospf_lsupd_flood()");
       }
     }
   }

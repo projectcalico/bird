@@ -90,7 +90,8 @@ struct nbma_node
 {
   node n;
   ip_addr ip;
-  int eligible;
+  byte eligible;
+  byte found; 
 };
 
 struct area_net_config
@@ -205,8 +206,9 @@ struct ospf_iface
 #define OSPF_IT_BCAST 0
 #define OSPF_IT_NBMA 1
 #define OSPF_IT_PTP 2
-#define OSPF_IT_VLINK 3
-#define OSPF_IT_UNDEF 4
+#define OSPF_IT_PTMP 3
+#define OSPF_IT_VLINK 4
+#define OSPF_IT_UNDEF 5
   u8 strictnbma;		/* Can I talk with unknown neighbors? */
   u8 stub;			/* Inactive interface */
   u8 state;			/* Interface state machine */
@@ -245,7 +247,7 @@ struct ospf_iface
 #define OSPF_I_OK 0		/* Everything OK */
 #define OSPF_I_SK 1		/* Socket open failed */
 #define OSPF_I_LL 2		/* Missing link-local address (OSPFv3) */
-  u8 sk_spf;			/* Socket is a member of SPFRouters group */
+  // u8 sk_spf;			/* Socket is a member of SPFRouters group */
   u8 sk_dr; 			/* Socket is a member of DRouters group */
   u16 rxbuf;			/* Buffer size */
   u8 check_link;		/* Whether iface link change is used */

@@ -407,8 +407,8 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	<cf>interface "*" { type broadcast; };</cf> - start the protocol on all interfaces with
 	<cf>type broadcast</cf> option.
 
-	<cf>interface "eth1", "eth4", "eth5" { type pointopoint; };</cf> - start the protocol
-	on enumerated interfaces with <cf>type pointopoint</cf> option.
+	<cf>interface "eth1", "eth4", "eth5" { type ptp; };</cf> - start the protocol
+	on enumerated interfaces with <cf>type ptp</cf> option.
 	
 	<cf>interface -192.168.1.0/24, 192.168.0.0/16;</cf> - start the protocol on all
 	interfaces that have address from 192.168.0.0/16, but not
@@ -1549,7 +1549,8 @@ protocol ospf &lt;name&gt; {
 			dead count &lt;num&gt;;
 			dead &lt;num&gt;;
 			rx buffer [normal|large|&lt;num&gt;];
-			type [broadcast|nonbroadcast|pointopoint];
+			type [broadcast|bcast|pointopoint|ptp|
+				nonbroadcast|nbma|pointomultipoint|ptmp];
 			strict nonbroadcast &lt;switch&gt;;
 			check link &lt;switch&gt;;
 			ecmp weight &lt;num&gt;;
@@ -1688,23 +1689,43 @@ protocol ospf &lt;name&gt; {
 	 be bigger than maximal size of any packets. Value NORMAL (default)
 	 means 2*MTU, value LARGE means maximal allowed packet - 65535.
 
-	<tag>type broadcast</tag>
-	 BIRD detects a type of a connected network automatically, but sometimes it's
-	 convenient to force use of a different type manually.
-	 On broadcast networks, flooding and Hello messages are sent using multicasts
-	 (a single packet for all the neighbors).
+	<tag>type broadcast|bcast</tag>
+	 BIRD detects a type of a connected network automatically, but
+	 sometimes it's convenient to force use of a different type
+	 manually. On broadcast networks (like ethernet), flooding
+	 and Hello messages are sent using multicasts (a single packet
+	 for all the neighbors). A designated router is elected and it
+	 is responsible for synchronizing the link-state databases and
+	 originating network LSAs. This network type cannot be used on
+	 physically NBMA networks and on unnumbered networks (networks
+	 without proper IP prefix).
 
-	<tag>type pointopoint</tag>
-	 Point-to-point networks connect just 2 routers together. No election
-	 is performed there which reduces the number of messages sent.
+	<tag>type pointopoint|ptp</tag>
+	 Point-to-point networks connect just 2 routers together. No
+	 election is performed and no network LSA is originated, which
+	 makes it simpler and faster to establish. This network type
+	 is useful not only for physically PtP ifaces (like PPP or
+	 tunnels), but also for broadcast networks used as PtP links.
+	 This network type cannot be used on physically NBMA networks.
 
-	<tag>type nonbroadcast</tag>
-	 On nonbroadcast networks, the packets are sent to each neighbor
+	<tag>type nonbroadcast|nbma</tag>
+	 On NBMA networks, the packets are sent to each neighbor
 	 separately because of lack of multicast capabilities.
+	 Like on broadcast networks, a designated router is elected,
+	 which plays a central role in propagation of LSAs.
+	 This network type cannot be used on unnumbered networks.
+
+	<tag>type pointomultipoint|ptmp</tag>
+	 This is another network type designed to handle NBMA
+	 networks. In this case the NBMA network is treated as a
+	 collection of PtP links. This is useful if not every pair of
+	 routers on the NBMA network has direct communication, or if
+	 the NBMA network is used as an (possibly unnumbered) PtP
+	 link.
 
 	<tag>strict nonbroadcast <M>switch</M></tag>
 	 If set, don't send hello to any undefined neighbor. This switch
-	 is ignored on any non-NBMA network. Default value is no.
+	 is ignored on other than NBMA or PtMP networks. Default value is no.
 
 	<tag>check link <M>switch</M></tag>
 	 If set, a hardware link state (reported by OS) is taken into
@@ -1738,8 +1759,9 @@ protocol ospf &lt;name&gt; {
 	 See <ref id="dsc-pass" name="password"> common option for detailed description.
 
 	<tag>neighbors { <m/set/ } </tag>
-	 A set of neighbors to which Hello messages on nonbroadcast networks
-	 are to be sent. Some of them could be marked as eligible.
+	 A set of neighbors to which Hello messages on NBMA or PtMP
+	 networks are to be sent. For NBMA networks, some of them
+	 could be marked as eligible.
 
 </descrip>
 

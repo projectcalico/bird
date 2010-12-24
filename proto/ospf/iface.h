@@ -21,6 +21,11 @@ void ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr
 void ospf_iface_change_mtu(struct proto_ospf *po, struct ospf_iface *ifa);
 void ospf_set_rxbuf_size(struct ospf_iface *ifa, u32 rxbuf);
 
+struct nbma_node *find_nbma_node_in(list *nnl, ip_addr ip);
+
+static inline struct nbma_node *
+find_nbma_node(struct ospf_iface *ifa, ip_addr ip)
+{ return find_nbma_node_in(&ifa->nbma_list, ip); }
 
 
 #endif /* _BIRD_OSPF_IFACE_H_ */

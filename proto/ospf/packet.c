@@ -240,19 +240,6 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
  
 #endif
 
-#ifdef OSPFv2
-static inline struct ospf_neighbor *
-find_neigh_by_ip(struct ospf_iface *ifa, ip_addr ip)
-{
-  struct ospf_neighbor *n;
-  WALK_LIST(n, ifa->neigh_list)
-    if (ipa_equal(n->ip, ip))
-      return n;
-  return NULL;
-}
-#endif
-
-
 
 /**
  * ospf_rx_hook
@@ -433,7 +420,7 @@ ospf_rx_hook(sock *sk, int size)
 #ifdef OSPFv2
   /* In OSPFv2, neighbors are identified by either IP or Router ID, base on network type */
   struct ospf_neighbor *n;
-  if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
+  if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_PTMP))
     n = find_neigh_by_ip(ifa, sk->faddr);
   else
     n = find_neigh(ifa, rid);

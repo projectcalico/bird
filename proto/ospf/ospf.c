@@ -649,7 +649,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
   struct ospf_iface *ifa;
   struct nbma_node *nb1, *nb2, *nbnx;
   struct ospf_area *oa = NULL;
-  int found, olddead, newdead;
+  int olddead, newdead;
   
   if (po->rfc1583 != new->rfc1583)
     return 0;
@@ -881,19 +881,17 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	/* First remove old */
 	WALK_LIST_DELSAFE(nb1, nbnx, ifa->nbma_list)
 	{
-	  found = 0;
-	  WALK_LIST(nb2, newip->nbma_list)
-	    if (ipa_equal(nb1->ip, nb2->ip))
+	  nb2 = find_nbma_node_in(&newip->nbma_list, nb1->ip);
+	  if (nb2)
 	  {
-	    found = 1;
 	    if (nb1->eligible != nb2->eligible)
-	      OSPF_TRACE(D_EVENTS,
-			 "Changing neighbor eligibility %I on interface %s",
+	    {
+	      nb1->eligible = nb2->eligible;
+	      OSPF_TRACE(D_EVENTS, "Changing neighbor eligibility %I on interface %s",
 			 nb1->ip, ifa->iface->name);
-	    break;
+	    }
 	  }
-
-	  if (!found)
+	  else
 	  {
 	    OSPF_TRACE(D_EVENTS,
 		       "Removing NBMA neighbor %I on interface %s",
@@ -908,18 +906,12 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
 	  if (!ipa_in_net(nb2->ip, ifa->addr->prefix, ifa->addr->pxlen))
 	    continue;
 
-	  found = 0;
-	  WALK_LIST(nb1, ifa->nbma_list)
-	    if (ipa_equal(nb1->ip, nb2->ip))
-	  {
-	    found = 1;
-	    break;
-	  }
-	  if (!found)
+	  if (find_nbma_node(ifa, nb2->ip) == NULL)
 	  {
 	    nb1 = mb_alloc(ifa->pool, sizeof(struct nbma_node));
 	    nb1->ip = nb2->ip;
 	    nb1->eligible = nb2->eligible;
+	    nb1->found = !!find_neigh_by_ip(ifa, nb1->ip);
 	    add_tail(&ifa->nbma_list, NODE nb1);
 	    OSPF_TRACE(D_EVENTS,
 		       "Adding NBMA neighbor %I on interface %s",

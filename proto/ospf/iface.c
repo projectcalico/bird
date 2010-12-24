@@ -8,7 +8,7 @@
 
 #include "ospf.h"
 
-char *ospf_is[] = { "down", "loop", "waiting", "point-to-point", "drother",
+char *ospf_is[] = { "down", "loop", "waiting", "ptp", "drother",
   "backup", "dr"
 };
 
@@ -16,7 +16,7 @@ char *ospf_ism[] = { "interface up", "wait timer fired", "backup seen",
   "neighbor change", "loop indicated", "unloop indicated", "interface down"
 };
 
-char *ospf_it[] = { "broadcast", "nbma", "point-to-point", "virtual link" };
+char *ospf_it[] = { "broadcast", "nbma", "ptp", "ptmp", "virtual link" };
 
 static void
 poll_timer_hook(timer * timer)
@@ -57,8 +57,18 @@ rxbufsize(struct ospf_iface *ifa)
   }
 }
 
+struct nbma_node *
+find_nbma_node_in(list *nnl, ip_addr ip)
+{
+  struct nbma_node *nn;
+  WALK_LIST(nn, *nnl)
+    if (ipa_equal(nn->ip, ip))
+      return nn;
+  return NULL;
+}
+
 static int
-ospf_sk_open(struct ospf_iface *ifa)
+ospf_sk_open(struct ospf_iface *ifa, int multicast)
 {
   sock *sk = sk_new(ifa->pool);
   sk->type = SK_IP;
@@ -106,27 +116,22 @@ ospf_sk_open(struct ospf_iface *ifa)
    */
 
   sk->saddr = ifa->addr->ip;
-  if (sk_setup_multicast(sk) < 0)
-    goto err;
+  if (multicast)
+  {
+    if (sk_setup_multicast(sk) < 0)
+      goto err;
+
+    if (sk_join_group(sk, AllSPFRouters) < 0)
+      goto err;
+  }
 
   ifa->sk = sk;
-  ifa->sk_spf = 0;
   ifa->sk_dr = 0;
   return 1;
 
  err:
   rfree(sk);
   return 0;
-}
-
-static inline void
-ospf_sk_join_spf(struct ospf_iface *ifa)
-{
-  if (ifa->sk_spf)
-    return;
-
-  sk_join_group(ifa->sk, AllSPFRouters);
-  ifa->sk_spf = 1;
 }
 
 static inline void
@@ -138,17 +143,6 @@ ospf_sk_join_dr(struct ospf_iface *ifa)
   sk_join_group(ifa->sk, AllDRouters);
   ifa->sk_dr = 1;
 }
-
-static inline void
-ospf_sk_leave_spf(struct ospf_iface *ifa)
-{
-  if (!ifa->sk_spf)
-    return;
-
-  sk_leave_group(ifa->sk, AllSPFRouters);
-  ifa->sk_spf = 0;
-}
-
 static inline void
 ospf_sk_leave_dr(struct ospf_iface *ifa)
 {
@@ -291,7 +285,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
     if (ifa->state <= OSPF_IS_LOOP)
     {
       /* Now, nothing should be adjacent */
-      if ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_VLINK))
+      if ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_PTMP) || (ifa->type == OSPF_IT_VLINK))
       {
 	ospf_iface_chstate(ifa, OSPF_IS_PTP);
       }
@@ -355,11 +349,11 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 
 }
 
-u8
-ospf_iface_clasify(struct iface *ifa, struct ifa *addr)
+static u8
+ospf_iface_classify(struct iface *ifa, struct ifa *addr)
 {
   if (ipa_nonzero(addr->opposite))
-    return OSPF_IT_PTP;
+    return (ifa->flags & IF_MULTICAST) ? OSPF_IT_PTP :  OSPF_IT_PTMP;
 
   if ((ifa->flags & (IF_MULTIACCESS | IF_MULTICAST)) ==
       (IF_MULTIACCESS | IF_MULTICAST))
@@ -388,12 +382,8 @@ ospf_iface_add(struct object_lock *lock)
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
 
-  if (ospf_sk_open(ifa))
-  {
-    if (ifa->type != OSPF_IT_NBMA)
-      ospf_sk_join_spf(ifa);
-  }
-  else
+  int mc = (ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_PTP);
+  if (! ospf_sk_open(ifa, mc))
   {
     log(L_ERR "%s: Socket open failed on interface %s, declaring as stub", p->name, ifa->iface->name);
     ifa->ioprob = OSPF_I_SK;
@@ -448,7 +438,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
 #endif
 
   if (ip->type == OSPF_IT_UNDEF)
-    ifa->type = ospf_iface_clasify(iface, addr);
+    ifa->type = ospf_iface_classify(iface, addr);
   else
     ifa->type = ip->type;
 
@@ -456,15 +446,27 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
   if ((addr->pxlen == MAX_PREFIX_LENGTH) && ipa_zero(addr->opposite))
     ifa->stub = 1;
 
+  /* Check validity of interface type */
+  int old_type = ifa->type;
+
 #ifdef OSPFv2
-  if ((ifa->type != OSPF_IT_PTP) && (ifa->type != OSPF_IT_VLINK) &&
-      (addr->flags & IA_UNNUMBERED))
-  {
-    log(L_WARN "%s: Missing proper IP prefix on interface %s, forcing point-to-point mode",
-	p->name,  iface->name);
+  if ((ifa->type == OSPF_IT_BCAST) && (addr->flags & IA_UNNUMBERED))
     ifa->type = OSPF_IT_PTP;
-  }
+
+  if ((ifa->type == OSPF_IT_NBMA) && (addr->flags & IA_UNNUMBERED))
+    ifa->type = OSPF_IT_PTMP;
 #endif
+
+  if ((ifa->type == OSPF_IT_BCAST) && !(iface->flags & IF_MULTICAST))
+    ifa->type = OSPF_IT_NBMA;
+
+  if ((ifa->type == OSPF_IT_PTP) && !(iface->flags & IF_MULTICAST))
+    ifa->type = OSPF_IT_PTMP;
+
+  if (ifa->type != old_type)
+    log(L_WARN "%s: Cannot use interface %s as %s, forcing %s",
+	p->name, iface->name, ospf_it[old_type], ospf_it[ifa->type]);
+
 
   init_list(&ifa->neigh_list);
   init_list(&ifa->nbma_list);
@@ -477,6 +479,7 @@ ospf_iface_new(struct proto_ospf *po, struct iface *iface, struct ifa *addr,
     nbma = mb_alloc(pool, sizeof(struct nbma_node));
     nbma->ip = nb->ip;
     nbma->eligible = nb->eligible;
+    nbma->found = 0;
     add_tail(&ifa->nbma_list, NODE nbma);
   }
 
@@ -766,10 +769,12 @@ ospf_if_notify(struct proto *p, unsigned flags, struct iface *iface)
 void
 ospf_iface_info(struct ospf_iface *ifa)
 {
-  char *strict = "(strict)";
+  char *strict = "";
 
-  if ((ifa->type != OSPF_IT_NBMA) || (ifa->strictnbma == 0))
-    strict = "";
+  if (ifa->strictnbma &&
+      ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_PTMP)))
+    strict = "(strict)";
+
   if (ifa->type == OSPF_IT_VLINK)
   {
     cli_msg(-1015, "Virtual link to %R:", ifa->vid);
