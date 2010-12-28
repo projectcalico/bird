@@ -10,7 +10,7 @@
 
 static void add_cand(list * l, struct top_hash_entry *en, 
 		     struct top_hash_entry *par, u32 dist,
-		     struct ospf_area *oa, struct ospf_lsa_rt_link *rtl);
+		     struct ospf_area *oa, int i);
 static void rt_sync(struct proto_ospf *po);
 
 /* In ospf_area->rtr we store paths to routers, but we use RID (and not IP address)
@@ -208,48 +208,31 @@ ri_install_ext(struct proto_ospf *po, ip_addr prefix, int pxlen, orta *new)
     memcpy(&old->n, new, sizeof(orta));
 }
 
-
-#ifdef OSPFv2
-
-static struct ospf_iface *
-find_stub_src(struct ospf_area *oa, ip_addr px, int pxlen)
+static inline struct ospf_iface *
+rt_pos_to_ifa(struct ospf_area *oa, int pos)
 {
-  struct ospf_iface *iff;
-
-  WALK_LIST(iff, oa->po->iface_list)
-    if ((iff->type != OSPF_IT_VLINK) &&
-	(iff->oa == oa) &&
-	ipa_equal(iff->addr->prefix, px) && 
-	(iff->addr->pxlen == pxlen))
-      return iff;
-
+  struct ospf_iface *ifa;
+  WALK_LIST(ifa, oa->po->iface_list)
+    if (pos >= ifa->rt_pos_beg && pos < ifa->rt_pos_end)
+      return ifa;
   return NULL;
 }
 
-#else /* OSPFv3 */
-
-static struct ospf_iface *
-find_stub_src(struct ospf_area *oa, ip_addr px, int pxlen)
+#ifdef OSPFv3
+static inline struct ospf_iface *
+px_pos_to_ifa(struct ospf_area *oa, int pos)
 {
-  struct ospf_iface *iff;
-  struct ifa *a;
-
-  WALK_LIST(iff, oa->po->iface_list)
-    if ((iff->type != OSPF_IT_VLINK) &&
-	(iff->oa == oa))
-      WALK_LIST(a, iff->iface->addrs)
-	if (ipa_equal(a->prefix, px) && 
-	    (a->pxlen == pxlen) &&
-	    !(a->flags & IA_SECONDARY))
-	  return iff;
-
+  struct ospf_iface *ifa;
+  WALK_LIST(ifa, oa->po->iface_list)
+    if (pos >= ifa->px_pos_beg && pos < ifa->px_pos_end)
+      return ifa;
   return NULL;
 }
-
 #endif
 
+
 static void
-add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_hash_entry *en)
+add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_hash_entry *en, int pos)
 {
   orta nf = {
     .type = RTS_OSPF,
@@ -272,7 +255,13 @@ add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_
      * be removed in rt_sync().
      */
 
-    struct ospf_iface *ifa = find_stub_src(oa, px, pxlen);
+    struct ospf_iface *ifa;
+#ifdef OSPFv2
+    ifa = rt_pos_to_ifa(oa, pos);
+#else /* OSPFv3 */
+    ifa = px_pos_to_ifa(oa, pos);
+#endif
+
     nf.nhs = ifa ? new_nexthop(oa->po, IPA_NONE, ifa->iface, ifa->ecmp_weight) : NULL;
   }
 
@@ -335,7 +324,7 @@ process_prefixes(struct ospf_area *oa)
 	if ((pxopts & OPT_PX_LA) && ipa_zero(src->lb))
 	  src->lb = pxa;
 
-	add_network(oa, pxa, pxlen, src->dist + metric, src);
+	add_network(oa, pxa, pxlen, src->dist + metric, src, i);
       }
   }
 }
@@ -347,7 +336,7 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 {
   // struct proto *p = &oa->po->proto;
   struct proto_ospf *po = oa->po;
-  u32 i;
+  int i;
 
   struct ospf_lsa_rt *rt = en->lsa_body;
   struct ospf_lsa_rt_link *rr = (struct ospf_lsa_rt_link *) (rt + 1);
@@ -370,7 +359,7 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
 	   */
 	  add_network(oa, ipa_from_u32(rtl->id),
 		      ipa_mklen(ipa_from_u32(rtl->data)),
-		      act->dist + rtl->metric, act);
+		      act->dist + rtl->metric, act, i);
 	  break;
 #endif
 
@@ -396,7 +385,7 @@ ospf_rt_spfa_rtlinks(struct ospf_area *oa, struct top_hash_entry *act, struct to
       if (tmp)
 	DBG("Going to add cand, Mydist: %u, Req: %u\n",
 	    tmp->dist, act->dist + rtl->metric);
-      add_cand(&oa->cand, tmp, act, act->dist + rtl->metric, oa, rtl);
+      add_cand(&oa->cand, tmp, act, act->dist + rtl->metric, oa, i);
     }
 }
 
@@ -482,7 +471,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 
 #ifdef OSPFv2
       add_network(oa, ipa_and(ipa_from_u32(act->lsa.id), ln->netmask),
-		  ipa_mklen(ln->netmask), act->dist, act);
+		  ipa_mklen(ln->netmask), act->dist, act, -1);
 #endif
 
       rts = (u32 *) (ln + 1);
@@ -494,7 +483,7 @@ ospf_rt_spfa(struct ospf_area *oa)
 	  DBG("Found :-)\n");
 	else
 	  DBG("Not found!\n");
-	add_cand(&oa->cand, tmp, act, act->dist, oa, NULL);
+	add_cand(&oa->cand, tmp, act, act->dist, oa, -1);
       }
       break;
     }
@@ -1327,31 +1316,6 @@ ospf_rt_spf(struct proto_ospf *po)
 
 
 static inline int
-match_dr(struct ospf_iface *ifa, struct top_hash_entry *en)
-{
-#ifdef OSPFv2
-  return (ifa->drid == en->lsa.rt) && (ipa_to_u32(ifa->drip) == en->lsa.id);
-#else /* OSPFv3 */
-  return (ifa->drid == en->lsa.rt) && (ifa->dr_iface_id == en->lsa.id);
-#endif
-}
-
-
-static inline int
-match_rtlink(struct ospf_iface *ifa, struct ospf_lsa_rt_link *rtl)
-{
-#ifdef OSPFv2
-  return ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_PTMP)) &&
-    (ifa->cost == rtl->metric) &&
-    (((ifa->addr->flags & IA_UNNUMBERED) ? ifa->iface->index :
-      ipa_to_u32(ifa->addr->ip)) == rtl->data);
-#else /* OSPFv3 */
-  return ((ifa->type == OSPF_IT_PTP) || (ifa->type == OSPF_IT_PTMP)) &&
-    (ifa->cost == rtl->metric) && (ifa->iface->index == rtl->lif);
-#endif
-}
-
-static inline int
 inherit_nexthops(struct mpnh *pn)
 {
   /* Proper nexthops (with defined GW) or dummy vlink nexthops (without iface) */
@@ -1360,7 +1324,7 @@ inherit_nexthops(struct mpnh *pn)
 
 static struct mpnh *
 calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
-	      struct top_hash_entry *par, struct ospf_lsa_rt_link *rtl)
+	      struct top_hash_entry *par, int pos)
 {
   // struct proto *p = &oa->po->proto;
   struct proto_ospf *po = oa->po;
@@ -1386,28 +1350,28 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
   /* The first case - local network */
   if ((en->lsa.type == LSA_T_NET) && (par == oa->rt))
   {
-    WALK_LIST(ifa, po->iface_list)
-      if (match_dr(ifa, en))
-	return new_nexthop(po, IPA_NONE, ifa->iface, ifa->ecmp_weight);
+    ifa = rt_pos_to_ifa(oa, pos);
+    if (!ifa)
+      return NULL;
 
-    return NULL;
+    return new_nexthop(po, IPA_NONE, ifa->iface, ifa->ecmp_weight);
   }
 
   /* The second case - ptp or ptmp neighbor */
   if ((en->lsa.type == LSA_T_RT) && (par == oa->rt))
   {
-    if (rtl->type == LSART_VLNK)
+    ifa = rt_pos_to_ifa(oa, pos);
+    if (!ifa)
+      return NULL;
+
+    if (ifa->type == OSPF_IT_VLINK)
       return new_nexthop(po, IPA_NONE, NULL, 0);
 
-    WALK_LIST(ifa, po->iface_list)
-      if (match_rtlink(ifa, rtl))
-      {
-	struct ospf_neighbor *m = find_neigh(ifa, rid);
-	if (m && (m->state == NEIGHBOR_FULL))
-	  return new_nexthop(po, m->ip, ifa->iface, ifa->ecmp_weight);
-      }
-    
-    return NULL;
+    struct ospf_neighbor *m = find_neigh(ifa, rid);
+    if (!m || (m->state != NEIGHBOR_FULL))
+      return NULL;
+
+    return new_nexthop(po, m->ip, ifa->iface, ifa->ecmp_weight);
   }
 
   /* The third case - bcast or nbma neighbor */
@@ -1532,7 +1496,7 @@ merge_nexthops(struct proto_ospf *po, struct top_hash_entry *en,
 /* Add LSA into list of candidates in Dijkstra's algorithm */
 static void
 add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
-	 u32 dist, struct ospf_area *oa, struct ospf_lsa_rt_link *rtl)
+	 u32 dist, struct ospf_area *oa, int pos)
 {
   struct proto_ospf *po = oa->po;
   node *prev, *n;
@@ -1566,7 +1530,7 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   if (!link_back(oa, en, par))
     return;
 
-  struct mpnh *nhs = calc_next_hop(oa, en, par, rtl);
+  struct mpnh *nhs = calc_next_hop(oa, en, par, pos);
   if (!nhs)
   {
     log(L_WARN "Cannot find next hop for LSA (Type: %04x, Id: %R, Rt: %R)",

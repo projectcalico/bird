@@ -195,8 +195,13 @@ struct ospf_iface
   ip_addr bdrip;		/* Backup DR */
   u32 drid;
   u32 bdrid;
+  s16 rt_pos_beg;		/* Position of iface in Router-LSA, begin, inclusive */
+  s16 rt_pos_end;		/* Position of iface in Router-LSA, end, exclusive */
 
 #ifdef OSPFv3
+  s16 px_pos_beg;		/* Position of iface in Rt Prefix-LSA, begin, inclusive */
+  s16 px_pos_end;		/* Position of iface in Rt Prefix-LSA, end, exclusive */
+
   u32 dr_iface_id;		/* if drid is valid, this is iface_id of DR (for connecting network) */
   u8 instance_id;		/* Used to differentiate between more OSPF
 				   instances on one interface */

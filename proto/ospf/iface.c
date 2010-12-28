@@ -197,6 +197,13 @@ ospf_iface_down(struct ospf_iface *ifa)
     ifa->cost = 0;
     ifa->vip = IPA_NONE;
   }
+
+  ifa->rt_pos_beg = 0;
+  ifa->rt_pos_end = 0;
+#ifdef OSPFv3
+  ifa->px_pos_beg = 0;
+  ifa->px_pos_end = 0;
+#endif
 }
 
 

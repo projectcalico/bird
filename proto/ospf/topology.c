@@ -241,6 +241,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
     if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
 
+    ifa->rt_pos_beg = i;
+
     /* RFC2328 - 12.4.1.1-4 */
     switch (ifa->type)
       {
@@ -294,6 +296,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
         break;
       }
 
+    ifa->rt_pos_end = i;
+
     /* Now we will originate stub area if there is no primary */
     if (net_lsa ||
 	(ifa->type == OSPF_IT_VLINK) ||
@@ -321,6 +325,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
       ln->padding = 0;
     }
     i++;
+
+    ifa->rt_pos_end = i;
   }
 
   struct ospf_stubnet_config *sn;
@@ -367,6 +373,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
   struct proto_ospf *po = oa->po;
   struct ospf_iface *ifa;
   int bitv = 0;
+  int i = 0;
   struct ospf_lsa_rt *rt;
   struct ospf_neighbor *neigh;
 
@@ -396,6 +403,8 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
     if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
 
+    ifa->rt_pos_beg = i;
+
     /* RFC5340 - 4.4.3.2 */
     switch (ifa->type)
       {
@@ -403,25 +412,27 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
       case OSPF_IT_PTMP:
 	WALK_LIST(neigh, ifa->neigh_list)
 	  if (neigh->state == NEIGHBOR_FULL)
-	    add_lsa_rt_link(po, ifa, LSART_PTP, neigh->iface_id, neigh->rid);
+	    add_lsa_rt_link(po, ifa, LSART_PTP, neigh->iface_id, neigh->rid), i++;
 	break;
 
       case OSPF_IT_BCAST:
       case OSPF_IT_NBMA:
 	if (bcast_net_active(ifa))
-	  add_lsa_rt_link(po, ifa, LSART_NET, ifa->dr_iface_id, ifa->drid);
+	  add_lsa_rt_link(po, ifa, LSART_NET, ifa->dr_iface_id, ifa->drid), i++;
 	break;
 
       case OSPF_IT_VLINK:
 	neigh = (struct ospf_neighbor *) HEAD(ifa->neigh_list);
 	if ((!EMPTY_LIST(ifa->neigh_list)) && (neigh->state == NEIGHBOR_FULL) && (ifa->cost <= 0xffff))
-	  add_lsa_rt_link(po, ifa, LSART_VLNK, neigh->iface_id, neigh->rid);
+	  add_lsa_rt_link(po, ifa, LSART_VLNK, neigh->iface_id, neigh->rid), i++;
         break;
 
       default:
         log("Unknown interface type %s", ifa->iface->name);
         break;
       }
+
+    ifa->rt_pos_end = i;
   }
 
   if (bitv)
@@ -1184,6 +1195,8 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
     if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
       continue;
 
+    ifa->px_pos_beg = i;
+
     if ((ifa->type == OSPF_IT_BCAST) ||
 	(ifa->type == OSPF_IT_NBMA))
       net_lsa = bcast_net_active(ifa);
@@ -1215,6 +1228,8 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    (a->pxlen == MAX_PREFIX_LENGTH))
 	  host_addr = 1;
       }
+
+    ifa->px_pos_end = i;
   }
 
   /* If there are some configured vlinks, add some global address,
