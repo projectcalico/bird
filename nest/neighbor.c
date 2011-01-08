@@ -166,7 +166,7 @@ neigh_find2(struct proto *p, ip_addr *a, struct iface *ifa, unsigned flags)
 	 fortunately, we don't use this combination */
       add_tail(&sticky_neigh_list, &n->n);
       ifa = NULL;
-      scope = 0;
+      scope = -1;
     }
   n->iface = ifa;
   n->proto = p;
