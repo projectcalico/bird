@@ -414,16 +414,16 @@ krt_read_ifinfo(struct ks_msg *msg)
   struct iface *iface = NULL, f;
   int fl = ifm->ifm_flags;
 
-  for(i = 1; i!=0; i <<= 1)
+  for (i = 1; i<=RTA_IFP; i <<= 1)
   {
-    if((i & ifm->ifm_addrs) && (i == RTA_IFP))
+    if (i & ifm->ifm_addrs)
     {
-      if( i == RTA_IFP)
+      if (i == RTA_IFP)
       {
         dl = (struct sockaddr_dl *)body;
         break;
       }
-      body += ROUNDUP(((struct sockaddr *)&(body))->sa_len);\
+      body += ROUNDUP(((struct sockaddr *)&(body))->sa_len);
     }
   }
 
