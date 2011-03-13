@@ -19,8 +19,14 @@
 
 /* Utility macros */
 
+#ifdef PARSER
+#define _MIN(a,b) (((a)<(b))?(a):(b))
+#define _MAX(a,b) (((a)>(b))?(a):(b))
+#else
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
+#endif
+
 #define ABS(a)   ((a)>=0 ? (a) : -(a))
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
 

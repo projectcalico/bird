@@ -546,6 +546,9 @@ protos_build(void)
   init_list(&initial_proto_list);
   init_list(&flush_proto_list);
   proto_build(&proto_device);
+#ifdef CONFIG_RADV
+  proto_build(&proto_radv);
+#endif
 #ifdef CONFIG_RIP
   proto_build(&proto_rip);
 #endif

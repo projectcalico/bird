@@ -31,6 +31,8 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
+#define PARSER 1
+
 #include "nest/bird.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
