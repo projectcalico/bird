@@ -88,7 +88,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 #else /* OSPFv3 */
   tmp = ntohs(ps->deadint);
 #endif
-  if (tmp != ifa->dead)
+  if (tmp != ifa->deadint)
   {
     log(L_ERR "%s%I - dead interval mismatch (%d)", beg, faddr, tmp);
     return;
@@ -217,13 +217,13 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   if (ifa->type == OSPF_IT_NBMA)
   {
     if ((ifa->priority == 0) && (n->priority > 0))
-      ospf_hello_send(NULL, 0, n);
+      ospf_hello_send(NULL, OHS_HELLO, n);
   }
   ospf_neigh_sm(n, INM_HELLOREC);
 }
 
 void
-ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
+ospf_hello_send(timer *timer, int kind, struct ospf_neighbor *dirn)
 {
   struct ospf_iface *ifa;
   struct ospf_hello_packet *pkt;
@@ -231,7 +231,6 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
   struct proto *p;
   struct ospf_neighbor *neigh, *n1;
   u16 length;
-  u32 *pp;
   int i;
   struct nbma_node *nb;
 
@@ -276,27 +275,31 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
   pkt->options = ifa->oa->options;
 
 #ifdef OSPFv2
-  pkt->deadint = htonl(ifa->dead);
+  pkt->deadint = htonl(ifa->deadint);
   pkt->dr = htonl(ipa_to_u32(ifa->drip));
   pkt->bdr = htonl(ipa_to_u32(ifa->bdrip));
 #else /* OSPFv3 */
-  pkt->deadint = htons(ifa->dead);
+  pkt->deadint = htons(ifa->deadint);
   pkt->dr = htonl(ifa->drid);
   pkt->bdr = htonl(ifa->bdrid);
 #endif
 
   /* Fill all neighbors */
   i = 0;
-  pp = (u32 *) (((u8 *) pkt) + sizeof(struct ospf_hello_packet));
-  WALK_LIST(neigh, ifa->neigh_list)
+
+  if (kind != OHS_SHUTDOWN)
   {
-    if ((i+1) * sizeof(u32) + sizeof(struct ospf_hello_packet) > ospf_pkt_bufsize(ifa))
+    u32 *pp = (u32 *) (((u8 *) pkt) + sizeof(struct ospf_hello_packet));
+    WALK_LIST(neigh, ifa->neigh_list)
     {
-      OSPF_TRACE(D_PACKETS, "Too many neighbors on the interface!");
-      break;
+      if ((i+1) * sizeof(u32) + sizeof(struct ospf_hello_packet) > ospf_pkt_bufsize(ifa))
+      {
+	log(L_WARN "%s: Too many neighbors on interface %s", p->name, ifa->iface->name);
+	break;
+      }
+      *(pp + i) = htonl(neigh->rid);
+      i++;
     }
-    *(pp + i) = htonl(neigh->rid);
-    i++;
   }
 
   length = sizeof(struct ospf_hello_packet) + i * sizeof(u32);
@@ -319,7 +322,7 @@ ospf_hello_send(timer *timer, int poll, struct ospf_neighbor *dirn)
     int to_all = ifa->state > OSPF_IS_DROTHER;
     int me_elig = ifa->priority > 0;
  
-    if (poll)			/* Poll timer */
+    if (kind == OHS_POLL)	/* Poll timer */
     {
       WALK_LIST(nb, ifa->nbma_list)
 	if (!nb->found && (to_all || (me_elig && nb->eligible)))

@@ -349,7 +349,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
     case NEIGHBOR_DOWN:
       neigh_chstate(n, NEIGHBOR_INIT);
     default:
-      tm_start(n->inactim, n->ifa->dead);	/* Restart inactivity timer */
+      tm_start(n->inactim, n->ifa->deadint);	/* Restart inactivity timer */
       break;
     }
     break;
@@ -545,16 +545,6 @@ find_neigh_by_ip(struct ospf_iface *ifa, ip_addr ip)
   WALK_LIST(n, ifa->neigh_list)
     if (ipa_equal(n->ip, ip))
       return n;
-  return NULL;
-}
-
-struct ospf_area *
-ospf_find_area(struct proto_ospf *po, u32 aid)
-{
-  struct ospf_area *oa;
-  WALK_LIST(oa, po->area_list)
-    if (((struct ospf_area *) oa)->areaid == aid)
-      return oa;
   return NULL;
 }
 

@@ -1176,6 +1176,7 @@ static void *
 originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 {
   struct proto_ospf *po = oa->po;
+  struct ospf_config *cf = (struct ospf_config *) (po->proto.cf);
   struct ospf_iface *ifa;
   struct ospf_lsa_prefix *lp;
   struct ifa *vlink_addr = NULL;
@@ -1234,7 +1235,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 
   /* If there are some configured vlinks, add some global address,
      which will be used as a vlink endpoint. */
-  if (oa->ac && !EMPTY_LIST(oa->ac->vlink_list) && !host_addr && vlink_addr)
+  if (!EMPTY_LIST(cf->vlink_list) && !host_addr && vlink_addr)
   {
     lsa_put_prefix(po, vlink_addr->ip, MAX_PREFIX_LENGTH, 0);
     i++;

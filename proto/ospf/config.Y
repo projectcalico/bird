@@ -22,8 +22,13 @@ static struct ospf_stubnet_config *this_stubnet;
 
 #ifdef OSPFv2
 static void
-finish_iface_config(struct ospf_iface_patt *ip)
+ospf_iface_finish(void)
 {
+  struct ospf_iface_patt *ip = OSPF_PATT;
+
+  if (ip->deadint == 0)
+    ip->deadint = ip->deadc * ip->helloint;
+
   ip->passwords = get_passwords();
 
   if ((ip->autype == OSPF_AUTH_CRYPT) && (ip->helloint < 5))
@@ -36,12 +41,56 @@ finish_iface_config(struct ospf_iface_patt *ip)
 
 #ifdef OSPFv3
 static void
-finish_iface_config(struct ospf_iface_patt *ip)
+ospf_iface_finish(void)
 {
+  struct ospf_iface_patt *ip = OSPF_PATT;
+
+  if (ip->deadint == 0)
+    ip->deadint = ip->deadc * ip->helloint;
+
   if ((ip->autype != OSPF_AUTH_NONE) || (get_passwords() != NULL))
     cf_error("Authentication not supported in OSPFv3");
 }
 #endif
+
+static void
+ospf_area_finish(void)
+{
+  if ((this_area->areaid == 0) && (this_area->stub != 0))
+    cf_error( "Backbone area cannot be stub");
+}
+
+static void
+ospf_proto_finish(void)
+{
+  struct ospf_config *cf = OSPF_CFG;
+
+  if (EMPTY_LIST(cf->area_list))
+    cf_error( "No configured areas in OSPF");
+
+  int areano = 0;
+  int backbone = 0;
+  struct ospf_area_config *ac;
+  WALK_LIST(ac, cf->area_list)
+  {
+    areano++;
+    if (ac->areaid == 0)
+     backbone = 1;
+  }
+  cf->abr = areano > 1;
+
+  if (cf->abr && !backbone)
+  {
+    struct ospf_area_config *ac = cfg_allocz(sizeof(struct ospf_area_config));
+    add_head(&cf->area_list, NODE ac);
+    init_list(&ac->patt_list);
+    init_list(&ac->net_list);
+    init_list(&ac->stubnet_list);
+  }
+
+  if (!cf->abr && !EMPTY_LIST(cf->vlink_list))
+    cf_error( "No configured areas in OSPF");
+}
 
 CF_DECLS
 
@@ -58,12 +107,13 @@ CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT)
 
 CF_GRAMMAR
 
-CF_ADDTO(proto, ospf_proto '}')
+CF_ADDTO(proto, ospf_proto '}' { ospf_proto_finish(); } )
 
 ospf_proto_start: proto_start OSPF {
      this_proto = proto_config_new(&proto_ospf, sizeof(struct ospf_config));
      this_proto->preference = DEF_PREF_OSPF;
      init_list(&OSPF_CFG->area_list);
+     init_list(&OSPF_CFG->vlink_list);
      OSPF_CFG->rfc1583 = DEFAULT_RFC1583;
      OSPF_CFG->tick = DEFAULT_OSPFTICK;
   }
@@ -80,22 +130,21 @@ ospf_proto_item:
  | ECMP bool { OSPF_CFG->ecmp = $2 ? DEFAULT_ECMP_LIMIT : 0; }
  | ECMP bool LIMIT expr { OSPF_CFG->ecmp = $2 ? $4 : 0; if ($4 < 0) cf_error("ECMP limit cannot be negative"); }
  | TICK expr { OSPF_CFG->tick = $2; if($2<=0) cf_error("Tick must be greater than zero"); }
- | ospf_area '}'
+ | ospf_area
  ;
 
-ospf_area_start: AREA idval '{' {
+ospf_area_start: AREA idval {
   this_area = cfg_allocz(sizeof(struct ospf_area_config));
   add_tail(&OSPF_CFG->area_list, NODE this_area);
   this_area->areaid = $2;
   this_area->stub = 0;
   init_list(&this_area->patt_list);
-  init_list(&this_area->vlink_list);
   init_list(&this_area->net_list);
   init_list(&this_area->stubnet_list);
  }
  ;
 
-ospf_area: ospf_area_start ospf_area_opts
+ospf_area: ospf_area_start '{' ospf_area_opts '}' { ospf_area_finish(); }
  ;
 
 ospf_area_opts:
@@ -138,7 +187,7 @@ ospf_stubnet_item:
  ;
 
 ospf_vlink:
-   ospf_vlink_start '{' ospf_vlink_opts '}' { finish_iface_config(OSPF_PATT); }
+   ospf_vlink_start '{' ospf_vlink_opts '}' { ospf_iface_finish(); }
  | ospf_vlink_start
  ;
 
@@ -152,7 +201,7 @@ ospf_vlink_item:
  | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=0) cf_error("Retransmit int must be greater than zero"); }
  | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
  | WAIT expr { OSPF_PATT->waitint = $2 ; }
- | DEAD expr { OSPF_PATT->dead = $2 ; if ($2<=1) cf_error("Dead interval must be greater than one"); }
+ | DEAD expr { OSPF_PATT->deadint = $2 ; if ($2<=1) cf_error("Dead interval must be greater than one"); }
  | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
@@ -164,15 +213,16 @@ ospf_vlink_start: VIRTUAL LINK idval
  {
   if (this_area->areaid == 0) cf_error("Virtual link cannot be in backbone");
   this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
-  add_tail(&this_area->vlink_list, NODE this_ipatt);
+  add_tail(&OSPF_CFG->vlink_list, NODE this_ipatt);
   init_list(&this_ipatt->ipn_list);
+  OSPF_PATT->voa = this_area->areaid;
   OSPF_PATT->vid = $3;
   OSPF_PATT->helloint = HELLOINT_D;
   OSPF_PATT->rxmtint = RXMTINT_D;
   OSPF_PATT->inftransdelay = INFTRANSDELAY_D;
   OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
-  OSPF_PATT->dead = 0;
+  OSPF_PATT->deadint = 0;
   OSPF_PATT->type = OSPF_IT_VLINK;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype = OSPF_AUTH_NONE;
@@ -185,10 +235,8 @@ ospf_iface_item:
  | HELLO expr { OSPF_PATT->helloint = $2 ; if (($2<=0) || ($2>65535)) cf_error("Hello interval must be in range 1-65535"); }
  | POLL expr { OSPF_PATT->pollint = $2 ; if ($2<=0) cf_error("Poll int must be greater than zero"); }
  | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=0) cf_error("Retransmit int must be greater than zero"); }
- | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
- | PRIORITY expr { OSPF_PATT->priority = $2 ; if (($2<0) || ($2>255)) cf_error("Priority must be in range 0-255"); }
  | WAIT expr { OSPF_PATT->waitint = $2 ; }
- | DEAD expr { OSPF_PATT->dead = $2 ; if ($2<=1) cf_error("Dead interval must be greater than one"); }
+ | DEAD expr { OSPF_PATT->deadint = $2 ; if ($2<=1) cf_error("Dead interval must be greater than one"); }
  | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
  | TYPE BROADCAST { OSPF_PATT->type = OSPF_IT_BCAST ; }
  | TYPE BCAST { OSPF_PATT->type = OSPF_IT_BCAST ; }
@@ -198,6 +246,8 @@ ospf_iface_item:
  | TYPE PTP { OSPF_PATT->type = OSPF_IT_PTP ; }
  | TYPE POINTOMULTIPOINT { OSPF_PATT->type = OSPF_IT_PTMP ; }
  | TYPE PTMP { OSPF_PATT->type = OSPF_IT_PTMP ; }
+ | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
+ | PRIORITY expr { OSPF_PATT->priority = $2 ; if (($2<0) || ($2>255)) cf_error("Priority must be in range 0-255"); }
  | STRICT NONBROADCAST bool { OSPF_PATT->strictnbma = $3 ; }
  | STUB bool { OSPF_PATT->stub = $2 ; }
  | CHECK LINK bool { OSPF_PATT->check_link = $3; }
@@ -281,7 +331,7 @@ ospf_iface_start:
   OSPF_PATT->priority = PRIORITY_D;
   OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
-  OSPF_PATT->dead = 0;
+  OSPF_PATT->deadint = 0;
   OSPF_PATT->type = OSPF_IT_UNDEF;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype = OSPF_AUTH_NONE;
@@ -300,7 +350,7 @@ ospf_iface_opt_list:
  ;
 
 ospf_iface:
-  ospf_iface_start iface_patt_list ospf_iface_opt_list { finish_iface_config(OSPF_PATT); }
+  ospf_iface_start iface_patt_list ospf_iface_opt_list { ospf_iface_finish(); }
  ;
 
 opttext:

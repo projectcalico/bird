@@ -81,9 +81,11 @@ struct ospf_config
 {
   struct proto_config c;
   unsigned tick;
-  int rfc1583;
+  byte rfc1583;
+  byte abr;
   int ecmp;
   list area_list;
+  list vlink_list;
 };
 
 struct nbma_node
@@ -121,11 +123,10 @@ struct ospf_area_config
 {
   node n;
   u32 areaid;
-  int stub;
+  u32 stub;
   list patt_list;
-  list vlink_list;
-  list net_list;
-  list stubnet_list;
+  list net_list;	      	/* List of aggregate networks for that area */
+  list stubnet_list;		/* List of stub networks added to Router LSA */
 };
 
 
@@ -167,6 +168,7 @@ struct ospf_iface
   struct iface *iface;		/* Nest's iface */
   struct ifa *addr;		/* IP prefix associated with that OSPF iface */
   struct ospf_area *oa;
+  struct ospf_iface_patt *cf;
   pool *pool;
   sock *sk;			/* IP socket (for DD ...) */
   list neigh_list;		/* List of neigbours */
@@ -174,7 +176,7 @@ struct ospf_iface
   u32 waitint;			/* number of sec before changing state from wait */
   u32 rxmtint;			/* number of seconds between LSA retransmissions */
   u32 pollint;			/* Poll interval */
-  u32 dead;			/* after "deadint" missing hellos is router dead */
+  u32 deadint;			/* after "deadint" missing hellos is router dead */
   u32 vid;			/* Id of peer of virtual link */
   ip_addr vip;			/* IP of peer of virtual link */
   struct ospf_iface *vifa;	/* OSPF iface which the vlink goes through */
@@ -252,8 +254,8 @@ struct ospf_iface
 #define OSPF_I_OK 0		/* Everything OK */
 #define OSPF_I_SK 1		/* Socket open failed */
 #define OSPF_I_LL 2		/* Missing link-local address (OSPFv3) */
-  // u8 sk_spf;			/* Socket is a member of SPFRouters group */
   u8 sk_dr; 			/* Socket is a member of DRouters group */
+  u8 marked;			/* Used in OSPF reconfigure */
   u16 rxbuf;			/* Buffer size */
   u8 check_link;		/* Whether iface link change is used */
   u8 ecmp_weight;		/* Weight used for ECMP */
@@ -715,14 +717,15 @@ struct ospf_area
   node n;
   u32 areaid;
   struct ospf_area_config *ac;	/* Related area config, might be NULL */
-  int origrt;			/* Rt lsa origination scheduled? */
   struct top_hash_entry *rt;	/* My own router LSA */
   struct top_hash_entry *pxr_lsa; /* Originated prefix LSA */
   list cand;			/* List of candidates for RT calc. */
   struct fib net_fib;		/* Networks to advertise or not */
-  unsigned stub;
-  int trcap;			/* Transit capability? */
+  u32 stub;			/* 0 or stub area cost */
   u32 options;			/* Optional features */
+  byte origrt;			/* Rt lsa origination scheduled? */
+  byte trcap;			/* Transit capability? */
+  byte marked;			/* Used in OSPF reconfigure */
   struct proto_ospf *po;
   struct fib rtr;		/* Routing tables for routers */
 };
@@ -753,18 +756,20 @@ struct proto_ospf
 struct ospf_iface_patt
 {
   struct iface_patt i;
+  u32 type;
+  u32 stub;
   u32 cost;
   u32 helloint;
   u32 rxmtint;
   u32 pollint;
-  u32 inftransdelay;
-  u32 priority;
   u32 waitint;
   u32 deadc;
-  u32 dead;
-  u32 type;
+  u32 deadint;
+  u32 inftransdelay;
+  u32 priority;
   u32 strictnbma;
-  u32 stub;
+  list nbma_list;
+  u32 voa;
   u32 vid;
   u16 rxbuf;
   u8 check_link;
@@ -772,9 +777,7 @@ struct ospf_iface_patt
 #define OSPF_RXBUF_NORMAL 0
 #define OSPF_RXBUF_LARGE 1
 #define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */
-  list nbma_list;
-
-  u32 autype;			  /* Not really used in OSPFv3 */
+  u32 autype;			/* Not really used in OSPFv3 */
 #define OSPF_AUTH_NONE 0
 #define OSPF_AUTH_SIMPLE 1
 #define OSPF_AUTH_CRYPT 2
@@ -789,24 +792,6 @@ struct ospf_iface_patt
 #endif
 };
 
-#if defined(OSPFv2) && !defined(CONFIG_MC_PROPER_SRC)
-static inline int
-ospf_iface_stubby(struct ospf_iface_patt *ip, struct ifa *addr)
-{
-  /*
-   * We cannot properly support multiple OSPF ifaces on real iface
-   * with multiple prefixes, therefore we force OSPF ifaces with
-   * non-primary IP prefixes to be stub.
-   */
-  return ip->stub || !(addr->flags & IA_PRIMARY);
-}
-#else
-static inline int
-ospf_iface_stubby(struct ospf_iface_patt *ip, struct ifa *addr UNUSED)
-{
-  return ip->stub;
-}
-#endif
 
 int ospf_import_control(struct proto *p, rte **new, ea_list **attrs,
 			struct linpool *pool);
@@ -815,6 +800,8 @@ void ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs);
 void schedule_rt_lsa(struct ospf_area *oa);
 void schedule_rtcalc(struct proto_ospf *po);
 void schedule_net_lsa(struct ospf_iface *ifa);
+
+struct ospf_area *ospf_find_area(struct proto_ospf *po, u32 aid);
 
 #ifdef OSPFv3
 void schedule_link_lsa(struct ospf_iface *ifa);
