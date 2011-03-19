@@ -79,6 +79,7 @@ protocols to be incorporated easily. Among other features, BIRD supports:
 	<item>the Border Gateway Protocol (BGPv4)
 	<item>the Routing Information Protocol (RIPv2)
 	<item>the Open Shortest Path First protocol (OSPFv2, OSPFv3)
+	<item>the Router Advertisements for IPv6 hosts
 	<item>a virtual protocol for exchange of routes between different routing tables on a single host
 	<item>a command-line interface allowing on-line control and inspection
 		of status of the daemon
@@ -385,7 +386,8 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	commas), each clause may contain a mask, a prefix, or both of them. An
 	interface matches the clause if its name matches the mask (if
 	specified) and its address matches the prefix (if specified). Mask is
-	specified as shell-like pattern.
+	specified as shell-like pattern. For IPv6, the prefix part of a clause
+	is generally ignored and interfaces are matched just by their name.
 
 	An interface matches the pattern if it matches any of its
 	clauses. If the clause begins with <cf/-/, matching interfaces are
@@ -397,7 +399,7 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	interfaces-specific options, in that case for given interface
 	the first matching interface option is used.
 	
-	This option is allowed in Direct, OSPF and RIP protocols,
+	This option is allowed in Direct, OSPF, RIP and RAdv protocols,
 	but in OSPF protocol it is used in <cf/area/ subsection.
 
 	Default: none.
@@ -1293,7 +1295,7 @@ with `<tt/O/') are optional.
 protocol bgp {
 	local as 65000;			     # Use a private AS number
 	neighbor 62.168.0.130 as 5588;	     # Our neighbor ...
-	multihop 20 via 62.168.0.13;	     # ... which is connected indirectly
+	multihop;			     # ... which is connected indirectly
 	export filter {			     # We use non-trivial export rules
 		if source = RTS_STATIC then { # Export only static routes
 		        # Assign our community
@@ -1516,7 +1518,7 @@ that each router detects all changes.
 <sect1>Configuration
 
 <p>In the main part of configuration, there can be multiple definitions of
-OSPF area witch different id included. These definitions includes many other
+OSPF areas, each with a different id. These definitions includes many other
 switches and multiple definitions of interfaces. Definition of interface
 may contain many switches and constant definitions and list of neighbors
 on nonbroadcast networks.
@@ -1963,6 +1965,149 @@ protocol pipe {				# The Pipe
 			accept;
 		}
 		reject;
+	};
+}
+</code>
+
+<sect>RAdv
+
+<sect1>Introduction
+
+<p>The RAdv protocol is an implementation of Router Advertisements,
+which are used in the IPv6 stateless autoconfiguration. IPv6 routers
+send (in irregular time intervals or as an answer to a request)
+advertisement packets to connected networks. These packets contain
+basic information about a local network (e.g. a list of network
+prefixes), which allows network hosts to autoconfigure network
+addresses and choose a default route. BIRD implements router behavior
+as defined in RFC 4861<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4861.txt">.
+
+<sect1>Configuration
+
+<p>There are two classes of definitions in RAdv configuration --
+interface definitions and prefix definitions:
+
+<descrip>
+	<tag>interface <m/pattern [, ...]/  { <m/options/ }</tag> 
+	Interface definitions specify a set of interfaces on which the
+	protocol is activated and contain interface specific options.
+	See <ref id="dsc-iface" name="interface"> common options for
+	detailed description.
+
+	<tag>prefix <m/prefix/ { <m/options/ }</tag> 
+	Prefix definitions allows to modify a list of advertised
+	prefixes. By default, the advertised prefixes are the same as
+	the network prefixes assigned to the interface. For each
+	network prefix, the matching prefix definition is found and
+	its options are used. If no matching prefix definition is
+	found, the prefix is used with default options.
+
+	Prefix definitions can be either global or interface-specific.
+	The second ones are part of interface options. The prefix
+	definition matching is done in the first-match style, when
+	interface-specific definitions are processed before global
+	definitions. As expected, the prefix definition is matching if
+	the network prefix is a subnet of the prefix in prefix
+	definition.
+</descrip>
+
+<p>Interface specific options:
+
+<descrip>
+	<tag>max ra interval <m/expr/</tag>
+	Unsolicited router advertisements are sent in irregular time
+	intervals. This option specifies the maximum length of these
+	intervals, in seconds. Valid values are 4-1800. Default: 600
+
+	<tag>min ra interval <m/expr/</tag>
+	This option specifies the minimum length of that intervals, in
+	seconds. Must be at least 3 and at most 3/4 * max ra interval.
+	Default: about 1/3 * max ra interval.
+
+	<tag>min delay <m/expr/</tag>
+	The minimum delay between two consecutive router advertisements,
+	in seconds. Default: 3
+
+	<tag>managed <m/switch/</tag>
+	This option specifies whether hosts should use DHCPv6 for
+	IP address configuration. Default: no
+
+	<tag>other config <m/switch/</tag>
+	This option specifies whether hosts should use DHCPv6 to
+	receive other configuration information. Default: no
+
+	<tag>link mtu <m/expr/</tag>
+	This option specifies which value of MTU should be used by
+	hosts. 0 means unspecified. Default: 0
+
+	<tag>reachable time <m/expr/</tag>
+	This option specifies the time (in milliseconds) how long
+	hosts should assume a neighbor is reachable (from the last
+	confirmation). Maximum is 3600000, 0 means unspecified.
+	Default 0.
+
+	<tag>retrans timer <m/expr/</tag>
+	This option specifies the time (in milliseconds) how long
+	hosts should wait before retransmitting Neighbor Solicitation
+	messages. 0 means unspecified. Default 0.
+
+	<tag>current hop limit <m/expr/</tag>
+	This option specifies which value of Hop Limit should be used
+	by hosts. Valid values are 0-255, 0 means unspecified. Default: 64
+
+	<tag>default lifetime <m/expr/</tag>
+	This option specifies the time (in seconds) how long (after
+	the receipt of RA) hosts may use the router as a default
+	router. 0 means do not use as a default router. Default: 3 *
+	max ra interval.
+</descrip>
+
+
+<p>Prefix specific options:
+
+<descrip>
+	<tag>onlink <m/switch/</tag>
+	This option specifies whether hosts may use the advertised
+	prefix for onlink determination. Default: yes
+
+	<tag>autonomous <m/switch/</tag>
+	This option specifies whether hosts may use the advertised
+	prefix for stateless autoconfiguration. Default: yes
+
+	<tag>valid lifetime <m/expr/</tag>
+	This option specifies the time (in seconds) how long (after
+	the receipt of RA) the prefix information is valid, i.e.,
+	autoconfigured IP addresses can be assigned and hosts with
+	that IP addresses are considered directly reachable. 0 means
+	the prefix is no longer valid. Default: 86400 (1 day)
+
+	<tag>preferred lifetime <m/expr/</tag>
+	This option specifies the time (in seconds) how long (after
+	the receipt of RA) IP addresses generated from the prefix
+	using stateless autoconfiguration remain preferred. Default:
+	14400 (4 hours)
+</descrip>
+
+<sect1>Example
+
+<p><code>
+protocol radv {
+	interface "eth2" {
+		max ra interval 5;	# Fast failover with more routers
+		managed yes;		# Using DHCPv6 on eth2
+		prefix ::/0 {
+			autonomous off;	# So do not autoconfigure any IP
+		};
+	};
+
+	interface "eth*";		# No need for any other options
+
+	prefix 2001:0DB8:1234::/48 {
+		preferred lifetime 0;	# Deprecated address range
+	};
+
+	prefix 2001:0DB8:2000::/48 {
+		autonomous off;		# Do not autoconfigure
 	};
 }
 </code>
