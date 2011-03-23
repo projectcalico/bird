@@ -48,7 +48,7 @@ CF_DECLS
   struct timeformat *tf;
 }
 
-%token END CLI_MARKER INVALID_TOKEN
+%token END CLI_MARKER INVALID_TOKEN ELSECOL
 %token GEQ LEQ NEQ AND OR
 %token PO PC
 %token <i> NUM ENUM

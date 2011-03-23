@@ -837,7 +837,7 @@ prefix and prefix (returning true if first prefix is more specific than second o
 <M>command_1</M>; <M>command_2</M>; <M>...</M> }</cf> instead of either command. The <cf>else</cf>
 clause may be omitted. If the <cf><m>boolean expression</m></cf> is true, <cf><m>command1</m></cf> is executed, otherwise <cf><m>command2</m></cf> is executed.
 
-<p>The <cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else |
+<p>The <cf>case</cf> is similar to case from Pascal. Syntax is <cf>case <m/expr/ { else: |
 <m/num_or_prefix [ .. num_or_prefix]/: <m/statement/ ; [ ... ] }</cf>. The expression after
 <cf>case</cf> can be of any type which can be on the left side of the &tilde; operator and anything that could
 be a member of a set is allowed before <cf/:/. Multiple commands are allowed without <cf/{}/ grouping.

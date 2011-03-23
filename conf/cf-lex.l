@@ -137,6 +137,11 @@ WHITE [ \t]
   return NUM;
 }
 
+else: {
+  /* Hack to distinguish if..else from else: in case */
+  return ELSECOL;
+}
+
 ({ALPHA}{ALNUM}*|[']({ALNUM}|[-])*[']) {
   if(*yytext == '\'') {
     yytext[yyleng-1] = 0;

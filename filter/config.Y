@@ -305,11 +305,11 @@ switch_body: /* EMPTY */ { $$ = NULL; }
      $$->data = $4;
      $$->left = $1;
    }
- | switch_body ELSE ':' cmds {
+ | switch_body ELSECOL cmds {
      $$ = f_new_tree(); 
      $$->from.type = T_VOID; 
      $$->to.type = T_VOID;
-     $$->data = $4;
+     $$->data = $3;
      $$->left = $1;
    }
  ;
