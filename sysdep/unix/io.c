@@ -22,6 +22,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include <netinet/icmp6.h>
 
 #include "nest/bird.h"
