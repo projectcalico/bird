@@ -523,16 +523,21 @@ interpret(struct f_inst *what)
     break;
     
   case '&':
-    TWOARGS_C;
-    res.type = v1.type;
-    if (res.type != T_BOOL) runtime( "Can't do boolean operation on non-booleans" );
-    res.val.i = v1.val.i && v2.val.i;
-    break;
   case '|':
-    TWOARGS_C;
-    res.type = v1.type;
-    if (res.type != T_BOOL) runtime( "Can't do boolean operation on non-booleans" );
-    res.val.i = v1.val.i || v2.val.i;
+    ARG(v1, a1.p);
+    if (v1.type != T_BOOL)
+      runtime( "Can't do boolean operation on non-booleans" );
+    if (v1.val.i == (what->code == '|')) {
+      res.type = T_BOOL;
+      res.val.i = v1.val.i;
+      break;
+    }
+
+    ARG(v2, a2.p);
+    if (v2.type != T_BOOL)
+      runtime( "Can't do boolean operation on non-booleans" );
+    res.type = T_BOOL;
+    res.val.i = v2.val.i;
     break;
 
   case P('m','p'):
@@ -577,6 +582,7 @@ interpret(struct f_inst *what)
     res.val.i = val_in_range(v1, v2);
     if (res.val.i == CMP_ERROR)
       runtime( "~ applied on unknown type pair" );
+    res.val.i = !!res.val.i;
     break;
   case P('d','e'):
     ONEARG;
