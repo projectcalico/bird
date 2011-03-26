@@ -25,6 +25,19 @@ static int make_pair(int i1, int i2)
   return (u1 << 16) | u2;
 }
 
+struct f_tree *f_generate_rev_wcard(int from, int to, int expr)
+{
+	struct f_tree * ret = NULL;
+	if(from <= to) {
+		ret = f_new_tree(); 
+		ret->from.type = ret->to.type = T_PAIR;
+		ret->from.val.i = ret->to.val.i = make_pair(from, expr); 
+		ret->left = f_generate_rev_wcard(from+1, to, expr);
+	}
+	return ret;
+
+}
+
 CF_DECLS
 
 CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
@@ -229,10 +242,10 @@ fipa:
  ;
 
 set_atom:
-   expr   { $$.type = T_INT; $$.val.i = $1; }
+   expr  { $$.type = T_INT; $$.val.i = $1; }	/* 'SYM' included in 'expr' creates 3 reduce/shift conflicts */
  | RTRID { $$.type = T_QUAD; $$.val.i = $1; }
  | fipa  { $$ = $1; }
- | ENUM  {  $$.type = $1 >> 16; $$.val.i = $1 & 0xffff; }
+ | ENUM  { $$.type = $1 >> 16; $$.val.i = $1 & 0xffff; }
  ; 
 
 set_item:
@@ -254,12 +267,25 @@ set_item:
 	$$->from.val.i = make_pair($2, $4); 
 	$$->to.val.i = make_pair($9, $11);
    }
+ |  '(' '*' ',' '*' ')' { 	/* This is probably useless :-) */
+	$$ = f_new_tree(); 
+	$$->from.type = $$->to.type = T_PAIR;
+	$$->from.val.i = 0;
+	$$->to.val.i = 0xffffffff;
+   }
  |  '(' expr ',' '*' ')' { 
 	$$ = f_new_tree(); 
 	$$->from.type = $$->to.type = T_PAIR;
 	$$->from.val.i = make_pair($2, 0); 
 	$$->to.val.i = make_pair($2, 0xffff);
    }
+ |  '(' '*' ',' expr ')' { 
+	$$ = f_generate_rev_wcard(0, 0xffff, $4);
+   }
+ /* This causes 3 reduce/reduce conflicts
+ | '(' expr '.' '.' expr ',' expr ')' { 
+	cf_error("Not implemented yet");
+   }*/
  | set_atom { 
 	$$ = f_new_tree(); 
 	$$->from = $1; 
