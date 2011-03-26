@@ -719,7 +719,8 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  sets.
 	  For pair sets, expressions like <cf/(123,*)/ can be used to denote ranges (in
 	  that case <cf/(123,0)..(123,65535)/). You can also use <cf/(123,5..100)/ for range
-	  <cf/(123,5)..(123,100)/.
+	  <cf/(123,5)..(123,100)/. You can also use <cf/(*,123)/ which is translated as
+	  <cf/(0,123) , (1,123) , (2,123) , ... , (65535, 123)/
 	  You can also use expressions for both, pair sets and int sets. However it must
 	  be possible to evaluate these expressions before daemon boots. So you can use
 	  only constants inside them. E.g.
