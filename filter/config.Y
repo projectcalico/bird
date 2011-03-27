@@ -27,15 +27,17 @@ static int make_pair(int i1, int i2)
 
 struct f_tree *f_generate_rev_wcard(int from, int to, int expr)
 {
-	struct f_tree * ret = NULL;
-	if(from <= to) {
+	struct f_tree *ret = NULL, *last = NULL;
+
+	while (from <= to) {
 		ret = f_new_tree(); 
 		ret->from.type = ret->to.type = T_PAIR;
 		ret->from.val.i = ret->to.val.i = make_pair(from, expr); 
-		ret->left = f_generate_rev_wcard(from+1, to, expr);
+		ret->left = last;
+
+		from++; last = ret;
 	}
 	return ret;
-
 }
 
 CF_DECLS
