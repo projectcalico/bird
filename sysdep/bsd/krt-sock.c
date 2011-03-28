@@ -543,6 +543,9 @@ krt_read_addr(struct ks_msg *msg)
   {
     ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
 
+    if (masklen == BITS_PER_IP_ADDRESS)
+      ifa.flags |= IA_HOST;
+
     if (masklen == (BITS_PER_IP_ADDRESS - 1))
       ifa.opposite = ipa_opposite_m1(ifa.ip);
 
@@ -553,7 +556,7 @@ krt_read_addr(struct ks_msg *msg)
   }
   else         /* PtP iface */
   {
-    ifa.flags |= IA_UNNUMBERED;
+    ifa.flags |= IA_PEER;
     ifa.prefix = ifa.opposite = ifa.brd;
   }
 

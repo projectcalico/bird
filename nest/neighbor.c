@@ -66,7 +66,7 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
     {
       if (ipa_equal(*a, b->ip))
 	return SCOPE_HOST;
-      if (b->flags & IA_UNNUMBERED)
+      if (b->flags & IA_PEER)
 	{
 	  if (ipa_equal(*a, b->opposite))
 	    return b->scope;

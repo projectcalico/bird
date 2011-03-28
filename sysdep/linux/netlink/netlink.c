@@ -499,10 +499,12 @@ nl_parse_addr(struct nlmsghdr *h)
       ipa_ntoh(addr);
       ifa.prefix = ifa.brd = addr;
 
-      /* It is either a peer address, or loopback/dummy address */
-      if (!ipa_equal(ifa.ip, addr))
+      /* It is either a host address or a peer address */
+      if (ipa_equal(ifa.ip, addr))
+	ifa.flags |= IA_HOST;
+      else
 	{
-	  ifa.flags |= IA_UNNUMBERED;
+	  ifa.flags |= IA_PEER;
 	  ifa.opposite = addr;
 	}
     }

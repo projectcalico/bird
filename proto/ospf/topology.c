@@ -160,6 +160,7 @@ configured_stubnet(struct ospf_area *oa, struct ifa *a)
   if (!oa->ac)
     return 0;
 
+  /* Does not work for IA_PEER addresses, but it is not called on these */
   struct ospf_stubnet_config *sn;
   WALK_LIST(sn, oa->ac->stubnet_list)
     {
@@ -254,7 +255,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
 	    ln->type = LSART_PTP;
 	    ln->id = neigh->rid;
-	    ln->data = (ifa->addr->flags & IA_UNNUMBERED) ?
+	    ln->data = (ifa->addr->flags & IA_PEER) ?
 	      ifa->iface->index : ipa_to_u32(ifa->addr->ip);
 	    ln->metric = ifa->cost;
 	    ln->padding = 0;
@@ -301,12 +302,14 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
     /* Now we will originate stub area if there is no primary */
     if (net_lsa ||
 	(ifa->type == OSPF_IT_VLINK) ||
-	(ifa->addr->flags & IA_UNNUMBERED) ||
+	(ifa->addr->flags & IA_PEER) ||
 	configured_stubnet(oa, ifa->addr))
       continue;
 
     ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
-    if ((ifa->state == OSPF_IS_LOOP) || (ifa->type == OSPF_IT_PTMP))
+    if ((ifa->addr->flags & IA_HOST) ||
+	(ifa->state == OSPF_IS_LOOP) ||
+	(ifa->type == OSPF_IT_PTMP))
     {
       /* Host stub entry */
       ln->type = LSART_STUB;
@@ -1208,7 +1211,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
     WALK_LIST(a, ifa->iface->addrs)
       {
 	if ((a->flags & IA_SECONDARY) ||
-	    (a->flags & IA_UNNUMBERED) ||
+	    (a->flags & IA_PEER) ||
 	    (a->scope <= SCOPE_LINK))
 	  continue;
 
@@ -1219,15 +1222,16 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    configured_stubnet(oa, a))
 	  continue;
 
-	if ((ifa->state == OSPF_IS_LOOP) || (ifa->type == OSPF_IT_PTMP))
+	if ((a->flags & IA_HOST) ||
+	    (ifa->state == OSPF_IS_LOOP) ||
+	    (ifa->type == OSPF_IT_PTMP))
+	{
 	  lsa_put_prefix(po, a->ip, MAX_PREFIX_LENGTH, 0);
+	  host_addr = 1;
+	}
 	else
 	  lsa_put_prefix(po, a->prefix, a->pxlen, ifa->cost);
 	i++;
-
-	if ((ifa->state == OSPF_IS_LOOP) ||
-	    (a->pxlen == MAX_PREFIX_LENGTH))
-	  host_addr = 1;
       }
 
     ifa->px_pos_end = i;

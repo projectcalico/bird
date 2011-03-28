@@ -51,7 +51,7 @@ ifa_dump(struct ifa *a)
   debug("\t%I, net %I/%-2d bc %I -> %I%s%s%s\n", a->ip, a->prefix, a->pxlen, a->brd, a->opposite,
 	(a->flags & IF_UP) ? "" : " DOWN",
 	(a->flags & IA_PRIMARY) ? "" : " SEC",
-	(a->flags & IA_UNNUMBERED) ? " UNNUM" : "");
+	(a->flags & IA_PEER) ? "PEER" : "");
 }
 
 /**
@@ -474,7 +474,7 @@ ifa_update(struct ifa *a)
 	    ipa_equal(b->brd, a->brd) &&
 	    ipa_equal(b->opposite, a->opposite) &&
 	    b->scope == a->scope &&
-	    !((b->flags ^ a->flags) & IA_UNNUMBERED))
+	    !((b->flags ^ a->flags) & IA_PEER))
 	  {
 	    b->flags |= IF_UPDATED;
 	    return b;
@@ -543,7 +543,7 @@ auto_router_id(void)
     if ((i->flags & IF_ADMIN_UP) &&
 	!(i->flags & (IF_IGNORE | IF_SHUTDOWN)) &&
 	i->addr &&
-	!(i->addr->flags & IA_UNNUMBERED) &&
+	!(i->addr->flags & IA_PEER) &&
 	(!j || ipa_to_u32(i->addr->ip) < ipa_to_u32(j->addr->ip)))
       j = i;
   if (!j)
@@ -602,7 +602,7 @@ iface_patt_match(struct iface_patt *ifp, struct iface *i, struct ifa *a)
       if (ipa_in_net(a->ip, p->prefix, p->pxlen))
 	return pos;
 
-      if ((a->flags & IA_UNNUMBERED) &&
+      if ((a->flags & IA_PEER) &&
 	  ipa_in_net(a->opposite, p->prefix, p->pxlen))
 	return pos;
 	  
@@ -671,23 +671,16 @@ iface_patts_equal(list *a, list *b, int (*comp)(struct iface_patt *, struct ifac
 static void
 if_show_addr(struct ifa *a)
 {
-  byte broad[STD_ADDRESS_P_LENGTH + 16];
   byte opp[STD_ADDRESS_P_LENGTH + 16];
 
-  if (ipa_nonzero(a->brd))
-    bsprintf(broad, ", broadcast %I", a->brd);
-  else
-    broad[0] = 0;
   if (ipa_nonzero(a->opposite))
     bsprintf(opp, ", opposite %I", a->opposite);
   else
     opp[0] = 0;
-  cli_msg(-1003, "\t%I/%d (%s%s%s, scope %s%s)",
+  cli_msg(-1003, "\t%I/%d (%s%s, scope %s)",
 	  a->ip, a->pxlen,
 	  (a->flags & IA_PRIMARY) ? "Primary" : (a->flags & IA_SECONDARY) ? "Secondary" : "Unselected",
-	  broad, opp,
-	  ip_scope_text(a->scope),
-	  (a->flags & IA_UNNUMBERED) ? ", unnumbered" : "");
+	  opp, ip_scope_text(a->scope));
 }
 
 void

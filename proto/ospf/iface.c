@@ -443,6 +443,10 @@ ospf_iface_stubby(struct ospf_iface_patt *ip, struct ifa *addr)
   if (! addr)
     return 0;
 
+  /* a host/loopback address */
+  if (addr->flags & IA_HOST)
+    return 1;
+
   /*
    * We cannot properly support multiple OSPF ifaces on real iface
    * with multiple prefixes, therefore we force OSPF ifaces with
@@ -452,10 +456,6 @@ ospf_iface_stubby(struct ospf_iface_patt *ip, struct ifa *addr)
   if (! (addr->flags & IA_PRIMARY))
     return 1;
 #endif
-
-  /* a loopback/dummy address */
-  if ((addr->pxlen == MAX_PREFIX_LENGTH) && ipa_zero(addr->opposite))
-    return 1;
 
   return ip->stub;
 }
@@ -522,10 +522,10 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
   int old_type = ifa->type;
 
 #ifdef OSPFv2
-  if ((ifa->type == OSPF_IT_BCAST) && (addr->flags & IA_UNNUMBERED))
+  if ((ifa->type == OSPF_IT_BCAST) && (addr->flags & IA_PEER))
     ifa->type = OSPF_IT_PTP;
 
-  if ((ifa->type == OSPF_IT_NBMA) && (addr->flags & IA_UNNUMBERED))
+  if ((ifa->type == OSPF_IT_NBMA) && (addr->flags & IA_PEER))
     ifa->type = OSPF_IT_PTMP;
 #endif
 
@@ -1115,7 +1115,7 @@ ospf_iface_info(struct ospf_iface *ifa)
   else
   {
 #ifdef OSPFv2
-    if (ifa->addr->flags & IA_UNNUMBERED)
+    if (ifa->addr->flags & IA_PEER)
       cli_msg(-1015, "Interface %s (peer %I)", ifa->iface->name, ifa->addr->opposite);
     else
       cli_msg(-1015, "Interface %s (%I/%d)", ifa->iface->name, ifa->addr->prefix, ifa->addr->pxlen);

@@ -51,8 +51,22 @@ struct iface {
 
 #define IA_PRIMARY 0x10000		/* This address is primary */
 #define IA_SECONDARY 0x20000		/* This address has been reported as secondary by the kernel */
-#define IA_UNNUMBERED 0x40000		/* This address belongs to an unnumbered device */
+#define IA_PEER 0x40000			/* A peer/ptp address */
+#define IA_HOST 0x80000			/* A host/loopback address */
 #define IA_FLAGS 0xff0000
+
+/*
+ * There are three kinds of addresses in BIRD:
+ *  - Standard (prefix-based) addresses, these may define ifa.opposite (for /30 or /31).
+ *  - Peer/ptp addresses, without common prefix for ifa.ip and ifa.opposite.
+ *    ifa.opposite is defined and ifa.prefix/pxlen == ifa.opposite/32 (for simplicity).
+ *  - Host addresses, with ifa.prefix/pxlen == ifa.ip/32 (or /128).
+ *    May be considered a special case of standard addresses.
+ *
+ * Peer addresses (AFAIK) do not exist in IPv6. Linux alos supports generalized peer
+ * address (with pxlen < 32 and ifa.ip outside prefix), we do not support that.
+ */
+
 
 #define IF_JUST_CREATED 0x10000000	/* Send creation event as soon as possible */
 #define IF_TMP_DOWN 0x20000000		/* Temporary shutdown due to interface reconfiguration */
@@ -84,15 +98,6 @@ void if_feed_baby(struct proto *);
 struct iface *if_find_by_index(unsigned);
 struct iface *if_find_by_name(char *);
 void ifa_recalc_all_primary_addresses(void);
-
-static inline int
-ifa_match_addr(struct ifa *ifa, ip_addr addr)
-{
-  if (ifa->flags & IA_UNNUMBERED)
-    return ipa_equal(addr, ifa->opposite);
-  else
-    return ipa_in_net(addr, ifa->prefix, ifa->pxlen);
-}
 
 /* The Neighbor Cache */
 
