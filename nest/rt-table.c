@@ -374,7 +374,7 @@ rte_validate(rte *e)
 
   if ((n->n.pxlen > BITS_PER_IP_ADDRESS) || !ip_is_prefix(n->n.prefix,n->n.pxlen))
     {
-      log(L_BUG "Ignoring bogus prefix %I/%d received via %s",
+      log(L_WARN "Ignoring bogus prefix %I/%d received via %s",
 	  n->n.prefix, n->n.pxlen, e->sender->name);
       return 0;
     }

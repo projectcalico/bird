@@ -269,9 +269,10 @@ ospf_rx_hook(sock *sk, int size)
   struct proto_ospf *po = ifa->oa->po;
   // struct proto *p = &po->proto;
 
-  int src_local = ipa_in_net(sk->faddr, ifa->addr->prefix, ifa->addr->pxlen);
-  int dst_local = ipa_equal(sk->laddr, ifa->addr->ip);
-  int dst_mcast = ipa_equal(sk->laddr, AllSPFRouters) || ipa_equal(sk->laddr, AllDRouters);
+  int src_local, dst_local UNUSED, dst_mcast; 
+  src_local = ipa_in_net(sk->faddr, ifa->addr->prefix, ifa->addr->pxlen);
+  dst_local = ipa_equal(sk->laddr, ifa->addr->ip);
+  dst_mcast = ipa_equal(sk->laddr, AllSPFRouters) || ipa_equal(sk->laddr, AllDRouters);
 
 #ifdef OSPFv2
   /* First, we eliminate packets with strange address combinations.

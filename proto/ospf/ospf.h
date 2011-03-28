@@ -587,6 +587,10 @@ lsa_get_ipv6_prefix(u32 *buf, ip_addr *addr, int *pxlen, u8 *pxopts, u16 *rest)
   if (pxl > 96)
     _I3(*addr) = *buf++;
 
+  /* Clean up remaining bits */
+  if (pxl < 128)
+    addr->addr[pxl / 32] &= u32_mkmask(pxl % 32);
+
   return buf;
 }
 
