@@ -824,6 +824,10 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 	  memcpy(&ra.gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ra.gw));
 	  ipa_ntoh(ra.gw);
 
+	  /* Silently skip strange 6to4 routes */
+	  if (ipa_in_net(ra.gw, IPA_NONE, 96))
+	    return;
+
 	  ng = neigh_find2(&p->p, &ra.gw, ra.iface,
 			   (i->rtm_flags & RTNH_F_ONLINK) ? NEF_ONLINK : 0);
 	  if (!ng || (ng->scope == SCOPE_HOST))
