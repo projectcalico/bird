@@ -1074,8 +1074,8 @@ for each neighbor using the following configuration parameters:
 	the problem and sends just the global address (and therefore
 	forms improper BGP update). Default: <cf/self/, unless BIRD
 	is configured as a route server (option <cf/rs client/), in
-	that case default is <cf/drop/, because route servers usually
-	does not forward packets ifselves.
+	that case default is <cf/ignore/, because route servers usually
+	do not forward packets themselves.
 
 	<tag>gateway direct|recursive</tag>For received routes, their
 	<cf/gw/ (immediate next hop) attribute is computed from
