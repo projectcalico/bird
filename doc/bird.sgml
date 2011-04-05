@@ -1024,7 +1024,7 @@ This allows to set routing policy and all the other parameters differently
 for each neighbor using the following configuration parameters:
 
 <descrip>
-	<tag>local <m/[ip]/] as <m/number/</tag> Define which AS we
+	<tag>local [<m/ip/] as <m/number/</tag> Define which AS we
 	are part of. (Note that contrary to other IP routers, BIRD is
 	able to act as a router located in multiple AS'es
 	simultaneously, but in such cases you need to tweak the BGP
@@ -1039,7 +1039,7 @@ for each neighbor using the following configuration parameters:
 	of your router's interfaces. In case the neighbor is in the same AS
 	as we are, we automatically switch to iBGP. This parameter is mandatory.
 
-	<tag>multihop <m/[number]/]</tag> Configure multihop BGP
+	<tag>multihop [<m/number/]</tag> Configure multihop BGP
 	session to a neighbor that isn't directly connected.
 	Accurately, this option should be used if the configured
 	neighbor IP address does not match with any local network
@@ -1334,11 +1334,10 @@ require network interfaces to be defined for them to work with.
 	notification messages, so the default time is set to a large value.
 
 	<tag>primary  [ "<m/mask/" ] <m/prefix/</tag>
-	If a network interface has more than one network address,
-	BIRD has to choose one of them as a primary one, because some
-	routing protocols (for example OSPFv2) suppose there is only
-	one network address per interface. By default, BIRD chooses
-	the lexicographically smallest address as the primary one.
+	If a network interface has more than one network address, BIRD
+	has to choose one of them as a primary one. By default, BIRD
+	chooses the lexicographically smallest address as the primary
+	one.
 
 	This option allows to specify which network address should be
 	chosen as a primary one. Network addresses that match
