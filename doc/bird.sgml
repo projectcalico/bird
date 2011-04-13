@@ -1420,11 +1420,19 @@ device routes from BIRD tables to kernel routing tables is restricted
 to prevent accidental interference. This restriction can be disabled using
 <cf/device routes/ switch.
 
-<p>If your OS supports only a single routing table, you can configure only one
-instance of the Kernel protocol. If it supports multiple tables (in order to
-allow policy routing; such an OS is for example Linux 2.2), you can run as many instances as you want, but each of
-them must be connected to a different BIRD routing table and to a different
+<p>If your OS supports only a single routing table, you can configure
+only one instance of the Kernel protocol. If it supports multiple
+tables (in order to allow policy routing; such an OS is for example
+Linux), you can run as many instances as you want, but each of them
+must be connected to a different BIRD routing table and to a different
 kernel table.
+
+<p>Because the kernel protocol is partially integrated with the
+connected routing table, there are two limitations - it is not
+possible to connect more kernel protocols to the same routing table
+and changing route attributes (even the kernel ones) in an export
+filter of a kernel protocol does not work. Both limitations can be
+overcome using another routing table and the pipe protocol.
 
 <sect1>Configuration
 
@@ -1450,12 +1458,27 @@ kernel table.
 	only on systems supporting multiple routing tables.
 </descrip>
 
-<p>The Kernel protocol doesn't define any route attributes.
+<sect1>Attributes
+
+<p>The Kernel protocol defines several attributes. These attributes
+are translated to appropriate system (and OS-specific) route attributes.
+We support these attributes:
+
+<descrip>
+	<tag>ip <cf/krt_prefsrc/</tag> (Linux) The preferred source address.
+ 	Used in source address selection for outgoing packets. Have to
+ 	be one of IP addresses of the router.
+
+	<tag>int <cf/krt_realm/</tag> (Linux) The realm of the route. Can be
+	used for traffic classification.
+</descrip>
+
+<sect1>Example
+
 <p>A simple configuration can look this way:
 
 <p><code>
 protocol kernel {
-	import all;
 	export all;
 }
 </code>
