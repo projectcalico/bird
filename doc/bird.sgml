@@ -1121,7 +1121,7 @@ for each neighbor using the following configuration parameters:
 	BIRD does not implement obsoleted RFC 1863, but uses ad-hoc implementation,
 	which behaves like plain EBGP but reduces modifications to advertised route
 	attributes to be transparent (for example does not prepend its AS number to
-	AS PATH attribute and keep MED attribute). Default: disabled.
+	AS PATH attribute and keeps MED attribute). Default: disabled.
 
 	<tag>enable route refresh <m/switch/</tag> When BGP speaker
 	changes its import filter, it has to re-examine all routes
@@ -1205,6 +1205,15 @@ for each neighbor using the following configuration parameters:
 	<tag>path metric <m/switch/</tag> Enable comparison of path lengths
 	when deciding which BGP route is the best one. Default: on.
 
+	<tag>med metric <m/switch/</tag> Enable comparison of MED
+	attributes (during best route selection) even between routes
+	received from different ASes.  This may be useful if all MED
+	attributes contain some consistent metric, perhaps enforced in
+	import filters of AS boundary routers. If this option is
+	disabled, MED attributes are compared only if routes are
+	received from the same AS (which is the standard behavior).
+	Default: off.
+
 	<tag>igp metric <m/switch/</tag> Enable comparison of internal
  	distances to boundary routers during best route selection. Default: on.
 
@@ -1233,21 +1242,21 @@ with `<tt/O/') are optional.
 
 <descrip>
 	<tag>bgppath <cf/bgp_path/</tag> Sequence of AS numbers describing the AS path
-	the packet will travel through when forwarded according to the particular route. In case of 
-	internal BGP it doesn't contain the number of the local AS.
+	the packet will travel through when forwarded according to the particular route.
+	In case of internal BGP it doesn't contain the number of the local AS.
 
 	<tag>int <cf/bgp_local_pref/ [I]</tag> Local preference value used for
 	selection among multiple BGP routes (see the selection rules above). It's
 	used as an additional metric which is propagated through the whole local AS.
 
 	<tag>int <cf/bgp_med/ [O]</tag> The Multiple Exit Discriminator of the route
-	is an optional attribute which is used on on external (inter-AS) links to
+	is an optional attribute which is used on external (inter-AS) links to
 	convey to an adjacent AS the optimal entry point into the local AS.
-	The received attribute may be also propagated over internal BGP links
-	(and this is default behavior). The attribute value is zeroed when a route
-	is exported from a routing table to a BGP instance to ensure that the attribute
-	received from a neighboring AS is not propagated to other neighboring ASes.
-	A new value might be set in the export filter of a BGP instance.
+	The received attribute is also propagated over internal BGP links.
+	The attribute value is zeroed when a route is exported to an external BGP
+	instance to ensure that the attribute received from a neighboring AS is
+	not propagated to other neighboring ASes. A new value might be set in
+	the export filter of an external BGP instance.
 	See RFC 4451<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4451.txt">
 	for further discussion of BGP MED attribute.
 
@@ -1281,11 +1290,11 @@ with `<tt/O/') are optional.
 	its own routing policy, it also has a complete freedom about which community
 	attributes it defines and what will their semantics be.
 
-	<tag>quad <cf/bgp_originator_id/ [O]</tag> This attribute is created by the
+	<tag>quad <cf/bgp_originator_id/ [I, O]</tag> This attribute is created by the
 	route reflector when reflecting the route and contains the router ID of the
 	originator of the route in the local AS.
 
-	<tag>clist <cf/bgp_cluster_list/ [O]</tag> This attribute contains a list
+	<tag>clist <cf/bgp_cluster_list/ [I, O]</tag> This attribute contains a list
 	of cluster IDs of route reflectors. Each route reflector prepends its
 	cluster ID when reflecting the route.
 </descrip>
