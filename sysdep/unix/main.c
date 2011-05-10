@@ -8,11 +8,15 @@
 
 #undef LOCAL_DEBUG
 
+#define _GNU_SOURCE 1
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include "nest/bird.h"
 #include "lib/lists.h"
@@ -56,6 +60,29 @@ async_dump(void)
   protos_dump_all();
 
   debug("\n");
+}
+
+/*
+ *	Dropping privileges
+ */
+
+#ifdef CONFIG_RESTRICTED_PRIVILEGES
+#include "lib/syspriv.h"
+#else
+
+static inline void
+drop_uid(uid_t uid)
+{
+  die("Cannot change user on this platform");
+}
+
+#endif
+
+static inline void
+drop_gid(gid_t gid)
+{
+  if (setgid(gid) < 0)
+    die("setgid: %m");
 }
 
 /*
@@ -444,14 +471,16 @@ signal_init(void)
  *	Parsing of command-line arguments
  */
 
-static char *opt_list = "c:dD:ps:";
+static char *opt_list = "c:dD:ps:u:g:";
 static int parse_and_exit;
 char *bird_name;
+static char *use_user;
+static char *use_group;
 
 static void
 usage(void)
 {
-  fprintf(stderr, "Usage: %s [-c <config-file>] [-d] [-D <debug-file>] [-p] [-s <control-socket>]\n", bird_name);
+  fprintf(stderr, "Usage: %s [-c <config-file>] [-d] [-D <debug-file>] [-p] [-s <control-socket>] [-u <user>] [-g <group>]\n", bird_name);
   exit(1);
 }
 
@@ -467,6 +496,44 @@ get_bird_name(char *s, char *def)
   if (!t[1])
     return def;
   return t+1;
+}
+
+static inline uid_t
+get_uid(const char *s)
+{
+  struct passwd *pw;
+  char *endptr;
+  
+  errno = 0;
+  long int rv = strtol(s, &endptr, 10);
+
+  if (!errno && !*endptr)
+    return rv;
+
+  pw = getpwnam(s);
+  if (!pw)
+    die("Cannot find user '%s'", s);
+
+  return pw->pw_uid;
+}
+
+static inline gid_t
+get_gid(const char *s)
+{
+  struct group *gr;
+  char *endptr;
+  
+  errno = 0;
+  long int rv = strtol(s, &endptr, 10);
+
+  if (!errno && !*endptr)
+    return rv;
+
+  gr = getgrnam(s);
+  if (!gr)
+    die("Cannot find group '%s'", s);
+
+  return gr->gr_gid;
 }
 
 static void
@@ -504,6 +571,12 @@ parse_args(int argc, char **argv)
       case 's':
 	path_control_socket = optarg;
 	break;
+      case 'u':
+	use_user = optarg;
+	break;
+      case 'g':
+	use_group = optarg;
+	break;
       default:
 	usage();
       }
@@ -527,6 +600,12 @@ main(int argc, char **argv)
   if (debug_flag == 1)
     log_init_debug("");
   log_switch(debug_flag, NULL, NULL);
+
+  if (use_group)
+    drop_gid(get_gid(use_group));
+
+  if (use_user)
+    drop_uid(get_uid(use_user));
 
   if (!parse_and_exit)
     test_old_bird(path_control_socket);
