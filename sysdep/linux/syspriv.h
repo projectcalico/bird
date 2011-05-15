@@ -48,15 +48,20 @@ drop_uid(uid_t uid)
     CAP_TO_MASK(CAP_NET_ADMIN) |
     CAP_TO_MASK(CAP_NET_RAW);
 
+  /* change effective user ID to be able to switch to that
+     user ID completely after dropping CAP_SETUID */
   if (seteuid(uid) < 0)
     die("seteuid: %m");
 
+  /* restrict the capabilities */
   if (set_capabilities(caps) < 0)
     die("capset: %m");
 
+  /* keep the capabilities after dropping root ID */
   if (prctl(PR_SET_KEEPCAPS, 1) < 0)
     die("prctl: %m");
 
+  /* completely switch to the unprivileged user ID */
   if (setresuid(uid, uid, uid) < 0)
     die("setresuid: %m");
 }

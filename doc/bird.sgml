@@ -145,9 +145,41 @@ options. The most important ones are:
 
 	<tag>-s <m/name of communication socket/</tag>
 	use given filename for a  socket for communications with the client, default is <it/prefix/<file>/var/run/bird.ctl</file>.
+
+	<tag>-u <m/user/</tag>
+	drop privileges and use that user ID, see the next section for details.
+
+	<tag>-g <m/group/</tag>
+	use that group ID, see the next section for details.
 </descrip>
 
 <p>BIRD writes messages about its work to log files or syslog (according to config).
+
+<sect>Privileges
+
+<p>BIRD, as a routing daemon, uses several privileged operations (like
+setting routing table and using raw sockets). Traditionally, BIRD is
+executed and runs with root privileges, which may be prone to security
+problems. The recommended way is to use a privilege restriction
+(options <cf/-u/, <cf/-g/). In that case BIRD is executed with root
+privileges, but it changes its user and group ID to an unprivileged
+ones, while using Linux capabilities to retain just required
+privileges (capabilities CAP_NET_*). Note that the control socket is
+created before the privileges are dropped, but the config file is read
+after that. The privilege restriction is not implemented in BSD port
+of BIRD.
+
+<p>A nonprivileged user (as an argument to <cf/-u/ options) may be the
+user <cf/nobody/, but it is suggested to use a new dedicated user
+account (like <cf/bird/). The similar considerations apply for
+the group option, but there is one more condition -- the users
+in the same group can use <file/birdc/ to control BIRD.
+
+<p>Finally, there is a possibility to use external tools to run BIRD in
+an environment with restricted privileges. This may need some
+configuration, but it is generally easy -- BIRD needs just the
+standard library, privileges to read the config file and create the
+control socket and the CAP_NET_* capabilities.
 
 <chapt>About routing tables
 

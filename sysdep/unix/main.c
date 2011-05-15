@@ -383,7 +383,7 @@ cli_connect(sock *s, int size UNUSED)
 }
 
 static void
-cli_init_unix(void)
+cli_init_unix(uid_t use_uid, gid_t use_gid)
 {
   sock *s;
 
@@ -393,6 +393,13 @@ cli_init_unix(void)
   s->rx_hook = cli_connect;
   s->rbsize = 1024;
   sk_open_unix(s, path_control_socket);
+
+  if (use_uid || use_gid)
+    if (chown(path_control_socket, use_uid, use_gid) < 0)
+      die("chown: %m");
+
+  if (chmod(path_control_socket, 0660) < 0)
+    die("chmod: %m");
 }
 
 /*
@@ -503,9 +510,13 @@ get_uid(const char *s)
 {
   struct passwd *pw;
   char *endptr;
-  
+  long int rv;
+
+  if (!s)
+    return 0;
+
   errno = 0;
-  long int rv = strtol(s, &endptr, 10);
+  rv = strtol(s, &endptr, 10);
 
   if (!errno && !*endptr)
     return rv;
@@ -522,9 +533,13 @@ get_gid(const char *s)
 {
   struct group *gr;
   char *endptr;
+  long int rv;
+
+  if (!s)
+    return 0;
   
   errno = 0;
-  long int rv = strtol(s, &endptr, 10);
+  rv = strtol(s, &endptr, 10);
 
   if (!errno && !*endptr)
     return rv;
@@ -601,24 +616,26 @@ main(int argc, char **argv)
     log_init_debug("");
   log_switch(debug_flag, NULL, NULL);
 
-  if (use_group)
-    drop_gid(get_gid(use_group));
-
-  if (use_user)
-    drop_uid(get_uid(use_user));
-
-  if (!parse_and_exit)
-    test_old_bird(path_control_socket);
-
-  DBG("Initializing.\n");
   resource_init();
   olock_init();
   io_init();
   rt_init();
   if_init();
 
+  uid_t use_uid = get_uid(use_user);
+  gid_t use_gid = get_gid(use_group);
+
   if (!parse_and_exit)
-    cli_init_unix();
+  {
+    test_old_bird(path_control_socket);
+    cli_init_unix(use_uid, use_gid);
+  }
+
+  if (use_gid)
+    drop_gid(use_gid);
+
+  if (use_uid)
+    drop_uid(use_uid);
 
   protos_build();
   proto_build(&proto_unix_kernel);
