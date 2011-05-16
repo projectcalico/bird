@@ -753,8 +753,10 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  sets.
 	  For pair sets, expressions like <cf/(123,*)/ can be used to denote ranges (in
 	  that case <cf/(123,0)..(123,65535)/). You can also use <cf/(123,5..100)/ for range
-	  <cf/(123,5)..(123,100)/. You can also use <cf/(*,123)/ which is translated as
-	  <cf/(0,123) , (1,123) , (2,123) , ... , (65535, 123)/
+	  <cf/(123,5)..(123,100)/. You can also use <cf/*/ and <cf/a..b/ expressions
+	  in the first part of a pair, note that such expressions are translated to a set
+	  of intervals, which may be memory intensive. E.g. <cf/(*,4..20)/ is translated to
+	  <cf/(0,4..20), (1,4..20), (2,4..20), ... (65535, 4..20)/.
 	  You can also use expressions for both, pair sets and int sets. However it must
 	  be possible to evaluate these expressions before daemon boots. So you can use
 	  only constants inside them. E.g.
@@ -763,8 +765,8 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	 int set odds;
 	 pair set ps;
 
-	 odds = [ one, (2+1), (6-one), (2*2*2-1), 9, 11 ]; 
-	 ps = [ (1,(one+one)), (3,4)..(4,8), (5,*), (6,3..6) ];
+	 odds = [ one, (2+1), (6-one), (2*2*2-1), 9, 11 ];
+	 ps = [ (1,one+one), (3,4)..(4,8), (5,*), (6,3..6), (7..9,*) ];
 	</code>
 
 	  Sets of prefixes are special: their literals does not allow ranges, but allows
