@@ -1721,7 +1721,10 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 	  ia[0] = 0;
 	}
       if (e != ee)
-	rte_free(ee);
+      {
+	rte_free(e);
+	e = ee;
+      }
       rte_update_unlock();
       if (d->primary_only)
 	break;
