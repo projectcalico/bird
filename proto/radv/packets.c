@@ -244,10 +244,6 @@ radv_sk_open(struct radv_iface *ifa)
 
   sk->saddr = ifa->addr->ip;
 
-  /* 2 is an offset of the checksum in an ICMPv6 packet */
-  if (sk_set_ipv6_checksum(sk, 2) < 0)
-    goto err;
-
   /* We want listen just to ICMPv6 messages of type RS and RA */
   if (sk_set_icmp_filter(sk, ICMPV6_RS, ICMPV6_RA) < 0)
     goto err;
