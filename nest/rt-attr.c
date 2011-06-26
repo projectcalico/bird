@@ -831,7 +831,7 @@ void
 rta_show(struct cli *c, rta *a, ea_list *eal)
 {
   static char *src_names[] = { "dummy", "static", "inherit", "device", "static-device", "redirect",
-			       "RIP", "OSPF", "OSPF-ext", "OSPF-IA", "OSPF-boundary", "BGP" };
+			       "RIP", "OSPF", "OSPF-IA", "OSPF-E1", "OSPF-E2", "BGP", "pipe" };
   static char *cast_names[] = { "unicast", "broadcast", "multicast", "anycast" };
   int i;
   byte buf[EA_FORMAT_BUF_SIZE];
