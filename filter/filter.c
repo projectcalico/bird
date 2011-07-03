@@ -401,7 +401,7 @@ val_print(struct f_val v)
   case T_SET: tree_print(v.val.t); return;
   case T_ENUM: logn("(enum %x)%d", v.type, v.val.i); return;
   case T_PATH: as_path_format(v.val.ad, buf2, 1000); logn("(path %s)", buf2); return;
-  case T_CLIST: int_set_format(v.val.ad, 1, buf2, 1000); logn("(clist %s)", buf2); return;
+  case T_CLIST: int_set_format(v.val.ad, 1, -1, buf2, 1000); logn("(clist %s)", buf2); return;
   case T_PATH_MASK: pm_format(v.val.path_mask, buf2, 1000); logn("(pathmask%s)", buf2); return;
   default: logn( "[unknown type %x]", v.type ); return;
   }
