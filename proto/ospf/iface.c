@@ -70,7 +70,7 @@ find_nbma_node_in(list *nnl, ip_addr ip)
 }
 
 static int
-ospf_sk_open(struct ospf_iface *ifa, int multicast)
+ospf_sk_open(struct ospf_iface *ifa)
 {
   sock *sk = sk_new(ifa->pool);
   sk->type = SK_IP;
@@ -118,7 +118,7 @@ ospf_sk_open(struct ospf_iface *ifa, int multicast)
    */
 
   sk->saddr = ifa->addr->ip;
-  if (multicast)
+  if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_PTP))
   {
     if (sk_setup_multicast(sk) < 0)
       goto err;
@@ -145,6 +145,7 @@ ospf_sk_join_dr(struct ospf_iface *ifa)
   sk_join_group(ifa->sk, AllDRouters);
   ifa->sk_dr = 1;
 }
+
 static inline void
 ospf_sk_leave_dr(struct ospf_iface *ifa)
 {
@@ -262,7 +263,7 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
     OSPF_TRACE(D_EVENTS, "Changing state of iface %s from %s to %s",
 	       ifa->iface->name, ospf_is[oldstate], ospf_is[state]);
 
-  if (ifa->type == OSPF_IT_BCAST)
+  if ((ifa->type == OSPF_IT_BCAST) && ifa->sk)
   {
     if ((state == OSPF_IS_BACKUP) || (state == OSPF_IS_DR))
       ospf_sk_join_dr(ifa);
@@ -354,7 +355,7 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
     break;
 
   case ISM_LOOP:
-    if (ifa->sk && ifa->check_link)
+    if ((ifa->state > OSPF_IS_LOOP) && ifa->check_link)
       ospf_iface_chstate(ifa, OSPF_IS_LOOP);
     break;
 
@@ -415,8 +416,8 @@ ospf_iface_add(struct object_lock *lock)
   struct proto_ospf *po = ifa->oa->po;
   struct proto *p = &po->proto;
 
-  int mc = (ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_PTP);
-  if (! ospf_sk_open(ifa, mc))
+  /* Open socket if interface is not stub */
+  if (! ifa->stub && ! ospf_sk_open(ifa))
   {
     log(L_ERR "%s: Socket open failed on interface %s, declaring as stub", p->name, ifa->iface->name);
     ifa->ioprob = OSPF_I_SK;
