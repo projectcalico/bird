@@ -21,13 +21,13 @@ char *ospf_it[] = { "broadcast", "nbma", "ptp", "ptmp", "virtual link" };
 static void
 poll_timer_hook(timer * timer)
 {
-  ospf_hello_send(timer, OHS_POLL, NULL);
+  ospf_hello_send(timer->data, OHS_POLL, NULL);
 }
 
 static void
 hello_timer_hook(timer * timer)
 {
-  ospf_hello_send(timer, OHS_HELLO, NULL);
+  ospf_hello_send(timer->data, OHS_HELLO, NULL);
 }
 
 static void
@@ -232,7 +232,7 @@ void
 ospf_iface_shutdown(struct ospf_iface *ifa)
 {
   if (ifa->state > OSPF_IS_DOWN)
-    ospf_hello_send(ifa->hello_timer, OHS_SHUTDOWN, NULL);
+    ospf_hello_send(ifa, OHS_SHUTDOWN, NULL);
 }
 
 /**
@@ -323,16 +323,18 @@ ospf_iface_sm(struct ospf_iface *ifa, int event)
 	else
 	{
 	  ospf_iface_chstate(ifa, OSPF_IS_WAITING);
-	  tm_start(ifa->wait_timer, ifa->waitint);
+	  if (ifa->wait_timer)
+	    tm_start(ifa->wait_timer, ifa->waitint);
 	}
       }
 
-      tm_start(ifa->hello_timer, ifa->helloint);
+      if (ifa->hello_timer)
+	tm_start(ifa->hello_timer, ifa->helloint);
 
       if (ifa->poll_timer)
 	tm_start(ifa->poll_timer, ifa->pollint);
 
-      hello_timer_hook(ifa->hello_timer);
+      ospf_hello_send(ifa, OHS_HELLO, NULL);
       schedule_link_lsa(ifa);
     }
     break;
@@ -422,6 +424,17 @@ ospf_iface_add(struct object_lock *lock)
     log(L_ERR "%s: Socket open failed on interface %s, declaring as stub", p->name, ifa->iface->name);
     ifa->ioprob = OSPF_I_SK;
     ifa->stub = 1;
+  }
+
+  if (! ifa->stub)
+  {
+    ifa->hello_timer = tm_new_set(ifa->pool, hello_timer_hook, ifa, 0, ifa->helloint);
+
+    if (ifa->type == OSPF_IT_NBMA)
+      ifa->poll_timer = tm_new_set(ifa->pool, poll_timer_hook, ifa, 0, ifa->pollint);
+
+    if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
+      ifa->wait_timer = tm_new_set(ifa->pool, wait_timer_hook, ifa, 0, 0);
   }
 
   /* Do iface UP, unless there is no link and we use link detection */
@@ -548,33 +561,6 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
     if (ipa_in_net(nb->ip, addr->prefix, addr->pxlen))
       add_nbma_node(ifa, nb, 0);
 
-  DBG("%s: Installing hello timer. (%u)\n", p->name, ifa->helloint);
-  ifa->hello_timer = tm_new(pool);
-  ifa->hello_timer->data = ifa;
-  ifa->hello_timer->randomize = 0;
-  ifa->hello_timer->hook = hello_timer_hook;
-  ifa->hello_timer->recurrent = ifa->helloint;
-
-  if (ifa->type == OSPF_IT_NBMA)
-  {
-    DBG("%s: Installing poll timer. (%u)\n", p->name, ifa->pollint);
-    ifa->poll_timer = tm_new(pool);
-    ifa->poll_timer->data = ifa;
-    ifa->poll_timer->randomize = 0;
-    ifa->poll_timer->hook = poll_timer_hook;
-    ifa->poll_timer->recurrent = ifa->pollint;
-  }
-
-  if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
-  {
-    DBG("%s: Installing wait timer. (%u)\n", p->name, ifa->waitint);
-    ifa->wait_timer = tm_new(pool);
-    ifa->wait_timer->data = ifa;
-    ifa->wait_timer->randomize = 0;
-    ifa->wait_timer->hook = wait_timer_hook;
-    ifa->wait_timer->recurrent = 0;
-  }
-
   ifa->state = OSPF_IS_DOWN;
   add_tail(&oa->po->iface_list, NODE ifa);
 
@@ -607,6 +593,18 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
   olock_acquire(lock);
 }
 
+static void
+ospf_iface_change_timer(timer *tm, unsigned val)
+{
+  if (!tm)
+    return;
+
+  tm->recurrent = val;
+
+  if (tm->expires)
+    tm_start(tm, val);
+}
+
 int
 ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
 {
@@ -636,8 +634,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
 	       ifname, ifa->helloint, new->helloint);
 
     ifa->helloint = new->helloint;
-    ifa->hello_timer->recurrent = ifa->helloint;
-    tm_start(ifa->hello_timer, ifa->helloint);
+    ospf_iface_change_timer(ifa->hello_timer, ifa->helloint);
   }
 
   /* RXMT TIMER */
@@ -655,9 +652,8 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
     OSPF_TRACE(D_EVENTS, "Changing poll interval on interface %s from %d to %d",
 	       ifname, ifa->pollint, new->pollint);
 
-    ifa->pollint = new->helloint;
-    ifa->poll_timer->recurrent = ifa->pollint;
-    tm_start(ifa->poll_timer, ifa->pollint);
+    ifa->pollint = new->pollint;
+    ospf_iface_change_timer(ifa->poll_timer, ifa->pollint);
   }
 
   /* WAIT TIMER */
@@ -667,7 +663,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
 	       ifname, ifa->waitint, new->waitint);
 
     ifa->waitint = new->waitint;
-    if (ifa->wait_timer->expires != 0)
+    if (ifa->wait_timer && ifa->wait_timer->expires)
       tm_start(ifa->wait_timer, ifa->waitint);
   }
 
