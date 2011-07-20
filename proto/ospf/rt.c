@@ -213,7 +213,7 @@ rt_pos_to_ifa(struct ospf_area *oa, int pos)
 {
   struct ospf_iface *ifa;
   WALK_LIST(ifa, oa->po->iface_list)
-    if (pos >= ifa->rt_pos_beg && pos < ifa->rt_pos_end)
+    if (ifa->oa == oa && pos >= ifa->rt_pos_beg && pos < ifa->rt_pos_end)
       return ifa;
   return NULL;
 }
@@ -224,7 +224,7 @@ px_pos_to_ifa(struct ospf_area *oa, int pos)
 {
   struct ospf_iface *ifa;
   WALK_LIST(ifa, oa->po->iface_list)
-    if (pos >= ifa->px_pos_beg && pos < ifa->px_pos_end)
+    if (ifa->oa == oa && pos >= ifa->px_pos_beg && pos < ifa->px_pos_end)
       return ifa;
   return NULL;
 }
