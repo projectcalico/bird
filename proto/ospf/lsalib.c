@@ -490,6 +490,7 @@ lsa_validate(struct ospf_lsa_header *lsa, void *body)
     case LSA_T_SUM_RT:
       return lsa_validate_sum_rt(lsa, body);
     case LSA_T_EXT:
+    case LSA_T_NSSA:
       return lsa_validate_ext(lsa, body);
 #ifdef OSPFv3
     case LSA_T_LINK:

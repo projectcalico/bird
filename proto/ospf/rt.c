@@ -172,6 +172,8 @@ ri_better_ext(struct proto_ospf *po, orta *new, orta *old)
   if (new->metric1 > old->metric1)
     return 0;
 
+  /* RFC 3103, 2.5. (6e) - missing, is this necessary? */
+
   return 0;
 }
 
@@ -826,7 +828,8 @@ ospf_rt_sum_tr(struct ospf_area *oa)
 static int
 decide_anet_lsa(struct ospf_area *oa, struct area_net *anet, struct ospf_area *anet_oa)
 {
-  if (oa->stub)
+  /* 12.4.3.1. - for stub/NSSA areas, originating summary routes is configurable */
+  if (!oa_is_ext(oa) && !oa->ac->summary)
     return 0;
 
   if (oa == anet_oa)
@@ -843,8 +846,8 @@ decide_anet_lsa(struct ospf_area *oa, struct area_net *anet, struct ospf_area *a
 static int
 decide_sum_lsa(struct ospf_area *oa, ort *nf, int dest)
 {
-  /* 12.4.3.1. - do not send summary into stub areas, we send just default route */
-  if (oa->stub)
+  /* 12.4.3.1. - for stub/NSSA areas, originating summary routes is configurable */
+  if (!oa_is_ext(oa) && !oa->ac->summary)
     return 0;
 
   /* Invalid field - no route */
@@ -872,7 +875,7 @@ decide_sum_lsa(struct ospf_area *oa, ort *nf, int dest)
   {
     /* We call decide_sum_lsa() on preferred ASBR entries, no need for 16.4. (3) */
     /* 12.4.3 p1 */
-    return (nf->n.options & ORTA_ASBR);
+    return oa_is_ext(oa) && (nf->n.options & ORTA_ASBR);
   }
 
   /* 12.4.3 p7 - inter-area route */
@@ -1048,21 +1051,25 @@ ospf_rt_abr(struct proto_ospf *po)
   WALK_LIST(oa, po->area_list)
   {
 
-    /* 12.4.3.1. - originate or flush default summary LSA for stub areas */
-    if (oa->stub)
-      originate_sum_net_lsa(oa, &default_nf->fn, oa->stub);
+    /* 12.4.3.1. - originate or flush default route for stub/NSSA areas */
+    if (oa_is_stub(oa) || (oa_is_nssa(oa) && !oa->ac->summary))
+      originate_sum_net_lsa(oa, &default_nf->fn, oa->ac->stub_cost);
     else
       flush_sum_lsa(oa, &default_nf->fn, ORT_NET);
 
+    // FIXME NSSA add support for type 7 default route ?
 
     /* RFC 2328 16.4. (3) - precompute preferred ASBR entries */
-    FIB_WALK(&oa->rtr, nftmp)
+    if (oa_is_ext(oa))
     {
-      nf = (ort *) nftmp;
-      if (nf->n.options & ORTA_ASBR)
-	ri_install_asbr(po, &nf->fn.prefix, &nf->n);
+      FIB_WALK(&oa->rtr, nftmp)
+      {
+	nf = (ort *) nftmp;
+	if (nf->n.options & ORTA_ASBR)
+	  ri_install_asbr(po, &nf->fn.prefix, &nf->n);
+      }
+      FIB_WALK_END;
     }
-    FIB_WALK_END;
   }
 
 
@@ -1105,7 +1112,7 @@ ospf_ext_spf(struct proto_ospf *po)
   struct top_hash_entry *en;
   struct proto *p = &po->proto;
   struct ospf_lsa_ext *le;
-  int pxlen, ebit, rt_fwaddr_valid;
+  int pxlen, ebit, rt_fwaddr_valid, rt_propagate;
   ip_addr ip, rtid, rt_fwaddr;
   u32 br_metric, rt_metric, rt_tag;
   struct ospf_area *atmp;
@@ -1116,7 +1123,7 @@ ospf_ext_spf(struct proto_ospf *po)
   WALK_SLIST(en, po->lsal)
   {
     /* 16.4. (1) */
-    if (en->lsa.type != LSA_T_EXT)
+    if ((en->lsa.type != LSA_T_EXT) && (en->lsa.type != LSA_T_NSSA))
       continue;
 
     if (en->lsa.age == LSA_MAXAGE)
@@ -1143,6 +1150,7 @@ ospf_ext_spf(struct proto_ospf *po)
     rt_fwaddr = le->fwaddr;
     rt_fwaddr_valid = !ipa_equal(rt_fwaddr, IPA_NONE);
     rt_tag = le->tag;
+    rt_propagate = en->lsa.options & OPT_P;
 #else /* OSPFv3 */
     u8 pxopts;
     u16 rest;
@@ -1162,6 +1170,8 @@ ospf_ext_spf(struct proto_ospf *po)
       rt_tag = *buf++;
     else
       rt_tag = 0;
+
+    rt_propagate = pxopts & OPT_PX_P;
 #endif
 
     if (pxlen < 0 || pxlen > MAX_PREFIX_LENGTH)
@@ -1171,10 +1181,19 @@ ospf_ext_spf(struct proto_ospf *po)
       continue;
     }
 
+
     /* 16.4. (3) */
-    /* If there are more areas, we already precomputed preferred ASBR entries
-       in ospf_asbr_spf() and stored them in the backbone table */
-    atmp = (po->areano > 1) ? po->backbone : HEAD(po->area_list);
+    /* If there are more areas, we already precomputed preferred ASBR
+       entries in ospf_rt_abr() and stored them in the backbone
+       table. For NSSA, we examine the area to which the LSA is assigned */
+    if (en->lsa.type == LSA_T_EXT)
+      atmp = ospf_main_area(po);
+    else /* NSSA */
+      atmp = ospf_find_area(po, en->domain);
+
+    if (!atmp)
+      continue;			/* Should not happen */
+
     rtid = ipa_from_rid(en->lsa.rt);
     nf1 = fib_find(&atmp->rtr, &rtid, MAX_PREFIX_LENGTH);
 
@@ -1183,6 +1202,12 @@ ospf_ext_spf(struct proto_ospf *po)
 
     if (!(nf1->n.options & ORTA_ASBR))
       continue;			/* It is not ASBR */
+
+    /* 16.4. (3) NSSA - special rule for default routes */
+    /* ABR should use default only if P-bit is set and summaries are active */
+    if ((en->lsa.type == LSA_T_NSSA) && ipa_zero(ip) && (pxlen == 0) &&
+	(po->areano > 1) && !(rt_propagate && atmp->ac->summary))
+      continue;
 
     if (!rt_fwaddr_valid)
     {
@@ -1196,8 +1221,18 @@ ospf_ext_spf(struct proto_ospf *po)
       if (!nf2)
 	continue;
 
-      if ((nf2->n.type != RTS_OSPF) && (nf2->n.type != RTS_OSPF_IA))
-	continue;
+      if (en->lsa.type == LSA_T_EXT)
+      {
+	/* For ext routes, we accept intra-area or inter-area routes */
+	if ((nf2->n.type != RTS_OSPF) && (nf2->n.type != RTS_OSPF_IA))
+	  continue;
+      }
+      else /* NSSA */
+      {
+	/* For NSSA routes, we accept just intra-area in the same area */
+	if ((nf2->n.type != RTS_OSPF) || (nf2->n.oa != atmp))
+	  continue;
+      }
 
       /* Next-hop is a part of a configured stubnet */
       if (!nf2->n.nhs)
@@ -1317,10 +1352,7 @@ ospf_rt_spf(struct proto_ospf *po)
     ospf_rt_spfa(oa);
 
   /* 16. (3) */
-  if (po->areano == 1)
-    ospf_rt_sum(HEAD(po->area_list));
-  else
-    ospf_rt_sum(po->backbone);
+  ospf_rt_sum(ospf_main_area(po));
 
   /* 16. (4) */
   WALK_LIST(oa, po->area_list)

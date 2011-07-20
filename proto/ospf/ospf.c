@@ -147,7 +147,6 @@ ospf_area_add(struct proto_ospf *po, struct ospf_area_config *ac, int reconf)
   po->areano++;
 
   oa->ac = ac;
-  oa->stub = ac->stub;
   oa->areaid = ac->areaid;
   oa->rt = NULL;
   oa->po = po;
@@ -158,9 +157,9 @@ ospf_area_add(struct proto_ospf *po, struct ospf_area_config *ac, int reconf)
     po->backbone = oa;
 
 #ifdef OSPFv2
-  oa->options = (oa->stub ? 0 : OPT_E);
+  oa->options = ac->type;
 #else /* OSPFv3 */
-  oa->options = OPT_R | (oa->stub ? 0 : OPT_E) | OPT_V6;
+  oa->options = OPT_R | ac->type | OPT_V6;
 #endif
 
   if (reconf)
@@ -480,10 +479,14 @@ int
 ospf_import_control(struct proto *p, rte ** new, ea_list ** attrs,
 		    struct linpool *pool)
 {
+  struct ospf_area *oa = ospf_main_area((struct proto_ospf *) p);
   rte *e = *new;
 
   if (p == e->attrs->proto)
     return -1;			/* Reject our own routes */
+
+  if (oa_is_stub(oa))
+    return -1;			/* Do not export routes to stub areas */
 
   eattr *ea = ea_find(e->attrs->eattrs, EA_GEN_IGP_METRIC);
   u32 m1 = (ea && (ea->u.data < LSINFINITY)) ? ea->u.data : LSINFINITY;
@@ -543,6 +546,7 @@ static void
 ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * old UNUSED, ea_list * attrs)
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
+  struct ospf_area *oa = ospf_main_area(po);
 
 /* Temporarily down write anything
   OSPF_TRACE(D_EVENTS, "Got route %I/%d %s", p->name, n->n.prefix,
@@ -550,9 +554,9 @@ ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * ol
 */
 
   if (new)			/* Got some new route */
-    originate_ext_lsa(n, new, po, attrs);
+    originate_ext_lsa(oa, n, new, attrs);
   else
-    flush_ext_lsa(n, po);
+    flush_ext_lsa(oa, n);
 }
 
 static void
@@ -605,7 +609,7 @@ ospf_get_route_info(rte * rte, byte * buf, ea_list * attrs UNUSED)
   if (rte->attrs->source == RTS_OSPF_EXT2)
     buf += bsprintf(buf, "/%d", rte->u.ospf.metric2);
   buf += bsprintf(buf, ")");
-  if ((rte->attrs->source == RTS_OSPF_EXT2 || rte->attrs->source == RTS_OSPF_EXT1) && rte->u.ospf.tag)
+  if ((rte->attrs->source == RTS_OSPF_EXT1 || rte->attrs->source == RTS_OSPF_EXT2) && rte->u.ospf.tag)
   {
     buf += bsprintf(buf, " [%x]", rte->u.ospf.tag);
   }
@@ -639,7 +643,7 @@ static void
 ospf_area_reconfigure(struct ospf_area *oa, struct ospf_area_config *nac)
 {
   oa->ac = nac;
-  oa->stub = nac->stub;
+  // FIXME NSSA check type
 
   ospf_ifaces_reconfigure(oa, nac);
 
@@ -797,7 +801,8 @@ ospf_sh(struct proto *p)
         }
       }
     }
-    cli_msg(-1014, "\t\tStub:\t%s", oa->stub ? "Yes" : "No");
+    // FIXME NSSA:
+    // cli_msg(-1014, "\t\tStub:\t%s", oa->stub ? "Yes" : "No");
     cli_msg(-1014, "\t\tTransit:\t%s", oa->trcap ? "Yes" : "No");
     cli_msg(-1014, "\t\tNumber of interfaces:\t%u", ifano);
     cli_msg(-1014, "\t\tNumber of neighbors:\t%u", nno);
@@ -1096,7 +1101,8 @@ show_lsa_external(struct top_hash_entry *he)
   int pxlen, ebit, rt_fwaddr_valid;
   u32 rt_tag, rt_metric;
 
-  he->domain = 0; /* Unmark the LSA */
+  if (he->lsa.type == LSA_T_EXT)
+    he->domain = 0; /* Unmark the LSA */
 
   rt_metric = ext->metric & METRIC_MASK;
   ebit = ext->metric & LSA_EXT_EBIT;
@@ -1130,8 +1136,9 @@ show_lsa_external(struct top_hash_entry *he)
   if (rt_tag)
     bsprintf(str_tag, " tag %08x", rt_tag);
 
-  cli_msg(-1016, "\t\texternal %I/%d metric%s %u%s%s", ip, pxlen,
-	  ebit ? "2" : "", rt_metric, str_via, str_tag);
+  cli_msg(-1016, "\t\t%s %I/%d metric%s %u%s%s",
+	  (he->lsa.type == LSA_T_NSSA) ? "nssa-ext" : "external",
+	  ip, pxlen, ebit ? "2" : "", rt_metric, str_via, str_tag);
 }
 
 #ifdef OSPFv3
@@ -1206,6 +1213,7 @@ ospf_sh_state(struct proto *p, int verbose, int reachable)
 
       case LSA_T_SUM_NET:
       case LSA_T_SUM_RT:
+      case LSA_T_NSSA:
 #ifdef OSPFv3
       case LSA_T_PREFIX:
 #endif
@@ -1307,6 +1315,7 @@ ospf_sh_state(struct proto *p, int verbose, int reachable)
 #endif
 
       case LSA_T_EXT:
+      case LSA_T_NSSA:
 	show_lsa_external(he);
 	break;
     }

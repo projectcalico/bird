@@ -56,8 +56,8 @@ ospf_iface_finish(void)
 static void
 ospf_area_finish(void)
 {
-  if ((this_area->areaid == 0) && (this_area->stub != 0))
-    cf_error( "Backbone area cannot be stub");
+  if ((this_area->areaid == 0) && (this_area->type != OPT_E))
+    cf_error( "Backbone area cannot be stub/NSSA");
 }
 
 static void
@@ -89,7 +89,7 @@ ospf_proto_finish(void)
   }
 
   if (!cf->abr && !EMPTY_LIST(cf->vlink_list))
-    cf_error( "No configured areas in OSPF");
+    cf_error( "Vlinks cannot be used on single area router");
 }
 
 CF_DECLS
@@ -101,7 +101,7 @@ CF_KEYWORDS(NONBROADCAST, NBMA, POINTOPOINT, PTP, POINTOMULTIPOINT, PTMP)
 CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, CHECK, LINK)
 CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY)
-CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT)
+CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT, NSSA)
 
 %type <t> opttext
 
@@ -137,7 +137,9 @@ ospf_area_start: AREA idval {
   this_area = cfg_allocz(sizeof(struct ospf_area_config));
   add_tail(&OSPF_CFG->area_list, NODE this_area);
   this_area->areaid = $2;
-  this_area->stub = 0;
+  this_area->stub_cost = DEFAULT_STUB_COST;
+  this_area->type = OPT_E;
+
   init_list(&this_area->patt_list);
   init_list(&this_area->net_list);
   init_list(&this_area->stubnet_list);
@@ -153,8 +155,10 @@ ospf_area_opts:
  ;
 
 ospf_area_item:
-   STUB COST expr { this_area->stub = $3 ; if($3<=0) cf_error("Stub cost must be greater than zero"); }
- | STUB bool {if($2) { if(!this_area->stub) this_area->stub=DEFAULT_STUB_COST;}else{ this_area->stub=0;}}
+   STUB COST expr { this_area->stub_cost = $3 ; if($3<=0) cf_error("Stub cost must be greater than zero"); }
+ | STUB bool { this_area->type = $2 ? 0 : OPT_E; /* We should remove the option */ }
+ | NSSA { this_area->type = OPT_N; }
+ | SUMMARY bool { this_area->summary = $2; }
  | NETWORKS '{' pref_list '}'
  | STUBNET ospf_stubnet
  | INTERFACE ospf_iface
