@@ -1000,12 +1000,26 @@ ospf_check_vlinks(struct proto_ospf *po)
   }
 }
 
+static void
+translator_timer_hook(timer *timer)
+{
+  struct ospf_area *oa = timer->data;
+  
+  if (oa->translate != TRANS_WAIT)
+    return;
+
+  oa->translate = TRANS_OFF;
+  schedule_rtcalc(oa->po);
+}
+
+
 /* Miscellaneous route processing that needs to be done by ABRs */
 static void
 ospf_rt_abr(struct proto_ospf *po)
 {
+  struct top_hash_entry *en;
   struct area_net *anet;
-  ort *nf, *default_nf;
+  ort *nf, *nf2, *default_nf;
 
   FIB_WALK(&po->rtf, nftmp)
   {
@@ -1071,6 +1085,62 @@ ospf_rt_abr(struct proto_ospf *po)
       FIB_WALK_END;
     }
   }
+
+
+  /* RFC 3103 3.1 - type-7 translator election */
+  struct ospf_area *bb = oa->po->backbone;
+  WALK_LIST(oa, po->area_list)
+    if (oa_is_nssa(oa))
+    {
+      int translate = 1;
+
+      if (oa->ac->translator)
+	goto decided;
+
+      FIB_WALK(&oa->rtr, nftmp)
+      {
+	nf = (ort *) nftmp;
+	if (!nf->n.type || !(nf->n.options & ORTA_ABR))
+	  continue;
+
+	nf2 = fib_find(&bb->rtr, &nf->fn.prefix, MAX_PREFIX_LENGTH);
+	if (!nf2 || !nf2->n.type || !(nf2->n.options & ORTA_ABR))
+	  continue;
+
+	en = ospf_hash_find_rt(po->gr, oa->areaid, nf->n.rid);
+	if (!en || (en->color != INSPF))
+	  continue;
+
+	struct ospf_lsa_rt *rt = en->lsa_body;
+	/* There is better candidate - Nt-bit or higher Router ID */
+	if ((rt->options & OPT_RT_NT) || (po->router_id < nf->n.rid))
+	{
+	  translate = 0;
+	  goto decided;
+	  break;
+	}
+      }
+      FIB_WALK_END;
+
+    decided:
+      if (translate && (oa->translate != TRANS_ON))
+      {
+	if (oa->translate == TRANS_WAIT)
+	  tm_stop(oa->translator_timer);
+
+	oa->translate = TRANS_ON;
+      }
+
+      if (!translate && (oa->translate == TRANS_ON))
+      {
+	if (oa->translator_timer == NULL)
+	  oa->translator_timer = tm_new_set(po->proto.pool, translator_timer_hook, oa, 0, 0);
+
+	/* Schedule the end of translation */
+	tm_start(oa->translator_timer, oa->ac->transint);
+	oa->translate = TRANS_WAIT;
+      }
+    }
 
 
   /* Originate or flush ASBR summary LSAs */

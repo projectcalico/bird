@@ -222,6 +222,9 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
   if (po->areano > 1)
     rt->options |= OPT_RT_B;
 
+  if ((po->areano > 1) && oa_is_nssa(oa) && oa->ac->translator)
+    rt->options |= OPT_RT_NT;
+
   if (po->ebit && !oa_is_stub(oa))
     rt->options |= OPT_RT_E;
 
@@ -387,6 +390,9 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 
   if (po->areano > 1)
     rt->options |= OPT_RT_B;
+
+  if ((po->areano > 1) && oa_is_nssa(oa) && oa->ac->translator)
+    rt->options |= OPT_RT_NT;
 
   if (po->ebit && !oa_is_stub(oa))
     rt->options |= OPT_RT_E;

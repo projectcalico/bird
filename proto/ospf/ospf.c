@@ -178,6 +178,9 @@ ospf_area_remove(struct ospf_area *oa)
   fib_free(&oa->rtr);
   fib_free(&oa->net_fib);
 
+  if (oa->translator_timer)
+    rfree(oa->translator_timer);
+
   oa->po->areano--;
   rem_node(NODE oa);
   mb_free(oa);
@@ -803,6 +806,8 @@ ospf_sh(struct proto *p)
     }
     // FIXME NSSA:
     // cli_msg(-1014, "\t\tStub:\t%s", oa->stub ? "Yes" : "No");
+    cli_msg(-1014, "\t\tNSSA translation:\t%s%s", oa->translate ? "Yes" : "No",
+	    oa->translate == TRANS_WAIT ? " (run down)" : "");
     cli_msg(-1014, "\t\tTransit:\t%s", oa->trcap ? "Yes" : "No");
     cli_msg(-1014, "\t\tNumber of interfaces:\t%u", ifano);
     cli_msg(-1014, "\t\tNumber of neighbors:\t%u", nno);

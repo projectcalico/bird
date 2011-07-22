@@ -101,7 +101,7 @@ CF_KEYWORDS(NONBROADCAST, NBMA, POINTOPOINT, PTP, POINTOMULTIPOINT, PTMP)
 CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, CHECK, LINK)
 CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY)
-CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT, NSSA)
+CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT, NSSA, TRANSLATOR, STABILITY)
 
 %type <t> opttext
 
@@ -159,6 +159,8 @@ ospf_area_item:
  | STUB bool { this_area->type = $2 ? 0 : OPT_E; /* We should remove the option */ }
  | NSSA { this_area->type = OPT_N; }
  | SUMMARY bool { this_area->summary = $2; }
+ | TRANSLATOR bool { this_area->translator = $2; }
+ | TRANSLATOR STABILITY bool { this_area->transint = $3; }
  | NETWORKS '{' pref_list '}'
  | STUBNET ospf_stubnet
  | INTERFACE ospf_iface

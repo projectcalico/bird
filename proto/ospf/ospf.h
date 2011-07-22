@@ -127,6 +127,8 @@ struct ospf_area_config
   u8 type;			/* Area type (standard, stub, NSSA), represented
 				   by option flags (OPT_E, OPT_N) */
   u8 summary;			/* Import summaries to this stub/NSSA area, valid for ABR */
+  u8 translator;		/* Translator role, for NSSA ABR */
+  u32 transint;			/* Translator stability interval */
   list patt_list;
   list net_list;	      	/* List of aggregate networks for that area */
   list stubnet_list;		/* List of stub networks added to Router LSA */
@@ -736,9 +738,15 @@ struct ospf_area
   byte origrt;			/* Rt lsa origination scheduled? */
   byte trcap;			/* Transit capability? */
   byte marked;			/* Used in OSPF reconfigure */
+  byte translate;		/* Translator state (TRANS_*), for NSSA ABR  */
+  timer *translator_timer;	/* For NSSA translator switch */
   struct proto_ospf *po;
   struct fib rtr;		/* Routing tables for routers */
 };
+
+#define TRANS_OFF	0
+#define TRANS_ON	1
+#define TRANS_WAIT	2	/* Waiting before the end of translation */
 
 struct proto_ospf
 {
