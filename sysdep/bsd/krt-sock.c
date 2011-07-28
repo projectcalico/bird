@@ -697,7 +697,8 @@ krt_set_construct(struct krt_config *c UNUSED)
 void
 krt_set_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
 {
-  mb_free(krt_buffer);
+  if (krt_buffer)
+    mb_free(krt_buffer);
   krt_buffer = NULL;
 }
 
