@@ -7,6 +7,11 @@
 #define _LINUX_CAPABILITY_U32S_3     2
 #endif
 
+/* CAP_TO_MASK is missing in CentOS header files */
+#ifndef CAP_TO_MASK
+#define CAP_TO_MASK(x)      (1 << ((x) & 31))
+#endif
+
 /* capset() prototype is missing ... */
 int capset(cap_user_header_t hdrp, const cap_user_data_t datap);
 
