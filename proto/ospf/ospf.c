@@ -126,11 +126,19 @@ add_area_nets(struct ospf_area *oa, struct ospf_area_config *ac)
     struct area_net *an;
 
     fib_init(&oa->net_fib, po->proto.pool, sizeof(struct area_net), 0, ospf_area_initfib);
+    fib_init(&oa->enet_fib, po->proto.pool, sizeof(struct area_net), 0, ospf_area_initfib);
 
     WALK_LIST(anc, ac->net_list)
     {
       an = (struct area_net *) fib_get(&oa->net_fib, &anc->px.addr, anc->px.len);
-      an->hidden = an->hidden;
+      an->hidden = anc->hidden;
+    }
+
+    WALK_LIST(anc, ac->enet_list)
+    {
+      an = (struct area_net *) fib_get(&oa->enet_fib, &anc->px.addr, anc->px.len);
+      an->hidden = anc->hidden;
+      an->tag = anc->tag;
     }
 }
 
@@ -177,6 +185,7 @@ ospf_area_remove(struct ospf_area *oa)
  
   fib_free(&oa->rtr);
   fib_free(&oa->net_fib);
+  fib_free(&oa->enet_fib);
 
   if (oa->translator_timer)
     rfree(oa->translator_timer);
@@ -550,16 +559,35 @@ ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * ol
 {
   struct proto_ospf *po = (struct proto_ospf *) p;
   struct ospf_area *oa = ospf_main_area(po);
+  ort *nf = (ort *) fib_get(&po->rtf, &n->n.prefix, n->n.pxlen);
+  struct fib_node *fn = &nf->fn;
 
-/* Temporarily down write anything
-  OSPF_TRACE(D_EVENTS, "Got route %I/%d %s", p->name, n->n.prefix,
-    n->n.pxlen, new ? "up" : "down");
-*/
+  if (!new)
+  {
+    if (fn->x1 != EXT_EXPORT)
+      return;
 
-  if (new)			/* Got some new route */
-    originate_ext_lsa(oa, n, new, attrs);
-  else
-    flush_ext_lsa(oa, n);
+    flush_ext_lsa(oa, fn);
+
+    /* Old external route might blocked some NSSA translation */
+    if (po->areano > 1)
+      schedule_rtcalc(po);
+  }
+
+  /* Get route attributes */
+  u32 m1 = ea_get_int(attrs, EA_OSPF_METRIC1, LSINFINITY);
+  u32 m2 = ea_get_int(attrs, EA_OSPF_METRIC2, 10000);
+  u32 metric = (m1 != LSINFINITY) ? m1 : (m2 | LSA_EXT_EBIT);
+  u32 tag = ea_get_int(attrs, EA_OSPF_TAG, 0);
+  ip_addr gw = IPA_NONE;
+  // FIXME check for gw should be per ifa, not per iface
+  if ((new->attrs->dest == RTD_ROUTER) &&
+      ipa_nonzero(new->attrs->gw) &&
+      !ipa_has_link_scope(new->attrs->gw) &&
+      (ospf_iface_find((struct proto_ospf *) p, new->attrs->iface) != NULL))
+    gw = new->attrs->gw;
+
+  originate_ext_lsa(oa, fn, EXT_EXPORT, metric, gw, tag);
 }
 
 static void
@@ -652,6 +680,7 @@ ospf_area_reconfigure(struct ospf_area *oa, struct ospf_area_config *nac)
 
   /* Handle net_list */
   fib_free(&oa->net_fib);
+  fib_free(&oa->enet_fib);
   add_area_nets(oa, nac);
 
   /* No need to handle stubnet_list */
@@ -804,11 +833,14 @@ ospf_sh(struct proto *p)
         }
       }
     }
-    // FIXME NSSA:
-    // cli_msg(-1014, "\t\tStub:\t%s", oa->stub ? "Yes" : "No");
-    cli_msg(-1014, "\t\tNSSA translation:\t%s%s", oa->translate ? "Yes" : "No",
-	    oa->translate == TRANS_WAIT ? " (run down)" : "");
+
+    cli_msg(-1014, "\t\tStub:\t%s", oa_is_stub(oa) ? "Yes" : "No");
+    cli_msg(-1014, "\t\tNSSA:\t%s", oa_is_nssa(oa) ? "Yes" : "No");
     cli_msg(-1014, "\t\tTransit:\t%s", oa->trcap ? "Yes" : "No");
+
+    if (oa_is_nssa(oa))
+      cli_msg(-1014, "\t\tNSSA translation:\t%s%s", oa->translate ? "Yes" : "No",
+	      oa->translate == TRANS_WAIT ? " (run down)" : "");
     cli_msg(-1014, "\t\tNumber of interfaces:\t%u", ifano);
     cli_msg(-1014, "\t\tNumber of neighbors:\t%u", nno);
     cli_msg(-1014, "\t\tNumber of adjacent neighbors:\t%u", adjno);
@@ -826,6 +858,21 @@ ospf_sh(struct proto *p)
 		anet->hidden ? "Hidden" : "Advertise", anet->active ? "Active" : "");
     }
     FIB_WALK_END;
+
+    firstfib = 1;
+    FIB_WALK(&oa->enet_fib, nftmp)
+    {
+      anet = (struct area_net *) nftmp;
+      if(firstfib)
+      {
+        cli_msg(-1014, "\t\tArea external networks:");
+        firstfib = 0;
+      }
+      cli_msg(-1014, "\t\t\t%1I/%u\t%s\t%s", anet->fn.prefix, anet->fn.pxlen,
+		anet->hidden ? "Hidden" : "Advertise", anet->active ? "Active" : "");
+    }
+    FIB_WALK_END;
+
   }
   cli_msg(0, "");
 }

@@ -75,6 +75,7 @@ do { if ((p->debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
 #define DEFAULT_RFC1583 0	/* compatibility with rfc1583 */
 #define DEFAULT_STUB_COST 1000
 #define DEFAULT_ECMP_LIMIT 16
+#define DEFAULT_TRANSINT 40
 
 
 struct ospf_config
@@ -101,6 +102,7 @@ struct area_net_config
   node n;
   struct prefix px;
   int hidden;
+  u32 tag;
 };
 
 struct area_net
@@ -109,6 +111,7 @@ struct area_net
   int hidden;
   int active;
   u32 metric;
+  u32 tag;
 };
 
 struct ospf_stubnet_config
@@ -131,6 +134,7 @@ struct ospf_area_config
   u32 transint;			/* Translator stability interval */
   list patt_list;
   list net_list;	      	/* List of aggregate networks for that area */
+  list enet_list;	      	/* List of aggregate external (NSSA) networks */
   list stubnet_list;		/* List of stub networks added to Router LSA */
 };
 
@@ -734,6 +738,7 @@ struct ospf_area
   struct top_hash_entry *pxr_lsa; /* Originated prefix LSA */
   list cand;			/* List of candidates for RT calc. */
   struct fib net_fib;		/* Networks to advertise or not */
+  struct fib enet_fib;		/* External networks for NSSAs */
   u32 options;			/* Optional features */
   byte origrt;			/* Rt lsa origination scheduled? */
   byte trcap;			/* Transit capability? */

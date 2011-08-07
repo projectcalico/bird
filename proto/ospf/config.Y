@@ -17,6 +17,7 @@ CF_DEFINES
 
 static struct ospf_area_config *this_area;
 static struct nbma_node *this_nbma;
+static list *this_nets;
 static struct area_net_config *this_pref;
 static struct ospf_stubnet_config *this_stubnet; 
 
@@ -85,6 +86,7 @@ ospf_proto_finish(void)
     add_head(&cf->area_list, NODE ac);
     init_list(&ac->patt_list);
     init_list(&ac->net_list);
+    init_list(&ac->enet_list);
     init_list(&ac->stubnet_list);
   }
 
@@ -100,7 +102,7 @@ CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, TYPE, BROADCAST, BCAST)
 CF_KEYWORDS(NONBROADCAST, NBMA, POINTOPOINT, PTP, POINTOMULTIPOINT, PTMP)
 CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, CHECK, LINK)
-CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY)
+CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY, TAG, EXTERNAL)
 CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT, NSSA, TRANSLATOR, STABILITY)
 
 %type <t> opttext
@@ -139,9 +141,11 @@ ospf_area_start: AREA idval {
   this_area->areaid = $2;
   this_area->stub_cost = DEFAULT_STUB_COST;
   this_area->type = OPT_E;
+  this_area->transint = DEFAULT_TRANSINT;
 
   init_list(&this_area->patt_list);
   init_list(&this_area->net_list);
+  init_list(&this_area->enet_list);
   init_list(&this_area->stubnet_list);
  }
  ;
@@ -160,8 +164,9 @@ ospf_area_item:
  | NSSA { this_area->type = OPT_N; }
  | SUMMARY bool { this_area->summary = $2; }
  | TRANSLATOR bool { this_area->translator = $2; }
- | TRANSLATOR STABILITY bool { this_area->transint = $3; }
- | NETWORKS '{' pref_list '}'
+ | TRANSLATOR STABILITY expr { this_area->transint = $3; }
+ | NETWORKS { this_nets = &this_area->net_list; } '{' pref_list '}'
+ | EXTERNAL { this_nets = &this_area->enet_list; } '{' pref_list '}'
  | STUBNET ospf_stubnet
  | INTERFACE ospf_iface
  | ospf_vlink
@@ -273,28 +278,22 @@ pref_list:
  | pref_list pref_item
  ;
 
-pref_item:
-   pref_el
- | pref_hid;
+pref_item: pref_base pref_opt ';' ;
 
-pref_el: prefix ';'
+pref_base: prefix
  {
    this_pref = cfg_allocz(sizeof(struct area_net_config));
-   add_tail(&this_area->net_list, NODE this_pref);
+   add_tail(this_nets, NODE this_pref);
    this_pref->px.addr = $1.addr;
    this_pref->px.len = $1.len;
  }
 ;
 
-pref_hid: prefix HIDDEN ';'
- {
-   this_pref = cfg_allocz(sizeof(struct area_net_config));
-   add_tail(&this_area->net_list, NODE this_pref);
-   this_pref->px.addr = $1.addr;
-   this_pref->px.len = $1.len;
-   this_pref->hidden = 1;
- }
-;
+pref_opt:
+ /* empty */
+ | HIDDEN { this_pref->hidden = 1; }
+ | TAG expr { this_pref->tag = $2; }
+ ;
 
 ipa_list:
  /* empty */
