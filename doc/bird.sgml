@@ -1602,10 +1602,21 @@ protocol ospf &lt;name&gt; {
 	tick &lt;num&gt;;
 	ecmp &lt;switch&gt; [limit &lt;num&gt;];
 	area &lt;id&gt; {
+		stub &lt;switch&gt;;
+		nssa &lt;switch&gt;;
+		summary &lt;switch&gt;;
 		stub cost &lt;num&gt;;
+		translator &lt;switch&gt;;
+		translator stability &lt;num&gt;;
+
                 networks {
 			&lt;prefix&gt;;
 			&lt;prefix&gt; hidden;
+		}
+                external {
+			&lt;prefix&gt;;
+			&lt;prefix&gt; hidden;
+			&lt;prefix&gt; tag &lt;num&gt;;
 		}
 		stubnet &lt;prefix&gt;;
 		stubnet &lt;prefix&gt; {
@@ -1683,14 +1694,55 @@ protocol ospf &lt;name&gt; {
 	 address, similarly to a router ID). The most important area is
 	 the backbone (ID 0) to which every other area must be connected.
 
+	<tag>stub <M>switch</M></tag>
+	 This option configures the area to be a stub area. External
+	 routes are not flooded into stub areas. Also summary LSAs can be
+	 limited in stub areas (see option <cf/summary/). Default
+	 value is no. (Area is not stub.)
+
+	<tag>nssa <M>switch</M></tag>
+	 This option configures the area to be a NSSA (Not-So-Stubby
+	 Area). NSSA is a variant of a stub area which allows a
+	 limited way of external route propagation. Global external
+	 routes are not propagated into a NSSA, but an external route
+	 can be imported into NSSA as a (area-wide) NSSA-LSA (and
+	 possibly translated and/or aggregated on area boundary).
+	 Default value is no. (Area is not NSSA.)
+
+	<tag>summary <M>switch</M></tag>
+	 This option controls propagation of summary LSAs into stub or
+	 NSSA areas. If enabled, summary LSAs are propagated as usual,
+	 otherwise just the default summary route (0.0.0.0/0) is
+	 propagated (this is sometimes called totally stubby area). If
+	 a stub area has more area boundary routers, propagating
+	 summary LSAs could lead to more efficient routing at the cost
+	 of larger link state database. Default value is no.
+
 	<tag>stub cost <M>num</M></tag>
-	 No external (except default) routes are flooded into stub areas.
-         Setting this value marks area stub with defined cost of default route.
-	 Default value is no. (Area is not stub.)
+	 This option controls the cost of a default route propagated to
+	 stub and NSSA areas. Default value is 1000.
+
+	<tag>translator <M>switch</M></tag>
+	 This option controls translation of NSSA-LSAs into external
+	 LSAs. By default, one translator per NSSA is automatically
+	 elected from area boundary routers. If enabled, this area
+	 boundary router would unconditionally translate all NSSA-LSAs
+	 regardless of translator election. Default value is no.
+
+	<tag>translator stability <M>num</M></tag>
+	 This option controls the translator stability interval (in
+	 seconds). When the new translator is elected, the old one
+	 keeps translating until the interval is over. Default value
+	 is 40.
 
 	<tag>networks { <m/set/ }</tag>
          Definition of area IP ranges. This is used in summary LSA origination.
 	 Hidden networks are not propagated into other areas.
+
+	<tag>external { <m/set/ }</tag>
+         Definition of external area IP ranges for NSSAs. This is used
+	 for NSSA-LSA translation. Hidden networks are not translated
+	 into external LSAs. Networks can have configured route tag.
 
 	<tag>stubnet <m/prefix/ { <m/options/ }</tag>
 	 Stub networks are networks that are not transit networks
