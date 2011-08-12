@@ -247,7 +247,6 @@ bgp_check_community(struct bgp_proto *p UNUSED, byte *a UNUSED, int len)
   return ((len % 4) == 0) ? 0 : WITHDRAW;
 }
 
-
 static int
 bgp_check_cluster_list(struct bgp_proto *p UNUSED, byte *a UNUSED, int len)
 {
@@ -281,6 +280,13 @@ bgp_check_unreach_nlri(struct bgp_proto *p UNUSED, byte *a UNUSED, int len UNUSE
   return IGNORE;
 }
 
+static int
+bgp_check_ext_community(struct bgp_proto *p UNUSED, byte *a UNUSED, int len)
+{
+  return ((len % 8) == 0) ? 0 : WITHDRAW;
+}
+
+
 static struct attr_desc bgp_attr_table[] = {
   { NULL, -1, 0, 0, 0,								/* Undefined */
     NULL, NULL },
@@ -311,7 +317,8 @@ static struct attr_desc bgp_attr_table[] = {
     bgp_check_reach_nlri, NULL },
   { "mp_unreach_nlri", -1, BAF_OPTIONAL, EAF_TYPE_OPAQUE, 1,			/* BA_MP_UNREACH_NLRI */
     bgp_check_unreach_nlri, NULL },
-  {  .name = NULL },								/* BA_EXTENDED_COMM */
+  { "ext_community", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_EC_SET, 1,	/* BA_EXT_COMMUNITY */
+    bgp_check_ext_community, NULL },
   { "as4_path", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,		/* BA_AS4_PATH */
     NULL, NULL },
   { "as4_aggregator", -1, BAF_OPTIONAL | BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,	/* BA_AS4_PATH */
@@ -468,7 +475,7 @@ bgp_get_attr_len(eattr *a)
 unsigned int
 bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 {
-  unsigned int i, code, flags;
+  unsigned int i, code, type, flags;
   byte *start = w;
   int len, rv;
 
@@ -477,6 +484,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
       eattr *a = &attrs->attrs[i];
       ASSERT(EA_PROTO(a->id) == EAP_BGP);
       code = EA_ID(a->id);
+
 #ifdef IPV6
       /* When talking multiprotocol BGP, the NEXT_HOP attributes are used only temporarily. */
       if (code == BA_NEXT_HOP)
@@ -559,11 +567,12 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 
       /* Standard path continues here ... */
 
+      type = a->type & EAF_TYPE_MASK;
       flags = a->flags & (BAF_OPTIONAL | BAF_TRANSITIVE | BAF_PARTIAL);
       len = bgp_get_attr_len(a);
 
-      /* Skip empty int sets */ 
-      if (((a->type & EAF_TYPE_MASK) == EAF_TYPE_INT_SET) && (len == 0))
+      /* Skip empty sets */ 
+      if (((type == EAF_TYPE_INT_SET) || (type == EAF_TYPE_EC_SET)) && (len == 0))
 	continue; 
 
       if (remains < len + 4)
@@ -572,7 +581,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
       rv = bgp_encode_attr_hdr(w, flags, code, len);
       ADVANCE(w, remains, rv);
 
-      switch (a->type & EAF_TYPE_MASK)
+      switch (type)
 	{
 	case EAF_TYPE_INT:
 	case EAF_TYPE_ROUTER_ID:
@@ -589,8 +598,9 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 	    break;
 	  }
 	case EAF_TYPE_INT_SET:
+	case EAF_TYPE_EC_SET:
 	  {
-	    u32 *z = (u32 *)a->u.ptr->data;
+	    u32 *z = int_set_get_data(a->u.ptr);
 	    int i;
 	    for(i=0; i<len; i+=4)
 	      put_u32(w+i, *z++);
@@ -624,11 +634,48 @@ bgp_compare_u32(const u32 *x, const u32 *y)
   return (*x < *y) ? -1 : (*x > *y) ? 1 : 0;
 }
 
-static void
-bgp_normalize_set(u32 *dest, u32 *src, unsigned cnt)
+static inline void
+bgp_normalize_int_set(u32 *dest, u32 *src, unsigned cnt)
 {
   memcpy(dest, src, sizeof(u32) * cnt);
   qsort(dest, cnt, sizeof(u32), (int(*)(const void *, const void *)) bgp_compare_u32);
+}
+
+static int
+bgp_compare_ec(const u32 *xp, const u32 *yp)
+{
+  u64 x = ec_get(xp, 0);
+  u64 y = ec_get(yp, 0);
+  return (x < y) ? -1 : (x > y) ? 1 : 0;
+}
+
+static inline void
+bgp_normalize_ec_set(struct adata *ad, u32 *src, int internal)
+{
+  u32 *dst = int_set_get_data(ad);
+
+  /* Remove non-transitive communities (EC_TBIT active) on external sessions */
+  if (! internal)
+    {
+      int len = int_set_get_size(ad);
+      u32 *t = dst;
+      int i;
+
+      for (i=0; i < len; i += 2)
+	{
+	  if (src[i] & EC_TBIT)
+	    continue;
+	  
+	  *t++ = src[i];
+	  *t++ = src[i+1];
+	}
+
+      ad->length = (t - dst) * 4;
+    }
+  else
+    memcpy(dst, src, ad->length);
+
+  qsort(dst, ad->length / 8, 8, (int(*)(const void *, const void *)) bgp_compare_ec);
 }
 
 static void
@@ -763,7 +810,15 @@ bgp_get_bucket(struct bgp_proto *p, net *n, ea_list *attrs, int originate)
 	  {
 	    struct adata *z = alloca(sizeof(struct adata) + d->u.ptr->length);
 	    z->length = d->u.ptr->length;
-	    bgp_normalize_set((u32 *) z->data, (u32 *) d->u.ptr->data, z->length / 4);
+	    bgp_normalize_int_set((u32 *) z->data, (u32 *) d->u.ptr->data, z->length / 4);
+	    d->u.ptr = z;
+	    break;
+	  }
+	case EAF_TYPE_EC_SET:
+	  {
+	    struct adata *z = alloca(sizeof(struct adata) + d->u.ptr->length);
+	    z->length = d->u.ptr->length;
+	    bgp_normalize_ec_set(z, (u32 *) d->u.ptr->data, p->is_internal);
 	    d->u.ptr = z;
 	    break;
 	  }
@@ -1447,6 +1502,7 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, unsigned int len, struct lin
 	  ipa_ntoh(*(ip_addr *)ad->data);
 	  break;
 	case EAF_TYPE_INT_SET:
+	case EAF_TYPE_EC_SET:
 	  {
 	    u32 *z = (u32 *) ad->data;
 	    for(i=0; i<ad->length/4; i++)

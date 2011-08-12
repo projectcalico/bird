@@ -46,6 +46,7 @@ struct f_val {
   int type;
   union {
     int i;
+    u64 ec;
     /*    ip_addr ip; Folded into prefix */	
     struct f_prefix px;
     char *s;
@@ -152,6 +153,8 @@ int tree_compare(const void *p1, const void *p2);
 #define T_PATH_MASK 0x23	/* mask for BGP path */
 #define T_PATH 0x24		/* BGP path */
 #define T_CLIST 0x25		/* Community list */
+#define T_ECLIST 0x26		/* Extended community list */
+#define T_EC 0x27		/* Extended community value, u64 */
 
 #define T_RETURN 0x40
 #define T_SET 0x80

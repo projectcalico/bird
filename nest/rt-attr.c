@@ -465,6 +465,18 @@ ea_show_int_set(struct cli *c, struct adata *ad, int way, byte *pos, byte *buf, 
     }
 }
 
+static inline void
+ea_show_ec_set(struct cli *c, struct adata *ad, byte *pos, byte *buf, byte *end)
+{
+  int i = ec_set_format(ad, 0, pos, end - pos);
+  cli_printf(c, -1012, "%s", buf);
+  while (i)
+    {
+      i = ec_set_format(ad, i, buf, end - buf - 1);
+      cli_printf(c, -1012, "\t%s", buf);
+    }
+}
+
 /**
  * ea_show - print an &eattr to CLI
  * @c: destination CLI
@@ -522,6 +534,9 @@ ea_show(struct cli *c, eattr *e)
 	  break;
 	case EAF_TYPE_INT_SET:
 	  ea_show_int_set(c, ad, 1, pos, buf, end);
+	  return;
+	case EAF_TYPE_EC_SET:
+	  ea_show_ec_set(c, ad, pos, buf, end);
 	  return;
 	case EAF_TYPE_UNDEF:
 	default:

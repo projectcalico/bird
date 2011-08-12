@@ -30,6 +30,8 @@ typedef INTEGER_16 s16;
 typedef unsigned INTEGER_16 u16;
 typedef INTEGER_32 s32;
 typedef unsigned INTEGER_32 u32;
+typedef INTEGER_64 s64;
+typedef unsigned INTEGER_64 u64;
 typedef u8 byte;
 typedef u16 word;
 

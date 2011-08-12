@@ -51,10 +51,10 @@
 #define CMP_ERROR 999
 
 static struct adata *
-adata_empty(struct linpool *pool)
+adata_empty(struct linpool *pool, int l)
 {
-  struct adata *res = lp_alloc(pool, sizeof(struct adata));
-  res->length = 0;
+  struct adata *res = lp_alloc(pool, sizeof(struct adata) + l);
+  res->length = l;
   return res;
 }
 
@@ -126,6 +126,13 @@ static inline int uint_cmp(unsigned int i1, unsigned int i2)
   else return 1;
 }
 
+static inline int u64_cmp(u64 i1, u64 i2)
+{
+  if (i1 == i2) return 0;
+  if (i1 < i2) return -1;
+  else return 1;
+}
+
 /**
  * val_compare - compare two values
  * @v1: first value
@@ -167,6 +174,8 @@ val_compare(struct f_val v1, struct f_val v2)
   case T_PAIR:
   case T_QUAD:
     return uint_cmp(v1.val.i, v2.val.i);
+  case T_EC:
+    return u64_cmp(v1.val.ec, v2.val.ec);
   case T_IP:
     return ipa_compare(v1.val.px.ip, v2.val.px.ip);
   case T_PREFIX:
@@ -226,6 +235,9 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
   if ((v1.type == T_IP) && (v2.type == T_CLIST))
     return int_set_contains(v2.val.ad, ipa_to_u32(v1.val.px.ip));
 #endif
+  if ((v1.type == T_EC) && (v2.type == T_ECLIST))
+    return ec_set_contains(v2.val.ad, v1.val.ec);
+
   if ((v1.type == T_STRING) && (v2.type == T_STRING))
     return patmatch(v2.val.s, v1.val.s);
 
@@ -258,6 +270,10 @@ clist_set_type(struct f_tree *set, struct f_val *v)
   }
 }
 
+static inline int
+eclist_set_type(struct f_tree *set)
+{ return set->from.type == T_EC; }
+
 static int
 clist_match_set(struct adata *clist, struct f_tree *set)
 {
@@ -270,11 +286,36 @@ clist_match_set(struct adata *clist, struct f_tree *set)
 
   u32 *l = (u32 *) clist->data;
   u32 *end = l + clist->length/4;
+
   while (l < end) {
     v.val.i = *l++;
     if (find_tree(set, v))
       return 1;
   }
+  return 0;
+}
+
+static int
+eclist_match_set(struct adata *list, struct f_tree *set)
+{
+  if (!list)
+    return 0;
+
+  if (!eclist_set_type(set))
+    return CMP_ERROR;
+
+  struct f_val v;
+  u32 *l = int_set_get_data(list);
+  int len = int_set_get_size(list);
+  int i;
+
+  v.type = T_EC;
+  for (i = 0; i < len; i += 2) {
+    v.val.ec = ec_get(l, i);
+    if (find_tree(set, v))
+      return 1;
+  }
+
   return 0;
 }
 
@@ -302,8 +343,39 @@ clist_filter(struct linpool *pool, struct adata *clist, struct f_tree *set, int 
   if (nl == clist->length)
     return clist;
 
-  struct adata *res = lp_alloc(pool, sizeof(struct adata) + nl);
-  res->length = nl;
+  struct adata *res = adata_empty(pool, nl);
+  memcpy(res->data, tmp, nl);
+  return res;
+}
+
+static struct adata *
+eclist_filter(struct linpool *pool, struct adata *list, struct f_tree *set, int pos)
+{
+  if (!list)
+    return NULL;
+
+  struct f_val v;
+
+  int len = int_set_get_size(list);
+  u32 *l = int_set_get_data(list);
+  u32 tmp[len];
+  u32 *k = tmp;
+  int i;
+
+  v.type = T_EC;
+  for (i = 0; i < len; i += 2) {
+    v.val.ec = ec_get(l, i);
+    if (pos == !!find_tree(set, v)) {	/* pos && find_tree || !pos && !find_tree */
+      *k++ = l[i];
+      *k++ = l[i+1];
+    }
+  }
+
+  int nl = (k - tmp) * 4;
+  if (nl == list->length)
+    return list;
+
+  struct adata *res = adata_empty(pool, nl);
   memcpy(res->data, tmp, nl);
   return res;
 }
@@ -332,6 +404,9 @@ val_in_range(struct f_val v1, struct f_val v2)
   if ((v1.type == T_CLIST) && (v2.type == T_SET))
     return clist_match_set(v1.val.ad, v2.val.t);
 
+  if ((v1.type == T_ECLIST) && (v2.type == T_SET))
+    return eclist_match_set(v1.val.ad, v2.val.t);
+
   if (v2.type == T_SET)
     switch (v1.type) {
     case T_ENUM:
@@ -339,6 +414,7 @@ val_in_range(struct f_val v1, struct f_val v2)
     case T_PAIR:
     case T_QUAD:
     case T_IP:
+    case T_EC:
       {
 	struct f_tree *n;
 	n = find_tree(v2.val.t, v1);
@@ -397,11 +473,13 @@ val_print(struct f_val v)
   case T_PREFIX: logn("%I/%d", v.val.px.ip, v.val.px.len); return;
   case T_PAIR: logn("(%d,%d)", v.val.i >> 16, v.val.i & 0xffff); return;
   case T_QUAD: logn("%R", v.val.i); return;
+  case T_EC: ec_format(buf2, v.val.ec); logn("%s", buf2); return;
   case T_PREFIX_SET: trie_print(v.val.ti); return;
   case T_SET: tree_print(v.val.t); return;
   case T_ENUM: logn("(enum %x)%d", v.type, v.val.i); return;
   case T_PATH: as_path_format(v.val.ad, buf2, 1000); logn("(path %s)", buf2); return;
   case T_CLIST: int_set_format(v.val.ad, 1, -1, buf2, 1000); logn("(clist %s)", buf2); return;
+  case T_ECLIST: ec_set_format(v.val.ad, -1, buf2, 1000); logn("(eclist %s)", buf2); return;
   case T_PATH_MASK: pm_format(v.val.path_mask, buf2, 1000); logn("(pathmask%s)", buf2); return;
   default: logn( "[unknown type %x]", v.type ); return;
   }
@@ -541,7 +619,7 @@ interpret(struct f_inst *what)
     break;
 
   case P('m','p'):
-    TWOARGS_C;
+    TWOARGS;
     if ((v1.type != T_INT) || (v2.type != T_INT))
       runtime( "Can't operate with value of non-integer type in pair constructor" );
     u1 = v1.val.i;
@@ -551,6 +629,53 @@ interpret(struct f_inst *what)
     res.val.i = (u1 << 16) | u2;
     res.type = T_PAIR;
     break;
+
+  case P('m','c'):
+    {
+      TWOARGS;
+
+      int check, ipv4_used;
+      u32 key, val;
+
+      if (v1.type == T_INT) {
+	ipv4_used = 0; key = v1.val.i;
+      } 
+      else if (v1.type == T_QUAD) {
+	ipv4_used = 1; key = v1.val.i;
+      }
+#ifndef IPV6
+      /* IP->Quad implicit conversion */
+      else if (v1.type == T_IP) {
+	ipv4_used = 1; key = ipa_to_u32(v1.val.px.ip);
+      }
+#endif
+      else
+	runtime("Can't operate with key of non-integer/IPv4 type in EC constructor");
+
+      if (v2.type != T_INT)
+	runtime("Can't operate with value of non-integer type in EC constructor");
+      val = v2.val.i;
+
+      res.type = T_EC;
+
+      if (what->aux == EC_GENERIC) {
+	check = 0; res.val.ec = ec_generic(key, val);
+      }
+      else if (ipv4_used) {
+	check = 1; res.val.ec = ec_ip4(what->aux, key, val);
+      }
+      else if (key < 0x10000) {
+	check = 0; res.val.ec = ec_as2(what->aux, key, val);
+      }
+      else {
+	check = 1; res.val.ec = ec_as4(what->aux, key, val);
+      }
+
+      if (check && (val > 0xFFFF))
+	runtime("Can't operate with value out of bounds in EC constructor");
+
+      break;
+    }
 
 /* Relational operators */
 
@@ -723,9 +848,16 @@ interpret(struct f_inst *what)
 	/* A special case: undefined int_set looks like empty int_set */
 	if ((what->aux & EAF_TYPE_MASK) == EAF_TYPE_INT_SET) {
 	  res.type = T_CLIST;
-	  res.val.ad = adata_empty(f_pool);
+	  res.val.ad = adata_empty(f_pool, 0);
 	  break;
 	}
+	/* The same special case for ec_set */
+	else if ((what->aux & EAF_TYPE_MASK) == EAF_TYPE_EC_SET) {
+	  res.type = T_ECLIST;
+	  res.val.ad = adata_empty(f_pool, 0);
+	  break;
+	}
+
 	/* Undefined value */
 	res.type = T_VOID;
 	break;
@@ -755,6 +887,10 @@ interpret(struct f_inst *what)
 	break;
       case EAF_TYPE_INT_SET:
 	res.type = T_CLIST;
+	res.val.ad = e->u.ptr;
+	break;
+      case EAF_TYPE_EC_SET:
+	res.type = T_ECLIST;
 	res.val.ad = e->u.ptr;
 	break;
       case EAF_TYPE_UNDEF:
@@ -802,7 +938,12 @@ interpret(struct f_inst *what)
 	break;
       case EAF_TYPE_INT_SET:
 	if (v1.type != T_CLIST)
-	  runtime( "Setting int set attribute to non-clist value" );
+	  runtime( "Setting clist attribute to non-clist value" );
+	l->attrs[0].u.ptr = v1.val.ad;
+	break;
+      case EAF_TYPE_EC_SET:
+	if (v1.type != T_ECLIST)
+	  runtime( "Setting eclist attribute to non-eclist value" );
 	l->attrs[0].u.ptr = v1.val.ad;
 	break;
       case EAF_TYPE_UNDEF:
@@ -926,7 +1067,7 @@ interpret(struct f_inst *what)
 
   case 'E':	/* Create empty attribute */
     res.type = what->aux;
-    res.val.ad = adata_empty(f_pool);
+    res.val.ad = adata_empty(f_pool, 0);
     break;
   case P('A','p'):	/* Path prepend */
     TWOARGS;
@@ -939,52 +1080,93 @@ interpret(struct f_inst *what)
     res.val.ad = as_path_prepend(f_pool, v1.val.ad, v2.val.i);
     break;
 
-  case P('C','a'):	/* Community list add or delete */
+  case P('C','a'):	/* (Extended) Community list add or delete */
     TWOARGS;
-    if (v1.type != T_CLIST)
-      runtime("Can't add/delete to non-clist");
-
-    struct f_val dummy;
-    int arg_set = 0;
-    i = 0;
-
-    if ((v2.type == T_PAIR) || (v2.type == T_QUAD))
-      i = v2.val.i;
-#ifndef IPV6
-    /* IP->Quad implicit conversion */
-    else if (v2.type == T_IP)
-      i = ipa_to_u32(v2.val.px.ip);
-#endif
-    else if ((v2.type == T_SET) && clist_set_type(v2.val.t, &dummy))
-      arg_set = 1;
-    else
-      runtime("Can't add/delete non-pair");
-
-    res.type = T_CLIST;
-    switch (what->aux)
+    if (v1.type == T_CLIST)
     {
-    case 'a':
-      if (arg_set)
-	runtime("Can't add set");
-      res.val.ad = int_set_add(f_pool, v1.val.ad, i);
-      break;
-      
-    case 'd':
-      if (!arg_set)
-	res.val.ad = int_set_del(f_pool, v1.val.ad, i);
+      /* Community (or cluster) list */
+      struct f_val dummy;
+      int arg_set = 0;
+      i = 0;
+
+      if ((v2.type == T_PAIR) || (v2.type == T_QUAD))
+	i = v2.val.i;
+#ifndef IPV6
+      /* IP->Quad implicit conversion */
+      else if (v2.type == T_IP)
+	i = ipa_to_u32(v2.val.px.ip);
+#endif
+      else if ((v2.type == T_SET) && clist_set_type(v2.val.t, &dummy))
+	arg_set = 1;
       else
-	res.val.ad = clist_filter(f_pool, v1.val.ad, v2.val.t, 0);
-      break;
+	runtime("Can't add/delete non-pair");
 
-    case 'f':
-      if (!arg_set)
-	runtime("Can't filter pair");
-      res.val.ad = clist_filter(f_pool, v1.val.ad, v2.val.t, 1);
-      break;
+      res.type = T_CLIST;
+      switch (what->aux)
+      {
+      case 'a':
+	if (arg_set)
+	  runtime("Can't add set");
+	res.val.ad = int_set_add(f_pool, v1.val.ad, i);
+	break;
+      
+      case 'd':
+	if (!arg_set)
+	  res.val.ad = int_set_del(f_pool, v1.val.ad, i);
+	else
+	  res.val.ad = clist_filter(f_pool, v1.val.ad, v2.val.t, 0);
+	break;
 
-    default:
-      bug("unknown Ca operation");
+      case 'f':
+	if (!arg_set)
+	  runtime("Can't filter pair");
+	res.val.ad = clist_filter(f_pool, v1.val.ad, v2.val.t, 1);
+	break;
+
+      default:
+	bug("unknown Ca operation");
+      }
     }
+    else if (v1.type == T_ECLIST)
+    {
+      /* Extended community list */
+      int arg_set = 0;
+      
+      /* v2.val is either EC or EC-set */
+      if ((v2.type == T_SET) && eclist_set_type(v2.val.t))
+	arg_set = 1;
+      else if (v2.type != T_EC)
+	runtime("Can't add/delete non-pair");
+
+      res.type = T_ECLIST;
+      switch (what->aux)
+      {
+      case 'a':
+	if (arg_set)
+	  runtime("Can't add set");
+	res.val.ad = ec_set_add(f_pool, v1.val.ad, v2.val.ec);
+	break;
+      
+      case 'd':
+	if (!arg_set)
+	  res.val.ad = ec_set_del(f_pool, v1.val.ad, v2.val.ec);
+	else
+	  res.val.ad = eclist_filter(f_pool, v1.val.ad, v2.val.t, 0);
+	break;
+
+      case 'f':
+	if (!arg_set)
+	  runtime("Can't filter ec");
+	res.val.ad = eclist_filter(f_pool, v1.val.ad, v2.val.t, 1);
+	break;
+
+      default:
+	bug("unknown Ca operation");
+      }
+    }
+    else
+      runtime("Can't add/delete to non-(e)clist");
+
     break;
 
   default:
