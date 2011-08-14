@@ -746,27 +746,48 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  <cf/.ip/ which extracts the IP address from the pair, and <cf/.len/, which separates prefix
 	  length from the pair. So <cf>1.2.0.0/16.pxlen = 16</cf> is true.
 
-	<tag/int|pair|quad|ip|prefix|enum set/
+	<tag/ec/ This is a specialized type used to represent BGP
+	  extended community values. It is essentially a 64bit value,
+	  literals of this type are usually written as <cf>(<m/kind/,
+	  <m/key/, <m/value/)</cf>, where <cf/kind/ is a kind of
+	  extended community (e.g. <cf/rt/ / <cf/ro/ for a route
+	  target / route origin communities), the format and possible
+	  values of <cf/key/ and <cf/value/ are usually integers, but
+	  it depends on the used kind. Similarly to pairs, ECs can be
+	  constructed using expressions for <cf/key/ and
+	  <cf/value/ parts, (e.g. <cf/(ro, myas, 3*10)/, where
+	  <cf/myas/ is an integer variable).
+ 
+	<tag/int|pair|quad|ip|prefix|ec|enum set/
 	  Filters recognize four types of sets. Sets are similar to strings: you can pass them around
 	  but you can't modify them. Literals of type <cf>int set</cf> look like <cf>
 	  [ 1, 2, 5..7 ]</cf>. As you can see, both simple values and ranges are permitted in
 	  sets.
+
 	  For pair sets, expressions like <cf/(123,*)/ can be used to denote ranges (in
 	  that case <cf/(123,0)..(123,65535)/). You can also use <cf/(123,5..100)/ for range
 	  <cf/(123,5)..(123,100)/. You can also use <cf/*/ and <cf/a..b/ expressions
 	  in the first part of a pair, note that such expressions are translated to a set
 	  of intervals, which may be memory intensive. E.g. <cf/(*,4..20)/ is translated to
 	  <cf/(0,4..20), (1,4..20), (2,4..20), ... (65535, 4..20)/.
-	  You can also use expressions for both, pair sets and int sets. However it must
+
+	  EC sets use similar expressions like pair sets, e.g. <cf/(rt, 123, 10..20)/ 
+	  or <cf/(ro, 123, *)/. Expressions requiring the translation (like  <cf/(rt, *, 3)/)
+	  are not allowed (as they usually have 4B range for ASNs).
+
+	  You can also use expressions for int, pair and EC set values. However it must
 	  be possible to evaluate these expressions before daemon boots. So you can use
 	  only constants inside them. E.g.
 	<code>
 	 define one=1;
+	 define myas=64500;
 	 int set odds;
 	 pair set ps;
+	 ec set es;
 
-	 odds = [ one, (2+1), (6-one), (2*2*2-1), 9, 11 ];
+	 odds = [ one, 2+1, 6-one, 2*2*2-1, 9, 11 ];
 	 ps = [ (1,one+one), (3,4)..(4,8), (5,*), (6,3..6), (7..9,*) ];
+	 es = [ (rt, myas, 3*10), (rt, myas+one, 0..16*16*16-1), (ro, myas+2, *) ];
 	</code>
 
 	  Sets of prefixes are special: their literals does not allow ranges, but allows
@@ -835,7 +856,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  Clist is similar to a set, except that unlike other sets, it
 	  can be modified. The type is used for community list (a set
 	  of pairs) and for cluster list (a set of quads). There exist
-	  no literals of this type. There are two special operators on
+	  no literals of this type. There are three special operators on
 	  clists:
 
           <cf>add(<m/C/,<m/P/)</cf> adds pair (or quad) <m/P/ to clist
@@ -858,6 +879,14 @@ incompatible with each other (that is to prevent you from shooting in the foot).
           <cf><m/C/.add(<m/P/);</cf> if <m/C/ is appropriate route
           attribute (for example <cf/bgp_community/). Similarly for
           <cf/delete/ and <cf/filter/.
+
+	<tag/eclist/
+	  Eclist is a data type used for BGP extended community lists.
+	  Eclists are very similar to clists, but they are sets of ECs
+	  instead of pairs. The same operations (like <cf/add/,
+	  <cf/delete/, or <cf/&tilde;/ membership operator) can be
+	  used to modify or test eclists, with ECs instead of pairs as
+	  arguments.
 </descrip>
 
 <sect>Operators
@@ -1013,12 +1042,16 @@ capability negotiation
 (RFC 3392<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc3392.txt">),
 MD5 password authentication
 (RFC 2385<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2385.txt">),
+extended communities
+(RFC 4360<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4360.txt">),
 route reflectors 
 (RFC 4456<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4456.txt">),
 multiprotocol extensions
 (RFC 4760<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4760.txt">),
-and 4B AS numbers 
-(RFC 4893<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4893.txt">).
+4B AS numbers 
+(RFC 4893<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4893.txt">),
+and 4B AS numbers in extended communities
+(RFC 5668<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc5668.txt">).
 
 
 For IPv6, it uses the standard multiprotocol extensions defined in
@@ -1330,6 +1363,12 @@ with `<tt/O/') are optional.
 	policy information like "don't export to USA peers". As each AS can define
 	its own routing policy, it also has a complete freedom about which community
 	attributes it defines and what will their semantics be.
+
+	<tag>eclist <cf/bgp_ext_community/ [O]</tag> List of extended community
+	values associated with the route. Extended communities have similar usage
+	as plain communities, but they have an extended range (to allow 4B ASNs)
+	and a nontrivial structure with a type field. Individual community values are
+	represented using an <cf/ec/ data type inside the filters.
 
 	<tag>quad <cf/bgp_originator_id/ [I, O]</tag> This attribute is created by the
 	route reflector when reflecting the route and contains the router ID of the
