@@ -457,11 +457,11 @@ static inline void
 ea_show_int_set(struct cli *c, struct adata *ad, int way, byte *pos, byte *buf, byte *end)
 {
   int i = int_set_format(ad, way, 0, pos, end - pos);
-  cli_printf(c, -1012, "%s", buf);
+  cli_printf(c, -1012, "\t%s", buf);
   while (i)
     {
       i = int_set_format(ad, way, i, buf, end - buf - 1);
-      cli_printf(c, -1012, "\t%s", buf);
+      cli_printf(c, -1012, "\t\t%s", buf);
     }
 }
 
@@ -469,11 +469,11 @@ static inline void
 ea_show_ec_set(struct cli *c, struct adata *ad, byte *pos, byte *buf, byte *end)
 {
   int i = ec_set_format(ad, 0, pos, end - pos);
-  cli_printf(c, -1012, "%s", buf);
+  cli_printf(c, -1012, "\t%s", buf);
   while (i)
     {
       i = ec_set_format(ad, i, buf, end - buf - 1);
-      cli_printf(c, -1012, "\t%s", buf);
+      cli_printf(c, -1012, "\t\t%s", buf);
     }
 }
 
@@ -543,7 +543,7 @@ ea_show(struct cli *c, eattr *e)
 	  bsprintf(pos, "<type %02x>", e->type);
 	}
     }
-  cli_printf(c, -1012, "%s", buf);
+  cli_printf(c, -1012, "\t%s", buf);
 }
 
 /**
