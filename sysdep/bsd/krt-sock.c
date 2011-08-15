@@ -697,8 +697,10 @@ krt_set_construct(struct krt_config *c UNUSED)
 void
 krt_set_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
 {
-  if (krt_buffer)
-    mb_free(krt_buffer);
+  if (!krt_buffer)
+    return;
+
+  mb_free(krt_buffer);
   krt_buffer = NULL;
 }
 
@@ -720,6 +722,9 @@ krt_if_start(struct kif_proto *p UNUSED)
 void
 krt_if_shutdown(struct kif_proto *p UNUSED)
 {
+  if (!kif_buffer)
+    return;
+
   mb_free(kif_buffer);
   kif_buffer = NULL;
 }
