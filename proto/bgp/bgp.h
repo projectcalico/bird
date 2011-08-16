@@ -20,6 +20,7 @@ struct bgp_config {
   u32 local_as, remote_as;
   ip_addr remote_ip;
   int multihop;				/* Number of hops if multihop */
+  int ttl_security;			/* Enable TTL security [RFC5082] */
   ip_addr source_addr;			/* Source address to use */
   int next_hop_self;			/* Always set next hop to local IP address */
   int missing_lladdr;			/* What we will do when we don' know link-local addr, see MLL_* */

@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <pwd.h>
 #include <grp.h>
+#include <sys/stat.h>
 
 #include "nest/bird.h"
 #include "lib/lists.h"

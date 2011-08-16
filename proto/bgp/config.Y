@@ -25,7 +25,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY,
 	CLUSTER, ID, AS4, ADVERTISE, IPV4, CAPABILITIES, LIMIT, PASSIVE,
 	PREFER, OLDER, MISSING, LLADDR, DROP, IGNORE, ROUTE, REFRESH,
 	INTERPRET, COMMUNITIES, BGP_ORIGINATOR_ID, BGP_CLUSTER_LIST, IGP,
-	TABLE, GATEWAY, DIRECT, RECURSIVE, MED)
+	TABLE, GATEWAY, DIRECT, RECURSIVE, MED, TTL, SECURITY)
 
 CF_GRAMMAR
 
@@ -71,7 +71,7 @@ bgp_proto:
  | bgp_proto CONNECT RETRY TIME expr ';' { BGP_CFG->connect_retry_time = $5; }
  | bgp_proto KEEPALIVE TIME expr ';' { BGP_CFG->keepalive_time = $4; }
  | bgp_proto MULTIHOP ';' { BGP_CFG->multihop = 64; }
- | bgp_proto MULTIHOP expr ';' { BGP_CFG->multihop = $3; }
+ | bgp_proto MULTIHOP expr ';' { BGP_CFG->multihop = $3; if (($3<1) || ($3>255)) cf_error("Multihop must be in range 1-255"); }
  | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
  | bgp_proto MISSING LLADDR SELF ';' { BGP_CFG->missing_lladdr = MLL_SELF; }
  | bgp_proto MISSING LLADDR DROP ';' { BGP_CFG->missing_lladdr = MLL_DROP; }
@@ -98,6 +98,7 @@ bgp_proto:
  | bgp_proto PASSIVE bool ';' { BGP_CFG->passive = $3; }
  | bgp_proto INTERPRET COMMUNITIES bool ';' { BGP_CFG->interpret_communities = $4; }
  | bgp_proto IGP TABLE rtable ';' { BGP_CFG->igp_table = $4; }
+ | bgp_proto TTL SECURITY bool ';' { BGP_CFG->ttl_security = $4; }
  ;
 
 CF_ADDTO(dynamic_attr, BGP_ORIGIN

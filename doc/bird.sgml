@@ -1120,9 +1120,11 @@ for each neighbor using the following configuration parameters:
 	subnets. Such IP address have to be reachable through system
 	routing table. For multihop BGP it is recommended to
 	explicitly configure <cf/source address/ to have it
-	stable. Optional <cf/number/ argument can be used to limit TTL
-	(the number of hops).
-	Default: switched off.
+	stable. Optional <cf/number/ argument can be used to specify
+	the number of hops (used for TTL). Note that the number of
+	networks (edges) in a path is counted, i.e. if two BGP
+	speakers are separated by one router, the number of hops is
+	2. Default: switched off.
 
 	<tag>source address <m/ip/</tag> Define local address we
 	should use for next hop calculation and as a source address
@@ -1168,6 +1170,18 @@ for each neighbor using the following configuration parameters:
 	<tag>igp table <m/name/</tag> Specifies a table that is used
 	as an IGP routing table. Default: the same as the table BGP is
 	connected to.
+	
+	<tag>ttl security <m/switch/</tag> Use GTSM (RFC 5082 - the
+	generalized TTL security mechanism). GTSM protects against
+	spoofed packets by ignoring received packets with a smaller
+	than expected TTL. To work properly, GTSM have to be enabled
+	on both sides of a BGP session. If both <cf/ttl security/ and
+	<cf/multihop/ options are enabled, <cf/multihop/ option should
+	specify proper hop value to compute expected TTL. Kernel
+	support required: Linux: 2.6.34+ (IPv4), 2.6.35+ (IPv6), BSD:
+	since long ago, IPv4 only. Note that full (ICMP protection,
+	for example) RFC 5082 support is provided by Linux
+	only. Default: disabled.
 	
 	<tag>password <m/string/</tag> Use this password for MD5 authentication
 	of BGP sessions. Default: no authentication. Password has to be set by

@@ -805,7 +805,7 @@ bad:
 }
 
 /**
- * sk_set_ttl - set TTL for given socket.
+ * sk_set_ttl - set transmit TTL for given socket.
  * @s: socket
  * @ttl: TTL value
  *
@@ -828,6 +828,28 @@ sk_set_ttl(sock *s, int ttl)
   return (err ? -1 : 0);
 }
 
+/**
+ * sk_set_min_ttl - set minimal accepted TTL for given socket.
+ * @s: socket
+ * @ttl: TTL value
+ *
+ * Can be used in TTL security implementation
+ *
+ * Result: 0 for success, -1 for an error.
+ */
+
+int
+sk_set_min_ttl(sock *s, int ttl)
+{
+  int err;
+#ifdef IPV6
+  err = sk_set_min_ttl6(s, ttl);
+#else
+  err = sk_set_min_ttl4(s, ttl);
+#endif
+
+  return err;
+}
 
 /**
  * sk_set_md5_auth - add / remove MD5 security association for given socket.

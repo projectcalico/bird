@@ -92,6 +92,8 @@ static int
 bgp_open(struct bgp_proto *p)
 {
   struct config *cfg = p->cf->c.global;
+  int errcode;
+
   bgp_counter++;
 
   if (!bgp_listen_sk)
@@ -100,10 +102,8 @@ bgp_open(struct bgp_proto *p)
   if (!bgp_listen_sk)
     {
       bgp_counter--;
-      p->p.disabled = 1;
-      bgp_store_error(p, NULL, BE_MISC, BEM_NO_SOCKET);
-      proto_notify_state(&p->p, PS_DOWN);
-      return -1;
+      errcode = BEM_NO_SOCKET;
+      goto err;
     }
 
   if (!bgp_linpool)
@@ -115,14 +115,18 @@ bgp_open(struct bgp_proto *p)
       if (rv < 0)
 	{
 	  bgp_close(p, 0);
-	  p->p.disabled = 1;
-	  bgp_store_error(p, NULL, BE_MISC, BEM_INVALID_MD5);
-	  proto_notify_state(&p->p, PS_DOWN);
-	  return -1;
+	  errcode = BEM_INVALID_MD5;
+	  goto err;
 	}
     }
 
   return 0;
+
+err:
+  p->p.disabled = 1;
+  bgp_store_error(p, NULL, BE_MISC, errcode);
+  proto_notify_state(&p->p, PS_DOWN);
+  return -1;
 }
 
 static void
@@ -567,6 +571,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
 {
   sock *s;
   struct bgp_conn *conn = &p->outgoing_conn;
+  int hops = p->cf->multihop ? : 1;
 
   DBG("BGP: Connecting\n");
   s = sk_new(p->p.pool);
@@ -574,7 +579,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   s->saddr = p->source_addr;
   s->daddr = p->cf->remote_ip;
   s->dport = BGP_PORT;
-  s->ttl = p->cf->multihop ? : 1;
+  s->ttl = p->cf->ttl_security ? 255 : hops;
   s->rbsize = BGP_RX_BUFFER_SIZE;
   s->tbsize = BGP_TX_BUFFER_SIZE;
   s->tos = IP_PREC_INTERNET_CONTROL;
@@ -584,11 +589,25 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   bgp_setup_conn(p, conn);
   bgp_setup_sk(conn, s);
   bgp_conn_set_state(conn, BS_CONNECT);
-  if (sk_open(s))
+
+  if (sk_open(s) < 0)
     {
       bgp_sock_err(s, 0);
       return;
     }
+
+  /* Set minimal receive TTL if needed */
+  if (p->cf->ttl_security)
+  {
+    DBG("Setting minimum received TTL to %d", 256 - hops);
+    if (sk_set_min_ttl(s, 256 - hops) < 0)
+    {
+      log(L_ERR "TTL security configuration failed, closing session");
+      bgp_sock_err(s, 0);
+      return;
+    }
+  }
+
   DBG("BGP: Waiting for connect success\n");
   bgp_start_timer(conn->connect_retry_timer, p->cf->connect_retry_time);
 }
@@ -627,9 +646,22 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
 	    if (!acc)
 	      goto err;
 
+	    int hops = p->cf->multihop ? : 1;
+	    if (p->cf->ttl_security)
+	    {
+	      /* TTL security support */
+	      if ((sk_set_ttl(sk, 255) < 0) ||
+		  (sk_set_min_ttl(sk, 256 - hops) < 0))
+	      {
+		log(L_ERR "TTL security configuration failed, closing session");
+		goto err;
+	      }
+	    }
+	    else
+	      sk_set_ttl(sk, hops);
+
 	    bgp_setup_conn(p, &p->incoming_conn);
 	    bgp_setup_sk(&p->incoming_conn, sk);
-	    sk_set_ttl(sk, p->cf->multihop ? : 1);
 	    bgp_send_open(&p->incoming_conn);
 	    return 0;
 	  }
@@ -656,6 +688,7 @@ bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags)
   sock *s = sk_new(&root_pool);
   DBG("BGP: Creating listening socket\n");
   s->type = SK_TCP_PASSIVE;
+  s->ttl = 255;
   s->saddr = addr;
   s->sport = port ? port : BGP_PORT;
   s->flags = flags ? 0 : SKF_V6ONLY;
@@ -664,14 +697,15 @@ bgp_setup_listen_sk(ip_addr addr, unsigned port, u32 flags)
   s->tbsize = BGP_TX_BUFFER_SIZE;
   s->rx_hook = bgp_incoming_connection;
   s->err_hook = bgp_listen_sock_err;
-  if (sk_open(s))
+
+  if (sk_open(s) < 0)
     {
       log(L_ERR "BGP: Unable to open listening socket");
       rfree(s);
       return NULL;
     }
-  else
-    return s;
+
+  return s;
 }
 
 static void
