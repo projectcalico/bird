@@ -1042,8 +1042,8 @@ bgp_last_errmsg(struct bgp_proto *p)
 static const char *
 bgp_state_dsc(struct bgp_proto *p)
 {
-  //if (p->p.proto_state == PS_DOWN)
-  //  return "Down";
+  if (p->p.proto_state == PS_DOWN)
+    return "Down";
 
   int state = MAX(p->incoming_conn.state, p->outgoing_conn.state);
   if ((state == BS_IDLE) && (p->start_state >= BSS_CONNECT) && p->cf->passive)
@@ -1075,10 +1075,9 @@ bgp_show_proto_info(struct proto *P)
   struct bgp_proto *p = (struct bgp_proto *) P;
   struct bgp_conn *c = p->conn;
 
-  if (P->proto_state == PS_DOWN)
-    return;
-
   cli_msg(-1006, "  BGP state:          %s", bgp_state_dsc(p));
+  cli_msg(-1006, "    Neighbor address: %I", p->cf->remote_ip);
+  cli_msg(-1006, "    Neighbor AS:      %u", p->remote_as);
 
   if (P->proto_state == PS_START)
     {
@@ -1096,18 +1095,17 @@ bgp_show_proto_info(struct proto *P)
     }
   else if (P->proto_state == PS_UP)
     {
-      cli_msg(-1006, "    Session:          %s%s%s%s",
-	      p->is_internal ? "internal" : "external",
-	      p->rr_client ? " route-reflector" : "",
-	      p->rs_client ? " route-server" : "",
-	      p->as4_session ? " AS4" : "");
-      cli_msg(-1006, "    Neighbor AS:      %u", p->remote_as);
       cli_msg(-1006, "    Neighbor ID:      %R", p->remote_id);
-      cli_msg(-1006, "    Neighbor address: %I", p->cf->remote_ip);
-      cli_msg(-1006, "    Source address:   %I", p->source_addr);
       cli_msg(-1006, "    Neighbor caps:   %s%s",
 	      c->peer_refresh_support ? " refresh" : "",
 	      c->peer_as4_support ? " AS4" : "");
+      cli_msg(-1006, "    Session:          %s%s%s%s%s",
+	      p->is_internal ? "internal" : "external",
+	      p->cf->multihop ? " multihop" : "",
+	      p->rr_client ? " route-reflector" : "",
+	      p->rs_client ? " route-server" : "",
+	      p->as4_session ? " AS4" : "");
+      cli_msg(-1006, "    Source address:   %I", p->source_addr);
       if (p->cf->route_limit)
 	cli_msg(-1006, "    Route limit:      %d/%d",
 		p->p.stats.imp_routes, p->cf->route_limit);
