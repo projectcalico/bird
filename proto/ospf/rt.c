@@ -1059,11 +1059,11 @@ check_nssa_lsa(struct proto_ospf *po, ort *nf)
 
   /* RFC 3103 3.2 (3) - originate the aggregated address range */
   if (anet && anet->active && !anet->hidden && oa->translate)
-    originate_ext_lsa(po->backbone, fn, EXT_NSSA, anet->metric, IPA_NONE, anet->tag);
+    originate_ext_lsa(po->backbone, fn, EXT_NSSA, anet->metric, IPA_NONE, anet->tag, 0);
 
   /* RFC 3103 3.2 (2) - originate the same network */
   else if (decide_nssa_lsa(nf, &rt_metric, &rt_fwaddr, &rt_tag))
-    originate_ext_lsa(po->backbone, fn, EXT_NSSA, rt_metric, rt_fwaddr, rt_tag);
+    originate_ext_lsa(po->backbone, fn, EXT_NSSA, rt_metric, rt_fwaddr, rt_tag, 0);
 
   else if (fn->x1 == EXT_NSSA)
     flush_ext_lsa(po->backbone, fn);
@@ -1173,11 +1173,24 @@ ospf_rt_abr1(struct proto_ospf *po)
 
     /* 12.4.3.1. - originate or flush default route for stub/NSSA areas */
     if (oa_is_stub(oa) || (oa_is_nssa(oa) && !oa->ac->summary))
-      originate_sum_net_lsa(oa, &default_nf->fn, oa->ac->stub_cost);
+      originate_sum_net_lsa(oa, &default_nf->fn, oa->ac->default_cost);
     else
       flush_sum_lsa(oa, &default_nf->fn, ORT_NET);
 
-    // FIXME NSSA add support for type 7 default route ?
+    /*
+     * Originate type-7 default route for NSSA areas
+     *
+     * Because type-7 default LSAs are originated by ABRs, they do not
+     * collide with other type-7 LSAs (as ABRs generate type-5 LSAs
+     * for both external route export or external-NSSA translation),
+     * so we use 0 for the src arg.
+     */
+
+    if (oa_is_nssa(oa) && oa->ac->default_nssa)
+      originate_ext_lsa(oa, &default_nf->fn, 0, oa->ac->default_cost, IPA_NONE, 0, 0);
+    else
+      flush_ext_lsa(oa, &default_nf->fn);
+
 
     /* RFC 2328 16.4. (3) - precompute preferred ASBR entries */
     if (oa_is_ext(oa))
@@ -1256,7 +1269,6 @@ ospf_rt_abr2(struct proto_ospf *po)
 	{
 	  translate = 0;
 	  goto decided;
-	  break;
 	}
       }
       FIB_WALK_END;
@@ -1286,7 +1298,7 @@ ospf_rt_abr2(struct proto_ospf *po)
   FIB_WALK(&po->rtf, nftmp)
   {
     nf = (ort *) nftmp;
-    if (rt_is_nssa(nf))
+    if (rt_is_nssa(nf) && (nf->n.options & ORTA_PROP))
     {
       struct area_net *anet = (struct area_net *)
 	fib_route(&nf->n.oa->enet_fib, nf->fn.prefix, nf->fn.pxlen);
@@ -1503,9 +1515,11 @@ ospf_ext_spf(struct proto_ospf *po)
     /* Whether the route is preferred in route selection according to 16.4.1 */
     nfa.options = epath_preferred(&nf2->n) ? ORTA_PREF : 0;
     if (en->lsa.type == LSA_T_NSSA)
+    {
       nfa.options |= ORTA_NSSA;
-    if (rt_propagate)
-      nfa.options |= ORTA_PROP;
+      if (rt_propagate)
+	nfa.options |= ORTA_PROP;
+    }
 
     nfa.tag = rt_tag;
     nfa.rid = en->lsa.rt;

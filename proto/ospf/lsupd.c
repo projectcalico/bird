@@ -127,7 +127,7 @@ ospf_lsa_flooding_allowed(struct ospf_lsa_header *lsa, u32 domain, struct ospf_i
     case LSA_SCOPE_AS:
       if (ifa->type == OSPF_IT_VLINK)
 	return 0;
-      if (ifa->oa->stub)
+      if (!oa_is_ext(ifa->oa))
 	return 0;
       return 1;
 

@@ -76,7 +76,6 @@ ort;
 static inline int rt_is_nssa(ort *nf)
 { return nf->n.options & ORTA_NSSA; }
 
-
 #define EXT_EXPORT 1
 #define EXT_NSSA 2
 

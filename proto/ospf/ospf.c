@@ -170,6 +170,14 @@ ospf_area_add(struct proto_ospf *po, struct ospf_area_config *ac, int reconf)
   oa->options = OPT_R | ac->type | OPT_V6;
 #endif
 
+  /*
+   * Set E-bit for NSSA ABR routers. No need to explicitly call
+   * schedule_rt_lsa() for other areas, will be done anyway.
+   * We use cf->abr because po->areano is not yet complete.
+   */
+  if (oa_is_nssa(oa) && ((struct ospf_config *) (p->cf))->abr)
+    po->ebit = 1;
+
   if (reconf)
     ospf_ifaces_reconfigure(oa, ac);
 }
@@ -453,7 +461,7 @@ area_disp(struct ospf_area *oa)
 }
 
 /**
- * ospf_disp - invokes routing table calctulation, aging and also area_disp()
+ * ospf_disp - invokes routing table calculation, aging and also area_disp()
  * @timer: timer usually called every @proto_ospf->tick second, @timer->data
  * point to @proto_ospf
  */
@@ -572,6 +580,8 @@ ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * ol
     /* Old external route might blocked some NSSA translation */
     if (po->areano > 1)
       schedule_rtcalc(po);
+
+    return;
   }
 
   /* Get route attributes */
@@ -587,7 +597,7 @@ ospf_rt_notify(struct proto *p, rtable *tbl UNUSED, net * n, rte * new, rte * ol
       (ospf_iface_find((struct proto_ospf *) p, new->attrs->iface) != NULL))
     gw = new->attrs->gw;
 
-  originate_ext_lsa(oa, fn, EXT_EXPORT, metric, gw, tag);
+  originate_ext_lsa(oa, fn, EXT_EXPORT, metric, gw, tag, 1);
 }
 
 static void
@@ -674,7 +684,15 @@ static void
 ospf_area_reconfigure(struct ospf_area *oa, struct ospf_area_config *nac)
 {
   oa->ac = nac;
-  // FIXME NSSA check type
+
+  // FIXME better area type reconfiguration
+#ifdef OSPFv2
+  oa->options = nac->type;
+#else /* OSPFv3 */
+  oa->options = OPT_R | nac->type | OPT_V6;
+#endif
+  if (oa_is_nssa(oa) && (oa->po->areano > 1))
+    oa->po->ebit = 1;
 
   ospf_ifaces_reconfigure(oa, nac);
 

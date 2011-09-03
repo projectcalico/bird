@@ -1655,10 +1655,12 @@ protocol ospf &lt;name&gt; {
 	tick &lt;num&gt;;
 	ecmp &lt;switch&gt; [limit &lt;num&gt;];
 	area &lt;id&gt; {
-		stub &lt;switch&gt;;
-		nssa &lt;switch&gt;;
+		stub;
+		nssa;
 		summary &lt;switch&gt;;
-		stub cost &lt;num&gt;;
+		default nssa &lt;switch&gt;;
+		default cost &lt;num&gt;;
+		default cost2 &lt;num&gt;;
 		translator &lt;switch&gt;;
 		translator stability &lt;num&gt;;
 
@@ -1747,20 +1749,20 @@ protocol ospf &lt;name&gt; {
 	 address, similarly to a router ID). The most important area is
 	 the backbone (ID 0) to which every other area must be connected.
 
-	<tag>stub <M>switch</M></tag>
+	<tag>stub</tag>
 	 This option configures the area to be a stub area. External
 	 routes are not flooded into stub areas. Also summary LSAs can be
-	 limited in stub areas (see option <cf/summary/). Default
-	 value is no. (Area is not stub.)
+	 limited in stub areas (see option <cf/summary/).
+	 By default, the area is not a stub area.
 
-	<tag>nssa <M>switch</M></tag>
+	<tag>nssa</tag>
 	 This option configures the area to be a NSSA (Not-So-Stubby
 	 Area). NSSA is a variant of a stub area which allows a
 	 limited way of external route propagation. Global external
 	 routes are not propagated into a NSSA, but an external route
 	 can be imported into NSSA as a (area-wide) NSSA-LSA (and
 	 possibly translated and/or aggregated on area boundary).
-	 Default value is no. (Area is not NSSA.)
+	 By default, the area is not NSSA.
 
 	<tag>summary <M>switch</M></tag>
 	 This option controls propagation of summary LSAs into stub or
@@ -1771,9 +1773,21 @@ protocol ospf &lt;name&gt; {
 	 summary LSAs could lead to more efficient routing at the cost
 	 of larger link state database. Default value is no.
 
-	<tag>stub cost <M>num</M></tag>
+	<tag>default nssa <M>switch</M></tag>
+ 	 When <cf/summary/ option is enabled, default summary route is
+	 no longer propagated to the NSSA. In that case, this option
+	 allows to originate default route as NSSA-LSA to the NSSA.
+	 Default value is no.
+
+	<tag>default cost <M>num</M></tag>
 	 This option controls the cost of a default route propagated to
 	 stub and NSSA areas. Default value is 1000.
+
+	<tag>default cost2 <M>num</M></tag>
+	 When a default route is originated as NSSA-LSA, its cost
+	 can use either type 1 or type 2 metric. This option allows
+	 to specify the cost of a default route in type 2 metric.
+	 By default, type 1 metric (option <cf/default cost/) is used.
 
 	<tag>translator <M>switch</M></tag>
 	 This option controls translation of NSSA-LSAs into external

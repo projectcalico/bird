@@ -126,10 +126,11 @@ struct ospf_area_config
 {
   node n;
   u32 areaid;
-  u32 stub_cost;		/* Cost of default route for stub areas */
+  u32 default_cost;		/* Cost of default route for stub areas */
   u8 type;			/* Area type (standard, stub, NSSA), represented
 				   by option flags (OPT_E, OPT_N) */
   u8 summary;			/* Import summaries to this stub/NSSA area, valid for ABR */
+  u8 default_nssa;		/* Generate default NSSA route for NSSA+summary area */
   u8 translator;		/* Translator role, for NSSA ABR */
   u32 transint;			/* Translator stability interval */
   list patt_list;
