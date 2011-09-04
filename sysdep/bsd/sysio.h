@@ -241,6 +241,8 @@ sk_set_md5_auth_int(sock *s, sockaddr *sa, char *passwd)
 
 #ifndef IPV6
 
+#ifdef IP_MINTTL
+
 static int
 sk_set_min_ttl4(sock *s, int ttl)
 {
@@ -257,7 +259,18 @@ sk_set_min_ttl4(sock *s, int ttl)
   return 0;
 }
 
-#else
+#else /* no IP_MINTTL */
+
+static int
+sk_set_min_ttl4(sock *s, int ttl)
+{
+  log(L_ERR "IPv4 TTL security not supported");
+  return -1;
+}
+
+#endif
+
+#else /* IPv6 */
 
 static int
 sk_set_min_ttl6(sock *s, int ttl)
