@@ -1,4 +1,10 @@
 
+Version 1.3.3 (2011-09-05)
+  o OSPF NSSA
+  o BGP extended communities
+  o BGP TTL security
+  o Some minor bugfixes.
+
 Version 1.3.2 (2011-07-08)
   o Allows run with restricted privileges.
   o Community list filter operation.
