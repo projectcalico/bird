@@ -259,6 +259,9 @@ protocol rip {
 <sect>Global options
 
 <p><descrip>
+	<tag>include "<m/filename/"</tag> 
+	This statement causes inclusion of a new file. The maximal depth is set to 5.
+
 	<tag>log "<m/filename/"|syslog [name <m/name/]|stderr all|{ <m/list of classes/ }</tag> 
 	Set logging of messages having the given class (either <cf/all/ or <cf/{
 	error, trace }/ etc.) into selected destination (a file specified as a filename string,

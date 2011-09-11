@@ -19,7 +19,7 @@ f_new_inst(void)
   ret = cfg_alloc(sizeof(struct f_inst));
   ret->code = ret->aux = 0;
   ret->arg1 = ret->arg2 = ret->next = NULL;
-  ret->lineno = conf_lino;
+  ret->lineno = ifs->conf_lino;
   return ret;
 }
 

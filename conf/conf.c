@@ -108,7 +108,7 @@ config_parse(struct config *c)
   cfg_mem = c->mem;
   if (setjmp(conf_jmpbuf))
     return 0;
-  cf_lex_init(0);
+  cf_lex_init(0, c);
   sysdep_preconfig(c);
   protos_preconfig(c);
   rt_preconfig(c);
@@ -138,7 +138,7 @@ cli_parse(struct config *c)
   cfg_mem = c->mem;
   if (setjmp(conf_jmpbuf))
     return 0;
-  cf_lex_init(1);
+  cf_lex_init(1, c);
   cf_parse();
   return 1;
 }
@@ -355,7 +355,8 @@ cf_error(char *msg, ...)
   if (bvsnprintf(buf, sizeof(buf), msg, args) < 0)
     strcpy(buf, "<bug: error message too long>");
   new_config->err_msg = cfg_strdup(buf);
-  new_config->err_lino = conf_lino;
+  new_config->err_lino = ifs->conf_lino;
+  new_config->err_file_name = ifs->conf_fname;
   longjmp(conf_jmpbuf, 1);
 }
 

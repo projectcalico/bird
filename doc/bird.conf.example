@@ -25,6 +25,8 @@
 #filter sink { reject; }
 #filter okay { accept; }
 
+#include "filters.conf";
+
 # Define another routing table
 #table testable;
 
