@@ -2481,9 +2481,8 @@ there are still some features which would surely deserve to be
 implemented in future versions of BIRD:
 
 <itemize>
-<item>OSPF NSSA areas and opaque LSA's
+<item>Opaque LSA's
 <item>Route aggregation and flap dampening
-<item>Generation of IPv6 router advertisements
 <item>Multipath routes
 <item>Multicast routing protocols
 <item>Ports to other systems
