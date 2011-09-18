@@ -1214,6 +1214,7 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case '|':
   case '&':
   case P('m','p'):
+  case P('m','c'):
   case P('!','='):
   case P('=','='):
   case '<':
