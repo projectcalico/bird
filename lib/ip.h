@@ -37,6 +37,7 @@
 #define SCOPE_SITE 2
 #define SCOPE_ORGANIZATION 3
 #define SCOPE_UNIVERSE 4
+#define SCOPE_UNDEFINED 5
 
 char *ip_scope_text(unsigned);
 
