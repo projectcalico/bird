@@ -47,6 +47,14 @@
 
 #include "static.h"
 
+static inline rtable *
+p_igp_table(struct proto *p)
+{
+  struct static_config *cf = (void *) p->cf;
+  return cf->igp_table ? cf->igp_table->table : p->table;
+}
+
+
 static void
 static_install(struct proto *p, struct static_route *r, struct iface *ifa)
 {
@@ -96,6 +104,9 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
       else
 	a.nexthops = nhs;
     }
+
+  if (r->dest == RTDX_RECURSIVE)
+    rta_set_recursive_next_hop(p->table, &a, p_igp_table(p), &r->via, &r->via);
 
   aa = rta_lookup(&a);
   n = net_get(p->table, r->net, r->masklen);
@@ -207,29 +218,43 @@ static_add(struct proto *p, struct static_config *cf, struct static_route *r)
 static int
 static_start(struct proto *p)
 {
-  struct static_config *c = (void *) p->cf;
+  struct static_config *cf = (void *) p->cf;
   struct static_route *r;
 
   DBG("Static: take off!\n");
-  WALK_LIST(r, c->other_routes)
-    static_add(p, c, r);
+
+  if (cf->igp_table)
+    rt_lock_table(cf->igp_table->table);
+
+  WALK_LIST(r, cf->other_routes)
+    static_add(p, cf, r);
   return PS_UP;
 }
 
 static int
 static_shutdown(struct proto *p)
 {
-  struct static_config *c = (void *) p->cf;
+  struct static_config *cf = (void *) p->cf;
   struct static_route *r;
 
   /* Just reset the flag, the routes will be flushed by the nest */
-  WALK_LIST(r, c->iface_routes)
+  WALK_LIST(r, cf->iface_routes)
     r->installed = 0;
-  WALK_LIST(r, c->other_routes)
+  WALK_LIST(r, cf->other_routes)
     r->installed = 0;
 
   return PS_DOWN;
 }
+
+static void
+static_cleanup(struct proto *p)
+{
+  struct static_config *cf = (void *) p->cf;
+
+  if (cf->igp_table)
+    rt_unlock_table(cf->igp_table->table);
+}
+
 
 static void
 static_neigh_notify(struct neighbor *n)
@@ -373,6 +398,9 @@ static_same_dest(struct static_route *x, struct static_route *y)
 	  return 0;
       return !x && !y;
 
+    case RTDX_RECURSIVE:
+      return ipa_equal(x->via, y->via);
+
     default:
       return 1;
     }
@@ -407,12 +435,21 @@ static_match(struct proto *p, struct static_route *r, struct static_config *n)
   static_remove(p, r);
 }
 
+static inline rtable *
+cf_igp_table(struct static_config *cf)
+{
+  return cf->igp_table ? cf->igp_table->table : NULL;
+}
+
 static int
 static_reconfigure(struct proto *p, struct proto_config *new)
 {
   struct static_config *o = (void *) p->cf;
   struct static_config *n = (void *) new;
   struct static_route *r;
+
+  if (cf_igp_table(o) != cf_igp_table(n))
+    return 0;
 
   /* Delete all obsolete routes and reset neighbor entries */
   WALK_LIST(r, o->iface_routes)
@@ -440,6 +477,7 @@ struct protocol proto_static = {
   dump:		static_dump,
   start:	static_start,
   shutdown:	static_shutdown,
+  cleanup:	static_cleanup,
   reconfigure:	static_reconfigure,
 };
 
@@ -456,6 +494,7 @@ static_show_rt(struct static_route *r)
     case RTD_UNREACHABLE: bsprintf(via, "unreachable"); break;
     case RTD_PROHIBIT:	bsprintf(via, "prohibited"); break;
     case RTD_MULTIPATH:	bsprintf(via, "multipath"); break;
+    case RTDX_RECURSIVE: bsprintf(via, "recursive %I", r->via); break;
     default:		bsprintf(via, "???");
     }
   cli_msg(-1009, "%I/%d %s%s", r->net, r->masklen, via, r->installed ? "" : " (dormant)");

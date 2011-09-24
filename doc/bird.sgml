@@ -2420,11 +2420,13 @@ telling to return packets as undeliverable if they are in your IP block,
 you don't have any specific destination for them and you don't want to send
 them out through the default route to prevent routing loops).
 
-<p>There are three types of static routes: `classical' routes telling to
-forward packets to a neighboring router, device routes specifying forwarding
-to hosts on a directly connected network and special routes (sink, blackhole
-etc.) which specify a special action to be done instead of forwarding the
-packet.
+<p>There are five types of static routes: `classical' routes telling
+to forward packets to a neighboring router, multipath routes
+specifying several (possibly weighted) neighboring routers, device
+routes specifying forwarding to hosts on a directly connected network,
+recursive routes computing their nexthops by doing route table lookups
+for a given IP and special routes (sink, blackhole etc.) which specify
+a special action to be done instead of forwarding the packet.
 
 <p>When the particular destination is not available (the interface is down or
 the next hop of the route is not a neighbor at the moment), Static just
@@ -2442,17 +2444,22 @@ definition of the protocol contains mainly a list of static routes:
  	with their weights.
 	<tag>route <m/prefix/ via <m/"interface"/</tag> Static device
 	route through an interface to hosts on a directly connected network.
+	<tag>route <m/prefix/ recursive <m/ip/</tag> Static recursive route,
+	its nexthop depends on a route table lookup for given IP address.
 	<tag>route <m/prefix/ drop|reject|prohibit</tag> Special routes
 	specifying to drop the packet, return it as unreachable or return
 	it as administratively prohibited.
 
-	<tag>check link <M>switch</M></tag>
-	The only option of the static protocol. If set, hardware link
-	states of network interfaces are taken into consideration.
-	When link disappears (e.g. ethernet cable is unplugged),
-	static routes directing to that interface are removed. It is
-	possible that some hardware drivers or platforms do not
-	implement this feature. Default: off.
+	<tag>check link <m/switch/</tag>
+	If set, hardware link states of network interfaces are taken
+	into consideration.  When link disappears (e.g. ethernet cable
+	is unplugged), static routes directing to that interface are
+	removed. It is possible that some hardware drivers or
+	platforms do not implement this feature. Default: off.
+
+	<tag>igp table <m/name/</tag> Specifies a table that is used
+	for route table lookups of recursive routes. Default: the
+	same table as the protocol is connected to.
 </descrip>
 
 <p>Static routes have no specific attributes.

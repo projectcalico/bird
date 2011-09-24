@@ -18,7 +18,7 @@ static struct static_route *this_srt, *this_srt_nh, *last_srt_nh;
 CF_DECLS
 
 CF_KEYWORDS(STATIC, ROUTE, VIA, DROP, REJECT, PROHIBIT, PREFERENCE, CHECK, LINK)
-CF_KEYWORDS(MULTIPATH, WEIGHT)
+CF_KEYWORDS(MULTIPATH, WEIGHT, RECURSIVE, IGP, TABLE)
 
 
 CF_GRAMMAR
@@ -35,6 +35,7 @@ static_proto:
    static_proto_start proto_name '{'
  | static_proto proto_item ';'
  | static_proto CHECK LINK bool ';' { STATIC_CFG->check_link = $4; }
+ | static_proto IGP TABLE rtable ';' { STATIC_CFG->igp_table = $4; }
  | static_proto stat_route ';'
  ;
 
@@ -78,6 +79,10 @@ stat_route:
    }
  | stat_route0 MULTIPATH stat_multipath {
       this_srt->dest = RTD_MULTIPATH;
+   }
+ | stat_route0 RECURSIVE ipa {
+      this_srt->dest = RTDX_RECURSIVE;
+      this_srt->via = $3;
    }
  | stat_route0 DROP { this_srt->dest = RTD_BLACKHOLE; }
  | stat_route0 REJECT { this_srt->dest = RTD_UNREACHABLE; }
