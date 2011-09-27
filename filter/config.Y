@@ -347,7 +347,7 @@ decls: /* EMPTY */ { $$ = NULL; }
 
 /* Declarations that have no ';' at the end. */
 declsn: one_decl { $$ = $1; }
- | declsn ';' one_decl {
+ | one_decl ';' declsn {
      $$ = $1;
      $$->aux2 = $3;
    }
