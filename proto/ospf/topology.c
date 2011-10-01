@@ -786,7 +786,7 @@ originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
   {
     if (check_sum_net_lsaid_collision(fn, en))
     {
-      log(L_ERR, "%s: LSAID collision for %I/%d",
+      log(L_ERR "%s: LSAID collision for %I/%d",
 	  p->name, fn->prefix, fn->pxlen);
       return;
     }
@@ -864,7 +864,7 @@ flush_sum_lsa(struct ospf_area *oa, struct fib_node *fn, int type)
     {
       if ((type == ORT_NET) && check_sum_net_lsaid_collision(fn, en))
 	{
-	  log(L_ERR, "%s: LSAID collision for %I/%d",
+	  log(L_ERR "%s: LSAID collision for %I/%d",
 	      p->name, fn->prefix, fn->pxlen);
 	  return;
 	}
@@ -1004,7 +1004,6 @@ find_surrogate_fwaddr(struct ospf_area *oa)
   WALK_LIST(ifa, po->iface_list)
   {
     if ((ifa->oa != oa) ||
-	(ifa->state == OSPF_IS_DOWN) ||
 	(ifa->type == OSPF_IT_VLINK))
       continue;
 
@@ -1091,7 +1090,7 @@ originate_ext_lsa(struct ospf_area *oa, struct fib_node *fn, int src,
     fwaddr = find_surrogate_fwaddr(oa);
     if (ipa_zero(fwaddr))
     {
-      log(L_ERR, "%s: Cannot find forwarding address for NSSA-LSA %I/%d",
+      log(L_ERR "%s: Cannot find forwarding address for NSSA-LSA %I/%d",
 	  p->name, fn->prefix, fn->pxlen);
       return;
     }
@@ -1102,7 +1101,7 @@ originate_ext_lsa(struct ospf_area *oa, struct fib_node *fn, int src,
     int rv = check_ext_lsa(en, fn, metric, fwaddr, tag);
     if (rv < 0)
     {
-      log(L_ERR, "%s: LSAID collision for %I/%d",
+      log(L_ERR "%s: LSAID collision for %I/%d",
 	  p->name, fn->prefix, fn->pxlen);
       return;
     }
@@ -1150,7 +1149,7 @@ flush_ext_lsa(struct ospf_area *oa, struct fib_node *fn)
     {
       if (check_ext_lsa(en, fn, 0, IPA_NONE, 0) < 0)
 	{
-	  log(L_ERR, "%s: LSAID collision for %I/%d",
+	  log(L_ERR "%s: LSAID collision for %I/%d",
 	      p->name, fn->prefix, fn->pxlen);
 	  return;
 	}
