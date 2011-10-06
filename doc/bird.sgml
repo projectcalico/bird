@@ -1401,22 +1401,22 @@ with `<tt/O/') are optional.
 <p><code>
 protocol bgp {
 	local as 65000;			     # Use a private AS number
-	neighbor 62.168.0.130 as 5588;	     # Our neighbor ...
+	neighbor 198.51.100.130 as 64496;    # Our neighbor ...
 	multihop;			     # ... which is connected indirectly
 	export filter {			     # We use non-trivial export rules
 		if source = RTS_STATIC then { # Export only static routes
 		        # Assign our community
-			bgp_community.add((65000,5678));
+			bgp_community.add((65000,64501));
 			# Artificially increase path length
 			# by advertising local AS number twice
-			if bgp_path ~ [= 65000 =] then	  
-				bgp_path.prepend(65000);  
+			if bgp_path ~ [= 65000 =] then
+				bgp_path.prepend(65000);
 			accept;
 		}
 		reject;
 	};
 	import all;
-	source address 62.168.0.1;	# Use a non-standard source address
+	source address 198.51.100.14;	# Use a non-standard source address
 }
 </code>
 
@@ -2469,12 +2469,12 @@ definition of the protocol contains mainly a list of static routes:
 <p><code>
 protocol static {
 	table testable;			 # Connect to a non-default routing table
-	route 0.0.0.0/0 via 62.168.0.13; # Default route
+	route 0.0.0.0/0 via 198.51.100.130; # Default route
 	route 10.0.0.0/8 multipath	 # Multipath route
-		via 62.168.0.14 weight 2
-		via 62.168.1.10
-		via 62.168.1.11;
-	route 62.168.0.0/25 reject;	 # Sink route
+		via 198.51.100.10 weight 2
+		via 198.51.100.20
+		via 192.0.2.1;
+	route 203.0.113.0/24 reject;	 # Sink route
 	route 10.2.0.0/24 via "arc0";	 # Secondary network
 }
 </code>
