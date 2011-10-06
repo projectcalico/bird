@@ -68,7 +68,7 @@ krt_capable(rte *e)
     memcpy(p, body, (l > sizeof(*p) ? sizeof(*p) : l));\
     body += l;}
 
-static void
+static int
 krt_sock_send(int cmd, rte *e)
 {
   net *net = e->net;
@@ -160,7 +160,7 @@ krt_sock_send(int cmd, rte *e)
 
         if(!i->addr) {
           log(L_ERR "KRT: interface %s has no IP addess", i->name);
-          return;
+          return -1;
         }
 
         fill_in_sockaddr(&gate, i->addr->ip, 0);
@@ -182,22 +182,27 @@ krt_sock_send(int cmd, rte *e)
 
   if ((l = write(rt_sock, (char *)&msg, l)) < 0) {
     log(L_ERR "KRT: Error sending route %I/%d to kernel", net->n.prefix, net->n.pxlen);
+    return -1;
   }
+
+  return 0;
 }
 
 void
-krt_set_notify(struct krt_proto *p UNUSED, net *net, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p UNUSED, net *n, rte *new, rte *old)
 {
+  int err = 0;
+
   if (old)
-    {
-      DBG("krt_remove_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
-      krt_sock_send(RTM_DELETE, old);
-    }
+    krt_sock_send(RTM_DELETE, old);
+
   if (new)
-    {
-      DBG("krt_add_route(%I/%d)\n", net->n.prefix, net->n.pxlen);
-      krt_sock_send(RTM_ADD, new);
-    }
+    err = krt_sock_send(RTM_ADD, new);
+
+  if (err < 0)
+    n->n.flags |= KRF_SYNC_ERROR;
+  else
+    n->n.flags &= ~KRF_SYNC_ERROR;
 }
 
 static int

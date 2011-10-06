@@ -1645,6 +1645,7 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d, ea_list *tm
   byte tm[TM_DATETIME_BUFFER_SIZE], info[256];
   rta *a = e->attrs;
   int primary = (e->net->routes == e);
+  int sync_error = (e->net->n.flags & KRF_SYNC_ERROR);
   struct mpnh *nh;
 
   rt_format_via(e, via);
@@ -1667,7 +1668,7 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d, ea_list *tm
   else
     bsprintf(info, " (%d)", e->pref);
   cli_printf(c, -1007, "%-18s %s [%s %s%s]%s%s", ia, via, a->proto->name,
-	     tm, from, primary ? " *" : "", info);
+	     tm, from, primary ? (sync_error ? " !" : " *") : "", info);
   for (nh = a->nexthops; nh; nh = nh->next)
     cli_printf(c, -1007, "\tvia %I on %s weight %d", nh->gw, nh->iface->name, nh->weight + 1);
   if (d->verbose)

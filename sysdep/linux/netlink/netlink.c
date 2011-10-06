@@ -198,7 +198,7 @@ nl_exchange(struct nlmsghdr *pkt)
 	break;
       log(L_WARN "nl_exchange: Unexpected reply received");
     }
-  return nl_error(h);
+  return nl_error(h) ? -1 : 0;
 }
 
 /*
@@ -616,7 +616,7 @@ nh_bufsize(struct mpnh *nh)
   return rv;
 }
 
-static void
+static int
 nl_send_route(struct krt_proto *p, rte *e, int new)
 {
   eattr *ea;
@@ -663,7 +663,7 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
       break;
     case RTD_DEVICE:
       if (!a->iface)
-	return;
+	return -1;
       r.r.rtm_type = RTN_UNICAST;
       nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, a->iface->index);
       break;
@@ -684,17 +684,24 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
       bug("krt_capable inconsistent with nl_send_route");
     }
 
-  nl_exchange(&r.h);
+  return nl_exchange(&r.h);
 }
 
 void
-krt_set_notify(struct krt_proto *p, net *n UNUSED, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old)
 {
+  int err = 0;
+
   if (old)
     nl_send_route(p, old, 0);
 
   if (new)
-    nl_send_route(p, new, 1);
+    err = nl_send_route(p, new, 1);
+
+  if (err < 0)
+    n->n.flags |= KRF_SYNC_ERROR;
+  else
+    n->n.flags &= ~KRF_SYNC_ERROR;
 }
 
 

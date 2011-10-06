@@ -499,7 +499,7 @@ ospf_err_hook(sock * sk, int err)
 {
 //  struct ospf_iface *ifa= (struct ospf_iface *) (sk->data);
 //  struct proto *p = (struct proto *) (ifa->oa->po);
-  log(L_ERR "OSPF: Socket error: %m", err);
+  log(L_ERR "OSPF: Socket error: %M", err);
 }
 
 void

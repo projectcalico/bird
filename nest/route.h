@@ -321,6 +321,10 @@ typedef struct rta {
 #define RTD_MULTIPATH 5			/* Multipath route (nexthops != NULL) */
 #define RTD_NONE 6			/* Invalid RTD */
 
+					/* Flags for net->n.flags, used by kernel syncer */
+#define KRF_INSTALLED 0x80		/* This route should be installed in the kernel */
+#define KRF_SYNC_ERROR 0x40		/* Error during kernel table synchronization */
+
 #define RTAF_CACHED 1			/* This is a cached rta */
 
 #define IGP_METRIC_UNKNOWN 0x80000000	/* Default igp_metric used when no other
