@@ -181,7 +181,7 @@ krt_sock_send(int cmd, rte *e)
   msg.rtm.rtm_msglen = l;
 
   if ((l = write(rt_sock, (char *)&msg, l)) < 0) {
-    log(L_ERR "KRT: Error sending route %I/%d to kernel", net->n.prefix, net->n.pxlen);
+    log(L_ERR "KRT: Error sending route %I/%d to kernel: %m", net->n.prefix, net->n.pxlen);
     return -1;
   }
 
