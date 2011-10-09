@@ -120,7 +120,7 @@ struct include_file_stack {
         struct include_file_stack *next;
 };
 
-struct include_file_stack *ifs;
+extern struct include_file_stack *ifs;
 
 
 int cf_lex(void);

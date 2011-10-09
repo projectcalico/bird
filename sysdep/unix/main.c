@@ -171,11 +171,14 @@ cf_open(char *filename)
 
   if (*filename != '/') {
     snprintf(full_name, sizeof(full_name), "%s/%s", dirname(config_name), filename);
+    full_name[sizeof(full_name)-1] = 0;
     cur = full_name;
   }
 
   if ((ret = open(cur, O_RDONLY)) == -1)
     cf_error("Unable to open included configuration file: %s", cur);
+
+  return ret;
 }
 
 

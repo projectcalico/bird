@@ -75,6 +75,7 @@ linpool *cfg_mem;
 
 int (*cf_read_hook)(byte *buf, unsigned int max, int fd);
 int (*cf_open_hook)(char *filename);
+struct include_file_stack *ifs;
 
 #define YY_INPUT(buf,result,max) result = cf_read_hook(buf, max, ifs->conf_fd);
 #define YY_NO_UNPUT

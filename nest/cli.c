@@ -224,7 +224,7 @@ static int cli_rh_trick_flag;
 struct cli *this_cli;
 
 static int
-cli_cmd_read_hook(byte *buf, unsigned int max)
+cli_cmd_read_hook(byte *buf, unsigned int max, UNUSED int fd)
 {
   if (!cli_rh_trick_flag)
     {
