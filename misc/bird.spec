@@ -1,6 +1,6 @@
 Summary: BIRD Internet Routing Daemon
 Name: bird
-Version: 1.3.3
+Version: 1.3.4
 Release: 1
 Copyright: GPL
 Group: Networking/Daemons
@@ -10,6 +10,7 @@ Source2: birdc6
 Buildroot: /var/tmp/bird-root
 Url: http://bird.network.cz
 Prereq: /sbin/chkconfig
+BuildRequires: flex bison readline-devel ncurses-devel
 
 %description
 BIRD is dynamic routing daemon supporting IPv4 and IPv6 versions of routing

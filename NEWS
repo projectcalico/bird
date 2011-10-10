@@ -1,9 +1,13 @@
 
+Version 1.3.4 (2011-10-10)
+  o Static recursive routes.
+  o Several bugfixes.
+
 Version 1.3.3 (2011-09-11)
-  o OSPF NSSA
-  o BGP extended communities
-  o BGP TTL security
-  o Configuration option "include" added (based on patch from Alexander V. Chernikov)
+  o OSPF NSSA.
+  o BGP extended communities.
+  o BGP TTL security.
+  o Configuration option "include" added (based on patch from Alexander V. Chernikov).
   o Some minor bugfixes.
 
 Version 1.3.2 (2011-07-08)
@@ -31,7 +35,7 @@ Version 1.3.0 (2011-03-31)
   o Much improved OSPF reconfiguration.
   o Point-to-MultiPoint interfaces (OSPF).
   o Minor changes and improvements in config file grammar.
-  o Better community list matching
+  o Better community list matching.
   o Changes default behavior of BGP IPv6 socket to v6only.
     Use 'listen bgp dual' for the old behavior.
   o Changes default for handling missing link-local addresses on
