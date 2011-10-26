@@ -706,17 +706,16 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
   if (new) {
     if (new->addr->flags & IA_PEER)
       log( L_WARN "%s: rip is not defined over unnumbered links", p->name );
+    rif->sock->saddr = IPA_NONE;
     if (rif->multicast) {
 #ifndef IPV6
       rif->sock->daddr = ipa_from_u32(0xe0000009);
-      rif->sock->saddr = ipa_from_u32(0xe0000009);
 #else
       rif->sock->daddr = ipa_build(0xff020000, 0, 0, 9);
-      rif->sock->saddr = new->addr->ip;
+      rif->sock->saddr = new->addr->ip; /* Does not really work on Linux */
 #endif
     } else {
       rif->sock->daddr = new->addr->brd;
-      rif->sock->saddr = new->addr->brd;
     }
   }
 
