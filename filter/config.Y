@@ -242,7 +242,7 @@ f_generate_ec(u16 kind, struct f_inst *tk, struct f_inst *tv)
   }
 
   return rv;
-};
+}
 
 
 
@@ -619,8 +619,8 @@ constant:
  ;
 
 constructor:
-   '(' term ',' term ')' { $$ = f_generate_dpair($2, $4); };
- | '(' ec_kind ',' term ',' term ')' { $$ = f_generate_ec($2, $4, $6); };
+   '(' term ',' term ')' { $$ = f_generate_dpair($2, $4); }
+ | '(' ec_kind ',' term ',' term ')' { $$ = f_generate_ec($2, $4, $6); }
  ;
 
 
