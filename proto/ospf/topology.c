@@ -150,7 +150,7 @@ get_seqnum(struct top_hash_entry *en)
     return LSA_INITSEQNO;
   }
 
-  return en->lsa.sn++;
+  return en->lsa.sn + 1;
 }
 
 
