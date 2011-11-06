@@ -141,7 +141,7 @@ extern struct linpool *bgp_linpool;
 
 
 void bgp_start_timer(struct timer *t, int value);
-void bgp_check(struct bgp_config *c);
+void bgp_check_config(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len);
 void bgp_close_conn(struct bgp_conn *c);
 void bgp_update_startup_delay(struct bgp_proto *p);

@@ -1015,6 +1015,19 @@ rip_reconfigure(struct proto *p, struct proto_config *c)
                  sizeof(struct rip_proto_config) - generic);
 }
 
+static void
+rip_copy_config(struct proto_config *dest, struct proto_config *src)
+{
+  /* Shallow copy of everything */
+  proto_copy_rest(dest, src, sizeof(struct rip_proto_config));
+
+  /* We clean up iface_list, ifaces are non-sharable */
+  init_list(&((struct rip_proto_config *) dest)->iface_list);
+
+  /* Copy of passwords is OK, it just will be replaced in dest when used */
+}
+
+
 struct protocol proto_rip = {
   name: "RIP",
   template: "rip%d",
@@ -1026,4 +1039,5 @@ struct protocol proto_rip = {
   dump: rip_dump,
   start: rip_start,
   reconfigure: rip_reconfigure,
+  copy_config: rip_copy_config
 };

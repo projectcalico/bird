@@ -919,6 +919,73 @@ bgp_init(struct proto_config *C)
   return P;
 }
 
+
+void
+bgp_check_config(struct bgp_config *c)
+{
+  int internal = (c->local_as == c->remote_as);
+
+  /* Do not check templates at all */
+  if (c->c.class == SYM_TEMPLATE)
+    return;
+
+  if (!c->local_as)
+    cf_error("Local AS number must be set");
+
+  if (!c->remote_as)
+    cf_error("Neighbor must be configured");
+
+  if (!(c->capabilities && c->enable_as4) && (c->remote_as > 0xFFFF))
+    cf_error("Neighbor AS number out of range (AS4 not available)");
+
+  if (!internal && c->rr_client)
+    cf_error("Only internal neighbor can be RR client");
+
+  if (internal && c->rs_client)
+    cf_error("Only external neighbor can be RS client");
+
+  if (c->multihop && (c->gw_mode == GW_DIRECT))
+    cf_error("Multihop BGP cannot use direct gateway mode");
+
+  /* Different default based on rs_client */
+  if (!c->missing_lladdr)
+    c->missing_lladdr = c->rs_client ? MLL_IGNORE : MLL_SELF;
+
+  /* Different default for gw_mode */
+  if (!c->gw_mode)
+    c->gw_mode = (c->multihop || internal) ? GW_RECURSIVE : GW_DIRECT;
+}
+
+static int
+bgp_reconfigure(struct proto *P, struct proto_config *C)
+{
+  struct bgp_config *new = (struct bgp_config *) C;
+  struct bgp_proto *p = (struct bgp_proto *) P;
+  struct bgp_config *old = p->cf;
+
+  int same = !memcmp(((byte *) old) + sizeof(struct proto_config),
+		     ((byte *) new) + sizeof(struct proto_config),
+		     // password item is last and must be checked separately
+		     OFFSETOF(struct bgp_config, password) - sizeof(struct proto_config))
+    && ((!old->password && !new->password)
+	|| (old->password && new->password && !strcmp(old->password, new->password)))
+    && (get_igp_table(old) == get_igp_table(new));
+
+  /* We should update our copy of configuration ptr as old configuration will be freed */
+  if (same)
+    p->cf = new;
+
+  return same;
+}
+
+static void
+bgp_copy_config(struct proto_config *dest, struct proto_config *src)
+{
+  /* Just a shallow copy */
+  proto_copy_rest(dest, src, sizeof(struct bgp_config));
+}
+
+
 /**
  * bgp_error - report a protocol error
  * @c: connection
@@ -981,38 +1048,6 @@ bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code)
 
   p->last_error_class = class;
   p->last_error_code = code;
-}
-
-void
-bgp_check(struct bgp_config *c)
-{
-  int internal = (c->local_as == c->remote_as);
-
-  if (!c->local_as)
-    cf_error("Local AS number must be set");
-
-  if (!c->remote_as)
-    cf_error("Neighbor must be configured");
-
-  if (!(c->capabilities && c->enable_as4) && (c->remote_as > 0xFFFF))
-    cf_error("Neighbor AS number out of range (AS4 not available)");
-
-  if (!internal && c->rr_client)
-    cf_error("Only internal neighbor can be RR client");
-
-  if (internal && c->rs_client)
-    cf_error("Only external neighbor can be RS client");
-
-  if (c->multihop && (c->gw_mode == GW_DIRECT))
-    cf_error("Multihop BGP cannot use direct gateway mode");
-
-  /* Different default based on rs_client */
-  if (!c->missing_lladdr)
-    c->missing_lladdr = c->rs_client ? MLL_IGNORE : MLL_SELF;
-
-  /* Different default for gw_mode */
-  if (!c->gw_mode)
-    c->gw_mode = (c->multihop || internal) ? GW_RECURSIVE : GW_DIRECT;
 }
 
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established", "Close" };
@@ -1124,28 +1159,6 @@ bgp_show_proto_info(struct proto *P)
     }
 }
 
-static int
-bgp_reconfigure(struct proto *P, struct proto_config *C)
-{
-  struct bgp_config *new = (struct bgp_config *) C;
-  struct bgp_proto *p = (struct bgp_proto *) P;
-  struct bgp_config *old = p->cf;
-
-  int same = !memcmp(((byte *) old) + sizeof(struct proto_config),
-		     ((byte *) new) + sizeof(struct proto_config),
-		     // password item is last and must be checked separately
-		     OFFSETOF(struct bgp_config, password) - sizeof(struct proto_config))
-    && ((!old->password && !new->password)
-	|| (old->password && new->password && !strcmp(old->password, new->password)))
-    && (get_igp_table(old) == get_igp_table(new));
-
-  /* We should update our copy of configuration ptr as old configuration will be freed */
-  if (same)
-    p->cf = new;
-
-  return same;
-}
-
 struct protocol proto_bgp = {
   name:			"BGP",
   template:		"bgp%d",
@@ -1155,6 +1168,7 @@ struct protocol proto_bgp = {
   shutdown:		bgp_shutdown,
   cleanup:		bgp_cleanup,
   reconfigure:		bgp_reconfigure,
+  copy_config:		bgp_copy_config,
   get_status:		bgp_get_status,
   get_attr:		bgp_get_attr,
   get_route_info:	bgp_get_route_info,

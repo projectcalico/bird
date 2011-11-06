@@ -85,8 +85,8 @@ struct ospf_config
   byte rfc1583;
   byte abr;
   int ecmp;
-  list area_list;
-  list vlink_list;
+  list area_list;		/* list of struct ospf_area_config */
+  list vlink_list;		/* list of struct ospf_iface_patt */
 };
 
 struct nbma_node

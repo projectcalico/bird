@@ -165,14 +165,6 @@ pipe_postconfig(struct proto_config *C)
     cf_error("Primary table and peer table must be different");
 }
 
-static void
-pipe_get_status(struct proto *P, byte *buf)
-{
-  struct pipe_proto *p = (struct pipe_proto *) P;
-
-  bsprintf(buf, "%c> %s", (p->mode == PIPE_OPAQUE) ? '-' : '=', p->peer->name);
-}
-
 static int
 pipe_reconfigure(struct proto *P, struct proto_config *new)
 {
@@ -186,6 +178,21 @@ pipe_reconfigure(struct proto *P, struct proto_config *new)
   return 1;
 }
 
+static void
+pipe_copy_config(struct proto_config *dest, struct proto_config *src)
+{
+  /* Just a shallow copy, not many items here */
+  proto_copy_rest(dest, src, sizeof(struct pipe_config));
+}
+
+static void
+pipe_get_status(struct proto *P, byte *buf)
+{
+  struct pipe_proto *p = (struct pipe_proto *) P;
+
+  bsprintf(buf, "%c> %s", (p->mode == PIPE_OPAQUE) ? '-' : '=', p->peer->name);
+}
+
 
 struct protocol proto_pipe = {
   name:		"Pipe",
@@ -195,5 +202,6 @@ struct protocol proto_pipe = {
   start:	pipe_start,
   cleanup:	pipe_cleanup,
   reconfigure:	pipe_reconfigure,
+  copy_config:  pipe_copy_config,
   get_status:	pipe_get_status,
 };

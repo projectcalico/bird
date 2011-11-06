@@ -46,14 +46,14 @@
 struct radv_config
 {
   struct proto_config c;
-  list patt_list;		/* List of iface configs */
-  list pref_list;		/* Global list of prefix configs */
+  list patt_list;		/* List of iface configs (struct radv_iface_config) */
+  list pref_list;		/* Global list of prefix configs (struct radv_prefix_config) */
 };
 
 struct radv_iface_config
 {
   struct iface_patt i;
-  list pref_list;		/* Local list of prefix configs */
+  list pref_list;		/* Local list of prefix configs (struct radv_prefix_config) */
 
   u32 min_ra_int;		/* Standard options from RFC 4261 */
   u32 max_ra_int;
@@ -64,7 +64,7 @@ struct radv_iface_config
   u32 link_mtu;
   u32 reachable_time;
   u32 retrans_timer;
-  u32 current_hop_limit;               
+  u32 current_hop_limit;
   u32 default_lifetime;
 };
 

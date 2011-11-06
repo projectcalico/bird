@@ -318,6 +318,19 @@ radv_reconfigure(struct proto *p, struct proto_config *c)
   return 1;
 }
 
+static void
+radv_copy_config(struct proto_config *dest, struct proto_config *src)
+{
+  struct radv_config *d = (struct radv_config *) dest;
+  struct radv_config *s = (struct radv_config *) src;
+
+  /* We clean up patt_list, ifaces are non-sharable */
+  init_list(&d->patt_list);
+
+  /* We copy pref_list, shallow copy suffices */
+  cfg_copy_list(&d->iface_list, &s->iface_list, sizeof(struct iface_patt));
+}
+
 
 struct protocol proto_radv = {
   .name =		"RAdv",
@@ -325,5 +338,6 @@ struct protocol proto_radv = {
   .init =		radv_init,
   .start =		radv_start,
   .shutdown =		radv_shutdown,
-  .reconfigure =	radv_reconfigure
+  .reconfigure =	radv_reconfigure,
+  .copy_config =	radv_copy_config
 };

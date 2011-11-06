@@ -53,6 +53,7 @@ struct protocol {
   void (*get_route_info)(struct rte *, byte *buf, struct ea_list *attrs); /* Get route information (for `show route' command) */
   int (*get_attr)(struct eattr *, byte *buf, int buflen);	/* ASCIIfy dynamic attribute (returns GA_*) */
   void (*show_proto_info)(struct proto *);	/* Show protocol info (for `show protocols all' command) */
+  void (*copy_config)(struct proto_config *, struct proto_config *);	/* Copy config from given protocol instance */
 };
 
 void protos_build(void);
@@ -85,11 +86,14 @@ struct proto_config {
   struct proto *proto;			/* Instance we've created */
   char *name;
   char *dsc;
+  int class;				/* SYM_PROTO or SYM_TEMPLATE */
   u32 debug, mrtdump;			/* Debugging bitfields, both use D_* constants */
   unsigned preference, disabled;	/* Generic parameters */
   u32 router_id;			/* Protocol specific router ID */
   struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
+
+  /* Check proto_reconfigure() and proto_copy_config() after changing struct proto_config */
 
   /* Protocol-specific data follow... */
 };
@@ -203,8 +207,13 @@ struct proto_spec {
 
 
 void *proto_new(struct proto_config *, unsigned size);
-void *proto_config_new(struct protocol *, unsigned size);
+void *proto_config_new(struct protocol *, unsigned size, int class);
+void proto_copy_config(struct proto_config *dest, struct proto_config *src);
 void proto_request_feeding(struct proto *p);
+
+static inline void
+proto_copy_rest(struct proto_config *dest, struct proto_config *src, unsigned size)
+{ memcpy(dest + 1, src + 1, size - sizeof(struct proto_config)); }
 
 void proto_cmd_show(struct proto *, unsigned int, int);
 void proto_cmd_disable(struct proto *, unsigned int, int);

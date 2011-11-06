@@ -377,3 +377,18 @@ cfg_strdup(char *c)
   memcpy(z, c, l);
   return z;
 }
+
+
+void
+cfg_copy_list(list *dest, list *src, unsigned node_size)
+{
+  node *dn, *sn;
+
+  init_list(dest);
+  WALK_LIST(sn, *src)
+  {
+    dn = cfg_alloc(node_size);
+    memcpy(dn, sn, node_size);
+    add_tail(dest, dn);
+  }
+}

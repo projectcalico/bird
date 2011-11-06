@@ -100,7 +100,7 @@ struct kif_config {
   struct proto_config c;
   struct krt_if_params iface;
   int scan_time;		/* How often we re-scan interfaces */
-  list primary;			/* Preferences for primary addresses */
+  list primary;			/* Preferences for primary addresses (struct kif_primary_item) */
 };
 
 struct kif_proto {

@@ -202,3 +202,16 @@ protocol static {
 #		reject;
 #	};
 #}
+# 
+# Template usage example
+#template bgp rr_client {
+#	disabled;
+#	local as 65000;
+#	multihop;
+#	rr client;
+#	rr cluster id 1.0.0.1;
+#}
+#
+#protocol bgp rr_abcd from rr_client {
+#	neighbor 10.1.4.7 as 65000;
+#}

@@ -533,6 +533,8 @@ cf_symbol_class_name(struct symbol *sym)
       return "routing table";
     case SYM_IPA:
       return "network address";
+    case SYM_TEMPLATE:
+      return "protocol template";
     default:
       return "unknown type";
     }

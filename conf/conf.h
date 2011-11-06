@@ -84,6 +84,7 @@ extern linpool *cfg_mem;
 #define cfg_allocu(size) lp_allocu(cfg_mem, size)
 #define cfg_allocz(size) lp_allocz(cfg_mem, size)
 char *cfg_strdup(char *c);
+void cfg_copy_list(list *dest, list *src, unsigned node_size);
 
 /* Lexer */
 
@@ -108,6 +109,7 @@ struct symbol {
 #define SYM_FILTER 4
 #define SYM_TABLE 5
 #define SYM_IPA 6
+#define SYM_TEMPLATE 7
 
 #define SYM_VARIABLE 0x100	/* 0x100-0x1ff are variable types */
 

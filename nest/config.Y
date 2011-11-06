@@ -26,7 +26,7 @@ static int password_id;
 static inline void
 reset_passwords(void)
 {
- this_p_list = NULL;
+  this_p_list = NULL;
 }
 
 static inline list *
@@ -37,10 +37,11 @@ get_passwords(void)
   return rv;
 }
 
+#define DIRECT_CFG ((struct rt_dev_config *) this_proto)
 
 CF_DECLS
 
-CF_KEYWORDS(ROUTER, ID, PROTOCOL, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
+CF_KEYWORDS(ROUTER, ID, PROTOCOL, TEMPLATE, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
 CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE)
@@ -58,7 +59,7 @@ CF_ENUM(T_ENUM_RTD, RTD_, ROUTER, DEVICE, BLACKHOLE, UNREACHABLE, PROHIBIT, MULT
 %type <r> rtable
 %type <s> optsym
 %type <ra> r_args
-%type <i> echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport
+%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport
 %type <ps> proto_patt proto_patt2
 
 CF_GRAMMAR
@@ -115,19 +116,29 @@ newtab: TABLE SYM {
 
 CF_ADDTO(conf, proto)
 
-proto_start: PROTOCOL
+proto_start:
+   PROTOCOL { $$ = SYM_PROTO; }
+ | TEMPLATE { $$ = SYM_TEMPLATE; }
  ;
 
 proto_name:
    /* EMPTY */ {
      struct symbol *s = cf_default_name(this_proto->protocol->template, &this_proto->protocol->name_counter);
-     s->class = SYM_PROTO;
+     s->class = this_proto->class;
      s->def = this_proto;
      this_proto->name = s->name;
      }
  | SYM {
-     cf_define_symbol($1, SYM_PROTO, this_proto);
+     cf_define_symbol($1, this_proto->class, this_proto);
      this_proto->name = $1->name;
+   }
+ | SYM FROM SYM {
+     if (($3->class != SYM_TEMPLATE) && ($3->class != SYM_PROTO)) cf_error("Template or protocol name expected");
+
+     cf_define_symbol($1, this_proto->class, this_proto);
+     this_proto->name = $1->name;
+
+     proto_copy_config(this_proto, $3->def);
    }
  ;
 
@@ -207,10 +218,9 @@ iface_patt_list:
 CF_ADDTO(proto, dev_proto '}')
 
 dev_proto_start: proto_start DIRECT {
-     struct rt_dev_config *p = proto_config_new(&proto_device, sizeof(struct rt_dev_config));
-     this_proto = &p->c;
-     p->c.preference = DEF_PREF_DIRECT;
-     init_list(&p->iface_list);
+     this_proto = proto_config_new(&proto_device, sizeof(struct rt_dev_config), $1);
+     this_proto->preference = DEF_PREF_DIRECT;
+     init_list(&DIRECT_CFG->iface_list);
    }
  ;
 
@@ -222,9 +232,8 @@ dev_proto:
 
 dev_iface_init:
    /* EMPTY */ {
-     struct rt_dev_config *p = (void *) this_proto;
      this_ipatt = cfg_allocz(sizeof(struct iface_patt));
-     add_tail(&p->iface_list, NODE this_ipatt);
+     add_tail(&DIRECT_CFG->iface_list, NODE this_ipatt);
      init_list(&this_ipatt->ipn_list);
    }
  ;

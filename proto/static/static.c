@@ -470,6 +470,58 @@ static_reconfigure(struct proto *p, struct proto_config *new)
   return 1;
 }
 
+static void
+static_copy_routes(list *dlst, list *slst)
+{
+  struct static_route *dr, *sr;
+
+  init_list(dlst);
+  WALK_LIST(sr, *slst)
+    {
+      /* copy one route */
+      dr = cfg_alloc(sizeof(struct static_route));
+      memcpy(dr, sr, sizeof(struct static_route));
+
+      /* This fn is supposed to be called on fresh src routes, which have 'live'
+	 fields (like .chain, .neigh or .installed) zero, so no need to zero them */
+
+      /* We need to copy multipath chain, because there are backptrs in 'if_name' */
+      if (dr->dest == RTD_MULTIPATH)
+	{
+	  struct static_route *md, *ms, **mp_last;
+
+	  mp_last = &(dr->mp_next);
+	  for (ms = sr->mp_next; ms; ms = ms->mp_next)
+	    {
+	      md = cfg_alloc(sizeof(struct static_route));
+	      memcpy(md, ms, sizeof(struct static_route));
+	      md->if_name = (void *) dr; /* really */
+
+	      *mp_last = md;
+	      mp_last = &(md->mp_next);
+	    }
+	  *mp_last = NULL;
+	}
+
+      add_tail(dlst, (node *) dr);
+    }
+}
+
+static void
+static_copy_config(struct proto_config *dest, struct proto_config *src)
+{
+  struct static_config *d = (struct static_config *) dest;
+  struct static_config *s = (struct static_config *) src;
+
+  /* Shallow copy of everything */
+  proto_copy_rest(dest, src, sizeof(struct static_config));
+
+  /* Copy route lists */
+  static_copy_routes(&d->iface_routes, &s->iface_routes);
+  static_copy_routes(&d->other_routes, &s->other_routes);
+}
+
+
 struct protocol proto_static = {
   name:		"Static",
   template:	"static%d",
@@ -479,6 +531,7 @@ struct protocol proto_static = {
   shutdown:	static_shutdown,
   cleanup:	static_cleanup,
   reconfigure:	static_reconfigure,
+  copy_config:	static_copy_config
 };
 
 static void
