@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #define PARSER 1
 
