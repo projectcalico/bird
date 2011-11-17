@@ -328,7 +328,7 @@ radv_copy_config(struct proto_config *dest, struct proto_config *src)
   init_list(&d->patt_list);
 
   /* We copy pref_list, shallow copy suffices */
-  cfg_copy_list(&d->iface_list, &s->iface_list, sizeof(struct iface_patt));
+  cfg_copy_list(&d->pref_list, &s->pref_list, sizeof(struct radv_prefix_config));
 }
 
 
