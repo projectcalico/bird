@@ -103,8 +103,6 @@ if_connected(ip_addr *a, struct iface *i) /* -1=error, 1=match, 0=no match */
  * If the node is not connected directly or *@a is not a valid unicast
  * IP address, neigh_find() returns %NULL.
  */
-
-
 neighbor *
 neigh_find(struct proto *p, ip_addr *a, unsigned flags)
 {
@@ -219,6 +217,35 @@ neigh_dump_all(void)
   debug("\n");
 }
 
+static void
+neigh_up(neighbor *n, struct iface *i, int scope)
+{
+  n->iface = i;
+  n->scope = scope;
+  add_tail(&i->neighbors, &n->if_n);
+  rem_node(&n->n);
+  add_tail(&neigh_hash_table[neigh_hash(n->proto, &n->addr)], &n->n);
+  DBG("Waking up sticky neighbor %I\n", n->addr);
+  if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
+    n->proto->neigh_notify(n);
+}
+
+static void
+neigh_down(neighbor *n)
+{
+  DBG("Flushing neighbor %I on %s\n", n->addr, i->name);
+  rem_node(&n->if_n);
+  n->iface = NULL;
+  if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
+    n->proto->neigh_notify(n);
+  rem_node(&n->n);
+  if (n->flags & NEF_STICKY)
+    add_tail(&sticky_neigh_list, &n->n);
+  else
+    sl_free(neigh_slab, n);
+}
+
+
 /**
  * neigh_if_up: notify neighbor cache about interface up event
  * @i: interface in question
@@ -236,16 +263,7 @@ neigh_if_up(struct iface *i)
 
   WALK_LIST_DELSAFE(n, next, sticky_neigh_list)
     if ((scope = if_connected(&n->addr, i)) >= 0)
-      {
-	n->iface = i;
-	n->scope = scope;
-	add_tail(&i->neighbors, &n->if_n);
-	rem_node(&n->n);
-	add_tail(&neigh_hash_table[neigh_hash(n->proto, &n->addr)], &n->n);
-	DBG("Waking up sticky neighbor %I\n", n->addr);
-	if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
-	  n->proto->neigh_notify(n);
-      }
+      neigh_up(n, i, scope);
 }
 
 /**
@@ -263,19 +281,7 @@ neigh_if_down(struct iface *i)
   node *x, *y;
 
   WALK_LIST_DELSAFE(x, y, i->neighbors)
-    {
-      neighbor *n = SKIP_BACK(neighbor, if_n, x);
-      DBG("Flushing neighbor %I on %s\n", n->addr, i->name);
-      rem_node(&n->if_n);
-      n->iface = NULL;
-      if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
-	n->proto->neigh_notify(n);
-      rem_node(&n->n);
-      if (n->flags & NEF_STICKY)
-	add_tail(&sticky_neigh_list, &n->n);
-      else
-	sl_free(neigh_slab, n);
-    }
+    neigh_down(SKIP_BACK(neighbor, if_n, x));
 }
 
 /**
@@ -286,7 +292,6 @@ neigh_if_down(struct iface *i)
  * All owners of neighbor entries connected to this interface are
  * notified.
  */
-
 void
 neigh_if_link(struct iface *i)
 {
@@ -298,6 +303,34 @@ neigh_if_link(struct iface *i)
       if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
 	n->proto->neigh_notify(n);
     }
+}
+
+/**
+ * neigh_ifa_update: notify neighbor cache about interface address add or remove event
+ * @ifa: interface address in question
+ *
+ * Tell the neighbor cache that an address was added or removed.
+ *
+ * The neighbor cache wakes up all inactive sticky neighbors with
+ * addresses belonging to prefixes of the interface belonging to @ifa
+ * and causes all unreachable neighbors to be flushed.
+ */
+void
+neigh_ifa_update(struct ifa *a)
+{
+  struct iface *i = a->iface;
+  node *x, *y;
+ 
+  /* Remove all neighbors whose scope has changed */
+  WALK_LIST_DELSAFE(x, y, i->neighbors)
+    {
+      neighbor *n = SKIP_BACK(neighbor, if_n, x);
+      if (if_connected(&n->addr, i) != n->scope)
+	neigh_down(n);
+    }
+
+  /* Wake up all sticky neighbors that are reachable now */
+  neigh_if_up(i);
 }
 
 static inline void

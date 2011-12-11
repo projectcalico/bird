@@ -152,13 +152,21 @@ ifa_send_notify(struct proto *p, unsigned c, struct ifa *a)
 }
 
 static void
-ifa_notify_change(unsigned c, struct ifa *a)
+ifa_notify_change_dep(unsigned c, struct ifa *a)
 {
   struct proto *p;
 
   DBG("IFA change notification (%x) for %s:%I\n", c, a->iface->name, a->ip);
+
   WALK_LIST(p, active_proto_list)
     ifa_send_notify(p, c, a);
+}
+
+static inline void
+ifa_notify_change(unsigned c, struct ifa *a)
+{
+  neigh_ifa_update(a);
+  ifa_notify_change_dep(c, a);
 }
 
 static inline void
@@ -197,11 +205,12 @@ if_notify_change(unsigned c, struct iface *i)
 
   if (c & IF_CHANGE_UP)
     neigh_if_up(i);
+
   if (c & IF_CHANGE_DOWN)
     WALK_LIST(a, i->addrs)
       {
 	a->flags = (i->flags & ~IA_FLAGS) | (a->flags & IA_FLAGS);
-	ifa_notify_change(IF_CHANGE_DOWN, a);
+	ifa_notify_change_dep(IF_CHANGE_DOWN, a);
       }
 
   WALK_LIST(p, active_proto_list)
@@ -211,7 +220,7 @@ if_notify_change(unsigned c, struct iface *i)
     WALK_LIST(a, i->addrs)
       {
 	a->flags = (i->flags & ~IA_FLAGS) | (a->flags & IA_FLAGS);
-	ifa_notify_change(IF_CHANGE_UP, a);
+	ifa_notify_change_dep(IF_CHANGE_UP, a);
       }
 
   if ((c & (IF_CHANGE_UP | IF_CHANGE_DOWN | IF_CHANGE_LINK)) == IF_CHANGE_LINK)
