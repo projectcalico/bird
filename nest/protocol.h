@@ -178,12 +178,14 @@ struct proto {
   /*
    *	Routing entry hooks (called only for rte's belonging to this protocol):
    *
+   *	   rte_recalculate Called at the beginning of the best route selection  
    *	   rte_better	Compare two rte's and decide which one is better (1=first, 0=second).
    *       rte_same	Compare two rte's and decide whether they are identical (1=yes, 0=no).
    *	   rte_insert	Called whenever a rte is inserted to a routing table.
    *	   rte_remove	Called whenever a rte is removed from the routing table.
    */
 
+  int (*rte_recalculate)(struct rtable *, struct network *, struct rte *, struct rte *, struct rte *);
   int (*rte_better)(struct rte *, struct rte *);
   int (*rte_same)(struct rte *, struct rte *);
   void (*rte_insert)(struct network *, struct rte *);

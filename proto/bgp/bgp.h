@@ -29,6 +29,7 @@ struct bgp_config {
   int med_metric;			/* Compare MULTI_EXIT_DISC even between routes from differen ASes */
   int igp_metric;			/* Use IGP metrics when selecting best route */
   int prefer_older;			/* Prefer older routes according to RFC 5004 */
+  int deterministic_med;		/* Use more complicated algo to have strict RFC 4271 MED comparison */
   u32 default_local_pref;		/* Default value for LOCAL_PREF attribute */
   u32 default_med;			/* Default value for MULTI_EXIT_DISC attribute */
   int capabilities;			/* Enable capability handshake [RFC3392] */
@@ -185,6 +186,7 @@ byte *bgp_attach_attr_wa(struct ea_list **to, struct linpool *pool, unsigned att
 struct rta *bgp_decode_attrs(struct bgp_conn *conn, byte *a, unsigned int len, struct linpool *pool, int mandatory);
 int bgp_get_attr(struct eattr *e, byte *buf, int buflen);
 int bgp_rte_better(struct rte *, struct rte *);
+int bgp_rte_recalculate(rtable *table, net *net, rte *new, rte *old, rte *old_best);
 void bgp_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old UNUSED, ea_list *attrs);
 int bgp_import_control(struct proto *, struct rte **, struct ea_list **, struct linpool *);
 void bgp_attr_init(struct bgp_proto *);

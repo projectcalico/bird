@@ -908,6 +908,10 @@ bgp_init(struct proto_config *C)
   P->import_control = bgp_import_control;
   P->neigh_notify = bgp_neigh_notify;
   P->reload_routes = bgp_reload_routes;
+
+  if (c->deterministic_med)
+    P->rte_recalculate = bgp_rte_recalculate;
+
   p->cf = c;
   p->local_as = c->local_as;
   p->remote_as = c->remote_as;
