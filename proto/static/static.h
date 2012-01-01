@@ -27,6 +27,7 @@ struct static_route {
   int masklen;				/* Mask length */
   int dest;				/* Destination type (RTD_*) */
   ip_addr via;				/* Destination router */
+  struct iface *via_if;			/* Destination iface, for link-local vias */
   struct neighbor *neigh;
   byte *if_name;			/* Name for RTD_DEVICE routes */
   struct static_route *mp_next;		/* Nexthops for RTD_MULTIPATH routes */

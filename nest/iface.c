@@ -424,6 +424,24 @@ if_find_by_name(char *name)
   return NULL;
 }
 
+struct iface *
+if_get_by_name(char *name)
+{
+  struct iface *i;
+
+  if (i = if_find_by_name(name))
+    return i;
+
+  /* No active iface, create a dummy */
+  i = mb_allocz(if_pool, sizeof(struct iface));
+  strncpy(i->name, name, sizeof(i->name)-1);
+  i->flags = IF_SHUTDOWN;
+  init_list(&i->addrs);
+  init_list(&i->neighbors);
+  add_tail(&iface_list, &i->n);
+  return i;
+}
+
 struct ifa *kif_choose_primary(struct iface *i);
 
 static int

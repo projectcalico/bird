@@ -48,11 +48,12 @@ stat_route0: ROUTE prefix {
  ;
 
 stat_multipath1:
-   VIA ipa {
+   VIA ipa ipa_scope {
      last_srt_nh = this_srt_nh;
      this_srt_nh = cfg_allocz(sizeof(struct static_route));
      this_srt_nh->dest = RTD_NONE;
      this_srt_nh->via = $2;
+     this_srt_nh->via_if = $3;
      this_srt_nh->if_name = (void *) this_srt; /* really */
    }
  | stat_multipath1 WEIGHT expr {
@@ -67,9 +68,10 @@ stat_multipath:
  ;
 
 stat_route:
-   stat_route0 VIA ipa {
+   stat_route0 VIA ipa ipa_scope {
       this_srt->dest = RTD_ROUTER;
       this_srt->via = $3;
+      this_srt->via_if = $4;
    }
  | stat_route0 VIA TEXT {
       this_srt->dest = RTD_DEVICE;

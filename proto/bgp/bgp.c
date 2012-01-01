@@ -804,7 +804,7 @@ bgp_start_locked(struct object_lock *lock)
       return;
     }
   
-  if (p->neigh->iface)
+  if (p->neigh->scope > 0)
     bgp_start_neighbor(p);
   else
     BGP_TRACE(D_EVENTS, "Waiting for %I to become my neighbor", cf->remote_ip);

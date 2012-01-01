@@ -133,6 +133,7 @@ neigh_find2(struct proto *p, ip_addr *a, struct iface *ifa, unsigned flags)
   if (ifa)
     {
       scope = if_connected(a, ifa);
+      flags |= NEF_BIND;
 
       if ((scope < 0) && (flags & NEF_ONLINK))
 	scope = class & IADDR_SCOPE_MASK;
@@ -160,10 +161,7 @@ neigh_find2(struct proto *p, ip_addr *a, struct iface *ifa, unsigned flags)
     }
   else
     {
-      /* sticky flag does not work for link-local neighbors;
-	 fortunately, we don't use this combination */
       add_tail(&sticky_neigh_list, &n->n);
-      ifa = NULL;
       scope = -1;
     }
   n->iface = ifa;
@@ -235,7 +233,9 @@ neigh_down(neighbor *n)
 {
   DBG("Flushing neighbor %I on %s\n", n->addr, i->name);
   rem_node(&n->if_n);
-  n->iface = NULL;
+  if (! (n->flags & NEF_BIND))
+    n->iface = NULL;
+  n->scope = -1;
   if (n->proto->neigh_notify && n->proto->core_state != FS_FLUSHING)
     n->proto->neigh_notify(n);
   rem_node(&n->n);
@@ -262,7 +262,8 @@ neigh_if_up(struct iface *i)
   int scope;
 
   WALK_LIST_DELSAFE(n, next, sticky_neigh_list)
-    if ((scope = if_connected(&n->addr, i)) >= 0)
+    if ((!n->iface || n->iface == i) &&
+	((scope = if_connected(&n->addr, i)) >= 0))
       neigh_up(n, i, scope);
 }
 
@@ -339,7 +340,7 @@ neigh_prune_one(neighbor *n)
   if (n->proto->proto_state != PS_DOWN)
     return;
   rem_node(&n->n);
-  if (n->iface)
+  if (n->scope >= 0)
     rem_node(&n->if_n);
   sl_free(neigh_slab, n);
 }

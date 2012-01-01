@@ -138,12 +138,10 @@ static_decide(struct static_config *cf, struct static_route *r)
   /* r->dest != RTD_MULTIPATH, but may be RTD_NONE (part of multipath route)
      the route also have to be valid (r->neigh != NULL) */
 
-  struct iface *ifa = r->neigh->iface;
-
-  if (!ifa)
+  if (r->neigh->scope < 0)
     return 0;
 
-  if (cf->check_link && !(ifa->flags & IF_LINK_UP))
+  if (cf->check_link && !(r->neigh->iface->flags & IF_LINK_UP))
     return 0;
 
   return 1;
@@ -158,7 +156,7 @@ static_add(struct proto *p, struct static_config *cf, struct static_route *r)
     {
     case RTD_ROUTER:
       {
-	struct neighbor *n = neigh_find(p, &r->via, NEF_STICKY);
+	struct neighbor *n = neigh_find2(p, &r->via, r->via_if, NEF_STICKY);
 	if (n)
 	  {
 	    r->chain = n->data;
@@ -187,7 +185,7 @@ static_add(struct proto *p, struct static_config *cf, struct static_route *r)
 
 	for (r2 = r->mp_next; r2; r2 = r2->mp_next)
 	  {
-	    struct neighbor *n = neigh_find(p, &r2->via, NEF_STICKY);
+	    struct neighbor *n = neigh_find2(p, &r2->via, r2->via_if, NEF_STICKY);
 	    if (n)
 	      {
 		r2->chain = n->data;
@@ -385,7 +383,7 @@ static_same_dest(struct static_route *x, struct static_route *y)
   switch (x->dest)
     {
     case RTD_ROUTER:
-      return ipa_equal(x->via, y->via);
+      return ipa_equal(x->via, y->via) && (x->via_if == y->via_if);
 
     case RTD_DEVICE:
       return !strcmp(x->if_name, y->if_name);
@@ -394,7 +392,7 @@ static_same_dest(struct static_route *x, struct static_route *y)
       for (x = x->mp_next, y = y->mp_next;
 	   x && y;
 	   x = x->mp_next, y = y->mp_next)
-	if (!ipa_equal(x->via, y->via))
+	if (!ipa_equal(x->via, y->via) || (x->via_if != y->via_if))
 	  return 0;
       return !x && !y;
 

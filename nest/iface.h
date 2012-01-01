@@ -97,6 +97,7 @@ void if_flush_ifaces(struct proto *p);
 void if_feed_baby(struct proto *);
 struct iface *if_find_by_index(unsigned);
 struct iface *if_find_by_name(char *);
+struct iface *if_get_by_name(char *);
 void ifa_recalc_all_primary_addresses(void);
 
 /* The Neighbor Cache */
@@ -110,11 +111,13 @@ typedef struct neighbor {
   void *data;				/* Protocol-specific data */
   unsigned aux;				/* Protocol-specific data */
   unsigned flags;
-  unsigned scope;			/* Address scope, SCOPE_HOST when it's our own address */
+  int scope;				/* Address scope, -1 for unreachable sticky neighbors,
+					   SCOPE_HOST when it's our own address */
 } neighbor;
 
 #define NEF_STICKY 1
 #define NEF_ONLINK 2
+#define NEF_BIND 4			/* Used internally for neighbors bound to an iface */
 
 neighbor *neigh_find(struct proto *, ip_addr *, unsigned flags);
 neighbor *neigh_find2(struct proto *p, ip_addr *a, struct iface *ifa, unsigned flags);
