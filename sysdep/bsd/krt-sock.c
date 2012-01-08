@@ -544,7 +544,12 @@ krt_read_addr(struct ks_msg *msg)
     _I0(ifa.ip) = 0xfe800000;
 #endif
 
+#ifdef IPV6
+  /* Why not the same check also for IPv4? */
+  if ((iface->flags & IF_MULTIACCESS) || (masklen != BITS_PER_IP_ADDRESS))
+#else
   if (iface->flags & IF_MULTIACCESS)
+#endif
   {
     ifa.prefix = ipa_and(ifa.ip, ipa_mkmask(masklen));
 
