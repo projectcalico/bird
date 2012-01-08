@@ -48,8 +48,8 @@ struct birdsock;
 
 void io_init(void);
 void io_loop(void);
-void fill_in_sockaddr(sockaddr *sa, ip_addr a, unsigned port);
-void get_sockaddr(sockaddr *sa, ip_addr *a, unsigned *port, int check);
+// void fill_in_sockaddr(sockaddr *sa, ip_addr a, struct iface *ifa, unsigned port);
+// void get_sockaddr(struct sockaddr_in6 *sa, ip_addr *a, struct iface **ifa, unsigned *port, int check);
 void sk_open_unix(struct birdsock *s, char *name);
 void *tracked_fopen(struct pool *, char *name, char *mode);
 void test_old_bird(char *path);

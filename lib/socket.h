@@ -58,7 +58,7 @@ int sk_set_ttl(sock *s, int ttl);	/* Set transmit TTL for given socket */
 int sk_set_min_ttl(sock *s, int ttl);	/* Set minimal accepted TTL for given socket */
 
 /* Add or remove security associations for given passive socket */
-int sk_set_md5_auth(sock *s, ip_addr a, char *passwd);
+int sk_set_md5_auth(sock *s, ip_addr a, struct iface *ifa, char *passwd);
 int sk_rx_ready(sock *s);
 
 /* Prepare UDP or IP socket to multicasting. s->iface and s->ttl must be set */
