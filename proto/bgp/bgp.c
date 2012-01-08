@@ -111,7 +111,7 @@ bgp_open(struct bgp_proto *p)
 
   if (p->cf->password)
     {
-      int rv = sk_set_md5_auth(bgp_listen_sk, p->cf->remote_ip, p->cf->password);
+      int rv = sk_set_md5_auth(bgp_listen_sk, p->cf->remote_ip, p->cf->iface, p->cf->password);
       if (rv < 0)
 	{
 	  bgp_close(p, 0);
@@ -178,7 +178,7 @@ bgp_close(struct bgp_proto *p, int apply_md5)
   bgp_counter--;
 
   if (p->cf->password && apply_md5)
-    sk_set_md5_auth(bgp_listen_sk, p->cf->remote_ip, NULL);
+    sk_set_md5_auth(bgp_listen_sk, p->cf->remote_ip, p->cf->iface, NULL);
 
   if (!bgp_counter)
     {
@@ -578,6 +578,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   s->type = SK_TCP_ACTIVE;
   s->saddr = p->source_addr;
   s->daddr = p->cf->remote_ip;
+  s->iface = p->neigh ? p->neigh->iface : NULL;
   s->dport = BGP_PORT;
   s->ttl = p->cf->ttl_security ? 255 : hops;
   s->rbsize = BGP_RX_BUFFER_SIZE;
@@ -585,7 +586,8 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   s->tos = IP_PREC_INTERNET_CONTROL;
   s->password = p->cf->password;
   s->tx_hook = bgp_connected;
-  BGP_TRACE(D_EVENTS, "Connecting to %I from local address %I", s->daddr, s->saddr);
+  BGP_TRACE(D_EVENTS, "Connecting to %I%J from local address %I%J", s->daddr, p->cf->iface,
+	    s->saddr, ipa_has_link_scope(s->saddr) ? s->iface : NULL);
   bgp_setup_conn(p, conn);
   bgp_setup_sk(conn, s);
   bgp_conn_set_state(conn, BS_CONNECT);
@@ -634,14 +636,16 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
     if (pc->protocol == &proto_bgp && pc->proto)
       {
 	struct bgp_proto *p = (struct bgp_proto *) pc->proto;
-	if (ipa_equal(p->cf->remote_ip, sk->daddr))
+	if (ipa_equal(p->cf->remote_ip, sk->daddr) &&
+	    (!ipa_has_link_scope(sk->daddr) || (p->cf->iface == sk->iface)))
 	  {
 	    /* We are in proper state and there is no other incoming connection */
 	    int acc = (p->p.proto_state == PS_START || p->p.proto_state == PS_UP) &&
 	      (p->start_state >= BSS_CONNECT) && (!p->incoming_conn.sk);
 
-	    BGP_TRACE(D_EVENTS, "Incoming connection from %I (port %d) %s",
-		      sk->daddr, sk->dport, acc ? "accepted" : "rejected");
+	    BGP_TRACE(D_EVENTS, "Incoming connection from %I%J (port %d) %s",
+		      sk->daddr, ipa_has_link_scope(sk->daddr) ? sk->iface : NULL,
+		      sk->dport, acc ? "accepted" : "rejected");
 
 	    if (!acc)
 	      goto err;
@@ -667,7 +671,8 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
 	  }
       }
 
-  log(L_WARN "BGP: Unexpected connect from unknown address %I (port %d)", sk->daddr, sk->dport);
+  log(L_WARN "BGP: Unexpected connect from unknown address %I%J (port %d)",
+      sk->daddr, ipa_has_link_scope(sk->daddr) ? sk->iface : NULL, sk->dport);
  err:
   rfree(sk);
   return 0;
@@ -713,6 +718,7 @@ bgp_start_neighbor(struct bgp_proto *p)
 {
   /* Called only for single-hop BGP sessions */
 
+  /* Remove this ? */
   if (ipa_zero(p->source_addr))
     p->source_addr = p->neigh->iface->addr->ip; 
 
@@ -742,7 +748,7 @@ bgp_neigh_notify(neighbor *n)
 {
   struct bgp_proto *p = (struct bgp_proto *) n->proto;
 
-  if (n->iface)
+  if (n->scope > 0)
     {
       if ((p->p.proto_state == PS_START) && (p->start_state == BSS_PREPARE))
 	{
@@ -793,10 +799,10 @@ bgp_start_locked(struct object_lock *lock)
       return;
     }
 
-  p->neigh = neigh_find(&p->p, &cf->remote_ip, NEF_STICKY);
+  p->neigh = neigh_find2(&p->p, &cf->remote_ip, cf->iface, NEF_STICKY);
   if (!p->neigh || (p->neigh->scope == SCOPE_HOST))
     {
-      log(L_ERR "%s: Invalid remote address %I", p->p.name, cf->remote_ip);
+      log(L_ERR "%s: Invalid remote address %I%J", p->p.name, cf->remote_ip, cf->iface);
       /* As we do not start yet, we can just disable protocol */
       p->p.disabled = 1;
       bgp_store_error(p, NULL, BE_MISC, BEM_INVALID_NEXT_HOP);
@@ -807,7 +813,7 @@ bgp_start_locked(struct object_lock *lock)
   if (p->neigh->scope > 0)
     bgp_start_neighbor(p);
   else
-    BGP_TRACE(D_EVENTS, "Waiting for %I to become my neighbor", cf->remote_ip);
+    BGP_TRACE(D_EVENTS, "Waiting for %I%J to become my neighbor", cf->remote_ip, cf->iface);
 }
 
 static int
@@ -847,6 +853,7 @@ bgp_start(struct proto *P)
 
   lock = p->lock = olock_new(P->pool);
   lock->addr = p->cf->remote_ip;
+  lock->iface = p->cf->iface;
   lock->type = OBJLOCK_TCP;
   lock->port = BGP_PORT;
   lock->iface = NULL;
@@ -950,6 +957,10 @@ bgp_check_config(struct bgp_config *c)
 
   if (c->multihop && (c->gw_mode == GW_DIRECT))
     cf_error("Multihop BGP cannot use direct gateway mode");
+
+  if (c->multihop && (ipa_has_link_scope(c->remote_ip) || 
+		      ipa_has_link_scope(c->source_addr)))
+    cf_error("Multihop BGP cannot be used with link-local addresses");
 
   /* Different default based on rs_client */
   if (!c->missing_lladdr)
@@ -1115,7 +1126,7 @@ bgp_show_proto_info(struct proto *P)
   struct bgp_conn *c = p->conn;
 
   cli_msg(-1006, "  BGP state:          %s", bgp_state_dsc(p));
-  cli_msg(-1006, "    Neighbor address: %I", p->cf->remote_ip);
+  cli_msg(-1006, "    Neighbor address: %I%J", p->cf->remote_ip, p->cf->iface);
   cli_msg(-1006, "    Neighbor AS:      %u", p->remote_as);
 
   if (P->proto_state == PS_START)

@@ -57,11 +57,15 @@ bgp_proto:
  | bgp_proto proto_item ';'
  | bgp_proto LOCAL AS expr ';' { BGP_CFG->local_as = $4; }
  | bgp_proto LOCAL ipa AS expr ';' { BGP_CFG->source_addr = $3; BGP_CFG->local_as = $5; }
- | bgp_proto NEIGHBOR ipa AS expr ';' {
-     if (ipa_nonzero(BGP_CFG->remote_ip)) cf_error("Only one neighbor per BGP instance is allowed");
+ | bgp_proto NEIGHBOR ipa ipa_scope AS expr ';' {
+     if (ipa_nonzero(BGP_CFG->remote_ip))
+       cf_error("Only one neighbor per BGP instance is allowed");
+     if (!ipa_has_link_scope($3) != !$4)
+       cf_error("Link-local address and interface scope must be used together");
 
      BGP_CFG->remote_ip = $3;
-     BGP_CFG->remote_as = $5;
+     BGP_CFG->iface = $4;
+     BGP_CFG->remote_as = $6;
    }
  | bgp_proto RR CLUSTER ID idval ';' { BGP_CFG->rr_cluster_id = $5; }
  | bgp_proto RR CLIENT ';' { BGP_CFG->rr_client = 1; }

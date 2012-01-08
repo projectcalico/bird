@@ -19,9 +19,10 @@ struct bgp_config {
   struct proto_config c;
   u32 local_as, remote_as;
   ip_addr remote_ip;
+  ip_addr source_addr;			/* Source address to use */
+  struct iface *iface;			/* Interface for link-local addresses */
   int multihop;				/* Number of hops if multihop */
   int ttl_security;			/* Enable TTL security [RFC5082] */
-  ip_addr source_addr;			/* Source address to use */
   int next_hop_self;			/* Always set next hop to local IP address */
   int missing_lladdr;			/* What we will do when we don' know link-local addr, see MLL_* */
   int gw_mode;				/* How we compute route gateway from next_hop attr, see GW_* */

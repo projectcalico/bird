@@ -1001,10 +1001,13 @@ bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
     }
 
   /* iBGP -> keep next_hop, eBGP multi-hop -> use source_addr,
-     eBGP single-hop -> keep next_hop if on the same iface */
+   * eBGP single-hop -> keep next_hop if on the same iface.
+   * If the next_hop is zero (i.e. link-local), keep only if on the same iface.
+   */
   a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
   if (a && !p->cf->next_hop_self && 
-      (p->is_internal || (p->neigh && (e->attrs->iface == p->neigh->iface))))
+      ((p->is_internal && ipa_nonzero(*((ip_addr *) a->u.ptr->data))) ||
+       (p->neigh && (e->attrs->iface == p->neigh->iface))))
     {
       /* Leave the original next hop attribute, will check later where does it point */
     }
