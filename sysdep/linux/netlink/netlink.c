@@ -625,7 +625,7 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
   struct {
     struct nlmsghdr h;
     struct rtmsg r;
-    char buf[64 + nh_bufsize(a->nexthops)];
+    char buf[128 + nh_bufsize(a->nexthops)];
   } r;
 
   DBG("nl_send_route(%I/%d,new=%d)\n", net->n.prefix, net->n.pxlen, new);
