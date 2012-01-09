@@ -609,8 +609,8 @@ sk_insert(sock *s)
 
 #ifdef IPV6
 
-static void
-fill_in_sockaddr(sockaddr *sa, ip_addr a, struct iface *ifa, unsigned port)
+void
+fill_in_sockaddr(struct sockaddr_in6 *sa, ip_addr a, struct iface *ifa, unsigned port)
 {
   memset(sa, 0, sizeof (struct sockaddr_in6));
   sa->sin6_family = AF_INET6;
@@ -625,7 +625,7 @@ fill_in_sockaddr(sockaddr *sa, ip_addr a, struct iface *ifa, unsigned port)
     sa->sin6_scope_id = ifa->index;
 }
 
-static void
+void
 get_sockaddr(struct sockaddr_in6 *sa, ip_addr *a, struct iface **ifa, unsigned *port, int check)
 {
   if (check && sa->sin6_family != AF_INET6)
@@ -641,8 +641,8 @@ get_sockaddr(struct sockaddr_in6 *sa, ip_addr *a, struct iface **ifa, unsigned *
 
 #else
 
-static void
-fill_in_sockaddr(sockaddr *sa, ip_addr a, struct iface *ifa, unsigned port)
+void
+fill_in_sockaddr(struct sockaddr_in *sa, ip_addr a, struct iface *ifa, unsigned port)
 {
   memset (sa, 0, sizeof (struct sockaddr_in));
   sa->sin_family = AF_INET;
@@ -653,7 +653,7 @@ fill_in_sockaddr(sockaddr *sa, ip_addr a, struct iface *ifa, unsigned port)
   set_inaddr(&sa->sin_addr, a);
 }
 
-static void
+void
 get_sockaddr(struct sockaddr_in *sa, ip_addr *a, struct iface **ifa, unsigned *port, int check)
 {
   if (check && sa->sin_family != AF_INET)

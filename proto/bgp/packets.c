@@ -831,7 +831,7 @@ bgp_set_next_hop(struct bgp_proto *p, rta *a)
 
   if (p->cf->gw_mode == GW_DIRECT)
     {
-      neighbor *ng;
+      neighbor *ng = NULL;
 
       if (ipa_nonzero(*nexthop))
 	ng = neigh_find(&p->p, nexthop, 0);

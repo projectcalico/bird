@@ -134,9 +134,9 @@ krt_sock_send(int cmd, rte *e)
     _I0(gw) = 0xfe800000 | (i->index & 0x0000ffff);
 #endif
 
-  fill_in_sockaddr(&dst, net->n.prefix, 0);
-  fill_in_sockaddr(&mask, ipa_mkmask(net->n.pxlen), 0);
-  fill_in_sockaddr(&gate, gw, 0);
+  fill_in_sockaddr(&dst, net->n.prefix, NULL, 0);
+  fill_in_sockaddr(&mask, ipa_mkmask(net->n.pxlen), NULL, 0);
+  fill_in_sockaddr(&gate, gw, NULL, 0);
 
   switch (a->dest)
   {
@@ -163,7 +163,7 @@ krt_sock_send(int cmd, rte *e)
           return -1;
         }
 
-        fill_in_sockaddr(&gate, i->addr->ip, 0);
+        fill_in_sockaddr(&gate, i->addr->ip, NULL, 0);
         msg.rtm.rtm_addrs |= RTA_GATEWAY;
       }
       break;
@@ -274,19 +274,19 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
   GETADDR(&mask, RTA_NETMASK);
 
   if (sa_family_check(&dst))
-    get_sockaddr(&dst, &idst, NULL, 0);
+    get_sockaddr(&dst, &idst, NULL, NULL, 0);
   else
     SKIP("invalid DST");
 
   /* We will check later whether we have valid gateway addr */
   if (sa_family_check(&gate))
-    get_sockaddr(&gate, &igate, NULL, 0);
+    get_sockaddr(&gate, &igate, NULL, NULL, 0);
   else
     igate = IPA_NONE;
 
   /* We do not test family for RTA_NETMASK, because BSD sends us
      some strange values, but interpreting them as IPv4/IPv6 works */
-  get_sockaddr(&mask, &imask, NULL, 0);
+  get_sockaddr(&mask, &imask, NULL, NULL, 0);
 
   int c = ipa_classify_net(idst);
   if ((c < 0) || !(c & IADDR_HOST) || ((c & IADDR_SCOPE_MASK) <= SCOPE_LINK))
@@ -512,9 +512,9 @@ krt_read_addr(struct ks_msg *msg)
   if (!sa_family_check(&addr))
     return;
 
-  get_sockaddr(&addr, &iaddr, NULL, 0);
-  get_sockaddr(&mask, &imask, NULL, 0);
-  get_sockaddr(&brd, &ibrd, NULL, 0);
+  get_sockaddr(&addr, &iaddr, NULL, NULL, 0);
+  get_sockaddr(&mask, &imask, NULL, NULL, 0);
+  get_sockaddr(&brd, &ibrd, NULL, NULL, 0);
 
   if ((masklen = ipa_mklen(imask)) < 0)
   {
