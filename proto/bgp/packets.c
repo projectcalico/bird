@@ -906,6 +906,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
 	  rte *e = rte_get_temp(rta_clone(a));
 	  e->net = net_get(p->p.table, prefix, pxlen);
 	  e->pflags = 0;
+	  e->u.bgp.suppressed = 0;
 	  rte_update(p->p.table, e->net, &p->p, &p->p, e);
 	}
       else
@@ -1024,6 +1025,7 @@ bgp_do_rx_update(struct bgp_conn *conn,
 	      rte *e = rte_get_temp(rta_clone(a));
 	      e->net = net_get(p->p.table, prefix, pxlen);
 	      e->pflags = 0;
+	      e->u.bgp.suppressed = 0;
 	      rte_update(p->p.table, e->net, &p->p, &p->p, e);
 	    }
 	  else

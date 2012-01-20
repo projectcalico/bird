@@ -1768,12 +1768,11 @@ bgp_get_route_info(rte *e, byte *buf, ea_list *attrs)
   eattr *o = ea_find(attrs, EA_CODE(EAP_BGP, BA_ORIGIN));
   u32 origas;
 
-  /*
-  if (e->u.bgp.suppressed)
-    buf += bsprintf(buf, " -");
-  */
-
   buf += bsprintf(buf, " (%d", e->pref);
+
+  if (e->u.bgp.suppressed)
+    buf += bsprintf(buf, "-");
+
   if (e->attrs->hostentry)
     {
       if (!rte_resolvable(e))
