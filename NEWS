@@ -1,4 +1,7 @@
 
+Version 1.3.6 (2012-01-20)
+  o Important bugfix in BGP.
+
 Version 1.3.5 (2012-01-10)
   o Protocol templates.
   o Deterministic MED option for BGP.
