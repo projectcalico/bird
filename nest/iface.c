@@ -290,11 +290,11 @@ if_update(struct iface *new)
 	    memcpy(i, new, sizeof(*i));
 	    goto newif;
 	  }
-	else if (c)
-	  {
-	    if_copy(i, new);
-	    if_notify_change(c, i);
-	  }
+
+	if_copy(i, new);
+	if (c)
+	  if_notify_change(c, i);
+
 	i->flags |= IF_UPDATED;
 	return i;
       }
