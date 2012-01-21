@@ -471,8 +471,7 @@ krt_read_ifinfo(struct ks_msg *msg)
   else
     f.flags |= IF_MULTIACCESS;      /* NBMA */
 
-  if((!iface) || memcmp(&f, iface, sizeof(struct iface)))
-    if_update(&f);	/* Just if something happens */
+  if_update(&f);
 }
 
 static void
