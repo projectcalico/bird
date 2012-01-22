@@ -177,7 +177,7 @@ struct ospf_area_config
 struct ospf_iface
 {
   node n;
-  struct iface *iface;		/* Nest's iface */
+  struct iface *iface;		/* Nest's iface, non-NULL (unless type OSPF_IT_VLINK) */
   struct ifa *addr;		/* IP prefix associated with that OSPF iface */
   struct ospf_area *oa;
   struct ospf_iface_patt *cf;
