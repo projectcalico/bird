@@ -416,8 +416,9 @@ krt_read_ifinfo(struct ks_msg *msg)
   void *body = (void *)(ifm + 1);
   struct sockaddr_dl *dl = NULL;
   unsigned int i;
-  struct iface *iface = NULL, f;
+  struct iface *iface = NULL, f = {};
   int fl = ifm->ifm_flags;
+  int nlen = 0;
 
   for (i = 1; i<=RTA_IFP; i <<= 1)
   {
@@ -432,31 +433,42 @@ krt_read_ifinfo(struct ks_msg *msg)
     }
   }
 
-  if(dl && (dl->sdl_family != AF_LINK))
+  if (dl && (dl->sdl_family != AF_LINK))
   {
     log("Ignoring strange IFINFO");
     return;
   }
 
-  iface = if_find_by_index(ifm->ifm_index);
+  if (dl)
+    nlen = MIN(sizeof(f.name)-1, dl->sdl_nlen);
 
-  if(!iface)
+  /* Note that asynchronous IFINFO messages do not contain iface
+     name, so we have to found an existing iface by iface index */
+
+  iface = if_find_by_index(ifm->ifm_index);
+  if (!iface)
   {
     /* New interface */
-    if(!dl) return;	/* No interface name, ignoring */
+    if (!dl)
+      return;	/* No interface name, ignoring */
 
-    bzero(&f, sizeof(f));
-    f.index = ifm->ifm_index;
-    memcpy(f.name, dl->sdl_data, MIN(sizeof(f.name)-1, dl->sdl_nlen));
-    DBG("New interface '%s' found", f.name);
+    memcpy(f.name, dl->sdl_data, nlen);
+    DBG("New interface '%s' found\n", f.name);
+  }
+  else if (dl && memcmp(iface->name, dl->sdl_data, nlen))
+  {
+    /* Interface renamed */
+    if_delete(iface);
+    memcpy(f.name, dl->sdl_data, nlen);
   }
   else
   {
-    memcpy(&f, iface, sizeof(struct iface));
+    /* Old interface */
+    memcpy(f.name, iface->name, sizeof(f.name));
   }
 
+  f.index = ifm->ifm_index;
   f.mtu = ifm->ifm_data.ifi_mtu;
-  f.flags = 0;
 
   if (fl & IFF_UP)
     f.flags |= IF_ADMIN_UP;

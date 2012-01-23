@@ -88,6 +88,7 @@ void ifa_dump(struct ifa *);
 void if_show(void);
 void if_show_summary(void);
 struct iface *if_update(struct iface *);
+void if_delete(struct iface *old);
 struct ifa *ifa_update(struct ifa *);
 void ifa_delete(struct ifa *);
 void if_start_update(void);

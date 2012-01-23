@@ -386,7 +386,7 @@ nl_parse_link(struct nlmsghdr *h, int scan)
   struct ifinfomsg *i;
   struct rtattr *a[IFLA_WIRELESS+1];
   int new = h->nlmsg_type == RTM_NEWLINK;
-  struct iface f;
+  struct iface f = {};
   struct iface *ifi;
   char *name;
   u32 mtu;
@@ -408,26 +408,21 @@ nl_parse_link(struct nlmsghdr *h, int scan)
   if (!new)
     {
       DBG("KIF: IF%d(%s) goes down\n", i->ifi_index, name);
-      if (ifi && !scan)
-	{
-	  memcpy(&f, ifi, sizeof(struct iface));
-	  f.flags |= IF_SHUTDOWN;
-	  if_update(&f);
-	}
+      if (!ifi)
+	return;
+
+      if_delete(ifi);
     }
   else
     {
       DBG("KIF: IF%d(%s) goes up (mtu=%d,flg=%x)\n", i->ifi_index, name, mtu, i->ifi_flags);
-      if (ifi)
-	memcpy(&f, ifi, sizeof(f));
-      else
-	{
-	  bzero(&f, sizeof(f));
-	  f.index = i->ifi_index;
-	}
-      strncpy(f.name, RTA_DATA(a[IFLA_IFNAME]), sizeof(f.name)-1);
+      if (ifi && strncmp(ifi->name, name, sizeof(ifi->name)-1))
+	if_delete(ifi);
+
+      strncpy(f.name, name, sizeof(f.name)-1);
+      f.index = i->ifi_index;
       f.mtu = mtu;
-      f.flags = 0;
+
       fl = i->ifi_flags;
       if (fl & IFF_UP)
 	f.flags |= IF_ADMIN_UP;
