@@ -104,6 +104,13 @@ kif_force_scan(void)
     }
 }
 
+void
+kif_request_scan(void)
+{
+  if (kif_proto && kif_scan_timer->expires > now)
+    tm_start(kif_scan_timer, 1);
+}
+
 static struct proto *
 kif_init(struct proto_config *c)
 {

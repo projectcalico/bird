@@ -306,6 +306,7 @@ if_update(struct iface *new)
 	    new->addr = i->addr;
 	    memcpy(&new->addrs, &i->addrs, sizeof(i->addrs));
 	    memcpy(i, new, sizeof(*i));
+	    i->flags &= ~IF_UP; /* IF_TMP_DOWN will be added later */
 	    goto newif;
 	  }
 

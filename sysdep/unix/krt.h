@@ -77,6 +77,7 @@ extern pool *krt_pool;
   if (pr->p.debug & fl)				\
     { log(L_TRACE "%s: " msg, pr->p.name , ## args); } } while(0)
 
+void kif_request_scan(void);
 void krt_got_route(struct krt_proto *p, struct rte *e);
 void krt_got_route_async(struct krt_proto *p, struct rte *e, int new);
 
