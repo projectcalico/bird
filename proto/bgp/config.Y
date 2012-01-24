@@ -33,7 +33,6 @@ CF_ADDTO(proto, bgp_proto '}' { bgp_check_config(BGP_CFG); } )
 
 bgp_proto_start: proto_start BGP {
      this_proto = proto_config_new(&proto_bgp, sizeof(struct bgp_config), $1);
-     this_proto->preference = DEF_PREF_BGP;
      BGP_CFG->hold_time = 240;
      BGP_CFG->connect_retry_time = 120;
      BGP_CFG->initial_hold_time = 240;

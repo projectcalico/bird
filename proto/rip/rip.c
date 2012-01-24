@@ -975,7 +975,6 @@ void
 rip_init_config(struct rip_proto_config *c)
 {
   init_list(&c->iface_list);
-  c->c.preference = DEF_PREF_RIP;
   c->infinity	= 16;
   c->port	= 520;
   c->period	= 30;
@@ -1032,6 +1031,7 @@ struct protocol proto_rip = {
   name: "RIP",
   template: "rip%d",
   attr_class: EAP_RIP,
+  preference: DEF_PREF_RIP,
   get_route_info: rip_get_route_info,
   get_attr: rip_get_attr,
 

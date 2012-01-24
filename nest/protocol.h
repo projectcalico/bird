@@ -39,6 +39,7 @@ struct protocol {
   char *template;			/* Template for automatic generation of names */
   int name_counter;			/* Counter for automatic name generation */
   int attr_class;			/* Attribute class known to this protocol */
+  unsigned preference;			/* Default protocol preference */
 
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
   void (*postconfig)(struct proto_config *);			/* After configuring each instance */

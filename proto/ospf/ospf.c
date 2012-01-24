@@ -1542,6 +1542,7 @@ struct protocol proto_ospf = {
   name:			"OSPF",
   template:		"ospf%d",
   attr_class:		EAP_OSPF,
+  preference:		DEF_PREF_OSPF,
   init:			ospf_init,
   dump:			ospf_dump,
   start:		ospf_start,

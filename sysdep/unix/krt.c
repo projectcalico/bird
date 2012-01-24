@@ -243,6 +243,7 @@ kif_copy_config(struct proto_config *dest, struct proto_config *src)
 struct protocol proto_unix_iface = {
   name:		"Device",
   template:	"device%d",
+  preference:	DEF_PREF_DIRECT,
   preconfig:	kif_preconfig,
   init:		kif_init,
   start:	kif_start,
@@ -968,6 +969,7 @@ struct protocol proto_unix_kernel = {
   name:		"Kernel",
   template:	"kernel%d",
   attr_class:	EAP_KRT,
+  preference:	DEF_PREF_INHERITED,
   preconfig:	krt_preconfig,
   postconfig:	krt_postconfig,
   init:		krt_init,

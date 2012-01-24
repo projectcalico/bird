@@ -219,7 +219,6 @@ CF_ADDTO(proto, dev_proto '}')
 
 dev_proto_start: proto_start DIRECT {
      this_proto = proto_config_new(&proto_device, sizeof(struct rt_dev_config), $1);
-     this_proto->preference = DEF_PREF_DIRECT;
      init_list(&DIRECT_CFG->iface_list);
    }
  ;

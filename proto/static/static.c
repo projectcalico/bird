@@ -353,7 +353,6 @@ static_if_notify(struct proto *p, unsigned flags, struct iface *i)
 void
 static_init_config(struct static_config *c)
 {
-  c->c.preference = DEF_PREF_STATIC;
   init_list(&c->iface_routes);
   init_list(&c->other_routes);
 }
@@ -523,6 +522,7 @@ static_copy_config(struct proto_config *dest, struct proto_config *src)
 struct protocol proto_static = {
   name:		"Static",
   template:	"static%d",
+  preference:	DEF_PREF_STATIC,
   init:		static_init,
   dump:		static_dump,
   start:	static_start,

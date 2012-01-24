@@ -197,6 +197,7 @@ pipe_get_status(struct proto *P, byte *buf)
 struct protocol proto_pipe = {
   name:		"Pipe",
   template:	"pipe%d",
+  preference:	DEF_PREF_PIPE,
   postconfig:	pipe_postconfig,
   init:		pipe_init,
   start:	pipe_start,

@@ -129,7 +129,6 @@ CF_ADDTO(proto, ospf_proto '}' { ospf_proto_finish(); } )
 
 ospf_proto_start: proto_start OSPF {
      this_proto = proto_config_new(&proto_ospf, sizeof(struct ospf_config), $1);
-     this_proto->preference = DEF_PREF_OSPF;
      init_list(&OSPF_CFG->area_list);
      init_list(&OSPF_CFG->vlink_list);
      OSPF_CFG->rfc1583 = DEFAULT_RFC1583;

@@ -1178,6 +1178,7 @@ struct protocol proto_bgp = {
   name:			"BGP",
   template:		"bgp%d",
   attr_class:		EAP_BGP,
+  preference:		DEF_PREF_BGP,
   init:			bgp_init,
   start:		bgp_start,
   shutdown:		bgp_shutdown,

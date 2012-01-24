@@ -200,6 +200,7 @@ proto_config_new(struct protocol *pr, unsigned size, int class)
   c->global = new_config;
   c->protocol = pr;
   c->name = pr->name;
+  c->preference = pr->preference;
   c->class = class;
   c->out_filter = FILTER_REJECT;
   c->table = c->global->master_rtc;
