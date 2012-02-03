@@ -608,10 +608,9 @@ krt_got_route(struct krt_proto *p, rte *e)
       return;
     }
 
-  if (net->n.flags & KRF_INSTALLED)
+  old = net->routes;
+  if ((net->n.flags & KRF_INSTALLED) && old)
     {
-      old = net->routes;
-      ASSERT(old);
       if (krt_uptodate(e, old))
 	verdict = KRF_SEEN;
       else
