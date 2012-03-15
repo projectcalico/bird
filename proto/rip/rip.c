@@ -146,7 +146,11 @@ rip_tx( sock *s )
     DBG( "Preparing packet to send: " );
 
     packet->heading.command = RIPCMD_RESPONSE;
+#ifndef IPV6
     packet->heading.version = RIP_V2;
+#else
+    packet->heading.version = RIP_NG;
+#endif
     packet->heading.unused  = 0;
 
     i = !!P_CF->authtype;
@@ -979,7 +983,7 @@ rip_init_config(struct rip_proto_config *c)
 {
   init_list(&c->iface_list);
   c->infinity	= 16;
-  c->port	= 520;
+  c->port	= RIP_PORT;
   c->period	= 30;
   c->garbage_time = 120+180;
   c->timeout_time = 120;
