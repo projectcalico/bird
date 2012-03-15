@@ -61,6 +61,8 @@ filter_name(struct filter *filter)
     return "ACCEPT";
   else if (filter == FILTER_REJECT)
     return "REJECT";
+  else if (!filter->name)
+    return "(unnamed)";
   else
     return filter->name;
 }
