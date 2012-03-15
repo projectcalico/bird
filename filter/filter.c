@@ -228,6 +228,9 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
 {
   if ((v1.type == T_PATH) && (v2.type == T_PATH_MASK))
     return as_path_match(v1.val.ad, v2.val.path_mask);
+  if ((v1.type == T_INT) && (v2.type == T_PATH))
+    return as_path_is_member(v2.val.ad, v1.val.i);
+
   if (((v1.type == T_PAIR) || (v1.type == T_QUAD)) && (v2.type == T_CLIST))
     return int_set_contains(v2.val.ad, v1.val.i);
 #ifndef IPV6
@@ -320,28 +323,34 @@ eclist_match_set(struct adata *list, struct f_tree *set)
 }
 
 static struct adata *
-clist_filter(struct linpool *pool, struct adata *clist, struct f_tree *set, int pos)
+clist_filter(struct linpool *pool, struct adata *list, struct f_val set, int pos)
 {
-  if (!clist)
+  if (!list)
     return NULL;
 
+  int tree = (set.type == T_SET);	/* 1 -> set is T_SET, 0 -> set is T_CLIST */
   struct f_val v;
-  clist_set_type(set, &v);
+  if (tree)
+    clist_set_type(set.val.t, &v);
+  else
+    v.type = T_PAIR;
 
-  u32 tmp[clist->length/4];
-  u32 *l = (u32 *) clist->data;
+  int len = int_set_get_size(list);
+  u32 *l = int_set_get_data(list);
+  u32 tmp[len];
   u32 *k = tmp;
-  u32 *end = l + clist->length/4;
+  u32 *end = l + len;
 
   while (l < end) {
     v.val.i = *l++;
-    if (pos == !!find_tree(set, v))	/* pos && find_tree || !pos && !find_tree */
+    /* pos && member(val, set) || !pos && !member(val, set),  member() depends on tree */
+    if ((tree ? !!find_tree(set.val.t, v) : int_set_contains(set.val.ad, v.val.i)) == pos)
       *k++ = v.val.i;
   }
 
   int nl = (k - tmp) * 4;
-  if (nl == clist->length)
-    return clist;
+  if (nl == list->length)
+    return list;
 
   struct adata *res = adata_empty(pool, nl);
   memcpy(res->data, tmp, nl);
@@ -349,11 +358,12 @@ clist_filter(struct linpool *pool, struct adata *clist, struct f_tree *set, int 
 }
 
 static struct adata *
-eclist_filter(struct linpool *pool, struct adata *list, struct f_tree *set, int pos)
+eclist_filter(struct linpool *pool, struct adata *list, struct f_val set, int pos)
 {
   if (!list)
     return NULL;
 
+  int tree = (set.type == T_SET);	/* 1 -> set is T_SET, 0 -> set is T_CLIST */
   struct f_val v;
 
   int len = int_set_get_size(list);
@@ -365,7 +375,8 @@ eclist_filter(struct linpool *pool, struct adata *list, struct f_tree *set, int 
   v.type = T_EC;
   for (i = 0; i < len; i += 2) {
     v.val.ec = ec_get(l, i);
-    if (pos == !!find_tree(set, v)) {	/* pos && find_tree || !pos && !find_tree */
+    /* pos && member(val, set) || !pos && !member(val, set),  member() depends on tree */
+    if ((tree ? !!find_tree(set.val.t, v) : ec_set_contains(set.val.ad, v.val.ec)) == pos) {
       *k++ = l[i];
       *k++ = l[i+1];
     }
@@ -1116,6 +1127,8 @@ interpret(struct f_inst *what)
 #endif
       else if ((v2.type == T_SET) && clist_set_type(v2.val.t, &dummy))
 	arg_set = 1;
+      else if (v2.type == T_CLIST)
+	arg_set = 2;
       else
 	runtime("Can't add/delete non-pair");
 
@@ -1123,22 +1136,25 @@ interpret(struct f_inst *what)
       switch (what->aux)
       {
       case 'a':
-	if (arg_set)
+	if (arg_set == 1)
 	  runtime("Can't add set");
-	res.val.ad = int_set_add(f_pool, v1.val.ad, i);
+	else if (!arg_set)
+	  res.val.ad = int_set_add(f_pool, v1.val.ad, i);
+	else 
+	  res.val.ad = int_set_union(f_pool, v1.val.ad, v2.val.ad);
 	break;
       
       case 'd':
 	if (!arg_set)
 	  res.val.ad = int_set_del(f_pool, v1.val.ad, i);
 	else
-	  res.val.ad = clist_filter(f_pool, v1.val.ad, v2.val.t, 0);
+	  res.val.ad = clist_filter(f_pool, v1.val.ad, v2, 0);
 	break;
 
       case 'f':
 	if (!arg_set)
 	  runtime("Can't filter pair");
-	res.val.ad = clist_filter(f_pool, v1.val.ad, v2.val.t, 1);
+	res.val.ad = clist_filter(f_pool, v1.val.ad, v2, 1);
 	break;
 
       default:
@@ -1153,6 +1169,8 @@ interpret(struct f_inst *what)
       /* v2.val is either EC or EC-set */
       if ((v2.type == T_SET) && eclist_set_type(v2.val.t))
 	arg_set = 1;
+      else if (v2.type == T_ECLIST)
+	arg_set = 2;
       else if (v2.type != T_EC)
 	runtime("Can't add/delete non-pair");
 
@@ -1160,22 +1178,25 @@ interpret(struct f_inst *what)
       switch (what->aux)
       {
       case 'a':
-	if (arg_set)
+	if (arg_set == 1)
 	  runtime("Can't add set");
-	res.val.ad = ec_set_add(f_pool, v1.val.ad, v2.val.ec);
+	else if (!arg_set)
+	  res.val.ad = ec_set_add(f_pool, v1.val.ad, v2.val.ec);
+	else 
+	  res.val.ad = ec_set_union(f_pool, v1.val.ad, v2.val.ad);
 	break;
       
       case 'd':
 	if (!arg_set)
 	  res.val.ad = ec_set_del(f_pool, v1.val.ad, v2.val.ec);
 	else
-	  res.val.ad = eclist_filter(f_pool, v1.val.ad, v2.val.t, 0);
+	  res.val.ad = eclist_filter(f_pool, v1.val.ad, v2, 0);
 	break;
 
       case 'f':
 	if (!arg_set)
 	  runtime("Can't filter ec");
-	res.val.ad = eclist_filter(f_pool, v1.val.ad, v2.val.t, 1);
+	res.val.ad = eclist_filter(f_pool, v1.val.ad, v2, 1);
 	break;
 
       default:

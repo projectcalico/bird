@@ -96,6 +96,8 @@ struct adata *int_set_add(struct linpool *pool, struct adata *list, u32 val);
 struct adata *ec_set_add(struct linpool *pool, struct adata *list, u64 val);
 struct adata *int_set_del(struct linpool *pool, struct adata *list, u32 val);
 struct adata *ec_set_del(struct linpool *pool, struct adata *list, u64 val);
+struct adata *int_set_union(struct linpool *pool, struct adata *l1, struct adata *l2);
+struct adata *ec_set_union(struct linpool *pool, struct adata *l1, struct adata *l2);
 
 
 #endif

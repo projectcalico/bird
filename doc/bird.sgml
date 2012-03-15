@@ -875,19 +875,22 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 
           <cf>add(<m/C/,<m/P/)</cf> adds pair (or quad) <m/P/ to clist
 	  <m/C/ and returns the result.  If item <m/P/ is already in
-	  clist <m/C/, it does nothing.
+	  clist <m/C/, it does nothing. <m/P/ may also be a clist,
+	  in that case all its members are added; i.e., it works as clist union.
 
           <cf>delete(<m/C/,<m/P/)</cf> deletes pair (or quad)
 	  <m/P/ from clist <m/C/ and returns the result.  If clist
 	  <m/C/ does not contain item <m/P/, it does nothing.
 	  <m/P/ may also be a pair (or quad) set, in that case the
 	  operator deletes all items from clist <m/C/ that are also
-	  members of set <m/P/.
+	  members of set <m/P/. Moreover, <m/P/ may also be a clist,
+	  which works analogously; i.e., it works as clist difference.
 
           <cf>filter(<m/C/,<m/P/)</cf> deletes all items from clist
 	  <m/C/ that are not members of pair (or quad) set <m/P/.
 	  I.e., <cf/filter/ do the same as <cf/delete/ with inverted
-	  set <m/P/.
+	  set <m/P/. <m/P/ may also be a clist, which works analogously;
+	  i.e., it works as clist intersection.
 
           Statement <cf><m/C/ = add(<m/C/, <m/P/);</cf> can be shortened to
           <cf><m/C/.add(<m/P/);</cf> if <m/C/ is appropriate route
@@ -910,7 +913,7 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 Special operators include <cf/&tilde;/ for "is element of a set" operation - it can be
 used on element and set of elements of the same type (returning true if element is contained in the given set), or
 on two strings (returning true if first string matches a shell-like pattern stored in second string) or on IP and prefix (returning true if IP is within the range defined by that prefix), or on
-prefix and prefix (returning true if first prefix is more specific than second one) or on bgppath and bgpmask (returning true if the path matches the mask) or on pair/quad and clist (returning true if the pair/quad is element of the clist) or on clist and pair/quad set (returning true if there is an element of the clist that is also a member of the pair/quad set).
+prefix and prefix (returning true if first prefix is more specific than second one) or on bgppath and bgpmask (returning true if the path matches the mask) or on number and bgppath (returning true if the number is in the path) or on pair/quad and clist (returning true if the pair/quad is element of the clist) or on clist and pair/quad set (returning true if there is an element of the clist that is also a member of the pair/quad set).
 
 
 <sect>Control structures
