@@ -495,7 +495,7 @@ pair_item:
      /* Hack: $2 and $4 should be pair_expr, but that would cause shift/reduce conflict */
      if ((pair_a($2) != pair_b($2)) || (pair_a($4) != pair_b($4)))
        cf_error("syntax error");
-     $$ = f_new_pair_item(pair_b($2), pair_b($4), $8, $10); 
+     $$ = f_new_pair_item(pair_b($2), $8, pair_b($4), $10); 
    }
  ;
 
