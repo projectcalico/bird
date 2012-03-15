@@ -120,6 +120,8 @@ ospf_sk_open(struct ospf_iface *ifa)
   sk->saddr = ifa->addr->ip;
   if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_PTP))
   {
+    sk->ttl = 1;	/* Hack, this will affect just multicast packets */
+
     if (sk_setup_multicast(sk) < 0)
       goto err;
 
