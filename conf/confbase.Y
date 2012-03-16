@@ -50,6 +50,7 @@ CF_DECLS
   struct f_path_mask *h;
   struct password_item *p;
   struct rt_show_data *ra;
+  struct lsadb_show_data *ld;
   struct iface *iface;
   void *g;
   bird_clock_t time;

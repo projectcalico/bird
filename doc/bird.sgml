@@ -561,6 +561,9 @@ This argument can be omitted if there exists only a single instance.
 	link-state database.  It is just a stripped-down version of
 	'show ospf state'.
 
+	<tag>show ospf lsadb [global | area <m/id/ | link] [type <m/num/] [lsid <m/id/] [self | router <m/id/] [<m/name/] </tag>
+	Show contents of an OSPF LSA database. Options could be used to filter entries.
+
 	<tag>show static [<m/name/]</tag>
 	Show detailed information about static routes.
 

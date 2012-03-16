@@ -120,8 +120,10 @@ CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, CHECK, LINK)
 CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY, TAG, EXTERNAL)
 CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT, NSSA, TRANSLATOR, STABILITY)
+CF_KEYWORDS(GLOBAL, LSID, ROUTER, SELF)
 
 %type <t> opttext
+%type <ld> lsadb_args
 
 CF_GRAMMAR
 
@@ -411,8 +413,22 @@ CF_CLI(SHOW OSPF STATE, optsym opttext, [<name>], [[Show information about reach
 CF_CLI(SHOW OSPF STATE ALL, optsym opttext, [<name>], [[Show information about all OSPF network state]])
 { ospf_sh_state(proto_get_named($5, &proto_ospf), 1, 0); };
 
-CF_CLI(SHOW OSPF LSADB, optsym opttext, [<name>], [[Show content of OSPF LSA database]])
-{ ospf_sh_lsadb(proto_get_named($4, &proto_ospf)); };
+CF_CLI(SHOW OSPF LSADB, lsadb_args, [global | area <id> | link] [type <num>] [lsid <id>] [self | router <id>] [<proto>], [[Show content of OSPF LSA database]])
+{ ospf_sh_lsadb($4); };
+
+lsadb_args:
+   /* empty */ {
+     $$ = cfg_allocz(sizeof(struct lsadb_show_data));
+   }
+ | lsadb_args GLOBAL { $$ = $1; $$->scope = LSA_SCOPE_AS; }
+ | lsadb_args AREA idval { $$ = $1; $$->scope = LSA_SCOPE_AREA; $$->area = $3 }
+ | lsadb_args LINK { $$ = $1; $$->scope = 1; /* hack, 0 is no filter */ }
+ | lsadb_args TYPE NUM { $$ = $1; $$->type = $3; }
+ | lsadb_args LSID idval { $$ = $1; $$->lsid = $3; }
+ | lsadb_args SELF { $$ = $1; $$->router = SH_ROUTER_SELF; }
+ | lsadb_args ROUTER idval { $$ = $1; $$->router = $3; }
+ | lsadb_args SYM { $$ = $1; $$->name = $2; }
+ ;
 
 CF_CODE
 
