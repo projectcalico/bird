@@ -219,7 +219,7 @@ ospf_stubnet_item:
 
 ospf_vlink:
    ospf_vlink_start '{' ospf_vlink_opts '}' { ospf_iface_finish(); }
- | ospf_vlink_start
+ | ospf_vlink_start { ospf_iface_finish(); }
  ;
 
 ospf_vlink_opts:

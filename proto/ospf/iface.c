@@ -570,6 +570,9 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
   {
     ifa->voa = ospf_find_area(oa->po, ip->voa);
     ifa->vid = ip->vid;
+
+    ifa->hello_timer = tm_new_set(ifa->pool, hello_timer_hook, ifa, 0, ifa->helloint);
+
     return;			/* Don't lock, don't add sockets */
   }
 
