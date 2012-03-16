@@ -59,6 +59,7 @@ CF_ENUM(T_ENUM_RTD, RTD_, ROUTER, DEVICE, BLACKHOLE, UNREACHABLE, PROHIBIT, MULT
 %type <r> rtable
 %type <s> optsym
 %type <ra> r_args
+%type <sd> sym_args
 %type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport
 %type <ps> proto_patt proto_patt2
 
@@ -432,8 +433,20 @@ export_or_preexport:
  | EXPORT { $$ = 2; }
  ;
 
-CF_CLI(SHOW SYMBOLS, optsym, [<symbol>], [[Show all known symbolic names]])
+CF_CLI(SHOW SYMBOLS, sym_args, [table|filter|function|protocol|template|<symbol>], [[Show all known symbolic names]])
 { cmd_show_symbols($3); } ;
+
+sym_args:
+   /* empty */ {
+     $$ = cfg_allocz(sizeof(struct sym_show_data));
+   }
+ | sym_args TABLE { $$ = $1; $$->type = SYM_TABLE; }
+ | sym_args FUNCTION { $$ = $1; $$->type = SYM_FUNCTION; }
+ | sym_args FILTER { $$ = $1; $$->type = SYM_FILTER; }
+ | sym_args PROTOCOL { $$ = $1; $$->type = SYM_PROTO; }
+ | sym_args TEMPLATE { $$ = $1; $$->type = SYM_TEMPLATE; }
+ | sym_args SYM { $$ = $1; $$->sym = $2; }
+ ;
 
 CF_CLI_HELP(DUMP, ..., [[Dump debugging information]])
 CF_CLI(DUMP RESOURCES,,, [[Dump all allocated resource]])

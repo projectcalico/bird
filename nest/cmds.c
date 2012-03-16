@@ -7,6 +7,7 @@
  */
 
 #include "nest/bird.h"
+#include "nest/route.h"
 #include "nest/cli.h"
 #include "conf/conf.h"
 #include "nest/cmds.h"
@@ -35,16 +36,22 @@ cmd_show_status(void)
 }
 
 void
-cmd_show_symbols(struct symbol *sym)
+cmd_show_symbols(struct sym_show_data *sd)
 {
   int pos = 0;
+  struct symbol *sym = sd->sym;
 
   if (sym)
-    cli_msg(1010, "%s\t%s", sym->name, cf_symbol_class_name(sym));
+    cli_msg(1010, "%-8s\t%s", sym->name, cf_symbol_class_name(sym));
   else
     {
       while (sym = cf_walk_symbols(config, sym, &pos))
-	cli_msg(-1010, "%s\t%s", sym->name, cf_symbol_class_name(sym));
+	{
+	  if (sd->type && (sym->class != sd->type))
+	    continue;
+
+	  cli_msg(-1010, "%-8s\t%s", sym->name, cf_symbol_class_name(sym));
+	}
       cli_msg(0, "");
     }
 }

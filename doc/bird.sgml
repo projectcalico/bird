@@ -570,7 +570,7 @@ This argument can be omitted if there exists only a single instance.
 	<tag>show interfaces [summary]</tag>
 	Show the list of interfaces. For each interface, print its type, state, MTU and addresses assigned. 
 
-	<tag>show symbols</tag>
+	<tag>show symbols [table|filter|function|protocol|template|<symbol>]</tag>
 	Show the list of symbols defined in the configuration (names of protocols, routing tables etc.).
 
 	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(export|preexport) <m/p/] [protocol <m/p/] [<m/options/]</tag>
