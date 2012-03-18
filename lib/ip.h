@@ -15,7 +15,10 @@
 #include "ipv6.h"
 #endif
 
-#define ipa_in_net(x,n,p) (!ipa_nonzero(ipa_and(ipa_xor((n),(x)),ipa_mkmask(p))))
+#define ipa_zero(x) (!ipa_nonzero(x))
+#define ip_is_prefix(a,l) (!ipa_nonzero(ipa_and(a, ipa_not(ipa_mkmask(l)))))
+#define ipa_in_net(x,n,p) (ipa_zero(ipa_and(ipa_xor((n),(x)),ipa_mkmask(p))))
+#define net_in_net(n1,l1,n2,l2) (((l1) >= (l2)) && (ipa_zero(ipa_and(ipa_xor((n1),(n2)),ipa_mkmask(l2)))))
 
 /*
  *	ip_classify() returns either a negative number for invalid addresses
@@ -49,9 +52,6 @@ struct prefix {
   ip_addr addr;
   unsigned int len;
 };
-
-#define ip_is_prefix(a,l) (!ipa_nonzero(ipa_and(a, ipa_not(ipa_mkmask(l)))))
-#define ipa_zero(x) (!ipa_nonzero(x))
 
 static inline int ipa_classify_net(ip_addr a)
 { return ipa_zero(a) ? (IADDR_HOST | SCOPE_UNIVERSE) : ipa_classify(a); }

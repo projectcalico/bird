@@ -536,6 +536,8 @@ cf_symbol_class_name(struct symbol *sym)
       return "network address";
     case SYM_TEMPLATE:
       return "protocol template";
+    case SYM_ROA:
+      return "ROA table";
     default:
       return "unknown type";
     }

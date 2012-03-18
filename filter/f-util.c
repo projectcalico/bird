@@ -54,6 +54,24 @@ f_generate_complex(int operation, int operation_aux, struct f_inst *dyn, struct 
   return set_dyn;
 }
 
+
+struct f_inst *
+f_generate_roa_check(struct symbol *sym, struct f_inst *prefix, struct f_inst *asn)
+{
+  struct f_inst_roa_check *ret = cfg_allocz(sizeof(struct f_inst_roa_check));
+  ret->i.code = P('R','C');
+  ret->i.lineno = ifs->conf_lino;
+  ret->i.arg1 = prefix;
+  ret->i.arg2 = asn;
+  /* prefix == NULL <-> asn == NULL */
+
+  if ((sym->class != SYM_ROA) || ! sym->def)
+    cf_error("%s is not a ROA table", sym->name);
+  ret->rtc = sym->def;
+
+  return &ret->i;
+}
+
 char *
 filter_name(struct filter *filter)
 {

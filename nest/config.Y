@@ -19,6 +19,7 @@ CF_DEFINES
 static struct proto_config *this_proto;
 static struct iface_patt *this_ipatt;
 static struct iface_patt_node *this_ipn;
+static struct roa_table_config *this_roa_table;
 static list *this_p_list;
 static struct password_item *this_p_item;
 static int password_id;
@@ -44,7 +45,7 @@ CF_DECLS
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, TEMPLATE, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
-CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE)
+CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE, ROA, XROA, MAX, FLUSH)
 CF_KEYWORDS(LISTEN, BGP, V6ONLY, DUAL, ADDRESS, PORT, PASSWORDS, DESCRIPTION)
 CF_KEYWORDS(RELOAD, IN, OUT, MRTDUMP, MESSAGES, RESTRICT, MEMORY, IGP_METRIC)
 
@@ -53,14 +54,17 @@ CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIREC
 CF_ENUM(T_ENUM_SCOPE, SCOPE_, HOST, LINK, SITE, ORGANIZATION, UNIVERSE, UNDEFINED)
 CF_ENUM(T_ENUM_RTC, RTC_, UNICAST, BROADCAST, MULTICAST, ANYCAST)
 CF_ENUM(T_ENUM_RTD, RTD_, ROUTER, DEVICE, BLACKHOLE, UNREACHABLE, PROHIBIT, MULTIPATH)
+CF_ENUM(T_ENUM_ROA, ROA_, UNKNOWN, VALID, INVALID)
 
 %type <i32> idval
 %type <f> imexport
 %type <r> rtable
 %type <s> optsym
 %type <ra> r_args
+%type <ro> roa_args
+%type <rot> roa_table_arg
 %type <sd> sym_args
-%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport
+%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport roa_mode
 %type <ps> proto_patt proto_patt2
 
 CF_GRAMMAR
@@ -111,6 +115,24 @@ CF_ADDTO(conf, newtab)
 newtab: TABLE SYM {
    rt_new_table($2);
    }
+ ;
+
+CF_ADDTO(conf, roa_table)
+
+roa_table_start: ROA TABLE SYM {
+  this_roa_table = roa_new_table_config($3);
+};
+
+roa_table_opts:
+   /* empty */
+ | roa_table_opts ROA prefix MAX NUM AS NUM ';' {
+     roa_add_item_config(this_roa_table, $3.addr, $3.len, $5, $7);
+   }
+ ;
+
+roa_table:
+   roa_table_start
+ | roa_table_start '{' roa_table_opts '}'
  ;
 
 /* Definition of protocols */
@@ -433,7 +455,44 @@ export_or_preexport:
  | EXPORT { $$ = 2; }
  ;
 
-CF_CLI(SHOW SYMBOLS, sym_args, [table|filter|function|protocol|template|<symbol>], [[Show all known symbolic names]])
+
+CF_CLI(SHOW XROA, roa_args, [<prefix> | in <prefix> | for <prefix>] [as <num>] [table <t>], [[Show ROA table]])
+{ roa_show($3); } ;
+
+roa_args:
+   /* empty */ {
+     $$ = cfg_allocz(sizeof(struct roa_show_data));
+     $$->mode = ROA_SHOW_ALL;
+     $$->table = roa_table_default;
+     if (roa_table_default == NULL)
+       cf_error("No ROA table defined");
+   }
+ | roa_args roa_mode prefix {
+     $$ = $1;
+     if ($$->mode != ROA_SHOW_ALL) cf_error("Only one prefix expected");
+     $$->prefix = $3.addr;
+     $$->pxlen = $3.len;
+     $$->mode = $2;
+   }
+ | roa_args AS NUM {
+     $$ = $1;
+     $$->asn = $3;
+   }
+ | roa_args TABLE SYM {
+     $$ = $1;
+     if ($3->class != SYM_ROA) cf_error("%s is not a ROA table", $3->name);
+     $$->table = ((struct roa_table_config *)$3->def)->table;
+   }
+ ;
+
+roa_mode:
+       { $$ = ROA_SHOW_PX; }
+ | IN  { $$ = ROA_SHOW_IN; }
+ | FOR { $$ = ROA_SHOW_FOR; }
+ ;
+
+
+CF_CLI(SHOW SYMBOLS, sym_args, [table|filter|function|protocol|template|roa|<symbol>], [[Show all known symbolic names]])
 { cmd_show_symbols($3); } ;
 
 sym_args:
@@ -445,8 +504,33 @@ sym_args:
  | sym_args FILTER { $$ = $1; $$->type = SYM_FILTER; }
  | sym_args PROTOCOL { $$ = $1; $$->type = SYM_PROTO; }
  | sym_args TEMPLATE { $$ = $1; $$->type = SYM_TEMPLATE; }
+ | sym_args ROA { $$ = $1; $$->type = SYM_ROA; }
  | sym_args SYM { $$ = $1; $$->sym = $2; }
  ;
+
+
+roa_table_arg:
+   /* empty */ { 
+     if (roa_table_default == NULL)
+       cf_error("No ROA table defined");
+     $$ = roa_table_default;
+   }
+ | TABLE SYM {
+     if ($2->class != SYM_ROA)
+       cf_error("%s is not a ROA table", $2->name);
+     $$ = ((struct roa_table_config *)$2->def)->table;
+   }
+ ;
+
+CF_CLI(ADD ROA, prefix MAX NUM AS NUM roa_table_arg, <prefix> max <num> as <num> [table <name>], [[Add ROA record]])
+{ roa_add_item($8, $3.addr, $3.len, $5, $7, ROA_SRC_DYNAMIC); cli_msg(0, ""); } ;
+
+CF_CLI(DELETE ROA, prefix MAX NUM AS NUM roa_table_arg, <prefix> max <num> as <num> [table <name>], [[Delete ROA record]])
+{ roa_delete_item($8, $3.addr, $3.len, $5, $7, ROA_SRC_DYNAMIC); cli_msg(0, ""); } ;
+
+CF_CLI(FLUSH ROA, roa_table_arg, [table <name>], [[Removes all dynamic ROA records]])
+{ roa_flush($3, ROA_SRC_DYNAMIC); cli_msg(0, ""); } ;
+
 
 CF_CLI_HELP(DUMP, ..., [[Dump debugging information]])
 CF_CLI(DUMP RESOURCES,,, [[Dump all allocated resource]])

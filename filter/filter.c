@@ -248,7 +248,7 @@ val_simple_in_range(struct f_val v1, struct f_val v2)
     return ipa_in_net(v1.val.px.ip, v2.val.px.ip, v2.val.px.len);
 
   if ((v1.type == T_PREFIX) && (v2.type == T_PREFIX))
-    return ipa_in_net(v1.val.px.ip, v2.val.px.ip, v2.val.px.len) && (v1.val.px.len >= v2.val.px.len);
+    return net_in_net(v1.val.px.ip, v1.val.px.len, v2.val.px.ip, v2.val.px.len);
 
   return CMP_ERROR;
 }
@@ -1208,6 +1208,38 @@ interpret(struct f_inst *what)
 
     break;
 
+  case P('R','C'):	/* ROA Check */
+    if (what->arg1)
+    {
+      TWOARGS;
+      if ((v1.type != T_PREFIX) || (v2.type != T_INT))
+	runtime("Invalid argument to roa_check()");
+
+      as = v2.val.i;
+    }
+    else
+    {
+      v1.val.px.ip = (*f_rte)->net->n.prefix;
+      v1.val.px.len = (*f_rte)->net->n.pxlen;
+
+      /* We ignore temporary attributes, probably not a problem here */
+      /* 0x02 is a value of BA_AS_PATH, we don't want to include BGP headers */
+      eattr *e = ea_find((*f_rte)->attrs->eattrs, EA_CODE(EAP_BGP, 0x02));
+
+      if (!e || e->type != EAF_TYPE_AS_PATH)
+	runtime("Missing AS_PATH attribute");
+
+      as_path_get_last(e->u.ptr, &as);
+    }
+
+    struct roa_table_config *rtc = ((struct f_inst_roa_check *) what)->rtc;
+    if (!rtc->table)
+      runtime("Missing ROA table");
+
+    res.type = T_ENUM_ROA;
+    res.val.i = roa_check(rtc->table, v1.val.px.ip, v1.val.px.len, as);
+    break;
+
   default:
     bug( "Unknown instruction %d (%c)", what->code, what->code & 0xff);
   }
@@ -1332,6 +1364,13 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case P('C','a'): TWOARGS; break;
   case P('a','f'):
   case P('a','l'): ONEARG; break;
+  case P('R','C'):
+    TWOARGS;
+    /* Does not really make sense - ROA check resuls may change anyway */
+    if (strcmp(((struct f_inst_roa_check *) f1)->rtc->name, 
+	       ((struct f_inst_roa_check *) f2)->rtc->name))
+      return 0;
+    break;
   default:
     bug( "Unknown instruction %d in same (%c)", f1->code, f1->code & 0xff);
   }

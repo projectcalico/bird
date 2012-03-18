@@ -358,6 +358,22 @@ protocol rip {
 	routing table is created implicitly, other routing tables have
 	to be added by this command.
 
+	<tag>roa table [ { roa table options ... } ] <m/name/</tag>
+	Create a new ROA (Route Origin Authorization) table. ROA
+	tables can be used to validate route origination of BGP
+	routes. A ROA table contains ROA entries, each consist of a
+	network prefix, a max prefix length and an AS number. A ROA
+	entry specifies prefixes which could be originated by that AS
+	number. ROA tables could be filled with data from RPKI (RFC
+	6480) or from public databases like Whois. ROA tables are 
+	examined by <cf/roa_check()/ operator in filters.
+
+	Currently, there is just one option,
+	<cf>roa <m/prefix/ max <m/num/ as <m/num/</cf>, which
+	can be used to populate the ROA table with static ROA
+	entries. The option may be used multiple times. Other entries
+	can be added dynamically by <cf/add roa/ command.
+
 	<tag>eval <m/expr/</tag> Evaluates given filter expression. It
 	is used by us for testing of filters.
 </descrip>
@@ -570,7 +586,7 @@ This argument can be omitted if there exists only a single instance.
 	<tag>show interfaces [summary]</tag>
 	Show the list of interfaces. For each interface, print its type, state, MTU and addresses assigned. 
 
-	<tag>show symbols [table|filter|function|protocol|template|<symbol>]</tag>
+	<tag>show symbols [table|filter|function|protocol|template|roa|<symbol>]</tag>
 	Show the list of symbols defined in the configuration (names of protocols, routing tables etc.).
 
 	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(export|preexport) <m/p/] [protocol <m/p/] [<m/options/]</tag>
@@ -598,6 +614,29 @@ This argument can be omitted if there exists only a single instance.
 	<p>The <cf/stats/ switch requests showing of route statistics (the
 	number of networks, number of routes before and after filtering). If
 	you use <cf/count/ instead, only the statistics will be printed.
+
+	<tag>show xroa [<m/prefix/ | in <m/prefix/ | for <m/prefix/] [as <m/num/] [table <m/t/>]</tag>
+	Show contents of a ROA table (by default of the first one).
+	You can specify a <m/prefix/ to print ROA entries for a
+	specific network. If you use <cf>for <m/prefix/</cf>, you'll
+	get all entries relevant for route validation of the network
+	prefix; i.e., ROA entries whose prefixes cover the network
+	prefix. Or you can use <cf>in <m/prefix/</cf> to get ROA entries
+	covered by the network prefix. You could also use <cf/as/ option
+	to show just entries for given AS.
+
+	<tag>add roa <m/prefix/ max <m/num/] as <m/num/ [table <m/t/>]</tag>
+	Add a new ROA entry to a ROA table. Such entry is called
+	<it/dynamic/ compared to <it/static/ entries specified in the
+	config file. These dynamic entries survive reconfiguration.
+
+	<tag>delete roa <m/prefix/ max <m/num/] as <m/num/ [table <m/t/>]</tag>
+	Delete the specified ROA entry from a ROA table. Only dynamic
+	ROA entries (i.e., the ones added by <cf/add roa/ command) can
+	be deleted.
+
+	<tag>flush roa [table <m/t/>]</tag>
+	Remove all dynamic ROA entries from a ROA table.
 
 	<tag>configure [soft] ["<m/config file/"]</tag>
 	Reload configuration from a given file. BIRD will smoothly
@@ -917,6 +956,17 @@ Special operators include <cf/&tilde;/ for "is element of a set" operation - it 
 used on element and set of elements of the same type (returning true if element is contained in the given set), or
 on two strings (returning true if first string matches a shell-like pattern stored in second string) or on IP and prefix (returning true if IP is within the range defined by that prefix), or on
 prefix and prefix (returning true if first prefix is more specific than second one) or on bgppath and bgpmask (returning true if the path matches the mask) or on number and bgppath (returning true if the number is in the path) or on pair/quad and clist (returning true if the pair/quad is element of the clist) or on clist and pair/quad set (returning true if there is an element of the clist that is also a member of the pair/quad set).
+
+<p>There is one operator related to ROA infrastructure -
+<cf/roa_check()/. It examines a ROA table and does RFC 6483 route
+origin validation for a given network prefix. The basic usage
+is <cf>roa_check(<m/table/)</cf>, which checks current route (which
+should be from BGP to have AS_PATH argument) in the specified ROA
+table and returns ROA_UNKNOWN if there is no relevant ROA, ROA_VALID
+if there is a matching ROA, or ROA_INVALID if there are some relevant
+ROAs but none of them match. There is also an extended variant
+<cf>roa_check(<m/table/, <m/prefix/, <m/asn/)</cf>, which allows to
+specify a prefix and an ASN as arguments.
 
 
 <sect>Control structures

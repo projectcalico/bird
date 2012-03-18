@@ -643,6 +643,7 @@ main(int argc, char **argv)
   io_init();
   rt_init();
   if_init();
+  roa_init();
 
   uid_t use_uid = get_uid(use_user);
   gid_t use_gid = get_gid(use_group);

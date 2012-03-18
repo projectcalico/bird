@@ -454,4 +454,84 @@ extern struct protocol *attr_class_to_protocol[EAP_MAX];
 #define DEF_PREF_PIPE		70	/* Routes piped from other tables */
 #define DEF_PREF_INHERITED	10	/* Routes inherited from other routing daemons */
 
+
+/*
+ *	Route Origin Authorization
+ */
+
+struct roa_item {
+  u32 asn;
+  byte maxlen;
+  byte src;
+  struct roa_item *next;
+};
+
+struct roa_node {
+  struct fib_node n;
+  struct roa_item *items;
+  // u32 cached_asn;
+};
+
+struct roa_table {
+  node n;				/* Node in roa_table_list */
+  struct fib fib;
+  char *name;				/* Name of this ROA table */
+  struct roa_table_config *cf;		/* Configuration of this ROA table */
+};
+
+struct roa_item_config {
+  ip_addr prefix;
+  byte pxlen, maxlen;
+  u32 asn;
+  struct roa_item_config *next;
+};
+
+struct roa_table_config {
+  node n;				/* Node in config->rpa_tables */
+  char *name;				/* Name of this ROA table */
+  struct roa_table *table;
+
+  struct roa_item_config *roa_items;	/* Preconfigured ROA items */
+
+  // char *filename;
+  // int gc_max_ops;			/* Maximum number of operations before GC is run */
+  // int gc_min_time;			/* Minimum time between two consecutive GC runs */
+};
+
+struct roa_show_data {
+  struct fib_iterator fit;
+  struct roa_table *table;
+  ip_addr prefix;
+  byte pxlen;
+  byte mode;				/* ROA_SHOW_* values */
+  u32 asn;				/* Filter ASN, 0 -> all */
+};
+
+#define ROA_UNKNOWN	0
+#define ROA_VALID	1
+#define ROA_INVALID	2
+
+#define ROA_SRC_ANY	0
+#define ROA_SRC_CONFIG	1
+#define ROA_SRC_DYNAMIC	2
+
+#define ROA_SHOW_ALL	0
+#define ROA_SHOW_PX	1
+#define ROA_SHOW_IN	2
+#define ROA_SHOW_FOR	3
+
+extern struct roa_table *roa_table_default;
+
+void roa_add_item(struct roa_table *t, ip_addr prefix, byte pxlen, byte maxlen, u32 asn, byte src);
+void roa_delete_item(struct roa_table *t, ip_addr prefix, byte pxlen, byte maxlen, u32 asn, byte src);
+void roa_flush(struct roa_table *t, byte src);
+byte roa_check(struct roa_table *t, ip_addr prefix, byte pxlen, u32 asn);
+struct roa_table_config * roa_new_table_config(struct symbol *s);
+void roa_add_item_config(struct roa_table_config *rtc, ip_addr prefix, byte pxlen, byte maxlen, u32 asn);
+void roa_init(void);
+void roa_preconfig(struct config *c);
+void roa_commit(struct config *new, struct config *old);
+void roa_show(struct roa_show_data *d);
+
+
 #endif

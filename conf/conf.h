@@ -21,7 +21,9 @@ struct config {
   linpool *mem;				/* Linear pool containing configuration data */
   list protos;				/* Configured protocol instances (struct proto_config) */
   list tables;				/* Configured routing tables (struct rtable_config) */
+  list roa_tables;			/* Configured ROA tables (struct roa_table_config) */
   list logfiles;			/* Configured log fils (sysdep) */
+
   int mrtdump_file;			/* Configured MRTDump file (sysdep, fd in unix) */
   char *syslog_name;			/* Name used for syslog (NULL -> no syslog) */
   struct rtable_config *master_rtc;	/* Configuration of master routing table */
@@ -110,6 +112,7 @@ struct symbol {
 #define SYM_TABLE 5
 #define SYM_IPA 6
 #define SYM_TEMPLATE 7
+#define SYM_ROA 8
 
 #define SYM_VARIABLE 0x100	/* 0x100-0x1ff are variable types */
 
