@@ -170,7 +170,10 @@ cf_open(char *filename)
   int ret;
 
   if (*filename != '/') {
-    snprintf(full_name, sizeof(full_name), "%s/%s", dirname(config_name), filename);
+    char dir[BIRD_FNAME_MAX];
+    strncpy(dir, config_name, sizeof(dir));
+    dir[sizeof(dir)-1] = 0;
+    snprintf(full_name, sizeof(full_name), "%s/%s", dirname(dir), filename);
     full_name[sizeof(full_name)-1] = 0;
     cur = full_name;
   }
