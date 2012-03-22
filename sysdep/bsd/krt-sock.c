@@ -255,10 +255,11 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
   ip_addr idst, igate, imask;
   void *body = (char *)msg->buf;
   int new = (msg->rtm.rtm_type == RTM_ADD);
-  int src;
   char *errmsg = "KRT: Invalid route received";
   int flags = msg->rtm.rtm_flags;
   int addrs = msg->rtm.rtm_addrs;
+  int src;
+  byte src2;
 
   if (!(flags & RTF_UP) && scan)
     SKIP("not up in scan\n");
@@ -302,12 +303,17 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
   u32 self_mask = RTF_PROTO1;
   u32 alien_mask = RTF_STATIC | RTF_PROTO1 | RTF_GATEWAY;
 
+  src2 = (flags & RTF_STATIC) ? 1 : 0;
+  src2 |= (flags & RTF_PROTO1) ? 2 : 0;
+
 #ifdef RTF_PROTO2
   alien_mask |= RTF_PROTO2;
+  src2 |= (flags & RTF_PROTO2) ? 4 : 0;
 #endif
 
 #ifdef RTF_PROTO3
   alien_mask |= RTF_PROTO3;
+  src2 |= (flags & RTF_PROTO3) ? 8 : 0;
 #endif
 
 #ifdef RTF_REJECT
@@ -397,9 +403,9 @@ krt_read_rt(struct ks_msg *msg, struct krt_proto *p, int scan)
   e = rte_get_temp(&a);
   e->net = net;
   e->u.krt.src = src;
+  e->u.krt.proto = src2;
 
   /* These are probably too Linux-specific */
-  e->u.krt.proto = 0;
   e->u.krt.type = 0;
   e->u.krt.metric = 0;
 

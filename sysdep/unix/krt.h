@@ -28,8 +28,9 @@ struct kif_proto;
 #define KRF_DELETE 3			/* Should be deleted */
 #define KRF_IGNORE 4			/* To be ignored */
 
-#define EA_KRT_PREFSRC EA_CODE(EAP_KRT, 0)
-#define EA_KRT_REALM EA_CODE(EAP_KRT, 1)
+#define EA_KRT_SOURCE	EA_CODE(EAP_KRT, 0)
+#define EA_KRT_PREFSRC	EA_CODE(EAP_KRT, 1)
+#define EA_KRT_REALM	EA_CODE(EAP_KRT, 2)
 
 /* Whenever we recognize our own routes, we allow learing of foreign routes */
 

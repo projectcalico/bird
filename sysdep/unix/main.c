@@ -191,7 +191,7 @@ sysdep_preconfig(struct config *c)
   init_list(&c->logfiles);
 
 #ifdef PATH_IPROUTE_DIR
-  // read_iproute_table(PATH_IPROUTE_DIR "/rt_protos", "ipp_", 256);
+  read_iproute_table(PATH_IPROUTE_DIR "/rt_protos", "ipp_", 256);
   read_iproute_table(PATH_IPROUTE_DIR "/rt_realms", "ipr_", 256);
   read_iproute_table(PATH_IPROUTE_DIR "/rt_scopes", "ips_", 256);
   read_iproute_table(PATH_IPROUTE_DIR "/rt_tables", "ipt_", 256);
