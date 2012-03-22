@@ -512,7 +512,6 @@ lsa_validate(struct ospf_lsa_header *lsa, void *body)
  * @lsa: LSA header
  * @domain: domain of LSA
  * @body: pointer to LSA body
-
  *
  * This function ensures installing new LSA into LSA database. Old instance is
  * replaced. Several actions are taken to detect if new routing table

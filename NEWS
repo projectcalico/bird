@@ -1,4 +1,11 @@
 
+Version 1.3.7 (2012-03-23)
+  o Route Origin Authorization basics.
+  o Working RIPng.
+  o Extended clist operations in filters. 
+  o Fixes several bugs in BSD iface handling.
+  o Several minor bugfixes and enhancements.
+
 Version 1.3.6 (2012-01-20)
   o Important bugfix in BGP.
 
