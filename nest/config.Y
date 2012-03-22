@@ -45,7 +45,7 @@ CF_DECLS
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, TEMPLATE, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
-CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE, ROA, XROA, MAX, FLUSH)
+CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE, ROA, MAX, FLUSH)
 CF_KEYWORDS(LISTEN, BGP, V6ONLY, DUAL, ADDRESS, PORT, PASSWORDS, DESCRIPTION)
 CF_KEYWORDS(RELOAD, IN, OUT, MRTDUMP, MESSAGES, RESTRICT, MEMORY, IGP_METRIC)
 
@@ -376,6 +376,7 @@ CF_CLI(SHOW INTERFACES,,, [[Show network interfaces]])
 CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
 { if_show_summary(); } ;
 
+CF_CLI_HELP(SHOW ROUTE, ..., [[Show routing table]])
 CF_CLI(SHOW ROUTE, r_args, [[[<prefix>|for <prefix>|for <ip>] [table <t>] [filter <f>|where <cond>] [all] [primary] [(export|preexport) <p>] [protocol <p>] [stats|count]]], [[Show routing table]])
 { rt_show($3); } ;
 
@@ -456,7 +457,8 @@ export_or_preexport:
  ;
 
 
-CF_CLI(SHOW XROA, roa_args, [<prefix> | in <prefix> | for <prefix>] [as <num>] [table <t>], [[Show ROA table]])
+CF_CLI_HELP(SHOW ROA, ..., [[Show ROA table]])
+CF_CLI(SHOW ROA, roa_args, [<prefix> | in <prefix> | for <prefix>] [as <num>] [table <t>], [[Show ROA table]])
 { roa_show($3); } ;
 
 roa_args:
@@ -492,6 +494,7 @@ roa_mode:
  ;
 
 
+CF_CLI_HELP(SHOW SYMBOLS, ..., [[Show all known symbolic names]])
 CF_CLI(SHOW SYMBOLS, sym_args, [table|filter|function|protocol|template|roa|<symbol>], [[Show all known symbolic names]])
 { cmd_show_symbols($3); } ;
 
@@ -522,14 +525,26 @@ roa_table_arg:
    }
  ;
 
+CF_CLI_HELP(ADD, roa ..., [[Add ROA record]])
 CF_CLI(ADD ROA, prefix MAX NUM AS NUM roa_table_arg, <prefix> max <num> as <num> [table <name>], [[Add ROA record]])
-{ roa_add_item($8, $3.addr, $3.len, $5, $7, ROA_SRC_DYNAMIC); cli_msg(0, ""); } ;
+{
+  if (! cli_access_restricted())
+    { roa_add_item($8, $3.addr, $3.len, $5, $7, ROA_SRC_DYNAMIC); cli_msg(0, ""); }
+};
 
+CF_CLI_HELP(DELETE, roa ..., [[Delete ROA record]])
 CF_CLI(DELETE ROA, prefix MAX NUM AS NUM roa_table_arg, <prefix> max <num> as <num> [table <name>], [[Delete ROA record]])
-{ roa_delete_item($8, $3.addr, $3.len, $5, $7, ROA_SRC_DYNAMIC); cli_msg(0, ""); } ;
+{
+  if (! cli_access_restricted())
+    { roa_delete_item($8, $3.addr, $3.len, $5, $7, ROA_SRC_DYNAMIC); cli_msg(0, ""); }
+};
 
+CF_CLI_HELP(FLUSH, roa [table <name>], [[Removes all dynamic ROA records]])
 CF_CLI(FLUSH ROA, roa_table_arg, [table <name>], [[Removes all dynamic ROA records]])
-{ roa_flush($3, ROA_SRC_DYNAMIC); cli_msg(0, ""); } ;
+{
+  if (! cli_access_restricted())
+    { roa_flush($3, ROA_SRC_DYNAMIC); cli_msg(0, ""); }
+};
 
 
 CF_CLI_HELP(DUMP, ..., [[Dump debugging information]])

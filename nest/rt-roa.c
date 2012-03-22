@@ -354,7 +354,7 @@ roa_show_node(struct cli *c, struct roa_node *rn, int len, u32 asn)
 
   for (ri = rn->items; ri; ri = ri->next)
     if ((ri->maxlen >= len) && (!asn || (ri->asn == asn)))
-      cli_printf(c, -1111, "%I/%d max %d as %u", rn->n.prefix, rn->n.pxlen, ri->maxlen, ri->asn);
+      cli_printf(c, -1019, "%I/%d max %d as %u", rn->n.prefix, rn->n.pxlen, ri->maxlen, ri->asn);
 }
 
 static void

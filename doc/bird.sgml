@@ -615,7 +615,7 @@ This argument can be omitted if there exists only a single instance.
 	number of networks, number of routes before and after filtering). If
 	you use <cf/count/ instead, only the statistics will be printed.
 
-	<tag>show xroa [<m/prefix/ | in <m/prefix/ | for <m/prefix/] [as <m/num/] [table <m/t/>]</tag>
+	<tag>show roa [<m/prefix/ | in <m/prefix/ | for <m/prefix/] [as <m/num/] [table <m/t/>]</tag>
 	Show contents of a ROA table (by default of the first one).
 	You can specify a <m/prefix/ to print ROA entries for a
 	specific network. If you use <cf>for <m/prefix/</cf>, you'll

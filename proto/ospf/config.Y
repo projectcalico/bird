@@ -388,7 +388,8 @@ CF_ADDTO(dynamic_attr, OSPF_METRIC2 { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF
 CF_ADDTO(dynamic_attr, OSPF_TAG { $$ = f_new_dynamic_attr(EAF_TYPE_INT | EAF_TEMP, T_INT, EA_OSPF_TAG); })
 CF_ADDTO(dynamic_attr, OSPF_ROUTER_ID { $$ = f_new_dynamic_attr(EAF_TYPE_ROUTER_ID | EAF_TEMP, T_QUAD, EA_OSPF_ROUTER_ID); })
 
-CF_CLI(SHOW OSPF, optsym, [<name>], [[Show information about OSPF protocol]])
+CF_CLI_HELP(SHOW OSPF, ..., [[Show information about OSPF protocol]]);
+CF_CLI(SHOW OSPF, optsym, [<name>], [[Show information about OSPF protocol XXX]])
 { ospf_sh(proto_get_named($3, &proto_ospf)); };
 
 CF_CLI(SHOW OSPF NEIGHBORS, optsym opttext, [<name>] [\"<interface>\"], [[Show information about OSPF neighbors]])
@@ -413,6 +414,7 @@ CF_CLI(SHOW OSPF STATE, optsym opttext, [<name>], [[Show information about reach
 CF_CLI(SHOW OSPF STATE ALL, optsym opttext, [<name>], [[Show information about all OSPF network state]])
 { ospf_sh_state(proto_get_named($5, &proto_ospf), 1, 0); };
 
+CF_CLI_HELP(SHOW OSPF LSADB, ..., [[Show content of OSPF LSA database]]);
 CF_CLI(SHOW OSPF LSADB, lsadb_args, [global | area <id> | link] [type <num>] [lsid <id>] [self | router <id>] [<proto>], [[Show content of OSPF LSA database]])
 { ospf_sh_lsadb($4); };
 
