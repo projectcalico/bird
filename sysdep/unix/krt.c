@@ -907,21 +907,35 @@ krt_shutdown(struct proto *P)
   return PS_DOWN;
 }
 
-struct ea_list *
+static struct ea_list *
 krt_make_tmp_attrs(struct rte *rt, struct linpool *pool)
 {
-  struct ea_list *l = lp_alloc(pool, sizeof(struct ea_list) + 1 * sizeof(eattr));
+  struct ea_list *l = lp_alloc(pool, sizeof(struct ea_list) + 2 * sizeof(eattr));
 
   l->next = NULL;
   l->flags = EALF_SORTED;
-  l->count = 1;
+  l->count = 2;
+
   l->attrs[0].id = EA_KRT_SOURCE;
   l->attrs[0].flags = 0;
   l->attrs[0].type = EAF_TYPE_INT | EAF_TEMP;
   l->attrs[0].u.data = rt->u.krt.proto;
 
+  l->attrs[1].id = EA_KRT_METRIC;
+  l->attrs[1].flags = 0;
+  l->attrs[1].type = EAF_TYPE_INT | EAF_TEMP;
+  l->attrs[1].u.data = rt->u.krt.metric;
+
   return l;
 }
+
+static void
+krt_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
+{
+  /* EA_KRT_SOURCE is read-only */
+  rt->u.krt.metric = ea_get_int(attrs, EA_KRT_METRIC, 0);
+}
+
 
 static struct proto *
 krt_init(struct proto_config *c)
@@ -930,6 +944,7 @@ krt_init(struct proto_config *c)
 
   p->p.accept_ra_types = RA_OPTIMAL;
   p->p.make_tmp_attrs = krt_make_tmp_attrs;
+  p->p.store_tmp_attrs = krt_store_tmp_attrs;
   p->p.import_control = krt_import_control;
   p->p.rt_notify = krt_notify;
 
@@ -971,6 +986,10 @@ krt_get_attr(eattr * a, byte * buf, int buflen UNUSED)
   {
   case EA_KRT_SOURCE:
     bsprintf(buf, "source");
+    return GA_NAME;
+
+  case EA_KRT_METRIC:
+    bsprintf(buf, "metric");
     return GA_NAME;
 
   case EA_KRT_PREFSRC:

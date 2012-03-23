@@ -1653,11 +1653,15 @@ are translated to appropriate system (and OS-specific) route attributes.
 We support these attributes:
 
 <descrip>
-	<tag>int <cf/krt_source/</tag> The source of the imported
+	<tag>int <cf/krt_source/</tag> The original source of the imported
 	kernel route.  The value is system-dependent. On Linux, it is
 	a value of the protocol field of the route. See
 	/etc/iproute2/rt_protos for common values.  On BSD, it is
 	based on STATIC and PROTOx flags. The attribute is read-only.
+
+	<tag>int <cf/krt_metric/</tag> The kernel metric of
+	the route.  When multiple same routes are in a kernel routing
+	table, the Linux kernel chooses one with lower metric.
 
 	<tag>ip <cf/krt_prefsrc/</tag> (Linux) The preferred source address.
  	Used in source address selection for outgoing packets. Have to

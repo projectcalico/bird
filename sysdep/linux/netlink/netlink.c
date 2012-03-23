@@ -639,6 +639,9 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
   r.r.rtm_scope = RT_SCOPE_UNIVERSE;
   nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
 
+  if (ea = ea_find(a->eattrs, EA_KRT_METRIC))
+    nl_add_attr_u32(&r.h, sizeof(r), RTA_PRIORITY, ea->u.data);
+
   if (ea = ea_find(a->eattrs, EA_KRT_PREFSRC))
     nl_add_attr_ipa(&r.h, sizeof(r), RTA_PREFSRC, *(ip_addr *)ea->u.ptr->data);
 
@@ -886,7 +889,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   e->u.krt.type = i->rtm_type;
 
   if (a[RTA_PRIORITY])
-    memcpy(&e->u.krt.metric, RTA_DATA(a[RTA_PRIORITY]), sizeof(e->u.krt.metric));
+    memcpy(&e->u.krt.metric, RTA_DATA(a[RTA_PRIORITY]), sizeof(e->u.krt.metric)); 
   else
     e->u.krt.metric = 0;
 
