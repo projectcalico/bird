@@ -612,7 +612,7 @@ nh_bufsize(struct mpnh *nh)
 }
 
 static int
-nl_send_route(struct krt_proto *p, rte *e, int new)
+nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
 {
   eattr *ea;
   net *net = e->net;
@@ -639,13 +639,18 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
   r.r.rtm_scope = RT_SCOPE_UNIVERSE;
   nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
 
-  if (ea = ea_find(a->eattrs, EA_KRT_METRIC))
-    nl_add_attr_u32(&r.h, sizeof(r), RTA_PRIORITY, ea->u.data);
+  u32 metric = 0;
+  if (new && e->attrs->source == RTS_INHERIT)
+    metric = e->u.krt.metric;
+  if (ea = ea_find(eattrs, EA_KRT_METRIC))
+    metric = ea->u.data;
+  if (metric != 0)
+    nl_add_attr_u32(&r.h, sizeof(r), RTA_PRIORITY, metric);
 
-  if (ea = ea_find(a->eattrs, EA_KRT_PREFSRC))
+  if (ea = ea_find(eattrs, EA_KRT_PREFSRC))
     nl_add_attr_ipa(&r.h, sizeof(r), RTA_PREFSRC, *(ip_addr *)ea->u.ptr->data);
 
-  if (ea = ea_find(a->eattrs, EA_KRT_REALM))
+  if (ea = ea_find(eattrs, EA_KRT_REALM))
     nl_add_attr_u32(&r.h, sizeof(r), RTA_FLOW, ea->u.data);
 
   switch (a->dest)
@@ -686,15 +691,22 @@ nl_send_route(struct krt_proto *p, rte *e, int new)
 }
 
 void
-krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old, struct ea_list *eattrs)
 {
   int err = 0;
 
+  /*
+   * NULL for eattr of the old route is a little hack, but we don't
+   * get proper eattrs for old in rt_notify() anyway. NULL means no
+   * extended route attributes and therefore matches if the kernel
+   * route has any of them.
+   */
+
   if (old)
-    nl_send_route(p, old, 0);
+    nl_send_route(p, old, NULL, 0);
 
   if (new)
-    err = nl_send_route(p, new, 1);
+    err = nl_send_route(p, new, eattrs, 1);
 
   if (err < 0)
     n->n.flags |= KRF_SYNC_ERROR;

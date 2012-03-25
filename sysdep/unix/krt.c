@@ -46,6 +46,7 @@
 #include "nest/iface.h"
 #include "nest/route.h"
 #include "nest/protocol.h"
+#include "filter/filter.h"
 #include "lib/timer.h"
 #include "conf/conf.h"
 #include "lib/string.h"
@@ -53,18 +54,18 @@
 #include "unix.h"
 #include "krt.h"
 
-static int krt_uptodate(rte *k, rte *e);
-
 /*
  *	Global resources
  */
 
 pool *krt_pool;
+static linpool *krt_filter_lp;
 
 void
 krt_io_init(void)
 {
   krt_pool = rp_new(&root_pool, "Kernel Syncer");
+  krt_filter_lp = lp_new(krt_pool, 4080);
   krt_if_io_init();
 }
 
@@ -278,12 +279,30 @@ krt_trace_in_rl(struct rate_limit *rl, struct krt_proto *p, rte *e, char *msg)
 
 static struct rate_limit rl_alien_seen, rl_alien_updated, rl_alien_created, rl_alien_ignored;
 
+/*
+ * krt_same_key() specifies what (aside from the net) is the key in
+ * kernel routing tables. It should be OS-dependent, this is for
+ * Linux. It is important for asynchronous alien updates, because a
+ * positive update is implicitly a negative one for any old route with
+ * the same key.
+ */
+
 static inline int
 krt_same_key(rte *a, rte *b)
 {
-  return a->u.krt.proto == b->u.krt.proto &&
-         a->u.krt.metric == b->u.krt.metric &&
-         a->u.krt.type == b->u.krt.type;
+  return a->u.krt.metric == b->u.krt.metric;
+}
+
+static inline int
+krt_uptodate(rte *a, rte *b)
+{
+  if (a->attrs != b->attrs)
+    return 0;
+
+  if (a->u.krt.proto != b->u.krt.proto)
+    return 0;
+
+  return 1;
 }
 
 static void
@@ -308,6 +327,7 @@ krt_learn_announce_delete(struct krt_proto *p, net *n)
     rte_update(p->p.table, n, &p->p, &p->p, NULL);
 }
 
+/* Called when alien route is discovered during scan */
 static void
 krt_learn_scan(struct krt_proto *p, rte *e)
 {
@@ -315,7 +335,7 @@ krt_learn_scan(struct krt_proto *p, rte *e)
   net *n = net_get(&p->krt_table, n0->n.prefix, n0->n.pxlen);
   rte *m, **mm;
 
-  e->attrs->source = RTS_INHERIT;
+  e->attrs = rta_lookup(e->attrs);
 
   for(mm=&n->routes; m = *mm; mm=&m->next)
     if (krt_same_key(m, e))
@@ -340,7 +360,6 @@ krt_learn_scan(struct krt_proto *p, rte *e)
     krt_trace_in_rl(&rl_alien_created, p, e, "[alien] created");
   if (!m)
     {
-      e->attrs = rta_lookup(e->attrs);
       e->next = n->routes;
       n->routes = e;
       e->u.krt.seen = 1;
@@ -416,7 +435,7 @@ krt_learn_async(struct krt_proto *p, rte *e, int new)
   net *n = net_get(&p->krt_table, n0->n.prefix, n0->n.pxlen);
   rte *g, **gg, *best, **bestp, *old_best;
 
-  e->attrs->source = RTS_INHERIT;
+  e->attrs = rta_lookup(e->attrs);
 
   old_best = n->routes;
   for(gg=&n->routes; g = *gg; gg = &g->next)
@@ -438,7 +457,7 @@ krt_learn_async(struct krt_proto *p, rte *e, int new)
 	}
       else
 	krt_trace_in(p, e, "[alien async] created");
-      e->attrs = rta_lookup(e->attrs);
+
       e->next = n->routes;
       n->routes = e;
     }
@@ -538,7 +557,8 @@ krt_flush_routes(struct krt_proto *p)
 	  if ((n->n.flags & KRF_INSTALLED) &&
 	      a->source != RTS_DEVICE && a->source != RTS_INHERIT)
 	    {
-	      krt_set_notify(p, e->net, NULL, e);
+	      /* FIXME: this does not work if gw is changed in export filter */
+	      krt_set_notify(p, e->net, NULL, e, NULL);
 	      n->n.flags &= ~KRF_INSTALLED;
 	    }
 	}
@@ -547,7 +567,7 @@ krt_flush_routes(struct krt_proto *p)
 }
 
 static int
-krt_uptodate(rte *k, rte *e)
+krt_same_dest(rte *k, rte *e)
 {
   rta *ka = k->attrs, *ea = e->attrs;
 
@@ -559,6 +579,8 @@ krt_uptodate(rte *k, rte *e)
       return ipa_equal(ka->gw, ea->gw);
     case RTD_DEVICE:
       return !strcmp(ka->iface->name, ea->iface->name);
+    case RTD_MULTIPATH:
+      return mpnh_same(ka->nexthops, ea->nexthops);
     default:
       return 1;
     }
@@ -611,10 +633,12 @@ krt_got_route(struct krt_proto *p, rte *e)
   old = net->routes;
   if ((net->n.flags & KRF_INSTALLED) && old)
     {
-      if (krt_uptodate(e, old))
-	verdict = KRF_SEEN;
-      else
+      /* There may be changes in route attributes, we ignore that.
+         Also, this does not work well if gw is changed in export filter */
+      if ((net->n.flags & KRF_SYNC_ERROR) || ! krt_same_dest(e, old))
 	verdict = KRF_UPDATE;
+      else
+	verdict = KRF_SEEN;
     }
   else
     verdict = KRF_DELETE;
@@ -624,7 +648,7 @@ krt_got_route(struct krt_proto *p, rte *e)
   net->n.flags = (net->n.flags & ~KRF_VERDICT_MASK) | verdict;
   if (verdict == KRF_UPDATE || verdict == KRF_DELETE)
     {
-      /* Get a cached copy of attributes and link the route */
+      /* Get a cached copy of attributes and temporarily link the route */
       rta *a = e->attrs;
       a->source = RTS_DUMMY;
       e->attrs = rta_lookup(a);
@@ -633,6 +657,25 @@ krt_got_route(struct krt_proto *p, rte *e)
     }
   else
     rte_free(e);
+}
+
+static inline int
+krt_export_rte(struct krt_proto *p, rte **new, ea_list **tmpa)
+{
+  struct filter *filter = p->p.out_filter;
+
+  if (! *new)
+    return 0;
+
+  if (filter == FILTER_REJECT)
+    return 0;
+
+  if (filter == FILTER_ACCEPT)
+    return 1;
+
+  struct proto *src = (*new)->attrs->proto;
+  *tmpa = src->make_tmp_attrs ? src->make_tmp_attrs(*new, krt_filter_lp) : NULL;
+  return f_run(filter, new, tmpa, krt_filter_lp, FF_FORCE_TMPATTR) <= F_ACCEPT;
 }
 
 static void
@@ -645,16 +688,28 @@ krt_prune(struct krt_proto *p)
     {
       net *n = (net *) f;
       int verdict = f->flags & KRF_VERDICT_MASK;
-      rte *new, *old;
+      rte *new, *new0, *old;
+      ea_list *tmpa = NULL;
 
-      if (verdict != KRF_CREATE && verdict != KRF_SEEN && verdict != KRF_IGNORE)
+      if (verdict == KRF_UPDATE || verdict == KRF_DELETE)
 	{
+	  /* Get a dummy route from krt_got_route() */
 	  old = n->routes;
 	  n->routes = old->next;
 	}
       else
 	old = NULL;
-      new = n->routes;
+
+      new = new0 = n->routes;
+      if (verdict == KRF_CREATE || verdict == KRF_UPDATE)
+	{
+	  /* We have to run export filter to get proper 'new' route */
+	  if (! krt_export_rte(p, &new, &tmpa))
+	    {
+	      /* Route rejected, should not happen (KRF_INSTALLED) but to be sure .. */
+	      verdict = (verdict == KRF_CREATE) ? KRF_IGNORE : KRF_DELETE; 
+	    }
+	}
 
       switch (verdict)
 	{
@@ -662,7 +717,7 @@ krt_prune(struct krt_proto *p)
 	  if (new && (f->flags & KRF_INSTALLED))
 	    {
 	      krt_trace_in(p, new, "reinstalling");
-	      krt_set_notify(p, n, new, NULL);
+	      krt_set_notify(p, n, new, NULL, tmpa);
 	    }
 	  break;
 	case KRF_SEEN:
@@ -671,17 +726,21 @@ krt_prune(struct krt_proto *p)
 	  break;
 	case KRF_UPDATE:
 	  krt_trace_in(p, new, "updating");
-	  krt_set_notify(p, n, new, old);
+	  krt_set_notify(p, n, new, old, tmpa);
 	  break;
 	case KRF_DELETE:
 	  krt_trace_in(p, old, "deleting");
-	  krt_set_notify(p, n, NULL, old);
+	  krt_set_notify(p, n, NULL, old, NULL);
 	  break;
 	default:
 	  bug("krt_prune: invalid route status");
 	}
+
       if (old)
 	rte_free(old);
+      if (new != new0)
+	rte_free(new);
+      lp_flush(krt_filter_lp);
       f->flags &= ~KRF_VERDICT_MASK;
     }
   FIB_WALK_END;
@@ -707,7 +766,7 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
       if (new)
 	{
 	  krt_trace_in(p, e, "[redirect] deleting");
-	  krt_set_notify(p, net, NULL, e);
+	  krt_set_notify(p, net, NULL, e, NULL);
 	}
       /* If !new, it is probably echo of our deletion */
       break;
@@ -781,7 +840,7 @@ krt_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *
 
 static void
 krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
-	   rte *new, rte *old, struct ea_list *attrs UNUSED)
+	   rte *new, rte *old, struct ea_list *eattrs)
 {
   struct krt_proto *p = (struct krt_proto *) P;
 
@@ -793,8 +852,8 @@ krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
     net->n.flags |= KRF_INSTALLED;
   else
     net->n.flags &= ~KRF_INSTALLED;
-  if (p->initialized)			/* Before first scan we don't touch the routes */
-    krt_set_notify(p, net, new, old);
+  if (p->initialized)		/* Before first scan we don't touch the routes */
+    krt_set_notify(p, net, new, old, eattrs);
 }
 
 /*
@@ -908,7 +967,7 @@ krt_shutdown(struct proto *P)
 }
 
 static struct ea_list *
-krt_make_tmp_attrs(struct rte *rt, struct linpool *pool)
+krt_make_tmp_attrs(rte *rt, struct linpool *pool)
 {
   struct ea_list *l = lp_alloc(pool, sizeof(struct ea_list) + 2 * sizeof(eattr));
 
@@ -930,12 +989,18 @@ krt_make_tmp_attrs(struct rte *rt, struct linpool *pool)
 }
 
 static void
-krt_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
+krt_store_tmp_attrs(rte *rt, struct ea_list *attrs)
 {
   /* EA_KRT_SOURCE is read-only */
   rt->u.krt.metric = ea_get_int(attrs, EA_KRT_METRIC, 0);
 }
 
+static int
+krt_rte_same(rte *a, rte *b)
+{
+  /* src is always KRT_SRC_ALIEN and type is irrelevant */
+  return (a->u.krt.proto == b->u.krt.proto) && (a->u.krt.metric == b->u.krt.metric);
+}
 
 static struct proto *
 krt_init(struct proto_config *c)
@@ -947,6 +1012,7 @@ krt_init(struct proto_config *c)
   p->p.store_tmp_attrs = krt_store_tmp_attrs;
   p->p.import_control = krt_import_control;
   p->p.rt_notify = krt_notify;
+  p->p.rte_same = krt_rte_same;
 
   return &p->p;
 }

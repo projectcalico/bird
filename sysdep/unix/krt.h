@@ -132,7 +132,7 @@ void krt_set_start(struct krt_proto *, int);
 void krt_set_shutdown(struct krt_proto *, int);
 
 int krt_capable(rte *e);
-void krt_set_notify(struct krt_proto *x, net *net, rte *new, rte *old);
+void krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old, struct ea_list *eattrs);
 
 /* krt-iface.c */
 

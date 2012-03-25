@@ -189,7 +189,8 @@ krt_sock_send(int cmd, rte *e)
 }
 
 void
-krt_set_notify(struct krt_proto *p UNUSED, net *n, rte *new, rte *old)
+krt_set_notify(struct krt_proto *p UNUSED, net *n, rte *new, rte *old,
+	       struct ea_list *eattrs UNUSED)
 {
   int err = 0;
 

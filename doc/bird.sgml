@@ -1618,7 +1618,7 @@ kernel table.
 <p>Because the kernel protocol is partially integrated with the
 connected routing table, there are two limitations - it is not
 possible to connect more kernel protocols to the same routing table
-and changing route attributes (even the kernel ones) in an export
+and changing route destination/gateway in an export
 filter of a kernel protocol does not work. Both limitations can be
 overcome using another routing table and the pipe protocol.
 
