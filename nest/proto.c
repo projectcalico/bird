@@ -38,7 +38,7 @@ static event *proto_flush_event;
 static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
 static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
 
-static void proto_flush_all(void *);
+static void proto_flush_loop(void *);
 static void proto_rethink_goal(struct proto *p);
 static char *proto_state_name(struct proto *p);
 
@@ -635,7 +635,7 @@ protos_build(void)
 #endif
   proto_pool = rp_new(&root_pool, "Protocols");
   proto_flush_event = ev_new(proto_pool);
-  proto_flush_event->hook = proto_flush_all;
+  proto_flush_event->hook = proto_flush_loop;
 }
 
 static void
@@ -692,20 +692,6 @@ proto_feed_initial(void *P)
 }
 
 static void
-proto_schedule_flush(struct proto *p)
-{
-  /* Need to abort feeding */
-  if (p->core_state == FS_FEEDING)
-    rt_feed_baby_abort(p);
-
-  DBG("%s: Scheduling flush\n", p->name);
-  p->core_state = FS_FLUSHING;
-  proto_relink(p);
-  proto_flush_hooks(p);
-  ev_schedule(proto_flush_event);
-}
-
-static void
 proto_schedule_feed(struct proto *p, int initial)
 {
   DBG("%s: Scheduling meal\n", p->name);
@@ -720,6 +706,85 @@ proto_schedule_feed(struct proto *p, int initial)
   p->attn->hook = initial ? proto_feed_initial : proto_feed_more;
   ev_schedule(p->attn);
 }
+
+/*
+ * Flushing loop is responsible for flushing routes and protocols
+ * after they went down. It runs in proto_flush_event. At the start of
+ * one round, protocols waiting to flush are marked in
+ * proto_schedule_flush_loop(). At the end of the round (when routing
+ * table flush is complete), marked protocols are flushed and a next
+ * round may start.
+ */
+
+static int flush_loop_state;	/* 1 -> running */
+
+static void
+proto_schedule_flush_loop(void)
+{
+  struct proto *p;
+
+  if (flush_loop_state)
+    return;
+  flush_loop_state = 1;
+
+  rt_schedule_prune_all();
+  WALK_LIST(p, flush_proto_list)
+    p->flushing = 1;
+
+  ev_schedule(proto_flush_event);
+}
+
+static void
+proto_flush_loop(void *unused UNUSED)
+{
+  struct proto *p;
+
+  if (! rt_prune_loop())
+    {
+      /* Rtable pruning is not finished */
+      ev_schedule(proto_flush_event);
+      return;
+    }
+
+ again:
+  WALK_LIST(p, flush_proto_list)
+    if (p->flushing)
+      {
+	/* This will flush interfaces in the same manner
+	   like rt_prune_all() flushes routes */
+	if (p->proto == &proto_unix_iface)
+	  if_flush_ifaces(p);
+
+	DBG("Flushing protocol %s\n", p->name);
+	p->flushing = 0;
+	p->core_state = FS_HUNGRY;
+	proto_relink(p);
+	if (p->proto_state == PS_DOWN)
+	  proto_fell_down(p);
+	goto again;
+      }
+
+  /* This round finished, perhaps there will be another one */
+  flush_loop_state = 0;
+  if (!EMPTY_LIST(flush_proto_list))
+    proto_schedule_flush_loop();
+}
+
+static void
+proto_schedule_flush(struct proto *p)
+{
+  /* Need to abort feeding */
+  if (p->core_state == FS_FEEDING)
+    rt_feed_baby_abort(p);
+
+  DBG("%s: Scheduling flush\n", p->name);
+  p->core_state = FS_FLUSHING;
+  proto_relink(p);
+  proto_flush_hooks(p);
+  proto_schedule_flush_loop();
+}
+
+
 
 /**
  * proto_request_feeding - request feeding routes to the protocol
@@ -807,27 +872,6 @@ proto_notify_state(struct proto *p, unsigned ps)
       break;
     default:
       bug("Invalid state transition for %s from %s/%s to */%s", p->name, c_states[cs], p_states[ops], p_states[ps]);
-    }
-}
-
-static void
-proto_flush_all(void *unused UNUSED)
-{
-  struct proto *p;
-
-  rt_prune_all();
-  while ((p = HEAD(flush_proto_list))->n.next)
-    {
-      /* This will flush interfaces in the same manner
-	 like rt_prune_all() flushes routes */
-      if (p->proto == &proto_unix_iface)
-	if_flush_ifaces(p);
-
-      DBG("Flushing protocol %s\n", p->name);
-      p->core_state = FS_HUNGRY;
-      proto_relink(p);
-      if (p->proto_state == PS_DOWN)
-	proto_fell_down(p);
     }
 }
 

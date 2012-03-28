@@ -139,8 +139,10 @@ typedef struct rtable {
   int gc_counter;			/* Number of operations since last GC */
   bird_clock_t gc_time;			/* Time of last GC */
   byte gc_scheduled;			/* GC is scheduled */
+  byte prune_state;			/* Table prune state, 1 -> prune is running */
   byte hcu_scheduled;			/* Hostcache update is scheduled */
   byte nhu_state;			/* Next Hop Update state */
+  struct fib_iterator prune_fit;	/* Rtable prune FIB iterator */
   struct fib_iterator nhu_fit;		/* Next Hop Update FIB iterator */
 } rtable;
 
@@ -244,7 +246,8 @@ void rt_dump(rtable *);
 void rt_dump_all(void);
 int rt_feed_baby(struct proto *p);
 void rt_feed_baby_abort(struct proto *p);
-void rt_prune_all(void);
+void rt_schedule_prune_all(void);
+int rt_prune_loop(void);
 struct rtable_config *rt_new_table(struct symbol *s);
 
 struct rt_show_data {

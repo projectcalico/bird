@@ -55,7 +55,6 @@ static void rt_free_hostcache(rtable *tab);
 static void rt_notify_hostcache(rtable *tab, net *net);
 static void rt_update_hostcache(rtable *tab);
 static void rt_next_hop_update(rtable *tab);
-static void rt_prune(rtable *tab);
 
 static inline void rt_schedule_gc(rtable *tab);
 
@@ -838,6 +837,38 @@ rt_schedule_nhu(rtable *tab)
 }
 
 static void
+rt_prune_nets(rtable *tab)
+{
+  struct fib_iterator fit;
+  int ncnt = 0, ndel = 0;
+
+#ifdef DEBUGGING
+  fib_check(&tab->fib);
+#endif
+
+  FIB_ITERATE_INIT(&fit, &tab->fib);
+again:
+  FIB_ITERATE_START(&tab->fib, &fit, f)
+    {
+      net *n = (net *) f;
+      ncnt++;
+      if (!n->routes)		/* Orphaned FIB entry */
+	{
+	  FIB_ITERATE_PUT(&fit, f);
+	  fib_delete(&tab->fib, f);
+	  ndel++;
+	  goto again;
+	}
+    }
+  FIB_ITERATE_END(f);
+  DBG("Pruned %d of %d networks\n", ndel, ncnt);
+
+  tab->gc_counter = 0;
+  tab->gc_time = now;
+  tab->gc_scheduled = 0;
+}
+
+static void
 rt_event(void *ptr)
 {
   rtable *tab = ptr;
@@ -849,7 +880,7 @@ rt_event(void *ptr)
     rt_next_hop_update(tab);
 
   if (tab->gc_scheduled)
-    rt_prune(tab);
+    rt_prune_nets(tab);
 }
 
 void
@@ -885,70 +916,96 @@ rt_init(void)
   init_list(&routing_tables);
 }
 
-/**
- * rt_prune - prune a routing table
- * @tab: routing table to be pruned
- *
- * This function is called whenever a protocol shuts down. It scans
- * the routing table and removes all routes belonging to inactive
- * protocols and also stale network entries.
- */
-static void
-rt_prune(rtable *tab)
+
+/* Called from proto_schedule_flush_loop() only,
+   ensuring that all prune states are zero */
+void
+rt_schedule_prune_all(void)
 {
-  struct fib_iterator fit;
-  int rcnt = 0, rdel = 0, ncnt = 0, ndel = 0;
+  rtable *t;
+
+  WALK_LIST(t, routing_tables)
+    t->prune_state = 1;
+}
+
+static inline int
+rt_prune_step(rtable *tab, int *max_feed)
+{
+  struct fib_iterator *fit = &tab->prune_fit;
 
   DBG("Pruning route table %s\n", tab->name);
 #ifdef DEBUGGING
   fib_check(&tab->fib);
 #endif
-  FIB_ITERATE_INIT(&fit, &tab->fib);
-again:
-  FIB_ITERATE_START(&tab->fib, &fit, f)
+
+  if (tab->prune_state == 0)
+    return 1;
+
+  if (tab->prune_state == 1)
     {
-      net *n = (net *) f;
+      FIB_ITERATE_INIT(fit, &tab->fib);
+      tab->prune_state = 2;
+    }
+
+again:
+  FIB_ITERATE_START(&tab->fib, fit, fn)
+    {
+      net *n = (net *) fn;
       rte *e;
-      ncnt++;
+
     rescan:
-      for (e=n->routes; e; e=e->next, rcnt++)
+      for (e=n->routes; e; e=e->next)
 	if (e->sender->core_state != FS_HAPPY &&
 	    e->sender->core_state != FS_FEEDING)
 	  {
+	    if (*max_feed <= 0)
+	      {
+		FIB_ITERATE_PUT(fit, fn);
+		return 0;
+	      }
+
 	    rte_discard(tab, e);
-	    rdel++;
+	    (*max_feed)--;
+
 	    goto rescan;
 	  }
-      if (!n->routes)		/* Orphaned FIB entry? */
+      if (!n->routes)		/* Orphaned FIB entry */
 	{
-	  FIB_ITERATE_PUT(&fit, f);
-	  fib_delete(&tab->fib, f);
-	  ndel++;
+	  FIB_ITERATE_PUT(fit, fn);
+	  fib_delete(&tab->fib, fn);
 	  goto again;
 	}
     }
-  FIB_ITERATE_END(f);
-  DBG("Pruned %d of %d routes and %d of %d networks\n", rdel, rcnt, ndel, ncnt);
+  FIB_ITERATE_END(fn);
+
 #ifdef DEBUGGING
   fib_check(&tab->fib);
 #endif
-  tab->gc_counter = 0;
-  tab->gc_time = now;
-  tab->gc_scheduled = 0;
+
+  tab->prune_state = 0;
+  return 1;
 }
 
 /**
- * rt_prune_all - prune all routing tables
+ * rt_prune_loop - prune routing tables
+ * @tab: routing table to be pruned
  *
- * This function calls rt_prune() for all known routing tables.
+ * The prune loop scans routing tables and removes routes belonging to
+ * inactive protocols and also stale network entries. Returns 1 when
+ * all such routes are pruned. It is a part of the protocol flushing
+ * loop.
  */
-void
-rt_prune_all(void)
+int
+rt_prune_loop(void)
 {
   rtable *t;
+  int max_feed = 512;
 
   WALK_LIST(t, routing_tables)
-    rt_prune(t);
+    if (! rt_prune_step(t, &max_feed))
+      return 0;
+
+  return 1;
 }
 
 void

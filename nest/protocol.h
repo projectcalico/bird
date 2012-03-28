@@ -144,6 +144,7 @@ struct proto {
   unsigned core_goal;			/* State we want to reach (see below) */
   unsigned reconfiguring;		/* We're shutting down due to reconfiguration */
   unsigned refeeding;			/* We are refeeding (valid only if core_state == FS_FEEDING) */
+  unsigned flushing;			/* Protocol is flushed in current flush loop round */
   u32 hash_key;				/* Random key used for hashing of neighbors */
   bird_clock_t last_state_change;	/* Time of last state transition */
   char *last_state_name_announced;	/* Last state name we've announced to the user */
