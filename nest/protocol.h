@@ -39,6 +39,7 @@ struct protocol {
   char *template;			/* Template for automatic generation of names */
   int name_counter;			/* Counter for automatic name generation */
   int attr_class;			/* Attribute class known to this protocol */
+  int multitable;			/* Protocol handles all announce hooks itself */
   unsigned preference;			/* Default protocol preference */
 
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
@@ -194,8 +195,7 @@ struct proto {
   void (*rte_remove)(struct network *, struct rte *);
 
   struct rtable *table;			/* Our primary routing table */
-  struct filter *in_filter;		/* Input filter */
-  struct filter *out_filter;		/* Output filter */
+  struct announce_hook *main_ahook;	/* Primary announcement hook */
   struct announce_hook *ahooks;		/* Announcement hooks for this protocol */
 
   struct fib_iterator *feed_iterator;	/* Routing table iterator used during protocol feeding */
@@ -218,6 +218,9 @@ void proto_request_feeding(struct proto *p);
 static inline void
 proto_copy_rest(struct proto_config *dest, struct proto_config *src, unsigned size)
 { memcpy(dest + 1, src + 1, size - sizeof(struct proto_config)); }
+
+
+void proto_show_basic_info(struct proto *p);
 
 void proto_cmd_show(struct proto *, unsigned int, int);
 void proto_cmd_disable(struct proto *, unsigned int, int);
@@ -353,18 +356,13 @@ struct announce_hook {
   node n;
   struct rtable *table;
   struct proto *proto;
+  struct filter *in_filter;		/* Input filter */
+  struct filter *out_filter;		/* Output filter */
+  struct proto_stats *stats;		/* Per-table protocol statistics */
   struct announce_hook *next;		/* Next hook for the same protocol */
 };
 
-struct announce_hook *proto_add_announce_hook(struct proto *, struct rtable *);
-
-/*
- *	Some pipe-specific nest hacks
- */
-
-#ifdef CONFIG_PIPE
-#include "proto/pipe/pipe.h"
-#endif
-
+struct announce_hook *proto_add_announce_hook(struct proto *, struct rtable *, struct filter *, struct filter *, struct proto_stats *);
+struct announce_hook *proto_find_announce_hook(struct proto *p, struct rtable *t);
 
 #endif

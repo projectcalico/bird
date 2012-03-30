@@ -662,7 +662,7 @@ krt_got_route(struct krt_proto *p, rte *e)
 static inline int
 krt_export_rte(struct krt_proto *p, rte **new, ea_list **tmpa)
 {
-  struct filter *filter = p->p.out_filter;
+  struct filter *filter = p->p.main_ahook->out_filter;
 
   if (! *new)
     return 0;

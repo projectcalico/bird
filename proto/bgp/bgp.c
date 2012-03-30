@@ -1125,6 +1125,8 @@ bgp_show_proto_info(struct proto *P)
   struct bgp_proto *p = (struct bgp_proto *) P;
   struct bgp_conn *c = p->conn;
 
+  proto_show_basic_info(P);
+
   cli_msg(-1006, "  BGP state:          %s", bgp_state_dsc(p));
   cli_msg(-1006, "    Neighbor address: %I%J", p->cf->remote_ip, p->cf->iface);
   cli_msg(-1006, "    Neighbor AS:      %u", p->remote_as);

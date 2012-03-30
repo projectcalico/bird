@@ -12,6 +12,7 @@
 #include "lib/lists.h"
 #include "lib/resource.h"
 #include "lib/timer.h"
+#include "nest/protocol.h"
 
 struct protocol;
 struct proto;
@@ -181,7 +182,7 @@ struct hostentry {
 typedef struct rte {
   struct rte *next;
   net *net;				/* Network this RTE belongs to */
-  struct proto *sender;			/* Protocol instance that sent the route to the routing table */
+  struct announce_hook *sender;		/* Announce hook used to send the route to the routing table */
   struct rta *attrs;			/* Attributes of this route */
   byte flags;				/* Flags (REF_...) */
   byte pflags;				/* Protocol-specific flags */
@@ -236,7 +237,8 @@ static inline net *net_find(rtable *tab, ip_addr addr, unsigned len) { return (n
 static inline net *net_get(rtable *tab, ip_addr addr, unsigned len) { return (net *) fib_get(&tab->fib, &addr, len); }
 rte *rte_find(net *net, struct proto *p);
 rte *rte_get_temp(struct rta *);
-void rte_update(rtable *tab, net *net, struct proto *p, struct proto *src, rte *new);
+void rte_update2(struct announce_hook *ah, net *net, rte *new, struct proto *src);
+static inline void rte_update(rtable *tab, net *net, struct proto *p, struct proto *src, rte *new) { rte_update2(p->main_ahook, net, new, src); }
 void rte_discard(rtable *tab, rte *old);
 void rte_dump(rte *);
 void rte_free(rte *);
