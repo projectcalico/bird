@@ -94,13 +94,15 @@ struct proto_config {
   u32 router_id;			/* Protocol specific router ID */
   struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
+  struct proto_limit *in_limit;		/* Limit for importing routes from protocol */
+  // struct proto_limit *out_limit;	/* Limit for exporting routes to protocol */
 
   /* Check proto_reconfigure() and proto_copy_config() after changing struct proto_config */
 
   /* Protocol-specific data follow... */
 };
 
-  /* Protocol statistics */
+/* Protocol statistics */
 struct proto_stats {
   /* Import - from protocol to core */
   u32 imp_routes;		/* Number of routes successfully imported to the (adjacent) routing table */
@@ -138,14 +140,16 @@ struct proto {
   u32 debug;				/* Debugging flags */
   u32 mrtdump;				/* MRTDump flags */
   unsigned preference;			/* Default route preference */
-  unsigned accept_ra_types;		/* Which types of route announcements are accepted (RA_OPTIMAL or RA_ANY) */
-  unsigned disabled;			/* Manually disabled */
-  unsigned proto_state;			/* Protocol state machine (see below) */
-  unsigned core_state;			/* Core state machine (see below) */
-  unsigned core_goal;			/* State we want to reach (see below) */
-  unsigned reconfiguring;		/* We're shutting down due to reconfiguration */
-  unsigned refeeding;			/* We are refeeding (valid only if core_state == FS_FEEDING) */
-  unsigned flushing;			/* Protocol is flushed in current flush loop round */
+  byte accept_ra_types;			/* Which types of route announcements are accepted (RA_OPTIMAL or RA_ANY) */
+  byte disabled;			/* Manually disabled */
+  byte proto_state;			/* Protocol state machine (PS_*, see below) */
+  byte core_state;			/* Core state machine (FS_*, see below) */
+  byte core_goal;			/* State we want to reach (FS_*, see below) */
+  byte reconfiguring;			/* We're shutting down due to reconfiguration */
+  byte refeeding;			/* We are refeeding (valid only if core_state == FS_FEEDING) */
+  byte flushing;			/* Protocol is flushed in current flush loop round */
+  byte down_sched;			/* Shutdown is scheduled for later (PDS_*) */
+  byte down_code;			/* Reason for shutdown (PDC_* codes) */
   u32 hash_key;				/* Random key used for hashing of neighbors */
   bird_clock_t last_state_change;	/* Time of last state transition */
   char *last_state_name_announced;	/* Last state name we've announced to the user */
@@ -210,6 +214,18 @@ struct proto_spec {
 };
 
 
+#define PDS_DISABLE		1	/* Proto disable scheduled */
+#define PDS_RESTART		2	/* Proto restart scheduled */
+
+#define PDC_CF_REMOVE		0x01	/* Removed in new config */
+#define PDC_CF_DISABLE		0x02	/* Disabled in new config */
+#define PDC_CF_RESTART		0x03	/* Restart due to reconfiguration */
+#define PDC_CMD_DISABLE		0x11	/* Result of disable command */
+#define PDC_CMD_RESTART		0x12	/* Result of restart command */
+#define PDC_IN_LIMIT_HIT	0x21	/* Route import limit reached */
+#define PDC_OUT_LIMIT_HIT	0x22	/* Route export limit reached - not implemented */
+
+
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, unsigned size, int class);
 void proto_copy_config(struct proto_config *dest, struct proto_config *src);
@@ -220,6 +236,7 @@ proto_copy_rest(struct proto_config *dest, struct proto_config *src, unsigned si
 { memcpy(dest + 1, src + 1, size - sizeof(struct proto_config)); }
 
 
+void proto_show_limit(struct proto_limit *l, const char *dsc);
 void proto_show_basic_info(struct proto *p);
 
 void proto_cmd_show(struct proto *, unsigned int, int);
@@ -348,6 +365,24 @@ void proto_notify_state(struct proto *p, unsigned state);
 
 extern struct proto_config *cf_dev_proto;
 
+
+/*
+ * Protocol limits
+ */
+
+#define PLA_WARN	1	/* Issue log warning */
+#define PLA_BLOCK	2	/* Block new routes */
+#define PLA_RESTART	4	/* Force protocol restart */
+#define PLA_DISABLE	5	/* Shutdown and disable protocol */
+
+struct proto_limit {
+  u32 limit;			/* Maximum number of prefixes */
+  byte action;			/* Action to take (PLA_*) */
+  byte active;			/* Limit is active */
+};
+
+int proto_notify_limit(struct announce_hook *ah, struct proto_limit *l);
+ 
 /*
  *	Route Announcement Hook
  */
@@ -358,11 +393,13 @@ struct announce_hook {
   struct proto *proto;
   struct filter *in_filter;		/* Input filter */
   struct filter *out_filter;		/* Output filter */
+  struct proto_limit *in_limit;		/* Input limit */
+  // struct proto_limit *out_limit;	/* Output limit */
   struct proto_stats *stats;		/* Per-table protocol statistics */
   struct announce_hook *next;		/* Next hook for the same protocol */
 };
 
-struct announce_hook *proto_add_announce_hook(struct proto *, struct rtable *, struct filter *, struct filter *, struct proto_stats *);
+struct announce_hook *proto_add_announce_hook(struct proto *p, struct rtable *t, struct proto_stats *stats);
 struct announce_hook *proto_find_announce_hook(struct proto *p, struct rtable *t);
 
 #endif

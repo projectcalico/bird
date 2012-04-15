@@ -98,7 +98,11 @@ bgp_proto:
  | bgp_proto CAPABILITIES bool ';' { BGP_CFG->capabilities = $3; }
  | bgp_proto ADVERTISE IPV4 bool ';' { BGP_CFG->advertise_ipv4 = $4; }
  | bgp_proto PASSWORD TEXT ';' { BGP_CFG->password = $3; }
- | bgp_proto ROUTE LIMIT expr ';' { BGP_CFG->route_limit = $4; }
+ | bgp_proto ROUTE LIMIT expr ';' {
+     this_proto->in_limit = cfg_allocz(sizeof(struct proto_limit));
+     this_proto->in_limit->limit = $4;
+     this_proto->in_limit->action = PLA_RESTART;
+   }
  | bgp_proto PASSIVE bool ';' { BGP_CFG->passive = $3; }
  | bgp_proto INTERPRET COMMUNITIES bool ';' { BGP_CFG->interpret_communities = $4; }
  | bgp_proto IGP TABLE rtable ';' { BGP_CFG->igp_table = $4; }

@@ -152,7 +152,6 @@ void bgp_conn_enter_established_state(struct bgp_conn *conn);
 void bgp_conn_enter_close_state(struct bgp_conn *conn);
 void bgp_conn_enter_idle_state(struct bgp_conn *conn);
 void bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code);
-int bgp_apply_limits(struct bgp_proto *p);
 void bgp_stop(struct bgp_proto *p, unsigned subcode);
 
 

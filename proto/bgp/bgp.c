@@ -542,22 +542,6 @@ bgp_active(struct bgp_proto *p)
   bgp_start_timer(conn->connect_retry_timer, delay);
 }
 
-int
-bgp_apply_limits(struct bgp_proto *p)
-{
-  if (p->cf->route_limit && (p->p.stats.imp_routes > p->cf->route_limit))
-    {
-      log(L_WARN "%s: Route limit exceeded, shutting down", p->p.name);
-      bgp_store_error(p, NULL, BE_AUTO_DOWN, BEA_ROUTE_LIMIT_EXCEEDED);
-      bgp_update_startup_delay(p);
-      bgp_stop(p, 1); // Errcode 6, 1 - max number of prefixes reached
-      return -1;
-    }
-
-  return 0;
-}
-
-
 /**
  * bgp_connect - initiate an outgoing connection
  * @p: BGP instance
@@ -868,24 +852,46 @@ static int
 bgp_shutdown(struct proto *P)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
-  unsigned subcode;
+  unsigned subcode = 0;
 
   BGP_TRACE(D_EVENTS, "Shutdown requested");
-  bgp_store_error(p, NULL, BE_MAN_DOWN, 0);
 
-  if (P->reconfiguring)
+  switch (P->down_code)
     {
-      if (P->cf_new)
-	subcode = 6; // Errcode 6, 6 - other configuration change
+    case PDC_CF_REMOVE:
+    case PDC_CF_DISABLE:
+      subcode = 3; // Errcode 6, 3 - peer de-configured
+      break;
+
+    case PDC_CF_RESTART:
+      subcode = 6; // Errcode 6, 6 - other configuration change
+      break;
+
+    case PDC_CMD_DISABLE:
+      subcode = 2; // Errcode 6, 2 - administrative shutdown
+      break;
+
+    case PDC_CMD_RESTART:
+      subcode = 4; // Errcode 6, 4 - administrative reset
+      break;
+
+    case PDC_IN_LIMIT_HIT:
+      subcode = 1; // Errcode 6, 1 - max number of prefixes reached
+      log(L_WARN "%s: Route limit exceeded, shutting down", p->p.name);
+
+      bgp_store_error(p, NULL, BE_AUTO_DOWN, BEA_ROUTE_LIMIT_EXCEEDED);
+      if (P->cf->in_limit->action == PLA_RESTART)
+	bgp_update_startup_delay(p);
       else
-	subcode = 3; // Errcode 6, 3 - peer de-configured
+	p->startup_delay = 0;
+      goto done;
     }
-  else
-    subcode = 2; // Errcode 6, 2 - administrative shutdown
 
+  bgp_store_error(p, NULL, BE_MAN_DOWN, 0);
   p->startup_delay = 0;
-  bgp_stop(p, subcode);
 
+ done:
+  bgp_stop(p, subcode);
   return p->p.proto_state;
 }
 
@@ -969,6 +975,10 @@ bgp_check_config(struct bgp_config *c)
   /* Different default for gw_mode */
   if (!c->gw_mode)
     c->gw_mode = (c->multihop || internal) ? GW_RECURSIVE : GW_DIRECT;
+
+  /* Disable after error incompatible with restart limit action */
+  if (c->c.in_limit && (c->c.in_limit->action == PLA_RESTART) && c->disable_after_error)
+    c->c.in_limit->action = PLA_DISABLE;
 }
 
 static int
@@ -1115,9 +1125,6 @@ bgp_get_status(struct proto *P, byte *buf)
   else
     bsprintf(buf, "%-14s%s%s", bgp_state_dsc(p), err1, err2);
 }
-
-static inline bird_clock_t tm_remains(timer *t)
-{ return t->expires ? t->expires - now : 0; }
 
 static void
 bgp_show_proto_info(struct proto *P)

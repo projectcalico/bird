@@ -182,6 +182,16 @@ rte_trace_out(unsigned int flag, struct proto *p, rte *e, char *msg)
     rte_trace(p, e, '<', msg);
 }
 
+/**
+ * do_rte_announce - announce new rte to protocol
+ * @ah: pointer to announce hook
+ * @type: announce type (RA_ANY or RA_OPTIMAL)
+ * @net: pointer to announced network
+ * @new: new rte or NULL
+ * @old: previous rte or NULL
+ * @tmpa: new rte attributes (possibly modified by filter)
+ * @refeed: whether we are refeeding protocol
+ */
 static inline void
 do_rte_announce(struct announce_hook *ah, int type UNUSED, net *net, rte *new, rte *old, ea_list *tmpa, int refeed)
 {
@@ -471,6 +481,15 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
   if (!old && !new)
     {
       stats->imp_withdraws_ignored++;
+      return;
+    }
+
+  struct proto_limit *l = ah->in_limit;
+  if (l && !old && new && (stats->imp_routes >= l->limit) && proto_notify_limit(ah, l))
+    {
+      stats->imp_updates_ignored++;
+      rte_trace_in(D_FILTERS, p, new, "ignored [limit]");
+      rte_free_quick(new);
       return;
     }
 

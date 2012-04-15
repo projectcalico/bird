@@ -15,6 +15,7 @@
 struct pipe_config {
   struct proto_config c;
   struct rtable_config *peer;		/* Table we're connected to */
+  struct proto_limit *out_limit;	/* Export route limit */
   int mode;				/* PIPE_OPAQUE or PIPE_TRANSPARENT */
 };
 

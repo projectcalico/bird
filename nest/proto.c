@@ -34,11 +34,13 @@ static list flush_proto_list;
 static struct proto *initial_device_proto;
 
 static event *proto_flush_event;
+static timer *proto_shutdown_timer;
 
 static char *p_states[] = { "DOWN", "START", "UP", "STOP" };
 static char *c_states[] = { "HUNGRY", "FEEDING", "HAPPY", "FLUSHING" };
 
 static void proto_flush_loop(void *);
+static void proto_shutdown_loop(struct timer *);
 static void proto_rethink_goal(struct proto *p);
 static char *proto_state_name(struct proto *p);
 
@@ -134,8 +136,6 @@ extern pool *rt_table_pool;
  * proto_add_announce_hook - connect protocol to a routing table
  * @p: protocol instance
  * @t: routing table to connect to
- * @in: input filter
- * @out: output filter
  * @stats: per-table protocol statistics
  *
  * This function creates a connection between the protocol instance @p
@@ -155,8 +155,7 @@ extern pool *rt_table_pool;
  * automatically by the core code.
  */
 struct announce_hook *
-proto_add_announce_hook(struct proto *p, struct rtable *t, struct filter *in,
-			struct filter *out, struct proto_stats *stats)
+proto_add_announce_hook(struct proto *p, struct rtable *t, struct proto_stats *stats)
 {
   struct announce_hook *h;
 
@@ -166,8 +165,6 @@ proto_add_announce_hook(struct proto *p, struct rtable *t, struct filter *in,
   h = mb_allocz(rt_table_pool, sizeof(struct announce_hook));
   h->table = t;
   h->proto = p;
-  h->in_filter = in;
-  h->out_filter = out;
   h->stats = stats;
 
   h->next = p->ahooks;
@@ -414,6 +411,8 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
     {
       p->main_ahook->in_filter = nc->in_filter;
       p->main_ahook->out_filter = nc->out_filter;
+      p->main_ahook->in_limit = nc->in_limit;
+      // p->main_ahook->out_limit = nc->out_limit;
     }
 
   /* Update routes when filters changed. If the protocol in not UP,
@@ -438,6 +437,7 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
 	 and we have to do regular protocol restart. */
       log(L_INFO "Restarting protocol %s", p->name);
       p->disabled = 1;
+      p->down_code = PDC_CF_RESTART;
       proto_rethink_goal(p);
       p->disabled = 0;
       proto_rethink_goal(p);
@@ -512,6 +512,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 		log(L_INFO "Disabling protocol %s", p->name);
 
 	      PD(p, "Restarting");
+	      p->down_code = nc->disabled ? PDC_CF_DISABLE : PDC_CF_RESTART;
 	      p->cf_new = nc;
 	    }
 	  else
@@ -519,9 +520,11 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 	      if (!shutting_down)
 		log(L_INFO "Removing protocol %s", p->name);
 	      PD(p, "Unconfigured");
+	      p->down_code = PDC_CF_REMOVE;
 	      p->cf_new = NULL;
 	    }
 	  p->reconfiguring = 1;
+
 	  config_add_obstacle(old);
 	  proto_rethink_goal(p);
 	}
@@ -704,6 +707,8 @@ protos_build(void)
   proto_pool = rp_new(&root_pool, "Protocols");
   proto_flush_event = ev_new(proto_pool);
   proto_flush_event->hook = proto_flush_loop;
+  proto_shutdown_timer = tm_new(proto_pool);
+  proto_shutdown_timer->hook = proto_shutdown_loop;
 }
 
 static void
@@ -775,8 +780,13 @@ proto_schedule_feed(struct proto *p, int initial)
 
   /* Connect protocol to routing table */
   if (initial && !p->proto->multitable)
-    p->main_ahook = proto_add_announce_hook(p, p->table,
-      p->cf->in_filter, p->cf->out_filter, &p->stats);
+    {
+      p->main_ahook = proto_add_announce_hook(p, p->table, &p->stats);
+      p->main_ahook->in_filter = p->cf->in_filter;
+      p->main_ahook->out_filter = p->cf->out_filter;
+      p->main_ahook->in_limit = p->cf->in_limit;
+      // p->main_ahook->out_limit = p->cf->out_limit;
+    }
 
   proto_relink(p);
   p->attn->hook = initial ? proto_feed_initial : proto_feed_more;
@@ -861,6 +871,42 @@ proto_schedule_flush(struct proto *p)
 }
 
 
+static void
+proto_shutdown_loop(struct timer *t UNUSED)
+{
+  struct proto *p, *p_next;
+
+  WALK_LIST_DELSAFE(p, p_next, active_proto_list)
+    if (p->down_sched)
+      {
+	int restart = (p->down_sched == PDS_RESTART);
+
+	p->disabled = 1;
+	proto_rethink_goal(p);
+	if (restart)
+	  {
+	    p->disabled = 0;
+	    proto_rethink_goal(p);
+	  }
+      }
+}
+
+static inline void
+proto_schedule_down(struct proto *p, byte restart, byte code)
+{
+  /* Does not work for other states (even PS_START) */
+  ASSERT(p->proto_state == PS_UP);
+
+  /* Scheduled restart may change to shutdown, but not otherwise */
+  if (p->down_sched == PDS_DISABLE)
+    return;
+
+  p->down_sched = restart ? PDS_RESTART : PDS_DISABLE;
+  p->down_code = code;
+  tm_start_max(proto_shutdown_timer, restart ? 2 : 0);
+}
+
+
 /**
  * proto_request_feeding - request feeding routes to the protocol
  * @p: given protocol 
@@ -888,6 +934,62 @@ proto_request_feeding(struct proto *p)
     }
 
   proto_schedule_feed(p, 0);
+}
+
+static const char *
+proto_limit_name(struct proto_limit *l)
+{
+  const char *actions[] = {
+    [PLA_WARN] = "warn",
+    [PLA_BLOCK] = "block",
+    [PLA_RESTART] = "restart",
+    [PLA_DISABLE] = "disable",
+  };
+
+  return actions[l->action];
+}
+
+/**
+ * proto_notify_limit: notify about limit hit and take appropriate action
+ * @ah: announce hook
+ * @l: limit being hit
+ *
+ * The function is called by the route processing core when limit @l
+ * is breached. It activates the limit and tooks appropriate action
+ * according to @l->action. It also says what should be done with the
+ * route that breached the limit.
+ *
+ * Returns 1 if the route should be freed, 0 otherwise.
+ */
+int
+proto_notify_limit(struct announce_hook *ah, struct proto_limit *l)
+{
+  struct proto *p = ah->proto;
+  int dir = (ah->in_limit == l);
+
+  if (l->active)
+    return (l->action != PLA_WARN);
+
+  l->active = 1;
+  log(L_WARN "Protocol %s hits route %s limit (%d), action: %s",
+      p->name, dir ? "import" : "export", l->limit, proto_limit_name(l));
+
+  switch (l->action)
+    {
+    case PLA_WARN:
+      return 0;
+
+    case PLA_BLOCK:
+      return 1;
+
+    case PLA_RESTART:
+    case PLA_DISABLE:
+      proto_schedule_down(p, l->action == PLA_RESTART,
+			  dir ? PDC_IN_LIMIT_HIT : PDC_OUT_LIMIT_HIT);
+      return 1;
+    }
+
+  return 0;
 }
 
 /**
@@ -919,6 +1021,8 @@ proto_notify_state(struct proto *p, unsigned ps)
   switch (ps)
     {
     case PS_DOWN:
+      p->down_code = 0;
+      p->down_sched = 0;
       if ((cs == FS_FEEDING) || (cs == FS_HAPPY))
 	proto_schedule_flush(p);
 
@@ -942,6 +1046,7 @@ proto_notify_state(struct proto *p, unsigned ps)
       proto_schedule_feed(p, 1);
       break;
     case PS_STOP:
+      p->down_sched = 0;
       if ((cs == FS_FEEDING) || (cs == FS_HAPPY))
 	proto_schedule_flush(p);
       break;
@@ -994,12 +1099,22 @@ proto_show_stats(struct proto_stats *s)
 }
 
 void
+proto_show_limit(struct proto_limit *l, const char *dsc)
+{
+  if (l)
+    cli_msg(-1006, "  %16s%d, action: %s%s", dsc, l->limit,
+	    proto_limit_name(l), l->active ? " [HIT]" : "");
+}
+
+void
 proto_show_basic_info(struct proto *p)
 {
   // cli_msg(-1006, "  Table:          %s", p->table->name);
   cli_msg(-1006, "  Preference:     %d", p->preference);
   cli_msg(-1006, "  Input filter:   %s", filter_name(p->cf->in_filter));
   cli_msg(-1006, "  Output filter:  %s", filter_name(p->cf->out_filter));
+
+  proto_show_limit(p->cf->in_limit, "Import limit:");
 
   if (p->proto_state != PS_DOWN)
     proto_show_stats(&p->stats);
@@ -1052,6 +1167,7 @@ proto_cmd_disable(struct proto *p, unsigned int arg UNUSED, int cnt UNUSED)
 
   log(L_INFO "Disabling protocol %s", p->name);
   p->disabled = 1;
+  p->down_code = PDC_CMD_DISABLE;
   proto_rethink_goal(p);
   cli_msg(-9, "%s: disabled", p->name);
 }
@@ -1082,6 +1198,7 @@ proto_cmd_restart(struct proto *p, unsigned int arg UNUSED, int cnt UNUSED)
 
   log(L_INFO "Restarting protocol %s", p->name);
   p->disabled = 1;
+  p->down_code = PDC_CMD_RESTART;
   proto_rethink_goal(p);
   p->disabled = 0;
   proto_rethink_goal(p);
@@ -1105,12 +1222,21 @@ proto_cmd_reload(struct proto *p, unsigned int dir, int cnt UNUSED)
 
   /* re-importing routes */
   if (dir != CMD_RELOAD_OUT)
-    if (! (p->reload_routes && p->reload_routes(p)))
-      {
-	cli_msg(-8006, "%s: reload failed", p->name);
-	return;
-      }
-		 
+    {
+      if (! (p->reload_routes && p->reload_routes(p)))
+	{
+	  cli_msg(-8006, "%s: reload failed", p->name);
+	  return;
+	}
+
+      /*
+       * Should be done before reload_routes() hook?
+       * Perhaps, but these hooks work asynchronously.
+       */
+      if (!p->proto->multitable && p->main_ahook->in_limit)
+	p->main_ahook->in_limit->active = 0;
+    }
+
   /* re-exporting routes */
   if (dir != CMD_RELOAD_IN)
     proto_request_feeding(p);

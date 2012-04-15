@@ -44,6 +44,7 @@ CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, TEMPLATE, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
+CF_KEYWORDS(EXCEED, LIMIT, WARN, BLOCK, RESTART, DISABLE)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
 CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE, ROA, MAX, FLUSH)
 CF_KEYWORDS(LISTEN, BGP, V6ONLY, DUAL, ADDRESS, PORT, PASSWORDS, DESCRIPTION)
@@ -64,8 +65,9 @@ CF_ENUM(T_ENUM_ROA, ROA_, UNKNOWN, VALID, INVALID)
 %type <ro> roa_args
 %type <rot> roa_table_arg
 %type <sd> sym_args
-%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport roa_mode
+%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport roa_mode limit_action
 %type <ps> proto_patt proto_patt2
+%type <g> limit_spec
 
 CF_GRAMMAR
 
@@ -176,6 +178,7 @@ proto_item:
  | MRTDUMP mrtdump_mask { this_proto->mrtdump = $2; }
  | IMPORT imexport { this_proto->in_filter = $2; }
  | EXPORT imexport { this_proto->out_filter = $2; }
+ | IMPORT LIMIT limit_spec { this_proto->in_limit = $3; }
  | TABLE rtable { this_proto->table = $2; }
  | ROUTER ID idval { this_proto->router_id = $3; }
  | DESCRIPTION TEXT { this_proto->dsc = $2; }
@@ -186,6 +189,22 @@ imexport:
  | where_filter
  | ALL { $$ = FILTER_ACCEPT; }
  | NONE { $$ = FILTER_REJECT; }
+ ;
+
+limit_action:
+   WARN { $$ = PLA_WARN; }
+ | BLOCK { $$ = PLA_BLOCK; }
+ | RESTART { $$ = PLA_RESTART; }
+ | DISABLE { $$ = PLA_DISABLE; }
+ ;
+
+limit_spec:
+   expr EXCEED limit_action {
+     struct proto_limit *l = cfg_allocz(sizeof(struct proto_limit));
+     l->limit = $1;
+     l->action = $3;
+     $$ = l;
+   }
  ;
 
 rtable:

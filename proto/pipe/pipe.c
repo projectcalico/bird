@@ -24,9 +24,10 @@
  * rte_update(), an import filter in ahook 2 is called. When a new
  * route is announced in the peer table, an export filter in ahook2
  * and an import filter in ahook 1 are used. Oviously, there is no
- * need in filtering the same route twice, so both import filters
- * are set to accept, while user configured 'import' and 'export'
- * filters are used as export filters in ahooks 2 and 1.
+ * need in filtering the same route twice, so both import filters are
+ * set to accept, while user configured 'import' and 'export' filters
+ * are used as export filters in ahooks 2 and 1. Route limits are
+ * handled similarly, but on the import side of ahooks.
  */
 
 #undef LOCAL_DEBUG
@@ -116,6 +117,8 @@ pipe_import_control(struct proto *P, rte **ee, ea_list **ea UNUSED, struct linpo
 static int
 pipe_reload_routes(struct proto *P)
 {
+  struct pipe_proto *p = (struct pipe_proto *) P;
+
   /*
    * Because the pipe protocol feeds routes from both routing tables
    * together, both directions are reloaded during refeed and 'reload
@@ -123,6 +126,12 @@ pipe_reload_routes(struct proto *P)
    * request refeed when 'reload in' command is used.
    */
   proto_request_feeding(P);
+
+  if (P->main_ahook->in_limit)
+    P->main_ahook->in_limit->active = 0;
+  if (p->peer_ahook->in_limit)
+    p->peer_ahook->in_limit->active = 0;
+
   return 1;
 }
 
@@ -146,6 +155,7 @@ pipe_init(struct proto_config *C)
 static int
 pipe_start(struct proto *P)
 {
+  struct pipe_config *cf = (struct pipe_config *) P->cf;
   struct pipe_proto *p = (struct pipe_proto *) P;
 
   /* Lock both tables, unlock is handled in pipe_cleanup() */
@@ -155,10 +165,13 @@ pipe_start(struct proto *P)
   /* Going directly to PS_UP - prepare for feeding,
      connect the protocol to both routing tables */
 
-  P->main_ahook = proto_add_announce_hook(P, P->table,
-    FILTER_ACCEPT, P->cf->out_filter, &P->stats);
-  p->peer_ahook = proto_add_announce_hook(P, p->peer_table,
-    FILTER_ACCEPT, P->cf->in_filter,  &p->peer_stats);
+  P->main_ahook = proto_add_announce_hook(P, P->table, &P->stats);
+  P->main_ahook->out_filter = cf->c.out_filter;
+  P->main_ahook->in_limit = cf->c.in_limit;
+
+  p->peer_ahook = proto_add_announce_hook(P, p->peer_table, &p->peer_stats);
+  p->peer_ahook->out_filter = cf->c.in_filter;
+  p->peer_ahook->in_limit = cf->out_limit;
 
   return PS_UP;
 }
@@ -204,10 +217,16 @@ pipe_reconfigure(struct proto *P, struct proto_config *new)
 
   /* Update output filters in ahooks */
   if (P->main_ahook)
-    P->main_ahook->out_filter = new->out_filter;
+    {
+      P->main_ahook->out_filter = new->out_filter;
+      P->main_ahook->in_limit = new->in_limit;
+    }
 
   if (p->peer_ahook)
-    p->peer_ahook->out_filter = new->in_filter;
+    {
+      p->peer_ahook->out_filter = new->in_filter;
+      p->peer_ahook->in_limit = nc->out_limit;
+    }
 
   if ((P->proto_state != PS_UP) || (proto_reconfig_type == RECONFIG_SOFT))
     return 1;
@@ -283,12 +302,16 @@ static void
 pipe_show_proto_info(struct proto *P)
 {
   struct pipe_proto *p = (struct pipe_proto *) P;
+  struct pipe_config *cf = (struct pipe_config *) P->cf;
 
   // cli_msg(-1006, "  Table:          %s", P->table->name);
   // cli_msg(-1006, "  Peer table:     %s", p->peer_table->name);
   cli_msg(-1006, "  Preference:     %d", P->preference);
-  cli_msg(-1006, "  Input filter:   %s", filter_name(P->cf->in_filter));
-  cli_msg(-1006, "  Output filter:  %s", filter_name(P->cf->out_filter));
+  cli_msg(-1006, "  Input filter:   %s", filter_name(cf->c.in_filter));
+  cli_msg(-1006, "  Output filter:  %s", filter_name(cf->c.out_filter));
+
+  proto_show_limit(cf->c.in_limit, "Import limit:");
+  proto_show_limit(cf->out_limit, "Export limit:");
 
   if (P->proto_state != PS_DOWN)
     pipe_show_stats(p);
