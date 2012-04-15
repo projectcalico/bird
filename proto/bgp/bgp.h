@@ -43,6 +43,7 @@ struct bgp_config {
   u32 route_limit;			/* Number of routes that may be imported, 0 means disable limit */
   int passive;				/* Do not initiate outgoing connection */
   int interpret_communities;		/* Hardwired handling of well-known communities */
+  int secondary;			/* Accept also non-best routes (i.e. RA_ACCEPTED) */
   unsigned connect_retry_time;
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;

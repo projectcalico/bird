@@ -219,11 +219,12 @@ typedef struct rte {
   } u;
 } rte;
 
-#define REF_COW 1			/* Copy this rte on write */
+#define REF_COW		1		/* Copy this rte on write */
 
 /* Types of route announcement, also used as flags */
-#define RA_OPTIMAL 1			/* Announcement of optimal route change */
-#define RA_ANY 2			/* Announcement of any route change */
+#define RA_OPTIMAL	1		/* Announcement of optimal route change */
+#define RA_ACCEPTED	2		/* Announcement of first accepted route */
+#define RA_ANY		3		/* Announcement of any route change */
 
 struct config;
 

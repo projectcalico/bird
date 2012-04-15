@@ -909,7 +909,7 @@ bgp_init(struct proto_config *C)
   struct proto *P = proto_new(C, sizeof(struct bgp_proto));
   struct bgp_proto *p = (struct bgp_proto *) P;
 
-  P->accept_ra_types = RA_OPTIMAL;
+  P->accept_ra_types = c->secondary ? RA_ACCEPTED : RA_OPTIMAL;
   P->rt_notify = bgp_rt_notify;
   P->rte_better = bgp_rte_better;
   P->import_control = bgp_import_control;
@@ -955,12 +955,14 @@ bgp_check_config(struct bgp_config *c)
   if (internal && c->rs_client)
     cf_error("Only external neighbor can be RS client");
 
+  /*
   if (c->multihop && (c->gw_mode == GW_DIRECT))
     cf_error("Multihop BGP cannot use direct gateway mode");
 
   if (c->multihop && (ipa_has_link_scope(c->remote_ip) || 
 		      ipa_has_link_scope(c->source_addr)))
     cf_error("Multihop BGP cannot be used with link-local addresses");
+  */
 
   /* Different default based on rs_client */
   if (!c->missing_lladdr)
@@ -968,7 +970,8 @@ bgp_check_config(struct bgp_config *c)
 
   /* Different default for gw_mode */
   if (!c->gw_mode)
-    c->gw_mode = (c->multihop || internal) ? GW_RECURSIVE : GW_DIRECT;
+    // c->gw_mode = (c->multihop || internal) ? GW_RECURSIVE : GW_DIRECT;
+    c->gw_mode = GW_DIRECT;
 }
 
 static int
