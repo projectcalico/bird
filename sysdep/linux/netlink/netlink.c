@@ -756,11 +756,11 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   if (a[RTA_OIF])
     memcpy(&oif, RTA_DATA(a[RTA_OIF]), sizeof(oif));
 
-  DBG("KRT: Got %I/%d, type=%d, oif=%d, table=%d, prid=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, i->rtm_protocol, p->p.name);
-
   p = nl_table_map[i->rtm_table];	/* Do we know this table? */
+  DBG("KRT: Got %I/%d, type=%d, oif=%d, table=%d, prid=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, i->rtm_protocol, p ? p->p.name : "(none)");
   if (!p)
-    SKIP("unknown table %d", i->rtm_table);
+    SKIP("unknown table %d\n", i->rtm_table);
+
 
 #ifdef IPV6
   if (a[RTA_IIF])
