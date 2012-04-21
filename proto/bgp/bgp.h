@@ -40,7 +40,6 @@ struct bgp_config {
   int rr_client;			/* Whether neighbor is RR client of me */
   int rs_client;			/* Whether neighbor is RS client of me */
   int advertise_ipv4;			/* Whether we should add IPv4 capability advertisement to OPEN message */
-  u32 route_limit;			/* Number of routes that may be imported, 0 means disable limit */
   int passive;				/* Do not initiate outgoing connection */
   int interpret_communities;		/* Hardwired handling of well-known communities */
   unsigned connect_retry_time;

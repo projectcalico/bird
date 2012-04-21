@@ -1165,9 +1165,9 @@ bgp_show_proto_info(struct proto *P)
 	      p->rs_client ? " route-server" : "",
 	      p->as4_session ? " AS4" : "");
       cli_msg(-1006, "    Source address:   %I", p->source_addr);
-      if (p->cf->route_limit)
+      if (P->cf->in_limit)
 	cli_msg(-1006, "    Route limit:      %d/%d",
-		p->p.stats.imp_routes, p->cf->route_limit);
+		p->p.stats.imp_routes, P->cf->in_limit->limit);
       cli_msg(-1006, "    Hold timer:       %d/%d",
 	      tm_remains(c->hold_timer), c->hold_time);
       cli_msg(-1006, "    Keepalive timer:  %d/%d",

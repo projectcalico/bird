@@ -127,10 +127,8 @@ pipe_reload_routes(struct proto *P)
    */
   proto_request_feeding(P);
 
-  if (P->main_ahook->in_limit)
-    P->main_ahook->in_limit->active = 0;
-  if (p->peer_ahook->in_limit)
-    p->peer_ahook->in_limit->active = 0;
+  proto_reset_limit(P->main_ahook->in_limit);
+  proto_reset_limit(p->peer_ahook->in_limit);
 
   return 1;
 }
@@ -168,10 +166,12 @@ pipe_start(struct proto *P)
   P->main_ahook = proto_add_announce_hook(P, P->table, &P->stats);
   P->main_ahook->out_filter = cf->c.out_filter;
   P->main_ahook->in_limit = cf->c.in_limit;
+  proto_reset_limit(P->main_ahook->in_limit);
 
   p->peer_ahook = proto_add_announce_hook(P, p->peer_table, &p->peer_stats);
   p->peer_ahook->out_filter = cf->c.in_filter;
   p->peer_ahook->in_limit = cf->out_limit;
+  proto_reset_limit(p->peer_ahook->in_limit);
 
   return PS_UP;
 }

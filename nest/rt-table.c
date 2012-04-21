@@ -485,12 +485,18 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
     }
 
   struct proto_limit *l = ah->in_limit;
-  if (l && !old && new && (stats->imp_routes >= l->limit) && proto_notify_limit(ah, l))
+  if (l && !old && new)
     {
-      stats->imp_updates_ignored++;
-      rte_trace_in(D_FILTERS, p, new, "ignored [limit]");
-      rte_free_quick(new);
-      return;
+      if (stats->imp_routes >= l->limit)
+	proto_notify_limit(ah, l, stats->imp_routes);
+
+      if (l->state == PLS_BLOCKED)
+	{
+	  stats->imp_updates_ignored++;
+	  rte_trace_in(D_FILTERS, p, new, "ignored [limit]");
+	  rte_free_quick(new);
+	  return;
+	}
     }
 
   if (new)
