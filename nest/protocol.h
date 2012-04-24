@@ -95,7 +95,7 @@ struct proto_config {
   struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
   struct proto_limit *in_limit;		/* Limit for importing routes from protocol */
-  // struct proto_limit *out_limit;	/* Limit for exporting routes to protocol */
+  struct proto_limit *out_limit;	/* Limit for exporting routes to protocol */
 
   /* Check proto_reconfigure() and proto_copy_config() after changing struct proto_config */
 
@@ -405,7 +405,7 @@ struct announce_hook {
   struct filter *in_filter;		/* Input filter */
   struct filter *out_filter;		/* Output filter */
   struct proto_limit *in_limit;		/* Input limit */
-  // struct proto_limit *out_limit;	/* Output limit */
+  struct proto_limit *out_limit;	/* Output limit */
   struct proto_stats *stats;		/* Per-table protocol statistics */
   struct announce_hook *next;		/* Next hook for the same protocol */
 };

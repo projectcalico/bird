@@ -179,6 +179,7 @@ proto_item:
  | IMPORT imexport { this_proto->in_filter = $2; }
  | EXPORT imexport { this_proto->out_filter = $2; }
  | IMPORT LIMIT limit_spec { this_proto->in_limit = $3; }
+ | EXPORT LIMIT limit_spec { this_proto->out_limit = $3; }
  | TABLE rtable { this_proto->table = $2; }
  | ROUTER ID idval { this_proto->router_id = $3; }
  | DESCRIPTION TEXT { this_proto->dsc = $2; }
@@ -192,17 +193,18 @@ imexport:
  ;
 
 limit_action:
-   WARN { $$ = PLA_WARN; }
- | BLOCK { $$ = PLA_BLOCK; }
- | RESTART { $$ = PLA_RESTART; }
- | DISABLE { $$ = PLA_DISABLE; }
+   /* default */ { $$ = PLA_DISABLE; }
+ | EXCEED WARN { $$ = PLA_WARN; }
+ | EXCEED BLOCK { $$ = PLA_BLOCK; }
+ | EXCEED RESTART { $$ = PLA_RESTART; }
+ | EXCEED DISABLE { $$ = PLA_DISABLE; }
  ;
 
 limit_spec:
-   expr EXCEED limit_action {
+   expr limit_action {
      struct proto_limit *l = cfg_allocz(sizeof(struct proto_limit));
      l->limit = $1;
-     l->action = $3;
+     l->action = $2;
      $$ = l;
    }
  ;

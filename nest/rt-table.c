@@ -273,6 +273,23 @@ do_rte_announce(struct announce_hook *ah, int type UNUSED, net *net, rte *new, r
   if (!new && !old)
     return;
 
+  struct proto_limit *l = ah->out_limit;
+  if (l && new && (!old || refeed))
+    {
+      if (stats->exp_routes >= l->limit)
+	proto_notify_limit(ah, l, stats->exp_routes);
+
+      if (l->state == PLS_BLOCKED)
+	{
+	  /* Exported route counter ignores whether the route was
+	     blocked by limit, to be consistent when limits change */
+	  stats->exp_routes++;
+	  stats->exp_updates_rejected++;
+	  rte_trace_out(D_FILTERS, p, new, "rejected [limit]");
+	  goto done;
+	}
+    }
+
   if (new)
     stats->exp_updates_accepted++;
   else
@@ -307,6 +324,8 @@ do_rte_announce(struct announce_hook *ah, int type UNUSED, net *net, rte *new, r
     }
   else
     p->rt_notify(p, ah->table, net, new, old, new->attrs->eattrs);
+
+ done:
   if (new && new != new0)	/* Discard temporary rte's */
     rte_free(new);
   if (old && old != old0)
