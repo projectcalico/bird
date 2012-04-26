@@ -1781,14 +1781,14 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
     d->net_counter++;
   for(e=n->routes; e; e=e->next)
     {
-      struct ea_list *tmpa, *old_tmpa;
+      struct ea_list *tmpa;
       struct proto *p0 = e->attrs->proto;
       struct proto *p1 = d->export_protocol;
       struct proto *p2 = d->show_protocol;
       d->rt_counter++;
       ee = e;
       rte_update_lock();		/* We use the update buffer for filtering */
-      old_tmpa = tmpa = p0->make_tmp_attrs ? p0->make_tmp_attrs(e, rte_update_pool) : NULL;
+      tmpa = p0->make_tmp_attrs ? p0->make_tmp_attrs(e, rte_update_pool) : NULL;
       ok = (d->filter == FILTER_ACCEPT || f_run(d->filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
       if (p2 && p2 != p0) ok = 0;
       if (ok && d->export_mode)
