@@ -95,7 +95,7 @@ struct proto_config {
   struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
   struct proto_limit *in_limit;		/* Limit for importing routes from protocol */
-  // struct proto_limit *out_limit;	/* Limit for exporting routes to protocol */
+  struct proto_limit *out_limit;	/* Limit for exporting routes to protocol */
 
   /* Check proto_reconfigure() and proto_copy_config() after changing struct proto_config */
 
@@ -375,13 +375,24 @@ extern struct proto_config *cf_dev_proto;
 #define PLA_RESTART	4	/* Force protocol restart */
 #define PLA_DISABLE	5	/* Shutdown and disable protocol */
 
+#define PLS_INITIAL	0	/* Initial limit state after protocol start */
+#define PLS_ACTIVE	1	/* Limit was hit */
+#define PLS_BLOCKED	2	/* Limit is active and blocking new routes */
+
 struct proto_limit {
   u32 limit;			/* Maximum number of prefixes */
   byte action;			/* Action to take (PLA_*) */
-  byte active;			/* Limit is active */
+  byte state;			/* State of limit (PLS_*) */
 };
 
-int proto_notify_limit(struct announce_hook *ah, struct proto_limit *l);
+void proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count);
+
+static inline void proto_reset_limit(struct proto_limit *l)
+{
+  if (l)
+    l->state = PLS_INITIAL;
+}
+
  
 /*
  *	Route Announcement Hook
@@ -394,7 +405,7 @@ struct announce_hook {
   struct filter *in_filter;		/* Input filter */
   struct filter *out_filter;		/* Output filter */
   struct proto_limit *in_limit;		/* Input limit */
-  // struct proto_limit *out_limit;	/* Output limit */
+  struct proto_limit *out_limit;	/* Output limit */
   struct proto_stats *stats;		/* Per-table protocol statistics */
   struct announce_hook *next;		/* Next hook for the same protocol */
 };

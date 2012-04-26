@@ -36,7 +36,6 @@ pipe_proto:
        cf_error("Routing table name expected");
      PIPE_CFG->peer = $4->def;
    }
- | pipe_proto EXPORT LIMIT limit_spec ';' { PIPE_CFG->out_limit = $4; }
  | pipe_proto MODE OPAQUE ';' { PIPE_CFG->mode = PIPE_OPAQUE; }
  | pipe_proto MODE TRANSPARENT ';' { PIPE_CFG->mode = PIPE_TRANSPARENT; }
  ;

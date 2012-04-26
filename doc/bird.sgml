@@ -431,13 +431,19 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	<tag>export <m/filter/</tag> This is similar to the <cf>import</cf> keyword, except that it
 	works in the direction from the routing table to the protocol. Default: <cf/none/.
 
-	<tag>import limit <m/number/ exceed warn | block | restart | disable</tag>
-	Specify an import route limit and the action to be taken when
-	the limit is hit. Warn action just prints warning log
-	message. Block action ignores new routes (and converts route
-	updates to withdraws) coming from the protocol. Restart and
-	disable actions shut the protocol down like appropriate
-	commands. Default: <cf/none/.
+	<tag>import limit <m/number/ [exceed warn | block | restart | disable]</tag>
+	Specify an import route limit (a maximum number of routes
+	imported from the protocol) and optionally the action to be
+	taken when the limit is hit. Warn action just prints warning
+	log message. Block action ignores new routes coming from the
+	protocol. Restart and disable actions shut the protocol down
+	like appropriate commands. Disable is the default action if an
+	action is not explicitly specified.  Default: <cf/none/.
+
+	<tag>export limit <m/number/ [exceed warn | block | restart | disable]</tag>
+	Specify an export route limit, works similarly to
+	the <cf>import limit</cf> option, but for the routes exported
+	to the protocol. Default: <cf/none/.
 
 	<tag>description "<m/text/"</tag> This is an optional
 	description of the protocol. It is displayed as a part of the

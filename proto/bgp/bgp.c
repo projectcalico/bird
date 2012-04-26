@@ -848,6 +848,8 @@ bgp_start(struct proto *P)
   return PS_START;
 }
 
+extern int proto_restart;
+
 static int
 bgp_shutdown(struct proto *P)
 {
@@ -877,10 +879,16 @@ bgp_shutdown(struct proto *P)
 
     case PDC_IN_LIMIT_HIT:
       subcode = 1; // Errcode 6, 1 - max number of prefixes reached
+      /* log message for compatibility */
       log(L_WARN "%s: Route limit exceeded, shutting down", p->p.name);
+      goto limit;
 
+    case PDC_OUT_LIMIT_HIT:
+      subcode = proto_restart ? 4 : 2; // Administrative reset or shutdown
+
+    limit:
       bgp_store_error(p, NULL, BE_AUTO_DOWN, BEA_ROUTE_LIMIT_EXCEEDED);
-      if (P->cf->in_limit->action == PLA_RESTART)
+      if (proto_restart)
 	bgp_update_startup_delay(p);
       else
 	p->startup_delay = 0;
@@ -1165,9 +1173,9 @@ bgp_show_proto_info(struct proto *P)
 	      p->rs_client ? " route-server" : "",
 	      p->as4_session ? " AS4" : "");
       cli_msg(-1006, "    Source address:   %I", p->source_addr);
-      if (p->cf->route_limit)
+      if (P->cf->in_limit)
 	cli_msg(-1006, "    Route limit:      %d/%d",
-		p->p.stats.imp_routes, p->cf->route_limit);
+		p->p.stats.imp_routes, P->cf->in_limit->limit);
       cli_msg(-1006, "    Hold timer:       %d/%d",
 	      tm_remains(c->hold_timer), c->hold_time);
       cli_msg(-1006, "    Keepalive timer:  %d/%d",

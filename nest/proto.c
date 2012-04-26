@@ -406,13 +406,14 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   if (p->proto->multitable)
     return 1;
 
-  /* Update filters in the main announce hook */
+  /* Update filters and limits in the main announce hook
+     Note that this also resets limit state */
   if (p->main_ahook)
     {
       p->main_ahook->in_filter = nc->in_filter;
       p->main_ahook->out_filter = nc->out_filter;
       p->main_ahook->in_limit = nc->in_limit;
-      // p->main_ahook->out_limit = nc->out_limit;
+      p->main_ahook->out_limit = nc->out_limit;
     }
 
   /* Update routes when filters changed. If the protocol in not UP,
@@ -774,9 +775,16 @@ proto_schedule_feed(struct proto *p, int initial)
   p->core_state = FS_FEEDING;
   p->refeeding = !initial;
 
-  /* Hack: reset exp_routes during refeed, and do not decrease it later */
+  /* FIXME: This should be changed for better support of multitable protos */
   if (!initial)
-    p->stats.exp_routes = 0;
+    {
+      struct announce_hook *ah;
+      for (ah = p->ahooks; ah; ah = ah->next)
+	proto_reset_limit(ah->out_limit);
+
+      /* Hack: reset exp_routes during refeed, and do not decrease it later */
+      p->stats.exp_routes = 0;
+    }
 
   /* Connect protocol to routing table */
   if (initial && !p->proto->multitable)
@@ -785,7 +793,9 @@ proto_schedule_feed(struct proto *p, int initial)
       p->main_ahook->in_filter = p->cf->in_filter;
       p->main_ahook->out_filter = p->cf->out_filter;
       p->main_ahook->in_limit = p->cf->in_limit;
-      // p->main_ahook->out_limit = p->cf->out_limit;
+      p->main_ahook->out_limit = p->cf->out_limit;
+      proto_reset_limit(p->main_ahook->in_limit);
+      proto_reset_limit(p->main_ahook->out_limit);
     }
 
   proto_relink(p);
@@ -870,6 +880,8 @@ proto_schedule_flush(struct proto *p)
   proto_schedule_flush_loop();
 }
 
+/* Temporary hack to propagate restart to BGP */
+int proto_restart;
 
 static void
 proto_shutdown_loop(struct timer *t UNUSED)
@@ -879,11 +891,11 @@ proto_shutdown_loop(struct timer *t UNUSED)
   WALK_LIST_DELSAFE(p, p_next, active_proto_list)
     if (p->down_sched)
       {
-	int restart = (p->down_sched == PDS_RESTART);
+	proto_restart = (p->down_sched == PDS_RESTART);
 
 	p->disabled = 1;
 	proto_rethink_goal(p);
-	if (restart)
+	if (proto_restart)
 	  {
 	    p->disabled = 0;
 	    proto_rethink_goal(p);
@@ -953,43 +965,43 @@ proto_limit_name(struct proto_limit *l)
  * proto_notify_limit: notify about limit hit and take appropriate action
  * @ah: announce hook
  * @l: limit being hit
+ * @rt_count: the number of routes 
  *
  * The function is called by the route processing core when limit @l
  * is breached. It activates the limit and tooks appropriate action
- * according to @l->action. It also says what should be done with the
- * route that breached the limit.
- *
- * Returns 1 if the route should be freed, 0 otherwise.
+ * according to @l->action.
  */
-int
-proto_notify_limit(struct announce_hook *ah, struct proto_limit *l)
+void
+proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count)
 {
   struct proto *p = ah->proto;
   int dir = (ah->in_limit == l);
 
-  if (l->active)
-    return (l->action != PLA_WARN);
+  if (l->state == PLS_BLOCKED)
+    return;
 
-  l->active = 1;
-  log(L_WARN "Protocol %s hits route %s limit (%d), action: %s",
-      p->name, dir ? "import" : "export", l->limit, proto_limit_name(l));
+  /* For warning action, we want the log message every time we hit the limit */
+  if (!l->state || ((l->action == PLA_WARN) && (rt_count == l->limit)))
+    log(L_WARN "Protocol %s hits route %s limit (%d), action: %s",
+	p->name, dir ? "import" : "export", l->limit, proto_limit_name(l));
 
   switch (l->action)
     {
     case PLA_WARN:
-      return 0;
+      l->state = PLS_ACTIVE;
+      break;
 
     case PLA_BLOCK:
-      return 1;
+      l->state = PLS_BLOCKED;
+      break;
 
     case PLA_RESTART:
     case PLA_DISABLE:
+      l->state = PLS_BLOCKED;
       proto_schedule_down(p, l->action == PLA_RESTART,
 			  dir ? PDC_IN_LIMIT_HIT : PDC_OUT_LIMIT_HIT);
-      return 1;
+      break;
     }
-
-  return 0;
 }
 
 /**
@@ -1101,9 +1113,11 @@ proto_show_stats(struct proto_stats *s)
 void
 proto_show_limit(struct proto_limit *l, const char *dsc)
 {
-  if (l)
-    cli_msg(-1006, "  %16s%d, action: %s%s", dsc, l->limit,
-	    proto_limit_name(l), l->active ? " [HIT]" : "");
+  if (!l)
+    return;
+
+  cli_msg(-1006, "  %-16s%d%s", dsc, l->limit, l->state ? " [HIT]" : "");
+  cli_msg(-1006, "    Action:       %s", proto_limit_name(l));
 }
 
 void
@@ -1115,6 +1129,7 @@ proto_show_basic_info(struct proto *p)
   cli_msg(-1006, "  Output filter:  %s", filter_name(p->cf->out_filter));
 
   proto_show_limit(p->cf->in_limit, "Import limit:");
+  proto_show_limit(p->cf->out_limit, "Export limit:");
 
   if (p->proto_state != PS_DOWN)
     proto_show_stats(&p->stats);
@@ -1233,8 +1248,8 @@ proto_cmd_reload(struct proto *p, unsigned int dir, int cnt UNUSED)
        * Should be done before reload_routes() hook?
        * Perhaps, but these hooks work asynchronously.
        */
-      if (!p->proto->multitable && p->main_ahook->in_limit)
-	p->main_ahook->in_limit->active = 0;
+      if (!p->proto->multitable)
+	proto_reset_limit(p->main_ahook->in_limit);
     }
 
   /* re-exporting routes */
