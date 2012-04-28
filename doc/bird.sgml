@@ -1072,7 +1072,16 @@ undefined value is regarded as empty clist for most purposes.
 	routes). Read-only.
 
 	<tag><m/enum/ dest</tag>
-	Type of destination the packets should be sent to (<cf/RTD_ROUTER/ for forwarding to a neighboring router, <cf/RTD_DEVICE/ for routing to a directly-connected network, <cf/RTD_BLACKHOLE/ for packets to be silently discarded, <cf/RTD_UNREACHABLE/, <cf/RTD_PROHIBIT/ for packets that should be returned with ICMP host unreachable / ICMP administratively prohibited messages). Read-only.
+	Type of destination the packets should be sent to
+	(<cf/RTD_ROUTER/ for forwarding to a neighboring router,
+	<cf/RTD_DEVICE/ for routing to a directly-connected network,
+	<cf/RTD_MULTIPATH/ for multipath destinations,
+	<cf/RTD_BLACKHOLE/ for packets to be silently discarded,
+	<cf/RTD_UNREACHABLE/, <cf/RTD_PROHIBIT/ for packets that
+	should be returned with ICMP host unreachable / ICMP
+	administratively prohibited messages). Can be changed, but
+	only to <cf/RTD_BLACKHOLE/, <cf/RTD_UNREACHABLE/ or
+	<cf/RTD_PROHIBIT/.
 
 	<tag><m/int/ igp_metric</tag>
 	The optional attribute that can be used to specify a distance
