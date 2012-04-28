@@ -387,7 +387,8 @@ struct proto_limit {
 
 void proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count);
 
-static inline void proto_reset_limit(struct proto_limit *l)
+static inline void
+proto_reset_limit(struct proto_limit *l)
 {
   if (l)
     l->state = PLS_INITIAL;
