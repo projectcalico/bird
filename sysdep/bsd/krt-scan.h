@@ -13,10 +13,18 @@ struct krt_scan_params {
 };
 
 struct krt_scan_status {
-  list temp_ifs;			/* Temporary interfaces */
 };
 
-static inline int krt_scan_params_same(struct krt_scan_params *o UNUSED, struct krt_scan_params *n UNUSED) { return 1; }
-static inline void krt_scan_copy_params(struct krt_scan_params *d UNUSED, struct krt_scan_params *s UNUSED) { }
+
+static inline void krt_sys_init(struct krt_proto *p UNUSED) { }
+static inline int krt_sys_reconfigure(struct krt_proto *p UNUSED, struct krt_config *n UNUSED, struct krt_config *o UNUSED) { return 1; }
+
+static inline void krt_sys_preconfig(struct config *c UNUSED) { }
+static inline void krt_sys_postconfig(struct krt_config *c UNUSED) { }
+static inline void krt_sys_init_config(struct krt_config *c UNUSED) { }
+static inline void krt_sys_copy_config(struct krt_config *d UNUSED, struct krt_config *s UNUSED) { }
+
+
+
 
 #endif

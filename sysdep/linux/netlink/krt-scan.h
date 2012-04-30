@@ -17,20 +17,14 @@
 
 #define NL_NUM_TABLES 256
 
-struct krt_scan_params {
+struct krt_params {
   int table_id;				/* Kernel table ID we sync with */
 };
 
-struct krt_scan_status {
-  list temp_ifs;			/* Temporary interfaces */
+struct krt_status {
 };
 
-static inline int krt_scan_params_same(struct krt_scan_params *o, struct krt_scan_params *n)
-{
-  return o->table_id == n->table_id;
-}
 
-static inline void krt_scan_copy_params(struct krt_scan_params *d UNUSED, struct krt_scan_params *s UNUSED) { }
-/* table_id copied in krt_copy_config() */
+static inline void krt_sys_init(struct krt_proto *p UNUSED) { }
 
 #endif
