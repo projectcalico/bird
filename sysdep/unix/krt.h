@@ -125,7 +125,7 @@ void krt_sys_copy_config(struct krt_config *, struct krt_config *);
 
 int  krt_capable(rte *e);
 void krt_do_scan(struct krt_proto *);
-void krt_do_notify(struct krt_proto *p, net *n, rte *new, rte *old, struct ea_list *eattrs);
+void krt_replace_rte(struct krt_proto *p, net *n, rte *new, rte *old, struct ea_list *eattrs);
 
 
 /* kif sysdep */

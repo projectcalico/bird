@@ -201,8 +201,8 @@ krt_sock_send(int cmd, rte *e)
 }
 
 void
-krt_do_notify(struct krt_proto *p UNUSED, net *n, rte *new, rte *old,
-	      struct ea_list *eattrs UNUSED)
+krt_replace_rte(struct krt_proto *p UNUSED, net *n, rte *new, rte *old,
+		struct ea_list *eattrs UNUSED)
 {
   int err = 0;
 

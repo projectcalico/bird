@@ -37,7 +37,7 @@
  *
  * The code uses OS-dependent parts for kernel updates and scans. These parts are
  * in more specific sysdep directories (e.g. sysdep/linux) in functions krt_sys_* 
- * and kif_sys_* (and some others like krt_do_notify()) and krt-sys.h header file.
+ * and kif_sys_* (and some others like krt_replace_rte()) and krt-sys.h header file.
  * This is also used for platform specific protocol options and route attributes.
  *
  * There was also an old code that used traditional UNIX ioctls for these tasks.
@@ -582,7 +582,7 @@ krt_flush_routes(struct krt_proto *p)
 	      a->source != RTS_DEVICE && a->source != RTS_INHERIT)
 	    {
 	      /* FIXME: this does not work if gw is changed in export filter */
-	      krt_do_notify(p, e->net, NULL, e, NULL);
+	      krt_replace_rte(p, e->net, NULL, e, NULL);
 	      n->n.flags &= ~KRF_INSTALLED;
 	    }
 	}
@@ -741,7 +741,7 @@ krt_prune(struct krt_proto *p)
 	  if (new && (f->flags & KRF_INSTALLED))
 	    {
 	      krt_trace_in(p, new, "reinstalling");
-	      krt_do_notify(p, n, new, NULL, tmpa);
+	      krt_replace_rte(p, n, new, NULL, tmpa);
 	    }
 	  break;
 	case KRF_SEEN:
@@ -750,11 +750,11 @@ krt_prune(struct krt_proto *p)
 	  break;
 	case KRF_UPDATE:
 	  krt_trace_in(p, new, "updating");
-	  krt_do_notify(p, n, new, old, tmpa);
+	  krt_replace_rte(p, n, new, old, tmpa);
 	  break;
 	case KRF_DELETE:
 	  krt_trace_in(p, old, "deleting");
-	  krt_do_notify(p, n, NULL, old, NULL);
+	  krt_replace_rte(p, n, NULL, old, NULL);
 	  break;
 	default:
 	  bug("krt_prune: invalid route status");
@@ -790,7 +790,7 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
       if (new)
 	{
 	  krt_trace_in(p, e, "[redirect] deleting");
-	  krt_do_notify(p, net, NULL, e, NULL);
+	  krt_replace_rte(p, net, NULL, e, NULL);
 	}
       /* If !new, it is probably echo of our deletion */
       break;
@@ -908,7 +908,7 @@ krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
   else
     net->n.flags &= ~KRF_INSTALLED;
   if (p->initialized)		/* Before first scan we don't touch the routes */
-    krt_do_notify(p, net, new, old, eattrs);
+    krt_replace_rte(p, net, new, old, eattrs);
 }
 
 static int
