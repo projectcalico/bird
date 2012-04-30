@@ -950,7 +950,7 @@ int
 sk_join_group(sock *s, ip_addr maddr)
 {
   struct ipv6_mreq mreq;
-	
+
   set_inaddr(&mreq.ipv6mr_multiaddr, maddr);
 
 #ifdef CONFIG_IPV6_GLIBC_20

@@ -15,9 +15,7 @@ struct krt_proto;
 struct kif_config;
 struct kif_proto;
 
-#include "lib/krt-scan.h"
-#include "lib/krt-set.h"
-#include "lib/krt-iface.h"
+#include "lib/krt-sys.h"
 
 /* Flags stored in net->n.flags, rest are in nest/route.h */
 
@@ -113,7 +111,7 @@ struct kif_proto {
 struct proto_config * krt_init_config(int class);
 
 
-/* krt-scan.c */
+/* krt sysdep */
 
 void krt_sys_init(struct krt_proto *);
 void krt_sys_start(struct krt_proto *, int);
@@ -130,7 +128,7 @@ void krt_do_scan(struct krt_proto *);
 void krt_do_notify(struct krt_proto *p, net *n, rte *new, rte *old, struct ea_list *eattrs);
 
 
-/* krt-iface.c */
+/* kif sysdep */
 
 void kif_sys_init(struct kif_proto *);
 void kif_sys_start(struct kif_proto *);
@@ -142,6 +140,5 @@ void kif_sys_copy_config(struct kif_config *, struct kif_config *);
 
 void kif_do_scan(struct kif_proto *);
 
-// void kif_sys_io_init(void);
 
 #endif

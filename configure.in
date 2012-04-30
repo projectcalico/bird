@@ -105,19 +105,11 @@ elif test -f sysconfig.h ; then
 	sysdesc=sysconfig
 else
 	case "$ip:$host_os" in
-		ipv4:linux*)	BIRD_CHECK_LINUX_VERSION
+		ipv6:linux*)	sysdesc=linux-v6
 				default_iproutedir="/etc/iproute2"
-				case $bird_cv_sys_linux_version in
-					1.*|2.0.*)	sysdesc=linux-20 ;;
-					*)		sysdesc=linux-22 ;;
-					esac
 				;;
-		ipv6:linux*)	BIRD_CHECK_LINUX_VERSION
+		ipv4:linux*)	sysdesc=linux
 				default_iproutedir="/etc/iproute2"
-				case $bird_cv_sys_linux_version in
-					1.*|2.0.*)	AC_MSG_ERROR([This version of Linux doesn't support IPv6.]) ;;
-					*)		sysdesc=linux-v6 ;;
-					esac
 				;;
 		ipv6:netbsd*)	sysdesc=bsd-v6
 				CPPFLAGS="$CPPFLAGS -I/usr/pkg/include"
@@ -180,7 +172,7 @@ AC_MSG_RESULT(ok)
 AC_SUBST(protocols)
 
 case $sysdesc in
-	*/linux-22*|*/linux-v6*)
+	*/linux*|*/linux-v6*)
 		AC_CHECK_HEADER(linux/rtnetlink.h,,[AC_MSG_ERROR([Appropriate version of Linux kernel headers not found.])],[
 #include <asm/types.h>
 #include <sys/socket.h>

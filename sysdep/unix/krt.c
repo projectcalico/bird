@@ -23,7 +23,7 @@
  * Either with a single routing table and single KRT protocol [traditional UNIX]
  * or with many routing tables and separate KRT protocols for all of them
  * or with many routing tables, but every scan including all tables, so we start
- * separate KRT protocols which cooperate with each other  [Linux 2.2].
+ * separate KRT protocols which cooperate with each other [Linux].
  * In this case, we keep only a single scan timer.
  *
  * We use FIB node flags in the routing table to keep track of route
@@ -34,6 +34,15 @@
  * When starting up, we cheat by looking if there is another
  * KRT instance to be initialized later and performing table scan
  * only once for all the instances.
+ *
+ * The code uses OS-dependent parts for kernel updates and scans. These parts are
+ * in more specific sysdep directories (e.g. sysdep/linux) in functions krt_sys_* 
+ * and kif_sys_* (and some others like krt_do_notify()) and krt-sys.h header file.
+ * This is also used for platform specific protocol options and route attributes.
+ *
+ * There was also an old code that used traditional UNIX ioctls for these tasks.
+ * It was unmaintained and later removed. For reference, see sysdep/krt-* files
+ * in commit 396dfa9042305f62da1f56589c4b98fac57fc2f6
  */
 
 /*
@@ -66,7 +75,6 @@ krt_io_init(void)
 {
   krt_pool = rp_new(&root_pool, "Kernel Syncer");
   krt_filter_lp = lp_new(krt_pool, 4080);
-  kif_sys_io_init();
 }
 
 /*
