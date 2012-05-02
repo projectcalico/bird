@@ -1145,16 +1145,16 @@ show_lsa_sum_net(struct top_hash_entry *he)
 static inline void
 show_lsa_sum_rt(struct top_hash_entry *he)
 {
-  u32 dst_rid, options;
+  u32 dst_rid;
 
 #ifdef OSPFv2
   struct ospf_lsa_sum *ls = he->lsa_body;
   dst_rid = he->lsa.id;
-  options = 0;
+  // options = 0;
 #else /* OSPFv3 */
   struct ospf_lsa_sum_rt *ls = he->lsa_body;
   dst_rid = ls->drid; 
-  options = ls->options & OPTIONS_MASK;
+  // options = ls->options & OPTIONS_MASK;
 #endif
 
   cli_msg(-1016, "\t\txrouter %R metric %u", dst_rid, ls->metric);

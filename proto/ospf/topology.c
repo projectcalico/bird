@@ -798,7 +798,7 @@ originate_sum_net_lsa(struct ospf_area *oa, struct fib_node *fn, int metric)
 
   body = originate_sum_net_lsa_body(po, &lsa.length, fn, metric);
   lsasum_calculate(&lsa, body);
-  en = lsa_install_new(po, &lsa, dom, body);
+  lsa_install_new(po, &lsa, dom, body);
   ospf_lsupd_flood(po, NULL, NULL, &lsa, dom, 1);
 }
 
@@ -835,7 +835,7 @@ originate_sum_rt_lsa(struct ospf_area *oa, struct fib_node *fn, int metric, u32 
 
   body = originate_sum_rt_lsa_body(po, &lsa.length, lsa.id, metric, options);
   lsasum_calculate(&lsa, body);
-  en = lsa_install_new(po, &lsa, dom, body);
+  lsa_install_new(po, &lsa, dom, body);
   ospf_lsupd_flood(po, NULL, NULL, &lsa, dom, 1);
 }
 
@@ -1117,7 +1117,7 @@ originate_ext_lsa(struct ospf_area *oa, struct fib_node *fn, int src,
   if (src) 
     fn->x1 = src;
 
-  en = lsa_install_new(po, &lsa, dom, body);
+  lsa_install_new(po, &lsa, dom, body);
   ospf_lsupd_flood(po, NULL, NULL, &lsa, dom, 1);
 
   if (po->ebit == 0)

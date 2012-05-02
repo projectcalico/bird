@@ -426,24 +426,37 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	uses global router id.
 
 	<tag>import all | none | filter <m/name/ | filter { <m/filter commands/ } | where <m/filter expression/</tag> 
-	Specify a filter to be used for filtering routes coming from the protocol to the routing table. <cf/all/ is shorthand for <cf/where true/ and <cf/none/ is shorthand for <cf/where false/. Default: <cf/all/.
+	Specify a filter to be used for filtering routes coming from
+	the protocol to the routing table. <cf/all/ is shorthand for
+	<cf/where true/ and <cf/none/ is shorthand for
+	<cf/where false/. Default: <cf/all/.
 
-	<tag>export <m/filter/</tag> This is similar to the <cf>import</cf> keyword, except that it
-	works in the direction from the routing table to the protocol. Default: <cf/none/.
+	<tag>export <m/filter/</tag>
+	This is similar to the <cf>import</cf> keyword, except that it
+	works in the direction from the routing table to the protocol.
+	Default: <cf/none/.
 
-	<tag>import limit <m/number/ [exceed warn | block | restart | disable]</tag>
+	<tag>import limit <m/number/ [action warn | block | restart | disable]</tag>
 	Specify an import route limit (a maximum number of routes
 	imported from the protocol) and optionally the action to be
 	taken when the limit is hit. Warn action just prints warning
 	log message. Block action ignores new routes coming from the
 	protocol. Restart and disable actions shut the protocol down
 	like appropriate commands. Disable is the default action if an
-	action is not explicitly specified.  Default: <cf/none/.
+	action is not explicitly specified. Note that limits are reset
+	during protocol reconfigure, reload or restart.
+	Default: <cf/none/.
 
-	<tag>export limit <m/number/ [exceed warn | block | restart | disable]</tag>
+	<tag>export limit <m/number/ [action warn | block | restart | disable]</tag>
 	Specify an export route limit, works similarly to
 	the <cf>import limit</cf> option, but for the routes exported
-	to the protocol. Default: <cf/none/.
+	to the protocol. This option is experimental, there are some
+	problems in details of its behavior -- the number of exported
+	routes can temporarily exceed the limit without triggering it
+	during protocol reload, exported routes counter ignores route
+	blocking and block action also blocks route updates of alread
+	accepted routes -- and these details will probably change in
+	the future. Default: <cf/none/.
 
 	<tag>description "<m/text/"</tag> This is an optional
 	description of the protocol. It is displayed as a part of the

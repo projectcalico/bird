@@ -269,26 +269,51 @@ do_rte_announce(struct announce_hook *ah, int type UNUSED, net *net, rte *new, r
 	}
     }
 
-  /* FIXME - This is broken because of incorrect 'old' value (see above) */
-  if (!new && !old)
-    return;
+  /*
+   * Export route limits has several problems. Because exp_routes
+   * counter is reset before refeed, we don't really know whether
+   * limit is breached and whether the update is new or not Therefore
+   * the number of really exported routes may exceed the limit
+   * temporarily (routes exported before and new routes in refeed).
+   *
+   * Minor advantage is that if the limit is decreased and refeed is
+   * requested, the number of exported routes really decrease.
+   *
+   * Second problem is that with export limits, we don't know whether
+   * old was really exported (it might be blocked by limit). When a
+   * withdraw is exported, we announce it even when the previous
+   * update was blocked. This is not a big issue, but the same problem
+   * is in updating exp_routes counter. Therefore, to be consistent in
+   * increases and decreases of exp_routes, we count exported routes
+   * regardless of blocking by limits.
+   *
+   * Similar problem is in handling updates - when a new route is
+   * received and blocking is active, the route would be blocked, but
+   * when an update for the route will be received later, the update
+   * would be propagated (as old != NULL). Therefore, we have to block
+   * also non-new updates (contrary to import blocking).
+   */
 
   struct proto_limit *l = ah->out_limit;
-  if (l && new && (!old || refeed))
+  if (l && new)
     {
-      if (stats->exp_routes >= l->limit)
+      if ((!old || refeed) && (stats->exp_routes >= l->limit))
 	proto_notify_limit(ah, l, stats->exp_routes);
 
       if (l->state == PLS_BLOCKED)
 	{
-	  /* Exported route counter ignores whether the route was
-	     blocked by limit, to be consistent when limits change */
-	  stats->exp_routes++;
+	  stats->exp_routes++;	/* see note above */
 	  stats->exp_updates_rejected++;
 	  rte_trace_out(D_FILTERS, p, new, "rejected [limit]");
-	  goto done;
+	  if (new != new0)
+	    rte_free(new);
+	  new = NULL;
 	}
     }
+
+  /* FIXME - This is broken because of incorrect 'old' value (see above) */
+  if (!new && !old)
+    return;
 
   if (new)
     stats->exp_updates_accepted++;
@@ -325,7 +350,6 @@ do_rte_announce(struct announce_hook *ah, int type UNUSED, net *net, rte *new, r
   else
     p->rt_notify(p, ah->table, net, new, old, new->attrs->eattrs);
 
- done:
   if (new && new != new0)	/* Discard temporary rte's */
     rte_free(new);
   if (old && old != old0)
@@ -1781,14 +1805,14 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
     d->net_counter++;
   for(e=n->routes; e; e=e->next)
     {
-      struct ea_list *tmpa, *old_tmpa;
+      struct ea_list *tmpa;
       struct proto *p0 = e->attrs->proto;
       struct proto *p1 = d->export_protocol;
       struct proto *p2 = d->show_protocol;
       d->rt_counter++;
       ee = e;
       rte_update_lock();		/* We use the update buffer for filtering */
-      old_tmpa = tmpa = p0->make_tmp_attrs ? p0->make_tmp_attrs(e, rte_update_pool) : NULL;
+      tmpa = p0->make_tmp_attrs ? p0->make_tmp_attrs(e, rte_update_pool) : NULL;
       ok = (d->filter == FILTER_ACCEPT || f_run(d->filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
       if (p2 && p2 != p0) ok = 0;
       if (ok && d->export_mode)
