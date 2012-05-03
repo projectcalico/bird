@@ -575,16 +575,11 @@ krt_flush_routes(struct krt_proto *p)
     {
       net *n = (net *) f;
       rte *e = n->routes;
-      if (e)
+      if (e && (n->n.flags & KRF_INSTALLED))
 	{
-	  rta *a = e->attrs;
-	  if ((n->n.flags & KRF_INSTALLED) &&
-	      a->source != RTS_DEVICE && a->source != RTS_INHERIT)
-	    {
-	      /* FIXME: this does not work if gw is changed in export filter */
-	      krt_replace_rte(p, e->net, NULL, e, NULL);
-	      n->n.flags &= ~KRF_INSTALLED;
-	    }
+	  /* FIXME: this does not work if gw is changed in export filter */
+	  krt_replace_rte(p, e->net, NULL, e, NULL);
+	  n->n.flags &= ~KRF_INSTALLED;
 	}
     }
   FIB_WALK_END;
