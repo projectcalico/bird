@@ -151,7 +151,7 @@ read_iproute_table(char *file, char *prefix, int max)
 #endif // PATH_IPROUTE_DIR
 
 
-static char *config_name = PATH_CONFIG;
+static char *config_name = PATH_CONFIG_FILE;
 
 static int
 cf_read(byte *dest, unsigned int len, int fd)
