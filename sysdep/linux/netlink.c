@@ -548,7 +548,7 @@ nl_parse_addr(struct nlmsghdr *h)
 }
 
 void
-krt_if_scan(struct kif_proto *p UNUSED)
+kif_do_scan(struct kif_proto *p UNUSED)
 {
   struct nlmsghdr *h;
 
@@ -634,7 +634,7 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
   r.r.rtm_family = BIRD_AF;
   r.r.rtm_dst_len = net->n.pxlen;
   r.r.rtm_tos = 0;
-  r.r.rtm_table = KRT_CF->scan.table_id;
+  r.r.rtm_table = KRT_CF->sys.table_id;
   r.r.rtm_protocol = RTPROT_BIRD;
   r.r.rtm_scope = RT_SCOPE_UNIVERSE;
   nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
@@ -687,7 +687,7 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
 }
 
 void
-krt_set_notify(struct krt_proto *p, net *n, rte *new, rte *old, struct ea_list *eattrs)
+krt_replace_rte(struct krt_proto *p, net *n, rte *new, rte *old, struct ea_list *eattrs)
 {
   int err = 0;
 
@@ -940,7 +940,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 }
 
 void
-krt_scan_fire(struct krt_proto *p UNUSED)	/* CONFIG_ALL_TABLES_AT_ONCE => p is NULL */
+krt_do_scan(struct krt_proto *p UNUSED)	/* CONFIG_ALL_TABLES_AT_ONCE => p is NULL */
 {
   struct nlmsghdr *h;
 
@@ -1084,36 +1084,9 @@ nl_open_async(void)
 static u8 nl_cf_table[(NL_NUM_TABLES+7) / 8];
 
 void
-krt_scan_preconfig(struct config *c UNUSED)
+krt_sys_start(struct krt_proto *p, int first)
 {
-  bzero(&nl_cf_table, sizeof(nl_cf_table));
-}
-
-void
-krt_scan_postconfig(struct krt_config *x)
-{
-  int id = x->scan.table_id;
-
-  if (nl_cf_table[id/8] & (1 << (id%8)))
-    cf_error("Multiple kernel syncers defined for table #%d", id);
-  nl_cf_table[id/8] |= (1 << (id%8));
-}
-
-void
-krt_scan_construct(struct krt_config *x)
-{
-#ifndef IPV6
-  x->scan.table_id = RT_TABLE_MAIN;
-#else
-  x->scan.table_id = 254;
-#endif
-}
-
-void
-krt_scan_start(struct krt_proto *p, int first)
-{
-  init_list(&p->scan.temp_ifs);
-  nl_table_map[KRT_CF->scan.table_id] = p;
+  nl_table_map[KRT_CF->sys.table_id] = p;
   if (first)
     {
       nl_open();
@@ -1122,13 +1095,55 @@ krt_scan_start(struct krt_proto *p, int first)
 }
 
 void
-krt_scan_shutdown(struct krt_proto *p UNUSED, int last UNUSED)
+krt_sys_shutdown(struct krt_proto *p UNUSED, int last UNUSED)
 {
 }
 
+int
+krt_sys_reconfigure(struct krt_proto *p UNUSED, struct krt_config *n, struct krt_config *o)
+{
+  return n->sys.table_id == o->sys.table_id;
+}
+
+
 void
-krt_if_start(struct kif_proto *p UNUSED)
+krt_sys_preconfig(struct config *c UNUSED)
+{
+  bzero(&nl_cf_table, sizeof(nl_cf_table));
+}
+
+void
+krt_sys_postconfig(struct krt_config *x)
+{
+  int id = x->sys.table_id;
+
+  if (nl_cf_table[id/8] & (1 << (id%8)))
+    cf_error("Multiple kernel syncers defined for table #%d", id);
+  nl_cf_table[id/8] |= (1 << (id%8));
+}
+
+void
+krt_sys_init_config(struct krt_config *cf)
+{
+  cf->sys.table_id = RT_TABLE_MAIN;
+}
+
+void
+krt_sys_copy_config(struct krt_config *d, struct krt_config *s)
+{
+  d->sys.table_id = s->sys.table_id;
+}
+
+
+
+void
+kif_sys_start(struct kif_proto *p UNUSED)
 {
   nl_open();
   nl_open_async();
+}
+
+void
+kif_sys_shutdown(struct kif_proto *p UNUSED)
+{
 }

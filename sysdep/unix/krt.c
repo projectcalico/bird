@@ -23,7 +23,7 @@
  * Either with a single routing table and single KRT protocol [traditional UNIX]
  * or with many routing tables and separate KRT protocols for all of them
  * or with many routing tables, but every scan including all tables, so we start
- * separate KRT protocols which cooperate with each other  [Linux 2.2].
+ * separate KRT protocols which cooperate with each other [Linux].
  * In this case, we keep only a single scan timer.
  *
  * We use FIB node flags in the routing table to keep track of route
@@ -34,6 +34,15 @@
  * When starting up, we cheat by looking if there is another
  * KRT instance to be initialized later and performing table scan
  * only once for all the instances.
+ *
+ * The code uses OS-dependent parts for kernel updates and scans. These parts are
+ * in more specific sysdep directories (e.g. sysdep/linux) in functions krt_sys_* 
+ * and kif_sys_* (and some others like krt_replace_rte()) and krt-sys.h header file.
+ * This is also used for platform specific protocol options and route attributes.
+ *
+ * There was also an old code that used traditional UNIX ioctls for these tasks.
+ * It was unmaintained and later removed. For reference, see sysdep/krt-* files
+ * in commit 396dfa9042305f62da1f56589c4b98fac57fc2f6
  */
 
 /*
@@ -66,24 +75,16 @@ krt_io_init(void)
 {
   krt_pool = rp_new(&root_pool, "Kernel Syncer");
   krt_filter_lp = lp_new(krt_pool, 4080);
-  krt_if_io_init();
 }
 
 /*
  *	Interfaces
  */
 
-struct proto_config *cf_kif;
-
+static struct kif_config *kif_cf;
 static struct kif_proto *kif_proto;
 static timer *kif_scan_timer;
 static bird_clock_t kif_last_shot;
-
-static void
-kif_preconfig(struct protocol *P UNUSED, struct config *c UNUSED)
-{
-  cf_kif = NULL;
-}
 
 static void
 kif_scan(timer *t)
@@ -92,7 +93,7 @@ kif_scan(timer *t)
 
   KRT_TRACE(p, D_EVENTS, "Scanning interfaces");
   kif_last_shot = now;
-  krt_if_scan(p);
+  kif_do_scan(p);
 }
 
 static void
@@ -111,45 +112,6 @@ kif_request_scan(void)
   if (kif_proto && kif_scan_timer->expires > now)
     tm_start(kif_scan_timer, 1);
 }
-
-static struct proto *
-kif_init(struct proto_config *c)
-{
-  struct kif_proto *p = proto_new(c, sizeof(struct kif_proto));
-  return &p->p;
-}
-
-static int
-kif_start(struct proto *P)
-{
-  struct kif_proto *p = (struct kif_proto *) P;
-
-  kif_proto = p;
-  krt_if_start(p);
-
-  /* Start periodic interface scanning */
-  kif_scan_timer = tm_new(P->pool);
-  kif_scan_timer->hook = kif_scan;
-  kif_scan_timer->data = p;
-  kif_scan_timer->recurrent = KIF_CF->scan_time;
-  kif_scan(kif_scan_timer);
-  tm_start(kif_scan_timer, KIF_CF->scan_time);
-
-  return PS_UP;
-}
-
-static int
-kif_shutdown(struct proto *P)
-{
-  struct kif_proto *p = (struct kif_proto *) P;
-
-  tm_stop(kif_scan_timer);
-  krt_if_shutdown(p);
-  kif_proto = NULL;
-
-  return PS_DOWN;
-}
-
 
 static inline int
 prefer_scope(struct ifa *a, struct ifa *b)
@@ -193,13 +155,53 @@ kif_choose_primary(struct iface *i)
 }
 
 
+static struct proto *
+kif_init(struct proto_config *c)
+{
+  struct kif_proto *p = proto_new(c, sizeof(struct kif_proto));
+
+  kif_sys_init(p);
+  return &p->p;
+}
+
+static int
+kif_start(struct proto *P)
+{
+  struct kif_proto *p = (struct kif_proto *) P;
+
+  kif_proto = p;
+  kif_sys_start(p);
+
+  /* Start periodic interface scanning */
+  kif_scan_timer = tm_new(P->pool);
+  kif_scan_timer->hook = kif_scan;
+  kif_scan_timer->data = p;
+  kif_scan_timer->recurrent = KIF_CF->scan_time;
+  kif_scan(kif_scan_timer);
+  tm_start(kif_scan_timer, KIF_CF->scan_time);
+
+  return PS_UP;
+}
+
+static int
+kif_shutdown(struct proto *P)
+{
+  struct kif_proto *p = (struct kif_proto *) P;
+
+  tm_stop(kif_scan_timer);
+  kif_sys_shutdown(p);
+  kif_proto = NULL;
+
+  return PS_DOWN;
+}
+
 static int
 kif_reconfigure(struct proto *p, struct proto_config *new)
 {
   struct kif_config *o = (struct kif_config *) p->cf;
   struct kif_config *n = (struct kif_config *) new;
 
-  if (!kif_params_same(&o->iface, &n->iface))
+  if (!kif_sys_reconfigure((struct kif_proto *) p, n, o))
     return 0;
 
   if (o->scan_time != n->scan_time)
@@ -224,6 +226,28 @@ kif_reconfigure(struct proto *p, struct proto_config *new)
   return 1;
 }
 
+
+static void
+kif_preconfig(struct protocol *P UNUSED, struct config *c)
+{
+  kif_cf = NULL;
+  kif_sys_preconfig(c);
+}
+
+struct proto_config *
+kif_init_config(int class)
+{
+  if (kif_cf)
+    cf_error("Kernel device protocol already defined");
+
+  kif_cf = (struct kif_config *) proto_config_new(&proto_unix_iface, sizeof(struct kif_config), class);
+  kif_cf->scan_time = 60;
+  init_list(&kif_cf->primary);
+
+  kif_sys_init_config(kif_cf);
+  return (struct proto_config *) kif_cf;
+}
+
 static void
 kif_copy_config(struct proto_config *dest, struct proto_config *src)
 {
@@ -231,13 +255,13 @@ kif_copy_config(struct proto_config *dest, struct proto_config *src)
   struct kif_config *s = (struct kif_config *) src;
 
   /* Shallow copy of everything (just scan_time currently) */
-  proto_copy_rest(dest, src, sizeof(struct krt_config));
+  proto_copy_rest(dest, src, sizeof(struct kif_config));
 
   /* Copy primary addr list */
   cfg_copy_list(&d->primary, &s->primary, sizeof(struct kif_primary_item));
 
   /* Fix sysdep parts */
-  kif_copy_params(&d->iface, &s->iface);
+  kif_sys_copy_config(d, s);
 }
 
 
@@ -551,16 +575,11 @@ krt_flush_routes(struct krt_proto *p)
     {
       net *n = (net *) f;
       rte *e = n->routes;
-      if (e)
+      if (e && (n->n.flags & KRF_INSTALLED))
 	{
-	  rta *a = e->attrs;
-	  if ((n->n.flags & KRF_INSTALLED) &&
-	      a->source != RTS_DEVICE && a->source != RTS_INHERIT)
-	    {
-	      /* FIXME: this does not work if gw is changed in export filter */
-	      krt_set_notify(p, e->net, NULL, e, NULL);
-	      n->n.flags &= ~KRF_INSTALLED;
-	    }
+	  /* FIXME: this does not work if gw is changed in export filter */
+	  krt_replace_rte(p, e->net, NULL, e, NULL);
+	  n->n.flags &= ~KRF_INSTALLED;
 	}
     }
   FIB_WALK_END;
@@ -717,7 +736,7 @@ krt_prune(struct krt_proto *p)
 	  if (new && (f->flags & KRF_INSTALLED))
 	    {
 	      krt_trace_in(p, new, "reinstalling");
-	      krt_set_notify(p, n, new, NULL, tmpa);
+	      krt_replace_rte(p, n, new, NULL, tmpa);
 	    }
 	  break;
 	case KRF_SEEN:
@@ -726,11 +745,11 @@ krt_prune(struct krt_proto *p)
 	  break;
 	case KRF_UPDATE:
 	  krt_trace_in(p, new, "updating");
-	  krt_set_notify(p, n, new, old, tmpa);
+	  krt_replace_rte(p, n, new, old, tmpa);
 	  break;
 	case KRF_DELETE:
 	  krt_trace_in(p, old, "deleting");
-	  krt_set_notify(p, n, NULL, old, NULL);
+	  krt_replace_rte(p, n, NULL, old, NULL);
 	  break;
 	default:
 	  bug("krt_prune: invalid route status");
@@ -766,7 +785,7 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
       if (new)
 	{
 	  krt_trace_in(p, e, "[redirect] deleting");
-	  krt_set_notify(p, net, NULL, e, NULL);
+	  krt_replace_rte(p, net, NULL, e, NULL);
 	}
       /* If !new, it is probably echo of our deletion */
       break;
@@ -800,7 +819,7 @@ krt_scan(timer *t UNUSED)
     p = SKIP_BACK(struct krt_proto, instance_node, HEAD(krt_instance_list));
     if (p->instance_node.next)
       KRT_TRACE(p, D_EVENTS, "Scanning routing table");
-    krt_scan_fire(NULL);
+    krt_do_scan(NULL);
     WALK_LIST(q, krt_instance_list)
       {
 	p = SKIP_BACK(struct krt_proto, instance_node, q);
@@ -810,14 +829,45 @@ krt_scan(timer *t UNUSED)
 #else
   p = t->data;
   KRT_TRACE(p, D_EVENTS, "Scanning routing table");
-  krt_scan_fire(p);
+  krt_do_scan(p);
   krt_prune(p);
 #endif
 }
 
+
 /*
  *	Updates
  */
+
+static struct ea_list *
+krt_make_tmp_attrs(rte *rt, struct linpool *pool)
+{
+  struct ea_list *l = lp_alloc(pool, sizeof(struct ea_list) + 2 * sizeof(eattr));
+
+  l->next = NULL;
+  l->flags = EALF_SORTED;
+  l->count = 2;
+
+  l->attrs[0].id = EA_KRT_SOURCE;
+  l->attrs[0].flags = 0;
+  l->attrs[0].type = EAF_TYPE_INT | EAF_TEMP;
+  l->attrs[0].u.data = rt->u.krt.proto;
+
+  l->attrs[1].id = EA_KRT_METRIC;
+  l->attrs[1].flags = 0;
+  l->attrs[1].type = EAF_TYPE_INT | EAF_TEMP;
+  l->attrs[1].u.data = rt->u.krt.metric;
+
+  return l;
+}
+
+static void
+krt_store_tmp_attrs(rte *rt, struct ea_list *attrs)
+{
+  /* EA_KRT_SOURCE is read-only */
+  rt->u.krt.metric = ea_get_int(attrs, EA_KRT_METRIC, 0);
+}
+
 static int
 krt_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *pool)
 {
@@ -853,37 +903,37 @@ krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
   else
     net->n.flags &= ~KRF_INSTALLED;
   if (p->initialized)		/* Before first scan we don't touch the routes */
-    krt_set_notify(p, net, new, old, eattrs);
+    krt_replace_rte(p, net, new, old, eattrs);
 }
+
+static int
+krt_rte_same(rte *a, rte *b)
+{
+  /* src is always KRT_SRC_ALIEN and type is irrelevant */
+  return (a->u.krt.proto == b->u.krt.proto) && (a->u.krt.metric == b->u.krt.metric);
+}
+
 
 /*
  *	Protocol glue
  */
 
-struct proto_config *cf_krt;
+struct krt_config *krt_cf;
 
-static void
-krt_preconfig(struct protocol *P UNUSED, struct config *c)
+static struct proto *
+krt_init(struct proto_config *c)
 {
-  cf_krt = NULL;
-  krt_scan_preconfig(c);
-}
+  struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
 
-static void
-krt_postconfig(struct proto_config *C)
-{
-  struct krt_config *c = (struct krt_config *) C;
+  p->p.accept_ra_types = RA_OPTIMAL;
+  p->p.make_tmp_attrs = krt_make_tmp_attrs;
+  p->p.store_tmp_attrs = krt_store_tmp_attrs;
+  p->p.import_control = krt_import_control;
+  p->p.rt_notify = krt_notify;
+  p->p.rte_same = krt_rte_same;
 
-#ifdef CONFIG_ALL_TABLES_AT_ONCE
-  struct krt_config *first = (struct krt_config *) cf_krt;
-  if (first->scan_time != c->scan_time)
-    cf_error("All kernel syncers must use the same table scan interval");
-#endif
-
-  if (C->table->krt_attached)
-    cf_error("Kernel syncer (%s) already attached to table %s", C->table->krt_attached->name, C->table->name);
-  C->table->krt_attached = C;
-  krt_scan_postconfig(c);
+  krt_sys_init(p);
+  return &p->p;
 }
 
 static timer *
@@ -920,8 +970,7 @@ krt_start(struct proto *P)
   krt_learn_init(p);
 #endif
 
-  krt_scan_start(p, first);
-  krt_set_start(p, first);
+  krt_sys_start(p, first);
 
   /* Start periodic routing table scanning */
 #ifdef CONFIG_ALL_TABLES_AT_ONCE
@@ -955,8 +1004,7 @@ krt_shutdown(struct proto *P)
   if (p->initialized && !KRT_CF->persist)
     krt_flush_routes(p);
 
-  krt_set_shutdown(p, last);
-  krt_scan_shutdown(p, last);
+  krt_sys_shutdown(p, last);
 
 #ifdef CONFIG_ALL_TABLES_AT_ONCE
   if (last)
@@ -966,69 +1014,55 @@ krt_shutdown(struct proto *P)
   return PS_DOWN;
 }
 
-static struct ea_list *
-krt_make_tmp_attrs(rte *rt, struct linpool *pool)
-{
-  struct ea_list *l = lp_alloc(pool, sizeof(struct ea_list) + 2 * sizeof(eattr));
-
-  l->next = NULL;
-  l->flags = EALF_SORTED;
-  l->count = 2;
-
-  l->attrs[0].id = EA_KRT_SOURCE;
-  l->attrs[0].flags = 0;
-  l->attrs[0].type = EAF_TYPE_INT | EAF_TEMP;
-  l->attrs[0].u.data = rt->u.krt.proto;
-
-  l->attrs[1].id = EA_KRT_METRIC;
-  l->attrs[1].flags = 0;
-  l->attrs[1].type = EAF_TYPE_INT | EAF_TEMP;
-  l->attrs[1].u.data = rt->u.krt.metric;
-
-  return l;
-}
-
-static void
-krt_store_tmp_attrs(rte *rt, struct ea_list *attrs)
-{
-  /* EA_KRT_SOURCE is read-only */
-  rt->u.krt.metric = ea_get_int(attrs, EA_KRT_METRIC, 0);
-}
-
-static int
-krt_rte_same(rte *a, rte *b)
-{
-  /* src is always KRT_SRC_ALIEN and type is irrelevant */
-  return (a->u.krt.proto == b->u.krt.proto) && (a->u.krt.metric == b->u.krt.metric);
-}
-
-static struct proto *
-krt_init(struct proto_config *c)
-{
-  struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
-
-  p->p.accept_ra_types = RA_OPTIMAL;
-  p->p.make_tmp_attrs = krt_make_tmp_attrs;
-  p->p.store_tmp_attrs = krt_store_tmp_attrs;
-  p->p.import_control = krt_import_control;
-  p->p.rt_notify = krt_notify;
-  p->p.rte_same = krt_rte_same;
-
-  return &p->p;
-}
-
 static int
 krt_reconfigure(struct proto *p, struct proto_config *new)
 {
   struct krt_config *o = (struct krt_config *) p->cf;
   struct krt_config *n = (struct krt_config *) new;
 
-  return o->scan_time == n->scan_time
-    && o->learn == n->learn		/* persist needn't be the same */
-    && o->devroutes == n->devroutes
-    && krt_set_params_same(&o->set, &n->set)
-    && krt_scan_params_same(&o->scan, &n->scan)
-    ;
+  if (!krt_sys_reconfigure((struct krt_proto *) p, n, o))
+    return 0;
+
+  /* persist needn't be the same */
+  return o->scan_time == n->scan_time && o->learn == n->learn && o->devroutes == n->devroutes;
+}
+
+static void
+krt_preconfig(struct protocol *P UNUSED, struct config *c)
+{
+  krt_cf = NULL;
+  krt_sys_preconfig(c);
+}
+
+static void
+krt_postconfig(struct proto_config *C)
+{
+  struct krt_config *c = (struct krt_config *) C;
+
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+  if (krt_cf->scan_time != c->scan_time)
+    cf_error("All kernel syncers must use the same table scan interval");
+#endif
+
+  if (C->table->krt_attached)
+    cf_error("Kernel syncer (%s) already attached to table %s", C->table->krt_attached->name, C->table->name);
+  C->table->krt_attached = C;
+  krt_sys_postconfig(c);
+}
+
+struct proto_config *
+krt_init_config(int class)
+{
+#ifndef CONFIG_MULTIPLE_TABLES
+  if (krt_cf)
+    cf_error("Kernel protocol already defined");
+#endif
+
+  krt_cf = (struct krt_config *) proto_config_new(&proto_unix_kernel, sizeof(struct krt_config), class);
+  krt_cf->scan_time = 60;
+
+  krt_sys_init_config(krt_cf);
+  return (struct proto_config *) krt_cf;
 }
 
 static void
@@ -1041,8 +1075,7 @@ krt_copy_config(struct proto_config *dest, struct proto_config *src)
   proto_copy_rest(dest, src, sizeof(struct krt_config));
 
   /* Fix sysdep parts */
-  krt_set_copy_params(&d->set, &s->set);
-  krt_scan_copy_params(&d->scan, &s->scan);
+  krt_sys_copy_config(d, s);
 }
 
 static int

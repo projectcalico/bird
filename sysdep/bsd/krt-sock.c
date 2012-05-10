@@ -33,7 +33,19 @@
 #include "lib/string.h"
 #include "lib/socket.h"
 
-int rt_sock = 0;
+
+#ifndef RTAX_MAX
+#define RTAX_MAX        8
+#endif
+
+struct ks_msg
+{
+  struct rt_msghdr rtm;
+  struct sockaddr_storage buf[RTAX_MAX];
+};
+
+
+static int rt_sock = 0;
 
 int
 krt_capable(rte *e)
@@ -189,8 +201,8 @@ krt_sock_send(int cmd, rte *e)
 }
 
 void
-krt_set_notify(struct krt_proto *p UNUSED, net *n, rte *new, rte *old,
-	       struct ea_list *eattrs UNUSED)
+krt_replace_rte(struct krt_proto *p UNUSED, net *n, rte *new, rte *old,
+		struct ea_list *eattrs UNUSED)
 {
   int err = 0;
 
@@ -204,45 +216,6 @@ krt_set_notify(struct krt_proto *p UNUSED, net *n, rte *new, rte *old,
     n->n.flags |= KRF_SYNC_ERROR;
   else
     n->n.flags &= ~KRF_SYNC_ERROR;
-}
-
-static int
-krt_set_hook(sock *sk, int size UNUSED)
-{
-  struct ks_msg msg;
-  int l = read(sk->fd, (char *)&msg, sizeof(msg));
-
-  if(l <= 0)
-    log(L_ERR "krt-sock: read failed");
-  else
-  krt_read_msg((struct proto *)sk->data, &msg, 0);
-
-  return 0;
-}
-
-void
-krt_set_start(struct krt_proto *x, int first UNUSED)
-{
-  sock *sk_rt;
-  static int ks_open_tried = 0;
-
-  if (ks_open_tried)
-    return;
-
-  ks_open_tried = 1;
-
-  DBG("KRT: Opening kernel socket\n");
-
-  if( (rt_sock = socket(PF_ROUTE, SOCK_RAW, AF_UNSPEC)) < 0)
-    die("Cannot open kernel socket for routes");
-
-  sk_rt = sk_new(krt_pool);
-  sk_rt->type = SK_MAGIC;
-  sk_rt->rx_hook = krt_set_hook;
-  sk_rt->fd = rt_sock;
-  sk_rt->data = x;
-  if (sk_open(sk_rt))
-    bug("krt-sock: sk_open failed");
 }
 
 #define SKIP(ARG...) do { DBG("KRT: Ignoring route - " ARG); return; } while(0)
@@ -648,32 +621,6 @@ krt_read_msg(struct proto *p, struct ks_msg *msg, int scan)
   }
 }
 
-void
-krt_scan_construct(struct krt_config *c UNUSED)
-{
-}
-
-void
-krt_scan_preconfig(struct config *c UNUSED)
-{
-}
-
-void
-krt_scan_postconfig(struct krt_config *c UNUSED)
-{
-}
-
-void
-krt_scan_start(struct krt_proto *x, int first UNUSED)
-{
-  init_list(&x->scan.temp_ifs);
-}
-
-void
-krt_scan_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
-{
-}
-
 static void
 krt_sysctl_scan(struct proto *p, pool *pool, byte **buf, size_t *bl, int cmd)
 {
@@ -732,13 +679,13 @@ static size_t krt_buflen = 32768;
 static size_t kif_buflen = 4096;
 
 void
-krt_scan_fire(struct krt_proto *p)
+krt_do_scan(struct krt_proto *p)
 {
   krt_sysctl_scan((struct proto *)p, p->krt_pool, &krt_buffer, &krt_buflen, NET_RT_DUMP);
 }
 
 void
-krt_if_scan(struct kif_proto *p)
+kif_do_scan(struct kif_proto *p)
 {
   struct proto *P = (struct proto *)p;
   if_start_update();
@@ -746,14 +693,47 @@ krt_if_scan(struct kif_proto *p)
   if_end_update();
 }
 
-
-void
-krt_set_construct(struct krt_config *c UNUSED)
+static int
+krt_sock_hook(sock *sk, int size UNUSED)
 {
+  struct ks_msg msg;
+  int l = read(sk->fd, (char *)&msg, sizeof(msg));
+
+  if(l <= 0)
+    log(L_ERR "krt-sock: read failed");
+  else
+  krt_read_msg((struct proto *)sk->data, &msg, 0);
+
+  return 0;
 }
 
 void
-krt_set_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
+krt_sys_start(struct krt_proto *x, int first UNUSED)
+{
+  sock *sk_rt;
+  static int ks_open_tried = 0;
+
+  if (ks_open_tried)
+    return;
+
+  ks_open_tried = 1;
+
+  DBG("KRT: Opening kernel socket\n");
+
+  if( (rt_sock = socket(PF_ROUTE, SOCK_RAW, AF_UNSPEC)) < 0)
+    die("Cannot open kernel socket for routes");
+
+  sk_rt = sk_new(krt_pool);
+  sk_rt->type = SK_MAGIC;
+  sk_rt->rx_hook = krt_sock_hook;
+  sk_rt->fd = rt_sock;
+  sk_rt->data = x;
+  if (sk_open(sk_rt))
+    bug("krt-sock: sk_open failed");
+}
+
+void
+krt_sys_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
 {
   if (!krt_buffer)
     return;
@@ -762,23 +742,14 @@ krt_set_shutdown(struct krt_proto *x UNUSED, int last UNUSED)
   krt_buffer = NULL;
 }
 
+
 void
-krt_if_io_init(void)
+kif_sys_start(struct kif_proto *p UNUSED)
 {
 }
 
 void
-krt_if_construct(struct kif_config *c UNUSED)
-{
-}
-
-void
-krt_if_start(struct kif_proto *p UNUSED)
-{
-}
-
-void
-krt_if_shutdown(struct kif_proto *p UNUSED)
+kif_sys_shutdown(struct kif_proto *p UNUSED)
 {
   if (!kif_buffer)
     return;

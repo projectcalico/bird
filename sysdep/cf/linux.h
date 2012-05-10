@@ -1,5 +1,5 @@
 /*
- *	Configuration for Linux 2.2 based systems
+ *	Configuration for Linux based systems
  *
  *	(c) 1998--1999 Martin Mares <mj@ucw.cz>
  *
@@ -10,17 +10,13 @@
 #define CONFIG_SELF_CONSCIOUS
 #define CONFIG_MULTIPLE_TABLES
 #define CONFIG_ALL_TABLES_AT_ONCE
+
 #define CONFIG_MC_PROPER_SRC
-
-#undef CONFIG_SKIP_MC_BIND
-
-#define CONFIG_LINUX_MC_MREQN
 #define CONFIG_UNIX_DONTROUTE
 
 #define CONFIG_RESTRICTED_PRIVILEGES
 
 /*
-Link: sysdep/linux/netlink
 Link: sysdep/linux
 Link: sysdep/unix
  */

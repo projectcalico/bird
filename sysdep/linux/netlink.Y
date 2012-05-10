@@ -20,7 +20,7 @@ nl_item:
    KERNEL TABLE expr {
 	if ($3 <= 0 || $3 >= NL_NUM_TABLES)
 	  cf_error("Kernel routing table number out of range");
-	THIS_KRT->scan.table_id = $3;
+	THIS_KRT->sys.table_id = $3;
    }
  ;
 
