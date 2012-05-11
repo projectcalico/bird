@@ -354,7 +354,7 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
   rte *old_free = NULL;
   rte *r;
 
-  /* Used to track whethe we met old_changed position. If it is NULL
+  /* Used to track whether we met old_changed position. If it is NULL
      it was the first and met it implicitly before current best route. */
   int old_meet = (old_changed && !before_old) ? 1 : 0;
 
@@ -1415,12 +1415,13 @@ again:
 	  return 0;
 	}
 
-      if (p->accept_ra_types == RA_OPTIMAL)
+      if ((p->accept_ra_types == RA_OPTIMAL) ||
+	  (p->accept_ra_types == RA_ACCEPTED))
 	if (e)
 	  {
 	    if (p->core_state != FS_FEEDING)
 	      return 1;  /* In the meantime, the protocol fell down. */
-	    do_feed_baby(p, RA_OPTIMAL, h, n, e);
+	    do_feed_baby(p, p->accept_ra_types, h, n, e);
 	    max_feed--;
 	  }
 
