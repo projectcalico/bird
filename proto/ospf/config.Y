@@ -107,7 +107,17 @@ static inline void
 check_defcost(int cost)
 {
   if ((cost <= 0) || (cost >= LSINFINITY))
-   cf_error("Default cost must be in range 1-%d", LSINFINITY);
+   cf_error("Default cost must be in range 1-%d", LSINFINITY-1);
+}
+
+static inline void
+set_instance_id(unsigned id)
+{
+#ifdef OSPFv3
+  OSPF_PATT->instance_id = id;
+#else
+  cf_error("Instance ID requires OSPFv3");
+#endif
 }
 
 CF_DECLS
@@ -120,7 +130,7 @@ CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC)
 CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, CHECK, LINK)
 CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY, TAG, EXTERNAL)
 CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT, NSSA, TRANSLATOR, STABILITY)
-CF_KEYWORDS(GLOBAL, LSID, ROUTER, SELF)
+CF_KEYWORDS(GLOBAL, LSID, ROUTER, SELF, INSTANCE)
 
 %type <t> opttext
 %type <ld> lsadb_args
@@ -218,8 +228,8 @@ ospf_stubnet_item:
  ;
 
 ospf_vlink:
-   ospf_vlink_start '{' ospf_vlink_opts '}' { ospf_iface_finish(); }
- | ospf_vlink_start { ospf_iface_finish(); }
+   ospf_vlink_start ospf_instance_id '{' ospf_vlink_opts '}' { ospf_iface_finish(); }
+ | ospf_vlink_start ospf_instance_id { ospf_iface_finish(); }
  ;
 
 ospf_vlink_opts:
@@ -364,6 +374,11 @@ ospf_iface_start:
  }
 ;
 
+ospf_instance_id:
+   /* empty */
+ | INSTANCE expr { set_instance_id($2); }
+ ;
+
 ospf_iface_opts:
    /* empty */
  | ospf_iface_opts ospf_iface_item ';'
@@ -375,7 +390,7 @@ ospf_iface_opt_list:
  ;
 
 ospf_iface:
-  ospf_iface_start iface_patt_list ospf_iface_opt_list { ospf_iface_finish(); }
+  ospf_iface_start iface_patt_list ospf_instance_id ospf_iface_opt_list { ospf_iface_finish(); }
  ;
 
 opttext:
