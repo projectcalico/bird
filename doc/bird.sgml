@@ -1825,6 +1825,7 @@ protocol ospf &lt;name&gt; {
 			type [broadcast|bcast|pointopoint|ptp|
 				nonbroadcast|nbma|pointomultipoint|ptmp];
 			strict nonbroadcast &lt;switch&gt;;
+			real broadcast &lt;switch&gt;;
 			check link &lt;switch&gt;;
 			ecmp weight &lt;num&gt;;
 			authentication [none|simple|cryptographic];
@@ -2057,6 +2058,16 @@ protocol ospf &lt;name&gt; {
 	<tag>strict nonbroadcast <M>switch</M></tag>
 	 If set, don't send hello to any undefined neighbor. This switch
 	 is ignored on other than NBMA or PtMP networks. Default value is no.
+
+	<tag>real broadcast <m/switch/</tag>
+	 In <cf/type broadcast/ or <cf/type ptp/ network
+	 configuration, OSPF packets are sent as IP multicast
+	 packets. This option changes the behavior to using
+	 old-fashioned IP broadcast packets. This may be useful as a
+	 workaround if IP multicast for some reason does not work or
+	 does not work reliably. This is a non-standard option and
+	 probably is not interoperable with other OSPF
+	 implementations. Default value is no.
 
 	<tag>check link <M>switch</M></tag>
 	 If set, a hardware link state (reported by OS) is taken into
