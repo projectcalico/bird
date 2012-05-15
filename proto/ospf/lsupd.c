@@ -314,7 +314,9 @@ ospf_lsupd_flood(struct proto_ospf *po,
       {
       case OSPF_IT_BCAST:
 	if ((ifa->state == OSPF_IS_BACKUP) || (ifa->state == OSPF_IS_DR))
-	  ospf_send_to(ifa, AllSPFRouters);
+	  ospf_send_to_all(ifa);
+	else if (ifa->cf->real_bcast)
+	  ospf_send_to_bdr(ifa);
 	else
 	  ospf_send_to(ifa, AllDRouters);
 	break;
@@ -327,7 +329,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
 	break;
 
       case OSPF_IT_PTP:
-	ospf_send_to(ifa, AllSPFRouters);
+	ospf_send_to_all(ifa);
 	break;
 
       case OSPF_IT_PTMP:

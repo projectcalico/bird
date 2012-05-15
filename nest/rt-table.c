@@ -799,10 +799,7 @@ void
 rte_dump(rte *e)
 {
   net *n = e->net;
-  if (n)
-    debug("%-1I/%2d ", n->n.prefix, n->n.pxlen);
-  else
-    debug("??? ");
+  debug("%-1I/%2d ", n->n.prefix, n->n.pxlen);
   debug("KF=%02x PF=%02x pref=%d lm=%d ", n->n.flags, e->pflags, e->pref, now-e->lastmod);
   rta_dump(e->attrs);
   if (e->attrs->proto->proto->dump_attrs)

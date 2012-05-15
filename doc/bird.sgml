@@ -1811,7 +1811,7 @@ protocol ospf &lt;name&gt; {
 			summary &lt;switch&gt;;
 			cost &lt;num&gt;;
 		}
-		interface &lt;interface pattern&gt; {
+		interface &lt;interface pattern&gt; [instance &lt;num&gt;] {
 			cost &lt;num&gt;;
 			stub &lt;switch&gt;;
 			hello &lt;num&gt;;
@@ -1825,6 +1825,7 @@ protocol ospf &lt;name&gt; {
 			type [broadcast|bcast|pointopoint|ptp|
 				nonbroadcast|nbma|pointomultipoint|ptmp];
 			strict nonbroadcast &lt;switch&gt;;
+			real broadcast &lt;switch&gt;;
 			check link &lt;switch&gt;;
 			ecmp weight &lt;num&gt;;
 			authentication [none|simple|cryptographic];
@@ -1841,7 +1842,7 @@ protocol ospf &lt;name&gt; {
 				&lt;ip&gt; eligible;
 			};
 		};
-		virtual link &lt;id&gt;	{
+		virtual link &lt;id&gt; [instance &lt;num&gt;] {
 			hello &lt;num&gt;;
 			retransmit &lt;num&gt;;
 			wait &lt;num&gt;;
@@ -1961,14 +1962,19 @@ protocol ospf &lt;name&gt; {
 	 subnetworks of given stub network are suppressed. This might
 	 be used, for example, to aggregate generated stub networks.
 	 
-	<tag>interface <M>pattern</M></tag>
+	<tag>interface <M>pattern</M> [instance <m/num/]</tag>
 	 Defines that the specified interfaces belong to the area being defined.
 	 See <ref id="dsc-iface" name="interface"> common option for detailed description.
+	 In OSPFv3, you can specify instance ID for that interface
+	 description, so it is possible to have several instances of
+	 that interface with different options or even in different areas.
 
-	<tag>virtual link <M>id</M></tag>
-	 Virtual link to router with the router id. Virtual link acts as a
-         point-to-point interface belonging to backbone. The actual area is
-         used as transport area. This item cannot be in the backbone.
+	<tag>virtual link <M>id</M> [instance <m/num/]</tag>
+	 Virtual link to router with the router id. Virtual link acts
+         as a point-to-point interface belonging to backbone. The
+         actual area is used as transport area. This item cannot be in
+         the backbone. In OSPFv3, you could also use several virtual
+         links to one destination with different instance IDs.
 
 	<tag>cost <M>num</M></tag>
 	 Specifies output cost (metric) of an interface. Default value is 10.
@@ -2052,6 +2058,16 @@ protocol ospf &lt;name&gt; {
 	<tag>strict nonbroadcast <M>switch</M></tag>
 	 If set, don't send hello to any undefined neighbor. This switch
 	 is ignored on other than NBMA or PtMP networks. Default value is no.
+
+	<tag>real broadcast <m/switch/</tag>
+	 In <cf/type broadcast/ or <cf/type ptp/ network
+	 configuration, OSPF packets are sent as IP multicast
+	 packets. This option changes the behavior to using
+	 old-fashioned IP broadcast packets. This may be useful as a
+	 workaround if IP multicast for some reason does not work or
+	 does not work reliably. This is a non-standard option and
+	 probably is not interoperable with other OSPF
+	 implementations. Default value is no.
 
 	<tag>check link <M>switch</M></tag>
 	 If set, a hardware link state (reported by OS) is taken into

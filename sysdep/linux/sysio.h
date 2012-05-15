@@ -301,7 +301,7 @@ sk_set_min_ttl6(sock *s, int ttl)
     if (errno == ENOPROTOOPT)
       log(L_ERR "Kernel does not support IPv6 TTL security");
     else
-      log(L_ERR "sk_set_min_ttl4: setsockopt: %m");
+      log(L_ERR "sk_set_min_ttl6: setsockopt: %m");
 
     return -1;
   }
