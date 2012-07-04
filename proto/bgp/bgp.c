@@ -955,14 +955,14 @@ bgp_check_config(struct bgp_config *c)
   if (internal && c->rs_client)
     cf_error("Only external neighbor can be RS client");
 
-  /*
+
   if (c->multihop && (c->gw_mode == GW_DIRECT))
     cf_error("Multihop BGP cannot use direct gateway mode");
 
   if (c->multihop && (ipa_has_link_scope(c->remote_ip) || 
 		      ipa_has_link_scope(c->source_addr)))
     cf_error("Multihop BGP cannot be used with link-local addresses");
-  */
+
 
   /* Different default based on rs_client */
   if (!c->missing_lladdr)
@@ -970,8 +970,17 @@ bgp_check_config(struct bgp_config *c)
 
   /* Different default for gw_mode */
   if (!c->gw_mode)
-    // c->gw_mode = (c->multihop || internal) ? GW_RECURSIVE : GW_DIRECT;
-    c->gw_mode = GW_DIRECT;
+    c->gw_mode = (c->multihop || internal) ? GW_RECURSIVE : GW_DIRECT;
+
+
+  if ((c->gw_mode == GW_RECURSIVE) && c->c.table->sorted)
+    cf_error("BGP in recursive mode prohibits sorted table");
+
+  if (c->deterministic_med && c->c.table->sorted)
+    cf_error("BGP with deterministic MED prohibits sorted table");
+
+  if (c->secondary && !c->c.table->sorted)
+    cf_error("BGP with secondary option requires sorted table");
 }
 
 static int

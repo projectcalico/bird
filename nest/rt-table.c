@@ -423,7 +423,7 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
   if (!new_best)
     return;
 
-  /* Third case, we use r insead of new_best, because export_filter() could change it */
+  /* Third case, we use r instead of new_best, because export_filter() could change it */
   if (r != new_changed)
     {
       if (new_free)
@@ -432,7 +432,7 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
     }
 
   /* Fourth case */
-  for (; r; r=r->next)
+  for (r=r->next; r; r=r->next)
     {
       if (old_best = export_filter(ah, r, &old_free, NULL, 1))
 	goto found;
@@ -642,20 +642,92 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
   if (old)
     stats->imp_routes--;
 
-  if (new)
+  if (table->config->sorted)
     {
-      for (k=&net->routes; *k; k=&(*k)->next)
-	if (rte_better(new, *k))
-	  break;
+      /* If routes are sorted, just insert new route to appropriate position */
+      if (new)
+	{
+	  if (before_old && !rte_better(new, before_old))
+	    k = &before_old->next;
+	  else
+	    k = &net->routes;
 
-      new->lastmod = now;
-      new->next = *k;
-      *k = new;
+	  for (; *k; k=&(*k)->next)
+	    if (rte_better(new, *k))
+	      break;
 
-      rte_trace_in(D_ROUTES, p, new, net->routes == new ? "added [best]" : "added");
+	  new->next = *k;
+	  *k = new;
+	}
+    }
+  else
+    {
+      /* If routes are not sorted, find the best route and move it on
+	 the first position. There are several optimized cases. */
+
+      if (src->rte_recalculate && src->rte_recalculate(table, net, new, old, old_best))
+	goto do_recalculate;
+
+      if (new && rte_better(new, old_best))
+	{
+	  /* The first case - the new route is cleary optimal,
+	     we link it at the first position */
+
+	  new->next = net->routes;
+	  net->routes = new;
+	}
+      else if (old == old_best)
+	{
+	  /* The second case - the old best route disappeared, we add the
+	     new route (if we have any) to the list (we don't care about
+	     position) and then we elect the new optimal route and relink
+	     that route at the first position and announce it. New optimal
+	     route might be NULL if there is no more routes */
+
+	do_recalculate:
+	  /* Add the new route to the list */
+	  if (new)
+	    {
+	      new->next = net->routes;
+	      net->routes = new;
+	    }
+
+	  /* Find a new optimal route (if there is any) */
+	  if (net->routes)
+	    {
+	      rte **bp = &net->routes;
+	      for (k=&(*bp)->next; *k; k=&(*k)->next)
+		if (rte_better(*k, *bp))
+		  bp = k;
+
+	      /* And relink it */
+	      rte *best = *bp;
+	      *bp = best->next;
+	      best->next = net->routes;
+	      net->routes = best;
+	    }
+	}
+      else if (new)
+	{
+	  /* The third case - the new route is not better than the old
+	     best route (therefore old_best != NULL) and the old best
+	     route was not removed (therefore old_best == net->routes).
+	     We just link the new route after the old best route. */
+
+	  ASSERT(net->routes != NULL);
+	  new->next = net->routes->next;
+	  net->routes->next = new;
+	}
+      /* The fourth (empty) case - suboptimal route was removed, nothing to do */
     }
 
-  /* Log the route removal */
+  if (new)
+    new->lastmod = now;
+
+  /* Log the route change */
+  if (new)
+    rte_trace_in(D_ROUTES, p, new, net->routes == new ? "added [best]" : "added");
+
   if (!new && (p->debug & D_ROUTES))
     {
       if (old != old_best)
@@ -666,9 +738,12 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	rte_trace_in(D_ROUTES, p, old, "removed [sole]");
     }
 
+  /* Propagate the route change */
   rte_announce(table, RA_ANY, net, new, old, NULL, tmpa);
-  rte_announce(table, RA_OPTIMAL, net, net->routes, old_best, NULL, tmpa);
-  rte_announce(table, RA_ACCEPTED, net, new, old, before_old, tmpa);
+  if (net->routes != old_best)
+    rte_announce(table, RA_OPTIMAL, net, net->routes, old_best, NULL, tmpa);
+  if (table->config->sorted)
+    rte_announce(table, RA_ACCEPTED, net, new, old, before_old, tmpa);
 
   if (!net->routes &&
       (table->gc_counter++ >= table->config->gc_max_ops) &&
@@ -1336,6 +1411,8 @@ rt_commit(struct config *new, struct config *old)
 		  r->table = ot;
 		  ot->name = r->name;
 		  ot->config = r;
+		  if (o->sorted != r->sorted)
+		    log(L_WARN "Reconfiguration of rtable sorted flag not implemented");
 		}
 	      else
 		{

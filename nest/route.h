@@ -121,6 +121,7 @@ struct rtable_config {
   struct proto_config *krt_attached;	/* Kernel syncer attached to this table */
   int gc_max_ops;			/* Maximum number of operations before GC is run */
   int gc_min_time;			/* Minimum time between two consecutive GC runs */
+  byte sorted;				/* Routes of network are sorted according to rte_better() */
 };
 
 typedef struct rtable {
