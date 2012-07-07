@@ -2450,6 +2450,20 @@ protocol radv {
 	prefix 2001:0DB8:2000::/48 {
 		autonomous off;		# Do not autoconfigure
 	};
+
+	rdnss 2001:0DB8:1234::10;	# Short form of RDNSS
+
+	rdnss {
+		lifetime mult 10;
+		ns 2001:0DB8:1234::11;
+		ns 2001:0DB8:1234::12;
+	};
+
+	dnssl {
+		lifetime 3600;
+		domain "abc.com";
+		domain "xyz.com";
+	};
 }
 </code>
 
