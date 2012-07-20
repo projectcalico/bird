@@ -1386,6 +1386,10 @@ rt_next_hop_update(rtable *tab)
 struct rtable_config *
 rt_new_table(struct symbol *s)
 {
+  /* Hack that allows to 'redefine' the master table */
+  if ((s->class == SYM_TABLE) && (s->def == new_config->master_rtc))
+    return s->def;
+
   struct rtable_config *c = cfg_allocz(sizeof(struct rtable_config));
 
   cf_define_symbol(s, SYM_TABLE, c);
