@@ -2321,22 +2321,25 @@ advertisement packets to connected networks. These packets contain
 basic information about a local network (e.g. a list of network
 prefixes), which allows network hosts to autoconfigure network
 addresses and choose a default route. BIRD implements router behavior
-as defined in RFC 4861<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4861.txt">.
+as defined in
+RFC 4861<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4861.txt">
+and also the DNS extensions from
+RFC 6106<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc6106.txt">.
 
 <sect1>Configuration
 
-<p>There are two classes of definitions in RAdv configuration --
-interface definitions and prefix definitions:
+<p>There are several classes of definitions in RAdv configuration --
+interface definitions, prefix definitions and DNS definitions:
 
 <descrip>
-	<tag>interface <m/pattern [, ...]/  { <m/options/ }</tag> 
+	<tag>interface <m/pattern [, ...]/  { <m/options/ }</tag>
 	Interface definitions specify a set of interfaces on which the
 	protocol is activated and contain interface specific options.
 	See <ref id="dsc-iface" name="interface"> common options for
 	detailed description.
 
-	<tag>prefix <m/prefix/ { <m/options/ }</tag> 
-	Prefix definitions allows to modify a list of advertised
+	<tag>prefix <m/prefix/ { <m/options/ }</tag>
+	Prefix definitions allow to modify a list of advertised
 	prefixes. By default, the advertised prefixes are the same as
 	the network prefixes assigned to the interface. For each
 	network prefix, the matching prefix definition is found and
@@ -2350,6 +2353,24 @@ interface definitions and prefix definitions:
 	definitions. As expected, the prefix definition is matching if
 	the network prefix is a subnet of the prefix in prefix
 	definition.
+
+	<tag>rdnss { <m/options/ }</tag>
+	RDNSS definitions allow to specify a list of advertised
+	recursive DNS servers together with their options. As options
+	are seldom necessary, there is also a short variant <cf>rdnss
+	<m/address/</cf> that just specifies one DNS server. Multiple
+	definitions are cumulative. RDNSS definitions may also be
+	interface-specific when used inside interface options. By
+	default, interface uses both global and interface-specific
+	options, but that can be changed by <cf/rdnss local/ option.
+
+	<tag>dnssl { <m/options/ }</tag>
+	DNSSL definitions allow to specify a list of advertised DNS
+	search domains together with their options. Like <cf/rdnss/
+	above, multiple definitions are cumulative, they can be used
+	also as interface-specific options and there is a short
+	variant <cf>dnssl <m/domain/</cf> that just specifies one DNS
+        search domain.
 </descrip>
 
 <p>Interface specific options:
@@ -2362,8 +2383,8 @@ interface definitions and prefix definitions:
 
 	<tag>min ra interval <m/expr/</tag>
 	This option specifies the minimum length of that intervals, in
-	seconds. Must be at least 3 and at most 3/4 * max ra interval.
-	Default: about 1/3 * max ra interval.
+	seconds. Must be at least 3 and at most 3/4 * <cf/max ra interval/.
+	Default: about 1/3 * <cf/max ra interval/.
 
 	<tag>min delay <m/expr/</tag>
 	The minimum delay between two consecutive router advertisements,
@@ -2400,7 +2421,17 @@ interface definitions and prefix definitions:
 	This option specifies the time (in seconds) how long (after
 	the receipt of RA) hosts may use the router as a default
 	router. 0 means do not use as a default router. Default: 3 *
-	max ra interval.
+	<cf/max ra interval/.
+
+	<tag>rdnss local <m/bool/</tag>
+	Use only local (interface-specific) RDNSS definitions for this
+	interface. Otherwise, both global and local definitions are
+	used. Could also be used to disable RDNSS for given interface
+	if no local definitons are specified. Default: no.
+
+	<tag>dnssl local <m/bool/</tag>
+	Use only local DNSSL definitions for this interface. See
+	<cf/rdnss local/ option above. Default: no.
 </descrip>
 
 
@@ -2428,6 +2459,42 @@ interface definitions and prefix definitions:
 	using stateless autoconfiguration remain preferred. Default:
 	14400 (4 hours)
 </descrip>
+
+
+<p>RDNSS specific options:
+
+<descrip>
+	<tag>ns <m/address/</tag>
+	This option specifies one recursive DNS server. Can be used
+	multiple times for multiple servers. It is mandatory to have
+	at least one <cf/ns/ option in <cf/rdnss/ definition.
+
+	<tag>lifetime [mult] <m/expr/</tag>
+	This option specifies the time how long the RDNSS information
+        may be used by clients after the receipt of RA. It is
+        expressed either in seconds or (when <cf/mult/ is used) in
+        multiples of <cf/max ra interval/. Note that RDNSS information
+        is also invalidated when <cf/default lifetime/ expires. 0
+        means these addresses are no longer valid DNS servers.
+	Default: 3 * <cf/max ra interval/.
+</descrip>
+
+
+<p>DNSSL specific options:
+
+<descrip>
+	<tag>domain <m/address/</tag>
+	This option specifies one DNS search domain. Can be used
+	multiple times for multiple domains. It is mandatory to have
+	at least one <cf/domain/ option in <cf/dnssl/ definition.
+
+	<tag>lifetime [mult] <m/expr/</tag>
+	This option specifies the time how long the DNSSL information
+        may be used by clients after the receipt of RA. Details are
+	the same as for RDNSS <cf/lifetime/ option above.
+	Default: 3 * <cf/max ra interval/.
+</descrip>
+
 
 <sect1>Example
 
