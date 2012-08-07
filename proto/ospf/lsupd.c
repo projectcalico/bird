@@ -502,15 +502,17 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
       continue;
     }
 #else /* OSPFv3 */
+    u16 scope = ntoht(lsa->type) & LSA_SCOPE_MASK;
+
     /* 4.5.1 (2) */
-    if ((LSA_SCOPE(lsa) == LSA_SCOPE_AS) && !oa_is_ext(ifa->oa))
+    if ((scope == LSA_SCOPE_AS) && !oa_is_ext(ifa->oa))
     {
       log(L_WARN "Received LSA with AS scope in stub area from %I", n->ip);
       continue;
     }
 
     /* 4.5.1 (3) */
-    if ((LSA_SCOPE(lsa) == LSA_SCOPE_RES))
+    if (scope == LSA_SCOPE_RES)
     {
       log(L_WARN "Received LSA with invalid scope from %I", n->ip);
       continue;
