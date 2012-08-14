@@ -831,7 +831,7 @@ interpret(struct f_inst *what)
 	res.val.i = * ((char *) rta + what->a2.i);
 	break;
       case T_STRING:	/* Warning: this is a special case for proto attribute */
-	res.val.s = rta->proto->name;
+	res.val.s = rta->src->proto->name;
 	break;
       case T_PREFIX:	/* Warning: this works only for prefix of network */
 	{

@@ -804,7 +804,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   net *net = net_get(p->p.table, dst, i->rtm_dst_len);
 
   rta ra = {
-    .proto = &p->p,
+    .src= p->p.main_source,
     .source = RTS_INHERIT,
     .scope = SCOPE_UNIVERSE,
     .cast = RTC_UNICAST

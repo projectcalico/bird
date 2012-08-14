@@ -67,7 +67,7 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
 
   DBG("Installing static route %I/%d, rtd=%d\n", r->net, r->masklen, r->dest);
   bzero(&a, sizeof(a));
-  a.proto = p;
+  a.src = p->main_source;
   a.source = (r->dest == RTD_DEVICE) ? RTS_STATIC_DEVICE : RTS_STATIC;
   a.scope = SCOPE_UNIVERSE;
   a.cast = RTC_UNICAST;
@@ -113,7 +113,7 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
   e = rte_get_temp(aa);
   e->net = n;
   e->pflags = 0;
-  rte_update(p->table, n, p, p, e);
+  rte_update(p, n, e);
   r->installed = 1;
 }
 
@@ -127,8 +127,7 @@ static_remove(struct proto *p, struct static_route *r)
 
   DBG("Removing static route %I/%d\n", r->net, r->masklen);
   n = net_find(p->table, r->net, r->masklen);
-  if (n)
-    rte_update(p->table, n, p, p, NULL);
+  rte_update(p, n, NULL);
   r->installed = 0;
 }
 
@@ -367,6 +366,7 @@ static_init(struct proto_config *c)
 
   p->neigh_notify = static_neigh_notify;
   p->if_notify = static_if_notify;
+
   return p;
 }
 

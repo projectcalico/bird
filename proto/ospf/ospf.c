@@ -298,14 +298,14 @@ ospf_init(struct proto_config *c)
 {
   struct proto *p = proto_new(c, sizeof(struct proto_ospf));
 
-  p->make_tmp_attrs = ospf_make_tmp_attrs;
-  p->store_tmp_attrs = ospf_store_tmp_attrs;
-  p->import_control = ospf_import_control;
-  p->reload_routes = ospf_reload_routes;
   p->accept_ra_types = RA_OPTIMAL;
   p->rt_notify = ospf_rt_notify;
   p->if_notify = ospf_if_notify;
   p->ifa_notify = ospf_ifa_notify;
+  p->import_control = ospf_import_control;
+  p->reload_routes = ospf_reload_routes;
+  p->make_tmp_attrs = ospf_make_tmp_attrs;
+  p->store_tmp_attrs = ospf_store_tmp_attrs;
   p->rte_better = ospf_rte_better;
   p->rte_same = ospf_rte_same;
 
@@ -502,7 +502,7 @@ ospf_import_control(struct proto *p, rte ** new, ea_list ** attrs,
   struct ospf_area *oa = ospf_main_area((struct proto_ospf *) p);
   rte *e = *new;
 
-  if (p == e->attrs->proto)
+  if (e->attrs->src->proto == p)
     return -1;			/* Reject our own routes */
 
   if (oa_is_stub(oa))

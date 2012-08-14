@@ -219,6 +219,7 @@ proto_free_ahooks(struct proto *p)
   p->main_ahook = NULL;
 }
 
+
 /**
  * proto_config_new - create a new protocol configuration
  * @pr: protocol the configuration will belong to
@@ -791,11 +792,15 @@ proto_schedule_feed(struct proto *p, int initial)
   /* Connect protocol to routing table */
   if (initial && !p->proto->multitable)
     {
+      p->main_source = rt_get_source(p, 0);
+      rt_lock_source(p->main_source);
+
       p->main_ahook = proto_add_announce_hook(p, p->table, &p->stats);
       p->main_ahook->in_filter = p->cf->in_filter;
       p->main_ahook->out_filter = p->cf->out_filter;
       p->main_ahook->in_limit = p->cf->in_limit;
       p->main_ahook->out_limit = p->cf->out_limit;
+
       proto_reset_limit(p->main_ahook->in_limit);
       proto_reset_limit(p->main_ahook->out_limit);
     }
@@ -843,6 +848,8 @@ proto_flush_loop(void *unused UNUSED)
       ev_schedule(proto_flush_event);
       return;
     }
+
+  rt_prune_sources();
 
  again:
   WALK_LIST(p, flush_proto_list)
@@ -1039,6 +1046,12 @@ proto_notify_state(struct proto *p, unsigned ps)
       p->down_sched = 0;
       if ((cs == FS_FEEDING) || (cs == FS_HAPPY))
 	proto_schedule_flush(p);
+
+      if (p->proto->multitable)
+	{
+	  rt_unlock_source(p->main_source);
+	  p->main_source = NULL;
+	}
 
       neigh_prune(); // FIXME convert neighbors to resource?
       rfree(p->pool);
