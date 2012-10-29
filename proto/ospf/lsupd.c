@@ -112,6 +112,10 @@ ospf_lsa_flooding_allowed(struct ospf_lsa_header *lsa, u32 domain, struct ospf_i
 {    
   u32 scope = LSA_SCOPE(lsa);
 
+  /* Handle inactive vlinks */
+  if (ifa->state == OSPF_IS_DOWN)
+    return 0;
+
   /* 4.5.2 (Case 2) */
   if (unknown_lsa_type(lsa) && !(lsa->type & LSA_UBIT))
     scope = LSA_SCOPE_LINK;

@@ -1249,7 +1249,6 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
   struct ospf_config *cf = (struct ospf_config *) (po->proto.cf);
   struct ospf_iface *ifa;
   struct ospf_lsa_prefix *lp;
-  struct ifa *vlink_addr = NULL;
   int host_addr = 0;
   int net_lsa;
   int i = 0;
@@ -1263,7 +1262,7 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 
   WALK_LIST(ifa, po->iface_list)
   {
-    if ((ifa->oa != oa) || (ifa->state == OSPF_IS_DOWN))
+    if ((ifa->oa != oa) || (ifa->type == OSPF_IT_VLINK) || (ifa->state == OSPF_IS_DOWN))
       continue;
 
     ifa->px_pos_beg = i;
@@ -1281,9 +1280,6 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    (a->flags & IA_PEER) ||
 	    (a->scope <= SCOPE_LINK))
 	  continue;
-
-	if (!vlink_addr)
-	  vlink_addr = a;
 
 	if (((a->pxlen < MAX_PREFIX_LENGTH) && net_lsa) ||
 	    configured_stubnet(oa, a))
@@ -1304,23 +1300,41 @@ originate_prefix_rt_lsa_body(struct ospf_area *oa, u16 *length)
     ifa->px_pos_end = i;
   }
 
-  /* If there are some configured vlinks, add some global address,
-     which will be used as a vlink endpoint. */
-  if (!EMPTY_LIST(cf->vlink_list) && !host_addr && vlink_addr)
-  {
-    lsa_put_prefix(po, vlink_addr->ip, MAX_PREFIX_LENGTH, 0);
-    i++;
-  }
-
   struct ospf_stubnet_config *sn;
   if (oa->ac)
     WALK_LIST(sn, oa->ac->stubnet_list)
       if (!sn->hidden)
       {
 	lsa_put_prefix(po, sn->px.addr, sn->px.len, sn->cost);
+	if (sn->px.len == MAX_PREFIX_LENGTH)
+	  host_addr = 1;
 	i++;
       }
 
+  /* If there are some configured vlinks, find some global address
+     (even from another area), which will be used as a vlink endpoint. */
+  if (!EMPTY_LIST(cf->vlink_list) && !host_addr)
+  {
+    WALK_LIST(ifa, po->iface_list)
+    {
+      if ((ifa->type == OSPF_IT_VLINK) || (ifa->state == OSPF_IS_DOWN))
+	continue;
+
+      struct ifa *a;
+      WALK_LIST(a, ifa->iface->addrs)
+      {
+	if ((a->flags & IA_SECONDARY) || (a->scope <= SCOPE_LINK))
+	  continue;
+
+	/* Found some IP */
+	lsa_put_prefix(po, a->ip, MAX_PREFIX_LENGTH, 0);
+	i++;
+	goto done;
+      }
+    }
+  }
+
+ done:
   lp = po->lsab;
   lp->pxcount = i;
   *length = po->lsab_used + sizeof(struct ospf_lsa_header);
@@ -1389,15 +1403,12 @@ add_prefix(struct proto_ospf *po, u32 *px, int offset, int *pxc)
 {
   u32 *pxl = lsab_offset(po, offset);
   int i;
-  for (i = 0; i < *pxc; i++)
+  for (i = 0; i < *pxc; pxl = prefix_advance(pxl), i++)
+    if (prefix_same(px, pxl))
     {
-      if (prefix_same(px, pxl))
-	{
-	  /* Options should be logically OR'ed together */
-	  *pxl |= *px;
-	  return;
-	}
-      pxl = prefix_advance(pxl);
+      /* Options should be logically OR'ed together */
+      *pxl |= (*px & 0x00FF0000);
+      return;
     }
 
   ASSERT(pxl == lsab_end(po));
@@ -1405,6 +1416,7 @@ add_prefix(struct proto_ospf *po, u32 *px, int offset, int *pxc)
   int pxspace = prefix_space(px);
   pxl = lsab_alloc(po, pxspace);
   memcpy(pxl, px, pxspace);
+  *pxl &= 0xFFFF0000;	/* Set metric to zero */
   (*pxc)++;
 }
 
@@ -1415,11 +1427,21 @@ add_link_lsa(struct proto_ospf *po, struct top_hash_entry *en, int offset, int *
   u32 *pxb = ll->rest;
   int j;
 
-  for (j = 0; j < ll->pxcount; j++)
-    {
-      add_prefix(po, pxb, offset, pxc);
-      pxb = prefix_advance(pxb);
-    }
+  for (j = 0; j < ll->pxcount; pxb = prefix_advance(pxb), j++)
+  {
+    u8 pxlen = (pxb[0] >> 24);
+    u8 pxopts = (pxb[0] >> 16);
+
+    /* Skip NU or LA prefixes */
+    if (pxopts & (OPT_PX_NU | OPT_PX_LA))
+      continue;
+
+    /* Skip link-local prefixes */
+    if ((pxlen >= 10) && ((pxb[1] & 0xffc00000) == 0xfe800000))
+      continue;
+
+    add_prefix(po, pxb, offset, pxc);
+  }
 }
 
 
