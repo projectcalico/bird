@@ -123,7 +123,7 @@ ospf_lsa_flooding_allowed(struct ospf_lsa_header *lsa, u32 domain, struct ospf_i
   switch (scope)
     {
     case LSA_SCOPE_LINK:
-      return ifa->iface->index == domain;
+      return ifa->iface_id == domain;
 
     case LSA_SCOPE_AREA:
       return ifa->oa->areaid == domain;

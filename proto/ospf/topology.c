@@ -259,7 +259,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    ln->type = LSART_PTP;
 	    ln->id = neigh->rid;
 	    ln->data = (ifa->addr->flags & IA_PEER) ?
-	      ifa->iface->index : ipa_to_u32(ifa->addr->ip);
+	      ifa->iface_id : ipa_to_u32(ifa->addr->ip);
 	    ln->metric = ifa->cost;
 	    ln->padding = 0;
 	    i++;
@@ -368,7 +368,7 @@ add_lsa_rt_link(struct proto_ospf *po, struct ospf_iface *ifa, u8 type, u32 nif,
   ln->type = type;
   ln->padding = 0;
   ln->metric = ifa->cost;
-  ln->lif = ifa->iface->index;
+  ln->lif = ifa->iface_id;
   ln->nif = nif;
   ln->id = id;
 }
@@ -546,7 +546,7 @@ originate_net_lsa_body(struct ospf_iface *ifa, u16 *length,
     if (n->state == NEIGHBOR_FULL)
     {
 #ifdef OSPFv3
-      en = ospf_hash_find(po->gr, ifa->iface->index, n->iface_id, n->rid, LSA_T_LINK);
+      en = ospf_hash_find(po->gr, ifa->iface_id, n->iface_id, n->rid, LSA_T_LINK);
       if (en)
 	options |= ((struct ospf_lsa_link *) en->lsa_body)->options;
 #endif
@@ -596,7 +596,7 @@ originate_net_lsa(struct ospf_iface *ifa)
   lsa.options = ifa->oa->options;
   lsa.id = ipa_to_u32(ifa->addr->ip);
 #else /* OSPFv3 */
-  lsa.id = ifa->iface->index;
+  lsa.id = ifa->iface_id;
 #endif
 
   lsa.rt = po->router_id;
@@ -1207,10 +1207,10 @@ originate_link_lsa(struct ospf_iface *ifa)
 
   lsa.age = 0;
   lsa.type = LSA_T_LINK;
-  lsa.id = ifa->iface->index;
+  lsa.id = ifa->iface_id;
   lsa.rt = po->router_id;
   lsa.sn = get_seqnum(ifa->link_lsa);
-  u32 dom = ifa->iface->index;
+  u32 dom = ifa->iface_id;
 
   body = originate_link_lsa_body(ifa, &lsa.length);
   lsasum_calculate(&lsa, body);
@@ -1471,7 +1471,7 @@ originate_prefix_net_lsa_body(struct ospf_iface *ifa, u16 *length)
 
   WALK_LIST(n, ifa->neigh_list)
     if ((n->state == NEIGHBOR_FULL) &&
-      	(en = ospf_hash_find(po->gr, ifa->iface->index, n->iface_id, n->rid, LSA_T_LINK)))
+      	(en = ospf_hash_find(po->gr, ifa->iface_id, n->iface_id, n->rid, LSA_T_LINK)))
       add_link_lsa(po, en, offset, &pxc);
 
   lp = po->lsab;
@@ -1493,7 +1493,7 @@ originate_prefix_net_lsa(struct ospf_iface *ifa)
 
   lsa.age = 0;
   lsa.type = LSA_T_PREFIX;
-  lsa.id = ifa->iface->index;
+  lsa.id = ifa->iface_id;
   lsa.rt = po->router_id;
   lsa.sn = get_seqnum(ifa->pxn_lsa);
   u32 dom = ifa->oa->areaid;
@@ -1664,7 +1664,7 @@ ospf_lsa_domain(u32 type, struct ospf_iface *ifa)
   switch (type & LSA_SCOPE_MASK)
     {
     case LSA_SCOPE_LINK:
-      return ifa->iface->index;
+      return ifa->iface_id;
 
     case LSA_SCOPE_AREA:
       return ifa->oa->areaid;

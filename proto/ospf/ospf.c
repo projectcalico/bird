@@ -232,6 +232,7 @@ ospf_start(struct proto *p)
   struct ospf_area_config *ac;
 
   po->router_id = proto_get_router_id(p->cf);
+  po->last_vlink_id = 0x80000000;
   po->rfc1583 = c->rfc1583;
   po->ebit = 0;
   po->ecmp = c->ecmp;
