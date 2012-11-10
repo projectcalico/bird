@@ -305,7 +305,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
     /* Now we will originate stub area if there is no primary */
     if (net_lsa ||
 	(ifa->type == OSPF_IT_VLINK) ||
-	(ifa->addr->flags & IA_PEER) ||
+	((ifa->addr->flags & IA_PEER) && ! ifa->cf->stub) ||
 	configured_stubnet(oa, ifa->addr))
       continue;
 
