@@ -221,6 +221,14 @@ typedef struct rte {
 } rte;
 
 #define REF_COW		1		/* Copy this rte on write */
+#define REF_REJECTED	2		/* Route is rejected by import filter */
+
+/* Route is valid for propagation (may depend on other flags in the future), accepts NULL */
+static inline int rte_is_valid(rte *r) { return r && !(r->flags & REF_REJECTED); }
+
+/* Route just has REF_REJECTED flag */
+static inline int rte_is_rejected(rte *r) { return !!(r->flags & REF_REJECTED); }
+
 
 /* Types of route announcement, also used as flags */
 #define RA_OPTIMAL	1		/* Announcement of optimal route change */
@@ -263,7 +271,7 @@ struct rt_show_data {
   struct fib_iterator fit;
   struct proto *show_protocol;
   struct proto *export_protocol;
-  int export_mode, primary_only;
+  int export_mode, primary_only, rejected;
   struct config *running_on_config;
   int net_counter, rt_counter, show_counter;
   int stats, show_for;

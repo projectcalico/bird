@@ -69,7 +69,7 @@ net_route(rtable *tab, ip_addr a, int len)
     {
       a0 = ipa_and(a, ipa_mkmask(len));
       n = fib_find(&tab->fib, &a0, len);
-      if (n && n->routes)
+      if (n && rte_is_valid(n->routes))
 	return n;
       len--;
     }
@@ -139,8 +139,11 @@ rte_better(rte *new, rte *old)
 {
   int (*better)(rte *, rte *);
 
-  if (!old)
+  if (!rte_is_valid(old))
     return 1;
+  if (!rte_is_valid(new))
+    return 0;
+
   if (new->pref > old->pref)
     return 1;
   if (new->pref < old->pref)
@@ -399,9 +402,13 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
   rte *old_free = NULL;
   rte *r;
 
-  /* Used to track whether we met old_changed position. If it is NULL
-     it was the first and met it implicitly before current best route. */
-  int old_meet = (old_changed && !before_old) ? 1 : 0;
+  /* Used to track whether we met old_changed position. If before_old is NULL
+     old_changed was the first and we met it implicitly before current best route. */
+  int old_meet = old_changed && !before_old;
+
+  /* Note that before_old is either NULL or valid (not rejected) route.
+     If old_changed is valid, before_old have to be too. If old changed route
+     was not valid, caller must use NULL for both old_changed and before_old. */
 
   if (new_changed)
     stats->exp_updates_received++;
@@ -409,7 +416,7 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
     stats->exp_withdraws_received++;
 
   /* First, find the new_best route - first accepted by filters */
-  for (r=net->routes; r; r=r->next)
+  for (r=net->routes; rte_is_valid(r); r=r->next)
     {
       if (new_best = export_filter(ah, r, &new_free, &tmpa, 0))
 	break;
@@ -428,7 +435,8 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
   if (feed)
     {
       if (feed == 2)	/* refeed */
-	old_best = new_best ? new_best : net->routes;
+	old_best = new_best ? new_best :
+	  (rte_is_valid(net->routes) ? net->routes : NULL);
       else
 	old_best = NULL;
 
@@ -477,7 +485,7 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
     }
 
   /* Fourth case */
-  for (r=r->next; r; r=r->next)
+  for (r=r->next; rte_is_valid(r); r=r->next)
     {
       if (old_best = export_filter(ah, r, &old_free, NULL, 1))
 	goto found;
@@ -531,7 +539,14 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
 static void
 rte_announce(rtable *tab, unsigned type, net *net, rte *new, rte *old, rte *before_old, ea_list *tmpa)
 {
-  struct announce_hook *a;
+  if (!rte_is_valid(old))
+    old = before_old = NULL;
+
+  if (!rte_is_valid(new))
+    new = NULL;
+
+  if (!old && !new)
+    return;
 
   if (type == RA_OPTIMAL)
     {
@@ -544,6 +559,7 @@ rte_announce(rtable *tab, unsigned type, net *net, rte *new, rte *old, rte *befo
 	rt_notify_hostcache(tab, net);
     }
 
+  struct announce_hook *a;
   WALK_LIST(a, tab->hooks)
     {
       ASSERT(a->proto->core_state == FS_HAPPY || a->proto->core_state == FS_FEEDING);
@@ -650,8 +666,13 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	  if (new && rte_same(old, new))
 	    {
 	      /* No changes, ignore the new route */
-	      stats->imp_updates_ignored++;
-	      rte_trace_in(D_ROUTES, p, new, "ignored");
+
+	      if (!rte_is_rejected(new))
+		{
+		  stats->imp_updates_ignored++;
+		  rte_trace_in(D_ROUTES, p, new, "ignored");
+		}
+
 	      rte_free_quick(new);
 #ifdef CONFIG_RIP
 	      /* lastmod is used internally by RIP as the last time
@@ -680,8 +701,10 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
   struct proto_limit *l = ah->in_limit;
   if (l && !old && new)
     {
-      if (stats->imp_routes >= l->limit)
-	proto_notify_limit(ah, l, stats->imp_routes);
+      u32 all_routes = stats->imp_routes + stats->rej_routes;
+
+      if (all_routes >= l->limit)
+	proto_notify_limit(ah, l, all_routes);
 
       if (l->state == PLS_BLOCKED)
 	{
@@ -692,15 +715,15 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	}
     }
 
-  if (new)
+  if (new && !rte_is_rejected(new))
     stats->imp_updates_accepted++;
   else
     stats->imp_withdraws_accepted++;
 
   if (new)
-    stats->imp_routes++;
+    rte_is_rejected(new) ? stats->rej_routes++ : stats->imp_routes++;
   if (old)
-    stats->imp_routes--;
+    rte_is_rejected(old) ? stats->rej_routes-- : stats->imp_routes--;
 
   if (table->config->sorted)
     {
@@ -900,27 +923,41 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct proto *src)
 	  stats->imp_updates_invalid++;
 	  goto drop;
 	}
+
       if (filter == FILTER_REJECT)
 	{
 	  stats->imp_updates_filtered++;
 	  rte_trace_in(D_FILTERS, p, new, "filtered out");
-	  goto drop;
+
+	  if (! ah->in_keep_rejected)
+	    goto drop;
+
+	  /* new is a private copy, i could modify it */
+	  new->flags |= REF_REJECTED;
 	}
-      if (src->make_tmp_attrs)
-	tmpa = src->make_tmp_attrs(new, rte_update_pool);
-      if (filter)
+      else
 	{
-	  ea_list *old_tmpa = tmpa;
-	  int fr = f_run(filter, &new, &tmpa, rte_update_pool, 0);
-	  if (fr > F_ACCEPT)
+	  if (src->make_tmp_attrs)
+	    tmpa = src->make_tmp_attrs(new, rte_update_pool);
+	  if (filter && (filter != FILTER_REJECT))
 	    {
-	      stats->imp_updates_filtered++;
-	      rte_trace_in(D_FILTERS, p, new, "filtered out");
-	      goto drop;
+	      ea_list *old_tmpa = tmpa;
+	      int fr = f_run(filter, &new, &tmpa, rte_update_pool, 0);
+	      if (fr > F_ACCEPT)
+		{
+		  stats->imp_updates_filtered++;
+		  rte_trace_in(D_FILTERS, p, new, "filtered out");
+
+		  if (! ah->in_keep_rejected)
+		    goto drop;
+
+		  new->flags |= REF_REJECTED;
+		}
+	      if (tmpa != old_tmpa && src->store_tmp_attrs)
+		src->store_tmp_attrs(new, tmpa);
 	    }
-	  if (tmpa != old_tmpa && src->store_tmp_attrs)
-	    src->store_tmp_attrs(new, tmpa);
 	}
+
       if (!(new->attrs->aflags & RTAF_CACHED)) /* Need to copy attributes */
 	new->attrs = rta_lookup(new->attrs);
       new->flags |= REF_COW;
@@ -1553,9 +1590,11 @@ again:
 	  return 0;
 	}
 
+      /* XXXX perhaps we should change feed for RA_ACCEPTED to not use 'new' */
+
       if ((p->accept_ra_types == RA_OPTIMAL) ||
 	  (p->accept_ra_types == RA_ACCEPTED))
-	if (e)
+	if (rte_is_valid(e))
 	  {
 	    if (p->core_state != FS_FEEDING)
 	      return 1;  /* In the meantime, the protocol fell down. */
@@ -1564,7 +1603,7 @@ again:
 	  }
 
       if (p->accept_ra_types == RA_ANY)
-	for(e = n->routes; e != NULL; e = e->next)
+	for(e = n->routes; rte_is_valid(e); e = e->next)
 	  {
 	    if (p->core_state != FS_FEEDING)
 	      return 1;  /* In the meantime, the protocol fell down. */
@@ -1817,7 +1856,8 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
   net *n = net_route(tab, he->addr, MAX_PREFIX_LENGTH);
   if (n)
     {
-      rta *a = n->routes->attrs;
+      rte *e = n->routes;
+      rta *a = e->attrs;
       pxlen = n->n.pxlen;
 
       if (a->hostentry)
@@ -1850,7 +1890,7 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
 	}
 
       he->src = rta_clone(a);
-      he->igp_metric = rt_get_igp_metric(n->routes);
+      he->igp_metric = rt_get_igp_metric(e);
     }
 
  done:
@@ -1980,14 +2020,19 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
   int ok;
 
   bsprintf(ia, "%I/%d", n->n.prefix, n->n.pxlen);
-  if (n->routes)
-    d->net_counter++;
+
   for(e=n->routes; e; e=e->next)
     {
+      if (rte_is_rejected(e) != d->rejected)
+	continue;
+
       struct ea_list *tmpa;
       struct proto *p0 = e->attrs->proto;
       struct proto *p1 = d->export_protocol;
       struct proto *p2 = d->show_protocol;
+
+      if (ia[0])
+	d->net_counter++;
       d->rt_counter++;
       ee = e;
       rte_update_lock();		/* We use the update buffer for filtering */

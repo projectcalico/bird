@@ -414,6 +414,7 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
       p->main_ahook->out_filter = nc->out_filter;
       p->main_ahook->in_limit = nc->in_limit;
       p->main_ahook->out_limit = nc->out_limit;
+      p->main_ahook->in_keep_rejected = nc->in_keep_rejected;
     }
 
   /* Update routes when filters changed. If the protocol in not UP,
@@ -719,8 +720,9 @@ proto_fell_down(struct proto *p)
 {
   DBG("Protocol %s down\n", p->name);
 
-  if (p->stats.imp_routes != 0)
-    log(L_ERR "Protocol %s is down but still has %d routes", p->name, p->stats.imp_routes);
+  u32 all_routes = p->stats.imp_routes + p->stats.rej_routes;
+  if (all_routes != 0)
+    log(L_ERR "Protocol %s is down but still has %d routes", p->name, all_routes);
 
   bzero(&p->stats, sizeof(struct proto_stats));
   proto_free_ahooks(p);
@@ -796,6 +798,7 @@ proto_schedule_feed(struct proto *p, int initial)
       p->main_ahook->out_filter = p->cf->out_filter;
       p->main_ahook->in_limit = p->cf->in_limit;
       p->main_ahook->out_limit = p->cf->out_limit;
+      p->main_ahook->in_keep_rejected = p->cf->in_keep_rejected;
       proto_reset_limit(p->main_ahook->in_limit);
       proto_reset_limit(p->main_ahook->out_limit);
     }
@@ -1093,10 +1096,15 @@ proto_state_name(struct proto *p)
 }
 
 static void
-proto_show_stats(struct proto_stats *s)
+proto_show_stats(struct proto_stats *s, int in_keep_rejected)
 {
-  cli_msg(-1006, "  Routes:         %u imported, %u exported, %u preferred", 
-	  s->imp_routes, s->exp_routes, s->pref_routes);
+  if (in_keep_rejected)
+    cli_msg(-1006, "  Routes:         %u imported, %u rejected, %u exported, %u preferred", 
+	    s->imp_routes, s->rej_routes, s->exp_routes, s->pref_routes);
+  else
+    cli_msg(-1006, "  Routes:         %u imported, %u exported, %u preferred", 
+	    s->imp_routes, s->exp_routes, s->pref_routes);
+
   cli_msg(-1006, "  Route change stats:     received   rejected   filtered    ignored   accepted");
   cli_msg(-1006, "    Import updates:     %10u %10u %10u %10u %10u",
 	  s->imp_updates_received, s->imp_updates_invalid,
@@ -1134,7 +1142,7 @@ proto_show_basic_info(struct proto *p)
   proto_show_limit(p->cf->out_limit, "Export limit:");
 
   if (p->proto_state != PS_DOWN)
-    proto_show_stats(&p->stats);
+    proto_show_stats(&p->stats, p->cf->in_keep_rejected);
 }
 
 void

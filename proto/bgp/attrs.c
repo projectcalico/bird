@@ -1346,7 +1346,7 @@ bgp_rte_recalculate(rtable *table, net *net, rte *new, rte *old, rte *old_best)
 
   /* The default case - find a new best-in-group route */
   r = new; /* new may not be in the list */
-  for (s=net->routes; s; s=s->next)
+  for (s=net->routes; rte_is_valid(s); s=s->next)
     if (use_deterministic_med(s) && same_group(s, lpref, lasn))
       {
 	s->u.bgp.suppressed = 1;
