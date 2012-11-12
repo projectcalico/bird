@@ -238,7 +238,7 @@ bgp_format_aggregator(eattr *a, byte *buf, int buflen UNUSED)
   as = get_u32(data);
   data += 4;
 
-  bsprintf(buf, "%d.%d.%d.%d AS%d", data[0], data[1], data[2], data[3], as);
+  bsprintf(buf, "%d.%d.%d.%d AS%u", data[0], data[1], data[2], data[3], as);
 }
 
 static int
