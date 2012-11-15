@@ -667,7 +667,7 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	    {
 	      /* No changes, ignore the new route */
 
-	      if (!rte_is_rejected(new))
+	      if (!rte_is_filtered(new))
 		{
 		  stats->imp_updates_ignored++;
 		  rte_trace_in(D_ROUTES, p, new, "ignored");
@@ -701,7 +701,7 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
   struct proto_limit *l = ah->in_limit;
   if (l && !old && new)
     {
-      u32 all_routes = stats->imp_routes + stats->rej_routes;
+      u32 all_routes = stats->imp_routes + stats->filt_routes;
 
       if (all_routes >= l->limit)
 	proto_notify_limit(ah, l, all_routes);
@@ -715,15 +715,15 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	}
     }
 
-  if (new && !rte_is_rejected(new))
+  if (new && !rte_is_filtered(new))
     stats->imp_updates_accepted++;
   else
     stats->imp_withdraws_accepted++;
 
   if (new)
-    rte_is_rejected(new) ? stats->rej_routes++ : stats->imp_routes++;
+    rte_is_filtered(new) ? stats->filt_routes++ : stats->imp_routes++;
   if (old)
-    rte_is_rejected(old) ? stats->rej_routes-- : stats->imp_routes--;
+    rte_is_filtered(old) ? stats->filt_routes-- : stats->imp_routes--;
 
   if (table->config->sorted)
     {
@@ -929,11 +929,11 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct proto *src)
 	  stats->imp_updates_filtered++;
 	  rte_trace_in(D_FILTERS, p, new, "filtered out");
 
-	  if (! ah->in_keep_rejected)
+	  if (! ah->in_keep_filtered)
 	    goto drop;
 
 	  /* new is a private copy, i could modify it */
-	  new->flags |= REF_REJECTED;
+	  new->flags |= REF_FILTERED;
 	}
       else
 	{
@@ -948,10 +948,10 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct proto *src)
 		  stats->imp_updates_filtered++;
 		  rte_trace_in(D_FILTERS, p, new, "filtered out");
 
-		  if (! ah->in_keep_rejected)
+		  if (! ah->in_keep_filtered)
 		    goto drop;
 
-		  new->flags |= REF_REJECTED;
+		  new->flags |= REF_FILTERED;
 		}
 	      if (tmpa != old_tmpa && src->store_tmp_attrs)
 		src->store_tmp_attrs(new, tmpa);
@@ -2023,7 +2023,7 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 
   for(e=n->routes; e; e=e->next)
     {
-      if (rte_is_rejected(e) != d->rejected)
+      if (rte_is_filtered(e) != d->filtered)
 	continue;
 
       struct ea_list *tmpa;
