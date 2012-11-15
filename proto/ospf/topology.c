@@ -258,8 +258,17 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    ln = lsab_alloc(po, sizeof(struct ospf_lsa_rt_link));
 	    ln->type = LSART_PTP;
 	    ln->id = neigh->rid;
-	    ln->data = (ifa->addr->flags & IA_PEER) ?
-	      ifa->iface_id : ipa_to_u32(ifa->addr->ip);
+
+	    /*
+	     * ln->data should be ifa->iface_id in case of no/ptp
+	     * address (ifa->addr->flags & IA_PEER) on PTP link (see
+	     * RFC 2328 12.4.1.1.), but the iface ID value has no use,
+	     * while using IP address even in this case is here for
+	     * compatibility with some broken implementations that use
+	     * this address as a next-hop.
+	     */
+	    ln->data = ipa_to_u32(ifa->addr->ip);
+
 	    ln->metric = ifa->cost;
 	    ln->padding = 0;
 	    i++;
