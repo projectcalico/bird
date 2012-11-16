@@ -627,6 +627,8 @@ rte_same(rte *x, rte *y)
     (!x->attrs->proto->rte_same || x->attrs->proto->rte_same(x, y));
 }
 
+static inline int rte_is_ok(rte *e) { return e && !rte_is_filtered(e); }
+
 static void
 rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, struct proto *src)
 {
@@ -715,10 +717,15 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	}
     }
 
-  if (new && !rte_is_filtered(new))
+  int new_ok = rte_is_ok(new);
+  int old_ok = rte_is_ok(old);
+
+  if (new_ok)
     stats->imp_updates_accepted++;
-  else
+  else if (old_ok)
     stats->imp_withdraws_accepted++;
+  else
+    stats->imp_withdraws_ignored++;
 
   if (new)
     rte_is_filtered(new) ? stats->filt_routes++ : stats->imp_routes++;
@@ -808,17 +815,19 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
     new->lastmod = now;
 
   /* Log the route change */
-  if (new)
-    rte_trace_in(D_ROUTES, p, new, net->routes == new ? "added [best]" : "added");
-
-  if (!new && (p->debug & D_ROUTES))
+  if (p->debug & D_ROUTES)
     {
-      if (old != old_best)
-	rte_trace_in(D_ROUTES, p, old, "removed");
-      else if (net->routes)
-	rte_trace_in(D_ROUTES, p, old, "removed [replaced]");
-      else
-	rte_trace_in(D_ROUTES, p, old, "removed [sole]");
+      if (new_ok)
+	rte_trace(p, new, '>', new == net->routes ? "added [best]" : "added");
+      else if (old_ok)
+	{
+	  if (old != old_best)
+	    rte_trace(p, old, '>', "removed");
+	  else if (rte_is_ok(net->routes))
+	    rte_trace(p, old, '>', "removed [replaced]");
+	  else
+	    rte_trace(p, old, '>', "removed [sole]");
+	}
     }
 
   /* Propagate the route change */
@@ -833,17 +842,13 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
       (table->gc_time + table->config->gc_min_time <= now))
     rt_schedule_gc(table);
 
+  if (old_ok && p->rte_remove)
+    p->rte_remove(net, old);
+  if (new_ok && p->rte_insert)
+    p->rte_insert(net, new);
+
   if (old)
-    {
-      if (p->rte_remove)
-	p->rte_remove(net, old);
-      rte_free_quick(old);
-    }
-  if (new)
-    {
-      if (p->rte_insert)
-	p->rte_insert(net, new);
-    }
+    rte_free_quick(old);
 }
 
 static int rte_update_nest_cnt;		/* Nesting counter to allow recursive updates */
