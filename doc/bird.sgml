@@ -1654,6 +1654,15 @@ use cases that use the direct protocol (like abusing eBGP as an IGP
 routing protocol), in most cases it is not needed to have these device
 routes in BIRD routing table and to use the direct protocol.
 
+<p>There is one notable case when you definitely want to use the
+direct protocol -- running BIRD on BSD systems. Having high priority
+device routes for directly connected networks from the direct protocol
+protects kernel device routes from being overwritten or removed by IGP
+routes during some transient network conditions, because a lower
+priority IGP route for the same network is not exported to the kernel
+routing table. This is an issue on BSD systems only, as on Linux
+systems BIRD cannot change non-BIRD route in the kernel routing table.
+
 <p>The only configurable thing about direct is what interfaces it watches:
 
 <p><descrip>
