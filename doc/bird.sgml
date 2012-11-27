@@ -2733,9 +2733,10 @@ definition of the protocol contains mainly a list of static routes:
 	route through an interface to hosts on a directly connected network.
 	<tag>route <m/prefix/ recursive <m/ip/</tag> Static recursive route,
 	its nexthop depends on a route table lookup for given IP address.
-	<tag>route <m/prefix/ drop|reject|prohibit</tag> Special routes
-	specifying to drop the packet, return it as unreachable or return
-	it as administratively prohibited.
+	<tag>route <m/prefix/ blackhole|unreachable|prohibit</tag> Special routes
+	specifying to silently drop the packet, return it as unreachable or return
+	it as administratively prohibited. First two targets are also known
+	as <cf/drop/ and <cf/reject/.
 
 	<tag>check link <m/switch/</tag>
 	If set, hardware link states of network interfaces are taken
@@ -2761,7 +2762,7 @@ protocol static {
 		via 198.51.100.10 weight 2
 		via 198.51.100.20
 		via 192.0.2.1;
-	route 203.0.113.0/24 reject;	 # Sink route
+	route 203.0.113.0/24 unreachable; # Sink route
 	route 10.2.0.0/24 via "arc0";	 # Secondary network
 }
 </code>
