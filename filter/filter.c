@@ -956,11 +956,25 @@ interpret(struct f_inst *what)
       l->attrs[0].type = what->aux | EAF_ORIGINATED;
       switch (what->aux & EAF_TYPE_MASK) {
       case EAF_TYPE_INT:
-      case EAF_TYPE_ROUTER_ID:
 	if (v1.type != T_INT)
 	  runtime( "Setting int attribute to non-int value" );
 	l->attrs[0].u.data = v1.val.i;
 	break;
+
+      case EAF_TYPE_ROUTER_ID:
+#ifndef IPV6
+	/* IP->Quad implicit conversion */
+	if (v1.type == T_IP) {
+	  l->attrs[0].u.data = ipa_to_u32(v1.val.px.ip);
+	  break;
+	}
+#endif
+	/* T_INT for backward compatibility */
+	if ((v1.type != T_QUAD) && (v1.type != T_INT))
+	  runtime( "Setting quad attribute to non-quad value" );
+	l->attrs[0].u.data = v1.val.i;
+	break;
+
       case EAF_TYPE_OPAQUE:
 	runtime( "Setting opaque attribute is not allowed" );
 	break;
