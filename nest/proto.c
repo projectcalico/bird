@@ -516,7 +516,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 	      p->down_code = nc->disabled ? PDC_CF_DISABLE : PDC_CF_RESTART;
 	      p->cf_new = nc;
 	    }
-	  else if (!shutting_down)
+	  else if (!new->shutdown)
 	    {
 	      log(L_INFO "Removing protocol %s", p->name);
 	      p->down_code = PDC_CF_REMOVE;
@@ -537,7 +537,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
   WALK_LIST(nc, new->protos)
     if (!nc->proto)
       {
-	if (old_config)		/* Not a first-time configuration */
+	if (old)		/* Not a first-time configuration */
 	  log(L_INFO "Adding protocol %s", nc->name);
 	proto_init(nc);
       }

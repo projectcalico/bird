@@ -54,28 +54,33 @@ struct config {
 /* Please don't use these variables in protocols. Use proto_config->global instead. */
 extern struct config *config;		/* Currently active configuration */
 extern struct config *new_config;	/* Configuration being parsed */
-extern struct config *old_config;	/* Old configuration when reconfiguration is in progress */
-extern struct config *future_config;	/* New config held here if recon requested during recon */
-
-extern int shutting_down;
-extern bird_clock_t boot_time;
 
 struct config *config_alloc(byte *name);
 int config_parse(struct config *);
 int cli_parse(struct config *);
 void config_free(struct config *);
-int config_commit(struct config *, int type);
-#define RECONFIG_HARD 0
-#define RECONFIG_SOFT 1
+int config_commit(struct config *, int type, int timeout);
+int config_confirm(void);
+int config_undo(void);
+void config_init(void);
 void cf_error(char *msg, ...) NORET;
 void config_add_obstacle(struct config *);
 void config_del_obstacle(struct config *);
 void order_shutdown(void);
 
-#define CONF_DONE 0
-#define CONF_PROGRESS 1
-#define CONF_QUEUED 2
-#define CONF_SHUTDOWN 3
+#define RECONFIG_NONE	0
+#define RECONFIG_HARD	1
+#define RECONFIG_SOFT	2
+#define RECONFIG_UNDO	3
+
+#define CONF_DONE	0
+#define CONF_PROGRESS	1
+#define CONF_QUEUED	2
+#define CONF_UNQUEUED	3
+#define CONF_CONFIRM	4
+#define CONF_SHUTDOWN	-1
+#define CONF_NOTHING	-2
+
 
 /* Pools */
 
