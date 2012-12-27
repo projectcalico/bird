@@ -382,10 +382,8 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   /* If there is a too big change in core attributes, ... */
   if ((nc->protocol != oc->protocol) ||
       (nc->disabled != p->disabled) ||
-      (nc->table->table != oc->table->table) ||
-      (proto_get_router_id(nc) != proto_get_router_id(oc)))
+      (nc->table->table != oc->table->table))
     return 0;
-
 
   p->debug = nc->debug;
   p->mrtdump = nc->mrtdump;
@@ -552,6 +550,16 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
     initial_device_proto = NULL;
   }
 
+  /* Determine router ID for the first time - it has to be here and not in
+     global_commit() because it is postponed after start of device protocol */
+  if (!config->router_id)
+    {
+      config->router_id = if_choose_router_id(config->router_id_from, 0);
+      if (!config->router_id)
+	die("Cannot determine router ID, please configure it manually");
+    }
+
+  /* Start all other protocols */
   WALK_LIST_DELSAFE(p, n, initial_proto_list)
     proto_rethink_goal(p);
 }

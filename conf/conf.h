@@ -26,6 +26,7 @@ struct config {
   int mrtdump_file;			/* Configured MRTDump file (sysdep, fd in unix) */
   char *syslog_name;			/* Name used for syslog (NULL -> no syslog) */
   struct rtable_config *master_rtc;	/* Configuration of master routing table */
+  struct iface_patt *router_id_from;	/* Configured list of router ID iface patterns */
 
   u32 router_id;			/* Our Router ID */
   ip_addr listen_bgp_addr;		/* Listening BGP socket should use this address */

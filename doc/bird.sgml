@@ -337,7 +337,18 @@ protocol rip {
 	Besides, there are some predefined numeric constants based on /etc/iproute2/rt_* files.
 	A list of defined constants can be seen (together with other symbols) using 'show symbols' command.
 
-	<tag>router id <m/IPv4 address/</tag> Set BIRD's router ID. It's a world-wide unique identification of your router, usually one of router's IPv4 addresses. Default: in IPv4 version, the lowest IP address of a non-loopback interface. In IPv6 version, this option is mandatory. 
+	<tag>router id <m/IPv4 address/</tag>
+ 	Set BIRD's router ID. It's a world-wide unique identification
+	of your router, usually one of router's IPv4 addresses.
+	Default: in IPv4 version, the lowest IP address of a
+	non-loopback interface. In IPv6 version, this option is
+	mandatory.
+
+	<tag>router id from [-] [ "<m/mask/" ] [ <m/prefix/ ] [, ...]</tag>
+	Set BIRD's router ID based on an IP address of an interface
+	specified by an interface pattern. The option is applicable
+	for IPv4 version only. See <ref id="dsc-iface" name="interface">
+	section for detailed description of interface patterns.
 
 	<tag>listen bgp [address <m/address/] [port <m/port/] [dual]</tag>
 	This option allows to specify address and port where BGP

@@ -75,9 +75,9 @@ CF_GRAMMAR
 
 CF_ADDTO(conf, rtrid)
 
-rtrid: ROUTER ID idval ';' {
-   new_config->router_id = $3;
-   }
+rtrid: 
+   ROUTER ID idval ';' { new_config->router_id = $3; }
+ | ROUTER ID FROM iface_patt ';' { new_config->router_id_from = this_ipatt; }
  ;
 
 idval:
@@ -262,6 +262,17 @@ iface_patt_node:
 iface_patt_list:
    iface_patt_node
  | iface_patt_list ',' iface_patt_node
+ ;
+
+iface_patt_init: {
+   /* Generic this_ipatt init */
+   this_ipatt = cfg_allocz(sizeof(struct iface_patt));
+   init_list(&this_ipatt->ipn_list);
+ }
+ ;
+
+iface_patt:
+   iface_patt_init iface_patt_list
  ;
 
 
