@@ -344,6 +344,7 @@ protos_postconfig(struct config *c)
   WALK_LIST(x, c->protos)
     {
       DBG(" %s", x->name);
+
       p = x->protocol;
       if (p->postconfig)
 	p->postconfig(x);
@@ -410,6 +411,7 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
     {
       p->main_ahook->in_filter = nc->in_filter;
       p->main_ahook->out_filter = nc->out_filter;
+      p->main_ahook->rx_limit = nc->rx_limit;
       p->main_ahook->in_limit = nc->in_limit;
       p->main_ahook->out_limit = nc->out_limit;
       p->main_ahook->in_keep_filtered = nc->in_keep_filtered;
@@ -804,9 +806,11 @@ proto_schedule_feed(struct proto *p, int initial)
       p->main_ahook = proto_add_announce_hook(p, p->table, &p->stats);
       p->main_ahook->in_filter = p->cf->in_filter;
       p->main_ahook->out_filter = p->cf->out_filter;
+      p->main_ahook->rx_limit = p->cf->rx_limit;
       p->main_ahook->in_limit = p->cf->in_limit;
       p->main_ahook->out_limit = p->cf->out_limit;
       p->main_ahook->in_keep_filtered = p->cf->in_keep_filtered;
+      proto_reset_limit(p->main_ahook->rx_limit);
       proto_reset_limit(p->main_ahook->in_limit);
       proto_reset_limit(p->main_ahook->out_limit);
     }
@@ -978,6 +982,7 @@ proto_limit_name(struct proto_limit *l)
  * proto_notify_limit: notify about limit hit and take appropriate action
  * @ah: announce hook
  * @l: limit being hit
+ * @dir: limit direction (PLD_*)
  * @rt_count: the number of routes 
  *
  * The function is called by the route processing core when limit @l
@@ -985,10 +990,11 @@ proto_limit_name(struct proto_limit *l)
  * according to @l->action.
  */
 void
-proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count)
+proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, int dir, u32 rt_count)
 {
+  const char *dir_name[PLD_MAX] = { "receive", "import" , "export" };
+  const byte dir_down[PLD_MAX] = { PDC_RX_LIMIT_HIT, PDC_IN_LIMIT_HIT, PDC_OUT_LIMIT_HIT };
   struct proto *p = ah->proto;
-  int dir = (ah->in_limit == l);
 
   if (l->state == PLS_BLOCKED)
     return;
@@ -996,7 +1002,7 @@ proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count
   /* For warning action, we want the log message every time we hit the limit */
   if (!l->state || ((l->action == PLA_WARN) && (rt_count == l->limit)))
     log(L_WARN "Protocol %s hits route %s limit (%d), action: %s",
-	p->name, dir ? "import" : "export", l->limit, proto_limit_name(l));
+	p->name, dir_name[dir], l->limit, proto_limit_name(l));
 
   switch (l->action)
     {
@@ -1011,8 +1017,7 @@ proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count
     case PLA_RESTART:
     case PLA_DISABLE:
       l->state = PLS_BLOCKED;
-      proto_schedule_down(p, l->action == PLA_RESTART,
-			  dir ? PDC_IN_LIMIT_HIT : PDC_OUT_LIMIT_HIT);
+      proto_schedule_down(p, l->action == PLA_RESTART, dir_down[dir]);
       break;
     }
 }
@@ -1146,6 +1151,7 @@ proto_show_basic_info(struct proto *p)
   cli_msg(-1006, "  Input filter:   %s", filter_name(p->cf->in_filter));
   cli_msg(-1006, "  Output filter:  %s", filter_name(p->cf->out_filter));
 
+  proto_show_limit(p->cf->rx_limit, "Receive limit:");
   proto_show_limit(p->cf->in_limit, "Import limit:");
   proto_show_limit(p->cf->out_limit, "Export limit:");
 
@@ -1267,7 +1273,10 @@ proto_cmd_reload(struct proto *p, unsigned int dir, int cnt UNUSED)
        * Perhaps, but these hooks work asynchronously.
        */
       if (!p->proto->multitable)
-	proto_reset_limit(p->main_ahook->in_limit);
+	{
+	  proto_reset_limit(p->main_ahook->rx_limit);
+	  proto_reset_limit(p->main_ahook->in_limit);
+	}
     }
 
   /* re-exporting routes */

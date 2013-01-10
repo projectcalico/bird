@@ -482,15 +482,23 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	Specify an import route limit (a maximum number of routes
 	imported from the protocol) and optionally the action to be
 	taken when the limit is hit. Warn action just prints warning
-	log message. Block action ignores new routes coming from the
+	log message. Block action discards new routes coming from the
 	protocol. Restart and disable actions shut the protocol down
 	like appropriate commands. Disable is the default action if an
 	action is not explicitly specified. Note that limits are reset
-	during protocol reconfigure, reload or restart. Also note that
-	if <cf/import keep filtered/ is active, filtered routes are
-	counted towards the limit and blocked routes are forgotten, as
-	the main purpose of the import limit is to protect routing
-	tables from overflow. Default: <cf/none/.
+	during protocol reconfigure, reload or restart. Default: <cf/none/.
+
+	<tag>receive limit <m/number/ [action warn | block | restart | disable]</tag>
+	Specify an receive route limit (a maximum number of routes
+	received from the protocol and remembered). It works almost
+	identically to <cf>import limit</cf> option, the only
+	difference is that if <cf/import keep filtered/ option is
+	active, filtered routes are counted towards the limit and
+	blocked routes are forgotten, as the main purpose of the
+	receive limit is to protect routing tables from
+	overflow. Import limit, on the contrary, counts accepted
+	routes only and routes blocked by the limit are handled like
+	filtered routes. Default: <cf/none/.
 
 	<tag>export limit <m/number/ [action warn | block | restart | disable]</tag>
 	Specify an export route limit, works similarly to

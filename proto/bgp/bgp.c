@@ -878,6 +878,7 @@ bgp_shutdown(struct proto *P)
       subcode = 4; // Errcode 6, 4 - administrative reset
       break;
 
+    case PDC_RX_LIMIT_HIT:
     case PDC_IN_LIMIT_HIT:
       subcode = 1; // Errcode 6, 1 - max number of prefixes reached
       /* log message for compatibility */
