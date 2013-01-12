@@ -2546,6 +2546,13 @@ interface definitions, prefix definitions and DNS definitions:
 <p>Prefix specific options:
 
 <descrip>
+	<tag>skip <m/switch/</tag>
+	This option allows to specify that given prefix should not be
+	advertised. This is useful for making exceptions from a
+	default policy of advertising all prefixes. Note that for
+	withdrawing an already advertised prefix it is more useful to
+	advertise it with zero valid lifetime. Default: no
+
 	<tag>onlink <m/switch/</tag>
 	This option specifies whether hosts may use the advertised
 	prefix for onlink determination. Default: yes
