@@ -596,8 +596,12 @@ rip_start(struct proto *p)
   init_list( &P->interfaces );
   P->timer = tm_new( p->pool );
   P->timer->data = p;
-  P->timer->randomize = 5;
-  P->timer->recurrent = (P_CF->period / 6)+1; 
+  P->timer->randomize = 2;
+  P->timer->recurrent = (P_CF->period / 6) - 1; 
+  if (P_CF->period < 12) {
+    log(L_WARN "Period %d is too low. So I am using 12 which is the lowest possible value.", P_CF->period);
+    P->timer->recurrent = 1;
+  }
   P->timer->hook = rip_timer;
   tm_start( P->timer, 5 );
   rif = new_iface(p, NULL, 0, NULL);	/* Initialize dummy interface */
@@ -956,9 +960,11 @@ rip_rte_insert(net *net UNUSED, rte *rte)
 static void
 rip_rte_remove(net *net UNUSED, rte *rte)
 {
-  // struct proto *p = rte->attrs->proto;
+#ifdef LOCAL_DEBUG
+  struct proto *p = rte->attrs->proto;
   CHK_MAGIC;
   DBG( "rip_rte_remove: %p\n", rte );
+#endif
   rem_node( &rte->u.rip.garbage );
 }
 
