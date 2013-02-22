@@ -59,7 +59,6 @@
 #include "lib/string.h"
 
 #include "rip.h"
-#include <assert.h>
 
 #define P ((struct rip_proto *) p)
 #define P_CF ((struct rip_proto_config *)p->cf)
@@ -583,9 +582,9 @@ rip_start(struct proto *p)
   struct rip_interface *rif;
   DBG( "RIP: starting instance...\n" );
 
-  assert( sizeof(struct rip_packet_heading) == 4);
-  assert( sizeof(struct rip_block) == 20);
-  assert( sizeof(struct rip_block_auth) == 20);
+  ASSERT(sizeof(struct rip_packet_heading) == 4);
+  ASSERT(sizeof(struct rip_block) == 20);
+  ASSERT(sizeof(struct rip_block_auth) == 20);
 
 #ifdef LOCAL_DEBUG
   P->magic = RIP_MAGIC;
