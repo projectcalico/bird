@@ -6,11 +6,12 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
-/* client.c */
+/* client.c callbacks */
 
 void cleanup(void);
 void input_start_list(void);
 void input_stop_list(void);
+void server_got_reply(char *x);
 
 /* commands.c */
 
