@@ -531,13 +531,10 @@ rip_timer(timer *t)
   WALK_LIST_DELSAFE( e, et, P->garbage ) {
     rte *rte;
     rte = SKIP_BACK( struct rte, u.rip.garbage, e );
-#ifdef LOCAL_DEBUG
-    {
-      struct proto *p = rte->attrs->proto;
-      CHK_MAGIC;
-    }
+
+    CHK_MAGIC;
+
     DBG( "Garbage: (%p)", rte ); rte_dump( rte );
-#endif
 
     if (now - rte->lastmod > P_CF->timeout_time) {
       TRACE(D_EVENTS, "entry is too old: %I", rte->net->n.prefix );
