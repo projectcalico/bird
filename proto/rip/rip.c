@@ -6,10 +6,10 @@
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  *
- 	FIXME: IpV6 support: packet size
+ 	FIXME: IPv6 support: packet size
 	FIXME: (nonurgent) IPv6 support: receive "route using" blocks
 	FIXME: (nonurgent) IPv6 support: generate "nexthop" blocks
-		next hops are only advisory, and they are pretty ugly in IpV6.
+		next hops are only advisory, and they are pretty ugly in IPv6.
 		I suggest just forgetting about them.
 
 	FIXME: (nonurgent): fold rip_connection into rip_interface?
@@ -46,6 +46,7 @@
  */
 
 #undef LOCAL_DEBUG
+#define LOCAL_DEBUG 1
 
 #include "nest/bird.h"
 #include "nest/iface.h"
@@ -357,26 +358,26 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme, struct
 static void
 process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme, struct iface *iface )
 {
+  int metric, pxlen;
+
 #ifndef IPV6
-  int metric = ntohl( block->metric );
+  metric = ntohl( block->metric );
+  pxlen = ipa_mklen(block->netmask);
 #else
-  int metric = block->metric;
+  metric = block->metric;
+  pxlen = block->pxlen;
 #endif
   ip_addr network = block->network;
 
   CHK_MAGIC;
-#ifdef IPV6
+
   TRACE(D_ROUTES, "block: %I tells me: %I/%d available, metric %d... ",
-      whotoldme, network, block->pxlen, metric );
-#else
-  TRACE(D_ROUTES, "block: %I tells me: %I/%d available, metric %d... ",
-      whotoldme, network, ipa_mklen(block->netmask), metric );
-#endif
+      whotoldme, network, pxlen, metric );
 
   if ((!metric) || (metric > P_CF->infinity)) {
-#ifdef IPV6 /* Someone is sedning us nexthop and we are ignoring it */
+#ifdef IPV6 /* Someone is sending us nexthop and we are ignoring it */
     if (metric == 0xff)
-      { DBG( "IpV6 nexthop ignored" ); return; }
+      { DBG( "IPv6 nexthop ignored" ); return; }
 #endif
     log( L_WARN "%s: Got metric %d from %I", p->name, metric, whotoldme );
     return;
