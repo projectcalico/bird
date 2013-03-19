@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <signal.h>
+#include <ctype.h>
 
 #include "nest/bird.h"
 #include "lib/resource.h"
@@ -177,6 +178,18 @@ print_prompt(void)
 }
 
 
+static int lastnb(char *str)
+{
+  int i;
+  for (i=strlen(str)-1; i>0; i--)
+    {
+      if(!isblank(str[i]))
+        return i;
+    }
+
+  return 0;
+}
+
 static void
 term_read(void)
 {
@@ -208,7 +221,7 @@ term_read(void)
       printf("%s\n",buf);
     }
 
-  if (strchr(buf, '?'))
+  if (buf[lastnb(buf)] == '?')
     {
       printf("\n");
       cmd_help(buf, strlen(buf));
