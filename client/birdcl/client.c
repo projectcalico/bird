@@ -36,7 +36,7 @@ static int once;
 extern char *server_path;
 extern int server_fd;
 
-extern int nstate;
+extern int cstate;
 extern int num_lines, skip_input, interactive;
 
 static int term_lns=25;
@@ -123,7 +123,7 @@ run_init_cmd(void)
       return;
     }
 
-  if (!init_cmd && once && (nstate == STATE_CMD_USER))
+  if (!init_cmd && once && (cstate == STATE_PROMPT))
     {
       /* Initial command is finished and we want to exit */
       cleanup();
@@ -332,7 +332,7 @@ server_got_reply(char *x)
 
       if (x[4] == ' ')
       {
-        nstate = STATE_CMD_USER;
+        cstate = STATE_PROMPT;
         skip_input = 0;
         return;
       }
@@ -362,10 +362,10 @@ select_loop(void)
     {
       FD_ZERO(&select_fds);
 
-      if (nstate != STATE_CMD_USER)
+      if (cstate != STATE_CMD_USER)
         FD_SET(server_fd, &select_fds);
 
-      if (nstate != STATE_CMD_SERVER)
+      if (cstate != STATE_CMD_SERVER)
         {
           FD_SET(0, &select_fds);
           if (interactive)
