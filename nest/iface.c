@@ -589,7 +589,7 @@ if_choose_router_id(struct iface_patt *mask, u32 old_id)
   WALK_LIST(i, iface_list)
     {
       if (!(i->flags & IF_ADMIN_UP) ||
-	  (i->flags & (IF_IGNORE | IF_SHUTDOWN)))
+	  (i->flags & IF_SHUTDOWN))
 	continue;
 
       WALK_LIST(a, i->addrs)
@@ -610,6 +610,10 @@ if_choose_router_id(struct iface_patt *mask, u32 old_id)
 
 	  /* Check pattern if specified */
 	  if (mask && !iface_patt_match(mask, i, a))
+	    continue;
+
+	  /* FIXME: This should go away too */
+	  if ((i->flags & IF_IGNORE) && !mask)
 	    continue;
 
 	  /* No pattern or pattern matched */
