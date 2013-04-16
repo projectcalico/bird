@@ -574,8 +574,22 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
   init_list(&ifa->nbma_list);
 
   WALK_LIST(nb, ip->nbma_list)
-    if (ipa_in_net(nb->ip, addr->prefix, addr->pxlen))
-      add_nbma_node(ifa, nb, 0);
+  {
+    /* In OSPFv3, addr is link-local while configured neighbors could
+       have global IP (although RFC 5340 C.5 says link-local addresses
+       should be used). Because OSPFv3 iface is not subnet-specific,
+       there is no need for ipa_in_net() check */
+
+#ifdef OSPFv2
+    if (!ipa_in_net(nb->ip, addr->prefix, addr->pxlen))
+      continue;
+#else
+    if (!ipa_has_link_scope(nb->ip))
+      log(L_WARN "In OSPFv3, configured neighbor address (%I) should be link-local", nb->ip);
+#endif
+
+    add_nbma_node(ifa, nb, 0);
+  }
 
   ifa->state = OSPF_IS_DOWN;
   add_tail(&oa->po->iface_list, NODE ifa);
@@ -771,8 +785,14 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* NBMA LIST - add new */
   WALK_LIST(nb, new->nbma_list)
   {
+    /* See related note in ospf_iface_new() */
+#ifdef OSPFv2
     if (!ipa_in_net(nb->ip, ifa->addr->prefix, ifa->addr->pxlen))
       continue;
+#else
+    if (!ipa_has_link_scope(nb->ip))
+      log(L_WARN "In OSPFv3, configured neighbor address (%I) should be link-local", nb->ip);
+#endif
 
     if (! find_nbma_node(ifa, nb->ip))
     {
