@@ -253,7 +253,8 @@ ospf_hello_send(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dirn)
 #ifdef OSPFv2
   pkt->netmask = ipa_mkmask(ifa->addr->pxlen);
   ipa_hton(pkt->netmask);
-  if ((ifa->type == OSPF_IT_VLINK) || (ifa->type == OSPF_IT_PTP))
+  if ((ifa->type == OSPF_IT_VLINK) ||
+      ((ifa->type == OSPF_IT_PTP) && !ifa->ptp_netmask))
     pkt->netmask = IPA_NONE;
 #endif
 

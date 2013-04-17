@@ -537,6 +537,9 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
 #ifdef OSPFv2
   ifa->autype = ip->autype;
   ifa->passwords = ip->passwords;
+  ifa->ptp_netmask = !(addr->flags & IA_PEER);
+  if (ip->ptp_netmask < 2)
+    ifa->ptp_netmask = ip->ptp_netmask;
 #endif
 
 #ifdef OSPFv3
