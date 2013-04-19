@@ -20,7 +20,7 @@ void cmd_help(char *cmd, int len);
 int cmd_complete(char *cmd, int len, char *buf, int again);
 char *cmd_expand(char *cmd);
 
-/* client_common.c */
+/* common.c */
 
 #define STATE_PROMPT           0
 #define STATE_CMD_SERVER       1
