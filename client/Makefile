@@ -1,4 +1,4 @@
-source=commands.c util.c common.c
+source=commands.c util.c client.c
 root-rel=../
 dir-name=client
 
