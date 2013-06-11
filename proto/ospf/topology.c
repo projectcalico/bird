@@ -233,6 +233,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
   WALK_LIST(ifa, po->iface_list)
   {
     int net_lsa = 0;
+    u32 link_cost = po->stub_router ? 0xffff : ifa->cost;
 
     if ((ifa->type == OSPF_IT_VLINK) && (ifa->voa == oa) &&
 	(!EMPTY_LIST(ifa->neigh_list)))
@@ -268,8 +269,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	     * this address as a next-hop.
 	     */
 	    ln->data = ipa_to_u32(ifa->addr->ip);
-
-	    ln->metric = ifa->cost;
+	    ln->metric = link_cost;
 	    ln->padding = 0;
 	    i++;
 	  }
@@ -283,7 +283,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	    ln->type = LSART_NET;
 	    ln->id = ipa_to_u32(ifa->drip);
 	    ln->data = ipa_to_u32(ifa->addr->ip);
-	    ln->metric = ifa->cost;
+	    ln->metric = link_cost;
 	    ln->padding = 0;
 	    i++;
 	    net_lsa = 1;
@@ -298,7 +298,7 @@ originate_rt_lsa_body(struct ospf_area *oa, u16 *length)
 	  ln->type = LSART_VLNK;
 	  ln->id = neigh->rid;
 	  ln->data = ipa_to_u32(ifa->addr->ip);
-	  ln->metric = ifa->cost;
+	  ln->metric = link_cost;
 	  ln->padding = 0;
 	  i++;
         }

@@ -83,6 +83,7 @@ struct ospf_config
   struct proto_config c;
   unsigned tick;
   byte rfc1583;
+  byte stub_router;
   byte abr;
   int ecmp;
   list area_list;		/* list of struct ospf_area_config */
@@ -771,6 +772,7 @@ struct proto_ospf
   int areano;			/* Number of area I belong to */
   struct fib rtf;		/* Routing table */
   byte rfc1583;			/* RFC1583 compatibility */
+  byte stub_router;		/* Do not forward transit traffic */
   byte ebit;			/* Did I originate any ext lsa? */
   byte ecmp;			/* Maximal number of nexthops in ECMP route, or 0 */
   struct ospf_area *backbone;	/* If exists */
