@@ -598,7 +598,7 @@ sock_new(pool *p)
   sock *s = ralloc(p, &sk_class);
   s->pool = p;
   // s->saddr = s->daddr = IPA_NONE;
-  s->tos = s->ttl = -1;
+  s->tos = s->priority = s->ttl = -1;
   s->fd = -1;
   return s;
 }
@@ -783,10 +783,17 @@ sk_setup(sock *s)
     ERR("fcntl(O_NONBLOCK)");
   if (s->type == SK_UNIX)
     return NULL;
-#ifndef IPV6
+
+#ifdef IPV6
+  if ((s->tos >= 0) && setsockopt(fd, SOL_IPV6, IPV6_TCLASS, &s->tos, sizeof(s->tos)) < 0)
+    WARN("IPV6_TCLASS");
+#else
   if ((s->tos >= 0) && setsockopt(fd, SOL_IP, IP_TOS, &s->tos, sizeof(s->tos)) < 0)
     WARN("IP_TOS");
 #endif
+
+  if (s->priority >= 0)
+    sk_set_priority(s, s->priority);
 
 #ifdef IPV6
   int v = 1;

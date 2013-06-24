@@ -20,7 +20,8 @@ typedef struct birdsock {
   void *data;				/* User data */
   ip_addr saddr, daddr;			/* IPA_NONE = unspecified */
   unsigned sport, dport;		/* 0 = unspecified (for IP: protocol type) */
-  int tos;				/* TOS and priority, -1 = default */
+  int tos;				/* TOS / traffic class, -1 = default */
+  int priority;				/* Local socket priority, -1 = default */
   int ttl;				/* Time To Live, -1 = default */
   u32 flags;
   struct iface *iface;			/* Interface; specify this for broad/multicast sockets */
@@ -81,6 +82,7 @@ sk_send_buffer_empty(sock *sk)
 	return sk->tbuf == sk->tpos;
 }
 
+extern int sk_priority_control;	/* Suggested priority for control traffic, should be sysdep define */
 
 /* Socket flags */
 

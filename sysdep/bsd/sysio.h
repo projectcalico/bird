@@ -284,3 +284,12 @@ sk_set_min_ttl6(sock *s, int ttl)
 
 #endif
 
+
+int sk_priority_control = -1;
+
+static int
+sk_set_priority(sock *s, int prio UNUSED)
+{
+  log(L_WARN "Socket priority not supported");
+  return -1;
+}
