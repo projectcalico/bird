@@ -1086,18 +1086,16 @@ nl_open_async(void)
 static u8 nl_cf_table[(NL_NUM_TABLES+7) / 8];
 
 void
-krt_sys_start(struct krt_proto *p, int first)
+krt_sys_start(struct krt_proto *p)
 {
   nl_table_map[KRT_CF->sys.table_id] = p;
-  if (first)
-    {
-      nl_open();
-      nl_open_async();
-    }
+
+  nl_open();
+  nl_open_async();
 }
 
 void
-krt_sys_shutdown(struct krt_proto *p UNUSED, int last UNUSED)
+krt_sys_shutdown(struct krt_proto *p UNUSED)
 {
 }
 
