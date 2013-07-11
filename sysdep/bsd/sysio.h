@@ -6,9 +6,22 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#ifdef __NetBSD__
+
+#ifndef IP_RECVTTL
+#define IP_RECVTTL 23
+#endif
+
+#ifndef IP_MINTTL
+#define IP_MINTTL 24
+#endif
+
+#endif
+
 #ifdef __DragonFly__
 #define TCP_MD5SIG	TCP_SIGNATURE_ENABLE
 #endif
+
 #ifdef IPV6
 
 static inline void
@@ -259,8 +272,6 @@ sk_set_md5_auth_int(sock *s, sockaddr *sa, char *passwd)
 
 #ifndef IPV6
 
-#ifdef IP_MINTTL
-
 static int
 sk_set_min_ttl4(sock *s, int ttl)
 {
@@ -276,17 +287,6 @@ sk_set_min_ttl4(sock *s, int ttl)
 
   return 0;
 }
-
-#else /* no IP_MINTTL */
-
-static int
-sk_set_min_ttl4(sock *s, int ttl)
-{
-  log(L_ERR "IPv4 TTL security not supported");
-  return -1;
-}
-
-#endif
 
 #else /* IPv6 */
 

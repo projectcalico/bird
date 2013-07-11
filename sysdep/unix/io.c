@@ -821,10 +821,10 @@ sk_setup(sock *s)
     WARN("IPV6_V6ONLY");
 #endif
 
-  if (s->ttl >= 0)
-    err = sk_set_ttl_int(s);
+  if ((s->ttl >= 0) && (err = sk_set_ttl_int(s)))
+    goto bad;
 
-  sysio_register_cmsgs(s);
+  err = sysio_register_cmsgs(s);
 bad:
   return err;
 }
