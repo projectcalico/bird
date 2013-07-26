@@ -332,8 +332,8 @@ protocol rip {
 	expression and the name of the template. At the moment templates (and <cf/from/ expression)
 	are not implemented for OSPF protocol.
 
-	<tag>define <m/constant/ = (<m/expression/)|<m/number/|<m/IP address/</tag>
-	Define a constant. You can use it later in every place you could use a simple integer or an IP address.
+	<tag>define <m/constant/ = <m/expression/</tag>
+	Define a constant. You can use it later in every place you could use a value of the same type.
 	Besides, there are some predefined numeric constants based on /etc/iproute2/rt_* files.
 	A list of defined constants can be seen (together with other symbols) using 'show symbols' command.
 
