@@ -336,8 +336,8 @@ type:
 
 one_decl:
    type SYM {
-     struct f_val * val = cfg_alloc(sizeof(struct f_val)); 
-     val->type = $1; 
+     struct f_val * val = cfg_alloc(sizeof(struct f_val));
+     val->type = T_VOID;
      $2 = cf_define_symbol($2, SYM_VARIABLE | $1, val);
      DBG( "New variable %s type %x\n", $2->name, $1 );
      $2->aux2 = NULL;
