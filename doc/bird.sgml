@@ -2427,7 +2427,7 @@ another one.
 	<tag>peer table <m/table/</tag> Defines secondary routing table to connect to. The
 	primary one is selected by the <cf/table/ keyword.
 
-	<tag>mode opaque|transparent</tag> Specifies the mode for the pipe to work in. Default is opaque.
+	<tag>mode opaque|transparent</tag> Specifies the mode for the pipe to work in. Default is transparent.
 </descrip>
 
 <sect1>Attributes
