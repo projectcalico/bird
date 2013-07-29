@@ -510,11 +510,12 @@ to zero to disable it. An empty <cf><m/switch/</cf> is equivalent to <cf/on/
 	accepted routes -- and these details will probably change in
 	the future. Default: <cf/off/.
 
-	<tag>description "<m/text/"</tag> This is an optional
-	description of the protocol. It is displayed as a part of the
-	output of 'show route all' command.
+	<tag>description "<m/text/"</tag>
+	This is an optional description of the protocol. It is
+	displayed as a part of the output of 'show route all' command.
 
-	<tag>table <m/name/</tag> Connect this protocol to a non-default routing table.
+	<tag>table <m/name/</tag>
+	Connect this protocol to a non-default routing table.
 </descrip>
 
 <p>There are several options that give sense only with certain protocols:
