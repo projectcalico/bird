@@ -408,8 +408,8 @@ protocol rip {
 	entries. The option may be used multiple times. Other entries
 	can be added dynamically by <cf/add roa/ command.
 
-	<tag>eval <m/expr/</tag> Evaluates given filter expression. It
-	is used by us for testing of filters.
+	<tag>eval <m/expr/</tag>
+	Evaluates given filter expression. It is used by us for	testing of filters.
 </descrip>
 
 <sect>Protocol options
