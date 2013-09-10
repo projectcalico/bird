@@ -1231,7 +1231,8 @@ sk_open(sock *s)
 #endif
     }
 
-  sk_insert(s);
+  if (!(s->flags & SKF_THREAD))
+    sk_insert(s);
   return 0;
 
 bad:
@@ -1514,7 +1515,8 @@ sk_write(sock *s)
     default:
       if (s->ttx != s->tpos && sk_maybe_write(s) > 0)
 	{
-	  s->tx_hook(s);
+	  if (s->tx_hook)
+	    s->tx_hook(s);
 	  return 1;
 	}
       return 0;
