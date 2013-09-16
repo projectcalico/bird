@@ -1,11 +1,10 @@
+/*
+ *	BIRD -- Bidirectional Forwarding Detection (BFD)
+ *
+ *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
 
-
-#define BFD_FLAG_POLL		(1 << 5)
-#define BFD_FLAG_FINAL		(1 << 4)
-#define BFD_FLAG_CPI		(1 << 3)
-#define BFD_FLAG_AP		(1 << 2)
-#define BFD_FLAG_DEMAND		(1 << 1)
-#define BFD_FLAG_MULTIPOINT	(1 << 0)
+#include "bfd.h"
 
 
 struct bfd_ctl_packet
@@ -21,12 +20,14 @@ struct bfd_ctl_packet
   u32 req_min_echo_rx_int;
 };
 
+#define BFD_BASE_LEN sizeof(struct bfd_ctl_packet)
 
-static inline void bfd_pack_vdiag(u8 version, u8 diag)
+
+static inline u8 bfd_pack_vdiag(u8 version, u8 diag)
 { return (version << 5) | diag; }
 
-static inline void bfd_pack_flags(u8 state, u8 flags)
-{ return (state << 6) | diag; }
+static inline u8 bfd_pack_flags(u8 state, u8 flags)
+{ return (state << 6) | flags; }
 
 static inline u8 bfd_pkt_get_version(struct bfd_ctl_packet *pkt)
 { return pkt->vdiag >> 5; }
@@ -45,17 +46,17 @@ static inline void bfd_pkt_set_state(struct bfd_ctl_packet *pkt, u8 val)
 void
 bfd_send_ctl(struct bfd_proto *p, struct bfd_session *s, int final)
 {
-  sock *sk = p->skX;
-  struct bfd_ctl_packet *pkt = (struct ospf_packet *) sk->tbuf;
+  sock *sk = s->bsock->sk;
+  struct bfd_ctl_packet *pkt = (struct bfd_ctl_packet *) sk->tbuf;
 
   pkt->vdiag = bfd_pack_vdiag(1, s->loc_diag);
   pkt->flags = bfd_pack_flags(s->loc_state, 0);
   pkt->detect_mult = s->detect_mult;
-  pkt->length = 24;
+  pkt->length = BFD_BASE_LEN;
   pkt->snd_id = htonl(s->loc_id);
   pkt->rcv_id = htonl(s->rem_id);
-  pkt->des_min_tx_int = htonl(s->des_min_tx_int);
-  pkt->req_min_rx_int = htonl(s->req_min_rx_int);
+  pkt->des_min_tx_int = htonl(s->des_min_tx_new);
+  pkt->req_min_rx_int = htonl(s->req_min_rx_new);
   pkt->req_min_echo_rx_int = 0;
 
   if (final)
@@ -63,15 +64,21 @@ bfd_send_ctl(struct bfd_proto *p, struct bfd_session *s, int final)
   else if (s->poll_active)
     pkt->flags |= BFD_FLAG_POLL;
 
-  // XXX
-  sk_send_to(sk, len, dst, 0);  
+  if (sk->tbuf != sk->tpos)
+    log(L_ERR "%s: old packet was overwritten in TX buffer", p->p.name);
+
+  sk_send_to(sk, pkt->length, s->addr, sk->dport);
 }
 
-int
-bfd_ctl_rx_hook(sock *sk, int len)
+#define DROP(DSC,VAL) do { err_dsc = DSC; err_val = VAL; goto drop; } while(0)
+
+static int
+bfd_rx_hook(sock *sk, int len)
 {
-  struct bfd_proto *p = sk->data;
-  struct bfd_ctl_packet *pkt =sk->rbuf;
+  struct bfd_proto *p =  sk->data;
+  struct bfd_ctl_packet *pkt = (struct bfd_ctl_packet *) sk->rbuf;
+  const char *err_dsc = NULL;
+  uint err_val = 0;
 
   if (len < BFD_BASE_LEN)
     DROP("too short", len);
@@ -108,11 +115,11 @@ bfd_ctl_rx_hook(sock *sk, int len)
     if (ps > BFD_STATE_DOWN)
       DROP("invalid init state", ps);
       
-    s = bfd_find_session_by_ip(p, sk->faddr);
+    s = bfd_find_session_by_addr(p, sk->faddr);
 
     /* FIXME: better session matching and message */
     if (!s || !s->opened)
-      return;
+      return 1;
   }
 
   /* FIXME: better authentication handling and message */
@@ -120,17 +127,18 @@ bfd_ctl_rx_hook(sock *sk, int len)
     DROP("authentication not supported", 0);
 
 
-  u32 old_rx_int = s->des_min_tx_int;
-  u32 old_tx_int = s->rem_min_rx_int;
+  u32 old_tx_int = s->des_min_tx_int;
+  u32 old_rx_int = s->rem_min_rx_int;
 
   s->rem_id = ntohl(pkt->snd_id);
   s->rem_state = bfd_pkt_get_state(pkt);
+  s->rem_diag = bfd_pkt_get_diag(pkt);
   s->rem_demand_mode = pkt->flags & BFD_FLAG_DEMAND;
   s->rem_min_tx_int = ntohl(pkt->des_min_tx_int);
   s->rem_min_rx_int = ntohl(pkt->req_min_rx_int);
   s->rem_detect_mult = pkt->detect_mult;
 
-  bfd_session_process_ctl(s, pkt->flags, xxx);
+  bfd_session_process_ctl(s, pkt->flags, old_tx_int, old_rx_int);
   return 1;
 
  drop:
@@ -138,10 +146,17 @@ bfd_ctl_rx_hook(sock *sk, int len)
   return 1;
 }
 
+static void
+bfd_err_hook(sock *sk, int err)
+{
+  struct bfd_proto *p = sk->data;
+  log(L_ERR "%s: Socket error: %m", p->p.name, err);
+}
+
 sock *
 bfd_open_rx_sk(struct bfd_proto *p, int multihop)
 {
-  sock *sk = sk_new(p->p.pool);
+  sock *sk = sk_new(p->tpool);
   sk->type = SK_UDP;
   sk->sport = !multihop ? BFD_CONTROL_PORT : BFD_MULTI_CTL_PORT;
   sk->data = p;
@@ -149,33 +164,59 @@ bfd_open_rx_sk(struct bfd_proto *p, int multihop)
   sk->rbsize = 64; // XXX
   sk->rx_hook = bfd_rx_hook;
   sk->err_hook = bfd_err_hook;
-  
-  sk->flags = SKF_LADDR_RX | (!multihop ? SKF_TTL_RX : 0);
+
+  /* TODO: configurable ToS and priority */
+  sk->tos = IP_PREC_INTERNET_CONTROL;
+  sk->priority = sk_priority_control;
+  sk->flags = SKF_THREAD | SKF_LADDR_RX | (!multihop ? SKF_TTL_RX : 0);
+
+#ifdef IPV6
+  sk->flags |= SKF_V6ONLY;
+#endif
 
   if (sk_open(sk) < 0)
     goto err;
+
+  sk_start(sk);
+  return sk;
+
+ err:
+  rfree(sk);
+  return NULL;
 }
 
 static inline sock *
 bfd_open_tx_sk(struct bfd_proto *p, ip_addr local, struct iface *ifa)
 {
-  sock *sk = sk_new(p->p.pool);
+  sock *sk = sk_new(p->tpool);
   sk->type = SK_UDP;
   sk->saddr = local;
+  sk->dport = ifa ? BFD_CONTROL_PORT : BFD_MULTI_CTL_PORT;
+  sk->iface = ifa;
   sk->data = p;
 
   sk->tbsize = 64; // XXX
   sk->err_hook = bfd_err_hook;
- 
-  sk->iface = new;
 
-  sk->tos = PATT->tx_tos;
-  sk->priority = PATT->tx_priority;
-  sk->ttl = PATT->ttl_security ? 255 : 1;
+  /* TODO: configurable ToS, priority and TTL security */
+  sk->tos = IP_PREC_INTERNET_CONTROL;
+  sk->priority = sk_priority_control;
+  sk->ttl = ifa ? 255 : -1;
+  sk->flags = SKF_THREAD;
+
+#ifdef IPV6
+  sk->flags |= SKF_V6ONLY;
+#endif
 
   if (sk_open(sk) < 0)
     goto err;
 
+  sk_start(sk);
+  return sk;
+
+ err:
+  rfree(sk);
+  return NULL;
 }
 
 struct bfd_socket *
@@ -183,14 +224,14 @@ bfd_get_socket(struct bfd_proto *p, ip_addr local, struct iface *ifa)
 {
   struct bfd_socket *sk;
 
-  WALK_LIST(sk, p->sockets)
+  WALK_LIST(sk, p->sock_list)
     if (ipa_equal(sk->sk->saddr, local) && (sk->sk->iface == ifa))
       return sk->uc++, sk;
 
-  sk = mb_allocz(p->p.pool, sizeof(struct bfd_socket));
+  sk = mb_allocz(p->tpool, sizeof(struct bfd_socket));
   sk->sk = bfd_open_tx_sk(p, local, ifa);
   sk->uc = 1;
-  add_tail(&p->sockets, &sk->n);
+  add_tail(&p->sock_list, &sk->n);
 
   return sk;
 }

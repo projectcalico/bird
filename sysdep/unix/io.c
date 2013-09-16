@@ -1420,7 +1420,9 @@ sk_send_full(sock *s, unsigned len, struct iface *ifa,
 }
 */
 
-static int
+ /* sk_read() and sk_write() are called from BFD's event loop */
+
+int
 sk_read(sock *s)
 {
   switch (s->type)
@@ -1497,7 +1499,7 @@ sk_read(sock *s)
     }
 }
 
-static int
+int
 sk_write(sock *s)
 {
   switch (s->type)

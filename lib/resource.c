@@ -220,7 +220,8 @@ ralloc(pool *p, struct resclass *c)
   bzero(r, c->size);
 
   r->class = c;
-  add_tail(&p->inside, &r->n);
+  if (p)
+    add_tail(&p->inside, &r->n);
   return r;
 }
 
@@ -423,6 +424,6 @@ buffer_realloc(void **buf, unsigned *size, unsigned need, unsigned item_size)
   while (nsize < need)
     nsize = STEP_UP(nsize);
 
-  *buf = mb_realloc(*buf, nsize*isize);
+  *buf = mb_realloc(*buf, nsize * item_size);
   *size = nsize;
 }

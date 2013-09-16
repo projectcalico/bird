@@ -22,7 +22,7 @@ static struct bfd_neighbor *this_bfd_neighbor;
 CF_DECLS
 
 CF_KEYWORDS(BFD, MIN, IDLE, RX, TX, INTERVAL, MULTIPLIER, MULTIHOP, PASSIVE,
-	NEIGHBOR)
+	NEIGHBOR, DEV)
 
 %type <iface> bfd_neigh_iface
 %type <a> bfd_neigh_local
@@ -34,7 +34,7 @@ CF_ADDTO(proto, bfd_proto)
 bfd_proto_start: proto_start BFD
 {
   this_proto = proto_config_new(&proto_bfd, sizeof(struct bfd_config), $1);
-  init_list(&BFD_CFG->neighbors);
+  init_list(&BFD_CFG->neigh_list);
 };
 
 bfd_proto_item:
@@ -99,7 +99,7 @@ bfd_neigh_local:
 bfd_neighbor: NEIGHBOR ipa bfd_neigh_iface bfd_neigh_local bfd_session
 {
   this_bfd_neighbor = cfg_allocz(sizeof(struct bfd_neighbor));
-  add_tail(&BFD_CFG->neighbors, NODE this_bfd_neighbor);
+  add_tail(&BFD_CFG->neigh_list, NODE this_bfd_neighbor);
 
   BFD_NEIGHBOR->addr = $2;
   BFD_NEIGHBOR->local = $4;
@@ -107,6 +107,9 @@ bfd_neighbor: NEIGHBOR ipa bfd_neigh_iface bfd_neigh_local bfd_session
   BFD_NEIGHBOR->opts = BFD_SESSION;
 };
 
+
+CF_CLI(SHOW BFD SESSIONS, optsym, [<name>], [[Show information about BFD sessions]])
+{ bfd_show_sessions(proto_get_named($4, &proto_bfd)); };
 
 CF_CODE
 

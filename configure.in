@@ -47,11 +47,11 @@ AC_SUBST(runtimedir)
 if test "$enable_ipv6" = yes ; then
 	ip=ipv6
 	SUFFIX=6
-	all_protocols=bgp,ospf,pipe,radv,rip,static
+	all_protocols=bfd,bgp,ospf,pipe,radv,rip,static
 else
 	ip=ipv4
 	SUFFIX=""
-	all_protocols=bgp,ospf,pipe,rip,static
+	all_protocols=bfd,bgp,ospf,pipe,rip,static
 fi
 
 if test "$given_suffix" = yes ; then
@@ -92,7 +92,7 @@ if test "$bird_cflags_default" = yes ; then
 	BIRD_CHECK_GCC_OPTION(bird_cv_c_option_fno_strict_aliasing, -fno-strict-aliasing)
 	BIRD_CHECK_GCC_OPTION(bird_cv_c_option_fno_strict_overflow, -fno-strict-overflow)
 
-	CFLAGS="$CFLAGS -Wall -Wstrict-prototypes -Wno-parentheses"
+	CFLAGS="$CFLAGS -pthread -Wall -Wstrict-prototypes -Wno-parentheses"
 	BIRD_ADD_GCC_OPTION(bird_cv_c_option_wno_pointer_sign, -Wno-pointer-sign)
 	BIRD_ADD_GCC_OPTION(bird_cv_c_option_fno_strict_aliasing, -fno-strict-aliasing)
 	BIRD_ADD_GCC_OPTION(bird_cv_c_option_fno_strict_overflow, -fno-strict-overflow)

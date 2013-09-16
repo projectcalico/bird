@@ -1,17 +1,43 @@
+/*
+ *	BIRD -- I/O and event loop
+ *
+ *	Can be freely distributed and used under the terms of the GNU GPL.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <pthread.h>
+#include <time.h>
+#include <sys/time.h>
+
+#include "nest/bird.h"
+#include "proto/bfd/io.h"
 
 #include "lib/buffer.h"
 #include "lib/heap.h"
+#include "lib/lists.h"
+#include "lib/resource.h"
+#include "lib/event.h"
+#include "lib/socket.h"
+
 
 struct birdloop
 {
   pool *pool;
+  pthread_t thread;
+  pthread_mutex_t mutex;
 
-  int wakeup_fds[2];
-  u8 poll_active;
-
-  xxx_time last_time;
-  xxx_time real_time;
+  btime last_time;
+  btime real_time;
   u8 use_monotonic_clock;
+
+  u8 poll_active;
+  u8 wakeup_masked;
+  int wakeup_fds[2];
 
   BUFFER(timer2 *) timers;
   list event_list;
@@ -22,13 +48,35 @@ struct birdloop
   BUFFER(struct pollfd) poll_fd;
   u8 poll_changed;
   u8 close_scheduled;
-
 };
+
+
+
+static pthread_key_t current_loop_key;
+
+static inline struct birdloop *
+birdloop_current(void)
+{
+  return pthread_getspecific(current_loop_key);
+}
+
+static inline void
+birdloop_set_current(struct birdloop *loop)
+{
+  pthread_setspecific(current_loop_key, loop);
+}
+
+static inline void
+birdloop_init_current(void)
+{
+  pthread_key_create(&current_loop_key, NULL);
+}
+
 
 
 static void times_update_alt(struct birdloop *loop);
 
-static int
+static void
 times_init(struct birdloop *loop)
 {
   struct timespec ts;
@@ -47,12 +95,12 @@ times_init(struct birdloop *loop)
   }
 
   /*
-  if ((tv.tv_sec < 0) || (((s64) tv.tv_sec) > ((s64) 1 << 40)))
+  if ((ts.tv_sec < 0) || (((s64) ts.tv_sec) > ((s64) 1 << 40)))
     log(L_WARN "Monotonic clock is crazy");
   */
 
   loop->use_monotonic_clock = 1;
-  loop->last_time = (tv.tv_sec S) + (tv.tv_nsec / 1000);
+  loop->last_time = (ts.tv_sec S) + (ts.tv_nsec / 1000);
   loop->real_time = 0;
 }
 
@@ -66,7 +114,7 @@ times_update_pri(struct birdloop *loop)
   if (rv < 0)
     die("clock_gettime: %m");
 
-  xxx_time new_time = (tv.tv_sec S) + (tv.tv_nsec / 1000);
+  btime new_time = (ts.tv_sec S) + (ts.tv_nsec / 1000);
 
   /*
   if (new_time < loop->last_time)
@@ -87,8 +135,8 @@ times_update_alt(struct birdloop *loop)
   if (rv < 0)
     die("gettimeofday: %m");
 
-  xxx_time new_time = (tv.tv_sec S) + tv.tv_usec;
-  xxx_time delta = new_time - loop->real_time;
+  btime new_time = (tv.tv_sec S) + tv.tv_usec;
+  btime delta = new_time - loop->real_time;
 
   if ((delta < 0) || (delta > (60 S)))
   {
@@ -113,15 +161,18 @@ times_update(struct birdloop *loop)
     times_update_alt(loop);
 }
 
+btime
+current_time(void)
+{
+  return birdloop_current()->last_time;
+}
+
 
 
 static void
 pipe_new(int *pfds)
 {
-  int pfds[2], rv;
-  sock *sk;
-  
-  rv = pipe(pfds);
+  int rv = pipe(pfds);
   if (rv < 0)
     die("pipe: %m");
 
@@ -132,20 +183,14 @@ pipe_new(int *pfds)
     die("fcntl(O_NONBLOCK): %m");
 }
 
-static void
-wakeup_init(struct birdloop *loop)
-{
-  pipe_new(loop->wakeup_fds);
-}
-
-static void
-wakeup_drain(struct birdloop *loop)
+void
+pipe_drain(int fd)
 {
   char buf[64];
   int rv;
   
  try:
-  rv = read(loop->wakeup_fds[0], buf, 64);
+  rv = read(fd, buf, 64);
   if (rv < 0)
   {
     if (errno == EINTR)
@@ -158,14 +203,14 @@ wakeup_drain(struct birdloop *loop)
     goto try;
 }
 
-static void
-wakeup_kick(struct birdloop *loop)
+void
+pipe_kick(int fd)
 {
   u64 v = 1;
   int rv;
 
  try:
-  rv = write(loop->wakeup_fds[1], &v, sizeof(u64));
+  rv = write(fd, &v, sizeof(u64));
   if (rv < 0)
   {
     if (errno == EINTR)
@@ -176,16 +221,45 @@ wakeup_kick(struct birdloop *loop)
   }
 }
 
+static inline void
+wakeup_init(struct birdloop *loop)
+{
+  pipe_new(loop->wakeup_fds);
+}
+
+static inline void
+wakeup_drain(struct birdloop *loop)
+{
+  pipe_drain(loop->wakeup_fds[0]);
+}
+
+static inline void
+wakeup_do_kick(struct birdloop *loop) 
+{
+  pipe_kick(loop->wakeup_fds[1]);
+}
+
+static inline void
+wakeup_kick(struct birdloop *loop)
+{
+  if (!loop->wakeup_masked)
+    wakeup_do_kick(loop);
+  else
+    loop->wakeup_masked = 2;
+}
 
 
 
-static inline uint events_waiting(struct birdloop *loop)
-{ return !EMPTY_LIST(loop->event_list); }
+static inline uint
+events_waiting(struct birdloop *loop)
+{
+  return !EMPTY_LIST(loop->event_list);
+}
 
-static void
+static inline void
 events_init(struct birdloop *loop)
 {
-  list_init(&poll->event_list);
+  init_list(&loop->event_list);
 }
 
 static void
@@ -198,6 +272,8 @@ events_fire(struct birdloop *loop)
 void
 ev2_schedule(event *e)
 {
+  struct birdloop *loop = birdloop_current();
+
   if (loop->poll_active && EMPTY_LIST(loop->event_list))
     wakeup_kick(loop);
 
@@ -206,6 +282,7 @@ ev2_schedule(event *e)
 
   add_tail(&loop->event_list, &e->n);
 }
+
 
 
 #define TIMER_LESS(a,b)		((a)->expires < (b)->expires)
@@ -239,14 +316,15 @@ tm2_dump(resource *r)
   if (t->recurrent)
     debug("recur %d, ", t->recurrent);
   if (t->expires)
-    debug("expires in %d sec)\n", t->expires - xxx_now);
+    debug("expires in %d ms)\n", (t->expires - current_time()) TO_MS);
   else
     debug("inactive)\n");
 }
 
+
 static struct resclass tm2_class = {
   "Timer",
-  sizeof(timer),
+  sizeof(timer2),
   tm2_free,
   tm2_dump,
   NULL,
@@ -262,9 +340,9 @@ tm2_new(pool *p)
 }
 
 void
-tm2_start(timer2 *t, xxx_time after)
+tm2_set(timer2 *t, btime when)
 {
-  xxx_time when = loop->last_time + after;
+  struct birdloop *loop = birdloop_current();
   uint tc = timers_count(loop);
 
   if (!t->expires)
@@ -290,12 +368,20 @@ tm2_start(timer2 *t, xxx_time after)
 }
 
 void
+tm2_start(timer2 *t, btime after)
+{
+  tm2_set(t, current_time() + MAX(after, 0));
+}
+
+void
 tm2_stop(timer2 *t)
 {
   if (!t->expires)
     return;
 
-  uint tc = timers_count(XXX);
+  struct birdloop *loop = birdloop_current();
+  uint tc = timers_count(loop);
+
   HEAP_DELETE(loop->timers.data, tc, timer2 *, TIMER_LESS, TIMER_SWAP, t->index);
   BUFFER_POP(loop->timers);
 
@@ -313,7 +399,7 @@ timers_init(struct birdloop *loop)
 static void
 timers_fire(struct birdloop *loop)
 {
-  xxx_time base_time;
+  btime base_time;
   timer2 *t;
 
   times_update(loop);
@@ -326,16 +412,15 @@ timers_fire(struct birdloop *loop)
 
     if (t->recurrent)
     {
-      xxx_time after = t->recurrent;
-      xxx_time delta = loop->last_time - t->expires;
+      btime when = t->expires + t->recurrent;
       
+      if (when <= loop->last_time)
+	when = loop->last_time + t->recurrent;
+
       if (t->randomize)
-	after += random() % (t->randomize + 1);
+	when += random() % (t->randomize + 1);
 
-      if (delta > after)
-	delta = 0;
-
-      tm2_start(t, after - delta);
+      tm2_set(t, when);
     }
     else
       tm2_stop(t);
@@ -345,15 +430,16 @@ timers_fire(struct birdloop *loop)
 }
 
 
+
 static void
 sockets_init(struct birdloop *loop)
 {
-  list_init(&poll->sock_list);
-  poll->sock_num = 0;
+  init_list(&loop->sock_list);
+  loop->sock_num = 0;
 
   BUFFER_INIT(loop->poll_sk, loop->pool, 4);
   BUFFER_INIT(loop->poll_fd, loop->pool, 4);
-  poll_changed = 0;
+  loop->poll_changed = 1;	/* add wakeup fd */
 }
 
 static void
@@ -372,7 +458,9 @@ sockets_add(struct birdloop *loop, sock *s)
 void
 sk_start(sock *s)
 {
-  sockets_add(xxx_loop, s);
+  struct birdloop *loop = birdloop_current();
+
+  sockets_add(loop, s);
 }
 
 static void
@@ -382,7 +470,7 @@ sockets_remove(struct birdloop *loop, sock *s)
   loop->sock_num--;
 
   if (s->index >= 0)
-    s->poll_sk.data[sk->index] = NULL;
+    loop->poll_sk.data[s->index] = NULL;
 
   s->index = -1;
   loop->poll_changed = 1;
@@ -393,7 +481,9 @@ sockets_remove(struct birdloop *loop, sock *s)
 void
 sk_stop(sock *s)
 {
-  sockets_remove(xxx_loop, s);
+  struct birdloop *loop = birdloop_current();
+
+  sockets_remove(loop, s);
 
   if (loop->poll_active)
   {
@@ -413,7 +503,7 @@ static void
 sockets_update(struct birdloop *loop, sock *s)
 {
   if (s->index >= 0)
-    s->poll_fd.data[s->index].events = sk_want_events(s);
+    loop->poll_fd.data[s->index].events = sk_want_events(s);
 }
 
 static void
@@ -427,7 +517,7 @@ sockets_prepare(struct birdloop *loop)
   int i = 0;
   node *n;
 
-  WALK_LIST(n, &loop->sock_list)
+  WALK_LIST(n, loop->sock_list)
   {
     sock *s = SKIP_BACK(sock, n, n);
 
@@ -470,6 +560,8 @@ sockets_close_fds(struct birdloop *loop)
   loop->close_scheduled = 0;
 }
 
+int sk_read(sock *s);
+int sk_write(sock *s);
 
 static void
 sockets_fire(struct birdloop *loop)
@@ -507,11 +599,20 @@ sockets_fire(struct birdloop *loop)
 }
 
 
+
+static void * birdloop_main(void *arg);
+
 struct birdloop *
 birdloop_new(pool *p)
 {
+  /* FIXME: this init should be elsewhere and thread-safe */
+  static int init = 0;
+  if (!init)
+    { birdloop_init_current(); init = 1; }
+
   struct birdloop *loop = mb_allocz(p, sizeof(struct birdloop));
-  p->pool = p;
+  loop->pool = p;
+  pthread_mutex_init(&loop->mutex, NULL);
 
   times_init(loop);
   wakeup_init(loop);
@@ -520,28 +621,58 @@ birdloop_new(pool *p)
   timers_init(loop);
   sockets_init(loop);
 
+
+  int rv = pthread_create(&loop->thread, NULL, birdloop_main, loop);
+  if (rv < 0)
+    die("pthread_create(): %m");
+
   return loop;
 }
 
 void
 birdloop_enter(struct birdloop *loop)
 {
-  pthread_mutex_lock(loop->mutex);
+  /* TODO: these functions could save and restore old context */
+  pthread_mutex_lock(&loop->mutex);
+  birdloop_set_current(loop);
 }
 
 void
 birdloop_leave(struct birdloop *loop)
 {
-  pthread_mutex_unlock(loop->mutex);
+  /* TODO: these functions could save and restore old context */
+  birdloop_set_current(NULL);
+  pthread_mutex_unlock(&loop->mutex);
 }
 
+void
+birdloop_mask_wakeups(struct birdloop *loop)
+{
+  pthread_mutex_lock(&loop->mutex);
+  loop->wakeup_masked = 1;
+  pthread_mutex_unlock(&loop->mutex);
+}
 
 void
-birdloop_main(struct birdloop *loop)
+birdloop_unmask_wakeups(struct birdloop *loop)
 {
-  timer2 *t;
-  int timeout;
+  pthread_mutex_lock(&loop->mutex);
+  if (loop->wakeup_masked == 2)
+    wakeup_do_kick(loop);
+  loop->wakeup_masked = 0;
+  pthread_mutex_unlock(&loop->mutex);
+}
 
+static void *
+birdloop_main(void *arg)
+{
+  struct birdloop *loop = arg;
+  timer2 *t;
+  int rv, timeout;
+
+  birdloop_set_current(loop);
+
+  pthread_mutex_lock(&loop->mutex);
   while (1)
   {
     events_fire(loop);
@@ -559,7 +690,7 @@ birdloop_main(struct birdloop *loop)
       sockets_prepare(loop);
 
     loop->poll_active = 1;
-    pthread_mutex_unlock(loop->mutex);
+    pthread_mutex_unlock(&loop->mutex);
 
   try:
     rv = poll(loop->poll_fd.data, loop->poll_fd.used, timeout);
@@ -570,7 +701,7 @@ birdloop_main(struct birdloop *loop)
       die("poll: %m");
     }
 
-    pthread_mutex_lock(loop->mutex);
+    pthread_mutex_lock(&loop->mutex);
     loop->poll_active = 0;
 
     if (loop->close_scheduled)
@@ -581,6 +712,8 @@ birdloop_main(struct birdloop *loop)
 
     timers_fire(loop);
   }
+
+  return NULL;
 }
 
 
