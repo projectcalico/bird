@@ -58,22 +58,6 @@ adata_empty(struct linpool *pool, int l)
   return res;
 }
 
-static int
-pm_path_compare(struct f_path_mask *m1, struct f_path_mask *m2)
-{
-  while (1) {
-    if ((!m1) || (!m2))
-      return !((!m1) && (!m2));
-
-    /* FIXME: buggy, should return -1, 0, 1; but it doesn't matter */
-    if ((m1->kind != m2->kind) || (m1->val != m2->val)) return 1;
-    m1 = m1->next;
-    m2 = m2->next;
-  }
-}
-
-u32 f_eval_asn(struct f_inst *expr);
-
 static void
 pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
 {
@@ -135,9 +119,9 @@ u64_cmp(u64 i1, u64 i2)
  * @v1: first value
  * @v2: second value
  *
- * Compares two values and returns -1, 0, 1 on <, =, > or 999 on error.
- * Tree module relies on this giving consistent results so that it can
- * build balanced trees.
+ * Compares two values and returns -1, 0, 1 on <, =, > or CMP_ERROR on
+ * error. Tree module relies on this giving consistent results so
+ * that it can be used for building balanced trees.
  */
 int
 val_compare(struct f_val v1, struct f_val v2)
@@ -161,7 +145,10 @@ val_compare(struct f_val v1, struct f_val v2)
     debug( "Types do not match in val_compare\n" );
     return CMP_ERROR;
   }
+
   switch (v1.type) {
+  case T_VOID:
+    return 0;
   case T_ENUM:
   case T_INT:
   case T_BOOL:
@@ -177,22 +164,62 @@ val_compare(struct f_val v1, struct f_val v2)
     if (rc = ipa_compare(v1.val.px.ip, v2.val.px.ip))
       return rc;
     return int_cmp(v1.val.px.len, v2.val.px.len);
-  case T_PATH_MASK:
-    return pm_path_compare(v1.val.path_mask, v2.val.path_mask);
   case T_STRING:
     return strcmp(v1.val.s, v2.val.s);
-  case T_VOID:
-    return 0;
   default:
-    debug( "Compare of unknown entities: %x\n", v1.type );
     return CMP_ERROR;
   }
 }
 
-int 
-tree_compare(const void *p1, const void *p2)
+static int
+pm_path_same(struct f_path_mask *m1, struct f_path_mask *m2)
 {
-  return val_compare((* (struct f_tree **) p1)->from, (* (struct f_tree **) p2)->from);
+  while (m1 && m2)
+  {
+    if ((m1->kind != m2->kind) || (m1->val != m2->val))
+      return 0;
+
+    m1 = m1->next;
+    m2 = m2->next;
+  }
+
+ return !m1 && !m2;
+}
+
+/**
+ * val_same - compare two values
+ * @v1: first value
+ * @v2: second value
+ *
+ * Compares two values and returns 1 if they are same and 0 if not.
+ * Comparison of values of different types is valid and returns 0.
+ */
+int
+val_same(struct f_val v1, struct f_val v2)
+{
+  int rc;
+
+  rc = val_compare(v1, v2);
+  if (rc != CMP_ERROR)
+    return !rc;
+
+  if (v1.type != v2.type)
+    return 0;
+
+  switch (v1.type) {
+  case T_PATH_MASK:
+    return pm_path_same(v1.val.path_mask, v2.val.path_mask);
+  case T_PATH:
+  case T_CLIST:
+  case T_ECLIST:
+    return adata_same(v1.val.ad, v2.val.ad);
+  case T_SET:
+    return same_tree(v1.val.t, v2.val.t);
+  case T_PREFIX_SET:
+    return trie_same(v1.val.ti, v2.val.ti);
+  default:
+    bug("Invalid type in val_same(): %x", v1.type);
+  }
 }
 
 void
@@ -687,8 +714,15 @@ interpret(struct f_inst *what)
     res.val.i = (x); \
     break;
 
-  case P('!','='): COMPARE(i!=0);
-  case P('=','='): COMPARE(i==0);
+#define SAME(x) \
+    TWOARGS; \
+    i = val_same(v1, v2); \
+    res.type = T_BOOL; \
+    res.val.i = (x); \
+    break;
+
+  case P('!','='): SAME(!i);
+  case P('=','='): SAME(i);
   case '<': COMPARE(i==-1);
   case P('<','='): COMPARE(i!=1);
 
@@ -1379,33 +1413,12 @@ i_same(struct f_inst *f1, struct f_inst *f2)
       A2_SAME;
     }
     break;
-  case 'C': 
-    {
-      struct f_val *v1 = (struct f_val *) f1->a1.p;
-      struct f_val *v2 = (struct f_val *) f2->a1.p;
 
-      /* Handle some cases that are not handled by val_compare()
-         also T_PATH, T_CLIST and T_ECLIST does not work,
-         but you cannot easily create such constants */
-
-      if ((v1->type == T_SET) && (v2->type == T_SET))
-      {
-	if (!same_tree(v1->val.t, v2->val.t))
-	  return 0;
-	break;
-      }
-
-      if ((v1->type == T_PREFIX_SET) && (v2->type == T_PREFIX_SET))
-      {
-	if (!trie_same(v1->val.ti, v2->val.ti))
-	  return 0;
-	break;
-      }
-
-      if (val_compare(*v1 , *v2))
-	return 0;
-    }
+  case 'C':
+    if (!val_same(* (struct f_val *) f1->a1.p, * (struct f_val *) f2->a1.p))
+      return 0;
     break;
+
   case 'V': 
     if (strcmp((char *) f1->a2.p, (char *) f2->a2.p))
       return 0;
