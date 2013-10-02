@@ -1067,7 +1067,9 @@ interpret(struct f_inst *what)
     switch(v1.type) {
     case T_PREFIX: res.val.i = v1.val.px.len; break;
     case T_PATH:   res.val.i = as_path_getlen(v1.val.ad); break;
-    default: runtime( "Prefix or path expected" );
+    case T_CLIST:  res.val.i = int_set_get_size(v1.val.ad); break;
+    case T_ECLIST: res.val.i = ec_set_get_size(v1.val.ad); break;
+    default: runtime( "Prefix, path, clist or eclist expected" );
     }
     break;
   case P('c','p'):	/* Convert prefix to ... */
