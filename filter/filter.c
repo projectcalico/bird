@@ -112,25 +112,22 @@ pm_format(struct f_path_mask *p, byte *buf, unsigned int size)
   *buf = 0;
 }
 
-static inline int int_cmp(int i1, int i2)
+static inline int
+int_cmp(int i1, int i2)
 {
-  if (i1 == i2) return 0;
-  if (i1 < i2) return -1;
-  else return 1;
+  return (i1 > i2) - (i1 < i2); 
 }
 
-static inline int uint_cmp(unsigned int i1, unsigned int i2)
+static inline int
+uint_cmp(unsigned int i1, unsigned int i2)
 {
-  if (i1 == i2) return 0;
-  if (i1 < i2) return -1;
-  else return 1;
+  return (int)(i1 > i2) - (int)(i1 < i2);
 }
 
-static inline int u64_cmp(u64 i1, u64 i2)
+static inline int
+u64_cmp(u64 i1, u64 i2)
 {
-  if (i1 == i2) return 0;
-  if (i1 < i2) return -1;
-  else return 1;
+  return (int)(i1 > i2) - (int)(i1 < i2);
 }
 
 /**
@@ -147,14 +144,12 @@ val_compare(struct f_val v1, struct f_val v2)
 {
   int rc;
 
-  if ((v1.type == T_VOID) && (v2.type == T_VOID))
-    return 0;
-  if (v1.type == T_VOID)	/* Hack for else */
-    return -1;
-  if (v2.type == T_VOID)
-    return 1;
-
   if (v1.type != v2.type) {
+    if (v1.type == T_VOID)	/* Hack for else */
+      return -1;
+    if (v2.type == T_VOID)
+      return 1;
+
 #ifndef IPV6
     /* IP->Quad implicit conversion */
     if ((v1.type == T_QUAD) && (v2.type == T_IP))
@@ -181,15 +176,13 @@ val_compare(struct f_val v1, struct f_val v2)
   case T_PREFIX:
     if (rc = ipa_compare(v1.val.px.ip, v2.val.px.ip))
       return rc;
-    if (v1.val.px.len < v2.val.px.len)
-      return -1;
-    if (v1.val.px.len > v2.val.px.len)
-      return 1;
-    return 0;
+    return int_cmp(v1.val.px.len, v2.val.px.len);
   case T_PATH_MASK:
     return pm_path_compare(v1.val.path_mask, v2.val.path_mask);
   case T_STRING:
     return strcmp(v1.val.s, v2.val.s);
+  case T_VOID:
+    return 0;
   default:
     debug( "Compare of unknown entities: %x\n", v1.type );
     return CMP_ERROR;
