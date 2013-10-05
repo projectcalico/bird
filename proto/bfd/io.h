@@ -15,16 +15,6 @@
 // #include "lib/timer.h"
 
 
-#define S	*1000000
-#define MS	*1000
-#define US	*1
-#define TO_S	/1000000
-#define TO_MS	/1000
-#define TO_US	/1
-
-
-typedef s64 btime;
-
 typedef struct timer2
 {
   resource r;
@@ -89,6 +79,8 @@ void sk_stop(sock *s);
 
 
 struct birdloop *birdloop_new(pool *p);
+void birdloop_start(struct birdloop *loop);
+void birdloop_stop(struct birdloop *loop);
 void birdloop_enter(struct birdloop *loop);
 void birdloop_leave(struct birdloop *loop);
 void birdloop_mask_wakeups(struct birdloop *loop);

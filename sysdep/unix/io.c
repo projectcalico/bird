@@ -538,6 +538,9 @@ sk_free(resource *r)
   if (s->fd >= 0)
     {
       close(s->fd);
+      if (s->flags & SKF_THREAD)
+	return;
+
       if (s == current_sock)
 	current_sock = sk_next(s);
       if (s == stored_sock)

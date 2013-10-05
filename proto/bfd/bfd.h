@@ -27,9 +27,9 @@
 #define BFD_ECHO_PORT		3785
 #define BFD_MULTI_CTL_PORT	4784
 
-#define BFD_DEFAULT_MIN_RX_INT	(10 MS)
-#define BFD_DEFAULT_MIN_TX_INT	(100 MS)
-#define BFD_DEFAULT_IDLE_TX_INT	(1 S)
+#define BFD_DEFAULT_MIN_RX_INT	(10 _MS)
+#define BFD_DEFAULT_MIN_TX_INT	(100 _MS)
+#define BFD_DEFAULT_IDLE_TX_INT	(1 _S)
 #define BFD_DEFAULT_MULTIPLIER	5
 
 
@@ -127,6 +127,7 @@ struct bfd_session
 };
 
 
+extern const char *bfd_state_names[];
 
 #define BFD_STATE_ADMIN_DOWN	0
 #define BFD_STATE_DOWN		1
@@ -146,6 +147,7 @@ struct bfd_session
 #define BFD_POLL_TX		1
 #define BFD_POLL_RX		2
 
+#define BFD_FLAGS		0x3f
 #define BFD_FLAG_POLL		(1 << 5)
 #define BFD_FLAG_FINAL		(1 << 4)
 #define BFD_FLAG_CPI		(1 << 3)

@@ -35,6 +35,7 @@ struct birdloop
   btime real_time;
   u8 use_monotonic_clock;
 
+  u8 stop_called;
   u8 poll_active;
   u8 wakeup_masked;
   int wakeup_fds[2];
@@ -85,7 +86,7 @@ times_init(struct birdloop *loop)
   rv = clock_gettime(CLOCK_MONOTONIC, &ts);
   if (rv < 0)
   {
-    // log(L_WARN "Monotonic clock is missing");
+    log(L_WARN "Monotonic clock is missing");
 
     loop->use_monotonic_clock = 0;
     loop->last_time = 0;
@@ -94,13 +95,11 @@ times_init(struct birdloop *loop)
     return;
   }
 
-  /*
   if ((ts.tv_sec < 0) || (((s64) ts.tv_sec) > ((s64) 1 << 40)))
     log(L_WARN "Monotonic clock is crazy");
-  */
 
   loop->use_monotonic_clock = 1;
-  loop->last_time = (ts.tv_sec S) + (ts.tv_nsec / 1000);
+  loop->last_time = ((s64) ts.tv_sec S) + (ts.tv_nsec / 1000);
   loop->real_time = 0;
 }
 
@@ -114,12 +113,10 @@ times_update_pri(struct birdloop *loop)
   if (rv < 0)
     die("clock_gettime: %m");
 
-  btime new_time = (ts.tv_sec S) + (ts.tv_nsec / 1000);
+  btime new_time = ((s64) ts.tv_sec S) + (ts.tv_nsec / 1000);
 
-  /*
   if (new_time < loop->last_time)
     log(L_ERR "Monotonic clock is broken");
-  */
 
   loop->last_time = new_time;
   loop->real_time = 0;
@@ -135,15 +132,13 @@ times_update_alt(struct birdloop *loop)
   if (rv < 0)
     die("gettimeofday: %m");
 
-  btime new_time = (tv.tv_sec S) + tv.tv_usec;
+  btime new_time = ((s64) tv.tv_sec S) + tv.tv_usec;
   btime delta = new_time - loop->real_time;
 
   if ((delta < 0) || (delta > (60 S)))
   {
-    /*
     if (loop->real_time)
       log(L_WARN "Time jump, delta %d us", (int) delta);
-    */
 
     delta = 100 MS;
   }
@@ -621,13 +616,30 @@ birdloop_new(pool *p)
   timers_init(loop);
   sockets_init(loop);
 
-
-  int rv = pthread_create(&loop->thread, NULL, birdloop_main, loop);
-  if (rv < 0)
-    die("pthread_create(): %m");
-
   return loop;
 }
+
+void
+birdloop_start(struct birdloop *loop)
+{
+  int rv = pthread_create(&loop->thread, NULL, birdloop_main, loop);
+  if (rv)
+    die("pthread_create(): %M", rv);
+}
+
+void
+birdloop_stop(struct birdloop *loop)
+{
+  pthread_mutex_lock(&loop->mutex);
+  loop->stop_called = 1;
+  wakeup_do_kick(loop);
+  pthread_mutex_unlock(&loop->mutex);
+
+  int rv = pthread_join(loop->thread, NULL);
+  if (rv)
+    die("pthread_join(): %M", rv);
+}
+
 
 void
 birdloop_enter(struct birdloop *loop)
@@ -707,11 +719,17 @@ birdloop_main(void *arg)
     if (loop->close_scheduled)
       sockets_close_fds(loop);
 
+    if (loop->stop_called)
+      break;
+
     if (rv)
       sockets_fire(loop);
 
     timers_fire(loop);
   }
+
+  loop->stop_called = 0;
+  pthread_mutex_unlock(&loop->mutex);
 
   return NULL;
 }

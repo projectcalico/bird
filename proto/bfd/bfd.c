@@ -17,6 +17,9 @@
 #define HASH_IP_EQ(a,b)		ipa_equal(a,b)
 #define HASH_IP_FN(k)		ipa_hash(k)
 
+
+const char *bfd_state_names[] = { "AdminDown", "Down", "Init", "Up" };
+
 static inline void bfd_notify_kick(struct bfd_proto *p);
 
 static void 
@@ -28,7 +31,7 @@ bfd_session_update_state(struct bfd_session *s, uint state, uint diag)
   if (s->loc_state == state)
     return;
 
-  //TRACE(D_EVENTS, "Session changed %I %d %d", s->addr, state, diag);
+  TRACE(D_EVENTS, "Session changed %I %d %d", s->addr, state, diag);
   debug("STATE %I %d %d %d\n", s->addr, s->loc_state, state, diag);
     
   bfd_lock_sessions(p);
@@ -547,8 +550,6 @@ bfd_start(struct proto *P)
   init_list(&p->sock_list);
 
 
-  birdloop_mask_wakeups(p->loop);
-
   init_list(&p->notify_list);
   bfd_notify_init(p);
 
@@ -561,7 +562,7 @@ bfd_start(struct proto *P)
   WALK_LIST(n, cf->neigh_list)
     bfd_start_neighbor(p, n);
 
-  birdloop_unmask_wakeups(p->loop);
+  birdloop_start(p->loop);
 
   return PS_UP;
 }
@@ -571,6 +572,13 @@ static int
 bfd_shutdown(struct proto *P)
 {
   struct bfd_proto *p = (struct bfd_proto *) P;
+
+  birdloop_stop(p->loop);
+
+  /* FIXME: This is hack */
+  birdloop_enter(p->loop);
+  rfree(p->tpool);
+  birdloop_leave(p->loop);
 
   return PS_DOWN;
 }
@@ -661,8 +669,8 @@ bfd_show_sessions(struct proto *P)
     tx_int = (MAX(s->des_min_tx_int, s->rem_min_rx_int) TO_MS);
     timeout = (MAX(s->req_min_rx_int, s->rem_min_tx_int) TO_MS) * s->rem_detect_mult;
 
-    cli_msg(-1013, "%I\t%s\t%d %d\t%u\t%u",
-	    s->addr, ifname, state, diag, tx_int, timeout);
+    cli_msg(-1013, "%I\t%s\t%s %d\t%u\t%u",
+	    s->addr, ifname, bfd_state_names[state], diag, tx_int, timeout);
   }
   HASH_WALK_END;
 
