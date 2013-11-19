@@ -36,12 +36,19 @@ static const bird_clock_t rate_limit_time = 5;
 static const int rate_limit_count = 5;
 
 
-// XXX add ifdef for threads
+#ifdef USE_PTHREADS
 
 #include <pthread.h>
 static pthread_mutex_t log_mutex;
 static inline void log_lock(void) { pthread_mutex_lock(&log_mutex); }
 static inline void log_unlock(void) { pthread_mutex_unlock(&log_mutex); }
+
+#else
+
+static inline void log_lock(void) {  }
+static inline void log_unlock(void) {  }
+
+#endif
 
 
 #ifdef HAVE_SYSLOG

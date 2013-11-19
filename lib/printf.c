@@ -276,7 +276,7 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 				ip_ntox(va_arg(args, ip_addr), ipbuf);
 			else {
 				ip_ntop(va_arg(args, ip_addr), ipbuf);
-				if (field_width > 0)
+				if (field_width == 1)
 					field_width = STD_ADDRESS_P_LENGTH;
 			}
 			s = ipbuf;

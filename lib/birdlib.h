@@ -24,6 +24,8 @@
 #define _MAX(a,b) (((a)>(b))?(a):(b))
 
 #ifndef PARSER
+#undef MIN
+#undef MAX
 #define MIN(a,b) _MIN(a,b)
 #define MAX(a,b) _MAX(a,b)
 #endif

@@ -538,6 +538,8 @@ sk_free(resource *r)
   if (s->fd >= 0)
     {
       close(s->fd);
+
+      /* FIXME: we should call sk_stop() for SKF_THREAD sockets */
       if (s->flags & SKF_THREAD)
 	return;
 

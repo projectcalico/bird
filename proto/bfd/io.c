@@ -52,6 +52,9 @@ struct birdloop
 };
 
 
+/*
+ *	Current thread context
+ */
 
 static pthread_key_t current_loop_key;
 
@@ -74,6 +77,9 @@ birdloop_init_current(void)
 }
 
 
+/*
+ *	Time clock
+ */
 
 static void times_update_alt(struct birdloop *loop);
 
@@ -163,6 +169,9 @@ current_time(void)
 }
 
 
+/*
+ *	Wakeup code for birdloop
+ */
 
 static void
 pipe_new(int *pfds)
@@ -244,6 +253,9 @@ wakeup_kick(struct birdloop *loop)
 }
 
 
+/*
+ *	Events
+ */
 
 static inline uint
 events_waiting(struct birdloop *loop)
@@ -279,11 +291,13 @@ ev2_schedule(event *e)
 }
 
 
+/*
+ *	Timers
+ */
 
 #define TIMER_LESS(a,b)		((a)->expires < (b)->expires)
 #define TIMER_SWAP(heap,a,b,t)	(t = heap[a], heap[a] = heap[b], heap[b] = t, \
 				   heap[a]->index = (a), heap[b]->index = (b))
-
 
 static inline uint timers_count(struct birdloop *loop)
 { return loop->timers.used - 1; }
@@ -425,6 +439,9 @@ timers_fire(struct birdloop *loop)
 }
 
 
+/*
+ *	Sockets
+ */
 
 static void
 sockets_init(struct birdloop *loop)
@@ -494,12 +511,16 @@ sk_stop(sock *s)
 static inline uint sk_want_events(sock *s)
 { return (s->rx_hook ? POLLIN : 0) | ((s->ttx != s->tpos) ? POLLOUT : 0); }
 
+/*
+FIXME: this should be called from sock code
+
 static void
 sockets_update(struct birdloop *loop, sock *s)
 {
   if (s->index >= 0)
     loop->poll_fd.data[s->index].events = sk_want_events(s);
 }
+*/
 
 static void
 sockets_prepare(struct birdloop *loop)
@@ -594,17 +615,21 @@ sockets_fire(struct birdloop *loop)
 }
 
 
+/*
+ *	Birdloop
+ */
 
 static void * birdloop_main(void *arg);
 
 struct birdloop *
-birdloop_new(pool *p)
+birdloop_new(void)
 {
   /* FIXME: this init should be elsewhere and thread-safe */
   static int init = 0;
   if (!init)
     { birdloop_init_current(); init = 1; }
 
+  pool *p = rp_new(NULL, "Birdloop root");
   struct birdloop *loop = mb_allocz(p, sizeof(struct birdloop));
   loop->pool = p;
   pthread_mutex_init(&loop->mutex, NULL);
@@ -638,6 +663,12 @@ birdloop_stop(struct birdloop *loop)
   int rv = pthread_join(loop->thread, NULL);
   if (rv)
     die("pthread_join(): %M", rv);
+}
+
+void
+birdloop_free(struct birdloop *loop)
+{
+  rfree(loop->pool);
 }
 
 
@@ -733,6 +764,5 @@ birdloop_main(void *arg)
 
   return NULL;
 }
-
 
 

@@ -62,7 +62,7 @@ bfd_format_flags(u8 flags, char *buf)
 void
 bfd_send_ctl(struct bfd_proto *p, struct bfd_session *s, int final)
 {
-  sock *sk = s->bsock->sk;
+  sock *sk = s->ifa->sk;
   struct bfd_ctl_packet *pkt = (struct bfd_ctl_packet *) sk->tbuf;
   char fb[8];
 
@@ -143,7 +143,7 @@ bfd_rx_hook(sock *sk, int len)
     s = bfd_find_session_by_addr(p, sk->faddr);
 
     /* FIXME: better session matching and message */
-    if (!s || !s->opened)
+    if (!s)
       return 1;
   }
 
@@ -155,7 +155,7 @@ bfd_rx_hook(sock *sk, int len)
   u32 old_tx_int = s->des_min_tx_int;
   u32 old_rx_int = s->rem_min_rx_int;
 
-  s->rem_id = ntohl(pkt->snd_id);
+  s->rem_id= ntohl(pkt->snd_id);
   s->rem_state = bfd_pkt_get_state(pkt);
   s->rem_diag = bfd_pkt_get_diag(pkt);
   s->rem_demand_mode = pkt->flags & BFD_FLAG_DEMAND;
@@ -213,7 +213,7 @@ bfd_open_rx_sk(struct bfd_proto *p, int multihop)
   return NULL;
 }
 
-static inline sock *
+sock *
 bfd_open_tx_sk(struct bfd_proto *p, ip_addr local, struct iface *ifa)
 {
   sock *sk = sk_new(p->tpool);
@@ -245,33 +245,4 @@ bfd_open_tx_sk(struct bfd_proto *p, ip_addr local, struct iface *ifa)
  err:
   rfree(sk);
   return NULL;
-}
-
-struct bfd_socket *
-bfd_get_socket(struct bfd_proto *p, ip_addr local, struct iface *ifa)
-{
-  struct bfd_socket *sk;
-
-  WALK_LIST(sk, p->sock_list)
-    if (ipa_equal(sk->sk->saddr, local) && (sk->sk->iface == ifa))
-      return sk->uc++, sk;
-
-  sk = mb_allocz(p->tpool, sizeof(struct bfd_socket));
-  sk->sk = bfd_open_tx_sk(p, local, ifa);
-  sk->uc = 1;
-  add_tail(&p->sock_list, &sk->n);
-
-  return sk;
-}
-
-void
-bfd_free_socket(struct bfd_socket *sk)
-{
-  if (!sk || --sk->uc)
-    return;
-
-  rem_node(&sk->n);
-  sk_stop(sk->sk);
-  rfree(sk->sk);
-  mb_free(sk);
 }
