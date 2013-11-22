@@ -1181,6 +1181,15 @@ sk_open(sock *s)
 	  port = s->sport;
 	  if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0)
 	    ERR("SO_REUSEADDR");
+	
+#ifdef CONFIG_NO_IFACE_BIND
+	  /* Workaround missing ability to bind to an iface */
+	  if ((type == SK_UDP) && s->iface && ipa_zero(s->saddr))
+	  {
+	    if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0)
+	      ERR("SO_REUSEPORT");
+	  }
+#endif
 	}
       fill_in_sockaddr(&sa, s->saddr, s->iface, port);
       if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
