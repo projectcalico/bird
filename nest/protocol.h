@@ -75,7 +75,7 @@ void protos_dump_all(void);
 
 extern struct protocol
   proto_device, proto_radv, proto_rip, proto_static,
-  proto_ospf, proto_pipe, proto_bgp;
+  proto_ospf, proto_pipe, proto_bgp, proto_bfd;
 
 /*
  *	Routing Protocol Instance
@@ -357,6 +357,12 @@ void proto_notify_state(struct proto *p, unsigned state);
 #define D_IFACES 8		/* [core] Interface events */
 #define D_EVENTS 16		/* Protocol events */
 #define D_PACKETS 32		/* Packets sent/received */
+
+#ifndef PARSER
+#define TRACE(flags, msg, args...) \
+  do { if (p->p.debug & flags) log(L_TRACE "%s: " msg, p->p.name , ## args ); } while(0)
+#endif
+
 
 /*
  *	MRTDump flags

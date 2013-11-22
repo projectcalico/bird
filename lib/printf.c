@@ -276,7 +276,7 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 				ip_ntox(va_arg(args, ip_addr), ipbuf);
 			else {
 				ip_ntop(va_arg(args, ip_addr), ipbuf);
-				if (field_width > 0)
+				if (field_width == 1)
 					field_width = STD_ADDRESS_P_LENGTH;
 			}
 			s = ipbuf;
@@ -409,4 +409,41 @@ int bsnprintf(char * buf, int size, const char *fmt, ...)
   i=bvsnprintf(buf, size, fmt, args);
   va_end(args);
   return i;
+}
+
+int
+buffer_vprint(buffer *buf, const char *fmt, va_list args)
+{
+  int i = bvsnprintf((char *) buf->pos, buf->end - buf->pos, fmt, args);
+  buf->pos = (i >= 0) ? (buf->pos + i) : buf->end;
+  return i;
+}
+
+int
+buffer_print(buffer *buf, const char *fmt, ...)
+{
+  va_list args;
+  int i;
+
+  va_start(args, fmt);
+  i=bvsnprintf((char *) buf->pos, buf->end - buf->pos, fmt, args);
+  va_end(args);
+
+  buf->pos = (i >= 0) ? (buf->pos + i) : buf->end;
+  return i;
+}
+
+void
+buffer_puts(buffer *buf, const char *str)
+{
+  byte *bp = buf->pos;
+  byte *be = buf->end;
+
+  while (bp < be && *str)
+    *bp++ = *str++;
+
+  if (bp < be)
+    *bp = 0;
+
+  buf->pos = bp;
 }

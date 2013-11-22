@@ -73,6 +73,7 @@ CF_DECLS
 %type <iface> ipa_scope
 
 %type <i> expr bool pxlen
+%type <i32> expr_us
 %type <time> datetime
 %type <a> ipa
 %type <px> prefix prefix_or_ipa
@@ -86,7 +87,7 @@ CF_DECLS
 %left '!'
 %nonassoc '.'
 
-CF_KEYWORDS(DEFINE, ON, OFF, YES, NO)
+CF_KEYWORDS(DEFINE, ON, OFF, YES, NO, S, MS, US)
 
 CF_GRAMMAR
 
@@ -122,6 +123,13 @@ expr:
  | SYM {
      if ($1->class != (SYM_CONSTANT | T_INT)) cf_error("Number expected");
      $$ = SYM_VAL($1).i; }
+ ;
+
+
+expr_us:
+   expr S  { $$ = (u32) $1 * 1000000; }
+ | expr MS { $$ = (u32) $1 * 1000; }
+ | expr US { $$ = (u32) $1 * 1; }
  ;
 
 /* expr_u16: expr { check_u16($1); $$ = $1; }; */

@@ -538,6 +538,11 @@ sk_free(resource *r)
   if (s->fd >= 0)
     {
       close(s->fd);
+
+      /* FIXME: we should call sk_stop() for SKF_THREAD sockets */
+      if (s->flags & SKF_THREAD)
+	return;
+
       if (s == current_sock)
 	current_sock = sk_next(s);
       if (s == stored_sock)
@@ -1240,7 +1245,8 @@ sk_open(sock *s)
 #endif
     }
 
-  sk_insert(s);
+  if (!(s->flags & SKF_THREAD))
+    sk_insert(s);
   return 0;
 
 bad:
@@ -1428,7 +1434,9 @@ sk_send_full(sock *s, unsigned len, struct iface *ifa,
 }
 */
 
-static int
+ /* sk_read() and sk_write() are called from BFD's event loop */
+
+int
 sk_read(sock *s)
 {
   switch (s->type)
@@ -1505,7 +1513,7 @@ sk_read(sock *s)
     }
 }
 
-static int
+int
 sk_write(sock *s)
 {
   switch (s->type)
@@ -1523,7 +1531,8 @@ sk_write(sock *s)
     default:
       if (s->ttx != s->tpos && sk_maybe_write(s) > 0)
 	{
-	  s->tx_hook(s);
+	  if (s->tx_hook)
+	    s->tx_hook(s);
 	  return 1;
 	}
       return 0;

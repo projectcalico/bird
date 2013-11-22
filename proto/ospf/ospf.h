@@ -46,6 +46,7 @@ do { if ((p->debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
 #include "nest/route.h"
 #include "nest/cli.h"
 #include "nest/locks.h"
+#include "nest/bfd.h"
 #include "conf/conf.h"
 #include "lib/string.h"
 
@@ -276,6 +277,7 @@ struct ospf_iface
   u8 ecmp_weight;		/* Weight used for ECMP */
   u8 ptp_netmask;		/* Send real netmask for P2P */
   u8 check_ttl;			/* Check incoming packets for TTL 255 */
+  u8 bfd;			/* Use BFD on iface */
 };
 
 struct ospf_md5
@@ -708,6 +710,7 @@ struct ospf_neighbor
 #define ACKL_DIRECT 0
 #define ACKL_DELAY 1
   timer *ackd_timer;		/* Delayed ack timer */
+  struct bfd_request *bfd_req;	/* BFD request, if BFD is used */
   u32 csn;                      /* Last received crypt seq number (for MD5) */
 };
 
@@ -818,6 +821,7 @@ struct ospf_iface_patt
   u8 real_bcast;		/* Not really used in OSPFv3 */
   u8 ptp_netmask;		/* bool + 2 for unspecified */
   u8 ttl_security;		/* bool + 2 for TX only */
+  u8 bfd;
 
 #ifdef OSPFv2
   list *passwords;
