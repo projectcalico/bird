@@ -284,6 +284,16 @@ ospf_lsupd_flood(struct proto_ospf *po,
       ospf_pkt_fill_hdr(ifa, pk, LSUPD_P);
       pk->lsano = htonl(1);
 
+      /* Check iface buffer size */
+      int len2 = sizeof(struct ospf_lsupd_packet) + (hn ? ntohs(hn->length) : hh->length);
+      if (len2 > ospf_pkt_bufsize(ifa))
+      {
+	/* Cannot fit in a tx buffer, skip that iface */
+	log(L_ERR "OSPF: LSA too large to flood on %s (Type: %04x, Id: %R, Rt: %R)", 
+	    ifa->iface->name, hh->type, hh->id, hh->rt);
+	continue;
+      }
+
       lh = (struct ospf_lsa_header *) (pk + 1);
 
       /* Copy LSA into the packet */
@@ -399,7 +409,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 	if (len2 > ospf_pkt_bufsize(n->ifa))
 	{
 	  /* Cannot fit in a tx buffer, skip that */
-	  log(L_WARN "OSPF: LSA too large to send (Type: %04x, Id: %R, Rt: %R)", 
+	  log(L_ERR "OSPF: LSA too large to send (Type: %04x, Id: %R, Rt: %R)", 
 	      lsr->lsh.type, lsr->lsh.id, lsr->lsh.rt);
 	  lsr = NODE_NEXT(lsr);
 	  continue;
