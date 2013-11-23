@@ -925,9 +925,10 @@ incompatible with each other (that is to prevent you from shooting in the foot).
 	  <cf/true/ and <cf/false/. Boolean is the only type you can use in
 	  <cf/if/ statements.
 
-	<tag/int/ This is a general integer type, you can expect it to store
-	  signed values from -2000000000 to +2000000000. Overflows are not
-	  checked. You can use <cf/0x1234/ syntax to write hexadecimal values.
+	<tag/int/ This is a general integer type. It is an unsigned 32bit type;
+	  i.e., you can expect it to store values from 0 to 4294967295.
+	  Overflows are not checked. You can use <cf/0x1234/ syntax to write
+	  hexadecimal values.
 
 	<tag/pair/ This is a pair of two short integers. Each component can have
 	  values from 0 to 65535. Literals of this type are written as
