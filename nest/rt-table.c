@@ -77,7 +77,7 @@ net_route(rtable *tab, ip_addr a, int len)
     {
       a0 = ipa_and(a, ipa_mkmask(len));
       n = fib_find(&tab->fib, &a0, len);
-      if (n && n->routes)
+      if (n && rte_is_valid(n->routes))
 	return n;
       len--;
     }
@@ -147,8 +147,11 @@ rte_better(rte *new, rte *old)
 {
   int (*better)(rte *, rte *);
 
-  if (!old)
+  if (!rte_is_valid(old))
     return 1;
+  if (!rte_is_valid(new))
+    return 0;
+
   if (new->pref > old->pref)
     return 1;
   if (new->pref < old->pref)
@@ -217,7 +220,8 @@ export_filter(struct announce_hook *ah, rte *rt0, rte **rt_free, ea_list **tmpa,
 	goto reject;
 
       stats->exp_updates_rejected++;
-      rte_trace_out(D_FILTERS, p, rt, "rejected by protocol");
+      if (v == RIC_REJECT)
+	rte_trace_out(D_FILTERS, p, rt, "rejected by protocol");
       goto reject;
     }
   if (v > 0)
@@ -289,7 +293,7 @@ do_rt_notify(struct announce_hook *ah, net *net, rte *new, rte *old, ea_list *tm
   if (l && new)
     {
       if ((!old || refeed) && (stats->exp_routes >= l->limit))
-	proto_notify_limit(ah, l, stats->exp_routes);
+	proto_notify_limit(ah, l, PLD_OUT, stats->exp_routes);
 
       if (l->state == PLS_BLOCKED)
 	{
@@ -406,9 +410,13 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
   rte *old_free = NULL;
   rte *r;
 
-  /* Used to track whether we met old_changed position. If it is NULL
-     it was the first and met it implicitly before current best route. */
-  int old_meet = (old_changed && !before_old) ? 1 : 0;
+  /* Used to track whether we met old_changed position. If before_old is NULL
+     old_changed was the first and we met it implicitly before current best route. */
+  int old_meet = old_changed && !before_old;
+
+  /* Note that before_old is either NULL or valid (not rejected) route.
+     If old_changed is valid, before_old have to be too. If old changed route
+     was not valid, caller must use NULL for both old_changed and before_old. */
 
   if (new_changed)
     stats->exp_updates_received++;
@@ -416,7 +424,7 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
     stats->exp_withdraws_received++;
 
   /* First, find the new_best route - first accepted by filters */
-  for (r=net->routes; r; r=r->next)
+  for (r=net->routes; rte_is_valid(r); r=r->next)
     {
       if (new_best = export_filter(ah, r, &new_free, &tmpa, 0))
 	break;
@@ -435,7 +443,8 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
   if (feed)
     {
       if (feed == 2)	/* refeed */
-	old_best = new_best ? new_best : net->routes;
+	old_best = new_best ? new_best :
+	  (rte_is_valid(net->routes) ? net->routes : NULL);
       else
 	old_best = NULL;
 
@@ -484,7 +493,7 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
     }
 
   /* Fourth case */
-  for (r=r->next; r; r=r->next)
+  for (r=r->next; rte_is_valid(r); r=r->next)
     {
       if (old_best = export_filter(ah, r, &old_free, NULL, 1))
 	goto found;
@@ -538,7 +547,14 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
 static void
 rte_announce(rtable *tab, unsigned type, net *net, rte *new, rte *old, rte *before_old, ea_list *tmpa)
 {
-  struct announce_hook *a;
+  if (!rte_is_valid(old))
+    old = before_old = NULL;
+
+  if (!rte_is_valid(new))
+    new = NULL;
+
+  if (!old && !new)
+    return;
 
   if (type == RA_OPTIMAL)
     {
@@ -551,6 +567,7 @@ rte_announce(rtable *tab, unsigned type, net *net, rte *new, rte *old, rte *befo
 	rt_notify_hostcache(tab, net);
     }
 
+  struct announce_hook *a;
   WALK_LIST(a, tab->hooks)
     {
       ASSERT(a->proto->core_state == FS_HAPPY || a->proto->core_state == FS_FEEDING);
@@ -618,12 +635,15 @@ rte_same(rte *x, rte *y)
     (!x->attrs->src->proto->rte_same || x->attrs->src->proto->rte_same(x, y));
 }
 
+static inline int rte_is_ok(rte *e) { return e && !rte_is_filtered(e); }
+
 static void
 rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, struct rte_src *src)
 {
   struct proto *p = ah->proto;
   struct rtable *table = ah->table;
   struct proto_stats *stats = ah->stats;
+  static struct rate_limit rl_pipe;
   rte *before_old = NULL;
   rte *old_best = net->routes;
   rte *old = NULL;
@@ -647,7 +667,7 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	    {
 	      if (new)
 		{
-		  log(L_ERR "Pipe collision detected when sending %I/%d to table %s",
+		  log_rl(&rl_pipe, L_ERR "Pipe collision detected when sending %I/%d to table %s",
 		      net->n.prefix, net->n.pxlen, table->name);
 		  rte_free_quick(new);
 		}
@@ -657,8 +677,13 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	  if (new && rte_same(old, new))
 	    {
 	      /* No changes, ignore the new route */
-	      stats->imp_updates_ignored++;
-	      rte_trace_in(D_ROUTES, p, new, "ignored");
+
+	      if (!rte_is_filtered(new))
+		{
+		  stats->imp_updates_ignored++;
+		  rte_trace_in(D_ROUTES, p, new, "ignored");
+		}
+
 	      rte_free_quick(new);
 #ifdef CONFIG_RIP
 	      /* lastmod is used internally by RIP as the last time
@@ -684,14 +709,22 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
       return;
     }
 
-  struct proto_limit *l = ah->in_limit;
+  int new_ok = rte_is_ok(new);
+  int old_ok = rte_is_ok(old);
+
+  struct proto_limit *l = ah->rx_limit;
   if (l && !old && new)
     {
-      if (stats->imp_routes >= l->limit)
-	proto_notify_limit(ah, l, stats->imp_routes);
+      u32 all_routes = stats->imp_routes + stats->filt_routes;
+
+      if (all_routes >= l->limit)
+	proto_notify_limit(ah, l, PLD_RX, all_routes);
 
       if (l->state == PLS_BLOCKED)
 	{
+	  /* In receive limit the situation is simple, old is NULL so
+	     we just free new and exit like nothing happened */
+
 	  stats->imp_updates_ignored++;
 	  rte_trace_in(D_FILTERS, p, new, "ignored [limit]");
 	  rte_free_quick(new);
@@ -699,15 +732,53 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
 	}
     }
 
-  if (new)
+  l = ah->in_limit;
+  if (l && !old_ok && new_ok)
+    {
+      if (stats->imp_routes >= l->limit)
+	proto_notify_limit(ah, l, PLD_IN, stats->imp_routes);
+
+      if (l->state == PLS_BLOCKED)
+	{
+	  /* In import limit the situation is more complicated. We
+	     shouldn't just drop the route, we should handle it like
+	     it was filtered. We also have to continue the route
+	     processing if old or new is non-NULL, but we should exit
+	     if both are NULL as this case is probably assumed to be
+	     already handled. */
+
+	  stats->imp_updates_ignored++;
+	  rte_trace_in(D_FILTERS, p, new, "ignored [limit]");
+
+	  if (ah->in_keep_filtered)
+	    new->flags |= REF_FILTERED;
+	  else
+	    { rte_free_quick(new); new = NULL; }
+
+	  /* Note that old && !new could be possible when
+	     ah->in_keep_filtered changed in the recent past. */
+
+	  if (!old && !new)
+	    return;
+
+	  new_ok = 0;
+	  goto skip_stats1;
+	}
+    }
+
+  if (new_ok)
     stats->imp_updates_accepted++;
-  else
+  else if (old_ok)
     stats->imp_withdraws_accepted++;
+  else
+    stats->imp_withdraws_ignored++;
+
+ skip_stats1:
 
   if (new)
-    stats->imp_routes++;
+    rte_is_filtered(new) ? stats->filt_routes++ : stats->imp_routes++;
   if (old)
-    stats->imp_routes--;
+    rte_is_filtered(old) ? stats->filt_routes-- : stats->imp_routes--;
 
   if (table->config->sorted)
     {
@@ -792,17 +863,19 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
     new->lastmod = now;
 
   /* Log the route change */
-  if (new)
-    rte_trace_in(D_ROUTES, p, new, net->routes == new ? "added [best]" : "added");
-
-  if (!new && (p->debug & D_ROUTES))
+  if (p->debug & D_ROUTES)
     {
-      if (old != old_best)
-	rte_trace_in(D_ROUTES, p, old, "removed");
-      else if (net->routes)
-	rte_trace_in(D_ROUTES, p, old, "removed [replaced]");
-      else
-	rte_trace_in(D_ROUTES, p, old, "removed [sole]");
+      if (new_ok)
+	rte_trace(p, new, '>', new == net->routes ? "added [best]" : "added");
+      else if (old_ok)
+	{
+	  if (old != old_best)
+	    rte_trace(p, old, '>', "removed");
+	  else if (rte_is_ok(net->routes))
+	    rte_trace(p, old, '>', "removed [replaced]");
+	  else
+	    rte_trace(p, old, '>', "removed [sole]");
+	}
     }
 
   /* Propagate the route change */
@@ -817,17 +890,13 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
       (table->gc_time + table->config->gc_min_time <= now))
     rt_schedule_gc(table);
 
+  if (old_ok && p->rte_remove)
+    p->rte_remove(net, old);
+  if (new_ok && p->rte_insert)
+    p->rte_insert(net, new);
+
   if (old)
-    {
-      if (p->rte_remove)
-	p->rte_remove(net, old);
-      rte_free_quick(old);
-    }
-  if (new)
-    {
-      if (p->rte_insert)
-	p->rte_insert(net, new);
-    }
+    rte_free_quick(old);
 }
 
 static int rte_update_nest_cnt;		/* Nesting counter to allow recursive updates */
@@ -843,6 +912,26 @@ rte_update_unlock(void)
 {
   if (!--rte_update_nest_cnt)
     lp_flush(rte_update_pool);
+}
+
+static inline void
+rte_hide_dummy_routes(net *net, rte **dummy)
+{
+  if (net->routes && net->routes->attrs->source == RTS_DUMMY)
+  {
+    *dummy = net->routes;
+    net->routes = (*dummy)->next;
+  }
+}
+
+static inline void
+rte_unhide_dummy_routes(net *net, rte **dummy)
+{
+  if (*dummy)
+  {
+    (*dummy)->next = net->routes;
+    net->routes = *dummy;
+  }
 }
 
 /**
@@ -894,6 +983,7 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src)
   struct proto_stats *stats = ah->stats;
   struct filter *filter = ah->in_filter;
   ea_list *tmpa = NULL;
+  rte *dummy = NULL;
 
   rte_update_lock();
   if (new)
@@ -907,28 +997,39 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src)
 	  stats->imp_updates_invalid++;
 	  goto drop;
 	}
+
       if (filter == FILTER_REJECT)
 	{
 	  stats->imp_updates_filtered++;
 	  rte_trace_in(D_FILTERS, p, new, "filtered out");
-	  goto drop;
-	}
 
-      tmpa = make_tmp_attrs(new, rte_update_pool);
-      if (filter)
+	  if (! ah->in_keep_filtered)
+	    goto drop;
+
+	  /* new is a private copy, i could modify it */
+	  new->flags |= REF_FILTERED;
+	}
+      else
 	{
-	  ea_list *old_tmpa = tmpa;
-	  int fr = f_run(filter, &new, &tmpa, rte_update_pool, 0);
-	  if (fr > F_ACCEPT)
+	  tmpa = make_tmp_attrs(new, rte_update_pool);
+	  if (filter && (filter != FILTER_REJECT))
 	    {
-	      stats->imp_updates_filtered++;
-	      rte_trace_in(D_FILTERS, p, new, "filtered out");
-	      goto drop;
-	    }
-	  if (tmpa != old_tmpa && src->proto->store_tmp_attrs)
-	    src->proto->store_tmp_attrs(new, tmpa);
-	}
+	      ea_list *old_tmpa = tmpa;
+	      int fr = f_run(filter, &new, &tmpa, rte_update_pool, 0);
+	      if (fr > F_ACCEPT)
+		{
+		  stats->imp_updates_filtered++;
+		  rte_trace_in(D_FILTERS, p, new, "filtered out");
 
+		  if (! ah->in_keep_filtered)
+		    goto drop;
+
+		  new->flags |= REF_FILTERED;
+		}
+	      if (tmpa != old_tmpa && src->proto->store_tmp_attrs)
+		src->proto->store_tmp_attrs(new, tmpa);
+	    }
+	}
       if (!rta_is_cached(new->attrs)) /* Need to copy attributes */
 	new->attrs = rta_lookup(new->attrs);
       new->flags |= REF_COW;
@@ -945,14 +1046,18 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src)
 	}
     }
 
+ recalc:
+  rte_hide_dummy_routes(net, &dummy);
   rte_recalculate(ah, net, new, tmpa, src);
+  rte_unhide_dummy_routes(net, &dummy);
   rte_update_unlock();
   return;
 
-drop:
+ drop:
   rte_free(new);
-  rte_recalculate(ah, net, NULL, NULL, src);
-  rte_update_unlock();
+  new = NULL;
+  tmpa = NULL;
+  goto recalc;
 }
 
 /* Independent call to rte_announce(), used from next hop
@@ -974,6 +1079,33 @@ rte_discard(rtable *t, rte *old)	/* Non-filtered route deletion, used during gar
   rte_update_lock();
   rte_recalculate(old->sender, old->net, NULL, NULL, old->attrs->src);
   rte_update_unlock();
+}
+
+/* Check rtable for best route to given net whether it would be exported do p */
+int
+rt_examine(rtable *t, ip_addr prefix, int pxlen, struct proto *p, struct filter *filter)
+{
+  net *n = net_find(t, prefix, pxlen);
+  rte *rt = n ? n->routes : NULL;
+
+  if (!rte_is_valid(rt))
+    return 0;
+
+  rte_update_lock();
+
+  /* Rest is stripped down export_filter() */
+  ea_list *tmpa = make_tmp_attrs(rt, rte_update_pool);
+  int v = p->import_control ? p->import_control(p, &rt, &tmpa, rte_update_pool) : 0;
+  if (v == RIC_PROCESS)
+    v = (f_run(filter, &rt, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
+
+   /* Discard temporary rte */
+  if (rt != n->routes)
+    rte_free(rt);
+
+  rte_update_unlock();
+
+  return v > 0;
 }
 
 /**
@@ -1151,20 +1283,10 @@ rt_init(void)
 }
 
 
-/* Called from proto_schedule_flush_loop() only,
-   ensuring that all prune states are zero */
-void
-rt_schedule_prune_all(void)
-{
-  rtable *t;
-
-  WALK_LIST(t, routing_tables)
-    t->prune_state = 1;
-}
-
 static inline int
-rt_prune_step(rtable *tab, int *max_feed)
+rt_prune_step(rtable *tab, int step, int *max_feed)
 {
+  static struct rate_limit rl_flush;
   struct fib_iterator *fit = &tab->prune_fit;
 
   DBG("Pruning route table %s\n", tab->name);
@@ -1189,14 +1311,18 @@ again:
 
     rescan:
       for (e=n->routes; e; e=e->next)
-	if (e->sender->proto->core_state != FS_HAPPY &&
-	    e->sender->proto->core_state != FS_FEEDING)
+	if (e->sender->proto->flushing ||
+	    (step && e->attrs->src->proto->flushing))
 	  {
 	    if (*max_feed <= 0)
 	      {
 		FIB_ITERATE_PUT(fit, fn);
 		return 0;
 	      }
+
+	    if (step)
+	      log_rl(&rl_flush, L_WARN "Route %I/%d from %s still in %s after flush",
+		  n->n.prefix, n->n.pxlen, e->attrs->src->proto->name, tab->name);
 
 	    rte_discard(tab, e);
 	    (*max_feed)--;
@@ -1222,23 +1348,42 @@ again:
 
 /**
  * rt_prune_loop - prune routing tables
- * @tab: routing table to be pruned
  *
  * The prune loop scans routing tables and removes routes belonging to
- * inactive protocols and also stale network entries. Returns 1 when
+ * flushing protocols and also stale network entries. Returns 1 when
  * all such routes are pruned. It is a part of the protocol flushing
  * loop.
+ *
+ * The prune loop runs in two steps. In the first step it prunes just
+ * the routes with flushing senders (in explicitly marked tables) so
+ * the route removal is propagated as usual. In the second step, all
+ * remaining relevant routes are removed. Ideally, there shouldn't be
+ * any, but it happens when pipe filters are changed.
  */
 int
 rt_prune_loop(void)
 {
-  rtable *t;
+  static int step = 0;
   int max_feed = 512;
+  rtable *t;
 
+ again:
   WALK_LIST(t, routing_tables)
-    if (! rt_prune_step(t, &max_feed))
+    if (! rt_prune_step(t, step, &max_feed))
       return 0;
 
+  if (step == 0)
+    {
+      /* Prepare for the second step */
+      WALK_LIST(t, routing_tables)
+	t->prune_state = 1;
+
+      step = 1;
+      goto again;
+    }
+
+  /* Done */
+  step = 0;
   return 1;
 }
 
@@ -1570,9 +1715,11 @@ again:
 	  return 0;
 	}
 
+      /* XXXX perhaps we should change feed for RA_ACCEPTED to not use 'new' */
+
       if ((p->accept_ra_types == RA_OPTIMAL) ||
 	  (p->accept_ra_types == RA_ACCEPTED))
-	if (e)
+	if (rte_is_valid(e))
 	  {
 	    if (p->core_state != FS_FEEDING)
 	      return 1;  /* In the meantime, the protocol fell down. */
@@ -1581,7 +1728,7 @@ again:
 	  }
 
       if (p->accept_ra_types == RA_ANY)
-	for(e = n->routes; e != NULL; e = e->next)
+	for(e = n->routes; rte_is_valid(e); e = e->next)
 	  {
 	    if (p->core_state != FS_FEEDING)
 	      return 1;  /* In the meantime, the protocol fell down. */
@@ -1834,7 +1981,8 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
   net *n = net_route(tab, he->addr, MAX_PREFIX_LENGTH);
   if (n)
     {
-      rta *a = n->routes->attrs;
+      rte *e = n->routes;
+      rta *a = e->attrs;
       pxlen = n->n.pxlen;
 
       if (a->hostentry)
@@ -1867,7 +2015,7 @@ rt_update_hostentry(rtable *tab, struct hostentry *he)
 	}
 
       he->src = rta_clone(a);
-      he->igp_metric = rt_get_igp_metric(n->routes);
+      he->igp_metric = rt_get_igp_metric(e);
     }
 
  done:
@@ -2001,19 +2149,24 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
   int ok;
 
   bsprintf(ia, "%I/%d", n->n.prefix, n->n.pxlen);
-  if (n->routes)
-    d->net_counter++;
+
   for(e=n->routes; e; e=e->next)
     {
+      if (rte_is_filtered(e) != d->filtered)
+	continue;
+
       struct ea_list *tmpa;
       struct rte_src *src = e->attrs->src;
       struct proto *p1 = d->export_protocol;
       struct proto *p2 = d->show_protocol;
+
+      if (ia[0])
+	d->net_counter++;
       d->rt_counter++;
       ee = e;
       rte_update_lock();		/* We use the update buffer for filtering */
       tmpa = make_tmp_attrs(e, rte_update_pool);
-      ok = (d->filter == FILTER_ACCEPT || f_run(d->filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
+      ok = f_run(d->filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT;
       if (p2 && p2 != src->proto) ok = 0;
       if (ok && d->export_mode)
 	{
@@ -2027,8 +2180,8 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 		 'configure soft' command may change the export filter
 		 and do not update routes */
 
-	      if ((a = proto_find_announce_hook(p1, d->table)) && ((a->out_filter == FILTER_REJECT) ||
-		  (a->out_filter && f_run(a->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT)))
+	      if ((a = proto_find_announce_hook(p1, d->table)) && 
+		  (f_run(a->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
 		ok = 0;
 	    }
 	}
@@ -2106,6 +2259,11 @@ void
 rt_show(struct rt_show_data *d)
 {
   net *n;
+
+  /* Default is either a master table or a table related to a respective protocol */
+  if ((!d->table) && d->export_protocol) d->table = d->export_protocol->table;
+  if ((!d->table) && d->show_protocol) d->table = d->show_protocol->table;
+  if (!d->table) d->table = config->master_rtc->table;
 
   if (d->pxlen == 256)
     {

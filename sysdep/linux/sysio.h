@@ -194,16 +194,21 @@ sk_set_md5_auth_int(sock *s, sockaddr *sa, char *passwd)
 /* RX/TX packet info handling for IPv4 */
 /* Mostly similar to standardized IPv6 code */
 
-#define CMSG_RX_SPACE CMSG_SPACE(sizeof(struct in_pktinfo))
+#define CMSG_RX_SPACE (CMSG_SPACE(sizeof(struct in_pktinfo)) + CMSG_SPACE(sizeof(int)))
 #define CMSG_TX_SPACE CMSG_SPACE(sizeof(struct in_pktinfo))
 
 static char *
 sysio_register_cmsgs(sock *s)
 {
   int ok = 1;
+
   if ((s->flags & SKF_LADDR_RX) &&
-      setsockopt(s->fd, IPPROTO_IP, IP_PKTINFO, &ok, sizeof(ok)) < 0)
+      (setsockopt(s->fd, IPPROTO_IP, IP_PKTINFO, &ok, sizeof(ok)) < 0))
     return "IP_PKTINFO";
+
+  if ((s->flags & SKF_TTL_RX) &&
+      (setsockopt(s->fd, IPPROTO_IP, IP_RECVTTL, &ok, sizeof(ok)) < 0))
+    return "IP_RECVTTL";
 
   return NULL;
 }
@@ -213,25 +218,34 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
 {
   struct cmsghdr *cm;
   struct in_pktinfo *pi = NULL;
-
-  if (!(s->flags & SKF_LADDR_RX))
-    return;
+  int *ttl = NULL;
 
   for (cm = CMSG_FIRSTHDR(msg); cm != NULL; cm = CMSG_NXTHDR(msg, cm))
-    {
-      if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_PKTINFO)
-	pi = (struct in_pktinfo *) CMSG_DATA(cm);
-    }
+  {
+    if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_PKTINFO)
+      pi = (struct in_pktinfo *) CMSG_DATA(cm);
 
-  if (!pi)
+    if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_TTL)
+      ttl = (int *) CMSG_DATA(cm);
+  }
+
+  if (s->flags & SKF_LADDR_RX)
+  {
+    if (pi)
+    {
+      get_inaddr(&s->laddr, &pi->ipi_addr);
+      s->lifindex = pi->ipi_ifindex;
+    }
+    else
     {
       s->laddr = IPA_NONE;
       s->lifindex = 0;
-      return;
     }
+  }
 
-  get_inaddr(&s->laddr, &pi->ipi_addr);
-  s->lifindex = pi->ipi_ifindex;
+  if (s->flags & SKF_TTL_RX)
+    s->ttl = ttl ? *ttl : -1;
+
   return;
 }
 
@@ -310,3 +324,22 @@ sk_set_min_ttl6(sock *s, int ttl)
 }
 
 #endif
+
+
+#ifndef IPV6_TCLASS
+#define IPV6_TCLASS 67
+#endif
+
+int sk_priority_control = 7;
+
+static int
+sk_set_priority(sock *s, int prio)
+{
+  if (setsockopt(s->fd, SOL_SOCKET, SO_PRIORITY, &prio, sizeof(prio)) < 0)
+  {
+    log(L_WARN "sk_set_priority: setsockopt: %m");
+    return -1;
+  }
+
+  return 0;
+}

@@ -92,6 +92,7 @@ ospf_proto_finish(void)
   if (cf->abr && !backbone)
   {
     struct ospf_area_config *ac = cfg_allocz(sizeof(struct ospf_area_config));
+    ac->type = OPT_E; /* Backbone is non-stub */
     add_head(&cf->area_list, NODE ac);
     init_list(&ac->patt_list);
     init_list(&ac->net_list);
@@ -124,16 +125,17 @@ CF_DECLS
 
 CF_KEYWORDS(OSPF, AREA, OSPF_METRIC1, OSPF_METRIC2, OSPF_TAG, OSPF_ROUTER_ID)
 CF_KEYWORDS(NEIGHBORS, RFC1583COMPAT, STUB, TICK, COST, COST2, RETRANSMIT)
-CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, TYPE, BROADCAST, BCAST)
+CF_KEYWORDS(HELLO, TRANSMIT, PRIORITY, DEAD, TYPE, BROADCAST, BCAST, DEFAULT)
 CF_KEYWORDS(NONBROADCAST, NBMA, POINTOPOINT, PTP, POINTOMULTIPOINT, PTMP)
-CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC)
-CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, CHECK, LINK)
+CF_KEYWORDS(NONE, SIMPLE, AUTHENTICATION, STRICT, CRYPTOGRAPHIC, TTL, SECURITY)
+CF_KEYWORDS(ELIGIBLE, POLL, NETWORKS, HIDDEN, VIRTUAL, CHECK, LINK, ONLY, BFD)
 CF_KEYWORDS(RX, BUFFER, LARGE, NORMAL, STUBNET, HIDDEN, SUMMARY, TAG, EXTERNAL)
 CF_KEYWORDS(WAIT, DELAY, LSADB, ECMP, LIMIT, WEIGHT, NSSA, TRANSLATOR, STABILITY)
-CF_KEYWORDS(GLOBAL, LSID, ROUTER, SELF, INSTANCE, REAL)
+CF_KEYWORDS(GLOBAL, LSID, ROUTER, SELF, INSTANCE, REAL, NETMASK, TX, PRIORITY)
 
 %type <t> opttext
 %type <ld> lsadb_args
+%type <i> nbma_eligible
 
 CF_GRAMMAR
 
@@ -156,6 +158,7 @@ ospf_proto:
 ospf_proto_item:
    proto_item
  | RFC1583COMPAT bool { OSPF_CFG->rfc1583 = $2; }
+ | STUB ROUTER bool { OSPF_CFG->stub_router = $3; }
  | ECMP bool { OSPF_CFG->ecmp = $2 ? DEFAULT_ECMP_LIMIT : 0; }
  | ECMP bool LIMIT expr { OSPF_CFG->ecmp = $2 ? $4 : 0; if ($4 < 0) cf_error("ECMP limit cannot be negative"); }
  | TICK expr { OSPF_CFG->tick = $2; if($2<=0) cf_error("Tick must be greater than zero"); }
@@ -288,19 +291,25 @@ ospf_iface_item:
  | TYPE POINTOMULTIPOINT { OSPF_PATT->type = OSPF_IT_PTMP ; }
  | TYPE PTMP { OSPF_PATT->type = OSPF_IT_PTMP ; }
  | REAL BROADCAST bool { OSPF_PATT->real_bcast = $3; if (OSPF_VERSION != 2) cf_error("Real broadcast option requires OSPFv2"); }
+ | PTP NETMASK bool { OSPF_PATT->ptp_netmask = $3; if (OSPF_VERSION != 2) cf_error("Real netmask option requires OSPFv2"); }
  | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
  | PRIORITY expr { OSPF_PATT->priority = $2 ; if (($2<0) || ($2>255)) cf_error("Priority must be in range 0-255"); }
  | STRICT NONBROADCAST bool { OSPF_PATT->strictnbma = $3 ; }
  | STUB bool { OSPF_PATT->stub = $2 ; }
  | CHECK LINK bool { OSPF_PATT->check_link = $3; }
  | ECMP WEIGHT expr { OSPF_PATT->ecmp_weight = $3 - 1; if (($3<1) || ($3>256)) cf_error("ECMP weight must be in range 1-256"); }
- | NEIGHBORS '{' ipa_list '}'
+ | NEIGHBORS '{' nbma_list '}'
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE ; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE ; }
  | AUTHENTICATION CRYPTOGRAPHIC { OSPF_PATT->autype = OSPF_AUTH_CRYPT ; }
  | RX BUFFER LARGE { OSPF_PATT->rxbuf = OSPF_RXBUF_LARGE ; } 
  | RX BUFFER NORMAL { OSPF_PATT->rxbuf = OSPF_RXBUF_NORMAL ; } 
  | RX BUFFER expr { OSPF_PATT->rxbuf = $3 ; if (($3 < OSPF_RXBUF_MINSIZE) || ($3 > OSPF_MAX_PKT_SIZE)) cf_error("Buffer size must be in range 256-65535"); } 
+ | TX tos { OSPF_PATT->tx_tos = $2; }
+ | TX PRIORITY expr { OSPF_PATT->tx_priority = $3; }
+ | TTL SECURITY bool { OSPF_PATT->ttl_security = $3; }
+ | TTL SECURITY TX ONLY { OSPF_PATT->ttl_security = 2; }
+ | BFD bool { OSPF_PATT->bfd = $2; cf_check_bfd($2); }
  | password_list
  ;
 
@@ -326,33 +335,24 @@ pref_opt:
  | TAG expr { this_pref->tag = $2; }
  ;
 
-ipa_list:
+nbma_list:
  /* empty */
- | ipa_list ipa_item
+ | nbma_list nbma_item
  ;
 
-ipa_item:
-    ipa_el
-  | ipa_ne;
+nbma_eligible:
+ /* empty */ { $$ = 0; }
+ | ELIGIBLE { $$ = 1; }
+ ;
  
-ipa_el: IPA ';'
+nbma_item: IPA nbma_eligible ';'
  {
    this_nbma = cfg_allocz(sizeof(struct nbma_node));
    add_tail(&OSPF_PATT->nbma_list, NODE this_nbma);
    this_nbma->ip=$1;
-   this_nbma->eligible=0;
+   this_nbma->eligible=$2;
  }
 ;
-
-ipa_ne: IPA ELIGIBLE ';'
- {
-   this_nbma = cfg_allocz(sizeof(struct nbma_node));
-   add_tail(&OSPF_PATT->nbma_list, NODE this_nbma);
-   this_nbma->ip=$1;
-   this_nbma->eligible=1;
- }
-;
-
  
 ospf_iface_start:
  {
@@ -371,6 +371,9 @@ ospf_iface_start:
   OSPF_PATT->type = OSPF_IT_UNDEF;
   init_list(&OSPF_PATT->nbma_list);
   OSPF_PATT->autype = OSPF_AUTH_NONE;
+  OSPF_PATT->ptp_netmask = 2; /* not specified */
+  OSPF_PATT->tx_tos = IP_PREC_INTERNET_CONTROL;
+  OSPF_PATT->tx_priority = sk_priority_control;
   reset_passwords();
  }
 ;
@@ -439,7 +442,7 @@ lsadb_args:
      $$ = cfg_allocz(sizeof(struct lsadb_show_data));
    }
  | lsadb_args GLOBAL { $$ = $1; $$->scope = LSA_SCOPE_AS; }
- | lsadb_args AREA idval { $$ = $1; $$->scope = LSA_SCOPE_AREA; $$->area = $3 }
+ | lsadb_args AREA idval { $$ = $1; $$->scope = LSA_SCOPE_AREA; $$->area = $3; }
  | lsadb_args LINK { $$ = $1; $$->scope = 1; /* hack, 0 is no filter */ }
  | lsadb_args TYPE NUM { $$ = $1; $$->type = $3; }
  | lsadb_args LSID idval { $$ = $1; $$->lsid = $3; }

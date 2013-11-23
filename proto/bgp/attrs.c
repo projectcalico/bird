@@ -238,7 +238,7 @@ bgp_format_aggregator(eattr *a, byte *buf, int buflen UNUSED)
   as = get_u32(data);
   data += 4;
 
-  bsprintf(buf, "%d.%d.%d.%d AS%d", data[0], data[1], data[2], data[3], as);
+  bsprintf(buf, "%d.%d.%d.%d AS%u", data[0], data[1], data[2], data[3], as);
 }
 
 static int
@@ -1032,7 +1032,8 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
       rta->dest != RTD_ROUTER ||
       ipa_equal(rta->gw, IPA_NONE) ||
       ipa_has_link_scope(rta->gw) ||
-      (!p->is_internal && (!p->neigh || (rta->iface != p->neigh->iface))))
+      (!p->is_internal && !p->cf->next_hop_keep &&
+       (!p->neigh || (rta->iface != p->neigh->iface))))
     set_next_hop(z, p->source_addr);
   else
     set_next_hop(z, rta->gw);
@@ -1046,8 +1047,9 @@ bgp_create_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
 static inline int
 bgp_as_path_loopy(struct bgp_proto *p, rta *a)
 {
+  int num = p->cf->allow_local_as + 1;
   eattr *e = ea_find(a->eattrs, EA_CODE(EAP_BGP, BA_AS_PATH));
-  return (e && as_path_is_member(e->u.ptr, p->local_as));
+  return (e && (num > 0) && as_path_contains(e->u.ptr, p->local_as, num));
 }
 
 static inline int
@@ -1100,10 +1102,13 @@ bgp_update_attrs(struct bgp_proto *p, rte *e, ea_list **attrs, struct linpool *p
   /* iBGP -> keep next_hop, eBGP multi-hop -> use source_addr,
    * eBGP single-hop -> keep next_hop if on the same iface.
    * If the next_hop is zero (i.e. link-local), keep only if on the same iface.
+   *
+   * Note that same-iface-check uses iface from route, which is based on gw.
    */
   a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP));
   if (a && !p->cf->next_hop_self && 
-      ((p->is_internal && ipa_nonzero(*((ip_addr *) a->u.ptr->data))) ||
+      (p->cf->next_hop_keep ||
+       (p->is_internal && ipa_nonzero(*((ip_addr *) a->u.ptr->data))) ||
        (p->neigh && (e->attrs->iface == p->neigh->iface))))
     {
       /* Leave the original next hop attribute, will check later where does it point */
@@ -1444,7 +1449,7 @@ bgp_rte_recalculate(rtable *table, net *net, rte *new, rte *old, rte *old_best)
 
   /* The default case - find a new best-in-group route */
   r = new; /* new may not be in the list */
-  for (s=net->routes; s; s=s->next)
+  for (s=net->routes; rte_is_valid(s); s=s->next)
     if (use_deterministic_med(s) && same_group(s, lpref, lasn))
       {
 	s->u.bgp.suppressed = 1;

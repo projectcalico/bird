@@ -345,6 +345,7 @@ protos_postconfig(struct config *c)
   WALK_LIST(x, c->protos)
     {
       DBG(" %s", x->name);
+
       p = x->protocol;
       if (p->postconfig)
 	p->postconfig(x);
@@ -376,6 +377,7 @@ int proto_reconfig_type;  /* Hack to propagate type info to pipe reconfigure hoo
 static int
 proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config *nc, int type)
 {
+  struct announce_hook *ah = p->main_ahook;
   /* If the protocol is DOWN, we just restart it */
   if (p->proto_state == PS_DOWN)
     return 0;
@@ -383,10 +385,8 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   /* If there is a too big change in core attributes, ... */
   if ((nc->protocol != oc->protocol) ||
       (nc->disabled != p->disabled) ||
-      (nc->table->table != oc->table->table) ||
-      (proto_get_router_id(nc) != proto_get_router_id(oc)))
+      (nc->table->table != oc->table->table))
     return 0;
-
 
   p->debug = nc->debug;
   p->mrtdump = nc->mrtdump;
@@ -409,12 +409,31 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
 
   /* Update filters and limits in the main announce hook
      Note that this also resets limit state */
-  if (p->main_ahook)
+  if (ah)
     {
-      p->main_ahook->in_filter = nc->in_filter;
-      p->main_ahook->out_filter = nc->out_filter;
-      p->main_ahook->in_limit = nc->in_limit;
-      p->main_ahook->out_limit = nc->out_limit;
+      ah->in_filter = nc->in_filter;
+      ah->out_filter = nc->out_filter;
+      ah->rx_limit = nc->rx_limit;
+      ah->in_limit = nc->in_limit;
+      ah->out_limit = nc->out_limit;
+      ah->in_keep_filtered = nc->in_keep_filtered;
+
+      if (p->proto_state == PS_UP)	/* Recheck export/import/receive limit */
+        {
+          struct proto_stats *stats = ah->stats;
+          struct proto_limit *l = ah->in_limit;
+          u32 all_routes = stats->imp_routes + stats->filt_routes;
+
+          if (l && (stats->imp_routes >= l->limit)) proto_notify_limit(ah, l, PLD_IN, stats->imp_routes);
+
+          l = ah->rx_limit;
+
+          if (l && ( all_routes >= l->limit)) proto_notify_limit(ah, l, PLD_RX, all_routes );
+
+          l = ah->out_limit;
+
+          if (l && ( stats->exp_routes >= l->limit)) proto_notify_limit(ah, l, PLD_OUT, stats->exp_routes);
+        }
     }
 
   /* Update routes when filters changed. If the protocol in not UP,
@@ -516,7 +535,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
 	      p->down_code = nc->disabled ? PDC_CF_DISABLE : PDC_CF_RESTART;
 	      p->cf_new = nc;
 	    }
-	  else if (!shutting_down)
+	  else if (!new->shutdown)
 	    {
 	      log(L_INFO "Removing protocol %s", p->name);
 	      p->down_code = PDC_CF_REMOVE;
@@ -537,7 +556,7 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
   WALK_LIST(nc, new->protos)
     if (!nc->proto)
       {
-	if (old_config)		/* Not a first-time configuration */
+	if (old)		/* Not a first-time configuration */
 	  log(L_INFO "Adding protocol %s", nc->name);
 	proto_init(nc);
       }
@@ -552,6 +571,16 @@ protos_commit(struct config *new, struct config *old, int force_reconfig, int ty
     initial_device_proto = NULL;
   }
 
+  /* Determine router ID for the first time - it has to be here and not in
+     global_commit() because it is postponed after start of device protocol */
+  if (!config->router_id)
+    {
+      config->router_id = if_choose_router_id(config->router_id_from, 0);
+      if (!config->router_id)
+	die("Cannot determine router ID, please configure it manually");
+    }
+
+  /* Start all other protocols */
   WALK_LIST_DELSAFE(p, n, initial_proto_list)
     proto_rethink_goal(p);
 }
@@ -671,6 +700,9 @@ proto_build(struct protocol *p)
     }
 }
 
+/* FIXME: convert this call to some protocol hook */
+extern void bfd_init_all(void);
+
 /**
  * protos_build - build a protocol list
  *
@@ -708,6 +740,11 @@ protos_build(void)
 #ifdef CONFIG_BGP
   proto_build(&proto_bgp);
 #endif
+#ifdef CONFIG_BFD
+  proto_build(&proto_bfd);
+  bfd_init_all();
+#endif
+
   proto_pool = rp_new(&root_pool, "Protocols");
   proto_flush_event = ev_new(proto_pool);
   proto_flush_event->hook = proto_flush_loop;
@@ -720,8 +757,9 @@ proto_fell_down(struct proto *p)
 {
   DBG("Protocol %s down\n", p->name);
 
-  if (p->stats.imp_routes != 0)
-    log(L_ERR "Protocol %s is down but still has %d routes", p->name, p->stats.imp_routes);
+  u32 all_routes = p->stats.imp_routes + p->stats.filt_routes;
+  if (all_routes != 0)
+    log(L_ERR "Protocol %s is down but still has %d routes", p->name, all_routes);
 
   bzero(&p->stats, sizeof(struct proto_stats));
   proto_free_ahooks(p);
@@ -798,9 +836,12 @@ proto_schedule_feed(struct proto *p, int initial)
       p->main_ahook = proto_add_announce_hook(p, p->table, &p->stats);
       p->main_ahook->in_filter = p->cf->in_filter;
       p->main_ahook->out_filter = p->cf->out_filter;
+      p->main_ahook->rx_limit = p->cf->rx_limit;
       p->main_ahook->in_limit = p->cf->in_limit;
       p->main_ahook->out_limit = p->cf->out_limit;
+      p->main_ahook->in_keep_filtered = p->cf->in_keep_filtered;
 
+      proto_reset_limit(p->main_ahook->rx_limit);
       proto_reset_limit(p->main_ahook->in_limit);
       proto_reset_limit(p->main_ahook->out_limit);
     }
@@ -825,14 +866,18 @@ static void
 proto_schedule_flush_loop(void)
 {
   struct proto *p;
+  struct announce_hook *h;
 
   if (flush_loop_state)
     return;
   flush_loop_state = 1;
 
-  rt_schedule_prune_all();
   WALK_LIST(p, flush_proto_list)
+  {
     p->flushing = 1;
+    for (h=p->ahooks; h; h=h->next)
+      h->table->prune_state = 1;
+  }
 
   ev_schedule(proto_flush_event);
 }
@@ -974,6 +1019,7 @@ proto_limit_name(struct proto_limit *l)
  * proto_notify_limit: notify about limit hit and take appropriate action
  * @ah: announce hook
  * @l: limit being hit
+ * @dir: limit direction (PLD_*)
  * @rt_count: the number of routes 
  *
  * The function is called by the route processing core when limit @l
@@ -981,10 +1027,11 @@ proto_limit_name(struct proto_limit *l)
  * according to @l->action.
  */
 void
-proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count)
+proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, int dir, u32 rt_count)
 {
+  const char *dir_name[PLD_MAX] = { "receive", "import" , "export" };
+  const byte dir_down[PLD_MAX] = { PDC_RX_LIMIT_HIT, PDC_IN_LIMIT_HIT, PDC_OUT_LIMIT_HIT };
   struct proto *p = ah->proto;
-  int dir = (ah->in_limit == l);
 
   if (l->state == PLS_BLOCKED)
     return;
@@ -992,7 +1039,7 @@ proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count
   /* For warning action, we want the log message every time we hit the limit */
   if (!l->state || ((l->action == PLA_WARN) && (rt_count == l->limit)))
     log(L_WARN "Protocol %s hits route %s limit (%d), action: %s",
-	p->name, dir ? "import" : "export", l->limit, proto_limit_name(l));
+	p->name, dir_name[dir], l->limit, proto_limit_name(l));
 
   switch (l->action)
     {
@@ -1007,8 +1054,7 @@ proto_notify_limit(struct announce_hook *ah, struct proto_limit *l, u32 rt_count
     case PLA_RESTART:
     case PLA_DISABLE:
       l->state = PLS_BLOCKED;
-      proto_schedule_down(p, l->action == PLA_RESTART,
-			  dir ? PDC_IN_LIMIT_HIT : PDC_OUT_LIMIT_HIT);
+      proto_schedule_down(p, l->action == PLA_RESTART, dir_down[dir]);
       break;
     }
 }
@@ -1106,10 +1152,15 @@ proto_state_name(struct proto *p)
 }
 
 static void
-proto_show_stats(struct proto_stats *s)
+proto_show_stats(struct proto_stats *s, int in_keep_filtered)
 {
-  cli_msg(-1006, "  Routes:         %u imported, %u exported, %u preferred", 
-	  s->imp_routes, s->exp_routes, s->pref_routes);
+  if (in_keep_filtered)
+    cli_msg(-1006, "  Routes:         %u imported, %u filtered, %u exported, %u preferred", 
+	    s->imp_routes, s->filt_routes, s->exp_routes, s->pref_routes);
+  else
+    cli_msg(-1006, "  Routes:         %u imported, %u exported, %u preferred", 
+	    s->imp_routes, s->exp_routes, s->pref_routes);
+
   cli_msg(-1006, "  Route change stats:     received   rejected   filtered    ignored   accepted");
   cli_msg(-1006, "    Import updates:     %10u %10u %10u %10u %10u",
 	  s->imp_updates_received, s->imp_updates_invalid,
@@ -1143,11 +1194,12 @@ proto_show_basic_info(struct proto *p)
   cli_msg(-1006, "  Input filter:   %s", filter_name(p->cf->in_filter));
   cli_msg(-1006, "  Output filter:  %s", filter_name(p->cf->out_filter));
 
+  proto_show_limit(p->cf->rx_limit, "Receive limit:");
   proto_show_limit(p->cf->in_limit, "Import limit:");
   proto_show_limit(p->cf->out_limit, "Export limit:");
 
   if (p->proto_state != PS_DOWN)
-    proto_show_stats(&p->stats);
+    proto_show_stats(&p->stats, p->cf->in_keep_filtered);
 }
 
 void
@@ -1264,7 +1316,10 @@ proto_cmd_reload(struct proto *p, unsigned int dir, int cnt UNUSED)
        * Perhaps, but these hooks work asynchronously.
        */
       if (!p->proto->multitable)
-	proto_reset_limit(p->main_ahook->in_limit);
+	{
+	  proto_reset_limit(p->main_ahook->rx_limit);
+	  proto_reset_limit(p->main_ahook->in_limit);
+	}
     }
 
   /* re-exporting routes */

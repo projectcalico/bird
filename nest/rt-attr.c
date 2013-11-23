@@ -108,7 +108,7 @@ rte_src_alloc_id(void)
   if (src_id_used > (src_id_size * 28))
     {
       src_id_size *= 2;
-      src_ids = mb_realloc(rta_pool, src_ids, src_id_size * sizeof(u32));
+      src_ids = mb_realloc(src_ids, src_id_size * sizeof(u32));
       bzero(src_ids + i, (src_id_size - i) * sizeof(u32));
       goto found;
     }
@@ -551,8 +551,7 @@ ea_same(ea_list *x, ea_list *y)
       if (a->id != b->id ||
 	  a->flags != b->flags ||
 	  a->type != b->type ||
-	  ((a->type & EAF_EMBEDDED) ? a->u.data != b->u.data :
-	   (a->u.ptr->length != b->u.ptr->length || memcmp(a->u.ptr->data, b->u.ptr->data, a->u.ptr->length))))
+	  ((a->type & EAF_EMBEDDED) ? a->u.data != b->u.data : !adata_same(a->u.ptr, b->u.ptr)))
 	return 0;
     }
   return 1;

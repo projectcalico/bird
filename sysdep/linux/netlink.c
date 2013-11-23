@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -843,9 +844,11 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 	  memcpy(&ra.gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ra.gw));
 	  ipa_ntoh(ra.gw);
 
+#ifdef IPV6
 	  /* Silently skip strange 6to4 routes */
 	  if (ipa_in_net(ra.gw, IPA_NONE, 96))
 	    return;
+#endif
 
 	  ng = neigh_find2(&p->p, &ra.gw, ra.iface,
 			   (i->rtm_flags & RTNH_F_ONLINK) ? NEF_ONLINK : 0);
@@ -1038,11 +1041,9 @@ nl_open_async(void)
   sock *sk;
   struct sockaddr_nl sa;
   int fd;
-  static int nl_open_tried = 0;
 
-  if (nl_open_tried)
+  if (nl_async_sk)
     return;
-  nl_open_tried = 1;
 
   DBG("KRT: Opening async netlink socket\n");
 
@@ -1063,8 +1064,11 @@ nl_open_async(void)
   if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
     {
       log(L_ERR "Unable to bind asynchronous rtnetlink socket: %m");
+      close(fd);
       return;
     }
+
+  nl_async_rx_buffer = xmalloc(NL_RX_SIZE);
 
   sk = nl_async_sk = sk_new(krt_pool);
   sk->type = SK_MAGIC;
@@ -1072,9 +1076,6 @@ nl_open_async(void)
   sk->fd = fd;
   if (sk_open(sk))
     bug("Netlink: sk_open failed");
-
-  if (!nl_async_rx_buffer)
-    nl_async_rx_buffer = xmalloc(NL_RX_SIZE);
 }
 
 /*
@@ -1084,19 +1085,18 @@ nl_open_async(void)
 static u8 nl_cf_table[(NL_NUM_TABLES+7) / 8];
 
 void
-krt_sys_start(struct krt_proto *p, int first)
+krt_sys_start(struct krt_proto *p)
 {
   nl_table_map[KRT_CF->sys.table_id] = p;
-  if (first)
-    {
-      nl_open();
-      nl_open_async();
-    }
+
+  nl_open();
+  nl_open_async();
 }
 
 void
-krt_sys_shutdown(struct krt_proto *p UNUSED, int last UNUSED)
+krt_sys_shutdown(struct krt_proto *p UNUSED)
 {
+  nl_table_map[KRT_CF->sys.table_id] = NULL;
 }
 
 int

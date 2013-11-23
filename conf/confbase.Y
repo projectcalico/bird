@@ -73,6 +73,7 @@ CF_DECLS
 %type <iface> ipa_scope
 
 %type <i> expr bool pxlen
+%type <i32> expr_us
 %type <time> datetime
 %type <a> ipa
 %type <px> prefix prefix_or_ipa
@@ -86,7 +87,7 @@ CF_DECLS
 %left '!'
 %nonassoc '.'
 
-CF_KEYWORDS(DEFINE, ON, OFF, YES, NO)
+CF_KEYWORDS(DEFINE, ON, OFF, YES, NO, S, MS, US)
 
 CF_GRAMMAR
 
@@ -103,27 +104,35 @@ conf_entries:
 
 CF_ADDTO(conf, ';')
 
+
 /* Constant expressions */
+
+CF_ADDTO(conf, definition)
+definition:
+   DEFINE SYM '=' term ';' {
+     struct f_val *val = cfg_alloc(sizeof(struct f_val));
+     *val = f_eval($4, cfg_mem);
+     if (val->type == T_RETURN) cf_error("Runtime error");
+     cf_define_symbol($2, SYM_CONSTANT | val->type, val);
+   }
+ ;
 
 expr:
    NUM
  | '(' term ')' { $$ = f_eval_int($2); }
- | SYM { if ($1->class != SYM_NUMBER) cf_error("Number expected"); else $$ = $1->aux; }
+ | SYM {
+     if ($1->class != (SYM_CONSTANT | T_INT)) cf_error("Number expected");
+     $$ = SYM_VAL($1).i; }
+ ;
+
+
+expr_us:
+   expr S  { $$ = (u32) $1 * 1000000; }
+ | expr MS { $$ = (u32) $1 * 1000; }
+ | expr US { $$ = (u32) $1 * 1; }
  ;
 
 /* expr_u16: expr { check_u16($1); $$ = $1; }; */
-
-CF_ADDTO(conf, definition)
-definition:
-   DEFINE SYM '=' expr ';' {
-     cf_define_symbol($2, SYM_NUMBER, NULL);
-     $2->aux = $4;
-   }
- | DEFINE SYM '=' IPA ';' {
-     cf_define_symbol($2, SYM_IPA, cfg_alloc(sizeof(ip_addr)));
-     *(ip_addr *)$2->def = $4;
-   }
- ;
 
 /* Switches */
 
@@ -141,8 +150,8 @@ bool:
 ipa:
    IPA
  | SYM {
-     if ($1->class != SYM_IPA) cf_error("IP address expected");
-     $$ = *(ip_addr *)$1->def;
+     if ($1->class != (SYM_CONSTANT | T_IP)) cf_error("IP address expected");
+     $$ = SYM_VAL($1).px.ip;
    }
  ;
 

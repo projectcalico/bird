@@ -97,9 +97,10 @@ static inline void
 add_num_const(char *name, int val)
 {
   struct symbol *s = cf_find_symbol(name);
-  s->class = SYM_NUMBER;
-  s->def = NULL;
-  s->aux = val;
+  s->class = SYM_CONSTANT | T_INT;
+  s->def = cfg_allocz(sizeof(struct f_val));
+  SYM_TYPE(s) = T_INT;
+  SYM_VAL(s).i = val;
 }
 
 /* the code of read_iproute_table() is based on
@@ -198,7 +199,7 @@ unix_read_config(struct config **cp, char *name)
   return ret;
 }
 
-static void
+static struct config *
 read_config(void)
 {
   struct config *conf;
@@ -210,7 +211,8 @@ read_config(void)
       else
 	die("Unable to open configuration file %s: %m", config_name);
     }
-  config_commit(conf, RECONFIG_HARD);
+
+  return conf;
 }
 
 void
@@ -228,19 +230,17 @@ async_config(void)
       config_free(conf);
     }
   else
-    config_commit(conf, RECONFIG_HARD);
+    config_commit(conf, RECONFIG_HARD, 0);
 }
 
-void
-cmd_reconfig(char *name, int type)
+static struct config *
+cmd_read_config(char *name)
 {
   struct config *conf;
 
-  if (cli_access_restricted())
-    return;
-
   if (!name)
     name = config_name;
+
   cli_msg(-2, "Reading configuration from %s", name);
   if (!unix_read_config(&conf, name))
     {
@@ -249,24 +249,94 @@ cmd_reconfig(char *name, int type)
       else
 	cli_msg(8002, "%s: %m", name);
       config_free(conf);
+      conf = NULL;
     }
-  else
+
+  return conf;
+}
+
+void
+cmd_check_config(char *name)
+{
+  struct config *conf = cmd_read_config(name);
+  if (!conf)
+    return;
+
+  cli_msg(20, "Configuration OK");
+  config_free(conf);
+}
+
+static void
+cmd_reconfig_msg(int r)
+{
+  switch (r)
     {
-      switch (config_commit(conf, type))
-	{
-	case CONF_DONE:
-	  cli_msg(3, "Reconfigured.");
-	  break;
-	case CONF_PROGRESS:
-	  cli_msg(4, "Reconfiguration in progress.");
-	  break;
-	case CONF_SHUTDOWN:
-	  cli_msg(6, "Reconfiguration ignored, shutting down.");
-	  break;
-	default:
-	  cli_msg(5, "Reconfiguration already in progress, queueing new config");
-	}
+    case CONF_DONE:	cli_msg( 3, "Reconfigured"); break;
+    case CONF_PROGRESS: cli_msg( 4, "Reconfiguration in progress"); break;
+    case CONF_QUEUED:	cli_msg( 5, "Reconfiguration already in progress, queueing new config"); break;
+    case CONF_UNQUEUED:	cli_msg(17, "Reconfiguration already in progress, removing queued config"); break;
+    case CONF_CONFIRM:	cli_msg(18, "Reconfiguration confirmed"); break;
+    case CONF_SHUTDOWN:	cli_msg( 6, "Reconfiguration ignored, shutting down"); break;
+    case CONF_NOTHING:	cli_msg(19, "Nothing to do"); break;
+    default:		break;
     }
+}
+
+/* Hack for scheduled undo notification */
+cli *cmd_reconfig_stored_cli;
+
+void
+cmd_reconfig_undo_notify(void)
+{
+  if (cmd_reconfig_stored_cli)
+    {
+      cli *c = cmd_reconfig_stored_cli;
+      cli_printf(c, CLI_ASYNC_CODE, "Config timeout expired, starting undo");
+      cli_write_trigger(c);
+    }
+}
+
+void
+cmd_reconfig(char *name, int type, int timeout)
+{
+  if (cli_access_restricted())
+    return;
+
+  struct config *conf = cmd_read_config(name);
+  if (!conf)
+    return;
+
+  int r = config_commit(conf, type, timeout);
+
+  if ((r >= 0) && (timeout > 0))
+    {
+      cmd_reconfig_stored_cli = this_cli;
+      cli_msg(-22, "Undo scheduled in %d s", timeout);
+    }
+
+  cmd_reconfig_msg(r);
+}
+
+void
+cmd_reconfig_confirm(void)
+{
+  if (cli_access_restricted())
+    return;
+
+  int r = config_confirm();
+  cmd_reconfig_msg(r);
+}
+
+void
+cmd_reconfig_undo(void)
+{
+  if (cli_access_restricted())
+    return;
+
+  cli_msg(-21, "Undo requested");
+
+  int r = config_undo();
+  cmd_reconfig_msg(r);
 }
 
 /*
@@ -404,6 +474,58 @@ cli_init_unix(uid_t use_uid, gid_t use_gid)
 }
 
 /*
+ *	PID file
+ */
+
+static char *pid_file;
+static int pid_fd;
+
+static inline void
+open_pid_file(void)
+{
+  if (!pid_file)
+    return;
+
+  pid_fd = open(pid_file, O_WRONLY|O_CREAT, 0664);
+  if (pid_fd < 0)
+    die("Cannot create PID file %s: %m", pid_file);
+}
+
+static inline void
+write_pid_file(void)
+{
+  int pl, rv;
+  char ps[24];
+
+  if (!pid_file)
+    return;
+
+  /* We don't use PID file for uniqueness, so no need for locking */
+
+  pl = bsnprintf(ps, sizeof(ps), "%ld\n", (long) getpid());
+  if (pl < 0)
+    bug("PID buffer too small");
+
+  rv = ftruncate(pid_fd, 0);
+  if (rv < 0)
+    die("fruncate: %m");
+    
+  rv = write(pid_fd, ps, pl);
+  if(rv < 0)
+    die("write: %m");
+
+  close(pid_fd);
+}
+
+static inline void
+unlink_pid_file(void)
+{
+  if (pid_file)
+    unlink(pid_file);
+}
+
+
+/*
  *	Shutdown
  */
 
@@ -427,6 +549,7 @@ async_shutdown(void)
 void
 sysdep_shutdown_done(void)
 {
+  unlink_pid_file();
   unlink(path_control_socket);
   log_msg(L_FATAL "Shutdown completed");
   exit(0);
@@ -479,16 +602,17 @@ signal_init(void)
  *	Parsing of command-line arguments
  */
 
-static char *opt_list = "c:dD:ps:u:g:";
+static char *opt_list = "c:dD:ps:P:u:g:f";
 static int parse_and_exit;
 char *bird_name;
 static char *use_user;
 static char *use_group;
+static int run_in_foreground = 0;
 
 static void
 usage(void)
 {
-  fprintf(stderr, "Usage: %s [-c <config-file>] [-d] [-D <debug-file>] [-p] [-s <control-socket>] [-u <user>] [-g <group>]\n", bird_name);
+  fprintf(stderr, "Usage: %s [-c <config-file>] [-d] [-D <debug-file>] [-p] [-s <control-socket>] [-P <pid-file>] [-u <user>] [-g <group>] [-f]\n", bird_name);
   exit(1);
 }
 
@@ -587,11 +711,17 @@ parse_args(int argc, char **argv)
       case 's':
 	path_control_socket = optarg;
 	break;
+      case 'P':
+	pid_file = optarg;
+	break;
       case 'u':
 	use_user = optarg;
 	break;
       case 'g':
 	use_group = optarg;
+	break;
+      case 'f':
+	run_in_foreground = 1;
 	break;
       default:
 	usage();
@@ -623,6 +753,7 @@ main(int argc, char **argv)
   rt_init();
   if_init();
   roa_init();
+  config_init();
 
   uid_t use_uid = get_uid(use_user);
   gid_t use_gid = get_gid(use_group);
@@ -639,16 +770,19 @@ main(int argc, char **argv)
   if (use_uid)
     drop_uid(use_uid);
 
+  if (!parse_and_exit)
+    open_pid_file();
+
   protos_build();
   proto_build(&proto_unix_kernel);
   proto_build(&proto_unix_iface);
 
-  read_config();
+  struct config *conf = read_config();
 
   if (parse_and_exit)
     exit(0);
 
-  if (!debug_flag)
+  if (!(debug_flag||run_in_foreground))
     {
       pid_t pid = fork();
       if (pid < 0)
@@ -663,7 +797,11 @@ main(int argc, char **argv)
       dup2(0, 2);
     }
 
+  write_pid_file();
+
   signal_init();
+
+  config_commit(conf, RECONFIG_HARD, 0);
 
 #ifdef LOCAL_DEBUG
   async_dump_flag = 1;

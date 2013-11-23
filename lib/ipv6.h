@@ -128,11 +128,6 @@ static inline byte * ipv6_put_addr(byte *buf, ip_addr a)
   return buf+16;
 }
 
-/*
- *  RFC 1883 defines packet precendece, but RFC 2460 replaces it
- *  by generic Traffic Class ID with no defined semantics. Better
- *  not use it yet.
- */
-#define IP_PREC_INTERNET_CONTROL -1
+#define IP_PREC_INTERNET_CONTROL 0xc0
 
 #endif

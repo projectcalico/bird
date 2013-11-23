@@ -193,7 +193,14 @@ f_generate_ec(u16 kind, struct f_inst *tk, struct f_inst *tv)
   else if (tk->code == 'C') {
     c1 = 1;
     struct f_val *val = tk->a1.p;
-    if (val->type == T_IP) {
+
+    if (val->type == T_INT) {
+      ipv4_used = 0; key = val->val.i;
+    }
+    else if (val->type == T_QUAD) {
+      ipv4_used = 1; key = val->val.i;
+    }
+    else if (val->type == T_IP) {
       ipv4_used = 1; key = ipa_to_u32(val->val.px.ip);
     }
     else
@@ -254,7 +261,8 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	SET, STRING, BGPMASK, BGPPATH, CLIST, ECLIST,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE, RT, RO, UNKNOWN, GENERIC,
-	FROM, GW, NET, MASK, PROTO, SOURCE, SCOPE, CAST, DEST, PREFERENCE,
+	FROM, GW, NET, MASK, PROTO, SOURCE, SCOPE, CAST, DEST, IFNAME, IFINDEX,
+	PREFERENCE,
 	LEN,
 	DEFINED,
 	ADD, DELETE, CONTAINS, RESET,
@@ -329,8 +337,8 @@ type:
 
 one_decl:
    type SYM {
-     struct f_val * val = cfg_alloc(sizeof(struct f_val)); 
-     val->type = $1; 
+     struct f_val * val = cfg_alloc(sizeof(struct f_val));
+     val->type = T_VOID;
      $2 = cf_define_symbol($2, SYM_VARIABLE | $1, val);
      DBG( "New variable %s type %x\n", $2->name, $1 );
      $2->aux2 = NULL;
@@ -661,49 +669,28 @@ function_call:
 symbol:
    SYM {
      $$ = f_new_inst();
-     switch ($1->class) {
-       case SYM_NUMBER:
-	$$ = f_new_inst();
-	$$->code = 'c'; 
-	$$->aux = T_INT; 
-	$$->a2.i = $1->aux;
-	break;
-       case SYM_IPA:
-	{ NEW_F_VAL; $$ = f_new_inst(); $$->code = 'C'; $$->a1.p = val; val->type = T_IP; val->val.px.ip = * (ip_addr *) ($1->def); }
-	break;
-       case SYM_VARIABLE | T_BOOL:
-       case SYM_VARIABLE | T_INT:
-       case SYM_VARIABLE | T_PAIR:
-       case SYM_VARIABLE | T_QUAD:
-       case SYM_VARIABLE | T_EC:
-       case SYM_VARIABLE | T_STRING:
-       case SYM_VARIABLE | T_IP:
-       case SYM_VARIABLE | T_PREFIX:
-       case SYM_VARIABLE | T_PREFIX_SET:
-       case SYM_VARIABLE | T_SET:
-       case SYM_VARIABLE | T_PATH:
-       case SYM_VARIABLE | T_PATH_MASK:
-       case SYM_VARIABLE | T_CLIST:
-       case SYM_VARIABLE | T_ECLIST:
-	 $$->code = 'V';
-	 $$->a1.p = $1->def;
-	 $$->a2.p = $1->name;
-	 break;
-       default:
-	 cf_error("%s: variable expected.", $1->name );
+
+     switch ($1->class & 0xff00) {
+       case SYM_CONSTANT: $$->code = 'C'; break;
+       case SYM_VARIABLE: $$->code = 'V'; break;
+       default: cf_error("%s: variable expected.", $1->name);
      }
+
+     $$->a1.p = $1->def;
+     $$->a2.p = $1->name;
    }
 
 static_attr:
-   FROM    { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, from);   $$->a1.i = 1; }
-
- | GW      { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = OFFSETOF(struct rta, gw);     $$->a1.i = 1; }
- | NET     { $$ = f_new_inst(); $$->aux = T_PREFIX;     $$->a2.i = 0x12345678; /* This is actually ok - T_PREFIX is special-cased. */ }
- | PROTO   { $$ = f_new_inst(); $$->aux = T_STRING;     $$->a2.i = 0x12345678; /* T_STRING is also special-cased. */ }
- | SOURCE  { $$ = f_new_inst(); $$->aux = T_ENUM_RTS;   $$->a2.i = OFFSETOF(struct rta, source); }
- | SCOPE   { $$ = f_new_inst(); $$->aux = T_ENUM_SCOPE; $$->a2.i = OFFSETOF(struct rta, scope);  $$->a1.i = 1; }
- | CAST    { $$ = f_new_inst(); $$->aux = T_ENUM_RTC;   $$->a2.i = OFFSETOF(struct rta, cast); }
- | DEST    { $$ = f_new_inst(); $$->aux = T_ENUM_RTD;   $$->a2.i = OFFSETOF(struct rta, dest);   $$->a1.i = 1; }
+   FROM    { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = SA_FROM;	$$->a1.i = 1; }
+ | GW      { $$ = f_new_inst(); $$->aux = T_IP;         $$->a2.i = SA_GW;	$$->a1.i = 1; }
+ | NET     { $$ = f_new_inst(); $$->aux = T_PREFIX;     $$->a2.i = SA_NET; }
+ | PROTO   { $$ = f_new_inst(); $$->aux = T_STRING;     $$->a2.i = SA_PROTO; }
+ | SOURCE  { $$ = f_new_inst(); $$->aux = T_ENUM_RTS;   $$->a2.i = SA_SOURCE; }
+ | SCOPE   { $$ = f_new_inst(); $$->aux = T_ENUM_SCOPE; $$->a2.i = SA_SCOPE;	$$->a1.i = 1; }
+ | CAST    { $$ = f_new_inst(); $$->aux = T_ENUM_RTC;   $$->a2.i = SA_CAST; }
+ | DEST    { $$ = f_new_inst(); $$->aux = T_ENUM_RTD;   $$->a2.i = SA_DEST;	$$->a1.i = 1; }
+ | IFNAME  { $$ = f_new_inst(); $$->aux = T_STRING;     $$->a2.i = SA_IFNAME; }
+ | IFINDEX { $$ = f_new_inst(); $$->aux = T_INT;        $$->a2.i = SA_IFINDEX; }
  ;
 
 term:

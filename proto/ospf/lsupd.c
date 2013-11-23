@@ -112,6 +112,10 @@ ospf_lsa_flooding_allowed(struct ospf_lsa_header *lsa, u32 domain, struct ospf_i
 {    
   u32 scope = LSA_SCOPE(lsa);
 
+  /* Handle inactive vlinks */
+  if (ifa->state == OSPF_IS_DOWN)
+    return 0;
+
   /* 4.5.2 (Case 2) */
   if (unknown_lsa_type(lsa) && !(lsa->type & LSA_UBIT))
     scope = LSA_SCOPE_LINK;
@@ -119,7 +123,7 @@ ospf_lsa_flooding_allowed(struct ospf_lsa_header *lsa, u32 domain, struct ospf_i
   switch (scope)
     {
     case LSA_SCOPE_LINK:
-      return ifa->iface->index == domain;
+      return ifa->iface_id == domain;
 
     case LSA_SCOPE_AREA:
       return ifa->oa->areaid == domain;
@@ -201,7 +205,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
 	    en->lsa_body = NULL;
 	    DBG("Removing from lsreq list for neigh %R\n", nn->rid);
 	    ospf_hash_delete(nn->lsrqh, en);
-	    if (EMPTY_SLIST(nn->lsrql))
+	    if ((EMPTY_SLIST(nn->lsrql)) && (nn->state == NEIGHBOR_LOADING))
 	      ospf_neigh_sm(nn, INM_LOADDONE);
 	    continue;
 	    break;
@@ -212,7 +216,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
 	    en->lsa_body = NULL;
 	    DBG("Removing from lsreq list for neigh %R\n", nn->rid);
 	    ospf_hash_delete(nn->lsrqh, en);
-	    if (EMPTY_SLIST(nn->lsrql))
+	    if ((EMPTY_SLIST(nn->lsrql)) && (nn->state == NEIGHBOR_LOADING))
 	      ospf_neigh_sm(nn, INM_LOADDONE);
 	    break;
 	  default:
@@ -279,6 +283,16 @@ ospf_lsupd_flood(struct proto_ospf *po,
 
       ospf_pkt_fill_hdr(ifa, pk, LSUPD_P);
       pk->lsano = htonl(1);
+
+      /* Check iface buffer size */
+      int len2 = sizeof(struct ospf_lsupd_packet) + (hn ? ntohs(hn->length) : hh->length);
+      if (len2 > ospf_pkt_bufsize(ifa))
+      {
+	/* Cannot fit in a tx buffer, skip that iface */
+	log(L_ERR "OSPF: LSA too large to flood on %s (Type: %04x, Id: %R, Rt: %R)", 
+	    ifa->iface->name, hh->type, hh->id, hh->rt);
+	continue;
+      }
 
       lh = (struct ospf_lsa_header *) (pk + 1);
 
@@ -395,7 +409,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 	if (len2 > ospf_pkt_bufsize(n->ifa))
 	{
 	  /* Cannot fit in a tx buffer, skip that */
-	  log(L_WARN "OSPF: LSA too large to send (Type: %04x, Id: %R, Rt: %R)", 
+	  log(L_ERR "OSPF: LSA too large to send (Type: %04x, Id: %R, Rt: %R)", 
 	      lsr->lsh.type, lsr->lsh.id, lsr->lsh.rt);
 	  lsr = NODE_NEXT(lsr);
 	  continue;

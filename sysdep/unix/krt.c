@@ -69,12 +69,14 @@
 
 pool *krt_pool;
 static linpool *krt_filter_lp;
+static list krt_proto_list;
 
 void
 krt_io_init(void)
 {
   krt_pool = rp_new(&root_pool, "Kernel Syncer");
   krt_filter_lp = lp_new(krt_pool, 4080);
+  init_list(&krt_proto_list);
 }
 
 /*
@@ -114,12 +116,18 @@ kif_request_scan(void)
 }
 
 static inline int
-prefer_scope(struct ifa *a, struct ifa *b)
-{ return (a->scope > SCOPE_LINK) && (b->scope <= SCOPE_LINK); }
-
-static inline int
 prefer_addr(struct ifa *a, struct ifa *b)
-{ return ipa_compare(a->ip, b->ip) < 0; }
+{ 
+  int sa = a->scope > SCOPE_LINK;
+  int sb = b->scope > SCOPE_LINK;
+
+  if (sa < sb)
+    return 0;
+  else if (sa > sb)
+    return 1;
+  else
+    return ipa_compare(a->ip, b->ip) < 0;
+}
 
 static inline struct ifa *
 find_preferred_ifa(struct iface *i, ip_addr prefix, ip_addr mask)
@@ -130,7 +138,7 @@ find_preferred_ifa(struct iface *i, ip_addr prefix, ip_addr mask)
     {
       if (!(a->flags & IA_SECONDARY) &&
 	  ipa_equal(ipa_and(a->ip, mask), prefix) &&
-	  (!b || prefer_scope(a, b) || prefer_addr(a, b)))
+	  (!b || prefer_addr(a, b)))
 	b = a;
     }
 
@@ -558,12 +566,6 @@ krt_dump_attrs(rte *e)
  *	Routes
  */
 
-#ifdef CONFIG_ALL_TABLES_AT_ONCE
-static timer *krt_scan_timer;
-static int krt_instance_count;
-static list krt_instance_list;
-#endif
-
 static void
 krt_flush_routes(struct krt_proto *p)
 {
@@ -574,7 +576,7 @@ krt_flush_routes(struct krt_proto *p)
     {
       net *n = (net *) f;
       rte *e = n->routes;
-      if (e && (n->n.flags & KRF_INSTALLED))
+      if (rte_is_valid(e) && (n->n.flags & KRF_INSTALLED))
 	{
 	  /* FIXME: this does not work if gw is changed in export filter */
 	  krt_replace_rte(p, e->net, NULL, e, NULL);
@@ -649,7 +651,7 @@ krt_got_route(struct krt_proto *p, rte *e)
     }
 
   old = net->routes;
-  if ((net->n.flags & KRF_INSTALLED) && old)
+  if ((net->n.flags & KRF_INSTALLED) && rte_is_valid(old))
     {
       /* There may be changes in route attributes, we ignore that.
          Also, this does not work well if gw is changed in export filter */
@@ -726,6 +728,13 @@ krt_prune(struct krt_proto *p)
 	    {
 	      /* Route rejected, should not happen (KRF_INSTALLED) but to be sure .. */
 	      verdict = (verdict == KRF_CREATE) ? KRF_IGNORE : KRF_DELETE; 
+	    }
+	  else
+	    {
+	      ea_list **x = &tmpa;
+	      while (*x)
+		x = &((*x)->next);
+	      *x = new ? new->attrs->eattrs : NULL;
 	    }
 	}
 
@@ -805,33 +814,86 @@ krt_got_route_async(struct krt_proto *p, rte *e, int new)
  *	Periodic scanning
  */
 
+
+#ifdef CONFIG_ALL_TABLES_AT_ONCE
+
+static timer *krt_scan_timer;
+static int krt_scan_count;
+
 static void
 krt_scan(timer *t UNUSED)
 {
   struct krt_proto *p;
 
   kif_force_scan();
-#ifdef CONFIG_ALL_TABLES_AT_ONCE
+
+  /* We need some node to decide whether to print the debug messages or not */
+  p = SKIP_BACK(struct krt_proto, krt_node, HEAD(krt_proto_list));
+  KRT_TRACE(p, D_EVENTS, "Scanning routing table");
+
+  krt_do_scan(NULL);
+
+  void *q;
+  WALK_LIST(q, krt_proto_list)
   {
-    void *q;
-    /* We need some node to decide whether to print the debug messages or not */
-    p = SKIP_BACK(struct krt_proto, instance_node, HEAD(krt_instance_list));
-    if (p->instance_node.next)
-      KRT_TRACE(p, D_EVENTS, "Scanning routing table");
-    krt_do_scan(NULL);
-    WALK_LIST(q, krt_instance_list)
-      {
-	p = SKIP_BACK(struct krt_proto, instance_node, q);
-	krt_prune(p);
-      }
+    p = SKIP_BACK(struct krt_proto, krt_node, q);
+    krt_prune(p);
   }
+}
+
+static void
+krt_scan_timer_start(struct krt_proto *p)
+{
+  if (!krt_scan_count)
+    krt_scan_timer = tm_new_set(krt_pool, krt_scan, NULL, 0, KRT_CF->scan_time);
+
+  krt_scan_count++;
+
+  tm_start(krt_scan_timer, 0);
+}
+
+static void
+krt_scan_timer_stop(struct krt_proto *p)
+{
+  krt_scan_count--;
+
+  if (!krt_scan_count)
+  {
+    rfree(krt_scan_timer);
+    krt_scan_timer = NULL;
+  }
+}
+
 #else
-  p = t->data;
+
+static void
+krt_scan(timer *t)
+{
+  struct krt_proto *p = t->data;
+
+  kif_force_scan();
+
   KRT_TRACE(p, D_EVENTS, "Scanning routing table");
   krt_do_scan(p);
   krt_prune(p);
-#endif
 }
+
+static void
+krt_scan_timer_start(struct krt_proto *p)
+{
+  p->scan_timer = tm_new_set(p->p.pool, krt_scan, p, 0, KRT_CF->scan_time);
+  tm_start(p->scan_timer, 0);
+}
+
+static void
+krt_scan_timer_stop(struct krt_proto *p)
+{
+  tm_stop(p->scan_timer);
+}
+
+#endif
+
+
 
 
 /*
@@ -893,7 +955,7 @@ krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
 {
   struct krt_proto *p = (struct krt_proto *) P;
 
-  if (shutting_down)
+  if (config->shutdown)
     return;
   if (!(net->n.flags & KRF_INSTALLED))
     old = NULL;
@@ -935,52 +997,20 @@ krt_init(struct proto_config *c)
   return &p->p;
 }
 
-static timer *
-krt_start_timer(struct krt_proto *p)
-{
-  timer *t;
-
-  t = tm_new(p->krt_pool);
-  t->hook = krt_scan;
-  t->data = p;
-  t->recurrent = KRT_CF->scan_time;
-  tm_start(t, 0);
-  return t;
-}
-
 static int
 krt_start(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
-  int first = 1;
 
-#ifdef CONFIG_ALL_TABLES_AT_ONCE
-  if (!krt_instance_count++)
-    init_list(&krt_instance_list);
-  else
-    first = 0;
-  p->krt_pool = krt_pool;
-  add_tail(&krt_instance_list, &p->instance_node);
-#else
-  p->krt_pool = P->pool;
-#endif
+  add_tail(&krt_proto_list, &p->krt_node);
 
 #ifdef KRT_ALLOW_LEARN
   krt_learn_init(p);
 #endif
 
-  krt_sys_start(p, first);
+  krt_sys_start(p);
 
-  /* Start periodic routing table scanning */
-#ifdef CONFIG_ALL_TABLES_AT_ONCE
-  if (first)
-    krt_scan_timer = krt_start_timer(p);
-  else
-    tm_start(krt_scan_timer, 0);
-  p->scan_timer = krt_scan_timer;
-#else
-  p->scan_timer = krt_start_timer(p);
-#endif
+  krt_scan_timer_start(p);
 
   return PS_UP;
 }
@@ -989,26 +1019,16 @@ static int
 krt_shutdown(struct proto *P)
 {
   struct krt_proto *p = (struct krt_proto *) P;
-  int last = 1;
 
-#ifdef CONFIG_ALL_TABLES_AT_ONCE
-  rem_node(&p->instance_node);
-  if (--krt_instance_count)
-    last = 0;
-  else
-#endif
-    tm_stop(p->scan_timer);
+  krt_scan_timer_stop(p);
 
   /* FIXME we should flush routes even when persist during reconfiguration */
   if (p->initialized && !KRT_CF->persist)
     krt_flush_routes(p);
 
-  krt_sys_shutdown(p, last);
+  krt_sys_shutdown(p);
 
-#ifdef CONFIG_ALL_TABLES_AT_ONCE
-  if (last)
-    rfree(krt_scan_timer);
-#endif
+  rem_node(&p->krt_node);
 
   return PS_DOWN;
 }

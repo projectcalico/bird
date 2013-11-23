@@ -46,6 +46,7 @@ do { if ((p->debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
 #include "nest/route.h"
 #include "nest/cli.h"
 #include "nest/locks.h"
+#include "nest/bfd.h"
 #include "conf/conf.h"
 #include "lib/string.h"
 
@@ -83,6 +84,7 @@ struct ospf_config
   struct proto_config c;
   unsigned tick;
   byte rfc1583;
+  byte stub_router;
   byte abr;
   int ecmp;
   list area_list;		/* list of struct ospf_area_config */
@@ -189,7 +191,8 @@ struct ospf_iface
   u32 rxmtint;			/* number of seconds between LSA retransmissions */
   u32 pollint;			/* Poll interval */
   u32 deadint;			/* after "deadint" missing hellos is router dead */
-  u32 vid;			/* Id of peer of virtual link */
+  u32 iface_id;			/* Interface ID (iface->index or new value for vlinks) */
+  u32 vid;			/* ID of peer of virtual link */
   ip_addr vip;			/* IP of peer of virtual link */
   struct ospf_iface *vifa;	/* OSPF iface which the vlink goes through */
   struct ospf_area *voa;	/* OSPF area which the vlink goes through */
@@ -272,6 +275,9 @@ struct ospf_iface
   u16 rxbuf;			/* Buffer size */
   u8 check_link;		/* Whether iface link change is used */
   u8 ecmp_weight;		/* Weight used for ECMP */
+  u8 ptp_netmask;		/* Send real netmask for P2P */
+  u8 check_ttl;			/* Check incoming packets for TTL 255 */
+  u8 bfd;			/* Use BFD on iface */
 };
 
 struct ospf_md5
@@ -704,6 +710,7 @@ struct ospf_neighbor
 #define ACKL_DIRECT 0
 #define ACKL_DELAY 1
   timer *ackd_timer;		/* Delayed ack timer */
+  struct bfd_request *bfd_req;	/* BFD request, if BFD is used */
   u32 csn;                      /* Last received crypt seq number (for MD5) */
 };
 
@@ -769,6 +776,7 @@ struct proto_ospf
   int areano;			/* Number of area I belong to */
   struct fib rtf;		/* Routing table */
   byte rfc1583;			/* RFC1583 compatibility */
+  byte stub_router;		/* Do not forward transit traffic */
   byte ebit;			/* Did I originate any ext lsa? */
   byte ecmp;			/* Maximal number of nexthops in ECMP route, or 0 */
   struct ospf_area *backbone;	/* If exists */
@@ -776,6 +784,7 @@ struct proto_ospf
   int lsab_size, lsab_used;
   linpool *nhpool;		/* Linpool used for next hops computed in SPF */
   u32 router_id;
+  u32 last_vlink_id;		/* Interface IDs for vlinks (starts at 0x80000000) */
 };
 
 struct ospf_iface_patt
@@ -795,6 +804,8 @@ struct ospf_iface_patt
   u32 priority;
   u32 voa;
   u32 vid;
+  int tx_tos;
+  int tx_priority;
   u16 rxbuf;
 #define OSPF_RXBUF_NORMAL 0
 #define OSPF_RXBUF_LARGE 1
@@ -808,6 +819,9 @@ struct ospf_iface_patt
   u8 check_link;
   u8 ecmp_weight;
   u8 real_bcast;		/* Not really used in OSPFv3 */
+  u8 ptp_netmask;		/* bool + 2 for unspecified */
+  u8 ttl_security;		/* bool + 2 for TX only */
+  u8 bfd;
 
 #ifdef OSPFv2
   list *passwords;

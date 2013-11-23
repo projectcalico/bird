@@ -44,11 +44,11 @@ CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, TEMPLATE, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
-CF_KEYWORDS(LIMIT, ACTION, WARN, BLOCK, RESTART, DISABLE)
+CF_KEYWORDS(RECEIVE, LIMIT, ACTION, WARN, BLOCK, RESTART, DISABLE, KEEP, FILTERED)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
-CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE, ROA, MAX, FLUSH)
+CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, GENERATE, ROA, MAX, FLUSH, AS)
 CF_KEYWORDS(LISTEN, BGP, V6ONLY, DUAL, ADDRESS, PORT, PASSWORDS, DESCRIPTION, SORTED)
-CF_KEYWORDS(RELOAD, IN, OUT, MRTDUMP, MESSAGES, RESTRICT, MEMORY, IGP_METRIC)
+CF_KEYWORDS(RELOAD, IN, OUT, MRTDUMP, MESSAGES, RESTRICT, MEMORY, IGP_METRIC, CLASS, DSCP)
 
 CF_ENUM(T_ENUM_RTS, RTS_, DUMMY, STATIC, INHERIT, DEVICE, STATIC_DEVICE, REDIRECT,
 	RIP, OSPF, OSPF_IA, OSPF_EXT1, OSPF_EXT2, BGP, PIPE)
@@ -65,7 +65,7 @@ CF_ENUM(T_ENUM_ROA, ROA_, UNKNOWN, VALID, INVALID)
 %type <ro> roa_args
 %type <rot> roa_table_arg
 %type <sd> sym_args
-%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport roa_mode limit_action tab_sorted
+%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_or_preexport roa_mode limit_action tab_sorted tos
 %type <ps> proto_patt proto_patt2
 %type <g> limit_spec
 
@@ -75,9 +75,9 @@ CF_GRAMMAR
 
 CF_ADDTO(conf, rtrid)
 
-rtrid: ROUTER ID idval ';' {
-   new_config->router_id = $3;
-   }
+rtrid: 
+   ROUTER ID idval ';' { new_config->router_id = $3; }
+ | ROUTER ID FROM iface_patt ';' { new_config->router_id_from = this_ipatt; }
  ;
 
 idval:
@@ -185,8 +185,10 @@ proto_item:
  | MRTDUMP mrtdump_mask { this_proto->mrtdump = $2; }
  | IMPORT imexport { this_proto->in_filter = $2; }
  | EXPORT imexport { this_proto->out_filter = $2; }
+ | RECEIVE LIMIT limit_spec { this_proto->rx_limit = $3; }
  | IMPORT LIMIT limit_spec { this_proto->in_limit = $3; }
  | EXPORT LIMIT limit_spec { this_proto->out_limit = $3; }
+ | IMPORT KEEP FILTERED bool { this_proto->in_keep_filtered = $4; }
  | TABLE rtable { this_proto->table = $2; }
  | ROUTER ID idval { this_proto->router_id = $3; }
  | DESCRIPTION TEXT { this_proto->dsc = $2; }
@@ -214,6 +216,7 @@ limit_spec:
      l->action = $2;
      $$ = l;
    }
+ | OFF { $$ = NULL; }
  ;
 
 rtable:
@@ -263,6 +266,21 @@ iface_patt_list:
  | iface_patt_list ',' iface_patt_node
  ;
 
+iface_patt_init: {
+   /* Generic this_ipatt init */
+   this_ipatt = cfg_allocz(sizeof(struct iface_patt));
+   init_list(&this_ipatt->ipn_list);
+ }
+ ;
+
+iface_patt:
+   iface_patt_init iface_patt_list
+ ;
+
+tos:
+   CLASS expr { $$ = $2 & 0xfc;        if (($2 < 0) || ($2 > 255)) cf_error("TX class must be in range 0-255"); }
+ | DSCP expr  { $$ = ($2 & 0x3f) << 2; if (($2 < 0) || ($2 > 63))  cf_error("TX DSCP must be in range 0-63"); }
+ ;
 
 /* Direct device route protocol */
 
@@ -405,7 +423,7 @@ CF_CLI(SHOW INTERFACES SUMMARY,,, [[Show summary of network interfaces]])
 { if_show_summary(); } ;
 
 CF_CLI_HELP(SHOW ROUTE, ..., [[Show routing table]])
-CF_CLI(SHOW ROUTE, r_args, [[[<prefix>|for <prefix>|for <ip>] [table <t>] [filter <f>|where <cond>] [all] [primary] [(export|preexport) <p>] [protocol <p>] [stats|count]]], [[Show routing table]])
+CF_CLI(SHOW ROUTE, r_args, [[[<prefix>|for <prefix>|for <ip>] [table <t>] [filter <f>|where <cond>] [all] [primary] [filtered] [(export|preexport) <p>] [protocol <p>] [stats|count]]], [[Show routing table]])
 { rt_show($3); } ;
 
 r_args:
@@ -413,7 +431,6 @@ r_args:
      $$ = cfg_allocz(sizeof(struct rt_show_data));
      $$->pxlen = 256;
      $$->filter = FILTER_ACCEPT;
-     $$->table = config->master_rtc->table;
    }
  | r_args prefix {
      $$ = $1;
@@ -450,6 +467,10 @@ r_args:
  | r_args PRIMARY {
      $$ = $1;
      $$->primary_only = 1;
+   }
+ | r_args FILTERED {
+     $$ = $1;
+     $$->filtered = 1;
    }
  | r_args export_or_preexport SYM {
      struct proto_config *c = (struct proto_config *) $3->def;
@@ -591,7 +612,11 @@ CF_CLI(DUMP ROUTES,,, [[Dump routing table]])
 CF_CLI(DUMP PROTOCOLS,,, [[Dump protocol information]])
 { protos_dump_all(); cli_msg(0, ""); } ;
 
-CF_CLI(ECHO, echo_mask echo_size, [all | off | <mask>] [<buffer-size>], [[Configure echoing of log messages]]) {
+CF_CLI(EVAL, term, <expr>, [[Evaluate an expression]])
+{ cmd_eval($2); } ;
+
+CF_CLI_HELP(ECHO, ..., [[Control echoing of log messages]])
+CF_CLI(ECHO, echo_mask echo_size, (all | off | { debug | trace | info | remote | warning | error | auth }) [<buffer-size>], [[Control echoing of log messages]]) {
   cli_set_log_echo(this_cli, $2, $3);
   cli_msg(0, "");
 } ;
@@ -599,7 +624,7 @@ CF_CLI(ECHO, echo_mask echo_size, [all | off | <mask>] [<buffer-size>], [[Config
 echo_mask:
    ALL { $$ = ~0; }
  | OFF { $$ = 0; }
- | NUM
+ | '{' log_mask_list '}' { $$ = $2; }
  ;
 
 echo_size:

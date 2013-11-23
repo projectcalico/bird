@@ -501,6 +501,10 @@ ospf_rt_spfa(struct ospf_area *oa)
 #ifdef OSPFv2
       ospf_rt_spfa_rtlinks(oa, act, act);
 #else /* OSPFv3 */
+      /* Errata 2078 to RFC 5340 4.8.1 - skip links from non-routing nodes */
+      if ((act != oa->rt) && !(rt->options & OPT_R))
+	break;
+
       for (tmp = ospf_hash_find_rt_first(po->gr, act->domain, act->lsa.rt);
 	   tmp; tmp = ospf_hash_find_rt_next(tmp))
 	ospf_rt_spfa_rtlinks(oa, act, tmp);
@@ -1839,7 +1843,7 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   if (en->lsa.type == LSA_T_RT)
     {
       struct ospf_lsa_rt *rt = en->lsa_body;
-      if (!(rt->options & OPT_V6) || !(rt->options & OPT_R))
+      if (!(rt->options & OPT_V6))
 	return;
     }
 #endif

@@ -6,9 +6,22 @@
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
+#ifdef __NetBSD__
+
+#ifndef IP_RECVTTL
+#define IP_RECVTTL 23
+#endif
+
+#ifndef IP_MINTTL
+#define IP_MINTTL 24
+#endif
+
+#endif
+
 #ifdef __DragonFly__
 #define TCP_MD5SIG	TCP_SIGNATURE_ENABLE
 #endif
+
 #ifdef IPV6
 
 static inline void
@@ -113,7 +126,9 @@ sysio_leave_group(sock *s, ip_addr maddr)
 /* BSD RX/TX packet info handling for IPv4 */
 /* it uses IP_RECVDSTADDR / IP_RECVIF socket options instead of IP_PKTINFO */
 
-#define CMSG_RX_SPACE (CMSG_SPACE(sizeof(struct in_addr)) + CMSG_SPACE(sizeof(struct sockaddr_dl)))
+#define CMSG_RX_SPACE (CMSG_SPACE(sizeof(struct in_addr)) + \
+		       CMSG_SPACE(sizeof(struct sockaddr_dl)) + \
+		       CMSG_SPACE(sizeof(char)))
 #define CMSG_TX_SPACE CMSG_SPACE(sizeof(struct in_addr))
 
 static char *
@@ -121,13 +136,18 @@ sysio_register_cmsgs(sock *s)
 {
   int ok = 1;
   if (s->flags & SKF_LADDR_RX)
-    {
-      if (setsockopt(s->fd, IPPROTO_IP, IP_RECVDSTADDR, &ok, sizeof(ok)) < 0)
-	return "IP_RECVDSTADDR";
+  {
+    if (setsockopt(s->fd, IPPROTO_IP, IP_RECVDSTADDR, &ok, sizeof(ok)) < 0)
+      return "IP_RECVDSTADDR";
 
-      if (setsockopt(s->fd, IPPROTO_IP, IP_RECVIF, &ok, sizeof(ok)) < 0)
-	return "IP_RECVIF";
-    }
+    if (setsockopt(s->fd, IPPROTO_IP, IP_RECVIF, &ok, sizeof(ok)) < 0)
+      return "IP_RECVIF";
+  }
+
+  if ((s->flags & SKF_TTL_RX) &&
+      (setsockopt(s->fd, IPPROTO_IP, IP_RECVTTL, &ok, sizeof(ok)) < 0))
+    return "IP_RECVTTL";
+
 
   return NULL;
 }
@@ -136,27 +156,35 @@ static void
 sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
 {
   struct cmsghdr *cm;
-
-  if (!(s->flags & SKF_LADDR_RX))
-    return;
-
-  s->laddr = IPA_NONE;
-  s->lifindex = 0;
+  struct in_addr *ra = NULL;
+  struct sockaddr_dl *ri = NULL;
+  unsigned char *ttl = NULL;
 
   for (cm = CMSG_FIRSTHDR(msg); cm != NULL; cm = CMSG_NXTHDR(msg, cm))
-    {
-      if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_RECVDSTADDR)
-	{
-	  struct in_addr *ra = (struct in_addr *) CMSG_DATA(cm);
-	  get_inaddr(&s->laddr, ra);
-	}
+  {
+    if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_RECVDSTADDR)
+      ra = (struct in_addr *) CMSG_DATA(cm);
 
-      if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_RECVIF)
-	{
-	  struct sockaddr_dl *ri = (struct sockaddr_dl *) CMSG_DATA(cm);
-	  s->lifindex = ri->sdl_index;
-	}
-    }
+    if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_RECVIF)
+      ri = (struct sockaddr_dl *) CMSG_DATA(cm);
+
+    if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_RECVTTL)
+      ttl = (unsigned char *) CMSG_DATA(cm);
+  }
+
+  if (s->flags & SKF_LADDR_RX)
+  {
+    s->laddr = IPA_NONE;
+    s->lifindex = 0;
+
+    if (ra)
+      get_inaddr(&s->laddr, ra);
+    if (ri)
+      s->lifindex = ri->sdl_index;
+  }
+
+  if (s->flags & SKF_TTL_RX)
+    s->ttl = ttl ? *ttl : -1;
 
   // log(L_WARN "RX %I %d", s->laddr, s->lifindex);
 }
@@ -244,8 +272,6 @@ sk_set_md5_auth_int(sock *s, sockaddr *sa, char *passwd)
 
 #ifndef IPV6
 
-#ifdef IP_MINTTL
-
 static int
 sk_set_min_ttl4(sock *s, int ttl)
 {
@@ -262,17 +288,6 @@ sk_set_min_ttl4(sock *s, int ttl)
   return 0;
 }
 
-#else /* no IP_MINTTL */
-
-static int
-sk_set_min_ttl4(sock *s, int ttl)
-{
-  log(L_ERR "IPv4 TTL security not supported");
-  return -1;
-}
-
-#endif
-
 #else /* IPv6 */
 
 static int
@@ -284,3 +299,12 @@ sk_set_min_ttl6(sock *s, int ttl)
 
 #endif
 
+
+int sk_priority_control = -1;
+
+static int
+sk_set_priority(sock *s, int prio UNUSED)
+{
+  log(L_WARN "Socket priority not supported");
+  return -1;
+}

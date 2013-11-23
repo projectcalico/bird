@@ -26,7 +26,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY,
 	PREFER, OLDER, MISSING, LLADDR, DROP, IGNORE, ROUTE, REFRESH,
 	INTERPRET, COMMUNITIES, BGP_ORIGINATOR_ID, BGP_CLUSTER_LIST, IGP,
 	TABLE, GATEWAY, DIRECT, RECURSIVE, MED, TTL, SECURITY, DETERMINISTIC,
-	SECONDARY, ADD, PATHS, RX, TX)
+	SECONDARY, ALLOW, BFD, ADD, PATHS, RX, TX)
 
 CF_GRAMMAR
 
@@ -76,7 +76,8 @@ bgp_proto:
  | bgp_proto KEEPALIVE TIME expr ';' { BGP_CFG->keepalive_time = $4; }
  | bgp_proto MULTIHOP ';' { BGP_CFG->multihop = 64; }
  | bgp_proto MULTIHOP expr ';' { BGP_CFG->multihop = $3; if (($3<1) || ($3>255)) cf_error("Multihop must be in range 1-255"); }
- | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; }
+ | bgp_proto NEXT HOP SELF ';' { BGP_CFG->next_hop_self = 1; BGP_CFG->next_hop_keep = 0; }
+ | bgp_proto NEXT HOP KEEP ';' { BGP_CFG->next_hop_keep = 1; BGP_CFG->next_hop_self = 0; }
  | bgp_proto MISSING LLADDR SELF ';' { BGP_CFG->missing_lladdr = MLL_SELF; }
  | bgp_proto MISSING LLADDR DROP ';' { BGP_CFG->missing_lladdr = MLL_DROP; }
  | bgp_proto MISSING LLADDR IGNORE ';' { BGP_CFG->missing_lladdr = MLL_IGNORE; }
@@ -110,8 +111,11 @@ bgp_proto:
  | bgp_proto ADD PATHS RX ';' { BGP_CFG->add_path = ADD_PATH_RX; }
  | bgp_proto ADD PATHS TX ';' { BGP_CFG->add_path = ADD_PATH_TX; }
  | bgp_proto ADD PATHS bool ';' { BGP_CFG->add_path = $4 ? ADD_PATH_FULL : 0; }
+ | bgp_proto ALLOW LOCAL AS ';' { BGP_CFG->allow_local_as = -1; }
+ | bgp_proto ALLOW LOCAL AS expr ';' { BGP_CFG->allow_local_as = $5; }
  | bgp_proto IGP TABLE rtable ';' { BGP_CFG->igp_table = $4; }
  | bgp_proto TTL SECURITY bool ';' { BGP_CFG->ttl_security = $4; }
+ | bgp_proto BFD bool ';' { BGP_CFG->bfd = $3; cf_check_bfd($3); }
  ;
 
 CF_ADDTO(dynamic_attr, BGP_ORIGIN

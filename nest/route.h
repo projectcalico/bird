@@ -141,7 +141,7 @@ typedef struct rtable {
   int gc_counter;			/* Number of operations since last GC */
   bird_clock_t gc_time;			/* Time of last GC */
   byte gc_scheduled;			/* GC is scheduled */
-  byte prune_state;			/* Table prune state, 1 -> prune is running */
+  byte prune_state;			/* Table prune state, 1 -> scheduled, 2-> running */
   byte hcu_scheduled;			/* Hostcache update is scheduled */
   byte nhu_state;			/* Next Hop Update state */
   struct fib_iterator prune_fit;	/* Rtable prune FIB iterator */
@@ -221,11 +221,25 @@ typedef struct rte {
 } rte;
 
 #define REF_COW		1		/* Copy this rte on write */
+#define REF_FILTERED	2		/* Route is rejected by import filter */
+
+/* Route is valid for propagation (may depend on other flags in the future), accepts NULL */
+static inline int rte_is_valid(rte *r) { return r && !(r->flags & REF_FILTERED); }
+
+/* Route just has REF_FILTERED flag */
+static inline int rte_is_filtered(rte *r) { return !!(r->flags & REF_FILTERED); }
+
 
 /* Types of route announcement, also used as flags */
 #define RA_OPTIMAL	1		/* Announcement of optimal route change */
 #define RA_ACCEPTED	2		/* Announcement of first accepted route */
 #define RA_ANY		3		/* Announcement of any route change */
+
+/* Return value of import_control() callback */
+#define RIC_ACCEPT	1		/* Accepted by protocol */
+#define RIC_PROCESS	0		/* Process it through import filter */
+#define RIC_REJECT	-1		/* Rejected by protocol */
+#define RIC_DROP	-2		/* Silently dropped by protocol */
 
 struct config;
 
@@ -242,6 +256,7 @@ rte *rte_get_temp(struct rta *);
 void rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src);
 static inline void rte_update(struct proto *p, net *net, rte *new) { rte_update2(p->main_ahook, net, new, p->main_source); }
 void rte_discard(rtable *tab, rte *old);
+int rt_examine(rtable *t, ip_addr prefix, int pxlen, struct proto *p, struct filter *filter);
 void rte_dump(rte *);
 void rte_free(rte *);
 rte *rte_do_cow(rte *);
@@ -250,7 +265,6 @@ void rt_dump(rtable *);
 void rt_dump_all(void);
 int rt_feed_baby(struct proto *p);
 void rt_feed_baby_abort(struct proto *p);
-void rt_schedule_prune_all(void);
 int rt_prune_loop(void);
 struct rtable_config *rt_new_table(struct symbol *s);
 
@@ -263,7 +277,7 @@ struct rt_show_data {
   struct fib_iterator fit;
   struct proto *show_protocol;
   struct proto *export_protocol;
-  int export_mode, primary_only;
+  int export_mode, primary_only, filtered;
   struct config *running_on_config;
   int net_counter, rt_counter, show_counter;
   int stats, show_for;
@@ -399,6 +413,10 @@ struct adata {
   unsigned int length;			/* Length of data */
   byte data[0];
 };
+
+static inline int adata_same(struct adata *a, struct adata *b)
+{ return (a->length == b->length && !memcmp(a->data, b->data, a->length)); }
+
 
 typedef struct ea_list {
   struct ea_list *next;			/* In case we have an override list */
