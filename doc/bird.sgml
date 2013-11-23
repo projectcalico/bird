@@ -256,7 +256,10 @@ which allows you to talk with BIRD in an extensive way.
 <p>In the config, everything on a line after <cf/#/ or inside <cf>/*
 */</cf> is a comment, whitespace characters are treated as a single space. If there's a variable number of options, they are grouped using
 the <cf/{ }/ brackets. Each option is terminated by a <cf/;/. Configuration
-is case sensitive.
+is case sensitive. There are two ways how to name symbols (like protocol names, filter names, constats etc.). You can either use
+a simple string starting with a letter followed by any combination of letters and numbers (e.g. "R123", "myfilter", "bgp5") or you
+can enclose the name into apostrophes (<cf/'/) and than you can use any combination of numbers, letters. hyphens, dots and colons
+(e.g. "'1:strange-name'", "'-NAME-'", "'cool::name'").
 
 <p>Here is an example of a simple config file. It enables
 synchronization of routing tables with OS kernel, scans for 
