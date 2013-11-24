@@ -1536,33 +1536,37 @@ This allows to set routing policy and all the other parameters differently
 for each neighbor using the following configuration parameters:
 
 <descrip>
-	<tag>local [<m/ip/] as <m/number/</tag> Define which AS we
-	are part of. (Note that contrary to other IP routers, BIRD is
-	able to act as a router located in multiple AS'es
-	simultaneously, but in such cases you need to tweak the BGP
-	paths manually in the filters to get consistent behavior.)
-	Optional <cf/ip/ argument specifies a source address,
-	equivalent to the <cf/source address/ option (see below).
+	<tag>local [<m/ip/] as <m/number/</tag> Define which AS we are part
+	of. (Note that contrary to other IP routers, BIRD is able to act as a
+	router located in multiple AS'es simultaneously, but in such cases you
+	need to tweak the BGP paths manually in the filters to get consistent
+	behavior.) Optional <cf/ip/ argument specifies a source address,
+	equivalent to the <cf/source address/ option (see below).  This
+	parameter is mandatory.
+
+	<tag>neighbor <m/ip/ as <m/number/</tag> Define neighboring router this
+	instance will be talking to and what AS it's located in. In case the
+	neighbor is in the same AS as we are, we automatically switch to iBGP.
 	This parameter is mandatory.
 
-	<tag>neighbor <m/ip/ as <m/number/</tag> Define neighboring router
-	this instance will be talking to and what AS it's located in. Unless
-	you use the <cf/multihop/ clause, it must be directly connected to one
-	of your router's interfaces. In case the neighbor is in the same AS
-	as we are, we automatically switch to iBGP. This parameter is mandatory.
+	<tag>direct</tag> Specify that the neighbor is directly connected. The
+	IP address of the neighbor must be from a directly reachable IP range
+	(i.e. associated with one of your router's interfaces), otherwise the
+	BGP session wouldn't start but it would wait for such interface to
+	appear. The alternative is the <cf/multihop/ option.  Default: enabled
+	for eBGP.
 
-	<tag>multihop [<m/number/]</tag> Configure multihop BGP
-	session to a neighbor that isn't directly connected.
-	Accurately, this option should be used if the configured
-	neighbor IP address does not match with any local network
-	subnets. Such IP address have to be reachable through system
-	routing table. For multihop BGP it is recommended to
-	explicitly configure <cf/source address/ to have it
-	stable. Optional <cf/number/ argument can be used to specify
-	the number of hops (used for TTL). Note that the number of
-	networks (edges) in a path is counted, i.e. if two BGP
-	speakers are separated by one router, the number of hops is
-	2. Default: switched off.
+	<tag>multihop [<m/number/]</tag> Configure multihop BGP session to a
+	neighbor that isn't directly connected.  Accurately, this option should
+	be used if the configured neighbor IP address does not match with any
+	local network subnets. Such IP address have to be reachable through
+	system routing table.  The alternative is the <cf/direct/ option. For
+	multihop BGP it is recommended to explicitly configure the source
+	address to have it stable. Optional <cf/number/ argument can be used to
+	specify the number of hops (used for TTL). Note that the number of
+	networks (edges) in a path is counted; i.e., if two BGP speakers are
+	separated by one router, the number of hops is 2. Default: enabled for
+	iBGP.
 
 	<tag>source address <m/ip/</tag> Define local address we
 	should use for next hop calculation and as a source address
@@ -1609,8 +1613,8 @@ for each neighbor using the following configuration parameters:
 	table, and was used in older versions of BIRD, but does not
 	handle well nontrivial iBGP setups and multihop.  Recursive
 	mode is incompatible with <ref id="dsc-sorted" name="sorted
-	tables">. Default: <cf/direct/ for singlehop eBGP,
-	<cf/recursive/ otherwise.
+	tables">. Default: <cf/direct/ for direct sessions,
+	<cf/recursive/ for multihop sessions.
 
 	<tag>igp table <m/name/</tag> Specifies a table that is used
 	as an IGP routing table. Default: the same as the table BGP is
