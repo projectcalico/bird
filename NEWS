@@ -1,4 +1,4 @@
-Version 1.4.0 (2013-11-XX)
+Version 1.4.0 (2013-11-25)
   o BFD protocol (RFC 5880).
   o BFD support for OSPF and BGP.
   o New 'allow local as' option for BGP.
