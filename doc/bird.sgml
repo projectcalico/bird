@@ -380,7 +380,7 @@ protocol rip {
 	"<m/format1/" is a format string using <it/strftime(3)/
 	notation (see <it/man strftime/ for details). <m/limit> and
 	"<m/format2/" allow to specify the second format string for
-	times in past deeper than <m/limit/ seconds. There are two
+	times in past deeper than <m/limit/ seconds. There are few
 	shorthands: <cf/iso long/ is a ISO 8601 date/time format
 	(YYYY-MM-DD hh:mm:ss) that can be also specified using <cf/"%F
 	%T"/. <cf/iso short/ is a variant of ISO 8601 that uses just
@@ -388,11 +388,15 @@ protocol rip {
 	the past) and the date format (YYYY-MM-DD) for far times. This
 	is a shorthand for <cf/"%T" 72000 "%F"/.
 
-	By default, BIRD uses an short, ad-hoc format for <cf/route/
-	and <cf/protocol/ times, and a <cf/iso long/ similar format
-	(DD-MM-YYYY hh:mm:ss) for <cf/base/ and <cf/log/. These
-	defaults are here for a compatibility with older versions
-	and might change in the future.
+	By default, BIRD uses the <cf/iso short/ format for <cf/route/ and
+	<cf/protocol/ times, and the <cf/iso long/ format for <cf/base/ and
+	<cf/log/ times.
+
+	In pre-1.4.0 versions, BIRD used an short, ad-hoc format for
+	<cf/route/ and <cf/protocol/ times, and a <cf/iso long/ similar format
+	(DD-MM-YYYY hh:mm:ss) for <cf/base/ and <cf/log/. These timeformats
+	could be set by <cf/old short/ and <cf/old long/ compatibility
+	shorthands.
 
 	<tag>table <m/name/ [sorted]</tag>
 	Create a new routing table. The default routing table is
