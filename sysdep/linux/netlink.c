@@ -862,19 +862,6 @@ nl_parse_route(struct nlmsghdr *h, int scan)
       else
 	{
 	  ra.dest = RTD_DEVICE;
-
-	  /*
-	   * In Linux IPv6, 'native' device routes have proto
-	   * RTPROT_BOOT and not RTPROT_KERNEL (which they have in
-	   * IPv4 and which is expected). We cannot distinguish
-	   * 'native' and user defined device routes, so we ignore all
-	   * such device routes and for consistency, we have the same
-	   * behavior in IPv4. Anyway, users should use RTPROT_STATIC
-	   * for their 'alien' routes.
-	   */
-
-	  if (i->rtm_protocol == RTPROT_BOOT)
-	    src = KRT_SRC_KERNEL;
 	}
 
       break;
