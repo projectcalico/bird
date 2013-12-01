@@ -1682,6 +1682,15 @@ for each neighbor using the following configuration parameters:
 	This option requires that the connected routing table is
 	<ref id="dsc-sorted" name="sorted">. Default: off.
 
+	<tag>add paths <m/switch/|rx|tx</tag>
+	Standard BGP can propagate only one path (route) per destination network
+	(usually the selected one). This option controls the add-path protocol
+	extension, which allows to advertise any number of paths to a
+	destination. Note that to be active, add-path has to be enabled on both
+	sides of the BGP session, but it could be enabled separately for RX and
+	TX direction. When active, all available routes accepted by the export
+	filter are advertised to the neighbor. Default: off.
+
 	<tag>allow local as [<m/number/]</tag> 
 	BGP prevents routing loops by rejecting received routes with
 	the local AS number in the AS path. This option allows to
