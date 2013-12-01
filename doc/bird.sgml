@@ -1672,7 +1672,7 @@ for each neighbor using the following configuration parameters:
 	attributes to be transparent (for example does not prepend its AS number to
 	AS PATH attribute and keeps MED attribute). Default: disabled.
 
-	<tag>secondary <m/switch/</tag> Usually, if an import filter
+	<tag>secondary <m/switch/</tag> Usually, if an export filter
 	rejects a selected route, no other route is propagated for
 	that network. This option allows to try the next route in
 	order until one that is accepted is found or all routes for
