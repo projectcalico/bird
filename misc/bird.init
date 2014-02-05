@@ -26,7 +26,7 @@ BIRD6="yes"
 [ -f /usr/sbin/bird ] || BIRD4="no"
 [ "${NETWORKING}" = "yes" ] || BIRD4="no"
 
-[ -f /etc/bird-6.conf ] || BIRD6="no"
+[ -f /etc/bird6.conf ] || BIRD6="no"
 [ -f /usr/sbin/bird6 ] || BIRD6="no"
 [ "${NETWORKING_IPV6}" = "yes" ] || BIRD6="no"
 
@@ -76,13 +76,17 @@ case "$1" in
 	RETVAL=$?
 	;;
   reload)
-	killall -HUP bird
-	killall -HUP bird6
+	killproc bird -HUP
+ 	RETVAL=$?
+	echo
+	echo -n "Reloading BIRD for IPv6: "
+	killproc bird6 -HUP
 	RETVAL=$?
+	echo
 	;;
   *)
 	echo "Usage: bird.init {start|stop|status|restart|reload}"
 	exit 1
 esac
 
-exit $REVAL
+exit $RETVAL
