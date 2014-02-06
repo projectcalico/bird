@@ -278,21 +278,21 @@ ospf_lsupd_flood(struct proto_ospf *po,
       struct ospf_packet *op;
       struct ospf_lsa_header *lh;
 
+      /* Check iface buffer size */
+      uint len2 = sizeof(struct ospf_lsupd_packet) + (hn ? ntohs(hn->length) : hh->length);
+      if (ospf_iface_assure_bufsize(ifa, len2) < 0)
+      {
+	/* Cannot fit in a tx buffer, skip that iface */
+	log(L_ERR "OSPF: LSA too large to flood on %s (Type: %04x, Id: %R, Rt: %R)", 
+	    ifa->ifname, hh->type, hh->id, hh->rt);
+	continue;
+      }
+
       pk = ospf_tx_buffer(ifa);
       op = &pk->ospf_packet;
 
       ospf_pkt_fill_hdr(ifa, pk, LSUPD_P);
       pk->lsano = htonl(1);
-
-      /* Check iface buffer size */
-      int len2 = sizeof(struct ospf_lsupd_packet) + (hn ? ntohs(hn->length) : hh->length);
-      if (len2 > ospf_pkt_bufsize(ifa))
-      {
-	/* Cannot fit in a tx buffer, skip that iface */
-	log(L_ERR "OSPF: LSA too large to flood on %s (Type: %04x, Id: %R, Rt: %R)", 
-	    ifa->iface->name, hh->type, hh->id, hh->rt);
-	continue;
-      }
 
       lh = (struct ospf_lsa_header *) (pk + 1);
 
@@ -322,7 +322,7 @@ ospf_lsupd_flood(struct proto_ospf *po,
 
       op->length = htons(len);
 
-      OSPF_PACKET(ospf_dump_lsupd, pk, "LSUPD packet flooded via %s", ifa->iface->name);
+      OSPF_PACKET(ospf_dump_lsupd, pk, "LSUPD packet flooded via %s", ifa->ifname);
 
       switch (ifa->type)
       {
@@ -406,7 +406,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 	  break;
 
 	/* LSA is larger than MTU, check buffer size */
-	if (len2 > ospf_pkt_bufsize(n->ifa))
+	if (ospf_iface_assure_bufsize(n->ifa, len2) < 0)
 	{
 	  /* Cannot fit in a tx buffer, skip that */
 	  log(L_ERR "OSPF: LSA too large to send (Type: %04x, Id: %R, Rt: %R)", 
@@ -414,6 +414,10 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
 	  lsr = NODE_NEXT(lsr);
 	  continue;
 	}
+
+	/* TX buffer could be reallocated */
+	pkt = ospf_tx_buffer(n->ifa);
+	buf = (void *) pkt;
       }
 
       /* Copy the LSA to the packet */
@@ -432,7 +436,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
     pkt->lsano = htonl(lsano);
     pkt->ospf_packet.length = htons(len);
     OSPF_PACKET(ospf_dump_lsupd, pkt, "LSUPD packet sent to %I via %s",
-		n->ip, n->ifa->iface->name);
+		n->ip, n->ifa->ifname);
     ospf_send_to(n->ifa, n->ip);
   }
 }
@@ -455,7 +459,7 @@ ospf_lsupd_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
   }
 
   struct ospf_lsupd_packet *ps = (void *) ps_i;
-  OSPF_PACKET(ospf_dump_lsupd, ps, "LSUPD packet received from %I via %s", n->ip, ifa->iface->name);
+  OSPF_PACKET(ospf_dump_lsupd, ps, "LSUPD packet received from %I via %s", n->ip, ifa->ifname);
 
   if (n->state < NEIGHBOR_EXCHANGE)
   {

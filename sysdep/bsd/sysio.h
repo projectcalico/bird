@@ -38,18 +38,13 @@ get_inaddr(ip_addr *a, struct in6_addr *ia)
   ipa_ntoh(*a);
 }
 
-static inline char *
-sysio_bind_to_iface(sock *s)
-{
-  /* Unfortunately not available */
-  return NULL;
-}
-
 
 #else
 
 #include <net/if.h>
 #include <net/if_dl.h>
+#include <netinet/in_systm.h> // Workaround for some BSDs
+#include <netinet/ip.h>
 
 static inline void
 set_inaddr(struct in_addr * ia, ip_addr a)
@@ -93,7 +88,7 @@ sysio_setup_multicast(sock *s)
 static inline char *
 sysio_join_group(sock *s, ip_addr maddr)
 {
-	struct ip_mreq  mreq;
+	struct ip_mreq mreq;
 
 	bzero(&mreq, sizeof(mreq));
 	set_inaddr(&mreq.imr_interface, s->iface->addr->ip);
@@ -152,7 +147,7 @@ sysio_register_cmsgs(sock *s)
   return NULL;
 }
 
-static void
+static inline void
 sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
 {
   struct cmsghdr *cm;
@@ -190,25 +185,16 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
 }
 
 /* Unfortunately, IP_SENDSRCADDR does not work for raw IP sockets on BSD kernels */
-/*
-static void
+
+static inline void
 sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 {
+#ifdef IP_SENDSRCADDR
   struct cmsghdr *cm;
   struct in_addr *sa;
 
-  if (!(s->flags & SKF_LADDR_TX))
-    return;
-
   msg->msg_control = cbuf;
   msg->msg_controllen = cbuflen;
-
-  if (s->iface)
-    {
-      struct in_addr m;
-      set_inaddr(&m, s->saddr);
-      setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_IF, &m, sizeof(m));
-    }
 
   cm = CMSG_FIRSTHDR(msg);
   cm->cmsg_level = IPPROTO_IP;
@@ -219,8 +205,31 @@ sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
   set_inaddr(sa, s->saddr);
 
   msg->msg_controllen = cm->cmsg_len;
+#endif
 }
-*/
+
+
+static void
+fill_ip_header(sock *s, void *hdr, int dlen)
+{
+  struct ip *ip = hdr;
+
+  bzero(ip, 20);
+
+  ip->ip_v = 4;
+  ip->ip_hl = 5;
+  ip->ip_tos = (s->tos < 0) ? 0 : s->tos;
+  ip->ip_len = 20 + dlen;
+  ip->ip_ttl = (s->ttl < 0) ? 64 : s->ttl;
+  ip->ip_p = s->dport;
+  set_inaddr(&ip->ip_src, s->saddr);
+  set_inaddr(&ip->ip_dst, s->daddr);
+
+#ifdef __OpenBSD__
+  /* OpenBSD expects ip_len in network order, other BSDs expect host order */
+  ip->ip_len = htons(ip->ip_len);
+#endif
+}
 
 #endif
 

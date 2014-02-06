@@ -61,8 +61,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 
   struct ospf_hello_packet *ps = (void *) ps_i;
 
-  OSPF_TRACE(D_PACKETS, "HELLO packet received from %I via %s%s", faddr,
-      (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);
+  OSPF_TRACE(D_PACKETS, "HELLO packet received from %I via %s", faddr, ifa->ifname);
 
 #ifdef OSPFv2
   ip_addr mask = ps->netmask;
@@ -120,8 +119,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 
       if (!nn && ifa->strictnbma)
       {
-	log(L_WARN "Ignoring new neighbor: %I on %s", faddr,
-	    ifa->iface->name);
+	log(L_WARN "Ignoring new neighbor: %I on %s", faddr, ifa->ifname);
 	return;
       }
 
@@ -129,8 +127,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 	  (((ps->priority == 0) && nn->eligible) ||
 	   ((ps->priority > 0) && !nn->eligible)))
       {
-	log(L_ERR "Eligibility mismatch for neighbor: %I on %s",
-	    faddr, ifa->iface->name);
+	log(L_ERR "Eligibility mismatch for neighbor: %I on %s", faddr, ifa->ifname);
 	return;
       }
 
@@ -138,8 +135,7 @@ ospf_hello_receive(struct ospf_packet *ps_i, struct ospf_iface *ifa,
 	nn->found = 1;
     }
 
-    OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s", faddr,
-	       ifa->iface->name);
+    OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s", faddr, ifa->ifname);
 
     n = ospf_neighbor_new(ifa);
 
@@ -263,7 +259,7 @@ ospf_hello_send(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dirn)
 
   p = (struct proto *) (ifa->oa->po);
   DBG("%s: Hello/Poll timer fired on interface %s with IP %I\n",
-      p->name, ifa->iface->name, ifa->addr->ip);
+      p->name, ifa->ifname, ifa->addr->ip);
 
   /* Now we should send a hello packet */
   pkt = ospf_tx_buffer(ifa);
@@ -309,9 +305,9 @@ ospf_hello_send(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dirn)
     u32 *pp = (u32 *) (((u8 *) pkt) + sizeof(struct ospf_hello_packet));
     WALK_LIST(neigh, ifa->neigh_list)
     {
-      if ((i+1) * sizeof(u32) + sizeof(struct ospf_hello_packet) > ospf_pkt_bufsize(ifa))
+      if ((i+1) * sizeof(u32) + sizeof(struct ospf_hello_packet) > ospf_pkt_maxsize(ifa))
       {
-	log(L_WARN "%s: Too many neighbors on interface %s", p->name, ifa->iface->name);
+	log(L_WARN "%s: Too many neighbors on interface %s", p->name, ifa->ifname);
 	break;
       }
       *(pp + i) = htonl(neigh->rid);
@@ -376,6 +372,5 @@ ospf_hello_send(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dirn)
     bug("Bug in ospf_hello_send()");
   }
 
-  OSPF_TRACE(D_PACKETS, "HELLO packet sent via %s%s",
-	     (ifa->type == OSPF_IT_VLINK ? "vlink-" : ""), ifa->iface->name);
+  OSPF_TRACE(D_PACKETS, "HELLO packet sent via %s", ifa->ifname);
 }

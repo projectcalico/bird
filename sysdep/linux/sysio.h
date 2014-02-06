@@ -30,17 +30,6 @@ get_inaddr(ip_addr *a, struct in6_addr *ia)
   ipa_ntoh(*a);
 }
 
-static inline char *
-sysio_bind_to_iface(sock *s)
-{
-  struct ifreq ifr;
-  strcpy(ifr.ifr_name, s->iface->name);
-  if (setsockopt(s->fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
-    return "SO_BINDTODEVICE";
-
-  return NULL;
-}
-
 #else
 
 static inline void
@@ -69,11 +58,10 @@ struct ip_mreqn
 #endif
 
 
-static inline void fill_mreqn(struct ip_mreqn *m, struct iface *ifa, ip_addr saddr, ip_addr maddr)
+static inline void fill_mreqn(struct ip_mreqn *m, ip_addr maddr, struct iface *ifa)
 {
   bzero(m, sizeof(*m));
   m->imr_ifindex = ifa->index;
-  set_inaddr(&m->imr_address, saddr);
   set_inaddr(&m->imr_multiaddr, maddr);
 }
 
@@ -90,15 +78,9 @@ sysio_setup_multicast(sock *s)
     return "IP_MULTICAST_TTL";
 
   /* This defines where should we send _outgoing_ multicasts */
-  fill_mreqn(&m, s->iface, s->saddr, IPA_NONE);
+  fill_mreqn(&m, IPA_NONE, s->iface);
   if (setsockopt(s->fd, SOL_IP, IP_MULTICAST_IF, &m, sizeof(m)) < 0)
     return "IP_MULTICAST_IF";
-
-  /* Is this necessary? */
-  struct ifreq ifr;
-  strcpy(ifr.ifr_name, s->iface->name);
-  if (setsockopt(s->fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
-    return "SO_BINDTODEVICE";
 
   return NULL;
 }
@@ -109,7 +91,7 @@ sysio_join_group(sock *s, ip_addr maddr)
   struct ip_mreqn m;
 
   /* And this one sets interface for _receiving_ multicasts from */
-  fill_mreqn(&m, s->iface, s->saddr, maddr);
+  fill_mreqn(&m, maddr, s->iface);
   if (setsockopt(s->fd, SOL_IP, IP_ADD_MEMBERSHIP, &m, sizeof(m)) < 0)
     return "IP_ADD_MEMBERSHIP";
 
@@ -122,7 +104,7 @@ sysio_leave_group(sock *s, ip_addr maddr)
   struct ip_mreqn m;
 
   /* And this one sets interface for _receiving_ multicasts from */
-  fill_mreqn(&m, s->iface, s->saddr, maddr);
+  fill_mreqn(&m, maddr, s->iface);
   if (setsockopt(s->fd, SOL_IP, IP_DROP_MEMBERSHIP, &m, sizeof(m)) < 0)
     return "IP_DROP_MEMBERSHIP";
 
@@ -132,10 +114,7 @@ sysio_leave_group(sock *s, ip_addr maddr)
 #endif
 
 
-#include <linux/socket.h>
-#include <linux/tcp.h>
-
-/* For the case that we have older kernel headers */
+/* For the case that we have older libc headers */
 /* Copied from Linux kernel file include/linux/tcp.h */
 
 #ifndef TCP_MD5SIG
@@ -175,7 +154,7 @@ sk_set_md5_auth_int(sock *s, sockaddr *sa, char *passwd)
       memcpy(&md5.tcpm_key, passwd, len);
     }
 
-  int rv = setsockopt(s->fd, IPPROTO_TCP, TCP_MD5SIG, &md5, sizeof(md5));
+  int rv = setsockopt(s->fd, SOL_TCP, TCP_MD5SIG, &md5, sizeof(md5));
 
   if (rv < 0) 
     {
@@ -203,11 +182,11 @@ sysio_register_cmsgs(sock *s)
   int ok = 1;
 
   if ((s->flags & SKF_LADDR_RX) &&
-      (setsockopt(s->fd, IPPROTO_IP, IP_PKTINFO, &ok, sizeof(ok)) < 0))
+      (setsockopt(s->fd, SOL_IP, IP_PKTINFO, &ok, sizeof(ok)) < 0))
     return "IP_PKTINFO";
 
   if ((s->flags & SKF_TTL_RX) &&
-      (setsockopt(s->fd, IPPROTO_IP, IP_RECVTTL, &ok, sizeof(ok)) < 0))
+      (setsockopt(s->fd, SOL_IP, IP_RECVTTL, &ok, sizeof(ok)) < 0))
     return "IP_RECVTTL";
 
   return NULL;
@@ -222,10 +201,10 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
 
   for (cm = CMSG_FIRSTHDR(msg); cm != NULL; cm = CMSG_NXTHDR(msg, cm))
   {
-    if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_PKTINFO)
+    if (cm->cmsg_level == SOL_IP && cm->cmsg_type == IP_PKTINFO)
       pi = (struct in_pktinfo *) CMSG_DATA(cm);
 
-    if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_TTL)
+    if (cm->cmsg_level == SOL_IP && cm->cmsg_type == IP_TTL)
       ttl = (int *) CMSG_DATA(cm);
   }
 
@@ -249,31 +228,28 @@ sysio_process_rx_cmsgs(sock *s, struct msghdr *msg)
   return;
 }
 
-/*
 static void
 sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 {
   struct cmsghdr *cm;
   struct in_pktinfo *pi;
 
-  if (!(s->flags & SKF_LADDR_TX))
-    return;
-
   msg->msg_control = cbuf;
   msg->msg_controllen = cbuflen;
 
   cm = CMSG_FIRSTHDR(msg);
-  cm->cmsg_level = IPPROTO_IP;
+  cm->cmsg_level = SOL_IP;
   cm->cmsg_type = IP_PKTINFO;
   cm->cmsg_len = CMSG_LEN(sizeof(*pi));
 
   pi = (struct in_pktinfo *) CMSG_DATA(cm);
-  set_inaddr(&pi->ipi_spec_dst, s->saddr);
   pi->ipi_ifindex = s->iface ? s->iface->index : 0;
+  set_inaddr(&pi->ipi_spec_dst, s->saddr);
+  set_inaddr(&pi->ipi_addr, IPA_NONE);
 
   msg->msg_controllen = cm->cmsg_len;
 }
-*/
+
 
 #endif
 
@@ -292,7 +268,7 @@ sysio_prepare_tx_cmsgs(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 static int
 sk_set_min_ttl4(sock *s, int ttl)
 {
-  if (setsockopt(s->fd, IPPROTO_IP, IP_MINTTL, &ttl, sizeof(ttl)) < 0)
+  if (setsockopt(s->fd, SOL_IP, IP_MINTTL, &ttl, sizeof(ttl)) < 0)
   {
     if (errno == ENOPROTOOPT)
       log(L_ERR "Kernel does not support IPv4 TTL security");
@@ -310,7 +286,7 @@ sk_set_min_ttl4(sock *s, int ttl)
 static int
 sk_set_min_ttl6(sock *s, int ttl)
 {
-  if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_MINHOPCOUNT, &ttl, sizeof(ttl)) < 0)
+  if (setsockopt(s->fd, SOL_IPV6, IPV6_MINHOPCOUNT, &ttl, sizeof(ttl)) < 0)
   {
     if (errno == ENOPROTOOPT)
       log(L_ERR "Kernel does not support IPv6 TTL security");

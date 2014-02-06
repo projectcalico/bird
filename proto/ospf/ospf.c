@@ -232,7 +232,6 @@ ospf_start(struct proto *p)
   struct ospf_area_config *ac;
 
   po->router_id = proto_get_router_id(p->cf);
-  po->last_vlink_id = 0x80000000;
   po->rfc1583 = c->rfc1583;
   po->stub_router = c->stub_router;
   po->ebit = 0;
@@ -258,10 +257,13 @@ ospf_start(struct proto *p)
   WALK_LIST(ac, c->area_list)
     ospf_area_add(po, ac, 0);
 
+  if (c->abr)
+    ospf_open_vlink_sk(po);
+
   /* Add all virtual links */
   struct ospf_iface_patt *ic;
   WALK_LIST(ic, c->vlink_list)
-    ospf_iface_new(po->backbone, NULL, ic);
+    ospf_iface_new_vlink(po, ic);
 
   return PS_UP;
 }
@@ -277,7 +279,7 @@ ospf_dump(struct proto *p)
 
   WALK_LIST(ifa, po->iface_list)
   {
-    OSPF_TRACE(D_EVENTS, "Interface: %s", (ifa->iface ? ifa->iface->name : "(null)"));
+    OSPF_TRACE(D_EVENTS, "Interface: %s", ifa->ifname);
     OSPF_TRACE(D_EVENTS, "state: %u", ifa->state);
     OSPF_TRACE(D_EVENTS, "DR:  %R", ifa->drid);
     OSPF_TRACE(D_EVENTS, "BDR: %R", ifa->bdrid);
@@ -381,7 +383,7 @@ schedule_net_lsa(struct ospf_iface *ifa)
 {
   struct proto *p = &ifa->oa->po->proto;
 
-  OSPF_TRACE(D_EVENTS, "Scheduling network-LSA origination for iface %s", ifa->iface->name);
+  OSPF_TRACE(D_EVENTS, "Scheduling network-LSA origination for iface %s", ifa->ifname);
   ifa->orignet = 1;
 }
 
@@ -391,7 +393,7 @@ schedule_link_lsa(struct ospf_iface *ifa)
 {
   struct proto *p = &ifa->oa->po->proto;
 
-  OSPF_TRACE(D_EVENTS, "Scheduling link-LSA origination for iface %s", ifa->iface->name);
+  OSPF_TRACE(D_EVENTS, "Scheduling link-LSA origination for iface %s", ifa->ifname);
   ifa->origlink = 1;
 }
 #endif
@@ -631,7 +633,7 @@ ospf_get_route_info(rte * rte, byte * buf, ea_list * attrs UNUSED)
 {
   char *type = "<bug>";
 
-  switch(rte->attrs->source)
+  switch (rte->attrs->source)
   {
     case RTS_OSPF:
       type = "I";
@@ -769,7 +771,7 @@ ospf_reconfigure(struct proto *p, struct proto_config *c)
     if (ifa)
       ospf_iface_reconfigure(ifa, ip);
     else
-      ospf_iface_new(po->backbone, NULL, ip);
+      ospf_iface_new_vlink(po, ip);
   }
 
   /* Delete remaining ifaces and areas */
@@ -808,7 +810,7 @@ ospf_sh_neigh(struct proto *p, char *iff)
   cli_msg(-1013, "%-12s\t%3s\t%-15s\t%-5s\t%-10s %-12s", "Router ID", "Pri",
 	  "     State", "DTime", "Interface", "Router IP");
   WALK_LIST(ifa, po->iface_list)
-    if ((iff == NULL) || patmatch(iff, ifa->iface->name))
+    if ((iff == NULL) || patmatch(iff, ifa->ifname))
       WALK_LIST(n, ifa->neigh_list)
 	ospf_sh_neigh_info(n);
   cli_msg(0, "");
@@ -917,7 +919,7 @@ ospf_sh_iface(struct proto *p, char *iff)
 
   cli_msg(-1015, "%s:", p->name);
   WALK_LIST(ifa, po->iface_list)
-    if ((iff == NULL) || patmatch(iff, ifa->iface->name))
+    if ((iff == NULL) || patmatch(iff, ifa->ifname))
       ospf_iface_info(ifa);
   cli_msg(0, "");
 }

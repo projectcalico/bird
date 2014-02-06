@@ -10,14 +10,8 @@
 #define _BIRD_OSPF_H_
 
 #define MAXNETS 10
+#define OSPF_MIN_PKT_SIZE 256
 #define OSPF_MAX_PKT_SIZE 65535
-/*
- * RFC 2328 says, maximum packet size is 65535 (IP packet size
- * limit). Really a bit less for OSPF, because this contains also IP
- * header. This could be too much for small systems, so I normally
- * allocate 2*mtu (i found one cisco sending packets mtu+16). OSPF
- * packets are almost always sent small enough to not be fragmented.
- */
 
 #ifdef LOCAL_DEBUG
 #define OSPF_FORCE_DEBUG 1
@@ -77,6 +71,8 @@ do { if ((p->debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
 #define DEFAULT_STUB_COST 1000
 #define DEFAULT_ECMP_LIMIT 16
 #define DEFAULT_TRANSINT 40
+
+#define OSPF_VLINK_ID_OFFSET 0x80000000
 
 
 struct ospf_config
@@ -179,12 +175,14 @@ struct ospf_area_config
 struct ospf_iface
 {
   node n;
-  struct iface *iface;		/* Nest's iface, non-NULL (unless type OSPF_IT_VLINK) */
+  struct iface *iface;		/* Nest's iface (NULL for vlinks) */
   struct ifa *addr;		/* IP prefix associated with that OSPF iface */
   struct ospf_area *oa;
   struct ospf_iface_patt *cf;
+  char *ifname;			/* Interface name (iface->name), new one for vlinks */
+
   pool *pool;
-  sock *sk;			/* IP socket (for DD ...) */
+  sock *sk;			/* IP socket */
   list neigh_list;		/* List of neigbours */
   u32 cost;			/* Cost of iface */
   u32 waitint;			/* number of sec before changing state from wait */
@@ -273,6 +271,7 @@ struct ospf_iface
   u8 sk_dr; 			/* Socket is a member of DRouters group */
   u8 marked;			/* Used in OSPF reconfigure */
   u16 rxbuf;			/* Buffer size */
+  u16 tx_length;		/* Soft TX packet length limit, usually MTU */
   u8 check_link;		/* Whether iface link change is used */
   u8 ecmp_weight;		/* Weight used for ECMP */
   u8 ptp_netmask;		/* Send real netmask for P2P */
@@ -704,13 +703,14 @@ struct ospf_neighbor
   slist lsrtl;			/* Link state retransmission list */
   siterator lsrti;
   struct top_graph *lsrth;
-  void *ldbdes;			/* Last database description packet */
   timer *rxmt_timer;		/* RXMT timer */
   list ackl[2];
 #define ACKL_DIRECT 0
 #define ACKL_DELAY 1
   timer *ackd_timer;		/* Delayed ack timer */
   struct bfd_request *bfd_req;	/* BFD request, if BFD is used */
+  void *ldd_buffer;		/* Last database description packet */
+  u32 ldd_bsize;		/* Buffer size for ldd_buffer */
   u32 csn;                      /* Last received crypt seq number (for MD5) */
 };
 
@@ -783,6 +783,7 @@ struct proto_ospf
   void *lsab;			/* LSA buffer used when originating router LSAs */
   int lsab_size, lsab_used;
   linpool *nhpool;		/* Linpool used for next hops computed in SPF */
+  sock *vlink_sk;		/* IP socket used for vlink TX */
   u32 router_id;
   u32 last_vlink_id;		/* Interface IDs for vlinks (starts at 0x80000000) */
 };
@@ -806,9 +807,9 @@ struct ospf_iface_patt
   u32 vid;
   int tx_tos;
   int tx_priority;
-  u16 rxbuf;
-#define OSPF_RXBUF_NORMAL 0
-#define OSPF_RXBUF_LARGE 1
+  u16 tx_length;
+  u16 rx_buffer;
+
 #define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */
   u16 autype;			/* Not really used in OSPFv3 */
 #define OSPF_AUTH_NONE 0
@@ -822,6 +823,7 @@ struct ospf_iface_patt
   u8 ptp_netmask;		/* bool + 2 for unspecified */
   u8 ttl_security;		/* bool + 2 for TX only */
   u8 bfd;
+  u8 bsd_secondary;
 
 #ifdef OSPFv2
   list *passwords;
