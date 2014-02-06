@@ -392,8 +392,7 @@ ospf_lsupd_send_list(struct ospf_neighbor *n, list * l)
       if (en == NULL)
       {
 	/* Probably flushed LSA, this should not happen */
-	log(L_WARN "OSPF: LSA disappeared (Type: %04x, Id: %R, Rt: %R)", 
-	    lsr->lsh.type, lsr->lsh.id, lsr->lsh.rt);
+	// log(L_WARN "OSPF: LSA disappeared (Type: %04x, Id: %R, Rt: %R)", lsr->lsh.type, lsr->lsh.id, lsr->lsh.rt);
 	lsr = NODE_NEXT(lsr);
 	continue;			
       }
