@@ -51,6 +51,8 @@ static char *c_states[] = { "HUNGRY", "???", "HAPPY", "FLUSHING" };
 static void proto_flush_loop(void *);
 static void proto_shutdown_loop(struct timer *);
 static void proto_rethink_goal(struct proto *p);
+static void proto_want_export_up(struct proto *p);
+static void proto_fell_down(struct proto *p);
 static char *proto_state_name(struct proto *p);
 
 static void
@@ -151,21 +153,20 @@ extern pool *rt_table_pool;
  * @t: routing table to connect to
  * @stats: per-table protocol statistics
  *
- * This function creates a connection between the protocol instance @p
- * and the routing table @t, making the protocol hear all changes in
- * the table.
+ * This function creates a connection between the protocol instance @p and the
+ * routing table @t, making the protocol hear all changes in the table.
  *
- * The announce hook is linked in the protocol ahook list and, if the
- * protocol accepts routes, also in the table ahook list. Announce
- * hooks are allocated from the routing table resource pool, they are
- * unlinked from the table ahook list after the protocol went down,
- * (in proto_schedule_flush()) and they are automatically freed after the
- * protocol is flushed (in proto_fell_down()).
+ * The announce hook is linked in the protocol ahook list. Announce hooks are
+ * allocated from the routing table resource pool and when protocol accepts
+ * routes also in the table ahook list. The are linked to the table ahook list
+ * and unlinked from it depending on export_state (in proto_want_export_up() and
+ * proto_want_export_down()) and they are automatically freed after the protocol
+ * is flushed (in proto_fell_down()).
  *
- * Unless you want to listen to multiple routing tables (as the Pipe
- * protocol does), you needn't to worry about this function since the
- * connection to the protocol's primary routing table is initialized
- * automatically by the core code.
+ * Unless you want to listen to multiple routing tables (as the Pipe protocol
+ * does), you needn't to worry about this function since the connection to the
+ * protocol's primary routing table is initialized automatically by the core
+ * code.
  */
 struct announce_hook *
 proto_add_announce_hook(struct proto *p, struct rtable *t, struct proto_stats *stats)
@@ -183,7 +184,7 @@ proto_add_announce_hook(struct proto *p, struct rtable *t, struct proto_stats *s
   h->next = p->ahooks;
   p->ahooks = h;
 
-  if (p->rt_notify && (p->export_state == ES_READY))
+  if (p->rt_notify && (p->export_state != ES_DOWN))
     add_tail(&t->hooks, &h->n);
   return h;
 }
@@ -659,16 +660,59 @@ proto_rethink_goal(struct proto *p)
 }
 
 
+/**
+ * DOC: Graceful restart recovery
+ *
+ * Graceful restart of a router is a process when the routing plane (e.g. BIRD)
+ * restarts but both the forwarding plane (e.g kernel routing table) and routing
+ * neighbors keep proper routes, and therefore uninterrupted packet forwarding
+ * is maintained.
+ *
+ * BIRD implements graceful restart recovery by deferring export of routes to
+ * protocols until routing tables are refilled with the expected content. After
+ * start, protocols generate routes as usual, but routes are not propagated to
+ * them, until protocols report that they generated all routes. After that,
+ * graceful restart recovery is finished and the export (and the initial feed)
+ * to protocols is enabled.
+ *
+ * When graceful restart recovery need is detected during initialization, then
+ * enabled protocols are marked with @gr_recovery flag before start. Such
+ * protocols then decide how to proceed with graceful restart, participation is
+ * voluntary. Protocols could lock the recovery by proto_graceful_restart_lock()
+ * (stored in @gr_lock flag), which means that they want to postpone the end of
+ * the recovery until they converge and then unlock it. They also could set
+ * @gr_wait before advancing to %PS_UP, which means that the core should defer
+ * route export to that protocol until the end of the recovery. This should be
+ * done by protocols that expect their neigbors to keep the proper routes
+ * (kernel table, BGP sessions with BGP graceful restart capability).
+ *
+ * The graceful restart recovery is finished when either all graceful restart
+ * locks are unlocked or when graceful restart wait timer fires.
+ *
+ */
 
-static void graceful_restart_done(struct timer *t UNUSED);
-static void proto_want_export_up(struct proto *p);
+static void graceful_restart_done(struct timer *t);
 
+/**
+ * graceful_restart_recovery - request initial graceful restart recovery
+ *
+ * Called by the platform initialization code if the need for recovery
+ * after graceful restart is detected during boot. Have to be called
+ * before protos_commit().
+ */
 void
 graceful_restart_recovery(void)
 {
   graceful_restart_state = GRS_INIT;
 }
 
+/**
+ * graceful_restart_init - initialize graceful restart
+ *
+ * When graceful restart recovery was requested, the function starts an active
+ * phase of the recovery and initializes graceful restart wait timer. The
+ * function have to be called after protos_commit().
+ */
 void
 graceful_restart_init(void)
 {
@@ -689,6 +733,15 @@ graceful_restart_init(void)
   tm_start(gr_wait_timer, config->gr_wait);
 }
 
+/**
+ * graceful_restart_done - finalize graceful restart
+ *
+ * When there are no locks on graceful restart, the functions finalizes the
+ * graceful restart recovery. Protocols postponing route export until the end of
+ * the recovery are awakened and the export to them is enabled. All other
+ * related state is cleared. The function is also called when the graceful
+ * restart wait timer fires (but there are still some locks).
+ */
 static void
 graceful_restart_done(struct timer *t UNUSED)
 {
@@ -727,7 +780,19 @@ graceful_restart_show_status(void)
   cli_msg(-24, "  Wait timer is %d/%d", tm_remains(gr_wait_timer), config->gr_wait);
 }
 
-/* Just from start hook */
+/**
+ * proto_graceful_restart_lock - lock graceful restart by protocol
+ * @p: protocol instance
+ *
+ * This function allows a protocol to postpone the end of graceful restart
+ * recovery until it converges. The lock is removed when the protocol calls
+ * proto_graceful_restart_unlock() or when the protocol is stopped.
+ *
+ * The function have to be called during the initial phase of graceful restart
+ * recovery and only for protocols that are part of graceful restart (i.e. their
+ * @gr_recovery is set), which means it should be called from protocol start
+ * hooks.
+ */
 void
 proto_graceful_restart_lock(struct proto *p)
 {
@@ -741,6 +806,13 @@ proto_graceful_restart_lock(struct proto *p)
   graceful_restart_locks++;
 }
 
+/**
+ * proto_graceful_restart_unlock - unlock graceful restart by protocol
+ * @p: protocol instance
+ *
+ * This function unlocks a lock from proto_graceful_restart_lock(). It is also
+ * automatically called when the lock holding protocol went down.
+ */
 void
 proto_graceful_restart_unlock(struct proto *p)
 {
@@ -867,29 +939,6 @@ protos_build(void)
   proto_flush_event->hook = proto_flush_loop;
   proto_shutdown_timer = tm_new(proto_pool);
   proto_shutdown_timer->hook = proto_shutdown_loop;
-  proto_shutdown_timer = tm_new(proto_pool);
-  proto_shutdown_timer->hook = proto_shutdown_loop;
-}
-
-static void
-proto_fell_down(struct proto *p)
-{
-  DBG("Protocol %s down\n", p->name);
-
-  u32 all_routes = p->stats.imp_routes + p->stats.filt_routes;
-  if (all_routes != 0)
-    log(L_ERR "Protocol %s is down but still has %d routes", p->name, all_routes);
-
-  bzero(&p->stats, sizeof(struct proto_stats));
-  proto_free_ahooks(p);
-
-  if (! p->proto->multitable)
-    rt_unlock_table(p->table);
-
-  if (p->proto->cleanup)
-    p->proto->cleanup(p);
-
-  proto_rethink_goal(p);
 }
 
 static void
@@ -1066,6 +1115,10 @@ proto_request_feeding(struct proto *p)
 {
   ASSERT(p->proto_state == PS_UP);
 
+  /* Do nothing if we are still waiting for feeding */
+  if (p->export_state == ES_DOWN)
+    return;
+
   /* If we are already feeding, we want to restart it */
   if (p->export_state == ES_FEEDING)
     {
@@ -1218,6 +1271,27 @@ proto_falling_down(struct proto *p)
   p->gr_wait = 0;
   if (p->gr_lock)
     proto_graceful_restart_unlock(p);
+}
+
+static void
+proto_fell_down(struct proto *p)
+{
+  DBG("Protocol %s down\n", p->name);
+
+  u32 all_routes = p->stats.imp_routes + p->stats.filt_routes;
+  if (all_routes != 0)
+    log(L_ERR "Protocol %s is down but still has %d routes", p->name, all_routes);
+
+  bzero(&p->stats, sizeof(struct proto_stats));
+  proto_free_ahooks(p);
+
+  if (! p->proto->multitable)
+    rt_unlock_table(p->table);
+
+  if (p->proto->cleanup)
+    p->proto->cleanup(p);
+
+  proto_rethink_goal(p);
 }
 
 

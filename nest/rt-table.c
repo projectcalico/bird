@@ -1110,6 +1110,21 @@ rt_examine(rtable *t, ip_addr prefix, int pxlen, struct proto *p, struct filter 
   return v > 0;
 }
 
+
+/**
+ * rt_refresh_begin - start a refresh cycle
+ * @t: related routing table
+ * @ah: related announce hook 
+ *
+ * This function starts a refresh cycle for given routing table and announce
+ * hook. The refresh cycle is a sequence where the protocol sends all its valid
+ * routes to the routing table (by rte_update()). After that, all protocol
+ * routes (more precisely routes with @ah as @sender) not sent during the
+ * refresh cycle but still in the table from the past are pruned. This is
+ * implemented by marking all related routes as stale by REF_STALE flag in
+ * rt_refresh_begin(), then marking all related stale routes with REF_DISCARD
+ * flag in rt_refresh_end() and then removing such routes in the prune loop.
+ */
 void
 rt_refresh_begin(rtable *t, struct announce_hook *ah)
 {
@@ -1126,6 +1141,14 @@ rt_refresh_begin(rtable *t, struct announce_hook *ah)
   FIB_WALK_END;
 }
 
+/**
+ * rt_refresh_end - end a refresh cycle
+ * @t: related routing table
+ * @ah: related announce hook 
+ *
+ * This function starts a refresh cycle for given routing table and announce
+ * hook. See rt_refresh_begin() for description of refresh cycles.
+ */
 void
 rt_refresh_end(rtable *t, struct announce_hook *ah)
 {
@@ -1405,6 +1428,19 @@ again:
   return 1;
 }
 
+/**
+ * rt_prune_table - prune a routing table
+ *
+ * This function scans the routing table @tab and removes routes belonging to
+ * flushing protocols, discarded routes and also stale network entries, in a
+ * similar fashion like rt_prune_loop(). Returns 1 when all such routes are
+ * pruned. Contrary to rt_prune_loop(), this function is not a part of the
+ * protocol flushing loop, but it is called from rt_event() for just one routing
+ * table.
+ *
+ * Note that rt_prune_table() and rt_prune_loop() share (for each table) the
+ * prune state (@prune_state) and also the pruning iterator (@prune_fit).
+ */
 static inline int
 rt_prune_table(rtable *tab)
 {
@@ -1415,16 +1451,15 @@ rt_prune_table(rtable *tab)
 /**
  * rt_prune_loop - prune routing tables
  *
- * The prune loop scans routing tables and removes routes belonging to
- * flushing protocols and also stale network entries. Returns 1 when
- * all such routes are pruned. It is a part of the protocol flushing
- * loop.
+ * The prune loop scans routing tables and removes routes belonging to flushing
+ * protocols, discarded routes and also stale network entries. Returns 1 when
+ * all such routes are pruned. It is a part of the protocol flushing loop.
  *
- * The prune loop runs in two steps. In the first step it prunes just
- * the routes with flushing senders (in explicitly marked tables) so
- * the route removal is propagated as usual. In the second step, all
- * remaining relevant routes are removed. Ideally, there shouldn't be
- * any, but it happens when pipe filters are changed.
+ * The prune loop runs in two steps. In the first step it prunes just the routes
+ * with flushing senders (in explicitly marked tables) so the route removal is
+ * propagated as usual. In the second step, all remaining relevant routes are
+ * removed. Ideally, there shouldn't be any, but it happens when pipe filters
+ * are changed.
  */
 int
 rt_prune_loop(void)

@@ -51,6 +51,16 @@
  * and bgp_encode_attrs() which does the converse. Both functions are built around a
  * @bgp_attr_table array describing all important characteristics of all known attributes.
  * Unknown transitive attributes are attached to the route as %EAF_TYPE_OPAQUE byte streams.
+ *
+ * BGP protocol implements graceful restart in both restarting (local restart)
+ * and receiving (neighbor restart) roles. The first is handled mostly by the
+ * graceful restart code in the nest, BGP protocol just handles capabilities,
+ * sets @gr_wait and locks graceful restart until end-of-RIB mark is received.
+ * The second is implemented by internal restart of the BGP state to %BS_IDLE
+ * and protocol state to %PS_START, but keeping the protocol up from the core
+ * point of view and therefore maintaining received routes. Routing table
+ * refresh cycle (rt_refresh_begin(), rt_refresh_end()) is used for removing
+ * stale routes after reestablishment of BGP session during graceful restart.
  */
 
 #undef LOCAL_DEBUG
@@ -431,6 +441,17 @@ bgp_conn_enter_idle_state(struct bgp_conn *conn)
     bgp_conn_leave_established_state(p);
 }
 
+/**
+ * bgp_handle_graceful_restart - handle detected BGP graceful restart
+ * @p: BGP instance
+ *
+ * This function is called when a BGP graceful restart of the neighbor is
+ * detected (when the TCP connection fails or when a new TCP connection
+ * appears). The function activates processing of the restart - starts routing
+ * table refresh cycle and activates BGP restart timer. The protocol state goes
+ * back to %PS_START, but changing BGP state back to %BS_IDLE is left for the
+ * caller.
+ */
 void
 bgp_handle_graceful_restart(struct bgp_proto *p)
 {
@@ -448,6 +469,16 @@ bgp_handle_graceful_restart(struct bgp_proto *p)
   rt_refresh_begin(p->p.main_ahook->table, p->p.main_ahook);
 }
 
+/**
+ * bgp_graceful_restart_done - finish active BGP graceful restart
+ * @p: BGP instance
+ *
+ * This function is called when the active BGP graceful restart of the neighbor
+ * should be finished - either successfully (the neighbor sends all paths and
+ * reports end-of-RIB on the new session) or unsuccessfully (the neighbor does
+ * not support BGP graceful restart on the new session). The function ends
+ * routing table refresh cycle and stops BGP restart timer.
+ */
 void
 bgp_graceful_restart_done(struct bgp_proto *p)
 {
@@ -456,6 +487,15 @@ bgp_graceful_restart_done(struct bgp_proto *p)
   tm_stop(p->gr_timer);
   rt_refresh_end(p->p.main_ahook->table, p->p.main_ahook);
 }
+
+/**
+ * bgp_graceful_restart_timeout - timeout of graceful restart 'restart timer'
+ * @t: timer
+ *
+ * This function is a timeout hook for @gr_timer, implementing BGP restart time
+ * limit for reestablisment of the BGP session after the graceful restart. When
+ * fired, we just proceed with the usual protocol restart.
+ */
 
 static void
 bgp_graceful_restart_timeout(timer *t)
@@ -968,7 +1008,7 @@ bgp_start(struct proto *P)
   p->remote_id = 0;
   p->source_addr = p->cf->source_addr;
 
-  if (P->gr_recovery)
+  if (p->p.gr_recovery && p->cf->gr_mode)
     proto_graceful_restart_lock(P);
 
   /*
