@@ -927,7 +927,7 @@ static void
 bgp_feed_done(struct proto *P)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
-  if (!p->conn || !p->cf->gr_mode)
+  if (!p->conn || !p->cf->gr_mode || p->p.refeeding)
     return;
 
   p->send_end_mark = 1;

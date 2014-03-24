@@ -56,31 +56,10 @@ static void proto_fell_down(struct proto *p);
 static char *proto_state_name(struct proto *p);
 
 static void
-proto_enqueue(list *l, struct proto *p)
-{
-  add_tail(l, &p->n);
-}
-
-static void
-proto_set_core_state(struct proto *p, uint state)
+proto_relink(struct proto *p)
 {
   list *l = NULL;
 
-  p->core_state = state;
-
-  if (p->debug & D_STATES)
-    {
-      char *name = proto_state_name(p);
-      if (name != p->last_state_name_announced)
-	{
-	  p->last_state_name_announced = name;
-	  PD(p, "State changed to %s", proto_state_name(p));
-	}
-    }
-  else
-    p->last_state_name_announced = NULL;
-
-  rem_node(&p->n);
   switch (p->core_state)
     {
     case FS_HUNGRY:
@@ -95,8 +74,27 @@ proto_set_core_state(struct proto *p, uint state)
     default:
       ASSERT(0);
     }
-  proto_enqueue(l, p);
+
+  rem_node(&p->n);
+  add_tail(l, &p->n);
 }
+
+static void
+proto_log_state_change(struct proto *p)
+{
+  if (p->debug & D_STATES)
+    {
+      char *name = proto_state_name(p);
+      if (name != p->last_state_name_announced)
+	{
+	  p->last_state_name_announced = name;
+	  PD(p, "State changed to %s", proto_state_name(p));
+	}
+    }
+  else
+    p->last_state_name_announced = NULL;
+}
+
 
 /**
  * proto_new - create a new protocol instance
@@ -390,7 +388,8 @@ proto_init(struct proto_config *c)
   q->export_state = ES_DOWN;
   q->last_state_change = now;
 
-  proto_enqueue(&initial_proto_list, q);
+  add_tail(&initial_proto_list, &q->n);
+
   if (p == &proto_unix_iface)
     initial_device_proto = q;
 
@@ -758,7 +757,10 @@ graceful_restart_done(struct timer *t UNUSED)
 
       /* Resume postponed export of routes */
       if ((p->proto_state == PS_UP) && p->gr_wait)
+      {
 	proto_want_export_up(p);
+	proto_log_state_change(p);
+      }
 
       /* Cleanup */
       p->gr_recovery = 0;
@@ -954,6 +956,7 @@ proto_feed_more(void *P)
     {
       DBG("Feeding protocol %s finished\n", p->name);
       p->export_state = ES_READY;
+      proto_log_state_change(p);
 
       if (p->feed_done)
 	p->feed_done(p);
@@ -1047,7 +1050,9 @@ proto_flush_loop(void *unused UNUSED)
 
 	DBG("Flushing protocol %s\n", p->name);
 	p->flushing = 0;
-	proto_set_core_state(p, FS_HUNGRY);
+	p->core_state = FS_HUNGRY;
+	proto_relink(p);
+	proto_log_state_change(p);
 	if (p->proto_state == PS_DOWN)
 	  proto_fell_down(p);
 	goto again;
@@ -1138,6 +1143,7 @@ proto_request_feeding(struct proto *p)
   p->stats.exp_routes = 0;
 
   proto_schedule_feed(p, 0);
+  proto_log_state_change(p);
 }
 
 static const char *
@@ -1222,7 +1228,8 @@ proto_want_core_up(struct proto *p)
       proto_reset_limit(p->main_ahook->out_limit);
     }
 
-  proto_set_core_state(p, FS_HAPPY);
+  p->core_state = FS_HAPPY;
+  proto_relink(p);
 }
 
 static void
@@ -1254,7 +1261,8 @@ proto_want_core_down(struct proto *p)
   ASSERT(p->core_state == CS_HAPPY);
   ASSERT(p->export_state == ES_DOWN);
 
-  proto_set_core_state(p, FS_FLUSHING);
+  p->core_state = FS_FLUSHING;
+  proto_relink(p);
   proto_schedule_flush_loop();
 
   if (!p->proto->multitable)
@@ -1373,6 +1381,7 @@ proto_notify_state(struct proto *p, unsigned ps)
 
       if (cs == FS_HUNGRY)		/* Shutdown finished */
 	{
+	  proto_log_state_change(p);
 	  proto_fell_down(p);
 	  return;			/* The protocol might have ceased to exist */
 	}
@@ -1381,6 +1390,8 @@ proto_notify_state(struct proto *p, unsigned ps)
     default:
       bug("%s: Invalid state %d", p->name, ps);
     }
+
+  proto_log_state_change(p);
 }
 
 /*
@@ -1404,8 +1415,8 @@ proto_state_name(struct proto *p)
 	case ES_READY:			return "up";
 	default:      			return "???";
 	}
-    case P(PS_STOP, FS_HUNGRY):		return "stop";
-    case P(PS_STOP, FS_FLUSHING):
+    case P(PS_STOP, FS_HUNGRY):
+    case P(PS_STOP, FS_FLUSHING):	return "stop";
     case P(PS_DOWN, FS_FLUSHING):	return "flush";
     default:      			return "???";
     }
