@@ -160,7 +160,7 @@ BIRD executable by configuring out routing protocols you don't use, and
 	default is <it/prefix/<file>/var/run/bird.ctl</file>.
 
 	<tag>-P <m/name of PID file/</tag>
-	create a PID file with given filename</file>.
+	create a PID file with given filename.
 
 	<tag>-u <m/user/</tag>
 	drop privileges and use that user ID, see the next section for details.
@@ -2683,7 +2683,7 @@ network. This attribute is read-only. Default is <cf/ospf_metric2 = 10000/ and
 
 <sect1>Example
 
-<code>
+<p><code>
 protocol ospf MyOSPF {
 	rfc1583compat yes;
 	tick 2;
