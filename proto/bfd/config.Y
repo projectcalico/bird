@@ -89,7 +89,7 @@ bfd_iface_opt_list:
  | '{' bfd_iface_opts '}'
  ;
 
-bfd_iface: bfd_iface_start iface_patt_list bfd_iface_opt_list
+bfd_iface: bfd_iface_start iface_patt_list_nopx bfd_iface_opt_list
 { add_tail(&BFD_CFG->patt_list, NODE this_ipatt); };
 
 bfd_multihop: bfd_iface_start bfd_iface_opt_list

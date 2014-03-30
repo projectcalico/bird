@@ -393,7 +393,7 @@ protocol rip {
 	Set BIRD's router ID based on an IP address of an interface specified by
 	an interface pattern. The option is applicable for IPv4 version only.
 	See <ref id="dsc-iface" name="interface"> section for detailed
-	description of interface patterns.
+	description of interface patterns with extended clauses.
 
 	<tag>listen bgp [address <m/address/] [port <m/port/] [dual]</tag>
 	This option allows to specify address and port where BGP protocol should
@@ -569,23 +569,26 @@ agreement").
 	given interface-specific options. A set of interfaces specified by one
 	interface option is described using an interface pattern. The interface
 	pattern consists of a sequence of clauses (separated by commas), each
-	clause may contain a mask, a prefix, or both of them. An interface
-	matches the clause if its name matches the mask (if specified) and its
-	address matches the prefix (if specified). Mask is specified as
-	shell-like pattern. For IPv6, the prefix part of a clause is generally
-	ignored and interfaces are matched just by their name.
+	clause is a mask specified as a shell-like pattern. Interfaces are
+	matched by their name.
 
 	An interface matches the pattern if it matches any of its clauses. If
 	the clause begins with <cf/-/, matching interfaces are excluded. Patterns
-	are parsed left-to-right, thus <cf/interface "eth0", -"eth*", "*";/
+	are processed left-to-right, thus <cf/interface "eth0", -"eth*", "*";/
 	means eth0 and all non-ethernets.
+
+	Some protocols (namely OSPFv2 and Direct) support extended clauses that
+	may contain a mask, a prefix, or both of them. An interface matches such
+	clause if its name matches the mask (if specified) and its address
+	matches the prefix (if specified). Extended clauses are used when the
+	protocol handles multiple addresses on an interface independently.
 
 	An interface option can be used more times with different interface-specific
 	options, in that case for given interface the first matching interface
 	option is used.
 	
-	This option is allowed in Direct, OSPF, RIP and RAdv protocols, but in
-	OSPF protocol it is used in <cf/area/ subsection.
+	This option is allowed in BFD, Direct, OSPF, RAdv and RIP protocols, but
+	in OSPF protocol it is used in the <cf/area/ subsection.
 
 	Default: none.
 
@@ -2094,9 +2097,11 @@ on Linux systems BIRD cannot change non-BIRD route in the kernel routing table.
 	<tag>interface <m/pattern [, ...]/</tag>
 	By default, the Direct protocol will generate device routes for all the
 	interfaces available. If you want to restrict it to some subset of
-	interfaces (for example if you're using multiple routing tables for
-	policy routing and some of the policy domains don't contain all
-	interfaces), just use this clause.
+	interfaces or addresses (e.g. if you're using multiple routing tables
+	for policy routing and some of the policy domains don't contain all
+	interfaces), just use this clause. See <ref id="dsc-iface" name="interface">
+	common option for detailed description. The Direct protocol uses
+	extended interface clauses.
 </descrip>
 
 <p>Direct device routes don't contain any specific attributes.
@@ -2468,9 +2473,11 @@ protocol ospf &lt;name&gt; {
 	<tag>interface <M>pattern</M> [instance <m/num/]</tag>
 	Defines that the specified interfaces belong to the area being defined.
 	See <ref id="dsc-iface" name="interface"> common option for detailed
-	description. In OSPFv3, you can specify instance ID for that interface
-	description, so it is possible to have several instances of that
-	interface with different options or even in different areas.
+	description. In OSPFv2, extended interface clauses are used, because
+	OSPFv2 handles each network prefix as a separate virtual interface. In
+	OSPFv3, you can specify instance ID for that interface description, so
+	it is possible to have several instances of that interface with
+	different options or even in different areas.
 
 	<tag>virtual link <M>id</M> [instance <m/num/]</tag>
 	Virtual link to router with the router id. Virtual link acts as a
