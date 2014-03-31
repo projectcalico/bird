@@ -1378,6 +1378,11 @@ RFC 5882<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc5882.txt">.
 development, expect some rough edges and possible UI and configuration changes
 in the future. Also note that we currently support at most one protocol instance.
 
+<p>BFD packets are sent with a dynamic source port number. Linux systems use by
+default a bit different dynamic port range than the IANA approved one
+(49152-65535). If you experience problems with compatibility, please adjust
+<cf>/proc/sys/net/ipv4/ip_local_port_range</cf>
+
 <sect1>Configuration
 
 <p>BFD configuration consists mainly of multiple definitions of interfaces.
