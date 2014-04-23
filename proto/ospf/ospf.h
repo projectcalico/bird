@@ -81,6 +81,7 @@ struct ospf_config
   unsigned tick;
   byte rfc1583;
   byte stub_router;
+  byte merge_external;
   byte abr;
   int ecmp;
   list area_list;		/* list of struct ospf_area_config */
@@ -777,6 +778,7 @@ struct proto_ospf
   struct fib rtf;		/* Routing table */
   byte rfc1583;			/* RFC1583 compatibility */
   byte stub_router;		/* Do not forward transit traffic */
+  byte merge_external;		/* Should i merge external routes? */
   byte ebit;			/* Did I originate any ext lsa? */
   byte ecmp;			/* Maximal number of nexthops in ECMP route, or 0 */
   struct ospf_area *backbone;	/* If exists */
