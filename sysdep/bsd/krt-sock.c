@@ -251,9 +251,9 @@ krt_send_route(struct krt_proto *p, int cmd, rte *e)
     _I0(gw) = 0xfe800000 | (i->index & 0x0000ffff);
 #endif
 
-  fill_in_sockaddr(&dst, net->n.prefix, NULL, 0);
-  fill_in_sockaddr(&mask, ipa_mkmask(net->n.pxlen), NULL, 0);
-  fill_in_sockaddr(&gate, gw, NULL, 0);
+  sockaddr_fill(&dst,  BIRD_AF, net->n.prefix, NULL, 0);
+  sockaddr_fill(&mask, BIRD_AF, ipa_mkmask(net->n.pxlen), NULL, 0);
+  sockaddr_fill(&gate, BIRD_AF, gw, NULL, 0);
 
   switch (a->dest)
   {
@@ -280,7 +280,7 @@ krt_send_route(struct krt_proto *p, int cmd, rte *e)
           return -1;
         }
 
-        fill_in_sockaddr(&gate, i->addr->ip, NULL, 0);
+	sockaddr_fill(&dst, BIRD_AF, i->addr->ip, NULL, 0);
         msg.rtm.rtm_addrs |= RTA_GATEWAY;
       }
       break;
@@ -366,20 +366,16 @@ krt_read_route(struct ks_msg *msg, struct krt_proto *p, int scan)
   GETADDR(&gate, RTA_GATEWAY);
   GETADDR(&mask, RTA_NETMASK);
 
-  if (sa_family_check(&dst))
-    get_sockaddr(&dst, &idst, NULL, NULL, 0);
-  else
+  if (dst.sa.sa_family != BIRD_AF)
     SKIP("invalid DST");
 
-  /* We will check later whether we have valid gateway addr */
-  if (sa_family_check(&gate))
-    get_sockaddr(&gate, &igate, NULL, NULL, 0);
-  else
-    igate = IPA_NONE;
+  idst  = ipa_from_sa(&dst);
+  imask = ipa_from_sa(&mask);
+  igate = (gate.sa.sa_family == BIRD_AF) ? ipa_from_sa(&gate) : IPA_NONE;
 
   /* We do not test family for RTA_NETMASK, because BSD sends us
      some strange values, but interpreting them as IPv4/IPv6 works */
-  get_sockaddr(&mask, &imask, NULL, NULL, 0);
+
 
   int c = ipa_classify_net(idst);
   if ((c < 0) || !(c & IADDR_HOST) || ((c & IADDR_SCOPE_MASK) <= SCOPE_LINK))
@@ -648,12 +644,13 @@ krt_read_addr(struct ks_msg *msg, int scan)
   GETADDR (&brd, RTA_BRD);
 
   /* Some other family address */
-  if (!sa_family_check(&addr))
+  if (addr.sa.sa_family != BIRD_AF)
     return;
 
-  get_sockaddr(&addr, &iaddr, NULL, NULL, 0);
-  get_sockaddr(&mask, &imask, NULL, NULL, 0);
-  get_sockaddr(&brd, &ibrd, NULL, NULL, 0);
+  iaddr = ipa_from_sa(&addr);
+  imask = ipa_from_sa(&mask);
+  ibrd  = ipa_from_sa(&brd);
+
 
   if ((masklen = ipa_mklen(imask)) < 0)
   {
@@ -806,7 +803,7 @@ krt_sysctl_scan(struct proto *p, int cmd, int table_id)
   mib[0] = CTL_NET;
   mib[1] = PF_ROUTE;
   mib[2] = 0;
-  mib[3] = BIRD_PF;
+  mib[3] = BIRD_AF;
   mib[4] = cmd;
   mib[5] = 0;
   mcnt = 6;

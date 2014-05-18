@@ -90,6 +90,8 @@ find_nbma_node_in(list *nnl, ip_addr ip)
 static int
 ospf_sk_open(struct ospf_iface *ifa)
 {
+  struct proto_ospf *po = ifa->oa->po;
+
   sock *sk = sk_new(ifa->pool);
   sk->type = SK_IP;
   sk->dport = OSPF_PROTO;
@@ -121,7 +123,7 @@ ospf_sk_open(struct ospf_iface *ifa)
     {
       ifa->all_routers = ifa->addr->brd;
 
-      if (sk_set_broadcast(sk, 1) < 0)
+      if (sk_setup_broadcast(sk) < 0)
         goto err;
     }
     else
@@ -141,6 +143,7 @@ ospf_sk_open(struct ospf_iface *ifa)
   return 1;
 
  err:
+  sk_log_error(sk, po->proto.name);
   rfree(sk);
   return 0;
 }
@@ -151,7 +154,9 @@ ospf_sk_join_dr(struct ospf_iface *ifa)
   if (ifa->sk_dr)
     return;
 
-  sk_join_group(ifa->sk, AllDRouters);
+  if (sk_join_group(ifa->sk, AllDRouters) < 0)
+    sk_log_error(ifa->sk, ifa->oa->po->proto.name);
+
   ifa->sk_dr = 1;
 }
 
@@ -161,15 +166,15 @@ ospf_sk_leave_dr(struct ospf_iface *ifa)
   if (!ifa->sk_dr)
     return;
 
-  sk_leave_group(ifa->sk, AllDRouters);
+  if (sk_leave_group(ifa->sk, AllDRouters) < 0)
+    sk_log_error(ifa->sk, ifa->oa->po->proto.name);
+
   ifa->sk_dr = 0;
 }
 
 void
 ospf_open_vlink_sk(struct proto_ospf *po)
 {
-  struct proto *p = &po->proto;
-
   sock *sk = sk_new(po->proto.pool);
   sk->type = SK_IP;
   sk->dport = OSPF_PROTO;
@@ -197,8 +202,9 @@ ospf_open_vlink_sk(struct proto_ospf *po)
   return;
 
  err:
+  sk_log_error(sk, po->proto.name);
+  log(L_ERR "%s: Cannot open virtual link socket", po->proto.name);
   rfree(sk);
-  log(L_ERR "%s: Cannot open virtual link socket", p->name);
 }
 
 static void
@@ -463,7 +469,7 @@ ospf_iface_add(struct object_lock *lock)
   /* Open socket if interface is not stub */
   if (! ifa->stub && ! ospf_sk_open(ifa))
   {
-    log(L_ERR "%s: Socket open failed on interface %s, declaring as stub", p->name, ifa->ifname);
+    log(L_ERR "%s: Cannot open socket for %s, declaring as stub", p->name, ifa->ifname);
     ifa->ioprob = OSPF_I_SK;
     ifa->stub = 1;
   }

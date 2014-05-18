@@ -104,9 +104,9 @@ nl_request_dump(int cmd)
   req.nh.nlmsg_type = cmd;
   req.nh.nlmsg_len = sizeof(req);
   req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-  /* Is it important which PF_* is used for link-level interface scan?
-     It seems that some information is available only when PF_INET is used. */
-  req.g.rtgen_family = (cmd == RTM_GETLINK) ? PF_INET : BIRD_PF;
+  /* Is it important which AF_* is used for link-level interface scan?
+     It seems that some information is available only when AF_INET is used. */
+  req.g.rtgen_family = (cmd == RTM_GETLINK) ? AF_INET : BIRD_AF;
   nl_send(&nl_scan, &req.nh);
 }
 
@@ -1069,7 +1069,7 @@ nl_open_async(void)
   sk->type = SK_MAGIC;
   sk->rx_hook = nl_async_hook;
   sk->fd = fd;
-  if (sk_open(sk))
+  if (sk_open(sk) < 0)
     bug("Netlink: sk_open failed");
 }
 

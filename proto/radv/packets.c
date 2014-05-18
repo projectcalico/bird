@@ -416,11 +416,11 @@ radv_sk_open(struct radv_iface *ifa)
   sk->data = ifa;
   sk->flags = SKF_LADDR_RX;
 
-  if (sk_open(sk) != 0)
+  if (sk_open(sk) < 0)
     goto err;
 
   /* We want listen just to ICMPv6 messages of type RS and RA */
-  if (sk_set_icmp_filter(sk, ICMPV6_RS, ICMPV6_RA) < 0)
+  if (sk_set_icmp6_filter(sk, ICMPV6_RS, ICMPV6_RA) < 0)
     goto err;
 
   if (sk_setup_multicast(sk) < 0)
@@ -433,6 +433,7 @@ radv_sk_open(struct radv_iface *ifa)
   return 1;
 
  err:
+  sk_log_error(sk, ifa->ra->p.name);
   rfree(sk);
   return 0;
 }
