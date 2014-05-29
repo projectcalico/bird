@@ -103,7 +103,7 @@ bgp_proto:
  | bgp_proto ENABLE AS4 bool ';' { BGP_CFG->enable_as4 = $4; }
  | bgp_proto CAPABILITIES bool ';' { BGP_CFG->capabilities = $3; }
  | bgp_proto ADVERTISE IPV4 bool ';' { BGP_CFG->advertise_ipv4 = $4; }
- | bgp_proto PASSWORD TEXT ';' { BGP_CFG->password = $3; }
+ | bgp_proto PASSWORD text ';' { BGP_CFG->password = $3; }
  | bgp_proto ROUTE LIMIT expr ';' {
      this_proto->in_limit = cfg_allocz(sizeof(struct proto_limit));
      this_proto->in_limit->limit = $4;

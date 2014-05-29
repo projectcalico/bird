@@ -77,6 +77,7 @@ CF_DECLS
 %type <time> datetime
 %type <a> ipa
 %type <px> prefix prefix_or_ipa
+%type <t> text
 %type <t> text_or_none
 
 %nonassoc PREFIX_DUMMY
@@ -188,6 +189,14 @@ datetime:
      $$ = tm_parse_datetime($1);
      if (!$$)
        cf_error("Invalid date and time");
+   }
+ ;
+
+text:
+   TEXT
+ | SYM {
+     if ($1->class != (SYM_CONSTANT | T_STRING)) cf_error("String expected");
+     $$ = SYM_VAL($1).s;
    }
  ;
 

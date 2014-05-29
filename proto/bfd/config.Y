@@ -99,7 +99,7 @@ bfd_multihop: bfd_iface_start bfd_iface_opt_list
 bfd_neigh_iface:
    /* empty */ { $$ = NULL; }
  | '%' SYM { $$ = if_get_by_name($2->name); }
- | DEV TEXT { $$ = if_get_by_name($2); }
+ | DEV text { $$ = if_get_by_name($2); }
  ;
 
 bfd_neigh_local:

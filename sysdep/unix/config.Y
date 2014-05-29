@@ -35,12 +35,12 @@ log_config: LOG log_file log_mask ';' {
  ;
 
 syslog_name:
-   NAME TEXT { $$ = $2; }
+   NAME text { $$ = $2; }
  | { $$ = bird_name; }
  ;
 
 log_file:
-   TEXT {
+   text {
      FILE *f = tracked_fopen(new_config->pool, $1, "a");
      if (!f) cf_error("Unable to open log file `%s': %m", $1);
      $$ = f;
@@ -76,7 +76,7 @@ CF_ADDTO(conf, mrtdump_base)
 
 mrtdump_base:
    MRTDUMP PROTOCOLS mrtdump_mask ';' { new_config->proto_default_mrtdump = $3; }
- | MRTDUMP TEXT ';' {
+ | MRTDUMP text ';' {
      FILE *f = tracked_fopen(new_config->pool, $2, "a");
      if (!f) cf_error("Unable to open MRTDump file '%s': %m", $2);
      new_config->mrtdump_file = fileno(f);
