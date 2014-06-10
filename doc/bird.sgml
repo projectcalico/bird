@@ -318,7 +318,7 @@ protocol rip {
 <p><descrip>
 	<tag>include "<m/filename/"</tag> 
 	This statement causes inclusion of a new file. <m/Filename/ could also
-	be a wildcard. The maximal depth is 5. Note that this statement could be
+	be a wildcard. The maximal depth is 8. Note that this statement could be
 	used anywhere in the config file, not just as a top-level option.
 
 	<tag><label id="dsc-log">log "<m/filename/"|syslog [name <m/name/]|stderr all|{ <m/list of classes/ }</tag> 
