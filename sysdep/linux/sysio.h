@@ -154,6 +154,7 @@ sk_prepare_cmsgs4(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 {
   struct cmsghdr *cm;
   struct in_pktinfo *pi;
+  int controllen = 0;
 
   msg->msg_control = cbuf;
   msg->msg_controllen = cbuflen;
@@ -162,13 +163,14 @@ sk_prepare_cmsgs4(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
   cm->cmsg_level = SOL_IP;
   cm->cmsg_type = IP_PKTINFO;
   cm->cmsg_len = CMSG_LEN(sizeof(*pi));
+  controllen += CMSG_SPACE(sizeof(*pi));
 
   pi = (struct in_pktinfo *) CMSG_DATA(cm);
   pi->ipi_ifindex = s->iface ? s->iface->index : 0;
   pi->ipi_spec_dst = ipa_to_in4(s->saddr);
   pi->ipi_addr = ipa_to_in4(IPA_NONE);
 
-  msg->msg_controllen = cm->cmsg_len;
+  msg->msg_controllen = controllen;
 }
 
 
