@@ -2332,6 +2332,7 @@ protocol ospf &lt;name&gt; {
 			tx length &lt;num&gt;;
 			type [broadcast|bcast|pointopoint|ptp|
 				nonbroadcast|nbma|pointomultipoint|ptmp];
+			link lsa suppression &lt;switch&gt;;
 			strict nonbroadcast &lt;switch&gt;;
 			real broadcast &lt;switch&gt;;
 			ptp netmask &lt;switch&gt;;
@@ -2596,9 +2597,16 @@ protocol ospf &lt;name&gt; {
 	communication, or if the NBMA network is used as an (possibly
 	unnumbered) PtP link.
 
-	<tag>strict nonbroadcast <M>switch</M></tag>
+	<tag>link lsa suppression <m/switch/</tag>
+	In OSPFv3, link LSAs are generated for each link, announcing link-local
+	IPv6 address of the router to its local neighbors. These are useless on
+	PtP or PtMP networks and this option allows to suppress the link LSA
+	origination for such interfaces. The option is ignored on other than PtP
+	or PtMP interfaces. Default value is no.
+
+	<tag>strict nonbroadcast <m/switch/</tag>
 	If set, don't send hello to any undefined neighbor. This switch is
-	ignored on other than NBMA or PtMP networks. Default value is no.
+	ignored on other than NBMA or PtMP interfaces. Default value is no.
 
 	<tag>real broadcast <m/switch/</tag>
 	In <cf/type broadcast/ or <cf/type ptp/ network configuration, OSPF

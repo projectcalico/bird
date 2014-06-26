@@ -10,9 +10,9 @@
 #ifndef _BIRD_OSPF_RT_H_
 #define _BIRD_OSPF_RT_H_
 
-#define ORT_UNDEF -1
-#define ORT_ROUTER 1
+
 #define ORT_NET 0
+#define ORT_ROUTER 1
 
 typedef struct orta
 {
@@ -51,26 +51,33 @@ typedef struct orta
 }
 orta;
 
+
+/* Values for fn.flags in struct ort */
+#define OSPF_RT_PERSISTENT	0x01
+
 typedef struct ort
 {
   /*
-   * We use fn.x0 to mark persistent rt entries, that are needed for summary
-   * LSAs that don't have 'proper' rt entry (area networks + default to stubs)
-   * to keep uid stable (used for LSA ID in OSPFv3 - see fibnode_to_lsaid()).
+   * We use OSPF_RT_PERSISTENT to mark persistent rt entries, that are
+   * needed for summary LSAs that don't have 'proper' rt entry (area
+   * networks + default to stubs) to keep uid stable (used for LSA ID
+   * in OSPFv3 - see fibnode_to_lsaid()).
    *
-   * We use fn.x1 to note whether the external route was originated
-   * from the route export (in ospf_rt_notify()) or from the NSSA
-   * route translation (in check_nssa_lsa()).
+   * We use ORT_RT_EXPORT and ORT_RT_NSSA to note whether the
+   * external/NSSA route was originated from the route export (in
+   * ospf_rt_notify()) or from the NSSA route translation (in
+   * check_nssa_lsa()).
    *
    * old_* values are here to represent the last route update. old_rta
    * is cached (we keep reference), mainly for multipath nexthops.
-   * old_rta == NULL means route wasn not in the last update, in that
+   * old_rta == NULL means route was not in the last update, in that
    * case other old_* values are not valid.
    */
   struct fib_node fn;
   orta n;
   u32 old_metric1, old_metric2, old_tag, old_rid;
   rta *old_rta;
+  u8 external_rte;
 }
 ort;
 
@@ -114,7 +121,7 @@ static inline int rt_is_nssa(ort *nf)
  * appear in ASBR pre-selection and external routes processing.
  */
 
-void ospf_rt_spf(struct proto_ospf *po);
+void ospf_rt_spf(struct ospf_proto *p);
 void ospf_rt_initort(struct fib_node *fn);
 
 

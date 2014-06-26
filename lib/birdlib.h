@@ -33,6 +33,12 @@
 #define ABS(a)   ((a)>=0 ? (a) : -(a))
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
 
+#define BIT32_VAL(p)		(((u32) 1) << ((p) % 32))
+#define BIT32_TEST(b,p)		((b)[(p)/32] & BIT32_VAL(p))
+#define BIT32_SET(b,p)		((b)[(p)/32] |= BIT32_VAL(p))
+#define BIT32_CLR(b,p)		((b)[(p)/32] &= ~BIT32_VAL(p))
+#define BIT32_ZERO(b,l)		memset((b), 0, (l)/8)
+
 #ifndef NULL
 #define NULL ((void *) 0)
 #endif
