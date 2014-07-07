@@ -3013,6 +3013,10 @@ definitions, prefix definitions and DNS definitions:
 	as a default router. For <cf/sensitive/ option, see <ref id="dsc-trigger" name="trigger">.
 	Default: 3 * <cf/max ra	interval/, <cf/sensitive/ yes.
 
+	<tag>default preference low|medium|high</tag>
+	This option specifies the Default Router Preference value to advertise
+	to hosts. Default: medium.
+
 	<tag>rdnss local <m/switch/</tag>
 	Use only local (interface-specific) RDNSS definitions for this
 	interface. Otherwise, both global and local definitions are used. Could
