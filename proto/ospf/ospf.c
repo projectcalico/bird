@@ -11,93 +11,81 @@
 /**
  * DOC: Open Shortest Path First (OSPF)
  * 
- * The OSPF protocol is quite complicated and its complex implemenation is
- * split to many files. In |ospf.c|, you will find mainly the interface
- * for communication with the core (e.g., reconfiguration hooks, shutdown
- * and initialisation and so on). In |packet.c|, you will find various
- * functions for sending and receiving generic OSPF packets. There are
- * also routines for authentication and checksumming. File |iface.c| contains
- * the interface state machine and functions for allocation and deallocation of OSPF's
- * interface data structures. Source |neighbor.c| includes the neighbor state
- * machine and functions for election of Designated Router and Backup
- * Designated router. In |hello.c|, there are routines for sending
- * and receiving of hello packets as well as functions for maintaining
- * wait times and the inactivity timer. Files |lsreq.c|, |lsack.c|, |dbdes.c|
- * contain functions for sending and receiving of link-state requests,
- * link-state acknowledgements and database descriptions respectively.
- * In |lsupd.c|, there are functions for sending and receiving
- * of link-state updates and also the flooding algorithm. Source |topology.c| is
- * a place where routines for searching LSAs in the link-state database,
- * adding and deleting them reside, there also are functions for originating
- * of various types of LSAs (router LSA, net LSA, external LSA). File |rt.c|
- * contains routines for calculating the routing table. |lsalib.c| is a set
- * of various functions for working with the LSAs (endianity conversions,
- * calculation of checksum etc.).
+ * The OSPF protocol is quite complicated and its complex implemenation is split
+ * to many files. In |ospf.c|, you will find mainly the interface for
+ * communication with the core (e.g., reconfiguration hooks, shutdown and
+ * initialisation and so on). File |iface.c| contains the interface state
+ * machine and functions for allocation and deallocation of OSPF's interface
+ * data structures. Source |neighbor.c| includes the neighbor state machine and
+ * functions for election of Designated Router and Backup Designated router. In
+ * |packet.c|, you will find various functions for sending and receiving generic
+ * OSPF packets. There are also routines for authentication and checksumming.
+ * In |hello.c|, there are routines for sending and receiving of hello packets
+ * as well as functions for maintaining wait times and the inactivity timer.
+ * Files |lsreq.c|, |lsack.c|, |dbdes.c| contain functions for sending and
+ * receiving of link-state requests, link-state acknowledgements and database
+ * descriptions respectively.  In |lsupd.c|, there are functions for sending and
+ * receiving of link-state updates and also the flooding algorithm. Source
+ * |topology.c| is a place where routines for searching LSAs in the link-state
+ * database, adding and deleting them reside, there also are functions for
+ * originating of various types of LSAs (router LSA, net LSA, external LSA).
+ * File |rt.c| contains routines for calculating the routing table. |lsalib.c|
+ * is a set of various functions for working with the LSAs (endianity
+ * conversions, calculation of checksum etc.).
  *
- * One instance of the protocol is able to hold LSA databases for
- * multiple OSPF areas, to exchange routing information between
- * multiple neighbors and to calculate the routing tables. The core
- * structure is &ospf_proto to which multiple &ospf_area and
- * &ospf_iface structures are connected. &ospf_area is also connected to
- * &top_hash_graph which is a dynamic hashing structure that
- * describes the link-state database. It allows fast search, addition
- * and deletion. Each LSA is kept in two pieces: header and body. Both of them are
+ * One instance of the protocol is able to hold LSA databases for multiple OSPF
+ * areas, to exchange routing information between multiple neighbors and to
+ * calculate the routing tables. The core structure is &ospf_proto to which
+ * multiple &ospf_area and &ospf_iface structures are connected. &ospf_proto is
+ * also connected to &top_hash_graph which is a dynamic hashing structure that
+ * describes the link-state database. It allows fast search, addition and
+ * deletion. Each LSA is kept in two pieces: header and body. Both of them are
  * kept in the endianity of the CPU.
  *
- * In OSPFv2 specification, it is implied that there is one IP prefix
- * for each physical network/interface (unless it is an ptp link). But
- * in modern systems, there might be more independent IP prefixes
- * associated with an interface.  To handle this situation, we have
- * one &ospf_iface for each active IP prefix (instead for each active
- * iface); This behaves like virtual interface for the purpose of OSPF.
- * If we receive packet, we associate it with a proper virtual interface
- * mainly according to its source address.
+ * In OSPFv2 specification, it is implied that there is one IP prefix for each
+ * physical network/interface (unless it is an ptp link). But in modern systems,
+ * there might be more independent IP prefixes associated with an interface.  To
+ * handle this situation, we have one &ospf_iface for each active IP prefix
+ * (instead for each active iface); This behaves like virtual interface for the
+ * purpose of OSPF.  If we receive packet, we associate it with a proper virtual
+ * interface mainly according to its source address.
  *
- * OSPF keeps one socket per &ospf_iface. This allows us (compared to
- * one socket approach) to evade problems with a limit of multicast
- * groups per socket and with sending multicast packets to appropriate
- * interface in a portable way. The socket is associated with
- * underlying physical iface and should not receive packets received
- * on other ifaces (unfortunately, this is not true on
- * BSD). Generally, one packet can be received by more sockets (for
- * example, if there are more &ospf_iface on one physical iface),
- * therefore we explicitly filter received packets according to
- * src/dst IP address and received iface.
+ * OSPF keeps one socket per &ospf_iface. This allows us (compared to one socket
+ * approach) to evade problems with a limit of multicast groups per socket and
+ * with sending multicast packets to appropriate interface in a portable way.
+ * The socket is associated with underlying physical iface and should not
+ * receive packets received on other ifaces (unfortunately, this is not true on
+ * BSD). Generally, one packet can be received by more sockets (for example, if
+ * there are more &ospf_iface on one physical iface), therefore we explicitly
+ * filter received packets according to src/dst IP address and received iface.
  *
- * Vlinks are implemented using particularly degenerate form of
- * &ospf_iface, which has several exceptions: it does not have its
- * iface or socket (it copies these from 'parent' &ospf_iface) and it
- * is present in iface list even when down (it is not freed in
- * ospf_iface_down()).
+ * Vlinks are implemented using particularly degenerate form of &ospf_iface,
+ * which has several exceptions: it does not have its iface or socket (it copies
+ * these from 'parent' &ospf_iface) and it is present in iface list even when
+ * down (it is not freed in ospf_iface_down()).
  *
  * The heart beat of ospf is ospf_disp(). It is called at regular intervals
- * (&ospf_proto->tick). It is responsible for aging and flushing of LSAs in
- * the database, for routing table calculaction and it call area_disp() of every
- * ospf_area.
+ * (&ospf_proto->tick). It is responsible for aging and flushing of LSAs in the
+ * database, updating topology information in LSAs and for routing table
+ * calculation.
  * 
- * The function area_disp() is
- * responsible for late originating of router LSA and network LSA
- * and for cleanup before routing table calculation process in
- * the area.
- * To every &ospf_iface, we connect one or more
- * &ospf_neighbor's -- a structure containing many timers and queues
- * for building adjacency and for exchange of routing messages.
+ * To every &ospf_iface, we connect one or more &ospf_neighbor's -- a structure
+ * containing many timers and queues for building adjacency and for exchange of
+ * routing messages.
  *
- * BIRD's OSPF implementation respects RFC2328 in every detail, but
- * some of internal algorithms do differ. The RFC recommends making a snapshot
- * of the link-state database when a new adjacency is forming and sending
- * the database description packets based on the information in this 
- * snapshot. The database can be quite large in some networks, so
- * rather we walk through a &slist structure which allows us to
- * continue even if the actual LSA we were working with is deleted. New
- * LSAs are added at the tail of this &slist.
+ * BIRD's OSPF implementation respects RFC2328 in every detail, but some of
+ * internal algorithms do differ. The RFC recommends making a snapshot of the
+ * link-state database when a new adjacency is forming and sending the database
+ * description packets based on the information in this snapshot. The database
+ * can be quite large in some networks, so rather we walk through a &slist
+ * structure which allows us to continue even if the actual LSA we were working
+ * with is deleted. New LSAs are added at the tail of this &slist.
  *
- * We also don't keep a separate OSPF routing table, because the core
- * helps us by being able to recognize when a route is updated
- * to an identical one and it suppresses the update automatically.
- * Due to this, we can flush all the routes we've recalculated and
- * also those we've deleted to the core's routing table and the
- * core will take care of the rest. This simplifies the process
+ * We also do not keep a separate OSPF routing table, because the core helps us
+ * by being able to recognize when a route is updated to an identical one and it
+ * suppresses the update automatically. Due to this, we can flush all the routes
+ * we have recalculated and also those we have deleted to the core's routing
+ * table and the core will take care of the rest. This simplifies the process
  * and conserves memory.
  */
 
@@ -145,7 +133,7 @@ add_area_nets(struct ospf_area *oa, struct ospf_area_config *ac)
 }
 
 static void
-ospf_area_add(struct ospf_proto *p, struct ospf_area_config *ac, int reconf)
+ospf_area_add(struct ospf_proto *p, struct ospf_area_config *ac)
 {
   struct ospf_area *oa;
 
@@ -169,6 +157,8 @@ ospf_area_add(struct ospf_proto *p, struct ospf_area_config *ac, int reconf)
     oa->options = ac->type;
   else
     oa->options = ac->type | OPT_V6 | (p->stub_router ? 0 : OPT_R);
+
+  ospf_notify_rt_lsa(oa);
 }
 
 static void
@@ -252,11 +242,11 @@ ospf_start(struct proto *P)
   init_list(&(p->area_list));
   fib_init(&p->rtf, P->pool, sizeof(ort), 0, ospf_rt_initort);
   p->areano = 0;
-  p->gr = ospf_top_new(P->pool);
+  p->gr = ospf_top_new(p, P->pool);
   s_init_list(&(p->lsal));
 
   WALK_LIST(ac, c->area_list)
-    ospf_area_add(p, ac, 0);
+    ospf_area_add(p, ac);
 
   if (c->abr)
     ospf_open_vlink_sk(p);
@@ -382,7 +372,7 @@ ospf_build_attrs(ea_list * next, struct linpool *pool, u32 m1, u32 m2,
 
 
 void
-schedule_rtcalc(struct ospf_proto *p)
+ospf_schedule_rtcalc(struct ospf_proto *p)
 {
   if (p->calcrt)
     return;
@@ -418,7 +408,7 @@ ospf_disp(timer * timer)
   /* Originate or flush local topology LSAs */
   ospf_update_topology(p);
 
-  /* Age LSA DB */
+  /* Process LSA DB */
   ospf_update_lsadb(p);
 
   /* Calculate routing table */
@@ -429,7 +419,7 @@ ospf_disp(timer * timer)
 
 /**
  * ospf_import_control - accept or reject new route from nest's routing table
- * @p: current instance of protocol
+ * @P: OSPF protocol instance
  * @new: the new route
  * @attrs: list of attributes
  * @pool: pool for allocation of attributes
@@ -475,7 +465,7 @@ ospf_store_tmp_attrs(struct rte *rt, struct ea_list *attrs)
 
 /**
  * ospf_shutdown - Finish of OSPF instance
- * @p: current instance of protocol
+ * @P: OSPF protocol instance
  *
  * RFC does not define any action that should be taken before router
  * shutdown. To make my neighbors react as fast as possible, I send
@@ -619,7 +609,7 @@ ospf_area_reconfigure(struct ospf_area *oa, struct ospf_area_config *nac)
 
 /**
  * ospf_reconfigure - reconfiguration hook
- * @p: current instance of protocol (with old configuration)
+ * @P: current instance of protocol (with old configuration)
  * @c: new configuration requested by user
  *
  * This hook tries to be a little bit intelligent. Instance of OSPF
@@ -669,7 +659,7 @@ ospf_reconfigure(struct proto *P, struct proto_config *c)
     if (oa)
       ospf_area_reconfigure(oa, nac);
     else
-      ospf_area_add(p, nac, 1);
+      ospf_area_add(p, nac);
   }
 
   /* Add and update interfaces */
@@ -697,7 +687,7 @@ ospf_reconfigure(struct proto *P, struct proto_config *c)
     if (oa->marked)
       ospf_area_remove(oa);
 
-  schedule_rtcalc(p);
+  ospf_schedule_rtcalc(p);
   
   return 1;
 }
@@ -1009,7 +999,7 @@ show_lsa_router(struct ospf_proto *p, struct top_hash_entry *he, int verbose)
 	/* In OSPFv2, we try to find network-LSA to get prefix/pxlen */
 	struct top_hash_entry *net_he = ospf_hash_find_net2(p->gr, he->domain, rtl.id);
 
-	if (net_he)
+	if (net_he && (net_he->lsa.age < LSA_MAXAGE))
 	{
 	  struct ospf_lsa_header *net_lsa = &(net_he->lsa);
 	  struct ospf_lsa_net *net_ln = net_he->lsa_body;
@@ -1367,8 +1357,8 @@ void
 ospf_sh_lsadb(struct lsadb_show_data *ld)
 {
   struct ospf_proto *p = (struct ospf_proto *) proto_get_named(ld->name, &proto_ospf);
-  int num = p->gr->hash_entries;
-  unsigned int i, j;
+  uint num = p->gr->hash_entries;
+  uint i, j;
   int last_dscope = -1;
   u32 last_domain = 0;
   u16 type_mask = ospf_is_v2(p) ?  0x00ff : 0xffff;	/* see lsa_etype() */

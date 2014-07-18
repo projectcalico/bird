@@ -71,7 +71,8 @@ ospf_send_lsreq(struct ospf_proto *p, struct ospf_neighbor *n)
   ospf_pkt_fill_hdr(ifa, pkt, LSREQ_P);
   ospf_lsreq_body(p, pkt, &lsrs, &lsr_max);
 
-  //  for (i = 0; i < lsr_max; i++)
+  /* We send smaller LSREQ to prevent multiple LSACKs as answer */
+  lsr_max = lsr_max / 4;
 
   i = 0;
   WALK_SLIST(en, n->lsrql)

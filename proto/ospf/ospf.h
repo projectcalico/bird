@@ -102,7 +102,7 @@ do { if ((p->p.debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
 struct ospf_config
 {
   struct proto_config c;
-  unsigned tick;
+  uint tick;
   byte ospf2;
   byte rfc1583;
   byte stub_router;
@@ -110,16 +110,26 @@ struct ospf_config
   byte abr;
   byte asbr;
   int ecmp;
-  list area_list;		/* list of struct ospf_area_config */
-  list vlink_list;		/* list of struct ospf_iface_patt */
+  list area_list;		/* list of area configs (struct ospf_area_config) */
+  list vlink_list;		/* list of configured vlinks (struct ospf_iface_patt) */
 };
 
-struct nbma_node
+struct ospf_area_config
 {
   node n;
-  ip_addr ip;
-  byte eligible;
-  byte found; 
+  u32 areaid;
+  u32 default_cost;		/* Cost of default route for stub areas
+				   (With possible LSA_EXT3_EBIT for NSSA areas) */
+  u8 type;			/* Area type (standard, stub, NSSA), represented
+				   by option flags (OPT_E, OPT_N) */
+  u8 summary;			/* Import summaries to this stub/NSSA area, valid for ABR */
+  u8 default_nssa;		/* Generate default NSSA route for NSSA+summary area */
+  u8 translator;		/* Translator role, for NSSA ABR */
+  u32 transint;			/* Translator stability interval */
+  list patt_list;		/* List of iface configs (struct ospf_iface_patt) */
+  list net_list;	      	/* List of aggregate networks for that area */
+  list enet_list;	      	/* List of aggregate external (NSSA) networks */
+  list stubnet_list;		/* List of stub networks added to Router LSA */
 };
 
 struct area_net_config
@@ -148,65 +158,54 @@ struct ospf_stubnet_config
   u8 summary;
 };
 
-struct ospf_area_config
+struct nbma_node
 {
   node n;
-  u32 areaid;
-  u32 default_cost;		/* Cost of default route for stub areas
-				   (With possible LSA_EXT3_EBIT for NSSA areas) */
-  u8 type;			/* Area type (standard, stub, NSSA), represented
-				   by option flags (OPT_E, OPT_N) */
-  u8 summary;			/* Import summaries to this stub/NSSA area, valid for ABR */
-  u8 default_nssa;		/* Generate default NSSA route for NSSA+summary area */
-  u8 translator;		/* Translator role, for NSSA ABR */
-  u32 transint;			/* Translator stability interval */
-  list patt_list;
-  list net_list;	      	/* List of aggregate networks for that area */
-  list enet_list;	      	/* List of aggregate external (NSSA) networks */
-  list stubnet_list;		/* List of stub networks added to Router LSA */
+  ip_addr ip;
+  byte eligible;
+  byte found; 
 };
 
+struct ospf_iface_patt
+{
+  struct iface_patt i;
+  u32 type;
+  u32 stub;
+  u32 cost;
+  u32 helloint;
+  u32 rxmtint;
+  u32 pollint;
+  u32 waitint;
+  u32 deadc;
+  u32 deadint;
+  u32 inftransdelay;
+  list nbma_list;
+  u32 priority;
+  u32 voa;
+  u32 vid;
+  int tx_tos;
+  int tx_priority;
+  u16 tx_length;
+  u16 rx_buffer;
 
-/* Generic option flags */
-#define OPT_V6	0x01		/* OSPFv3, LSA relevant for IPv6 routing calculation */
-#define OPT_E	0x02		/* Related to AS-external LSAs */
-#define OPT_MC	0x04		/* Related to MOSPF, not used and obsolete */
-#define OPT_N	0x08		/* Related to NSSA */
-#define OPT_P	0x08		/* OSPFv2, flags P and N share position, see NSSA RFC */
-#define OPT_EA	0x10		/* OSPFv2, external attributes, not used and obsolete */
-#define OPT_R	0x10		/* OSPFv3, originator is active router */
-#define OPT_DC	0x20		/* Related to demand circuits, not used */
-
-/* Router-LSA VEB flags are are stored together with links (OSPFv2) or options (OSPFv3) */
-#define OPT_RT_B  (0x01 << 24)
-#define OPT_RT_E  (0x02 << 24)
-#define OPT_RT_V  (0x04 << 24)
-#define OPT_RT_NT (0x10 << 24)
-
-/* Prefix flags, specific for OSPFv3 */
-#define OPT_PX_NU 0x01
-#define OPT_PX_LA 0x02
-#define OPT_PX_P  0x08
-#define OPT_PX_DN 0x10
-
-
-/* OSPF interface types */
-#define OSPF_IT_BCAST	0
-#define OSPF_IT_NBMA	1
-#define OSPF_IT_PTP	2
-#define OSPF_IT_PTMP	3
-#define OSPF_IT_VLINK	4
-#define OSPF_IT_UNDEF	5
-
-/* OSPF interface states */
-#define OSPF_IS_DOWN	0	/* Not active */
-#define OSPF_IS_LOOP	1	/* Iface with no link */
-#define OSPF_IS_WAITING	2	/* Waiting for Wait timer */
-#define OSPF_IS_PTP	3	/* PTP operational */
-#define OSPF_IS_DROTHER	4	/* I'm on BCAST or NBMA and I'm not DR */
-#define OSPF_IS_BACKUP	5	/* I'm BDR */
-#define OSPF_IS_DR	6	/* I'm DR */
-
+#define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */
+  u8 instance_id;
+  u8 autype;			/* Not really used in OSPFv3 */
+#define OSPF_AUTH_NONE 0
+#define OSPF_AUTH_SIMPLE 1
+#define OSPF_AUTH_CRYPT 2
+#define OSPF_AUTH_CRYPT_SIZE 16
+  u8 strictnbma;
+  u8 check_link;
+  u8 ecmp_weight;
+  u8 link_lsa_suppression;
+  u8 real_bcast;		/* Not really used in OSPFv3 */
+  u8 ptp_netmask;		/* bool + 2 for unspecified */
+  u8 ttl_security;		/* bool + 2 for TX only */
+  u8 bfd;
+  u8 bsd_secondary;
+  list *passwords;
+};
 
 /* Default values for interface parameters */
 #define COST_D 10
@@ -220,6 +219,58 @@ struct ospf_area_config
   /* Value of Wait timer - not found it in RFC * - using 4*HELLO */
 
 
+
+struct ospf_proto
+{
+  struct proto p;
+  timer *disp_timer;		/* OSPF proto dispatcher */
+  uint tick;
+  struct top_graph *gr;		/* LSA graph */
+  slist lsal;			/* List of all LSA's */
+  int calcrt;			/* Routing table calculation scheduled?
+				   0=no, 1=normal, 2=forced reload */
+  list iface_list;		/* List of OSPF interfaces (struct ospf_iface) */
+  list area_list;		/* List of OSPF areas (struct ospf_area) */
+  int areano;			/* Number of area I belong to */
+  int padj;			/* Number of neighbors in Exchange or Loading state */
+  struct fib rtf;		/* Routing table */
+  byte ospf2;			/* OSPF v2 or v3 */
+  byte rfc1583;			/* RFC1583 compatibility */
+  byte stub_router;		/* Do not forward transit traffic */
+  byte merge_external;		/* Should i merge external routes? */
+  byte asbr;			/* May i originate any ext/NSSA lsa? */
+  byte ecmp;			/* Maximal number of nexthops in ECMP route, or 0 */
+  struct ospf_area *backbone;	/* If exists */
+  void *lsab;			/* LSA buffer used when originating router LSAs */
+  int lsab_size, lsab_used;
+  linpool *nhpool;		/* Linpool used for next hops computed in SPF */
+  sock *vlink_sk;		/* IP socket used for vlink TX */
+  u32 router_id;
+  u32 last_vlink_id;		/* Interface IDs for vlinks (starts at 0x80000000) */
+};
+
+struct ospf_area
+{
+  node n;
+  u32 areaid;
+  struct ospf_area_config *ac;	/* Related area config */
+  struct top_hash_entry *rt;	/* My own router LSA */
+  struct top_hash_entry *pxr_lsa; /* Originated prefix LSA */
+  list cand;			/* List of candidates for RT calc. */
+  struct fib net_fib;		/* Networks to advertise or not */
+  struct fib enet_fib;		/* External networks for NSSAs */
+  u32 options;			/* Optional features */
+  u8 update_rt_lsa;		/* Rt lsa origination scheduled? */
+  u8 trcap;			/* Transit capability? */
+  u8 marked;			/* Used in OSPF reconfigure */
+  u8 translate;			/* Translator state (TRANS_*), for NSSA ABR  */
+  timer *translator_timer;	/* For NSSA translator switch */
+  struct ospf_proto *po;
+  struct fib rtr;		/* Routing tables for routers */
+};
+
+
+
 struct ospf_iface
 {
   node n;
@@ -231,7 +282,7 @@ struct ospf_iface
 
   pool *pool;
   sock *sk;			/* IP socket */
-  list neigh_list;		/* List of neigbours */
+  list neigh_list;		/* List of neigbours (struct ospf_neighbor) */
   u32 cost;			/* Cost of iface */
   u32 waitint;			/* number of sec before changing state from wait */
   u32 rxmtint;			/* number of seconds between LSA retransmissions */
@@ -295,6 +346,153 @@ struct ospf_iface
   u8 bfd;			/* Use BFD on iface */
 };
 
+struct ospf_neighbor
+{
+  node n;
+  pool *pool;
+  struct ospf_iface *ifa;
+  u8 state;
+  timer *inactim;		/* Inactivity timer */
+  u8 imms;			/* I, M, Master/slave received */
+  u8 myimms;			/* I, M Master/slave */
+  u32 dds;			/* DD Sequence number being sent */
+  u32 ddr;			/* last Dat Des packet received */
+
+  u32 rid;			/* Router ID */
+  ip_addr ip;			/* IP of it's interface */
+  u8 priority;			/* Priority */
+  u8 adj;			/* built adjacency? */
+  u8 want_lsreq;		/* Set to 1 when lsrql was shortened during LSUPD */
+  u32 options;			/* Options received */
+
+  /* Entries dr and bdr store IP addresses in OSPFv2 and router IDs in
+     OSPFv3, we use the same type to simplify handling */
+  u32 dr;			/* Neigbour's idea of DR */
+  u32 bdr;			/* Neigbour's idea of BDR */
+  u32 iface_id;			/* ID of Neighbour's iface connected to common network */
+
+  /* Database summary list iterator, controls initial dbdes exchange.
+   * Advances in the LSA list as dbdes packets are sent.
+   */
+  siterator dbsi;		/* iterator of po->lsal */
+
+  /* Link state request list, controls initial LSA exchange.
+   * Entries added when received in dbdes packets, removed as sent in lsreq packets.
+   */
+  slist lsrql;			/* slist of struct top_hash_entry from n->lsrqh */
+  struct top_graph *lsrqh;
+
+  /* Link state retransmission list, controls LSA retransmission during flood.
+   * Entries added as sent in lsupd packets, removed when received in lsack packets.
+   * These entries hold ret_count in appropriate LSA entries.
+   */
+  slist lsrtl;			/* slist of struct top_hash_entry from n->lsrth */
+  struct top_graph *lsrth;
+  timer *rxmt_timer;		/* RXMT timer */
+  list ackl[2];
+#define ACKL_DIRECT 0
+#define ACKL_DELAY 1
+  timer *ackd_timer;		/* Delayed ack timer */
+  struct bfd_request *bfd_req;	/* BFD request, if BFD is used */
+  void *ldd_buffer;		/* Last database description packet */
+  u32 ldd_bsize;		/* Buffer size for ldd_buffer */
+  u32 csn;                      /* Last received crypt seq number (for MD5) */
+};
+
+
+/* OSPF interface types */
+#define OSPF_IT_BCAST	0
+#define OSPF_IT_NBMA	1
+#define OSPF_IT_PTP	2
+#define OSPF_IT_PTMP	3
+#define OSPF_IT_VLINK	4
+#define OSPF_IT_UNDEF	5
+
+/* OSPF interface states */
+#define OSPF_IS_DOWN	0	/* Not active */
+#define OSPF_IS_LOOP	1	/* Iface with no link */
+#define OSPF_IS_WAITING	2	/* Waiting for Wait timer */
+#define OSPF_IS_PTP	3	/* PTP operational */
+#define OSPF_IS_DROTHER	4	/* I'm on BCAST or NBMA and I'm not DR */
+#define OSPF_IS_BACKUP	5	/* I'm BDR */
+#define OSPF_IS_DR	6	/* I'm DR */
+
+/* Definitions for interface state machine */
+#define ISM_UP		0	/* Interface Up */
+#define ISM_WAITF	1	/* Wait timer fired */
+#define ISM_BACKS	2	/* Backup seen */
+#define ISM_NEICH	3	/* Neighbor change */
+#define ISM_LOOP	4	/* Link down */
+#define ISM_UNLOOP	5	/* Link up */
+#define ISM_DOWN	6	/* Interface down */
+
+
+/* OSPF neighbor states */
+#define NEIGHBOR_DOWN	0
+#define NEIGHBOR_ATTEMPT 1
+#define NEIGHBOR_INIT	2
+#define NEIGHBOR_2WAY	3
+#define NEIGHBOR_EXSTART 4
+#define NEIGHBOR_EXCHANGE 5
+#define NEIGHBOR_LOADING 6
+#define NEIGHBOR_FULL	7
+
+/* Definitions for neighbor state machine */
+#define INM_HELLOREC	0	/* Hello Received */
+#define INM_START	1	/* Neighbor start - for NBMA */
+#define INM_2WAYREC	2	/* 2-Way received */
+#define INM_NEGDONE	3	/* Negotiation done */
+#define INM_EXDONE	4	/* Exchange done */
+#define INM_BADLSREQ	5	/* Bad LS Request */
+#define INM_LOADDONE	6	/* Load done */
+#define INM_ADJOK	7	/* AdjOK? */
+#define INM_SEQMIS	8	/* Sequence number mismatch */
+#define INM_1WAYREC	9	/* 1-Way */
+#define INM_KILLNBR	10	/* Kill Neighbor */
+#define INM_INACTTIM	11	/* Inactivity timer */
+#define INM_LLDOWN	12	/* Line down */
+
+#define TRANS_OFF	0
+#define TRANS_ON	1
+#define TRANS_WAIT	2	/* Waiting before the end of translation */
+
+
+
+/* Generic option flags */
+#define OPT_V6		0x01	/* OSPFv3, LSA relevant for IPv6 routing calculation */
+#define OPT_E		0x02	/* Related to AS-external LSAs */
+#define OPT_MC		0x04	/* Related to MOSPF, not used and obsolete */
+#define OPT_N		0x08	/* Related to NSSA */
+#define OPT_P		0x08	/* OSPFv2, flags P and N share position, see NSSA RFC */
+#define OPT_EA		0x10	/* OSPFv2, external attributes, not used and obsolete */
+#define OPT_R		0x10	/* OSPFv3, originator is active router */
+#define OPT_DC		0x20	/* Related to demand circuits, not used */
+
+/* Router-LSA VEB flags are are stored together with links (OSPFv2) or options (OSPFv3) */
+#define OPT_RT_B	(0x01 << 24)
+#define OPT_RT_E	(0x02 << 24)
+#define OPT_RT_V	(0x04 << 24)
+#define OPT_RT_NT	(0x10 << 24)
+
+/* Prefix flags, specific for OSPFv3 */
+#define OPT_PX_NU	0x01
+#define OPT_PX_LA	0x02
+#define OPT_PX_P	0x08
+#define OPT_PX_DN	0x10
+
+
+struct ospf_packet
+{
+  u8 version;
+  u8 type;
+  u16 length;
+  u32 routerid;
+  u32 areaid;
+  u16 checksum;
+  u8 instance_id;		/* See RFC 6549 */
+  u8 autype;			/* Undefined for OSPFv3 */
+};
+
 struct ospf_md5
 {
   u16 zero;
@@ -309,7 +507,6 @@ union ospf_auth
   struct ospf_md5 md5;
 };
 
-
 /* Packet types */
 #define HELLO_P		1	/* Hello */
 #define DBDES_P		2	/* Database description */
@@ -317,26 +514,11 @@ union ospf_auth
 #define LSUPD_P		4	/* Link state update */
 #define LSACK_P		5	/* Link state acknowledgement */
 
-/* Area IDs */
-#define BACKBONE	0
 
 #define DBDES_I		4	/* Init bit */
 #define DBDES_M		2	/* More bit */
 #define DBDES_MS	1	/* Master/Slave bit */
 #define DBDES_IMMS	(DBDES_I | DBDES_M | DBDES_MS)
-
-
-struct ospf_packet
-{
-  u8 version;
-  u8 type;
-  u16 length;
-  u32 routerid;
-  u32 areaid;
-  u16 checksum;
-  u8 instance_id;		/* See RFC 6549 */
-  u8 autype;			/* Undefined for OSPFv3 */
-};
 
 
 #define LSA_T_RT	0x2001
@@ -530,7 +712,7 @@ struct ospf_lsa_prefix
 };
 
 
-static inline unsigned
+static inline uint
 lsa_net_count(struct ospf_lsa_header *lsa)
 {
   return (lsa->length - sizeof(struct ospf_lsa_header) - sizeof(struct ospf_lsa_net))
@@ -558,6 +740,7 @@ lsa_get_ipv6_prefix(u32 *buf, ip_addr *addr, int *pxlen, u8 *pxopts, u16 *rest)
 
   *addr = IPA_NONE;
 
+#ifdef IPV6
   if (pxl > 0)
     _I0(*addr) = *buf++;
   if (pxl > 32)
@@ -570,6 +753,7 @@ lsa_get_ipv6_prefix(u32 *buf, ip_addr *addr, int *pxlen, u8 *pxopts, u16 *rest)
   /* Clean up remaining bits */
   if (pxl < 128)
     addr->addr[pxl / 32] &= u32_mkmask(pxl % 32);
+#endif
 
   return buf;
 }
@@ -613,183 +797,6 @@ struct ospf_lsreq_header
 };
 
 
-struct ospf_neighbor
-{
-  node n;
-  pool *pool;
-  struct ospf_iface *ifa;
-  u8 state;
-#define NEIGHBOR_DOWN 0
-#define NEIGHBOR_ATTEMPT 1
-#define NEIGHBOR_INIT 2
-#define NEIGHBOR_2WAY 3
-#define NEIGHBOR_EXSTART 4
-#define NEIGHBOR_EXCHANGE 5
-#define NEIGHBOR_LOADING 6
-#define NEIGHBOR_FULL 7
-  timer *inactim;		/* Inactivity timer */
-  u8 imms;			/* I, M, Master/slave received */
-  u8 myimms;			/* I, M Master/slave */
-  u32 dds;			/* DD Sequence number being sent */
-  u32 ddr;			/* last Dat Des packet received */
-
-  u32 rid;			/* Router ID */
-  ip_addr ip;			/* IP of it's interface */
-  u8 priority;			/* Priority */
-  u8 adj;			/* built adjacency? */
-  u32 options;			/* Options received */
-
-  /* Entries dr and bdr store IP addresses in OSPFv2 and router IDs in
-     OSPFv3, we use the same type to simplify handling */
-  u32 dr;			/* Neigbour's idea of DR */
-  u32 bdr;			/* Neigbour's idea of BDR */
-  u32 iface_id;			/* ID of Neighbour's iface connected to common network */
-
-  /* Database summary list iterator, controls initial dbdes exchange.
-   * Advances in the LSA list as dbdes packets are sent.
-   */
-  siterator dbsi;		/* iterator of po->lsal */
-
-  /* Link state request list, controls initial LSA exchange.
-   * Entries added when received in dbdes packets, removed as sent in lsreq packets.
-   */
-  slist lsrql;			/* slist of struct top_hash_entry from n->lsrqh */
-  struct top_graph *lsrqh;
-
-  /* Link state retransmission list, controls LSA retransmission during flood.
-   * Entries added as sent in lsupd packets, removed when received in lsack packets.
-   */
-  slist lsrtl;			/* slist of struct top_hash_entry from n->lsrth */
-  struct top_graph *lsrth;
-  timer *rxmt_timer;		/* RXMT timer */
-  list ackl[2];
-#define ACKL_DIRECT 0
-#define ACKL_DELAY 1
-  timer *ackd_timer;		/* Delayed ack timer */
-  struct bfd_request *bfd_req;	/* BFD request, if BFD is used */
-  void *ldd_buffer;		/* Last database description packet */
-  u32 ldd_bsize;		/* Buffer size for ldd_buffer */
-  u32 csn;                      /* Last received crypt seq number (for MD5) */
-};
-
-/* Definitions for interface state machine */
-#define ISM_UP 0		/* Interface Up */
-#define ISM_WAITF 1		/* Wait timer fired */
-#define ISM_BACKS 2		/* Backup seen */
-#define ISM_NEICH 3		/* Neighbor change */
-#define ISM_LOOP 4		/* Link down */
-#define ISM_UNLOOP 5		/* Link up */
-#define ISM_DOWN 6		/* Interface down */
-
-/* Definitions for neighbor state machine */
-#define INM_HELLOREC 0		/* Hello Received */
-#define INM_START 1		/* Neighbor start - for NBMA */
-#define INM_2WAYREC 2		/* 2-Way received */
-#define INM_NEGDONE 3		/* Negotiation done */
-#define INM_EXDONE 4		/* Exchange done */
-#define INM_BADLSREQ 5		/* Bad LS Request */
-#define INM_LOADDONE 6		/* Load done */
-#define INM_ADJOK 7		/* AdjOK? */
-#define INM_SEQMIS 8		/* Sequence number mismatch */
-#define INM_1WAYREC 9		/* 1-Way */
-#define INM_KILLNBR 10		/* Kill Neighbor */
-#define INM_INACTTIM 11		/* Inactivity timer */
-#define INM_LLDOWN 12		/* Line down */
-
-struct ospf_area
-{
-  node n;
-  u32 areaid;
-  struct ospf_area_config *ac;	/* Related area config */
-  struct top_hash_entry *rt;	/* My own router LSA */
-  struct top_hash_entry *pxr_lsa; /* Originated prefix LSA */
-  list cand;			/* List of candidates for RT calc. */
-  struct fib net_fib;		/* Networks to advertise or not */
-  struct fib enet_fib;		/* External networks for NSSAs */
-  u32 options;			/* Optional features */
-  u8 update_rt_lsa;		/* Rt lsa origination scheduled? */
-  u8 trcap;			/* Transit capability? */
-  u8 marked;			/* Used in OSPF reconfigure */
-  u8 translate;			/* Translator state (TRANS_*), for NSSA ABR  */
-  timer *translator_timer;	/* For NSSA translator switch */
-  struct ospf_proto *po;
-  struct fib rtr;		/* Routing tables for routers */
-};
-
-#define TRANS_OFF	0
-#define TRANS_ON	1
-#define TRANS_WAIT	2	/* Waiting before the end of translation */
-
-struct ospf_proto
-{
-  struct proto p;
-  timer *disp_timer;		/* OSPF proto dispatcher */
-  unsigned tick;
-  struct top_graph *gr;		/* LSA graph */
-  slist lsal;			/* List of all LSA's */
-  int calcrt;			/* Routing table calculation scheduled?
-				   0=no, 1=normal, 2=forced reload */
-  list iface_list;		/* Interfaces we really use */
-  list area_list;
-  int areano;			/* Number of area I belong to */
-  int padj;			/* Number of neighbors in Exchange or Loading state */
-  struct fib rtf;		/* Routing table */
-  byte ospf2;			/* OSPF v2 or v3 */
-  byte rfc1583;			/* RFC1583 compatibility */
-  byte stub_router;		/* Do not forward transit traffic */
-  byte merge_external;		/* Should i merge external routes? */
-  byte asbr;			/* May i originate any ext/NSSA lsa? */
-  byte ecmp;			/* Maximal number of nexthops in ECMP route, or 0 */
-  struct ospf_area *backbone;	/* If exists */
-  void *lsab;			/* LSA buffer used when originating router LSAs */
-  int lsab_size, lsab_used;
-  linpool *nhpool;		/* Linpool used for next hops computed in SPF */
-  sock *vlink_sk;		/* IP socket used for vlink TX */
-  u32 router_id;
-  u32 last_vlink_id;		/* Interface IDs for vlinks (starts at 0x80000000) */
-};
-
-struct ospf_iface_patt
-{
-  struct iface_patt i;
-  u32 type;
-  u32 stub;
-  u32 cost;
-  u32 helloint;
-  u32 rxmtint;
-  u32 pollint;
-  u32 waitint;
-  u32 deadc;
-  u32 deadint;
-  u32 inftransdelay;
-  list nbma_list;
-  u32 priority;
-  u32 voa;
-  u32 vid;
-  int tx_tos;
-  int tx_priority;
-  u16 tx_length;
-  u16 rx_buffer;
-
-#define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */
-  u8 instance_id;
-  u8 autype;			/* Not really used in OSPFv3 */
-#define OSPF_AUTH_NONE 0
-#define OSPF_AUTH_SIMPLE 1
-#define OSPF_AUTH_CRYPT 2
-#define OSPF_AUTH_CRYPT_SIZE 16
-  u8 strictnbma;
-  u8 check_link;
-  u8 ecmp_weight;
-  u8 link_lsa_suppression;
-  u8 real_bcast;		/* Not really used in OSPFv3 */
-  u8 ptp_netmask;		/* bool + 2 for unspecified */
-  u8 ttl_security;		/* bool + 2 for TX only */
-  u8 bfd;
-  u8 bsd_secondary;
-  list *passwords;
-};
-
 
 #define SH_ROUTER_SELF 0xffffffff
 
@@ -810,7 +817,7 @@ struct lsadb_show_data {
 
 
 /* ospf.c */
-void schedule_rtcalc(struct ospf_proto *p);
+void ospf_schedule_rtcalc(struct ospf_proto *p);
 
 static inline void ospf_notify_rt_lsa(struct ospf_area *oa)
 { oa->update_rt_lsa = 1; }
@@ -822,12 +829,15 @@ static inline void ospf_notify_link_lsa(struct ospf_iface *ifa)
 { ifa->update_link_lsa = 1; }
 
 
+#define ospf_is_v2(X) OSPF_IS_V2
+#define ospf_is_v3(X) (!OSPF_IS_V2)
+/*
 static inline int ospf_is_v2(struct ospf_proto *p)
 { return p->ospf2; }
 
 static inline int ospf_is_v3(struct ospf_proto *p)
 { return ! p->ospf2; }
-
+*/
 static inline int ospf_get_version(struct ospf_proto *p)
 { return ospf_is_v2(p) ? 2 : 3; }
 
@@ -920,7 +930,7 @@ void ospf_send_hello(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dir
 void ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa, struct ospf_neighbor *n, ip_addr faddr);
 
 /* dbdes.c */
-void ospf_send_dbdes(struct ospf_neighbor *n, int next);
+void ospf_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n, int next);
 void ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa, struct ospf_neighbor *n);
 
 /* lsreq.c */
@@ -930,7 +940,8 @@ void ospf_receive_lsreq(struct ospf_packet *pkt, struct ospf_iface *ifa, struct 
 /* lsupd.c */
 void ospf_dump_lsahdr(struct ospf_proto *p, struct ospf_lsa_header *lsa_n);
 void ospf_dump_common(struct ospf_proto *p, struct ospf_packet *pkt);
-int ospf_lsupd_flood(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_neighbor *from);
+void ospf_add_flushed_to_lsrt(struct ospf_proto *p, struct ospf_neighbor *n);
+int ospf_flood_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_neighbor *from);
 int ospf_send_lsupd(struct ospf_proto *p, struct top_hash_entry **lsa_list, uint lsa_count, struct ospf_neighbor *n);
 void ospf_rxmt_lsupd(struct ospf_proto *p, struct ospf_neighbor *n);
 void ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa, struct ospf_neighbor *n);
@@ -938,7 +949,7 @@ void ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa, struct 
 /* lsack.c */
 void ospf_enqueue_lsack(struct ospf_neighbor *n, struct ospf_lsa_header *h_n, int queue);
 void ospf_reset_lsack_queue(struct ospf_neighbor *n);
-void ospf_lsack_send(struct ospf_neighbor *n, int queue);
+void ospf_send_lsack(struct ospf_proto *p, struct ospf_neighbor *n, int queue);
 void ospf_receive_lsack(struct ospf_packet *pkt, struct ospf_iface *ifa, struct ospf_neighbor *n);
 
 

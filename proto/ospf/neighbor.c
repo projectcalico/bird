@@ -33,13 +33,26 @@ static void rxmt_timer_hook(timer * timer);
 static void ackd_timer_hook(timer * t);
 
 static void
-init_lists(struct ospf_neighbor *n)
+init_lists(struct ospf_proto *p, struct ospf_neighbor *n)
 {
   s_init_list(&(n->lsrql));
-  n->lsrqh = ospf_top_new(n->pool);
+  n->lsrqh = ospf_top_new(p, n->pool);
 
   s_init_list(&(n->lsrtl));
-  n->lsrth = ospf_top_new(n->pool);
+  n->lsrth = ospf_top_new(p, n->pool);
+}
+
+static void
+release_lsrtl(struct ospf_proto *p, struct ospf_neighbor *n)
+{
+  struct top_hash_entry *ret, *en;
+
+  WALK_SLIST(ret, n->lsrtl)
+  {
+    en = ospf_hash_find_entry(p->gr, ret);
+    if (en)
+      en->ret_count--;
+  }
 }
 
 /* Resets LSA request and retransmit lists.
@@ -47,11 +60,12 @@ init_lists(struct ospf_neighbor *n)
  * it is reset during entering EXCHANGE state.
  */
 static void
-reset_lists(struct ospf_neighbor *n)
+reset_lists(struct ospf_proto *p, struct ospf_neighbor *n)
 {
+  release_lsrtl(p,n);
   ospf_top_free(n->lsrqh);
   ospf_top_free(n->lsrth);
-  init_lists(n);
+  init_lists(p, n);
 }
 
 struct ospf_neighbor *
@@ -68,7 +82,7 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   n->csn = 0;
   n->state = NEIGHBOR_DOWN;
 
-  init_lists(n);
+  init_lists(p, n);
   s_init(&(n->dbsi), &(p->lsal));
 
   n->inactim = tm_new(pool);
@@ -360,6 +374,10 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       s_get(&(n->dbsi));
       s_init(&(n->dbsi), &p->lsal);
 
+      /* Add MaxAge LSA entries to retransmission list */
+      ospf_add_flushed_to_lsrt(p, n);
+
+      /* FIXME: Why is this here ? */
       ospf_reset_lsack_queue(n);
     }
     else
@@ -388,7 +406,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
       if (n->state >= NEIGHBOR_EXSTART)
 	if (!can_do_adj(n))
 	{
-	  reset_lists(n);
+	  reset_lists(p,n);
 	  neigh_chstate(n, NEIGHBOR_2WAY);
 	}
       break;
@@ -399,7 +417,7 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
   case INM_BADLSREQ:
     if (n->state >= NEIGHBOR_EXCHANGE)
     {
-      reset_lists(n);
+      reset_lists(p, n);
       neigh_chstate(n, NEIGHBOR_EXSTART);
     }
     break;
@@ -407,12 +425,12 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
   case INM_KILLNBR:
   case INM_LLDOWN:
   case INM_INACTTIM:
-    reset_lists(n);
+    reset_lists(p, n);
     neigh_chstate(n, NEIGHBOR_DOWN);
     break;
 
   case INM_1WAYREC:
-    reset_lists(n);
+    reset_lists(p, n);
     neigh_chstate(n, NEIGHBOR_INIT);
     break;
 
@@ -552,8 +570,10 @@ ospf_neigh_remove(struct ospf_neighbor *n)
       nn->found = 0;
   }
 
-  s_get(&(n->dbsi));
   neigh_chstate(n, NEIGHBOR_DOWN);
+
+  s_get(&(n->dbsi));
+  release_lsrtl(p, n);
   rem_node(NODE n);
   rfree(n->pool);
   OSPF_TRACE(D_EVENTS, "Deleting neigbor %R", n->rid);
@@ -620,9 +640,9 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
 }
 
 static void
-rxmt_timer_hook(timer * timer)
+rxmt_timer_hook(timer *t)
 {
-  struct ospf_neighbor *n = (struct ospf_neighbor *) timer->data;
+  struct ospf_neighbor *n = t->data;
   struct ospf_proto *p = n->ifa->oa->po;
 
   DBG("%s: RXMT timer fired on interface %s for neigh %I\n",
@@ -631,12 +651,12 @@ rxmt_timer_hook(timer * timer)
   switch (n->state)
   {
   case NEIGHBOR_EXSTART:
-    ospf_send_dbdes(n, 1);
+    ospf_send_dbdes(p, n, 1);
     return;
 
   case NEIGHBOR_EXCHANGE:
   if (n->myimms & DBDES_MS)
-    ospf_send_dbdes(n, 0);
+    ospf_send_dbdes(p, n, 0);
   case NEIGHBOR_LOADING:
     ospf_send_lsreq(p, n);
     return;
@@ -653,8 +673,13 @@ rxmt_timer_hook(timer * timer)
 }
 
 static void
-ackd_timer_hook(timer * t)
+ackd_timer_hook(timer *t)
 {
   struct ospf_neighbor *n = t->data;
-  ospf_lsack_send(n, ACKL_DELAY);
+  struct ospf_proto *p = n->ifa->oa->po;
+
+  DBG("%s: ACKD timer fired on interface %s for neigh %I\n",
+      p->p.name, n->ifa->ifname, n->ip);
+
+  ospf_send_lsack(p, n, ACKL_DELAY);
 }

@@ -200,15 +200,11 @@ ospf_do_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
  * of the buffer.
  */
 void
-ospf_send_dbdes(struct ospf_neighbor *n, int next)
+ospf_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n, int next)
 {
-  struct ospf_iface *ifa = n->ifa;
-  struct ospf_area *oa = ifa->oa;
-  struct ospf_proto *p = oa->po;
-
   /* RFC 2328 10.8 */
 
-  if (oa->rt == NULL)
+  if (n->ifa->oa->rt == NULL)
     return;
 
   switch (n->state)
@@ -312,6 +308,7 @@ ospf_process_dbdes(struct ospf_proto *p, struct ospf_packet *pkt, struct ospf_ne
 	s_add_tail(&n->lsrql, SNODE req);
 
       req->lsa = lsa;
+      req->lsa_body = LSA_BODY_DUMMY;
     }
   }
 
@@ -394,7 +391,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       n->imms = rcv_imms;
       OSPF_TRACE(D_PACKETS, "I'm slave to %I", n->ip);
       ospf_neigh_sm(n, INM_NEGDONE);
-      ospf_send_dbdes(n, 1);
+      ospf_send_dbdes(p, n, 1);
       break;
     }
 
@@ -426,7 +423,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       if (!(n->myimms & DBDES_MS))
       {
 	/* Slave should retransmit dbdes packet */
-	ospf_send_dbdes(n, 0);
+	ospf_send_dbdes(p, n, 0);
       }
       return;
     }
@@ -472,7 +469,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       if (!(n->myimms & DBDES_M) && !(n->imms & DBDES_M))
 	ospf_neigh_sm(n, INM_EXDONE);
       else
-	ospf_send_dbdes(n, 1);
+	ospf_send_dbdes(p, n, 1);
     }
     else
     {
@@ -489,7 +486,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       if (ospf_process_dbdes(p, pkt, n) < 0)
 	return;
 
-      ospf_send_dbdes(n, 1);
+      ospf_send_dbdes(p, n, 1);
     }
     break;
 
@@ -504,7 +501,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       if (!(n->myimms & DBDES_MS))
       {
 	/* Slave should retransmit dbdes packet */
-	ospf_send_dbdes(n, 0);
+	ospf_send_dbdes(p, n, 0);
       }
       return;
     }

@@ -557,7 +557,7 @@ spfa_process_rt(struct ospf_proto *p, struct ospf_area *oa, struct top_hash_entr
 
   /* Errata 2078 to RFC 5340 4.8.1 - skip links from non-routing nodes */
   if (ospf_is_v3(p) && (act != oa->rt) && !(rt->options & OPT_R))
-    break;
+    return;
 
   /* Now process Rt links */
   for (lsa_walk_rt_init(p, act, &rtl), i = 0; lsa_walk_rt(&rtl); i++)
@@ -687,6 +687,8 @@ ospf_rt_spfa(struct ospf_area *oa)
   node *n;
 
   if (oa->rt == NULL)
+    return;
+  if (oa->rt->lsa.age == LSA_MAXAGE)
     return;
 
   OSPF_TRACE(D_EVENTS, "Starting routing table calculation for area %R", oa->areaid);
@@ -1087,8 +1089,7 @@ check_sum_net_lsa(struct ospf_proto *p, ort *nf)
   struct area_net *anet = NULL;
   struct ospf_area *anet_oa = NULL;
 
-  /* RT entry marked as area network */
-  if (nf->fn.flags & OSPF_RT_PERSISTENT)
+  if (nf->area_net)
   {
     /* It is a default route for stub areas, handled entirely in ospf_rt_abr() */
     if (nf->fn.pxlen == 0)
@@ -1162,8 +1163,7 @@ check_nssa_lsa(struct ospf_proto *p, ort *nf)
   if (nf->external_rte)
     return;
 
-  /* RT entry marked as area network */
-  if (nf->fn.flags & OSPF_RT_PERSISTENT)
+  if (nf->area_net)
   {
     /* Find that area network */
     WALK_LIST(oa, p->area_list)
@@ -1176,12 +1176,12 @@ check_nssa_lsa(struct ospf_proto *p, ort *nf)
 
   /* RFC 3103 3.2 (3) - originate the aggregated address range */
   if (anet && anet->active && !anet->hidden && oa->translate)
-    ospf_originate_ext_lsa(p, NULL, nf, LSA_RTCALC, anet->metric,
+    ospf_originate_ext_lsa(p, NULL, nf, LSA_M_RTCALC, anet->metric,
 			   (anet->metric & LSA_EXT3_EBIT), IPA_NONE, anet->tag, 0);
 
   /* RFC 3103 3.2 (2) - originate the same network */
   else if (decide_nssa_lsa(p, nf, &rt))
-    ospf_originate_ext_lsa(p, NULL, nf, LSA_RTCALC, rt.metric, rt.ebit, rt.fwaddr, rt.tag, 0);
+    ospf_originate_ext_lsa(p, NULL, nf, LSA_M_RTCALC, rt.metric, rt.ebit, rt.fwaddr, rt.tag, 0);
 }
 
 /* RFC 2328 16.7. p2 - find new/lost vlink endpoints */
@@ -1273,7 +1273,7 @@ ospf_rt_abr1(struct ospf_proto *p)
 
 	  /* Get a RT entry and mark it to know that it is an area network */
 	  ort *nfi = (ort *) fib_get(&p->rtf, &anet->fn.prefix, anet->fn.pxlen);
-	  nfi->fn.flags |= OSPF_RT_PERSISTENT; /* mark persistent, to have stable UID */
+	  nfi->area_net = 1;
 
 	  /* 16.2. (3) */
 	  if (nfi->n.type == RTS_OSPF_IA)
@@ -1289,7 +1289,7 @@ ospf_rt_abr1(struct ospf_proto *p)
 
   ip_addr addr = IPA_NONE;
   default_nf = (ort *) fib_get(&p->rtf, &addr, 0);
-  default_nf->fn.flags |= OSPF_RT_PERSISTENT; /* keep persistent */
+  default_nf->area_net = 1;
 
   struct ospf_area *oa;
   WALK_LIST(oa, p->area_list)
@@ -1309,7 +1309,7 @@ ospf_rt_abr1(struct ospf_proto *p)
      */
 
     if (oa_is_nssa(oa) && oa->ac->default_nssa)
-      ospf_originate_ext_lsa(p, oa, default_nf, LSA_RTCALC, oa->ac->default_cost,
+      ospf_originate_ext_lsa(p, oa, default_nf, LSA_M_RTCALC, oa->ac->default_cost,
 			     (oa->ac->default_cost & LSA_EXT3_EBIT), IPA_NONE, 0, 0);
 
     /* RFC 2328 16.4. (3) - precompute preferred ASBR entries */
@@ -1348,7 +1348,7 @@ translator_timer_hook(timer *timer)
     return;
 
   oa->translate = TRANS_OFF;
-  schedule_rtcalc(oa->po);
+  ospf_schedule_rtcalc(oa->po);
 }
 
 static void
@@ -1431,7 +1431,7 @@ ospf_rt_abr2(struct ospf_proto *p)
 
 	  /* Get a RT entry and mark it to know that it is an area network */
 	  nf2 = (ort *) fib_get(&p->rtf, &anet->fn.prefix, anet->fn.pxlen);
-	  nf2->fn.flags |= OSPF_RT_PERSISTENT; /* keep persistent */
+	  nf2->area_net = 1;
 	}
 
 	u32 metric = (nf->n.type == RTS_OSPF_EXT1) ?
@@ -1634,7 +1634,7 @@ ospf_rt_reset(struct ospf_proto *p)
   FIB_WALK(&p->rtf, nftmp)
   {
     ri = (ort *) nftmp;
-    ri->fn.flags &= ~OSPF_RT_PERSISTENT;
+    ri->area_net = 0;
     reset_ri(ri);
   }
   FIB_WALK_END;
@@ -1647,8 +1647,8 @@ ospf_rt_reset(struct ospf_proto *p)
     en->nhs = NULL;
     en->lb = IPA_NONE;
 
-    if (en->rtcalc == LSA_RTCALC)
-      en->rtcalc = LSA_STALE;
+    if (en->mode == LSA_M_RTCALC)
+      en->mode = LSA_M_STALE;
   }
 
   WALK_LIST(oa, p->area_list)
@@ -1683,14 +1683,9 @@ ospf_rt_reset(struct ospf_proto *p)
   }
 }
 
-static void
-ospf_flush_stale(struct ospf_proto *p)
-{
-}
-
 /**
  * ospf_rt_spf - calculate internal routes
- * @p: OSPF protocol
+ * @p: OSPF protocol instance
  *
  * Calculation of internal paths in an area is described in 16.1 of RFC 2328.
  * It's based on Dijkstra's shortest path tree algorithms.
@@ -2064,8 +2059,8 @@ again1:
       rte_update(&p->p, ne, NULL);
     }
 
-    /* Remove unused rt entry. Entries with any flags are persistent. */
-    if (!nf->n.type && !nf->external_rte) // XXXX
+    /* Remove unused rt entry, some special entries are persistent */
+    if (!nf->n.type && !nf->external_rte && !nf->area_net)
     {
       FIB_ITERATE_PUT(&fit, nftmp);
       fib_delete(fib, nftmp);
@@ -2096,6 +2091,6 @@ again2:
 
   /* Cleanup stale LSAs */
   WALK_SLIST(en, p->lsal)
-    if (en->rtcalc == LSA_STALE)
+    if (en->mode == LSA_M_STALE)
       ospf_flush_lsa(p, en);
 }

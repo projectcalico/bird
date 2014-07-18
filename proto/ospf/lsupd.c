@@ -115,7 +115,8 @@ ospf_lsa_lsrt_up(struct top_hash_entry *en, struct ospf_neighbor *n)
     s_add_tail(&n->lsrtl, SNODE ret);
   }
 
-  memcpy(&ret->lsa, &en->lsa, sizeof(struct ospf_lsa_header));
+  ret->lsa = en->lsa;
+  ret->lsa_body = LSA_BODY_DUMMY;
 }
 
 static inline int
@@ -134,24 +135,36 @@ ospf_lsa_lsrt_down(struct top_hash_entry *en, struct ospf_neighbor *n)
   return 0;
 }
 
+void
+ospf_add_flushed_to_lsrt(struct ospf_proto *p, struct ospf_neighbor *n)
+{
+  struct top_hash_entry *en;
 
-static void ospf_lsupd_flood_ifa(struct ospf_proto *p, struct ospf_iface *ifa, struct top_hash_entry *en);
+  WALK_SLIST(en, p->lsal)
+    if ((en->lsa.age == LSA_MAXAGE) && (en->lsa_body != NULL) &&
+	lsa_flooding_allowed(en->lsa_type, en->domain, n->ifa))
+      ospf_lsa_lsrt_up(en, n);
+}
+
+
+static void ospf_send_lsupd_to_ifa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_iface *ifa);
 
 
 /**
- * ospf_lsupd_flood - send received or generated LSA to the neighbors
- * @p: OSPF protocol
+ * ospf_flood_lsa - send LSA to the neighbors
+ * @p: OSPF protocol instance
  * @en: LSA entry
  * @from: neighbor than sent this LSA (or NULL if LSA is local)
  *
  * return value - was the LSA flooded back?
  */
-
 int
-ospf_lsupd_flood(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_neighbor *from)
+ospf_flood_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_neighbor *from)
 {
   struct ospf_iface *ifa;
   struct ospf_neighbor *n;
+
+  /* RFC 2328 13.3 */
 
   int back = 0;
   WALK_LIST(ifa, p->iface_list)
@@ -185,6 +198,8 @@ ospf_lsupd_flood(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_ne
 	  {
 	    s_rem_node(SNODE req);
 	    ospf_hash_delete(n->lsrqh, req);
+	    n->want_lsreq = 1;
+
 	    if ((EMPTY_SLIST(n->lsrql)) && (n->state == NEIGHBOR_LOADING))
 	      ospf_neigh_sm(n, INM_LOADDONE);
 	  }
@@ -227,7 +242,7 @@ ospf_lsupd_flood(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_ne
     }
 
     /* 13.3 (5) - finally flood the packet */
-    ospf_lsupd_flood_ifa(p, ifa, en);
+    ospf_send_lsupd_to_ifa(p, en, ifa);
   }
 
   return back;
@@ -288,7 +303,7 @@ ospf_prepare_lsupd(struct ospf_proto *p, struct ospf_iface *ifa,
 
 
 static void
-ospf_lsupd_flood_ifa(struct ospf_proto *p, struct ospf_iface *ifa, struct top_hash_entry *en)
+ospf_send_lsupd_to_ifa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_iface *ifa)
 {
   uint c = ospf_prepare_lsupd(p, ifa, &en, 1);
 
@@ -384,7 +399,8 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
   /* RFC 2328 13. */
 
-  int sendreq = 1;	  /* XXXX: review sendreq */
+  int skip_lsreq = 0;
+  n->want_lsreq = 0;
 
   uint plen = ntohs(pkt->length);
   if (plen < (ospf_lsupd_hdrlen(p) + sizeof(struct ospf_lsa_header)))
@@ -436,7 +452,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
     u16 chsum = lsa_n->checksum;
     if (chsum != lsasum_check(lsa_n, NULL))
     {
-      log(L_WARN "%s: Received LSA from %I with bad checskum: %x %x",
+      log(L_WARN "%s: Received LSA from %I with bad checksum: %x %x",
 	  p->p.name, n->ip, chsum, lsa_n->checksum);
       continue;
     }
@@ -501,7 +517,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       if (en && ((now - en->inst_time) < MINLSARRIVAL))
       {
 	OSPF_TRACE(D_EVENTS, "Skipping LSA received in less that MinLSArrival");
-	sendreq = 0;
+	skip_lsreq = 1;
 	continue;
       }
 
@@ -514,7 +530,6 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       {
 	log(L_WARN "%s: Received invalid LSA from %I", p->p.name, n->ip);
 	mb_free(body);
-	sendreq = 0;
 	continue;
       }
 
@@ -528,22 +543,27 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       }
 
       /* 13. (5c) - remove old LSA from all retransmission lists */
-      /* Must be done before (5b), otherwise it also removes the new entries from (5b) */
-
+      /*
+       * We only need to remove it from the retransmission list of the neighbor
+       * that send us the new LSA. The old LSA is automatically replaced in
+       * retransmission lists by the new LSA.
+       */
       if (en)
 	ospf_lsa_lsrt_down(en, n);
 
+#if 0
       /*
-      {
-	struct ospf_iface *ifi;
-	struct ospf_neighbor *ni;
+       * Old code for removing LSA from all retransmission lists. Must be done
+       * before (5b), otherwise it also removes the new entries from (5b).
+       */
+      struct ospf_iface *ifi;
+      struct ospf_neighbor *ni;
 
-	WALK_LIST(ifi, p->iface_list)
-	  WALK_LIST(ni, ifi->neigh_list)
-	    if (ni->state > NEIGHBOR_EXSTART)
-	      ospf_lsa_lsrt_down(en, ni);
-      }
-      */
+      WALK_LIST(ifi, p->iface_list)
+	WALK_LIST(ni, ifi->neigh_list)
+	if (ni->state > NEIGHBOR_EXSTART)
+	  ospf_lsa_lsrt_down(en, ni);
+#endif
 
       /* 13. (5d) - install new LSA into database */
       en = ospf_install_lsa(p, &lsa, lsa_type, lsa_domain, body);
@@ -553,7 +573,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	ospf_notify_net_lsa(ifa);
 
       /* 13. (5b) - flood new LSA */
-      int flood_back = ospf_lsupd_flood(p, en, n);
+      int flood_back = ospf_flood_lsa(p, en, n);
 
       /* 13.5. - schedule ACKs (tbl 19, cases 1+2) */ 
       if (! flood_back)
@@ -582,7 +602,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       else
 	ospf_enqueue_lsack(n, lsa_n, ACKL_DIRECT);
 
-      sendreq = 0;
+      skip_lsreq = 1;
       continue;
     }
 
@@ -598,11 +618,17 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
     }
   }
 
-  /* Send direct LSAs */
-  ospf_lsack_send(n, ACKL_DIRECT);
+  /* Send direct LSACKs */
+  ospf_send_lsack(p, n, ACKL_DIRECT);
 
-  /* If loading, ask for another part of neighbor's database */
-  if (sendreq && (n->state == NEIGHBOR_LOADING))
+  /*
+   * In loading state, we should ask for another batch of LSAs. This is only
+   * vaguely mentioned in RFC 2328. We send a new LSREQ only if the current
+   * LSUPD actually removed some entries from LSA request list (want_lsreq) and
+   * did not contain duplicate or early LSAs (skip_lsreq). The first condition
+   * prevents endless floods, the second condition helps with flow control.
+   */
+  if ((n->state == NEIGHBOR_LOADING) && n->want_lsreq && !skip_lsreq)
     ospf_send_lsreq(p, n);
 }
 

@@ -620,18 +620,11 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
 
   add_tail(&oa->po->iface_list, NODE ifa);
 
-  /*
-   * In some cases we allow more ospf_ifaces on one physical iface.
-   * In OSPFv2, if they use different IP address prefix.
-   * In OSPFv3, if they use different instance_id.
-   * Therefore, we store such info to lock->addr field.
-   */
-
-  // XXXX review
   struct object_lock *lock = olock_new(pool);
-  lock->addr = ospf_is_v2(p) ? ifa->addr->prefix : _MI6(0,0,0,ifa->instance_id);
+  lock->addr = ospf_is_v2(p) ? ifa->addr->prefix : IPA_NONE;
   lock->type = OBJLOCK_IP;
   lock->port = OSPF_PROTO;
+  lock->inst = ifa->instance_id;
   lock->iface = iface;
   lock->data = ifa;
   lock->hook = ospf_iface_add;
@@ -997,7 +990,7 @@ ospf_walk_matching_iface_patts(struct ospf_proto *p, struct ospf_mip_walk *s)
 	BIT32_SET(s->ignore, id);
 
 	/* If we already found it in previous areas, ignore it and add warning */
-	if (!BIT32_TEST(s->active, id))
+	if (BIT32_TEST(s->active, id))
 	  { s->warn = 1; continue; }
 
 	BIT32_SET(s->active, id);
@@ -1046,7 +1039,7 @@ ospf_ifa_notify2(struct proto *P, uint flags, struct ifa *a)
   {
     struct ospf_mip_walk s = { .iface = a->iface, .a = a };
     while (ospf_walk_matching_iface_patts(p, &s))
-      ospf_iface_new(s.oa, s.a, s.ip);
+      ospf_iface_new(s.oa, a, s.ip);
   }
 
   if (flags & IF_CHANGE_DOWN)
@@ -1078,7 +1071,7 @@ ospf_ifa_notify3(struct proto *P, uint flags, struct ifa *a)
     {
       struct ospf_mip_walk s = { .iface = a->iface };
       while (ospf_walk_matching_iface_patts(p, &s))
-	ospf_iface_new(s.oa, s.a, s.ip);
+	ospf_iface_new(s.oa, a, s.ip);
     }
 
     if (flags & IF_CHANGE_DOWN)

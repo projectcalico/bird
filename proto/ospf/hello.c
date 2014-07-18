@@ -275,7 +275,7 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
   /* Check consistency of existing neighbor entry */
   if (n)
   {
-    unsigned t = ifa->type;
+    uint t = ifa->type;
     if (ospf_is_v2(p) && ((t == OSPF_IT_BCAST) || (t == OSPF_IT_NBMA) || (t == OSPF_IT_PTMP)))
     {
       /* Neighbor identified by IP address; Router ID may change */

@@ -79,10 +79,9 @@ ospf_reset_lsack_queue(struct ospf_neighbor *n)
 }
 
 static inline void
-ospf_send_lsack(struct ospf_neighbor *n, int queue)
+ospf_send_lsack_(struct ospf_proto *p, struct ospf_neighbor *n, int queue)
 {
   struct ospf_iface *ifa = n->ifa;
-  struct ospf_proto *p = ifa->oa->po;
   struct ospf_lsa_header *lsas;
   struct ospf_packet *pkt;
   struct lsa_node *no;
@@ -121,10 +120,10 @@ ospf_send_lsack(struct ospf_neighbor *n, int queue)
 }
 
 void
-ospf_lsack_send(struct ospf_neighbor *n, int queue)
+ospf_send_lsack(struct ospf_proto *p, struct ospf_neighbor *n, int queue)
 {
   while (!EMPTY_LIST(n->ackl[queue]))
-    ospf_send_lsack(n, queue);
+    ospf_send_lsack_(p, n, queue);
 }
 
 void
@@ -160,9 +159,6 @@ ospf_receive_lsack(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
     if (lsa_comp(&lsa, &ret->lsa) != CMP_SAME)
     {
-      if ((lsa.sn == LSA_MAXSEQNO) && (lsa.age == LSA_MAXAGE))
-	continue;
-
       OSPF_TRACE(D_PACKETS, "Strange LSACK from %I", n->ip);
       OSPF_TRACE(D_PACKETS, "Type: %04x, Id: %R, Rt: %R",
 		 lsa_type, lsa.id, lsa.rt);
