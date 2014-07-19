@@ -47,7 +47,7 @@ wait_timer_hook(timer * timer)
 static inline uint
 ifa_tx_length(struct ospf_iface *ifa)
 {
-  return ifa->cf->tx_length ?: ifa->iface->mtu; 
+  return ifa->cf->tx_length ?: ifa->iface->mtu;
 }
 
 static inline uint
@@ -129,7 +129,7 @@ ospf_sk_open(struct ospf_iface *ifa)
       ifa->des_routers = IPA_NONE;
 
       if (sk_setup_broadcast(sk) < 0)
-        goto err;
+	goto err;
     }
     else
     {
@@ -137,10 +137,10 @@ ospf_sk_open(struct ospf_iface *ifa)
       ifa->des_routers = ospf_is_v2(p) ? IP4_OSPF_DES_ROUTERS : IP6_OSPF_DES_ROUTERS;
 
       if (sk_setup_multicast(sk) < 0)
-        goto err;
+	goto err;
 
       if (sk_join_group(sk, ifa->all_routers) < 0)
-        goto err;
+	goto err;
     }
   }
 
@@ -703,7 +703,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
 
   /* Type could be changed in ospf_iface_new(),
      but if config values are same then also results are same */
-  int old_type = ospf_iface_classify(old->type, ifa->addr);  
+  int old_type = ospf_iface_classify(old->type, ifa->addr);
   int new_type = ospf_iface_classify(new->type, ifa->addr);
   if (old_type != new_type)
     return 0;
@@ -1132,7 +1132,7 @@ ospf_reconfigure_ifaces2(struct ospf_proto *p)
 	  ospf_iface_shutdown(ifa);
 	  ospf_iface_remove(ifa);
 	}
-	
+
 	ospf_iface_new(s.oa, a, s.ip);
       }
     }
@@ -1307,4 +1307,3 @@ ospf_iface_info(struct ospf_iface *ifa)
     cli_msg(-1015, "\tBackup designed router (IP): %I", ifa->bdrip);
   }
 }
-

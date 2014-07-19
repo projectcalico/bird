@@ -1,16 +1,16 @@
 /*
  *	BIRD -- OSPF
- * 
+ *
  *	(c) 2000--2004 Ondrej Filip <feela@network.cz>
  *	(c) 2009--2014 Ondrej Zajicek <santiago@crfreenet.org>
  *	(c) 2009--2014 CZ.NIC z.s.p.o.
- * 
+ *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 #include "ospf.h"
 
-static void add_cand(list * l, struct top_hash_entry *en, 
+static void add_cand(list * l, struct top_hash_entry *en,
 		     struct top_hash_entry *par, u32 dist,
 		     struct ospf_area *oa, int i);
 static void rt_sync(struct ospf_proto *p);
@@ -270,7 +270,7 @@ orta_compare(const struct ospf_proto *p, const orta *new, const orta *old)
   /* Prefer routes with higher Router ID, just to be more deterministic */
   if (new->rid > old->rid)
     return 1;
-  
+
   return -1;
 }
 
@@ -503,7 +503,7 @@ add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_
 
   if (en == oa->rt)
   {
-    /* 
+    /*
      * Local stub networks does not have proper iface in en->nhi
      * (because they all have common top_hash_entry en).
      * We have to find iface responsible for that stub network.
@@ -810,7 +810,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
   return 0;
 }
 
-  
+
 /* RFC 2328 16.2. calculating inter-area routes */
 static void
 ospf_rt_sum(struct ospf_area *oa)
@@ -822,7 +822,7 @@ ospf_rt_sum(struct ospf_area *oa)
   ort *abr;
   int pxlen = -1, type = -1;
   u8 pxopts;
-  
+
 
   OSPF_TRACE(D_EVENTS, "Starting routing table calculation for inter-area (area %R)", oa->areaid);
 
@@ -864,7 +864,7 @@ ospf_rt_sum(struct ospf_area *oa)
     else /* LSA_T_SUM_RT */
     {
       lsa_parse_sum_rt(en, ospf_is_v2(p), &dst_rid, &metric, &options);
-      
+
       /* We don't want local router in ASBR routing table */
       if (dst_rid == p->router_id)
 	continue;
@@ -966,9 +966,9 @@ ospf_rt_sum_tr(struct ospf_area *oa)
       re = fib_find(&bb->rtr, &ip, MAX_PREFIX_LENGTH);
     }
 
-    /* 16.3 (1b) */ 
-    if (metric == LSINFINITY) 
-      continue; 
+    /* 16.3 (1b) */
+    if (metric == LSINFINITY)
+      continue;
 
     /* 16.3 (3) */
     if (!re || !re->n.type)
@@ -989,7 +989,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
     metric = abr->n.metric1 + metric; /* IAC */
 
     /* 16.3. (5) */
-    if ((metric < re->n.metric1) || 
+    if ((metric < re->n.metric1) ||
 	((metric == re->n.metric1) && unresolved_vlink(re)))
     {
       /* We want to replace the next-hop even if the metric is equal
@@ -1075,7 +1075,7 @@ decide_sum_lsa(struct ospf_area *oa, ort *nf, int dest)
   struct area_net *anet = (struct area_net *)
     fib_route(&nf->n.oa->net_fib, nf->fn.prefix, nf->fn.pxlen);
 
-  /* Condensed area network found */ 
+  /* Condensed area network found */
   if (anet)
     return 0;
 
@@ -1132,7 +1132,7 @@ decide_nssa_lsa(struct ospf_proto *p, ort *nf, struct ospf_lsa_ext_local *rt)
   if (!rt_is_nssa(nf) || !oa->translate)
     return 0;
 
-  /* Condensed area network found */ 
+  /* Condensed area network found */
   if (fib_route(&oa->enet_fib, nf->fn.prefix, nf->fn.pxlen))
     return 0;
 
@@ -1141,7 +1141,7 @@ decide_nssa_lsa(struct ospf_proto *p, ort *nf, struct ospf_lsa_ext_local *rt)
 
   /* We do not store needed data in struct orta, we have to parse the LSA */
   lsa_parse_ext(en, ospf_is_v2(p), rt);
-  
+
   if (rt->pxopts & OPT_PX_NU)
     return 0;
 
@@ -1200,18 +1200,18 @@ ospf_check_vlinks(struct ospf_proto *p)
       {
 	struct ospf_iface *nhi = ospf_iface_find(p, tmp->nhs->iface);
 
-        if ((ifa->state != OSPF_IS_PTP)
+	if ((ifa->state != OSPF_IS_PTP)
 	    || (ifa->vifa != nhi)
 	    || !ipa_equal(ifa->vip, tmp->lb))
-        {
-          OSPF_TRACE(D_EVENTS, "Vlink peer %R found", tmp->lsa.id);
-          ospf_iface_sm(ifa, ISM_DOWN);
+	{
+	  OSPF_TRACE(D_EVENTS, "Vlink peer %R found", tmp->lsa.id);
+	  ospf_iface_sm(ifa, ISM_DOWN);
 	  ifa->vifa = nhi;
 	  ifa->addr = nhi->addr;
 	  ifa->cost = tmp->dist;
-          ifa->vip = tmp->lb;
-          ospf_iface_sm(ifa, ISM_UP);
-        }
+	  ifa->vip = tmp->lb;
+	  ospf_iface_sm(ifa, ISM_UP);
+	}
 	else if ((ifa->state == OSPF_IS_PTP) && (ifa->cost != tmp->dist))
 	{
 	  ifa->cost = tmp->dist;
@@ -1222,11 +1222,11 @@ ospf_check_vlinks(struct ospf_proto *p)
       }
       else
       {
-        if (ifa->state > OSPF_IS_DOWN)
-        {
-          OSPF_TRACE(D_EVENTS, "Vlink peer %R lost", ifa->vid);
+	if (ifa->state > OSPF_IS_DOWN)
+	{
+	  OSPF_TRACE(D_EVENTS, "Vlink peer %R lost", ifa->vid);
 	  ospf_iface_sm(ifa, ISM_DOWN);
-        }
+	}
       }
     }
   }
@@ -1343,7 +1343,7 @@ static void
 translator_timer_hook(timer *timer)
 {
   struct ospf_area *oa = timer->data;
-  
+
   if (oa->translate != TRANS_WAIT)
     return;
 
@@ -1727,7 +1727,7 @@ ospf_rt_spf(struct ospf_proto *p)
 
   rt_sync(p);
   lp_flush(p->nhpool);
-  
+
   p->calcrt = 0;
 }
 
@@ -1756,7 +1756,7 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
   if (inherit_nexthops(pn))
     return pn;
 
-  /* 
+  /*
    * There are three cases:
    * 1) en is a local network (and par is root)
    * 2) en is a ptp or ptmp neighbor (and par is root)
@@ -1821,7 +1821,7 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
 	return NULL;
 
       struct ospf_lsa_link *llsa = lhe->lsa_body;
-      
+
       if (ipa_zero(llsa->lladdr))
 	return NULL;
 

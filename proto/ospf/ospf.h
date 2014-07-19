@@ -127,8 +127,8 @@ struct ospf_area_config
   u8 translator;		/* Translator role, for NSSA ABR */
   u32 transint;			/* Translator stability interval */
   list patt_list;		/* List of iface configs (struct ospf_iface_patt) */
-  list net_list;	      	/* List of aggregate networks for that area */
-  list enet_list;	      	/* List of aggregate external (NSSA) networks */
+  list net_list;		/* List of aggregate networks for that area */
+  list enet_list;		/* List of aggregate external (NSSA) networks */
   list stubnet_list;		/* List of stub networks added to Router LSA */
 };
 
@@ -163,7 +163,7 @@ struct nbma_node
   node n;
   ip_addr ip;
   byte eligible;
-  byte found; 
+  byte found;
 };
 
 struct ospf_iface_patt
@@ -215,7 +215,7 @@ struct ospf_iface_patt
 #define HELLOINT_D 10
 #define POLLINT_D 20
 #define DEADC_D 4
-#define WAIT_DMH 4		
+#define WAIT_DMH 4
   /* Value of Wait timer - not found it in RFC * - using 4*HELLO */
 
 
@@ -334,7 +334,7 @@ struct ospf_iface
 #define OSPF_I_OK 0		/* Everything OK */
 #define OSPF_I_SK 1		/* Socket open failed */
 #define OSPF_I_LL 2		/* Missing link-local address (OSPFv3) */
-  u8 sk_dr; 			/* Socket is a member of designated routers group */
+  u8 sk_dr;			/* Socket is a member of designated routers group */
   u8 marked;			/* Used in OSPF reconfigure, 2 for force restart */
   u16 rxbuf;			/* Buffer size */
   u16 tx_length;		/* Soft TX packet length limit, usually MTU */

@@ -131,7 +131,7 @@ ospf_receive_lsreq(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
     DBG("Processing requested LSA: Type: %04x, Id: %R, Rt: %R\n", type, id, rt);
 
-    en = ospf_hash_find(p->gr, domain, id, rt, type); 
+    en = ospf_hash_find(p->gr, domain, id, rt, type);
     if (!en)
     {
       log(L_WARN "%s: Received LSREQ from %I for missing LSA (Type: %04x, Id: %R, Rt: %R)",

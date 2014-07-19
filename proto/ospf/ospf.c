@@ -10,7 +10,7 @@
 
 /**
  * DOC: Open Shortest Path First (OSPF)
- * 
+ *
  * The OSPF protocol is quite complicated and its complex implemenation is split
  * to many files. In |ospf.c|, you will find mainly the interface for
  * communication with the core (e.g., reconfiguration hooks, shutdown and
@@ -68,7 +68,7 @@
  * (&ospf_proto->tick). It is responsible for aging and flushing of LSAs in the
  * database, updating topology information in LSAs and for routing table
  * calculation.
- * 
+ *
  * To every &ospf_iface, we connect one or more &ospf_neighbor's -- a structure
  * containing many timers and queues for building adjacency and for exchange of
  * routing messages.
@@ -179,7 +179,7 @@ ospf_area_remove(struct ospf_area *oa)
 
   /* We suppose that interfaces are already removed */
   ospf_flush_area(p, oa->areaid);
- 
+
   fib_free(&oa->rtr);
   fib_free(&oa->net_fib);
   fib_free(&oa->enet_fib);
@@ -207,7 +207,7 @@ static struct ospf_iface *
 ospf_find_vlink(struct ospf_proto *p, u32 voa, u32 vid)
 {
   struct ospf_iface *ifa;
-  WALK_LIST(ifa, p->iface_list) 
+  WALK_LIST(ifa, p->iface_list)
     if ((ifa->type == OSPF_IT_VLINK) && (ifa->voa->areaid == voa) && (ifa->vid == vid))
       return ifa;
   return NULL;
@@ -291,7 +291,7 @@ ospf_dump(struct proto *P)
 static struct proto *
 ospf_init(struct proto_config *c)
 {
-  struct ospf_config *oc = (struct ospf_config *) c;  
+  struct ospf_config *oc = (struct ospf_config *) c;
   struct proto *P = proto_new(c, sizeof(struct ospf_proto));
 
   P->accept_ra_types = RA_OPTIMAL;
@@ -688,7 +688,7 @@ ospf_reconfigure(struct proto *P, struct proto_config *c)
       ospf_area_remove(oa);
 
   ospf_schedule_rtcalc(p);
-  
+
   return 1;
 }
 
@@ -753,12 +753,12 @@ ospf_sh(struct proto *P)
       if (oa == ifa->oa)
       {
 	ifano++;
-        WALK_LIST(n, ifa->neigh_list)
-        {
+	WALK_LIST(n, ifa->neigh_list)
+	{
 	  nno++;
 	  if (n->state == NEIGHBOR_FULL)
 	    adjno++;
-        }
+	}
       }
     }
 
@@ -779,8 +779,8 @@ ospf_sh(struct proto *P)
       anet = (struct area_net *) nftmp;
       if(firstfib)
       {
-        cli_msg(-1014, "\t\tArea networks:");
-        firstfib = 0;
+	cli_msg(-1014, "\t\tArea networks:");
+	firstfib = 0;
       }
       cli_msg(-1014, "\t\t\t%1I/%u\t%s\t%s", anet->fn.prefix, anet->fn.pxlen,
 		anet->hidden ? "Hidden" : "Advertise", anet->active ? "Active" : "");
@@ -793,8 +793,8 @@ ospf_sh(struct proto *P)
       anet = (struct area_net *) nftmp;
       if(firstfib)
       {
-        cli_msg(-1014, "\t\tArea external networks:");
-        firstfib = 0;
+	cli_msg(-1014, "\t\tArea external networks:");
+	firstfib = 0;
       }
       cli_msg(-1014, "\t\t\t%1I/%u\t%s\t%s", anet->fn.prefix, anet->fn.pxlen,
 		anet->hidden ? "Hidden" : "Advertise", anet->active ? "Active" : "");
@@ -917,7 +917,7 @@ lsa_compare_for_state(const void *p1, const void *p2)
 
     return lsa1->sn - lsa2->sn;
   }
-  else 
+  else
   {
     if (lsa1->rt < lsa2->rt)
       return -1;
@@ -936,7 +936,7 @@ lsa_compare_for_state(const void *p1, const void *p2)
 
     if (px1 != px2)
       return px1 - px2;
-  
+
     return lsa1->sn - lsa2->sn;
   }
 }
@@ -1004,7 +1004,7 @@ show_lsa_router(struct ospf_proto *p, struct top_hash_entry *he, int verbose)
 	  struct ospf_lsa_header *net_lsa = &(net_he->lsa);
 	  struct ospf_lsa_net *net_ln = net_he->lsa_body;
 
-	  cli_msg(-1016, "\t\tnetwork %I/%d metric %u", 
+	  cli_msg(-1016, "\t\tnetwork %I/%d metric %u",
 		  ipa_from_u32(net_lsa->id & net_ln->optx),
 		  u32_masklen(net_ln->optx), rtl.metric);
 	}
@@ -1085,7 +1085,7 @@ show_lsa_external(struct top_hash_entry *he, int ospf2)
     he->domain = 0; /* Unmark the LSA */
 
   lsa_parse_ext(he, ospf2, &rt);
-  
+
   if (rt.fbit)
     bsprintf(str_via, " via %I", rt.fwaddr);
 
@@ -1145,7 +1145,7 @@ ospf_sh_state(struct proto *P, int verbose, int reachable)
     return;
   }
 
-  /* We store interesting area-scoped LSAs in array hea and 
+  /* We store interesting area-scoped LSAs in array hea and
      global-scoped (LSA_T_EXT) LSAs in array hex */
 
   int num = p->gr->hash_entries;
@@ -1343,7 +1343,7 @@ lsa_compare_for_lsadb(const void *p1, const void *p2)
 
   if (lsa1->rt != lsa2->rt)
     return lsa1->rt - lsa2->rt;
-  
+
   if (lsa1->id != lsa2->id)
     return lsa1->id - lsa2->id;
 
@@ -1390,7 +1390,7 @@ ospf_sh_lsadb(struct lsadb_show_data *ld)
     struct ospf_lsa_header *lsa = &(hea[i]->lsa);
     u16 lsa_type = lsa->type_raw & type_mask;
     u16 dscope = LSA_SCOPE(hea[i]->lsa_type);
-    
+
     /* Hack: 1 is used for LSA_SCOPE_LINK, fixed by & 0xf000 */
     if (ld->scope && (dscope != (ld->scope & 0xf000)))
       continue;
@@ -1407,7 +1407,7 @@ ospf_sh_lsadb(struct lsadb_show_data *ld)
 
     if (ld->router && (lsa->rt != ld->router))
       continue;
-    
+
     if ((dscope != last_dscope) || (hea[i]->domain != last_domain))
     {
       cli_msg(-1017, "");
@@ -1456,4 +1456,3 @@ struct protocol proto_ospf = {
   .get_attr =		ospf_get_attr,
   .get_route_info =	ospf_get_route_info
 };
-

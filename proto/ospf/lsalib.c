@@ -63,11 +63,11 @@ lsa_ntoh_body(void *n, void *h, u16 len)
 
 int
 lsa_flooding_allowed(u32 type, u32 domain, struct ospf_iface *ifa)
-{   
+{
   /* Handle inactive vlinks */
   if (ifa->state == OSPF_IS_DOWN)
     return 0;
- 
+
   /* 4.5.2 (Case 2) */
   switch (LSA_SCOPE(type))
   {
@@ -238,7 +238,7 @@ lsasum_check(struct ospf_lsa_header *h, void *body)
       q = ep;
     for (p = sp; p < q; p++)
     {
-      /* 
+      /*
        * I count with bytes from header and than from body
        * but if there is no body, it's appended to header
        * (probably checksum in update receiving) and I go on
@@ -432,7 +432,7 @@ lsa_parse_ext(struct top_hash_entry *en, int ospf2, struct ospf_lsa_ext_local *r
     rt->fbit = ext->metric & LSA_EXT3_FBIT;
     if (rt->fbit)
       buf = lsa_get_ipv6_addr(buf, &rt->fwaddr);
-    else 
+    else
       rt->fwaddr = IPA_NONE;
 
     rt->tag = (ext->metric & LSA_EXT3_TBIT) ? *buf++ : 0;
@@ -540,7 +540,7 @@ lsa_validate_sum3_net(struct ospf_lsa_header *lsa, struct ospf_lsa_sum3_net *bod
   if (pxl > MAX_PREFIX_LENGTH)
     return 0;
 
-  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_sum3_net) + 
+  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_sum3_net) +
 		      IPV6_PREFIX_SPACE(pxl)))
     return 0;
 
@@ -607,7 +607,7 @@ lsa_validate_pxlist(struct ospf_lsa_header *lsa, u32 pxcount, uint offset, u8 *p
       u8 pxl = pxlen((u32 *) (pbuf + offset));
       if (pxl > MAX_PREFIX_LENGTH)
 	return 0;
-  
+
       offset += IPV6_PREFIX_SPACE(pxl);
     }
 

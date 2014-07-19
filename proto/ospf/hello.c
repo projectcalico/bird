@@ -114,7 +114,7 @@ ospf_send_hello(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dirn)
     {
       if (i == max)
       {
- 	log(L_WARN "%s: Too many neighbors on interface %s", p->p.name, ifa->ifname);
+	log(L_WARN "%s: Too many neighbors on interface %s", p->p.name, ifa->ifname);
 	break;
       }
       neighbors[i] = htonl(neigh->rid);
@@ -143,7 +143,7 @@ ospf_send_hello(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dirn)
 
     int to_all = ifa->state > OSPF_IS_DROTHER;
     int me_elig = ifa->priority > 0;
- 
+
     if (kind == OHS_POLL)	/* Poll timer */
     {
       WALK_LIST(nb, ifa->nbma_list)
@@ -357,7 +357,7 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
   if (ifa->type == OSPF_IT_NBMA)
     if ((ifa->priority == 0) && (n->priority > 0))
       ospf_send_hello(n->ifa, OHS_HELLO, n);
- 
+
 
   /* Examine list of neighbors */
   for (i = 0; i < neigh_count; i++)

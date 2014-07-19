@@ -18,7 +18,7 @@ struct top_hash_entry
 				   in intra-area routing table calculation */
   struct top_hash_entry *next;	/* Next in hash chain */
   struct ospf_lsa_header lsa;
-  u16 lsa_type;			/* lsa.type processed and converted to common values (LSA_T_*) */	
+  u16 lsa_type;			/* lsa.type processed and converted to common values (LSA_T_*) */
   u16 init_age;			/* Initial value for lsa.age during inst_time */
   u32 domain;			/* Area ID for area-wide LSAs, Iface ID for link-wide LSAs */
   //  struct ospf_area *oa;

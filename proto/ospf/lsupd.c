@@ -277,7 +277,7 @@ ospf_prepare_lsupd(struct ospf_proto *p, struct ospf_iface *ifa,
       if (ospf_iface_assure_bufsize(ifa, pos + len) < 0)
       {
 	/* Cannot fit in a tx buffer, skip that */
-	log(L_ERR "%s: LSA too large to send on %s (Type: %04x, Id: %R, Rt: %R)", 
+	log(L_ERR "%s: LSA too large to send on %s (Type: %04x, Id: %R, Rt: %R)",
 	    p->p.name, ifa->ifname, en->lsa_type, en->lsa.id, en->lsa.rt);
 	break;
       }
@@ -439,7 +439,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
     lsa_n = ((void *) pkt) + offset;
     lsa_len = ntohs(lsa_n->length);
     offset += lsa_len;
- 
+
     if ((offset > plen) || ((lsa_len % 4) != 0) ||
 	(lsa_len <= sizeof(struct ospf_lsa_header)))
     {
@@ -504,7 +504,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
     /* 13. (4) - ignore maxage LSA if i have no local copy */
     if ((lsa.age == LSA_MAXAGE) && !en && (p->padj == 0))
     {
-      /* 13.5. - schedule ACKs (tbl 19, case 5) */ 
+      /* 13.5. - schedule ACKs (tbl 19, case 5) */
       ospf_enqueue_lsack(n, lsa_n, ACKL_DIRECT);
       continue;
     }
@@ -575,7 +575,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       /* 13. (5b) - flood new LSA */
       int flood_back = ospf_flood_lsa(p, en, n);
 
-      /* 13.5. - schedule ACKs (tbl 19, cases 1+2) */ 
+      /* 13.5. - schedule ACKs (tbl 19, cases 1+2) */
       if (! flood_back)
 	if ((ifa->state != OSPF_IS_BACKUP) || (n->rid == ifa->drid))
 	  ospf_enqueue_lsack(n, lsa_n, ACKL_DELAY);
@@ -593,7 +593,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       /* Duplicate LSA, treat as implicit ACK */
       int implicit_ack = ospf_lsa_lsrt_down(en, n);
 
-      /* 13.5. - schedule ACKs (tbl 19, cases 3+4) */ 
+      /* 13.5. - schedule ACKs (tbl 19, cases 3+4) */
       if (implicit_ack)
       {
 	if ((ifa->state == OSPF_IS_BACKUP) && (n->rid == ifa->drid))
@@ -631,4 +631,3 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
   if ((n->state == NEIGHBOR_LOADING) && n->want_lsreq && !skip_lsreq)
     ospf_send_lsreq(p, n);
 }
-

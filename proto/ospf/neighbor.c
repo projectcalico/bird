@@ -56,7 +56,7 @@ release_lsrtl(struct ospf_proto *p, struct ospf_neighbor *n)
 }
 
 /* Resets LSA request and retransmit lists.
- * We do not reset DB summary list iterator here, 
+ * We do not reset DB summary list iterator here,
  * it is reset during entering EXCHANGE state.
  */
 static void
@@ -496,7 +496,7 @@ ospf_dr_election(struct ospf_iface *ifa)
 
   u32 old_drid = ifa->drid;
   u32 old_bdrid = ifa->bdrid;
- 
+
   ifa->drid = ndr ? ndr->rid : 0;
   ifa->drip = ndr ? ndr->ip  : IPA_NONE;
   ifa->dr_iface_id = ndr ? ndr->iface_id : 0;

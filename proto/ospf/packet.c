@@ -92,7 +92,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
       ifa->csn_use = now;
     }
 
-    /* We must have sufficient delay between sending a packet and increasing 
+    /* We must have sufficient delay between sending a packet and increasing
        CSN to prevent reordering of packets (in a network) with different CSNs */
     if ((now - ifa->csn_use) > 1)
       ifa->csn++;
@@ -253,7 +253,7 @@ ospf_rx_hook(sock *sk, int size)
   struct ospf_iface *ifa = sk->data;
   struct ospf_proto *p = ifa->oa->po;
 
-  int src_local, dst_local, dst_mcast; 
+  int src_local, dst_local, dst_mcast;
   src_local = ipa_in_net(sk->faddr, ifa->addr->prefix, ifa->addr->pxlen);
   dst_local = ipa_equal(sk->laddr, ifa->addr->ip);
   dst_mcast = ipa_equal(sk->laddr, ifa->all_routers) || ipa_equal(sk->laddr, ifa->des_routers);
@@ -264,7 +264,7 @@ ospf_rx_hook(sock *sk, int size)
      * In OSPFv2, they might be for other ospf_ifaces (with different IP
      * prefix) on the same real iface, so we don't log it. We enforce
      * that (src_local || dst_local), therefore we are eliminating all
-     * such cases. 
+     * such cases.
      */
     if (dst_mcast && !src_local)
       return 1;
@@ -277,7 +277,7 @@ ospf_rx_hook(sock *sk, int size)
   }
   else
   {
-    /* In OSPFv3, src_local and dst_local mean link-local. 
+    /* In OSPFv3, src_local and dst_local mean link-local.
      * RFC 5340 says that local (non-vlink) packets use
      * link-local src address, but does not enforce it. Strange.
      */
@@ -385,7 +385,7 @@ ospf_rx_hook(sock *sk, int size)
     struct ospf_iface *iff = NULL;
     WALK_LIST(iff, p->iface_list)
     {
-      if ((iff->type == OSPF_IT_VLINK) && 
+      if ((iff->type == OSPF_IT_VLINK) &&
 	  (iff->voa == ifa->oa) &&
 	  (iff->instance_id == instance_id) &&
 	  (iff->vid == rid))

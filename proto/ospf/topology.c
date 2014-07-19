@@ -31,7 +31,7 @@ static inline void lsab_reset(struct ospf_proto *p);
  * ospf_install_lsa - install new LSA into database
  * @p: OSPF protocol instance
  * @lsa: LSA header
- * @type: type of LSA 
+ * @type: type of LSA
  * @domain: domain of LSA
  * @body: pointer to LSA body
  *
@@ -93,7 +93,7 @@ ospf_install_lsa(struct ospf_proto *p, struct ospf_lsa_header *lsa, u32 type, u3
  * @p: OSPF protocol instance
  * @en: current LSA entry or NULL
  * @lsa: new LSA header
- * @type: type of LSA 
+ * @type: type of LSA
  * @domain: domain of LSA
  * @body: pointer to LSA body
  *
@@ -136,7 +136,7 @@ ospf_advance_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_ls
     }
     else
     {
-      /* 
+      /*
        * Received LSA has maximal sequence number, so we cannot simply override
        * it. We have to install it to the database, immediately flush it to
        * implement sequence number wrapping, and schedule our current LSA to be
@@ -181,10 +181,10 @@ ospf_advance_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_ls
     en = ospf_install_lsa(p, lsa, type, domain, body);
   }
 
-  /* 
+  /*
    * We flood the updated LSA. Although in some cases the to-be-flooded LSA is
    * the same as the received LSA, and therefore we should propagate it as
-   * regular received LSA (send the acknowledgement instead of the update to 
+   * regular received LSA (send the acknowledgement instead of the update to
    * the neighbor we received it from), we cheat a bit here.
    */
 
@@ -341,7 +341,7 @@ ospf_originate_next_lsa(struct ospf_proto *p, struct top_hash_entry *en)
 
   if (! ospf_do_originate_lsa(p, en, en->next_lsa_body, en->next_lsa_blen, en->next_lsa_opts))
     return;
-  
+
   en->next_lsa_body = NULL;
   en->next_lsa_blen = 0;
   en->next_lsa_opts = 0;
@@ -776,7 +776,7 @@ prepare_rt2_lsa_body(struct ospf_proto *p, struct ospf_area *oa)
 	(ifa->state == OSPF_IS_LOOP) ||
 	(ifa->type == OSPF_IT_PTMP))
       add_rt2_lsa_link(p, LSART_STUB, ipa_to_u32(ifa->addr->ip), 0xffffffff, 0);
-    else 
+    else
       add_rt2_lsa_link(p, LSART_STUB, ipa_to_u32(ifa->addr->prefix), u32_mkmask(ifa->addr->pxlen), ifa->cost);
     i++;
 
@@ -789,7 +789,7 @@ prepare_rt2_lsa_body(struct ospf_proto *p, struct ospf_area *oa)
       add_rt2_lsa_link(p, LSART_STUB, ipa_to_u32(sn->px.addr), u32_mkmask(sn->px.len), sn->cost), i++;
 
   struct ospf_lsa_rt *rt = p->lsab;
-  /* Store number of links in lower half of options */ 
+  /* Store number of links in lower half of options */
   rt->options = get_rt_options(p, oa, bitv) | (u16) i;
 }
 
@@ -1119,7 +1119,7 @@ prepare_ext3_lsa_body(struct ospf_proto *p, ort *nf,
  * If I receive a message that new route is installed, I try to originate an
  * external LSA. If @oa is an NSSA area, NSSA-LSA is originated instead.
  * @oa should not be a stub area. @src does not specify whether the LSA
- * is external or NSSA, but it specifies the source of origination - 
+ * is external or NSSA, but it specifies the source of origination -
  * the export from ospf_rt_notify(), or the NSSA-EXT translation.
  */
 void
@@ -1494,7 +1494,7 @@ prefix_same(u32 *b1, u32 *b2)
   int pxl1 = *b1 >> 24;
   int pxl2 = *b2 >> 24;
   int pxs, i;
-  
+
   if (pxl1 != pxl2)
     return 0;
 
@@ -1583,7 +1583,7 @@ prepare_prefix_net_lsa_body(struct ospf_proto *p, struct ospf_iface *ifa)
 
   WALK_LIST(n, ifa->neigh_list)
     if ((n->state == NEIGHBOR_FULL) &&
-      	(en = ospf_hash_find(p->gr, ifa->iface_id, n->iface_id, n->rid, LSA_T_LINK)))
+	(en = ospf_hash_find(p->gr, ifa->iface_id, n->iface_id, n->rid, LSA_T_LINK)))
       add_link_lsa(p, en->lsa_body, offset, &pxc);
 
   lp = p->lsab;
@@ -1886,7 +1886,7 @@ ospf_hash_get(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
   ee = f->hash_table + ospf_top_hash(f, domain, lsa, rtr, type);
   e = *ee;
 
-  while (e && (e->lsa.id != lsa || e->lsa.rt != rtr || 
+  while (e && (e->lsa.id != lsa || e->lsa.rt != rtr ||
 	       e->lsa_type != type || e->domain != domain))
     e = e->next;
 
@@ -1914,7 +1914,7 @@ ospf_hash_get(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
 void
 ospf_hash_delete(struct top_graph *f, struct top_hash_entry *e)
 {
-  struct top_hash_entry **ee = f->hash_table + 
+  struct top_hash_entry **ee = f->hash_table +
     ospf_top_hash(f, e->domain, e->lsa.id, e->lsa.rt, e->lsa_type);
 
   while (*ee)
@@ -1955,7 +1955,7 @@ ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
       rr = (struct ospf_lsa_rt_link *) (rt + 1);
 
       for (i = 0; i < lsa_rt_items(&he->lsa); i++)
-        OSPF_TRACE(D_EVENTS, "  - %1x %-1R %-1R %5u",
+	OSPF_TRACE(D_EVENTS, "  - %1x %-1R %-1R %5u",
 		   rr[i].type, rr[i].id, rr[i].data, rr[i].metric);
       break;
 
@@ -1964,7 +1964,7 @@ ospf_dump_lsa(struct top_hash_entry *he, struct proto *p)
       rts = (u32 *) (ln + 1);
 
       for (i = 0; i < lsa_net_items(&he->lsa); i++)
-        OSPF_TRACE(D_EVENTS, "  - %-1R", rts[i]);
+	OSPF_TRACE(D_EVENTS, "  - %-1R", rts[i]);
       break;
 
     default:

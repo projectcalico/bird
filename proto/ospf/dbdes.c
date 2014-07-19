@@ -56,7 +56,7 @@ ospf_dbdes_body(struct ospf_proto *p, struct ospf_packet *pkt,
   *body = ((void *) pkt) + hlen;
   *count = (plen - hlen) / sizeof(struct ospf_lsa_header);
 }
-  
+
 static void
 ospf_dump_dbdes(struct ospf_proto *p, struct ospf_packet *pkt)
 {
@@ -231,7 +231,7 @@ ospf_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n, int next)
       tm_start(n->rxmt_timer, n->ifa->rxmtint);
 
     if (!(n->myimms & DBDES_MS))
-      if (!(n->myimms & DBDES_M) && 
+      if (!(n->myimms & DBDES_M) &&
 	  !(n->imms & DBDES_M))
 	ospf_neigh_sm(n, INM_EXDONE);
     break;
@@ -358,7 +358,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
     rcv_imms = ps->imms;
     rcv_ddseq = ntohl(ps->ddseq);
   }
-  
+
   switch (n->state)
   {
   case NEIGHBOR_DOWN:
@@ -397,7 +397,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
     if (!(rcv_imms & DBDES_I) &&
 	!(rcv_imms & DBDES_MS) &&
-        (n->rid < p->router_id) &&
+	(n->rid < p->router_id) &&
 	(n->dds == rcv_ddseq))
     {
       /* I'm master! */
