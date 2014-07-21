@@ -2288,6 +2288,7 @@ networks.
 <code>
 protocol ospf &lt;name&gt; {
 	rfc1583compat &lt;switch&gt;;
+	instance id &lt;num&gt;;
 	stub router &lt;switch&gt;;
 	tick &lt;num&gt;;
 	ecmp &lt;switch&gt; [limit &lt;num&gt;];
@@ -2375,14 +2376,24 @@ protocol ospf &lt;name&gt; {
 	RFC 1583 <htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc1583.txt">.
 	Default	value is no.
 
+	<tag>instance id <m/num/</tag>
+	When multiple OSPF protocol instances are active on the same links, they
+	should use different instance IDs to distinguish their packets. Although
+	it could be done on per-interface basis, it is often preferred to set
+	one instance ID to whole OSPF domain/topology (e.g., when multiple
+	instances are used to represent separate logical topologies on the same
+	physical network). This option specifies the default instance ID for all
+	interfaces of the OSPF instance. Note that this option, if used, must
+	precede interface definitions. Default value is 0.
+
 	<tag>stub router <M>switch</M></tag>
 	This option configures the router to be a stub router, i.e., a router
 	that participates in the OSPF topology but does not allow transit
 	traffic. In OSPFv2, this is implemented by advertising maximum metric
-	for outgoing links, as suggested by
-	RFC 3137 <htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc3137.txt">.
-	In OSPFv3, the stub router behavior is announced by clearing the R-bit
-	in the router LSA. Default value is no.
+	for outgoing links. In OSPFv3, the stub router behavior is announced by
+	clearing the R-bit in the router LSA. See RFC 6987
+	<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc6987.txt"> for
+	details. Default value is no.
 
 	<tag>tick <M>num</M></tag>
 	The routing table calculation and clean-up of areas' databases is not
@@ -2484,22 +2495,26 @@ protocol ospf &lt;name&gt; {
 	prefix. When option <cf/summary/ is used, also default stub networks
 	that are subnetworks of given stub network are suppressed. This might be
 	used, for example, to aggregate generated stub networks.
-	 
+
 	<tag>interface <M>pattern</M> [instance <m/num/]</tag>
 	Defines that the specified interfaces belong to the area being defined.
 	See <ref id="dsc-iface" name="interface"> common option for detailed
 	description. In OSPFv2, extended interface clauses are used, because
-	OSPFv2 handles each network prefix as a separate virtual interface. In
-	OSPFv3, you can specify instance ID for that interface description, so
-	it is possible to have several instances of that interface with
-	different options or even in different areas.
+	each network prefix is handled as a separate virtual interface.
+
+	You can specify alternative instance ID for the interface definition,
+	therefore it is possible to have several instances of that interface
+	with different options or even in different areas. For OSPFv2,
+	instance ID support is an extension (RFC 6549
+	<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc6549.txt">) and is
+	supposed to be set per-protocol. For OSPFv3, it is an integral feature.
 
 	<tag>virtual link <M>id</M> [instance <m/num/]</tag>
 	Virtual link to router with the router id. Virtual link acts as a
 	point-to-point interface belonging to backbone. The actual area is used
-	as transport area. This item cannot be in the backbone. In OSPFv3, you
-	could also use several virtual links to one destination with different
-	instance IDs.
+	as a transport area. This item cannot be in the backbone. Like with
+	<cf/interface/ option, you could also use several virtual links to one
+	destination with different instance IDs.
 
 	<tag>cost <M>num</M></tag>
 	Specifies output cost (metric) of an interface. Default value is 10.
@@ -2530,8 +2545,8 @@ protocol ospf &lt;name&gt; {
 
 	<tag>wait <M>num</M></tag>
 	After start, router waits for the specified number of seconds between
-	starting election and building adjacency. Default value is 40.
-	 
+	starting election and building adjacency. Default value is 4*<m/hello/.
+
 	<tag>dead count <M>num</M></tag>
 	When the router does not receive any messages from a neighbor in
 	<m/dead count/*<m/hello/ seconds, it will consider the neighbor down.

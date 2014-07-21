@@ -103,12 +103,13 @@ struct ospf_config
 {
   struct proto_config c;
   uint tick;
-  byte ospf2;
-  byte rfc1583;
-  byte stub_router;
-  byte merge_external;
-  byte abr;
-  byte asbr;
+  u8 ospf2;
+  u8 rfc1583;
+  u8 stub_router;
+  u8 merge_external;
+  u8 instance_id;
+  u8 abr;
+  u8 asbr;
   int ecmp;
   list area_list;		/* list of area configs (struct ospf_area_config) */
   list vlink_list;		/* list of configured vlinks (struct ospf_iface_patt) */

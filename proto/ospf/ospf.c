@@ -87,6 +87,13 @@
  * we have recalculated and also those we have deleted to the core's routing
  * table and the core will take care of the rest. This simplifies the process
  * and conserves memory.
+ *
+ * Supported standards:
+ * - RFC 2328 - main OSPFv2 standard
+ * - RFC 5340 - main OSPFv3 standard
+ * - RFC 3101 - OSPFv2 NSSA areas
+ * - RFC 6549 - OSPFv2 multi-instance extensions
+ * - RFC 6987 - OSPF stub router advertisement
  */
 
 #include <stdlib.h>

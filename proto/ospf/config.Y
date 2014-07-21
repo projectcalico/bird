@@ -19,7 +19,7 @@ static struct ospf_area_config *this_area;
 static struct nbma_node *this_nbma;
 static list *this_nets;
 static struct area_net_config *this_pref;
-static struct ospf_stubnet_config *this_stubnet; 
+static struct ospf_stubnet_config *this_stubnet;
 
 static inline int ospf_cfg_is_v2(void) { return OSPF_CFG->ospf2; }
 static inline int ospf_cfg_is_v3(void) { return ! OSPF_CFG->ospf2; }
@@ -31,6 +31,9 @@ ospf_iface_finish(void)
 
   if (ip->deadint == 0)
     ip->deadint = ip->deadc * ip->helloint;
+
+  if (ip->waitint == 0)
+    ip->waitint = ip->deadc * ip->helloint;
 
   ip->passwords = get_passwords();
 
@@ -159,6 +162,7 @@ ospf_proto_item:
  | ECMP bool LIMIT expr { OSPF_CFG->ecmp = $2 ? $4 : 0; if ($4 < 0) cf_error("ECMP limit cannot be negative"); }
  | MERGE EXTERNAL bool { OSPF_CFG->merge_external = $3; }
  | TICK expr { OSPF_CFG->tick = $2; if($2<=0) cf_error("Tick must be greater than zero"); }
+ | INSTANCE ID expr { OSPF_CFG->instance_id = $3; if (($3<0) || ($3>255)) cf_error("Instance ID must be in range 0-255"); }
  | ospf_area
  ;
 
@@ -213,7 +217,7 @@ ospf_stubnet_start:
      add_tail(&this_area->stubnet_list, NODE this_stubnet);
      this_stubnet->px = $1;
      this_stubnet->cost = COST_D;
-   } 
+   }
  ;
 
 ospf_stubnet_opts:
@@ -239,9 +243,9 @@ ospf_vlink_opts:
 
 ospf_vlink_item:
  | HELLO expr { OSPF_PATT->helloint = $2 ; if (($2<=0) || ($2>65535)) cf_error("Hello interval must be in range 1-65535"); }
- | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=0) cf_error("Retransmit int must be greater than zero"); }
+ | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=1) cf_error("Retransmit int must be greater than one"); }
  | TRANSMIT DELAY expr { OSPF_PATT->inftransdelay = $3 ; if (($3<=0) || ($3>65535)) cf_error("Transmit delay must be in range 1-65535"); }
- | WAIT expr { OSPF_PATT->waitint = $2 ; }
+ | WAIT expr { OSPF_PATT->waitint = $2 ; if ($2<=1) cf_error("Wait interval must be greater than one"); }
  | DEAD expr { OSPF_PATT->deadint = $2 ; if ($2<=1) cf_error("Dead interval must be greater than one"); }
  | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE;  }
@@ -261,12 +265,10 @@ ospf_vlink_start: VIRTUAL LINK idval
   OSPF_PATT->helloint = HELLOINT_D;
   OSPF_PATT->rxmtint = RXMTINT_D;
   OSPF_PATT->inftransdelay = INFTRANSDELAY_D;
-  OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
-  OSPF_PATT->deadint = 0;
   OSPF_PATT->type = OSPF_IT_VLINK;
+  OSPF_PATT->instance_id = OSPF_CFG->instance_id;
   init_list(&OSPF_PATT->nbma_list);
-  OSPF_PATT->autype = OSPF_AUTH_NONE;
   reset_passwords();
  }
 ;
@@ -275,8 +277,8 @@ ospf_iface_item:
    COST expr { OSPF_PATT->cost = $2 ; if (($2<=0) || ($2>65535)) cf_error("Cost must be in range 1-65535"); }
  | HELLO expr { OSPF_PATT->helloint = $2 ; if (($2<=0) || ($2>65535)) cf_error("Hello interval must be in range 1-65535"); }
  | POLL expr { OSPF_PATT->pollint = $2 ; if ($2<=0) cf_error("Poll int must be greater than zero"); }
- | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=0) cf_error("Retransmit int must be greater than zero"); }
- | WAIT expr { OSPF_PATT->waitint = $2 ; }
+ | RETRANSMIT expr { OSPF_PATT->rxmtint = $2 ; if ($2<=1) cf_error("Retransmit int must be greater than one"); }
+ | WAIT expr { OSPF_PATT->waitint = $2 ; if ($2<=1) cf_error("Wait interval must be greater than one"); }
  | DEAD expr { OSPF_PATT->deadint = $2 ; if ($2<=1) cf_error("Dead interval must be greater than one"); }
  | DEAD COUNT expr { OSPF_PATT->deadc = $3 ; if ($3<=1) cf_error("Dead count must be greater than one"); }
  | TYPE BROADCAST { OSPF_PATT->type = OSPF_IT_BCAST ; }
@@ -300,8 +302,8 @@ ospf_iface_item:
  | AUTHENTICATION NONE { OSPF_PATT->autype = OSPF_AUTH_NONE; }
  | AUTHENTICATION SIMPLE { OSPF_PATT->autype = OSPF_AUTH_SIMPLE; ospf_check_auth(); }
  | AUTHENTICATION CRYPTOGRAPHIC { OSPF_PATT->autype = OSPF_AUTH_CRYPT; ospf_check_auth(); }
- | RX BUFFER NORMAL { OSPF_PATT->rx_buffer = 0; } 
- | RX BUFFER LARGE { OSPF_PATT->rx_buffer = OSPF_MAX_PKT_SIZE; } 
+ | RX BUFFER NORMAL { OSPF_PATT->rx_buffer = 0; }
+ | RX BUFFER LARGE { OSPF_PATT->rx_buffer = OSPF_MAX_PKT_SIZE; }
  | RX BUFFER expr { OSPF_PATT->rx_buffer = $3; if (($3 < OSPF_MIN_PKT_SIZE) || ($3 > OSPF_MAX_PKT_SIZE)) cf_error("Buffer size must be in range 256-65535"); }
  | TX tos { OSPF_PATT->tx_tos = $2; }
  | TX PRIORITY expr { OSPF_PATT->tx_priority = $3; }
@@ -344,7 +346,7 @@ nbma_eligible:
  /* empty */ { $$ = 0; }
  | ELIGIBLE { $$ = 1; }
  ;
- 
+
 nbma_item: ipa nbma_eligible ';'
  {
    this_nbma = cfg_allocz(sizeof(struct nbma_node));
@@ -353,7 +355,7 @@ nbma_item: ipa nbma_eligible ';'
    this_nbma->eligible=$2;
  }
 ;
- 
+
 ospf_iface_start:
  {
   this_ipatt = cfg_allocz(sizeof(struct ospf_iface_patt));
@@ -365,12 +367,10 @@ ospf_iface_start:
   OSPF_PATT->rxmtint = RXMTINT_D;
   OSPF_PATT->inftransdelay = INFTRANSDELAY_D;
   OSPF_PATT->priority = PRIORITY_D;
-  OSPF_PATT->waitint = WAIT_DMH*HELLOINT_D;
   OSPF_PATT->deadc = DEADC_D;
-  OSPF_PATT->deadint = 0;
   OSPF_PATT->type = OSPF_IT_UNDEF;
+  OSPF_PATT->instance_id = OSPF_CFG->instance_id;
   init_list(&OSPF_PATT->nbma_list);
-  OSPF_PATT->autype = OSPF_AUTH_NONE;
   OSPF_PATT->ptp_netmask = 2; /* not specified */
   OSPF_PATT->tx_tos = IP_PREC_INTERNET_CONTROL;
   OSPF_PATT->tx_priority = sk_priority_control;
@@ -380,12 +380,12 @@ ospf_iface_start:
 
 ospf_instance_id:
    /* empty */
- | INSTANCE expr { OSPF_PATT->instance_id = $2; }
+ | INSTANCE expr { OSPF_PATT->instance_id = $2; if (($2<0) || ($2>255)) cf_error("Instance ID must be in range 0-255"); }
  ;
 
 ospf_iface_patt_list:
    iface_patt_list { if (ospf_cfg_is_v3()) iface_patt_check(); } ospf_instance_id
- ; 
+ ;
 
 ospf_iface_opts:
    /* empty */
