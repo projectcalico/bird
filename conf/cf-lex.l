@@ -646,7 +646,7 @@ cf_walk_symbols(struct config *cf, struct symbol *sym, int *pos)
 char *
 cf_symbol_class_name(struct symbol *sym)
 {
-  if ((sym->class & 0xff00) == SYM_CONSTANT)
+  if (cf_symbol_is_constant(sym))
     return "constant";
 
   switch (sym->class)

@@ -25,6 +25,23 @@ static inline u32 pair_b(u32 p) { return p & 0xFFFF; }
  * to the last item in a list (right ptr). For convenience, even items
  * are handled as one-item lists. Lists are merged by f_merge_items().
  */
+static int
+f_valid_set_type(int type)
+{
+  switch (type)
+  {
+  case T_INT:
+  case T_PAIR:
+  case T_QUAD:
+  case T_ENUM:
+  case T_IP:
+  case T_EC:
+    return 1;
+
+  default:
+    return 0;
+  }
+}
 
 static inline struct f_tree *
 f_new_item(struct f_val from, struct f_val to)
@@ -473,10 +490,19 @@ fipa:
  */
 
 set_atom:
-   expr  { $$.type = T_INT; $$.val.i = $1; }
+   NUM   { $$.type = T_INT; $$.val.i = $1; }
  | RTRID { $$.type = T_QUAD; $$.val.i = $1; }
  | fipa  { $$ = $1; }
  | ENUM  { $$.type = pair_a($1); $$.val.i = pair_b($1); }
+ | '(' term ')' {
+     $$ = f_eval($2, cfg_mem);
+     if (!f_valid_set_type($$.type)) cf_error("Set-incompatible type");
+   }
+ | SYM {
+     if (!cf_symbol_is_constant($1)) cf_error("%s: constant expected", $1->name);
+     if (!f_valid_set_type(SYM_TYPE($1))) cf_error("%s: set-incompatible type", $1->name);
+     $$ = *(struct f_val *)($1->def);
+   }
  ;
 
 switch_atom:
