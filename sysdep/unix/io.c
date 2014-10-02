@@ -1967,7 +1967,7 @@ io_loop(void)
 	  while (current_sock && count < MAX_RX_STEPS)
 	    {
 	      sock *s = current_sock;
-	      int e;
+	      int e UNUSED;
 
 	      if ((s->type < SK_MAGIC) && FD_ISSET(s->fd, &rd) && s->rx_hook)
 		{
