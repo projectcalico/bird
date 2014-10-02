@@ -72,7 +72,7 @@ CF_DECLS
 %token <t> TEXT
 %type <iface> ipa_scope
 
-%type <i> expr bool pxlen
+%type <i> expr bool pxlen ipa_port
 %type <i32> expr_us
 %type <time> datetime
 %type <a> ipa
@@ -88,7 +88,7 @@ CF_DECLS
 %left '!'
 %nonassoc '.'
 
-CF_KEYWORDS(DEFINE, ON, OFF, YES, NO, S, MS, US)
+CF_KEYWORDS(DEFINE, ON, OFF, YES, NO, S, MS, US, PORT)
 
 CF_GRAMMAR
 
@@ -159,6 +159,14 @@ ipa:
 ipa_scope:
    /* empty */ { $$ = NULL; }
  | '%' SYM { $$ = if_get_by_name($2->name); }
+ ;
+
+ipa_port:
+   /* empty */ { $$ = 0; }
+ | PORT expr {
+     if (($2 < 1) || ($2 > 65535)) cf_error("Invalid port number");
+     $$ = $2;
+   }
  ;
 
 prefix:

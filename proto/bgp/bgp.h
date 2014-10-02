@@ -23,6 +23,7 @@ struct bgp_config {
   ip_addr remote_ip;
   ip_addr source_addr;			/* Source address to use */
   struct iface *iface;			/* Interface for link-local addresses */
+  u16 remote_port; 			/* Neighbor destination port */
   int multihop;				/* Number of hops if multihop */
   int ttl_security;			/* Enable TTL security [RFC5082] */
   int next_hop_self;			/* Always set next hop to local IP address */
