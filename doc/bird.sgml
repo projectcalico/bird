@@ -735,7 +735,7 @@ This argument can be omitted if there exists only a single instance.
 	Show the list of symbols defined in the configuration (names of
 	protocols, routing tables etc.).
 
-	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(export|preexport) <m/p/] [protocol <m/p/] [<m/options/]</tag>
+	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(export|preexport|noexport) <m/p/] [protocol <m/p/] [<m/options/]</tag>
 	Show contents of a routing table (by default of the main one or the
 	table attached to a respective protocol), that is routes, their metrics
 	and (in case the <cf/all/ switch is given) all their attributes.
@@ -750,9 +750,14 @@ This argument can be omitted if there exists only a single instance.
 	<p>You can also ask for printing only routes processed and accepted by
 	a given filter (<cf>filter <m/name/</cf> or <cf>filter { <m/filter/ }
 	</cf> or matching a given condition (<cf>where <m/condition/</cf>).
-	The <cf/export/ and <cf/preexport/ switches ask for printing of entries
-	that are exported to the specified protocol. With <cf/preexport/, the
-	export filter of the protocol is skipped.
+
+	The <cf/export/, <cf/preexport/ and <cf/noexport/ switches ask for
+	printing of routes that are exported to the specified protocol.
+	With <cf/preexport/, the export filter of the protocol is skipped.
+	With <cf/noexport/, routes rejected by the export filter are printed
+	instead. Note that routes not exported to the protocol for other reasons
+	(e.g. secondary routes or routes imported from that protocol) are not
+	printed even with <cf/noexport/.
 
 	<p>You can also select just routes added by a specific protocol.
 	<cf>protocol <m/p/</cf>.
