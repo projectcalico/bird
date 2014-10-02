@@ -22,7 +22,8 @@
 
 #include "bgp.h"
 
-static struct rate_limit rl_rcv_update,  rl_snd_update;
+static struct tbf rl_rcv_update = TBF_DEFAULT_LOG_LIMITS;
+static struct tbf rl_snd_update = TBF_DEFAULT_LOG_LIMITS;
 
 /* Table for state -> RFC 6608 FSM error subcodes */
 static byte fsm_err_subcode[BS_MAX] = {

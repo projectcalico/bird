@@ -493,7 +493,7 @@ f_rta_cow(void)
   }
 }
 
-static struct rate_limit rl_runtime_err;
+static struct tbf rl_runtime_err = TBF_DEFAULT_LOG_LIMITS;
 
 #define runtime(x) do { \
     log_rl(&rl_runtime_err, L_ERR "filters, line %d: %s", what->lineno, x); \
@@ -1492,7 +1492,7 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
 
 
   if (res.type != T_RETURN) {
-    log( L_ERR "Filter %s did not return accept nor reject. Make up your mind", filter->name); 
+    log_rl(&rl_runtime_err, L_ERR "Filter %s did not return accept nor reject. Make up your mind", filter->name);
     return F_ERROR;
   }
   DBG( "done (%u)\n", res.val.i );

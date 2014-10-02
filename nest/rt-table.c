@@ -645,7 +645,7 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
   struct proto *p = ah->proto;
   struct rtable *table = ah->table;
   struct proto_stats *stats = ah->stats;
-  static struct rate_limit rl_pipe;
+  static struct tbf rl_pipe = TBF_DEFAULT_LOG_LIMITS;
   rte *before_old = NULL;
   rte *old_best = net->routes;
   rte *old = NULL;
@@ -1367,7 +1367,7 @@ rt_init(void)
 static int
 rt_prune_step(rtable *tab, int step, int *limit)
 {
-  static struct rate_limit rl_flush;
+  static struct tbf rl_flush = TBF_DEFAULT_LOG_LIMITS;
   struct fib_iterator *fit = &tab->prune_fit;
 
   DBG("Pruning route table %s\n", tab->name);

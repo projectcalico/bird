@@ -300,10 +300,10 @@ krt_trace_in(struct krt_proto *p, rte *e, char *msg)
 }
 
 static inline void
-krt_trace_in_rl(struct rate_limit *rl, struct krt_proto *p, rte *e, char *msg)
+krt_trace_in_rl(struct tbf *f, struct krt_proto *p, rte *e, char *msg)
 {
   if (p->p.debug & D_PACKETS)
-    log_rl(rl, L_TRACE "%s: %I/%d: %s", p->p.name, e->net->n.prefix, e->net->n.pxlen, msg);
+    log_rl(f, L_TRACE "%s: %I/%d: %s", p->p.name, e->net->n.prefix, e->net->n.pxlen, msg);
 }
 
 /*
@@ -312,7 +312,7 @@ krt_trace_in_rl(struct rate_limit *rl, struct krt_proto *p, rte *e, char *msg)
 
 #ifdef KRT_ALLOW_LEARN
 
-static struct rate_limit rl_alien_seen, rl_alien_updated, rl_alien_created, rl_alien_ignored;
+static struct tbf rl_alien = TBF_DEFAULT_LOG_LIMITS;
 
 /*
  * krt_same_key() specifies what (aside from the net) is the key in
@@ -378,20 +378,20 @@ krt_learn_scan(struct krt_proto *p, rte *e)
     {
       if (krt_uptodate(m, e))
 	{
-	  krt_trace_in_rl(&rl_alien_seen, p, e, "[alien] seen");
+	  krt_trace_in_rl(&rl_alien, p, e, "[alien] seen");
 	  rte_free(e);
 	  m->u.krt.seen = 1;
 	}
       else
 	{
-	  krt_trace_in_rl(&rl_alien_updated, p, e, "[alien] updated");
+	  krt_trace_in(p, e, "[alien] updated");
 	  *mm = m->next;
 	  rte_free(m);
 	  m = NULL;
 	}
     }
   else
-    krt_trace_in_rl(&rl_alien_created, p, e, "[alien] created");
+    krt_trace_in(p, e, "[alien] created");
   if (!m)
     {
       e->next = n->routes;
@@ -637,7 +637,7 @@ krt_got_route(struct krt_proto *p, rte *e)
 	krt_learn_scan(p, e);
       else
 	{
-	  krt_trace_in_rl(&rl_alien_ignored, p, e, "[alien] ignored");
+	  krt_trace_in_rl(&rl_alien, p, e, "[alien] ignored");
 	  rte_free(e);
 	}
       return;

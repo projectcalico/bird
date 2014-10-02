@@ -68,6 +68,38 @@ typedef s64 btime;
 #endif
 
 
+/* Rate limiting */
+
+struct tbf {
+  bird_clock_t timestamp;		/* Last update */
+  u16 count;				/* Available tokens */
+  u16 burst;				/* Max number of tokens */
+  u16 rate;				/* Rate of replenishment */
+  u16 mark;				/* Whether last op was limited */
+};
+
+/* Default TBF values for rate limiting log messages */
+#define TBF_DEFAULT_LOG_LIMITS { .rate = 1, .burst = 5 }
+
+void tbf_update(struct tbf *f);
+
+static inline int
+tbf_limit(struct tbf *f)
+{
+  tbf_update(f);
+
+  if (!f->count)
+  {
+    f->mark = 1;
+    return 1;
+  }
+
+  f->count--;
+  f->mark = 0;
+  return 0;
+}
+
+
 /* Logging and dying */
 
 typedef struct buffer {
@@ -88,16 +120,10 @@ typedef struct buffer {
 
 #define LOG_BUFFER_SIZE 1024
 
-
-struct rate_limit {
-  bird_clock_t timestamp;
-  int count;
-};
-
 #define log log_msg
 void log_commit(int class, buffer *buf);
 void log_msg(char *msg, ...);
-void log_rl(struct rate_limit *rl, char *msg, ...);
+void log_rl(struct tbf *rl, char *msg, ...);
 void die(char *msg, ...) NORET;
 void bug(char *msg, ...) NORET;
 
