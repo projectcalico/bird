@@ -1,3 +1,10 @@
+Version 1.4.5 (2014-10-06)
+  o New 'show route noexport' command option.
+  o Port option for BGP sessions.
+  o Better constant handling in set literals.
+  o Better rate filtering of log messages.
+  o Several minor bugfixes.
+
 Version 1.4.4 (2014-07-09)
   o Extended OSPF multipath support.
   o Default router preference for RAdv.
@@ -39,7 +46,7 @@ Version 1.4.0 (2013-11-25)
      - Import of device routes from kernel protocol allowed.
      - Last state change now tracks just protocol state change.
      - Minor changes to default router ID calculation.
- 
+
 Version 1.3.11 (2013-07-27)
   o OSPF stub router option (RFC 3137).
   o TTL security for OSPF and RIP.
