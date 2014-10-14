@@ -40,6 +40,7 @@
  * Supported standards:
  * - RFC 4861 - main RA standard
  * - RFC 6106 - DNS extensions (RDDNS, DNSSL)
+ * - RFC 4191 (partial) - Default Router Preference
  */
 
 static void

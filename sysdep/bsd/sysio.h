@@ -141,6 +141,7 @@ sk_prepare_cmsgs4(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
 #ifdef IP_SENDSRCADDR
   struct cmsghdr *cm;
   struct in_addr *sa;
+  int controllen = 0;
 
   msg->msg_control = cbuf;
   msg->msg_controllen = cbuflen;
@@ -149,11 +150,12 @@ sk_prepare_cmsgs4(sock *s, struct msghdr *msg, void *cbuf, size_t cbuflen)
   cm->cmsg_level = IPPROTO_IP;
   cm->cmsg_type = IP_SENDSRCADDR;
   cm->cmsg_len = CMSG_LEN(sizeof(*sa));
+  controllen += CMSG_SPACE(sizeof(*sa));
 
   sa = (struct in_addr *) CMSG_DATA(cm);
   *sa = ipa_to_in4(s->saddr);
 
-  msg->msg_controllen = cm->cmsg_len;
+  msg->msg_controllen = controllen;
 #endif
 }
 

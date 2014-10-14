@@ -815,7 +815,7 @@ rta_alloc_hash(void)
 static inline unsigned int
 rta_hash(rta *a)
 {
-  return (((unsigned) a->src) ^ ipa_hash(a->gw) ^
+  return (((uint) (uintptr_t) a->src) ^ ipa_hash(a->gw) ^
 	  mpnh_hash(a->nexthops) ^ ea_hash(a->eattrs)) & 0xffff;
 }
 

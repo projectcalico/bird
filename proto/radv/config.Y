@@ -30,9 +30,9 @@ CF_KEYWORDS(RADV, PREFIX, INTERFACE, MIN, MAX, RA, DELAY, INTERVAL,
 	MANAGED, OTHER, CONFIG, LINK, MTU, REACHABLE, TIME, RETRANS,
 	TIMER, CURRENT, HOP, LIMIT, DEFAULT, VALID, PREFERRED, MULT,
 	LIFETIME, SKIP, ONLINK, AUTONOMOUS, RDNSS, DNSSL, NS, DOMAIN,
-	LOCAL, TRIGGER, SENSITIVE)
+	LOCAL, TRIGGER, SENSITIVE, PREFERENCE, LOW, MEDIUM, HIGH)
 
-%type<i> radv_mult radv_sensitive
+%type<i> radv_mult radv_sensitive radv_preference
 
 CF_GRAMMAR
 
@@ -84,6 +84,7 @@ radv_iface_start:
   RADV_IFACE->current_hop_limit = DEFAULT_CURRENT_HOP_LIMIT;
   RADV_IFACE->default_lifetime = -1;
   RADV_IFACE->default_lifetime_sensitive = 1;
+  RADV_IFACE->default_preference = RA_PREF_MEDIUM;
 };
 
 radv_iface_item:
@@ -101,12 +102,18 @@ radv_iface_item:
      if (($3 < 0) || ($3 > 9000))  cf_error("Default lifetime must be in range 0-9000");
      if ($4 != -1) RADV_IFACE->default_lifetime_sensitive = $4;
    }
+ | DEFAULT PREFERENCE radv_preference { RADV_IFACE->default_preference = $3; }
  | PREFIX radv_prefix { add_tail(&RADV_IFACE->pref_list, NODE this_radv_prefix); }
  | RDNSS { init_list(&radv_dns_list); } radv_rdnss { add_tail_list(&RADV_IFACE->rdnss_list, &radv_dns_list); }
  | DNSSL { init_list(&radv_dns_list); } radv_dnssl { add_tail_list(&RADV_IFACE->dnssl_list, &radv_dns_list); }
  | RDNSS LOCAL bool { RADV_IFACE->rdnss_local = $3; }
  | DNSSL LOCAL bool { RADV_IFACE->dnssl_local = $3; }
  ;
+
+radv_preference:
+   LOW { $$ = RA_PREF_LOW; }
+ | MEDIUM { $$ = RA_PREF_MEDIUM; }
+ | HIGH { $$ = RA_PREF_HIGH; }
 
 radv_iface_finish:
 {

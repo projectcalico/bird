@@ -680,8 +680,8 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   s->type = SK_TCP_ACTIVE;
   s->saddr = p->source_addr;
   s->daddr = p->cf->remote_ip;
+  s->dport = p->cf->remote_port;
   s->iface = p->neigh ? p->neigh->iface : NULL;
-  s->dport = BGP_PORT;
   s->ttl = p->cf->ttl_security ? 255 : hops;
   s->rbsize = BGP_RX_BUFFER_SIZE;
   s->tbsize = BGP_TX_BUFFER_SIZE;
@@ -1016,9 +1016,9 @@ bgp_start(struct proto *P)
 
   lock = p->lock = olock_new(P->pool);
   lock->addr = p->cf->remote_ip;
+  lock->port = p->cf->remote_port;
   lock->iface = p->cf->iface;
   lock->type = OBJLOCK_TCP;
-  lock->port = BGP_PORT;
   lock->hook = bgp_start_locked;
   lock->data = p;
   olock_acquire(lock);

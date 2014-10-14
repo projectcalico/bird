@@ -261,6 +261,7 @@ krt_send_route(struct krt_proto *p, int cmd, rte *e)
       msg.rtm.rtm_flags |= RTF_GATEWAY;
       msg.rtm.rtm_addrs |= RTA_GATEWAY;
       break;
+
 #ifdef RTF_REJECT
     case RTD_UNREACHABLE:
 #endif
@@ -280,7 +281,7 @@ krt_send_route(struct krt_proto *p, int cmd, rte *e)
           return -1;
         }
 
-	sockaddr_fill(&dst, BIRD_AF, i->addr->ip, NULL, 0);
+	sockaddr_fill(&gate, BIRD_AF, i->addr->ip, NULL, 0);
         msg.rtm.rtm_addrs |= RTA_GATEWAY;
       }
       break;

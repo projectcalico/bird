@@ -318,7 +318,7 @@ protocol rip {
 <p><descrip>
 	<tag>include "<m/filename/"</tag> 
 	This statement causes inclusion of a new file. <m/Filename/ could also
-	be a wildcard. The maximal depth is 5. Note that this statement could be
+	be a wildcard. The maximal depth is 8. Note that this statement could be
 	used anywhere in the config file, not just as a top-level option.
 
 	<tag><label id="dsc-log">log "<m/filename/"|syslog [name <m/name/]|stderr all|{ <m/list of classes/ }</tag> 
@@ -735,7 +735,7 @@ This argument can be omitted if there exists only a single instance.
 	Show the list of symbols defined in the configuration (names of
 	protocols, routing tables etc.).
 
-	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(export|preexport) <m/p/] [protocol <m/p/] [<m/options/]</tag>
+	<tag>show route [[for] <m/prefix/|<m/IP/] [table <m/sym/] [filter <m/f/|where <m/c/] [(export|preexport|noexport) <m/p/] [protocol <m/p/] [<m/options/]</tag>
 	Show contents of a routing table (by default of the main one or the
 	table attached to a respective protocol), that is routes, their metrics
 	and (in case the <cf/all/ switch is given) all their attributes.
@@ -750,9 +750,14 @@ This argument can be omitted if there exists only a single instance.
 	<p>You can also ask for printing only routes processed and accepted by
 	a given filter (<cf>filter <m/name/</cf> or <cf>filter { <m/filter/ }
 	</cf> or matching a given condition (<cf>where <m/condition/</cf>).
-	The <cf/export/ and <cf/preexport/ switches ask for printing of entries
-	that are exported to the specified protocol. With <cf/preexport/, the
-	export filter of the protocol is skipped.
+
+	The <cf/export/, <cf/preexport/ and <cf/noexport/ switches ask for
+	printing of routes that are exported to the specified protocol.
+	With <cf/preexport/, the export filter of the protocol is skipped.
+	With <cf/noexport/, routes rejected by the export filter are printed
+	instead. Note that routes not exported to the protocol for other reasons
+	(e.g. secondary routes or routes imported from that protocol) are not
+	printed even with <cf/noexport/.
 
 	<p>You can also select just routes added by a specific protocol.
 	<cf>protocol <m/p/</cf>.
@@ -1004,7 +1009,6 @@ foot).
 	So <cf>1.2.0.0/16.pxlen = 16</cf> is true.
 
 	<tag/ec/
-
 	This is a specialized type used to represent BGP extended community
 	values. It is essentially a 64bit value, literals of this type are
 	usually written as <cf>(<m/kind/, <m/key/, <m/value/)</cf>, where
@@ -1014,7 +1018,7 @@ foot).
 	used kind. Similarly to pairs, ECs can be constructed using expressions
 	for <cf/key/ and <cf/value/ parts, (e.g. <cf/(ro, myas, 3*10)/, where
 	<cf/myas/ is an integer variable).
- 
+
 	<tag/int|pair|quad|ip|prefix|ec|enum set/
 	Filters recognize four types of sets. Sets are similar to strings: you
 	can pass them around but you can't modify them. Literals of type <cf>int
@@ -1616,7 +1620,7 @@ using the following configuration parameters:
 	address, equivalent to the <cf/source address/ option (see below). This
 	parameter is mandatory.
 
-	<tag>neighbor <m/ip/ as <m/number/</tag>
+	<tag>neighbor <m/ip/ [port <m/number/] as <m/number/</tag>
 	Define neighboring router this instance will be talking to and what AS
 	it's located in. In case the neighbor is in the same AS as we are, we
 	automatically switch to iBGP. This parameter is mandatory.
@@ -3035,6 +3039,10 @@ definitions, prefix definitions and DNS definitions:
 	of RA) hosts may use the router as a default router. 0 means do not use
 	as a default router. For <cf/sensitive/ option, see <ref id="dsc-trigger" name="trigger">.
 	Default: 3 * <cf/max ra	interval/, <cf/sensitive/ yes.
+
+	<tag>default preference low|medium|high</tag>
+	This option specifies the Default Router Preference value to advertise
+	to hosts. Default: medium.
 
 	<tag>rdnss local <m/switch/</tag>
 	Use only local (interface-specific) RDNSS definitions for this

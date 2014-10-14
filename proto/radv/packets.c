@@ -251,10 +251,11 @@ radv_prepare_ra(struct radv_iface *ifa)
   pkt->code = 0;
   pkt->checksum = 0;
   pkt->current_hop_limit = ic->current_hop_limit;
-  pkt->flags = (ic->managed ? OPT_RA_MANAGED : 0) |
-    (ic->other_config ? OPT_RA_OTHER_CFG : 0);
   pkt->router_lifetime = (ra->active || !ic->default_lifetime_sensitive) ?
     htons(ic->default_lifetime) : 0;
+  pkt->flags = (ic->managed ? OPT_RA_MANAGED : 0) |
+    (ic->other_config ? OPT_RA_OTHER_CFG : 0) |
+    (pkt->router_lifetime ? ic->default_preference : 0);
   pkt->reachable_time = htonl(ic->reachable_time);
   pkt->retrans_timer = htonl(ic->retrans_timer);
   buf += sizeof(*pkt);
@@ -330,10 +331,15 @@ radv_send_ra(struct radv_iface *ifa, int shutdown)
 
   if (shutdown)
   {
-    /* Modify router lifetime to 0, it is not restored because
-       we suppose that the iface will be removed */
+    /*
+     * Modify router lifetime to 0, it is not restored because we suppose that
+     * the iface will be removed. The preference value also has to be zeroed.
+     * (RFC 4191 2.2: If router lifetime is 0, the preference value must be 0.)
+     */
+
     struct radv_ra_packet *pkt = (void *) ifa->sk->tbuf;
     pkt->router_lifetime = 0;
+    pkt->flags &= ~RA_PREF_MASK;
   }
 
   RADV_TRACE(D_PACKETS, "Sending RA via %s", ifa->iface->name);

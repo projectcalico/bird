@@ -36,7 +36,7 @@
  * only once for all the instances.
  *
  * The code uses OS-dependent parts for kernel updates and scans. These parts are
- * in more specific sysdep directories (e.g. sysdep/linux) in functions krt_sys_* 
+ * in more specific sysdep directories (e.g. sysdep/linux) in functions krt_sys_*
  * and kif_sys_* (and some others like krt_replace_rte()) and krt-sys.h header file.
  * This is also used for platform specific protocol options and route attributes.
  *
@@ -117,7 +117,7 @@ kif_request_scan(void)
 
 static inline int
 prefer_addr(struct ifa *a, struct ifa *b)
-{ 
+{
   int sa = a->scope > SCOPE_LINK;
   int sb = b->scope > SCOPE_LINK;
 
@@ -300,10 +300,10 @@ krt_trace_in(struct krt_proto *p, rte *e, char *msg)
 }
 
 static inline void
-krt_trace_in_rl(struct rate_limit *rl, struct krt_proto *p, rte *e, char *msg)
+krt_trace_in_rl(struct tbf *f, struct krt_proto *p, rte *e, char *msg)
 {
   if (p->p.debug & D_PACKETS)
-    log_rl(rl, L_TRACE "%s: %I/%d: %s", p->p.name, e->net->n.prefix, e->net->n.pxlen, msg);
+    log_rl(f, L_TRACE "%s: %I/%d: %s", p->p.name, e->net->n.prefix, e->net->n.pxlen, msg);
 }
 
 /*
@@ -312,7 +312,7 @@ krt_trace_in_rl(struct rate_limit *rl, struct krt_proto *p, rte *e, char *msg)
 
 #ifdef KRT_ALLOW_LEARN
 
-static struct rate_limit rl_alien_seen, rl_alien_updated, rl_alien_created, rl_alien_ignored;
+static struct tbf rl_alien = TBF_DEFAULT_LOG_LIMITS;
 
 /*
  * krt_same_key() specifies what (aside from the net) is the key in
@@ -378,20 +378,20 @@ krt_learn_scan(struct krt_proto *p, rte *e)
     {
       if (krt_uptodate(m, e))
 	{
-	  krt_trace_in_rl(&rl_alien_seen, p, e, "[alien] seen");
+	  krt_trace_in_rl(&rl_alien, p, e, "[alien] seen");
 	  rte_free(e);
 	  m->u.krt.seen = 1;
 	}
       else
 	{
-	  krt_trace_in_rl(&rl_alien_updated, p, e, "[alien] updated");
+	  krt_trace_in(p, e, "[alien] updated");
 	  *mm = m->next;
 	  rte_free(m);
 	  m = NULL;
 	}
     }
   else
-    krt_trace_in_rl(&rl_alien_created, p, e, "[alien] created");
+    krt_trace_in(p, e, "[alien] created");
   if (!m)
     {
       e->next = n->routes;
@@ -637,7 +637,7 @@ krt_got_route(struct krt_proto *p, rte *e)
 	krt_learn_scan(p, e);
       else
 	{
-	  krt_trace_in_rl(&rl_alien_ignored, p, e, "[alien] ignored");
+	  krt_trace_in_rl(&rl_alien, p, e, "[alien] ignored");
 	  rte_free(e);
 	}
       return;
@@ -737,7 +737,7 @@ krt_prune(struct krt_proto *p)
 	  if (! krt_export_rte(p, &new, &tmpa))
 	    {
 	      /* Route rejected, should not happen (KRF_INSTALLED) but to be sure .. */
-	      verdict = (verdict == KRF_CREATE) ? KRF_IGNORE : KRF_DELETE; 
+	      verdict = (verdict == KRF_CREATE) ? KRF_IGNORE : KRF_DELETE;
 	    }
 	  else
 	    {
@@ -910,7 +910,7 @@ krt_scan_timer_stop(struct krt_proto *p)
 }
 
 static void
-krt_scan_timer_kick(struct krt_proto *p UNUSED)
+krt_scan_timer_kick(struct krt_proto *p)
 {
   tm_start(p->scan_timer, 0);
 }
@@ -962,8 +962,8 @@ krt_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *
   if (e->attrs->src->proto == P)
     return -1;
 
-  if (!KRT_CF->devroutes && 
-      (e->attrs->dest == RTD_DEVICE) && 
+  if (!KRT_CF->devroutes &&
+      (e->attrs->dest == RTD_DEVICE) &&
       (e->attrs->source != RTS_STATIC_DEVICE))
     return -1;
 
@@ -974,8 +974,8 @@ krt_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *
 }
 
 static void
-krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
-	   rte *new, rte *old, struct ea_list *eattrs)
+krt_rt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
+	      rte *new, rte *old, struct ea_list *eattrs)
 {
   struct krt_proto *p = (struct krt_proto *) P;
 
@@ -989,6 +989,36 @@ krt_notify(struct proto *P, struct rtable *table UNUSED, net *net,
     net->n.flags &= ~KRF_INSTALLED;
   if (p->initialized)		/* Before first scan we don't touch the routes */
     krt_replace_rte(p, net, new, old, eattrs);
+}
+
+static void
+krt_if_notify(struct proto *P, uint flags, struct iface *iface UNUSED)
+{
+  struct krt_proto *p = (struct krt_proto *) P;
+
+  /*
+   * When interface went down, we should remove routes to it. In the ideal world,
+   * OS kernel would send us route removal notifications in such cases, but we
+   * cannot rely on it as it is often not true. E.g. Linux kernel removes related
+   * routes when an interface went down, but it does not notify userspace about
+   * that. To be sure, we just schedule a scan to ensure synchronization.
+   */
+
+  if ((flags & IF_CHANGE_DOWN) && KRT_CF->learn)
+    krt_scan_timer_kick(p);
+}
+
+static int
+krt_reload_routes(struct proto *P)
+{
+  struct krt_proto *p = (struct krt_proto *) P;
+
+  /* Although we keep learned routes in krt_table, we rather schedule a scan */
+
+  if (KRT_CF->learn)
+    krt_scan_timer_kick(p);
+
+  return 1;
 }
 
 static void
@@ -1022,7 +1052,9 @@ krt_init(struct proto_config *c)
 
   p->p.accept_ra_types = RA_OPTIMAL;
   p->p.import_control = krt_import_control;
-  p->p.rt_notify = krt_notify;
+  p->p.rt_notify = krt_rt_notify;
+  p->p.if_notify = krt_if_notify;
+  p->p.reload_routes = krt_reload_routes;
   p->p.feed_done = krt_feed_done;
   p->p.make_tmp_attrs = krt_make_tmp_attrs;
   p->p.store_tmp_attrs = krt_store_tmp_attrs;

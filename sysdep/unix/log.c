@@ -32,9 +32,6 @@ static FILE *dbgf;
 static list *current_log_list;
 static char *current_syslog_name; /* NULL -> syslog closed */
 
-static const bird_clock_t rate_limit_time = 5;
-static const int rate_limit_count = 5;
-
 
 #ifdef USE_PTHREADS
 
@@ -154,7 +151,6 @@ vlog(int class, const char *msg, va_list args)
 }
 
 
-
 /**
  * log - log a message
  * @msg: printf-like formatting string with message class information
@@ -180,31 +176,21 @@ log_msg(char *msg, ...)
 }
 
 void
-log_rl(struct rate_limit *rl, char *msg, ...)
+log_rl(struct tbf *f, char *msg, ...)
 {
+  int last_hit = f->mark;
   int class = 1;
   va_list args;
 
-  bird_clock_t delta = now - rl->timestamp;
-  if ((0 <= delta) && (delta < rate_limit_time))
-    {
-      rl->count++;
-    }
-  else
-    {
-      rl->timestamp = now;
-      rl->count = 1;
-    }
-
-  if (rl->count > rate_limit_count)
+  /* Rate limiting is a bit tricky here as it also logs '...' during the first hit */
+  if (tbf_limit(f) && last_hit)
     return;
 
-  va_start(args, msg);
   if (*msg >= 1 && *msg <= 8)
     class = *msg++;
-  vlog(class, msg, args);
-  if (rl->count == rate_limit_count)
-    vlog(class, "...", args);
+
+  va_start(args, msg);
+  vlog(class, (f->mark ? "..." : msg), args);
   va_end(args);
 }
 

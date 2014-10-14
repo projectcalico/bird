@@ -149,6 +149,10 @@ void cf_pop_scope(void);
 struct symbol *cf_walk_symbols(struct config *cf, struct symbol *sym, int *pos);
 char *cf_symbol_class_name(struct symbol *sym);
 
+static inline int cf_symbol_is_constant(struct symbol *sym)
+{ return (sym->class & 0xff00) == SYM_CONSTANT; }
+
+
 /* Parser */
 
 int cf_parse(void);

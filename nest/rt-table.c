@@ -645,7 +645,7 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
   struct proto *p = ah->proto;
   struct rtable *table = ah->table;
   struct proto_stats *stats = ah->stats;
-  static struct rate_limit rl_pipe;
+  static struct tbf rl_pipe = TBF_DEFAULT_LOG_LIMITS;
   rte *before_old = NULL;
   rte *old_best = net->routes;
   rte *old = NULL;
@@ -1367,7 +1367,7 @@ rt_init(void)
 static int
 rt_prune_step(rtable *tab, int step, int *limit)
 {
-  static struct rate_limit rl_flush;
+  static struct tbf rl_flush = TBF_DEFAULT_LOG_LIMITS;
   struct fib_iterator *fit = &tab->prune_fit;
 
   DBG("Pruning route table %s\n", tab->name);
@@ -2255,6 +2255,9 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 
   if (d->export_mode)
     {
+      if (! d->export_protocol->rt_notify)
+	return;
+
       a = proto_find_announce_hook(d->export_protocol, d->table);
       if (!a)
 	return;
@@ -2287,18 +2290,20 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 	  if (ic < 0)
 	    goto skip;
 
-	  if (d->export_mode > 1)
+	  if (d->export_mode > RSEM_PREEXPORT)
 	    {
 	      /*
 	       * FIXME - This shows what should be exported according to current
 	       * filters, but not what was really exported. 'configure soft'
 	       * command may change the export filter and do not update routes.
 	       */
+	      int do_export = (ic > 0) ||
+		(f_run(a->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
 
-	      if (!ic && (f_run(a->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) > F_ACCEPT))
+	      if (do_export != (d->export_mode == RSEM_EXPORT))
 		goto skip;
 
-	      if (ep->accept_ra_types == RA_ACCEPTED)
+	      if ((d->export_mode == RSEM_EXPORT) && (ep->accept_ra_types == RA_ACCEPTED))
 		pass = 1;
 	    }
 	}

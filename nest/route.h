@@ -301,6 +301,12 @@ struct rt_show_data {
 };
 void rt_show(struct rt_show_data *);
 
+/* Value of export_mode in struct rt_show_data */
+#define RSEM_NONE	0		/* Export mode not used */
+#define RSEM_PREEXPORT	1		/* Routes ready for export, before filtering */
+#define RSEM_EXPORT	2		/* Routes accepted by export filter */
+#define RSEM_NOEXPORT	3		/* Routes rejected by export filter */
+
 /*
  *	Route Attributes
  *

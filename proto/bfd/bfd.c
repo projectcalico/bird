@@ -1062,7 +1062,7 @@ bfd_copy_config(struct proto_config *dest, struct proto_config *src)
   // struct bfd_config *s = (struct bfd_config *) src;
 
   /* We clean up patt_list and neigh_list, neighbors and ifaces are non-sharable */
-  init_list(&d->patt_list);  
+  init_list(&d->patt_list);
   init_list(&d->neigh_list);
 }
 
@@ -1071,7 +1071,7 @@ bfd_show_sessions(struct proto *P)
 {
   byte tbuf[TM_DATETIME_BUFFER_SIZE];
   struct bfd_proto *p = (struct bfd_proto *) P;
-  uint state, diag;
+  uint state, diag UNUSED;
   u32 tx_int, timeout;
   const char *ifname;
 

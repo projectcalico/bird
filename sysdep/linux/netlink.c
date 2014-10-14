@@ -151,7 +151,7 @@ nl_get_reply(struct nl_sock *nl)
     }
 }
 
-static struct rate_limit rl_netlink_err;
+static struct tbf rl_netlink_err = TBF_DEFAULT_LOG_LIMITS;
 
 static int
 nl_error(struct nlmsghdr *h)
