@@ -758,7 +758,7 @@ prepare_rt2_lsa_body(struct ospf_proto *p, struct ospf_area *oa)
       break;
 
     default:
-      log("Unknown interface type %s", ifa->ifname);
+      log(L_BUG "OSPF: Unknown interface type");
       break;
     }
 
@@ -855,7 +855,7 @@ prepare_rt3_lsa_body(struct ospf_proto *p, struct ospf_area *oa)
       break;
 
     default:
-      log("Unknown interface type %s", ifa->ifname);
+      log(L_BUG "OSPF: Unknown interface type");
       break;
     }
 

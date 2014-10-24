@@ -140,10 +140,13 @@ ospf_receive_lsack(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
   /* No need to check length, lsack has only basic header */
 
-  OSPF_PACKET(ospf_dump_lsack, pkt, "LSACK packet received from %I via %s", n->ip, ifa->ifname);
+  OSPF_PACKET(ospf_dump_lsack, pkt, "LSACK packet received from nbr %R on %s", n->rid, ifa->ifname);
 
   if (n->state < NEIGHBOR_EXCHANGE)
+  {
+    OSPF_TRACE(D_PACKETS, "LSACK packet ignored - lesser state than Exchange");
     return;
+  }
 
   ospf_neigh_sm(n, INM_HELLOREC);	/* Not in RFC */
 

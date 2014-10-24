@@ -252,6 +252,9 @@ ospf_start(struct proto *P)
   p->gr = ospf_top_new(p, P->pool);
   s_init_list(&(p->lsal));
 
+  p->log_pkt_tbf = (struct tbf){ .rate = 1, .burst = 5 };
+  p->log_lsa_tbf = (struct tbf){ .rate = 4, .burst = 20 };
+
   WALK_LIST(ac, c->area_list)
     ospf_area_add(p, ac);
 
@@ -742,7 +745,7 @@ ospf_sh(struct proto *P)
   }
 
   cli_msg(-1014, "%s:", p->p.name);
-  cli_msg(-1014, "RFC1583 compatibility: %s", (p->rfc1583 ? "enable" : "disabled"));
+  cli_msg(-1014, "RFC1583 compatibility: %s", (p->rfc1583 ? "enabled" : "disabled"));
   cli_msg(-1014, "Stub router: %s", (p->stub_router ? "Yes" : "No"));
   cli_msg(-1014, "RT scheduler tick: %d", p->tick);
   cli_msg(-1014, "Number of areas: %u", p->areano);

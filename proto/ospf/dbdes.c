@@ -98,7 +98,7 @@ ospf_dump_dbdes(struct ospf_proto *p, struct ospf_packet *pkt)
 
 
 static void
-ospf_prepare_dbdes(struct ospf_proto *p, struct ospf_neighbor *n, int body)
+ospf_prepare_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
 {
   struct ospf_iface *ifa = n->ifa;
   struct ospf_packet *pkt;
@@ -106,6 +106,7 @@ ospf_prepare_dbdes(struct ospf_proto *p, struct ospf_neighbor *n, int body)
 
   u16 iface_mtu = (ifa->type == OSPF_IT_VLINK) ? 0 : ifa->iface->mtu;
 
+  /* Update DBDES buffer */
   if (n->ldd_bsize != ifa->tx_length)
   {
     mb_free(n->ldd_buffer);
@@ -136,7 +137,8 @@ ospf_prepare_dbdes(struct ospf_proto *p, struct ospf_neighbor *n, int body)
     length = sizeof(struct ospf_dbdes3_packet);
   }
 
-  if (body && (n->myimms & DBDES_M))
+  /* Prepare DBDES body */
+  if (!(n->myimms & DBDES_I) && (n->myimms & DBDES_M))
   {
     struct ospf_lsa_header *lsas;
     struct top_hash_entry *en;
@@ -182,7 +184,7 @@ ospf_do_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
   struct ospf_iface *ifa = n->ifa;
 
   OSPF_PACKET(ospf_dump_dbdes, n->ldd_buffer,
-	      "DBDES packet sent to %I via %s", n->ip, ifa->ifname);
+	      "DBDES packet sent to nbr %R on %s", n->rid, ifa->ifname);
   sk_set_tbuf(ifa->sk, n->ldd_buffer);
   ospf_send_to(ifa, n->ip);
   sk_set_tbuf(ifa->sk, NULL);
@@ -191,7 +193,6 @@ ospf_do_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
 /**
  * ospf_send_dbdes - transmit database description packet
  * @n: neighbor
- * @next: whether to send a next packet in a sequence (1) or to retransmit the old one (0)
  *
  * Sending of a database description packet is described in 10.8 of RFC 2328.
  * Reception of each packet is acknowledged in the sequence number of another.
@@ -200,104 +201,78 @@ ospf_do_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
  * of the buffer.
  */
 void
-ospf_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n, int next)
+ospf_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
 {
   /* RFC 2328 10.8 */
+
+  ASSERT((n->state == NEIGHBOR_EXSTART) || (n->state == NEIGHBOR_EXCHANGE));
 
   if (n->ifa->oa->rt == NULL)
     return;
 
-  switch (n->state)
-  {
-  case NEIGHBOR_EXSTART:
-    n->myimms |= DBDES_I;
+  ospf_prepare_dbdes(p, n);
+  ospf_do_send_dbdes(p, n);
 
-    /* Send empty packets */
-    ospf_prepare_dbdes(p, n, 0);
-    ospf_do_send_dbdes(p, n);
-    break;
+  if (n->state == NEIGHBOR_EXSTART)
+    return;
 
-  case NEIGHBOR_EXCHANGE:
-    n->myimms &= ~DBDES_I;
+  /* Master should restart RXMT timer for each DBDES exchange */
+  if (n->myimms & DBDES_MS)
+    tm_start(n->rxmt_timer, n->ifa->rxmtint);
 
-    if (next)
-      ospf_prepare_dbdes(p, n, 1);
-
-    /* Send prepared packet */
-    ospf_do_send_dbdes(p, n);
-
-    /* Master should restart RXMT timer for each DBDES exchange */
-    if (n->myimms & DBDES_MS)
-      tm_start(n->rxmt_timer, n->ifa->rxmtint);
-
-    if (!(n->myimms & DBDES_MS))
-      if (!(n->myimms & DBDES_M) &&
-	  !(n->imms & DBDES_M))
-	ospf_neigh_sm(n, INM_EXDONE);
-    break;
-
-  case NEIGHBOR_LOADING:
-  case NEIGHBOR_FULL:
-
-    if (!n->ldd_buffer)
-    {
-      OSPF_TRACE(D_PACKETS, "No DBDES packet for repeating");
-      ospf_neigh_sm(n, INM_KILLNBR);
-      return;
-    }
-
-    /* Send last packet */
-    ospf_do_send_dbdes(p, n);
-    break;
-  }
+  if (!(n->myimms & DBDES_MS))
+    if (!(n->myimms & DBDES_M) && !(n->imms & DBDES_M))
+      ospf_neigh_sm(n, INM_EXDONE);
 }
 
+void
+ospf_rxmt_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
+{
+  ASSERT(n->state > NEIGHBOR_EXSTART);
+
+  if (!n->ldd_buffer)
+  {
+    log(L_WARN "%s: No DBDES packet for retransmit", p->p.name);
+    ospf_neigh_sm(n, INM_SEQMIS);
+    return;
+  }
+
+  /* Send last packet */
+  ospf_do_send_dbdes(p, n);
+}
 
 static int
 ospf_process_dbdes(struct ospf_proto *p, struct ospf_packet *pkt, struct ospf_neighbor *n)
 {
   struct ospf_iface *ifa = n->ifa;
-  struct ospf_lsa_header *lsas;
+  struct ospf_lsa_header *lsas, lsa;
+  struct top_hash_entry *en, *req;
+  const char *err_dsc = NULL;
+  u32 lsa_type, lsa_domain;
   uint i, lsa_count;
 
   ospf_dbdes_body(p, pkt, &lsas, &lsa_count);
 
   for (i = 0; i < lsa_count; i++)
   {
-    struct top_hash_entry *en, *req;
-    struct ospf_lsa_header lsa;
-    u32 lsa_type, lsa_domain;
-
     lsa_ntoh_hdr(lsas + i, &lsa);
     lsa_get_type_domain(&lsa, ifa, &lsa_type, &lsa_domain);
 
     /* RFC 2328 10.6 and RFC 5340 4.2.2 */
 
     if (!lsa_type)
-    {
-      log(L_WARN "%s: Bad DBDES from %I - LSA of unknown type", p->p.name, n->ip);
-      goto err;
-    }
+      DROP1("LSA of unknown type");
 
     if (!oa_is_ext(ifa->oa) && (LSA_SCOPE(lsa_type) == LSA_SCOPE_AS))
-    {
-      log(L_WARN "%s: Bad DBDES from %I - LSA with AS scope in stub area", p->p.name, n->ip);
-      goto err;
-    }
+      DROP1("LSA with AS scope in stub area");
 
     /* Errata 3746 to RFC 2328 - rt-summary-LSAs forbidden in stub areas */
     if (!oa_is_ext(ifa->oa) && (lsa_type == LSA_T_SUM_RT))
-    {
-      log(L_WARN "%s: Bad DBDES from %I - rt-summary-LSA in stub area", p->p.name, n->ip);
-      goto err;
-    }
+      DROP1("rt-summary-LSA in stub area");
 
     /* Not explicitly mentioned in RFC 5340 4.2.2 but makes sense */
     if (LSA_SCOPE(lsa_type) == LSA_SCOPE_RES)
-    {
-      log(L_WARN "%s: Bad DBDES from %I - LSA with invalid scope", p->p.name, n->ip);
-      goto err;
-    }
+      DROP1("LSA with invalid scope");
 
     en = ospf_hash_find(p->gr, lsa_domain, lsa.id, lsa.rt, lsa_type);
     if (!en || (lsa_comp(&lsa, &(en->lsa)) == CMP_NEWER))
@@ -314,7 +289,10 @@ ospf_process_dbdes(struct ospf_proto *p, struct ospf_packet *pkt, struct ospf_ne
 
   return 0;
 
- err:
+drop:
+  LOG_LSA1("Bad LSA (Type: %04x, Id: %R, Rt: %R) in DBDES", lsa_type, lsa.id, lsa.rt);
+  LOG_LSA2("  received from nbr %R on %s - %s", n->rid, ifa->ifname, err_dsc);
+
   ospf_neigh_sm(n, INM_SEQMIS);
   return -1;
 }
@@ -324,21 +302,19 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n)
 {
   struct ospf_proto *p = ifa->oa->po;
+  const char *err_dsc = NULL;
   u32 rcv_ddseq, rcv_options;
   u16 rcv_iface_mtu;
   u8 rcv_imms;
-  uint plen;
+  uint plen, err_val = 0, err_seqmis = 0;
 
   /* RFC 2328 10.6 */
 
   plen = ntohs(pkt->length);
   if (plen < ospf_dbdes_hdrlen(p))
-  {
-    log(L_ERR "OSPF: Bad DBDES packet from %I - too short (%u B)", n->ip, plen);
-    return;
-  }
+    DROP("too short", plen);
 
-  OSPF_PACKET(ospf_dump_dbdes, pkt, "DBDES packet received from %I via %s", n->ip, ifa->ifname);
+  OSPF_PACKET(ospf_dump_dbdes, pkt, "DBDES packet received from nbr %R on %s", n->rid, ifa->ifname);
 
   ospf_neigh_sm(n, INM_HELLOREC);
 
@@ -364,6 +340,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
   case NEIGHBOR_DOWN:
   case NEIGHBOR_ATTEMPT:
   case NEIGHBOR_2WAY:
+    OSPF_TRACE(D_PACKETS, "DBDES packet ignored - lesser state than ExStart");
     return;
 
   case NEIGHBOR_INIT:
@@ -376,8 +353,8 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	(rcv_iface_mtu != ifa->iface->mtu) &&
 	(rcv_iface_mtu != 0) &&
 	(ifa->iface->mtu != 0))
-      log(L_WARN "OSPF: MTU mismatch with neighbor %I on interface %s (remote %d, local %d)",
-	  n->ip, ifa->ifname, rcv_iface_mtu, ifa->iface->mtu);
+      LOG_PKT_WARN("MTU mismatch with nbr %R on %s (remote %d, local %d)",
+		   n->rid, ifa->ifname, rcv_iface_mtu, ifa->iface->mtu);
 
     if ((rcv_imms == DBDES_IMMS) &&
 	(n->rid > p->router_id) &&
@@ -389,9 +366,8 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       n->options = rcv_options;
       n->myimms &= ~DBDES_MS;
       n->imms = rcv_imms;
-      OSPF_TRACE(D_PACKETS, "I'm slave to %I", n->ip);
       ospf_neigh_sm(n, INM_NEGDONE);
-      ospf_send_dbdes(p, n, 1);
+      ospf_send_dbdes(p, n);
       break;
     }
 
@@ -404,7 +380,6 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       n->options = rcv_options;
       n->ddr = rcv_ddseq - 1;	/* It will be set corectly a few lines down */
       n->imms = rcv_imms;
-      OSPF_TRACE(D_PACKETS, "I'm master to %I", n->ip);
       ospf_neigh_sm(n, INM_NEGDONE);
     }
     else
@@ -417,49 +392,29 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
     if ((rcv_imms == n->imms) &&
 	(rcv_options == n->options) &&
 	(rcv_ddseq == n->ddr))
-    {
-      /* Duplicate packet */
-      OSPF_TRACE(D_PACKETS, "Received duplicate dbdes from %I", n->ip);
-      if (!(n->myimms & DBDES_MS))
-      {
-	/* Slave should retransmit dbdes packet */
-	ospf_send_dbdes(p, n, 0);
-      }
-      return;
-    }
+      goto duplicate;
 
-    if ((rcv_imms & DBDES_MS) != (n->imms & DBDES_MS))	/* M/S bit differs */
-    {
-      OSPF_TRACE(D_PACKETS, "dbdes - sequence mismatch neighbor %I (bit MS)", n->ip);
-      ospf_neigh_sm(n, INM_SEQMIS);
-      break;
-    }
+    /* Do INM_SEQMIS during packet error */
+    err_seqmis = 1;
 
-    if (rcv_imms & DBDES_I)		/* I bit is set */
-    {
-      OSPF_TRACE(D_PACKETS, "dbdes - sequence mismatch neighbor %I (bit I)", n->ip);
-      ospf_neigh_sm(n, INM_SEQMIS);
-      break;
-    }
+    if ((rcv_imms & DBDES_MS) != (n->imms & DBDES_MS))
+      DROP("MS-bit mismatch", rcv_imms);
 
-    if (rcv_options != n->options)	/* Options differs */
-    {
-      OSPF_TRACE(D_PACKETS, "dbdes - sequence mismatch neighbor %I (options)", n->ip);
-      ospf_neigh_sm(n, INM_SEQMIS);
-      break;
-    }
+    if (rcv_imms & DBDES_I)
+      DROP("I-bit mismatch", rcv_imms);
+
+    if (rcv_options != n->options)
+      DROP("options mismatch", rcv_options);
 
     n->ddr = rcv_ddseq;
     n->imms = rcv_imms;
 
     if (n->myimms & DBDES_MS)
     {
-      if (rcv_ddseq != n->dds)	/* MASTER */
-      {
-	OSPF_TRACE(D_PACKETS, "dbdes - sequence mismatch neighbor %I (master)", n->ip);
-	ospf_neigh_sm(n, INM_SEQMIS);
-	break;
-      }
+      /* MASTER */
+
+      if (rcv_ddseq != n->dds)
+	DROP("DD sequence number mismatch", rcv_ddseq);
 
       n->dds++;
 
@@ -469,16 +424,14 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       if (!(n->myimms & DBDES_M) && !(n->imms & DBDES_M))
 	ospf_neigh_sm(n, INM_EXDONE);
       else
-	ospf_send_dbdes(p, n, 1);
+	ospf_send_dbdes(p, n);
     }
     else
     {
-      if (rcv_ddseq != (n->dds + 1))	/* SLAVE */
-      {
-	OSPF_TRACE(D_PACKETS, "dbdes - sequence mismatch neighbor %I (slave)", n->ip);
-	ospf_neigh_sm(n, INM_SEQMIS);
-	break;
-      }
+      /* SLAVE */
+
+      if (rcv_ddseq != (n->dds + 1))
+	DROP("DD sequence number mismatch", rcv_ddseq);
 
       n->ddr = rcv_ddseq;
       n->dds = rcv_ddseq;
@@ -486,7 +439,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       if (ospf_process_dbdes(p, pkt, n) < 0)
 	return;
 
-      ospf_send_dbdes(p, n, 1);
+      ospf_send_dbdes(p, n);
     }
     break;
 
@@ -495,25 +448,30 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
     if ((rcv_imms == n->imms) &&
 	(rcv_options == n->options) &&
 	(rcv_ddseq == n->ddr))
-    {
-      /* Duplicate packet */
-      OSPF_TRACE(D_PACKETS, "Received duplicate dbdes from %I", n->ip);
-      if (!(n->myimms & DBDES_MS))
-      {
-	/* Slave should retransmit dbdes packet */
-	ospf_send_dbdes(p, n, 0);
-      }
-      return;
-    }
-    else
-    {
-      OSPF_TRACE(D_PACKETS, "dbdes - sequence mismatch neighbor %I (full)", n->ip);
-      DBG("PS=%u, DDR=%u, DDS=%u\n", rcv_ddseq, n->ddr, n->dds);
-      ospf_neigh_sm(n, INM_SEQMIS);
-    }
-    break;
+      goto duplicate;
+
+    err_seqmis = 1;
+
+    DROP("too late for DD exchange", n->state);
 
   default:
-    bug("Received dbdes from %I in undefined state.", n->ip);
+    bug("Undefined interface state");
   }
+  return;
+
+duplicate:
+  OSPF_TRACE(D_PACKETS, "DBDES packet is duplicate");
+
+  /* Slave should retransmit DBDES packet */
+  if (!(n->myimms & DBDES_MS))
+    ospf_rxmt_dbdes(p, n);
+  return;
+
+drop:
+  LOG_PKT("Bad DBDES packet from nbr %R on %s - %s (%u)",
+	  n->rid, ifa->ifname, err_dsc, err_val);
+
+  if (err_seqmis)
+    ospf_neigh_sm(n, INM_SEQMIS);
+  return;
 }

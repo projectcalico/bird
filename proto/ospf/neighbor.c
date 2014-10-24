@@ -10,24 +10,19 @@
 
 #include "ospf.h"
 
-char *ospf_ns[] = { "    down",
-  " attempt",
-  "    init",
-  "    2way",
-  " exstart",
-  "exchange",
-  " loading",
-  "    full"
+
+const char *ospf_ns_names[] = {
+  "Down", "Attempt", "Init", "2-Way", "ExStart", "Exchange", "Loading", "Full"
 };
 
-const char *ospf_inm[] =
-  { "hello received", "neighbor start", "2-way received",
-  "negotiation done", "exstart done", "bad ls request", "load done",
-  "adjacency ok?", "sequence mismatch", "1-way received", "kill neighbor",
-  "inactivity timer", "line down"
+const char *ospf_inm_names[] = {
+  "HelloReceived", "Start", "2-WayReceived", "NegotiationDone", "ExchangeDone",
+  "BadLSReq", "LoadingDone", "AdjOK?", "SeqNumberMismatch", "1-WayReceived",
+  "KillNbr", "InactivityTimer", "LLDown"
 };
 
-static void neigh_chstate(struct ospf_neighbor *n, u8 state);
+
+static int can_do_adj(struct ospf_neighbor *n);
 static void neighbor_timer_hook(timer * timer);
 static void rxmt_timer_hook(timer * timer);
 static void ackd_timer_hook(timer * t);
@@ -113,8 +108,29 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   return (n);
 }
 
+static void
+ospf_neigh_down(struct ospf_neighbor *n)
+{
+  struct ospf_iface *ifa = n->ifa;
+  struct ospf_proto *p = ifa->oa->po;
+
+  if ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_PTMP))
+  {
+    struct nbma_node *nn = find_nbma_node(ifa, n->ip);
+    if (nn)
+      nn->found = 0;
+  }
+
+  s_get(&(n->dbsi));
+  release_lsrtl(p, n);
+  rem_node(NODE n);
+  rfree(n->pool);
+
+  OSPF_TRACE(D_EVENTS, "Neighbor %R on %s removed", n->rid, ifa->ifname);
+}
+
 /**
- * neigh_chstate - handles changes related to new or lod state of neighbor
+ * ospf_neigh_chstate - handles changes related to new or lod state of neighbor
  * @n: OSPF neighbor
  * @state: new state
  *
@@ -122,7 +138,7 @@ ospf_neighbor_new(struct ospf_iface *ifa)
  * starts rxmt timers, call interface state machine etc.
  */
 static void
-neigh_chstate(struct ospf_neighbor *n, u8 state)
+ospf_neigh_chstate(struct ospf_neighbor *n, u8 state)
 {
   struct ospf_iface *ifa = n->ifa;
   struct ospf_proto *p = ifa->oa->po;
@@ -132,15 +148,10 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
   if (state == old_state)
     return;
 
-  OSPF_TRACE(D_EVENTS, "Neighbor %I changes state from %s to %s",
-	     n->ip, ospf_ns[old_state], ospf_ns[state]);
+  OSPF_TRACE(D_EVENTS, "Neighbor %R on %s changed state from %s to %s",
+	     n->rid, ifa->ifname, ospf_ns_names[old_state], ospf_ns_names[state]);
 
   n->state = state;
-
-  if ((state == NEIGHBOR_2WAY) && (old_state < NEIGHBOR_2WAY))
-    ospf_iface_sm(ifa, ISM_NEICH);
-  if ((state < NEIGHBOR_2WAY) && (old_state >= NEIGHBOR_2WAY))
-    ospf_iface_sm(ifa, ISM_NEICH);
 
   /* Increase number of partial adjacencies */
   if ((state == NEIGHBOR_EXCHANGE) || (state == NEIGHBOR_LOADING))
@@ -181,7 +192,181 @@ neigh_chstate(struct ospf_neighbor *n, u8 state)
 
   if (state > NEIGHBOR_EXSTART)
     n->myimms &= ~DBDES_I;
+
+  /* Generate NeighborChange event if needed, see RFC 2328 9.2 */
+  if ((state == NEIGHBOR_2WAY) && (old_state < NEIGHBOR_2WAY))
+    ospf_iface_sm(ifa, ISM_NEICH);
+  if ((state < NEIGHBOR_2WAY) && (old_state >= NEIGHBOR_2WAY))
+    ospf_iface_sm(ifa, ISM_NEICH);
 }
+
+/**
+ * ospf_neigh_sm - ospf neighbor state machine
+ * @n: neighor
+ * @event: actual event
+ *
+ * This part implements the neighbor state machine as described in 10.3 of
+ * RFC 2328. The only difference is that state %NEIGHBOR_ATTEMPT is not
+ * used. We discover neighbors on nonbroadcast networks in the
+ * same way as on broadcast networks. The only difference is in
+ * sending hello packets. These are sent to IPs listed in
+ * @ospf_iface->nbma_list .
+ */
+void
+ospf_neigh_sm(struct ospf_neighbor *n, int event)
+{
+  struct ospf_proto *p = n->ifa->oa->po;
+
+  DBG("Neighbor state machine for %R on %s, event %s\n",
+      n->rid, n->ifa->ifname, ospf_inm_names[event]);
+
+  switch (event)
+  {
+  case INM_START:
+    ospf_neigh_chstate(n, NEIGHBOR_ATTEMPT);
+    /* NBMA are used different way */
+    break;
+
+  case INM_HELLOREC:
+    if (n->state < NEIGHBOR_INIT)
+      ospf_neigh_chstate(n, NEIGHBOR_INIT);
+
+    /* Restart inactivity timer */
+    tm_start(n->inactim, n->ifa->deadint);
+    break;
+
+  case INM_2WAYREC:
+    if (n->state < NEIGHBOR_2WAY)
+      ospf_neigh_chstate(n, NEIGHBOR_2WAY);
+    if ((n->state == NEIGHBOR_2WAY) && can_do_adj(n))
+      ospf_neigh_chstate(n, NEIGHBOR_EXSTART);
+    break;
+
+  case INM_NEGDONE:
+    if (n->state == NEIGHBOR_EXSTART)
+    {
+      ospf_neigh_chstate(n, NEIGHBOR_EXCHANGE);
+
+      /* Reset DB summary list iterator */
+      s_get(&(n->dbsi));
+      s_init(&(n->dbsi), &p->lsal);
+
+      /* Add MaxAge LSA entries to retransmission list */
+      ospf_add_flushed_to_lsrt(p, n);
+
+      /* FIXME: Why is this here ? */
+      ospf_reset_lsack_queue(n);
+    }
+    else
+      bug("NEGDONE and I'm not in EXSTART?");
+    break;
+
+  case INM_EXDONE:
+    ospf_neigh_chstate(n, NEIGHBOR_LOADING);
+    break;
+
+  case INM_LOADDONE:
+    ospf_neigh_chstate(n, NEIGHBOR_FULL);
+    break;
+
+  case INM_ADJOK:
+    switch (n->state)
+    {
+    case NEIGHBOR_2WAY:
+      /* Can In build adjacency? */
+      if (can_do_adj(n))
+      {
+	ospf_neigh_chstate(n, NEIGHBOR_EXSTART);
+      }
+      break;
+    default:
+      if (n->state >= NEIGHBOR_EXSTART)
+	if (!can_do_adj(n))
+	{
+	  reset_lists(p, n);
+	  ospf_neigh_chstate(n, NEIGHBOR_2WAY);
+	}
+      break;
+    }
+    break;
+
+  case INM_SEQMIS:
+  case INM_BADLSREQ:
+    if (n->state >= NEIGHBOR_EXCHANGE)
+    {
+      reset_lists(p, n);
+      ospf_neigh_chstate(n, NEIGHBOR_EXSTART);
+    }
+    break;
+
+  case INM_KILLNBR:
+  case INM_LLDOWN:
+  case INM_INACTTIM:
+    /* No need for reset_lists() */
+    ospf_neigh_chstate(n, NEIGHBOR_DOWN);
+    ospf_neigh_down(n);
+    break;
+
+  case INM_1WAYREC:
+    reset_lists(p, n);
+    ospf_neigh_chstate(n, NEIGHBOR_INIT);
+    break;
+
+  default:
+    bug("%s: INM - Unknown event?", p->p.name);
+    break;
+  }
+}
+
+static int
+can_do_adj(struct ospf_neighbor *n)
+{
+  struct ospf_iface *ifa = n->ifa;
+  struct ospf_proto *p = ifa->oa->po;
+  int i = 0;
+
+  switch (ifa->type)
+  {
+  case OSPF_IT_PTP:
+  case OSPF_IT_PTMP:
+  case OSPF_IT_VLINK:
+    i = 1;
+    break;
+  case OSPF_IT_BCAST:
+  case OSPF_IT_NBMA:
+    switch (ifa->state)
+    {
+    case OSPF_IS_DOWN:
+    case OSPF_IS_LOOP:
+      bug("%s: Iface %s in down state?", p->p.name, ifa->ifname);
+      break;
+    case OSPF_IS_WAITING:
+      DBG("%s: Neighbor? on iface %s\n", p->p.name, ifa->ifname);
+      break;
+    case OSPF_IS_DROTHER:
+      if (((n->rid == ifa->drid) || (n->rid == ifa->bdrid))
+	  && (n->state >= NEIGHBOR_2WAY))
+	i = 1;
+      break;
+    case OSPF_IS_PTP:
+    case OSPF_IS_BACKUP:
+    case OSPF_IS_DR:
+      if (n->state >= NEIGHBOR_2WAY)
+	i = 1;
+      break;
+    default:
+      bug("%s: Iface %s in unknown state?", p->p.name, ifa->ifname);
+      break;
+    }
+    break;
+  default:
+    bug("%s: Iface %s is unknown type?", p->p.name, ifa->ifname);
+    break;
+  }
+  DBG("%s: Iface %s can_do_adj=%d\n", p->p.name, ifa->ifname, i);
+  return i;
+}
+
 
 static inline u32 neigh_get_id(struct ospf_proto *p, struct ospf_neighbor *n)
 { return ospf_is_v2(p) ? ipa_to_u32(n->ip) : n->rid; }
@@ -273,181 +458,16 @@ elect_dr(struct ospf_proto *p, list nl)
   return (n);
 }
 
-static int
-can_do_adj(struct ospf_neighbor *n)
-{
-  struct ospf_iface *ifa = n->ifa;
-  struct ospf_proto *p = ifa->oa->po;
-  int i = 0;
-
-  switch (ifa->type)
-  {
-  case OSPF_IT_PTP:
-  case OSPF_IT_PTMP:
-  case OSPF_IT_VLINK:
-    i = 1;
-    break;
-  case OSPF_IT_BCAST:
-  case OSPF_IT_NBMA:
-    switch (ifa->state)
-    {
-    case OSPF_IS_DOWN:
-    case OSPF_IS_LOOP:
-      bug("%s: Iface %s in down state?", p->p.name, ifa->ifname);
-      break;
-    case OSPF_IS_WAITING:
-      DBG("%s: Neighbor? on iface %s\n", p->p.name, ifa->ifname);
-      break;
-    case OSPF_IS_DROTHER:
-      if (((n->rid == ifa->drid) || (n->rid == ifa->bdrid))
-	  && (n->state >= NEIGHBOR_2WAY))
-	i = 1;
-      break;
-    case OSPF_IS_PTP:
-    case OSPF_IS_BACKUP:
-    case OSPF_IS_DR:
-      if (n->state >= NEIGHBOR_2WAY)
-	i = 1;
-      break;
-    default:
-      bug("%s: Iface %s in unknown state?", p->p.name, ifa->ifname);
-      break;
-    }
-    break;
-  default:
-    bug("%s: Iface %s is unknown type?", p->p.name, ifa->ifname);
-    break;
-  }
-  DBG("%s: Iface %s can_do_adj=%d\n", p->p.name, ifa->ifname, i);
-  return i;
-}
-
-/**
- * ospf_neigh_sm - ospf neighbor state machine
- * @n: neighor
- * @event: actual event
- *
- * This part implements the neighbor state machine as described in 10.3 of
- * RFC 2328. The only difference is that state %NEIGHBOR_ATTEMPT is not
- * used. We discover neighbors on nonbroadcast networks in the
- * same way as on broadcast networks. The only difference is in
- * sending hello packets. These are sent to IPs listed in
- * @ospf_iface->nbma_list .
- */
-void
-ospf_neigh_sm(struct ospf_neighbor *n, int event)
-{
-  struct ospf_proto *p = n->ifa->oa->po;
-
-  DBG("Neighbor state machine for neighbor %I, event '%s'\n", n->ip,
-	     ospf_inm[event]);
-
-  switch (event)
-  {
-  case INM_START:
-    neigh_chstate(n, NEIGHBOR_ATTEMPT);
-    /* NBMA are used different way */
-    break;
-
-  case INM_HELLOREC:
-    if ((n->state == NEIGHBOR_DOWN) ||
-	(n->state == NEIGHBOR_ATTEMPT))
-      neigh_chstate(n, NEIGHBOR_INIT);
-
-    /* Restart inactivity timer */
-    tm_start(n->inactim, n->ifa->deadint);
-    break;
-
-  case INM_2WAYREC:
-    if (n->state < NEIGHBOR_2WAY)
-      neigh_chstate(n, NEIGHBOR_2WAY);
-    if ((n->state == NEIGHBOR_2WAY) && can_do_adj(n))
-      neigh_chstate(n, NEIGHBOR_EXSTART);
-    break;
-
-  case INM_NEGDONE:
-    if (n->state == NEIGHBOR_EXSTART)
-    {
-      neigh_chstate(n, NEIGHBOR_EXCHANGE);
-
-      /* Reset DB summary list iterator */
-      s_get(&(n->dbsi));
-      s_init(&(n->dbsi), &p->lsal);
-
-      /* Add MaxAge LSA entries to retransmission list */
-      ospf_add_flushed_to_lsrt(p, n);
-
-      /* FIXME: Why is this here ? */
-      ospf_reset_lsack_queue(n);
-    }
-    else
-      bug("NEGDONE and I'm not in EXSTART?");
-    break;
-
-  case INM_EXDONE:
-    neigh_chstate(n, NEIGHBOR_LOADING);
-    break;
-
-  case INM_LOADDONE:
-    neigh_chstate(n, NEIGHBOR_FULL);
-    break;
-
-  case INM_ADJOK:
-    switch (n->state)
-    {
-    case NEIGHBOR_2WAY:
-      /* Can In build adjacency? */
-      if (can_do_adj(n))
-      {
-	neigh_chstate(n, NEIGHBOR_EXSTART);
-      }
-      break;
-    default:
-      if (n->state >= NEIGHBOR_EXSTART)
-	if (!can_do_adj(n))
-	{
-	  reset_lists(p,n);
-	  neigh_chstate(n, NEIGHBOR_2WAY);
-	}
-      break;
-    }
-    break;
-
-  case INM_SEQMIS:
-  case INM_BADLSREQ:
-    if (n->state >= NEIGHBOR_EXCHANGE)
-    {
-      reset_lists(p, n);
-      neigh_chstate(n, NEIGHBOR_EXSTART);
-    }
-    break;
-
-  case INM_KILLNBR:
-  case INM_LLDOWN:
-  case INM_INACTTIM:
-    reset_lists(p, n);
-    neigh_chstate(n, NEIGHBOR_DOWN);
-    break;
-
-  case INM_1WAYREC:
-    reset_lists(p, n);
-    neigh_chstate(n, NEIGHBOR_INIT);
-    break;
-
-  default:
-    bug("%s: INM - Unknown event?", p->p.name);
-    break;
-  }
-}
-
 /**
  * ospf_dr_election - (Backup) Designed Router election
  * @ifa: actual interface
  *
  * When the wait timer fires, it is time to elect (Backup) Designated Router.
- * Structure describing me is added to this list so every electing router
- * has the same list. Backup Designated Router is elected before Designated
- * Router. This process is described in 9.4 of RFC 2328.
+ * Structure describing me is added to this list so every electing router has
+ * the same list. Backup Designated Router is elected before Designated
+ * Router. This process is described in 9.4 of RFC 2328. The function is
+ * supposed to be called only from ospf_iface_sm() as a part of the interface
+ * state machine.
  */
 void
 ospf_dr_election(struct ospf_iface *ifa)
@@ -506,6 +526,7 @@ ospf_dr_election(struct ospf_iface *ifa)
 
   DBG("DR=%R, BDR=%R\n", ifa->drid, ifa->bdrid);
 
+  /* We are part of the interface state machine */
   if (ifa->drid == myid)
     ospf_iface_chstate(ifa, OSPF_IS_DR);
   else if (ifa->bdrid == myid)
@@ -544,39 +565,15 @@ find_neigh_by_ip(struct ospf_iface *ifa, ip_addr ip)
   return NULL;
 }
 
-/* Neighbor is inactive for a long time. Remove it. */
 static void
 neighbor_timer_hook(timer * timer)
 {
   struct ospf_neighbor *n = (struct ospf_neighbor *) timer->data;
-  struct ospf_iface *ifa = n->ifa;
-  struct ospf_proto *p = ifa->oa->po;
+  struct ospf_proto *p = n->ifa->oa->po;
 
-  OSPF_TRACE(D_EVENTS, "Inactivity timer fired on interface %s for neighbor %I",
-	     ifa->ifname, n->ip);
-  ospf_neigh_remove(n);
-}
-
-void
-ospf_neigh_remove(struct ospf_neighbor *n)
-{
-  struct ospf_iface *ifa = n->ifa;
-  struct ospf_proto *p = ifa->oa->po;
-
-  if ((ifa->type == OSPF_IT_NBMA) || (ifa->type == OSPF_IT_PTMP))
-  {
-    struct nbma_node *nn = find_nbma_node(ifa, n->ip);
-    if (nn)
-      nn->found = 0;
-  }
-
-  neigh_chstate(n, NEIGHBOR_DOWN);
-
-  s_get(&(n->dbsi));
-  release_lsrtl(p, n);
-  rem_node(NODE n);
-  rfree(n->pool);
-  OSPF_TRACE(D_EVENTS, "Deleting neigbor %R", n->rid);
+  OSPF_TRACE(D_EVENTS, "Inactivity timer expired for neighbor %R on %s",
+	     n->rid, n->ifa->ifname);
+  ospf_neigh_sm(n, INM_INACTTIM);
 }
 
 static void
@@ -587,8 +584,9 @@ ospf_neigh_bfd_hook(struct bfd_request *req)
 
   if (req->down)
   {
-    OSPF_TRACE(D_EVENTS, "BFD session down for %I on %s", n->ip, n->ifa->ifname);
-    ospf_neigh_remove(n);
+    OSPF_TRACE(D_EVENTS, "BFD session down for neighbor %R on %s",
+	       n->rid, n->ifa->ifname);
+    ospf_neigh_sm(n, INM_INACTTIM);
   }
 }
 
@@ -611,7 +609,7 @@ void
 ospf_sh_neigh_info(struct ospf_neighbor *n)
 {
   struct ospf_iface *ifa = n->ifa;
-  char *pos = "other";
+  char *pos = "ptp  ";
   char etime[6];
   int exp, sec, min;
 
@@ -627,16 +625,18 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
     bsprintf(etime, "%02u:%02u", min, sec);
   }
 
-  if (n->rid == ifa->drid)
-    pos = "dr   ";
-  else if (n->rid == ifa->bdrid)
-    pos = "bdr  ";
-  else if ((n->ifa->type == OSPF_IT_PTP) || (n->ifa->type == OSPF_IT_PTMP) ||
-	   (n->ifa->type == OSPF_IT_VLINK))
-    pos = "ptp  ";
+  if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
+  {
+    if (n->rid == ifa->drid)
+      pos = "dr   ";
+    else if (n->rid == ifa->bdrid)
+      pos = "bdr  ";
+    else
+      pos = "other";
+  }
 
   cli_msg(-1013, "%-1R\t%3u\t%s/%s\t%-5s\t%-10s %-1I", n->rid, n->priority,
-	  ospf_ns[n->state], pos, etime, ifa->ifname, n->ip);
+	  ospf_ns_names[n->state], pos, etime, ifa->ifname, n->ip);
 }
 
 static void
@@ -645,18 +645,18 @@ rxmt_timer_hook(timer *t)
   struct ospf_neighbor *n = t->data;
   struct ospf_proto *p = n->ifa->oa->po;
 
-  DBG("%s: RXMT timer fired on interface %s for neigh %I\n",
+  DBG("%s: RXMT timer fired on %s for neigh %I\n",
       p->p.name, n->ifa->ifname, n->ip);
 
   switch (n->state)
   {
   case NEIGHBOR_EXSTART:
-    ospf_send_dbdes(p, n, 1);
+    ospf_send_dbdes(p, n);
     return;
 
   case NEIGHBOR_EXCHANGE:
-  if (n->myimms & DBDES_MS)
-    ospf_send_dbdes(p, n, 0);
+    if (n->myimms & DBDES_MS)
+      ospf_rxmt_dbdes(p, n);
   case NEIGHBOR_LOADING:
     ospf_send_lsreq(p, n);
     return;
@@ -665,9 +665,6 @@ rxmt_timer_hook(timer *t)
     /* LSA retransmissions */
     if (!EMPTY_SLIST(n->lsrtl))
       ospf_rxmt_lsupd(p, n);
-    return;
-
-  default:
     return;
   }
 }
@@ -678,7 +675,7 @@ ackd_timer_hook(timer *t)
   struct ospf_neighbor *n = t->data;
   struct ospf_proto *p = n->ifa->oa->po;
 
-  DBG("%s: ACKD timer fired on interface %s for neigh %I\n",
+  DBG("%s: ACKD timer fired on %s for neigh %I\n",
       p->p.name, n->ifa->ifname, n->ip);
 
   ospf_send_lsack(p, n, ACKL_DELAY);

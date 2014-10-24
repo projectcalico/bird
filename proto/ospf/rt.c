@@ -1204,7 +1204,7 @@ ospf_check_vlinks(struct ospf_proto *p)
 	    || (ifa->vifa != nhi)
 	    || !ipa_equal(ifa->vip, tmp->lb))
 	{
-	  OSPF_TRACE(D_EVENTS, "Vlink peer %R found", tmp->lsa.id);
+	  OSPF_TRACE(D_EVENTS, "Vlink peer %R found", ifa->vid);
 	  ospf_iface_sm(ifa, ISM_DOWN);
 	  ifa->vifa = nhi;
 	  ifa->addr = nhi->addr;
@@ -1831,7 +1831,7 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
 
  bad:
   /* Probably bug or some race condition, we log it */
-  log(L_ERR "Unexpected case in next hop calculation");
+  log(L_ERR "%s: Unexpected case in next hop calculation", p->p.name);
   return NULL;
 }
 
@@ -1875,8 +1875,8 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
   struct mpnh *nhs = calc_next_hop(oa, en, par, pos);
   if (!nhs)
   {
-    log(L_WARN "Cannot find next hop for LSA (Type: %04x, Id: %R, Rt: %R)",
-	en->lsa_type, en->lsa.id, en->lsa.rt);
+    log(L_WARN "%s: Cannot find next hop for LSA (Type: %04x, Id: %R, Rt: %R)",
+	p->p.name, en->lsa_type, en->lsa.id, en->lsa.rt);
     return;
   }
 

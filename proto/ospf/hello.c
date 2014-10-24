@@ -114,7 +114,7 @@ ospf_send_hello(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dirn)
     {
       if (i == max)
       {
-	log(L_WARN "%s: Too many neighbors on interface %s", p->p.name, ifa->ifname);
+	log(L_WARN "%s: Too many neighbors on %s", p->p.name, ifa->ifname);
 	break;
       }
       neighbors[i] = htonl(neigh->rid);
@@ -188,16 +188,21 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n, ip_addr faddr)
 {
   struct ospf_proto *p = ifa->oa->po;
-  char *beg = "OSPF: Bad HELLO packet from ";
+  const char *err_dsc = NULL;
   u32 rcv_iface_id, rcv_helloint, rcv_deadint, rcv_dr, rcv_bdr;
   u8 rcv_options, rcv_priority;
   u32 *neighbors;
   u32 neigh_count;
-  uint plen, i;
+  uint plen, i, err_val = 0;
 
   /* RFC 2328 10.5 */
 
-  OSPF_TRACE(D_PACKETS, "HELLO packet received from %I via %s", faddr, ifa->ifname);
+  /*
+   * We may not yet havethe associate neighbor, so we use Router ID from the
+   * packet instead of one from the neighbor structure for log messages.
+   */
+  u32 rcv_rid = ntohl(pkt->routerid);
+  OSPF_TRACE(D_PACKETS, "HELLO packet received from nbr %R on %s", rcv_rid, ifa->ifname);
 
   plen = ntohs(pkt->length);
 
@@ -206,10 +211,7 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
     struct ospf_hello2_packet *ps = (void *) pkt;
 
     if (plen < sizeof(struct ospf_hello2_packet))
-    {
-      log(L_ERR "%s%I - too short (%u B)", beg, faddr, plen);
-      return;
-    }
+      DROP("too short", plen);
 
     rcv_iface_id = 0;
     rcv_helloint = ntohs(ps->helloint);
@@ -223,10 +225,7 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
     if ((ifa->type != OSPF_IT_VLINK) &&
 	(ifa->type != OSPF_IT_PTP) &&
 	(pxlen != ifa->addr->pxlen))
-    {
-      log(L_ERR "%s%I - prefix length mismatch (%d)", beg, faddr, pxlen);
-      return;
-    }
+      DROP("prefix length mismatch", pxlen);
 
     neighbors = ps->neighbors;
     neigh_count = (plen - sizeof(struct ospf_hello2_packet)) / sizeof(u32);
@@ -236,10 +235,7 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
     struct ospf_hello3_packet *ps = (void *) pkt;
 
     if (plen < sizeof(struct ospf_hello3_packet))
-    {
-      log(L_ERR "%s%I - too short (%u B)", beg, faddr, plen);
-      return;
-    }
+      DROP("too short", plen);
 
     rcv_iface_id = ntohl(ps->iface_id);
     rcv_helloint = ntohs(ps->helloint);
@@ -254,23 +250,14 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
   }
 
   if (rcv_helloint != ifa->helloint)
-  {
-    log(L_ERR "%s%I - hello interval mismatch (%d)", beg, faddr, rcv_helloint);
-    return;
-  }
+    DROP("hello interval mismatch", rcv_helloint);
 
   if (rcv_deadint != ifa->deadint)
-  {
-    log(L_ERR "%s%I - dead interval mismatch (%d)", beg, faddr, rcv_deadint);
-    return;
-  }
+    DROP("dead interval mismatch", rcv_deadint);
 
   /* Check whether bits E, N match */
   if ((rcv_options ^ ifa->oa->options) & (OPT_E | OPT_N))
-  {
-    log(L_ERR "%s%I - area type mismatch (%x)", beg, faddr, rcv_options);
-    return;
-  }
+    DROP("area type mismatch", rcv_options);
 
   /* Check consistency of existing neighbor entry */
   if (n)
@@ -279,11 +266,11 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
     if (ospf_is_v2(p) && ((t == OSPF_IT_BCAST) || (t == OSPF_IT_NBMA) || (t == OSPF_IT_PTMP)))
     {
       /* Neighbor identified by IP address; Router ID may change */
-      if (n->rid != ntohl(pkt->routerid))
+      if (n->rid != rcv_rid)
       {
-	OSPF_TRACE(D_EVENTS, "Neighbor %I has changed Router ID from %R to %R",
-		   n->ip, n->rid, ntohl(pkt->routerid));
-	ospf_neigh_remove(n);
+	OSPF_TRACE(D_EVENTS, "Neighbor %R on %s changed Router ID to %R",
+		   n->rid, ifa->ifname, rcv_rid);
+	ospf_neigh_sm(n, INM_KILLNBR);
 	n = NULL;
       }
     }
@@ -292,7 +279,8 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
       /* Neighbor identified by Router ID; IP address may change */
       if (!ipa_equal(faddr, n->ip))
       {
-	OSPF_TRACE(D_EVENTS, "Neighbor address changed from %I to %I", n->ip, faddr);
+	OSPF_TRACE(D_EVENTS, "Neighbor %R on %s changed IP address to %I",
+		   n->rid, ifa->ifname, n->ip, faddr);
 	n->ip = faddr;
       }
     }
@@ -305,28 +293,26 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
       struct nbma_node *nn = find_nbma_node(ifa, faddr);
 
       if (!nn && ifa->strictnbma)
-      {
-	log(L_WARN "Ignoring new neighbor: %I on %s", faddr, ifa->ifname);
-	return;
-      }
+	DROP1("new neighbor denied");
 
       if (nn && (ifa->type == OSPF_IT_NBMA) &&
 	  (((rcv_priority == 0) && nn->eligible) ||
 	   ((rcv_priority > 0) && !nn->eligible)))
-      {
-	log(L_ERR "Eligibility mismatch for neighbor: %I on %s", faddr, ifa->ifname);
-	return;
-      }
+	DROP("eligibility mismatch", rcv_priority);
 
       if (nn)
 	nn->found = 1;
     }
 
+    // XXXX format
+    // "ospf1: New neighbor found: 192.168.1.1/fe80:1234:1234:1234:1234 on eth0";
+    // "ospf1: New neighbor found: 192.168.1.1 on eth0 at fe80:1234:1234:1234:1234";
+    // "ospf1: Neighbor 192.168.1.1 on eth0 found, IP adress fe80:1234:1234:1234:1234";
     OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s", faddr, ifa->ifname);
 
     n = ospf_neighbor_new(ifa);
 
-    n->rid = ntohl(pkt->routerid);
+    n->rid = rcv_rid;
     n->ip = faddr;
     n->dr = rcv_dr;
     n->bdr = rcv_bdr;
@@ -367,7 +353,7 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
   ospf_neigh_sm(n, INM_1WAYREC);
   return;
 
- found_self:
+found_self:
   ospf_neigh_sm(n, INM_2WAYREC);
 
 
@@ -400,4 +386,10 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	((n->bdr != n_id) && (old_bdr == n_id)))
       ospf_iface_sm(ifa, ISM_NEICH);
   }
+
+  return;
+
+drop:
+  LOG_PKT("Bad HELLO packet from nbr %R on %s - %s (%u)",
+	  rcv_rid, ifa->ifname, err_dsc, err_val);
 }

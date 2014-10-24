@@ -11,15 +11,16 @@
 #include "ospf.h"
 
 
-char *ospf_is[] = { "down", "loop", "waiting", "ptp", "drother",
-  "backup", "dr"
+const char *ospf_is_names[] = {
+  "Down", "Loopback", "Waiting", "PtP", "DROther", "Backup", "DR"
 };
 
-char *ospf_ism[] = { "interface up", "wait timer fired", "backup seen",
-  "neighbor change", "loop indicated", "unloop indicated", "interface down"
+const char *ospf_ism_names[] = {
+  "InterfaceUp", "WaitTimer", "BackupSeen", "NeighborChange",
+  "LoopInd", "UnloopInd", "InterfaceDown"
 };
 
-char *ospf_it[] = { "broadcast", "nbma", "ptp", "ptmp", "virtual link" };
+const char *ospf_it[] = { "broadcast", "nbma", "ptp", "ptmp", "virtual link" };
 
 
 static void
@@ -40,7 +41,7 @@ wait_timer_hook(timer * timer)
   struct ospf_iface *ifa = (struct ospf_iface *) timer->data;
   struct ospf_proto *p = ifa->oa->po;
 
-  OSPF_TRACE(D_EVENTS, "Wait timer fired on interface %s", ifa->ifname);
+  OSPF_TRACE(D_EVENTS, "Wait timer fired on %s", ifa->ifname);
   ospf_iface_sm(ifa, ISM_WAITF);
 }
 
@@ -240,10 +241,7 @@ ospf_iface_down(struct ospf_iface *ifa)
   }
 
   WALK_LIST_DELSAFE(n, nx, ifa->neigh_list)
-  {
-    OSPF_TRACE(D_EVENTS, "Removing neighbor %I", n->ip);
-    ospf_neigh_remove(n);
-  }
+    ospf_neigh_sm(n, INM_KILLNBR);
 
   if (ifa->hello_timer)
     tm_stop(ifa->hello_timer);
@@ -311,8 +309,8 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
   if (state == oldstate)
     return;
 
-  OSPF_TRACE(D_EVENTS, "Changing state of iface %s from %s to %s",
-	     ifa->ifname, ospf_is[oldstate], ospf_is[state]);
+  OSPF_TRACE(D_EVENTS, "Interface %s changed state from %s to %s",
+	     ifa->ifname, ospf_is_names[oldstate], ospf_is_names[state]);
 
   ifa->state = state;
 
@@ -351,7 +349,7 @@ ospf_iface_chstate(struct ospf_iface *ifa, u8 state)
 void
 ospf_iface_sm(struct ospf_iface *ifa, int event)
 {
-  DBG("SM on %s. Event is '%s'\n", ifa->ifname, ospf_ism[event]);
+  DBG("SM on %s. Event is '%s'\n", ifa->ifname, ospf_ism_names[event]);
 
   switch (event)
   {
@@ -613,7 +611,8 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
       continue;
 
     if (ospf_is_v3(p) && !ipa_is_link_local(nb->ip))
-      log(L_WARN "In OSPFv3, configured neighbor address (%I) should be link-local", nb->ip);
+      log(L_WARN "%s: Configured neighbor address (%I) should be link-local",
+	  p->p.name, nb->ip);
 
     add_nbma_node(ifa, nb, 0);
   }
@@ -726,7 +725,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* HELLO TIMER */
   if (ifa->helloint != new->helloint)
   {
-    OSPF_TRACE(D_EVENTS, "Changing hello interval on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing hello interval of %s from %d to %d",
 	       ifname, ifa->helloint, new->helloint);
 
     ifa->helloint = new->helloint;
@@ -736,7 +735,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* RXMT TIMER */
   if (ifa->rxmtint != new->rxmtint)
   {
-    OSPF_TRACE(D_EVENTS, "Changing retransmit interval on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing retransmit interval of %s from %d to %d",
 	       ifname, ifa->rxmtint, new->rxmtint);
 
     ifa->rxmtint = new->rxmtint;
@@ -745,7 +744,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* POLL TIMER */
   if (ifa->pollint != new->pollint)
   {
-    OSPF_TRACE(D_EVENTS, "Changing poll interval on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing poll interval of %s from %d to %d",
 	       ifname, ifa->pollint, new->pollint);
 
     ifa->pollint = new->pollint;
@@ -755,7 +754,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* WAIT TIMER */
   if (ifa->waitint != new->waitint)
   {
-    OSPF_TRACE(D_EVENTS, "Changing wait interval on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing wait interval of %s from %d to %d",
 	       ifname, ifa->waitint, new->waitint);
 
     ifa->waitint = new->waitint;
@@ -766,7 +765,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* DEAD TIMER */
   if (ifa->deadint != new->deadint)
   {
-    OSPF_TRACE(D_EVENTS, "Changing dead interval on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing dead interval of %s from %d to %d",
 	       ifname, ifa->deadint, new->deadint);
     ifa->deadint = new->deadint;
   }
@@ -774,7 +773,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* INFTRANS */
   if (ifa->inftransdelay != new->inftransdelay)
   {
-    OSPF_TRACE(D_EVENTS, "Changing transmit delay on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing transmit delay of %s from %d to %d",
 		     ifname, ifa->inftransdelay, new->inftransdelay);
     ifa->inftransdelay = new->inftransdelay;
   }
@@ -782,7 +781,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* AUTHENTICATION */
   if (ifa->autype != new->autype)
   {
-    OSPF_TRACE(D_EVENTS, "Changing authentication type on interface %s", ifname);
+    OSPF_TRACE(D_EVENTS, "Changing authentication type of %s", ifname);
     ifa->autype = new->autype;
   }
 
@@ -797,7 +796,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* COST */
   if (ifa->cost != new->cost)
   {
-    OSPF_TRACE(D_EVENTS, "Changing cost on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing cost of %s from %d to %d",
 	       ifname, ifa->cost, new->cost);
 
     ifa->cost = new->cost;
@@ -806,7 +805,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* PRIORITY */
   if (ifa->priority != new->priority)
   {
-    OSPF_TRACE(D_EVENTS, "Changing priority on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing priority of %s from %d to %d",
 	       ifname, ifa->priority, new->priority);
 
     ifa->priority = new->priority;
@@ -816,7 +815,8 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* STRICT NBMA */
   if (ifa->strictnbma != new->strictnbma)
   {
-    OSPF_TRACE(D_EVENTS, "Changing NBMA strictness on interface %s", ifname);
+    OSPF_TRACE(D_EVENTS, "Changing NBMA strictness of %s from %d to %d",
+	       ifname, ifa->strictnbma, new->strictnbma);
     ifa->strictnbma = new->strictnbma;
   }
 
@@ -830,14 +830,14 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
     {
       if (nb->eligible != nb2->eligible)
       {
-	OSPF_TRACE(D_EVENTS, "Changing eligibility of neighbor %I on interface %s",
+	OSPF_TRACE(D_EVENTS, "Changing eligibility of NBMA neighbor %I on %s",
 		   nb->ip, ifname);
 	nb->eligible = nb2->eligible;
       }
     }
     else
     {
-      OSPF_TRACE(D_EVENTS, "Removing NBMA neighbor %I on interface %s",
+      OSPF_TRACE(D_EVENTS, "Removing NBMA neighbor %I on %s",
 		       nb->ip, ifname);
       rem_node(NODE nb);
       mb_free(nb);
@@ -852,11 +852,12 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
       continue;
 
     if (ospf_is_v3(p) && !ipa_is_link_local(nb->ip))
-      log(L_WARN "In OSPFv3, configured neighbor address (%I) should be link-local", nb->ip);
+      log(L_WARN "%s: Configured neighbor address (%I) should be link-local",
+	  p->p.name, nb->ip);
 
     if (! find_nbma_node(ifa, nb->ip))
     {
-      OSPF_TRACE(D_EVENTS, "Adding NBMA neighbor %I on interface %s",
+      OSPF_TRACE(D_EVENTS, "Adding NBMA neighbor %I on %s",
 		 nb->ip, ifname);
       add_nbma_node(ifa, nb, !!find_neigh_by_ip(ifa, nb->ip));
     }
@@ -867,7 +868,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* TX LENGTH */
   if (old->tx_length != new->tx_length)
   {
-    OSPF_TRACE(D_EVENTS, "Changing TX length on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing TX length of %s from %d to %d",
 	       ifname, old->tx_length, new->tx_length);
 
     /* ifa cannot be vlink */
@@ -878,7 +879,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* RX BUFFER */
   if (old->rx_buffer != new->rx_buffer)
   {
-    OSPF_TRACE(D_EVENTS, "Changing buffer size on interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing buffer size of %s from %d to %d",
 	       ifname, old->rx_buffer, new->rx_buffer);
 
     /* ifa cannot be vlink */
@@ -896,7 +897,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* LINK */
   if (ifa->check_link != new->check_link)
   {
-    OSPF_TRACE(D_EVENTS, "%s link check on interface %s",
+    OSPF_TRACE(D_EVENTS, "%s link check for %s",
 	       new->check_link ? "Enabling" : "Disabling", ifname);
     ifa->check_link = new->check_link;
 
@@ -908,7 +909,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* ECMP weight */
   if (ifa->ecmp_weight != new->ecmp_weight)
   {
-    OSPF_TRACE(D_EVENTS, "Changing ECMP weight of interface %s from %d to %d",
+    OSPF_TRACE(D_EVENTS, "Changing ECMP weight of %s from %d to %d",
 	       ifname, (int)ifa->ecmp_weight + 1, (int)new->ecmp_weight + 1);
     ifa->ecmp_weight = new->ecmp_weight;
   }
@@ -927,7 +928,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
   /* BFD */
   if (ifa->bfd != new->bfd)
   {
-    OSPF_TRACE(D_EVENTS, "%s BFD on interface %s",
+    OSPF_TRACE(D_EVENTS, "%s BFD for %s",
 	       new->bfd ? "Enabling" : "Disabling", ifname);
     ifa->bfd = new->bfd;
 
@@ -1197,7 +1198,7 @@ ospf_iface_change_mtu(struct ospf_proto *p, struct ospf_iface *ifa)
 {
   /* ifa is not vlink */
 
-  OSPF_TRACE(D_EVENTS, "Changing MTU on interface %s", ifa->ifname);
+  OSPF_TRACE(D_EVENTS, "Interface %s changed MTU to %d", ifa->iface->mtu);
 
   ifa->tx_length = ifa_tx_length(ifa);
 
@@ -1285,7 +1286,7 @@ ospf_iface_info(struct ospf_iface *ifa)
     cli_msg(-1015, "\tType: %s%s", ospf_it[ifa->type], more);
     cli_msg(-1015, "\tArea: %R (%u)", ifa->oa->areaid, ifa->oa->areaid);
   }
-  cli_msg(-1015, "\tState: %s%s", ospf_is[ifa->state], ifa->stub ? " (stub)" : "");
+  cli_msg(-1015, "\tState: %s%s", ospf_is_names[ifa->state], ifa->stub ? " (stub)" : "");
   cli_msg(-1015, "\tPriority: %u", ifa->priority);
   cli_msg(-1015, "\tCost: %u", ifa->cost);
   if (ifa->oa->po->ecmp)

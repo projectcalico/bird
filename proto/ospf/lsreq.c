@@ -93,7 +93,7 @@ ospf_send_lsreq(struct ospf_proto *p, struct ospf_neighbor *n)
   length = ospf_pkt_hdrlen(p) + i * sizeof(struct ospf_lsreq_header);
   pkt->length = htons(length);
 
-  OSPF_PACKET(ospf_dump_lsreq, pkt, "LSREQ packet sent to %I via %s", n->ip, ifa->ifname);
+  OSPF_PACKET(ospf_dump_lsreq, pkt, "LSREQ packet sent to nbr %R on %s", n->rid, ifa->ifname);
   ospf_send_to(ifa, n->ip);
 }
 
@@ -110,10 +110,13 @@ ospf_receive_lsreq(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
   /* No need to check length, lsreq has only basic header */
 
-  OSPF_PACKET(ospf_dump_lsreq, pkt, "LSREQ packet received from %I via %s", n->ip, ifa->ifname);
+  OSPF_PACKET(ospf_dump_lsreq, pkt, "LSREQ packet received from nbr %R on %s", n->rid, ifa->ifname);
 
   if (n->state < NEIGHBOR_EXCHANGE)
+  {
+    OSPF_TRACE(D_PACKETS, "LSREQ packet ignored - lesser state than Exchange");
     return;
+  }
 
   ospf_neigh_sm(n, INM_HELLOREC);	/* Not in RFC */
 
@@ -134,8 +137,9 @@ ospf_receive_lsreq(struct ospf_packet *pkt, struct ospf_iface *ifa,
     en = ospf_hash_find(p->gr, domain, id, rt, type);
     if (!en)
     {
-      log(L_WARN "%s: Received LSREQ from %I for missing LSA (Type: %04x, Id: %R, Rt: %R)",
-	  p->p.name, n->ip, type, id, rt);
+      LOG_LSA1("Bad LSR (Type: %04x, Id: %R, Rt: %R) in LSREQ", type, id, rt);
+      LOG_LSA2("  received from nbr %R on %s - LSA is missing", n->rid, ifa->ifname);
+
       ospf_neigh_sm(n, INM_BADLSREQ);
       return;
     }

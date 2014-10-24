@@ -95,7 +95,7 @@ rip_incoming_authentication( struct proto *p, struct rip_block_auth *block, stru
       }
 
       memcpy(md5sum_packet, tail->md5, 16);
-      password_cpy(tail->md5, pass->password, 16);
+      strncpy(tail->md5, pass->password, 16);
 
       MD5Init(&ctxt);
       MD5Update(&ctxt, (char *) packet, ntohs(block->packetlen) +  sizeof(struct rip_block_auth) );
@@ -131,7 +131,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
   block->mustbeFFFF = 0xffff;
   switch (P_CF->authtype) {
   case AT_PLAINTEXT:
-    password_cpy( (char *) (&block->packetlen), passwd->password, 16);
+    strncpy( (char *) (&block->packetlen), passwd->password, 16);
     return PACKETLEN(num);
   case AT_MD5:
     {
@@ -156,7 +156,7 @@ rip_outgoing_authentication( struct proto *p, struct rip_block_auth *block, stru
       tail->mustbeFFFF = 0xffff;
       tail->mustbe0001 = 0x0100;
 
-      password_cpy(tail->md5, passwd->password, 16);
+      strncpy(tail->md5, passwd->password, 16);
       MD5Init(&ctxt);
       MD5Update(&ctxt, (char *) packet, PACKETLEN(num) + sizeof(struct  rip_md5_tail));
       MD5Final(tail->md5, &ctxt);

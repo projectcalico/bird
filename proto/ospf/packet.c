@@ -66,7 +66,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
       log(L_ERR "No suitable password found for authentication");
       return;
     }
-    password_cpy(auth->password, passwd->password, sizeof(union ospf_auth));
+    strncpy(auth->password, passwd->password, sizeof(auth->password));
 
   case OSPF_AUTH_NONE:
     {
@@ -106,7 +106,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 
     void *tail = ((void *) pkt) + plen;
     char password[OSPF_AUTH_CRYPT_SIZE];
-    password_cpy(password, passwd->password, OSPF_AUTH_CRYPT_SIZE);
+    strncpy(password, passwd->password, sizeof(password));
 
     struct MD5Context ctxt;
     MD5Init(&ctxt);
@@ -120,23 +120,22 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
   }
 }
 
+
 /* We assume OSPFv2 in ospf_pkt_checkauth() */
 static int
-ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_packet *pkt, int size)
+ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_packet *pkt, int len)
 {
   struct ospf_proto *p = ifa->oa->po;
   union ospf_auth *auth = (void *) (pkt + 1);
-  struct password_item *pass = NULL, *ptmp;
-  char password[OSPF_AUTH_CRYPT_SIZE];
+  struct password_item *pass = NULL;
+  const char *err_dsc = NULL;
+  uint err_val = 0;
 
   uint plen = ntohs(pkt->length);
   u8 autype = pkt->autype;
 
   if (autype != ifa->autype)
-  {
-    OSPF_TRACE(D_PACKETS, "OSPF_auth: Method differs (%d)", autype);
-    return 0;
-  }
+    DROP("authentication method mismatch", autype);
 
   switch (autype)
   {
@@ -146,85 +145,65 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
   case OSPF_AUTH_SIMPLE:
     pass = password_find(ifa->passwords, 1);
     if (!pass)
-    {
-      OSPF_TRACE(D_PACKETS, "OSPF_auth: no password found");
-      return 0;
-    }
+      DROP1("no password found");
 
-    password_cpy(password, pass->password, sizeof(union ospf_auth));
-    if (memcmp(auth->password, password, sizeof(union ospf_auth)))
-    {
-      OSPF_TRACE(D_PACKETS, "OSPF_auth: different passwords");
-      return 0;
-    }
+    if (!password_verify(pass, auth->password, sizeof(auth->password)))
+      DROP("wrong password", pass->id);
+
     return 1;
 
   case OSPF_AUTH_CRYPT:
     if (auth->md5.len != OSPF_AUTH_CRYPT_SIZE)
+      DROP("invalid MD5 digest length", auth->md5.len);
+
+    if (plen + OSPF_AUTH_CRYPT_SIZE > len)
+      DROP("length mismatch", len);
+
+    u32 rcv_csn = ntohl(auth->md5.csn);
+    if (n && (rcv_csn < n->csn))
+      // DROP("lower sequence number", rcv_csn);
     {
-      OSPF_TRACE(D_PACKETS, "OSPF_auth: wrong size of md5 digest");
+      /* We want to report both new and old CSN */
+      LOG_PKT_AUTH("Authentication failed for nbr %R on %s - "
+		   "lower sequence number (rcv %u, old %u)",
+		   n->rid, ifa->ifname, rcv_csn, n->csn);
       return 0;
     }
 
-    if (plen + OSPF_AUTH_CRYPT_SIZE > size)
-    {
-      OSPF_TRACE(D_PACKETS, "OSPF_auth: size mismatch (%d vs %d)",
-		 plen + OSPF_AUTH_CRYPT_SIZE, size);
-      return 0;
-    }
-
-    if (n)
-    {
-      u32 rcv_csn = ntohl(auth->md5.csn);
-      if(rcv_csn < n->csn)
-      {
-	OSPF_TRACE(D_PACKETS, "OSPF_auth: lower sequence number (rcv %d, old %d)", rcv_csn, n->csn);
-	return 0;
-      }
-
-      n->csn = rcv_csn;
-    }
-
-    if (ifa->passwords)
-    {
-      WALK_LIST(ptmp, *(ifa->passwords))
-      {
-	if (auth->md5.keyid != ptmp->id) continue;
-	if ((ptmp->accfrom > now_real) || (ptmp->accto < now_real)) continue;
-	pass = ptmp;
-	break;
-      }
-    }
-
+    pass = password_find_by_id(ifa->passwords, auth->md5.keyid);
     if (!pass)
-    {
-      OSPF_TRACE(D_PACKETS, "OSPF_auth: no suitable md5 password found");
-      return 0;
-    }
+      DROP("no suitable password found", auth->md5.keyid);
 
     void *tail = ((void *) pkt) + plen;
+    char passwd[OSPF_AUTH_CRYPT_SIZE];
     char md5sum[OSPF_AUTH_CRYPT_SIZE];
-    password_cpy(password, pass->password, OSPF_AUTH_CRYPT_SIZE);
+
+    strncpy(passwd, pass->password, OSPF_AUTH_CRYPT_SIZE);
 
     struct MD5Context ctxt;
     MD5Init(&ctxt);
     MD5Update(&ctxt, (char *) pkt, plen);
-    MD5Update(&ctxt, password, OSPF_AUTH_CRYPT_SIZE);
+    MD5Update(&ctxt, passwd, OSPF_AUTH_CRYPT_SIZE);
     MD5Final(md5sum, &ctxt);
 
     if (memcmp(md5sum, tail, OSPF_AUTH_CRYPT_SIZE))
-    {
-      OSPF_TRACE(D_PACKETS, "OSPF_auth: wrong md5 digest");
-      return 0;
-    }
+      DROP("wrong MD5 digest", pass->id);
+
+    if (n)
+      n->csn = rcv_csn;
+
     return 1;
 
   default:
-    OSPF_TRACE(D_PACKETS, "OSPF_auth: unknown auth type");
-    return 0;
+    bug("Unknown authentication type");
   }
-}
 
+drop:
+  LOG_PKT_AUTH("Authentication failed for nbr %R on %s - %s (%u)",
+	       (n ? n->rid : ntohl(pkt->routerid)), ifa->ifname, err_dsc, err_val);
+
+  return 0;
+}
 
 /**
  * ospf_rx_hook
@@ -236,13 +215,10 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
  * non generic functions.
  */
 int
-ospf_rx_hook(sock *sk, int size)
+ospf_rx_hook(sock *sk, int len)
 {
-  char *mesg = "OSPF: Bad packet from ";
-
-  /* We want just packets from sk->iface. Unfortunately, on BSD we
-     cannot filter out other packets at kernel level and we receive
-     all packets on all sockets */
+  /* We want just packets from sk->iface. Unfortunately, on BSD we cannot filter
+     out other packets at kernel level and we receive all packets on all sockets */
   if (sk->lifindex != sk->iface->index)
     return 1;
 
@@ -252,6 +228,8 @@ ospf_rx_hook(sock *sk, int size)
   /* Initially, the packet is associated with the 'master' iface */
   struct ospf_iface *ifa = sk->data;
   struct ospf_proto *p = ifa->oa->po;
+  const char *err_dsc = NULL;
+  uint err_val = 0;
 
   int src_local, dst_local, dst_mcast;
   src_local = ipa_in_net(sk->faddr, ifa->addr->prefix, ifa->addr->pxlen);
@@ -282,41 +260,31 @@ ospf_rx_hook(sock *sk, int size)
      * link-local src address, but does not enforce it. Strange.
      */
     if (dst_mcast && !src_local)
-      log(L_WARN "OSPF: Received multicast packet from %I (not link-local)", sk->faddr);
+      LOG_PKT_WARN("Multicast packet received from not-link-local %I via %s",
+		   sk->faddr, ifa->ifname);
   }
 
-  /* Second, we check packet size, checksum, and the protocol version */
-  struct ospf_packet *pkt = (struct ospf_packet *) ip_skip_header(sk->rbuf, &size);
+  /* Second, we check packet length, checksum, and the protocol version */
+  struct ospf_packet *pkt = (struct ospf_packet *) ip_skip_header(sk->rbuf, &len);
 
   if (pkt == NULL)
-  {
-    log(L_ERR "%s%I - bad IP header", mesg, sk->faddr);
-    return 1;
-  }
+    DROP("bad IP header", len);
 
   if (ifa->check_ttl && (sk->rcv_ttl < 255))
-  {
-    log(L_ERR "%s%I - TTL %d (< 255)", mesg, sk->faddr, sk->rcv_ttl);
-    return 1;
-  }
+    DROP("wrong TTL", sk->rcv_ttl);
 
-  if ((uint) size < sizeof(struct ospf_packet))
-  {
-    log(L_ERR "%s%I - too short (%u bytes)", mesg, sk->faddr, size);
-    return 1;
-  }
+  if (len < sizeof(struct ospf_packet))
+    DROP("too short", len);
+
+  if (pkt->version != ospf_get_version(p))
+    DROP("version mismatch", pkt->version);
 
   uint plen = ntohs(pkt->length);
   if ((plen < sizeof(struct ospf_packet)) || ((plen % 4) != 0))
-  {
-    log(L_ERR "%s%I - invalid length (%u)", mesg, sk->faddr, plen);
-    return 1;
-  }
+    DROP("invalid length", plen);
 
   if (sk->flags & SKF_TRUNCATED)
   {
-    log(L_WARN "%s%I - too large (%d/%d)", mesg, sk->faddr, plen, size);
-
     /* If we have dynamic buffers and received truncated message, we expand RX buffer */
 
     uint bs = plen + 256;
@@ -325,20 +293,11 @@ ospf_rx_hook(sock *sk, int size)
     if (!ifa->cf->rx_buffer && (bs > sk->rbsize))
       sk_set_rbsize(sk, bs);
 
-    return 1;
+    DROP("truncated", plen);
   }
 
-  if (plen > size)
-  {
-    log(L_ERR "%s%I - size field does not match (%d/%d)", mesg, sk->faddr, plen, size);
-    return 1;
-  }
-
-  if (pkt->version != ospf_get_version(p))
-  {
-    log(L_ERR "%s%I - version %u", mesg, sk->faddr, pkt->version);
-    return 1;
-  }
+  if (plen > len)
+    DROP("length mismatch", plen);
 
   if (ospf_is_v2(p) && (pkt->autype != OSPF_AUTH_CRYPT))
   {
@@ -346,11 +305,8 @@ ospf_rx_hook(sock *sk, int size)
     uint blen = plen - hlen;
     void *body = ((void *) pkt) + hlen;
 
-    if (! ipsum_verify(pkt, sizeof(struct ospf_packet), body, blen, NULL))
-    {
-      log(L_ERR "%s%I - bad checksum", mesg, sk->faddr);
-      return 1;
-    }
+    if (!ipsum_verify(pkt, sizeof(struct ospf_packet), body, blen, NULL))
+      DROP1("invalid checksum");
   }
 
   /* Third, we resolve associated iface and handle vlinks. */
@@ -368,10 +324,7 @@ ospf_rx_hook(sock *sk, int size)
 
     /* It is real iface, source should be local (in OSPFv2) */
     if (ospf_is_v2(p) && !src_local)
-    {
-      log(L_ERR "%s%I - strange source address for %s", mesg, sk->faddr, ifa->ifname);
-      return 1;
-    }
+      DROP1("strange source address");
 
     goto found;
   }
@@ -415,13 +368,11 @@ ospf_rx_hook(sock *sk, int size)
     if (instance_id != ifa->instance_id)
       return 1;
 
-    log(L_ERR "%s%I - area does not match (%R vs %R)",
-	mesg, sk->faddr, areaid, ifa->oa->areaid);
-    return 1;
+    DROP("area mismatch", areaid);
   }
 
 
- found:
+found:
   if (ifa->stub)	    /* This shouldn't happen */
     return 1;
 
@@ -429,18 +380,12 @@ ospf_rx_hook(sock *sk, int size)
     return 1;
 
   if (rid == p->router_id)
-  {
-    log(L_ERR "%s%I - received my own router ID!", mesg, sk->faddr);
-    return 1;
-  }
+    DROP1("my own router ID");
 
   if (rid == 0)
-  {
-    log(L_ERR "%s%I - router id = 0.0.0.0", mesg, sk->faddr);
-    return 1;
-  }
+    DROP1("zero router ID");
 
-  /* In OSPFv2, neighbors are identified by either IP or Router ID, base on network type */
+  /* In OSPFv2, neighbors are identified by either IP or Router ID, based on network type */
   uint t = ifa->type;
   struct ospf_neighbor *n;
   if (ospf_is_v2(p) && ((t == OSPF_IT_BCAST) || (t == OSPF_IT_NBMA) || (t == OSPF_IT_PTMP)))
@@ -450,16 +395,15 @@ ospf_rx_hook(sock *sk, int size)
 
   if (!n && (pkt->type != HELLO_P))
   {
-    log(L_WARN "OSPF: Received non-hello packet from unknown neighbor (src %I, iface %s)",
-	sk->faddr, ifa->ifname);
+    // XXXX format
+    OSPF_TRACE(D_PACKETS, "Non-HELLO packet received from unknown neighbor %R on %s (%I)",
+	       rid, ifa->ifname, sk->faddr);
     return 1;
   }
 
-  if (ospf_is_v2(p) && !ospf_pkt_checkauth(n, ifa, pkt, size))
-  {
-    log(L_ERR "%s%I - authentication failed", mesg, sk->faddr);
+  /* ospf_pkt_checkauth() has its own error logging */
+  if (ospf_is_v2(p) && !ospf_pkt_checkauth(n, ifa, pkt, len))
     return 1;
-  }
 
   switch (pkt->type)
   {
@@ -484,9 +428,14 @@ ospf_rx_hook(sock *sk, int size)
     break;
 
   default:
-    log(L_ERR "%s%I - wrong type %u", mesg, sk->faddr, pkt->type);
-    return 1;
+    DROP("invalid packet type", pkt->type);
   };
+  return 1;
+
+drop:
+  LOG_PKT("Bad packet from %I via %s - %s (%u)",
+	  sk->faddr, ifa->ifname, err_dsc, err_val);
+
   return 1;
 }
 

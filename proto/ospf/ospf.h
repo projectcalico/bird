@@ -73,12 +73,28 @@
 // FIXME: MAX_PREFIX_LENGTH
 
 #define OSPF_TRACE(flags, msg, args...) \
-do { if ((p->p.debug & flags) || OSPF_FORCE_DEBUG) \
-  log(L_TRACE "%s: " msg, p->p.name , ## args ); } while(0)
+  do { if ((p->p.debug & flags) || OSPF_FORCE_DEBUG) \
+    log(L_TRACE "%s: " msg, p->p.name , ## args ); } while(0)
 
 #define OSPF_PACKET(dumpfn, buffer, msg, args...) \
-do { if ((p->p.debug & D_PACKETS) || OSPF_FORCE_DEBUG) \
-  { log(L_TRACE "%s: " msg, p->p.name, ## args ); dumpfn(p, buffer); } } while(0)
+  do { if ((p->p.debug & D_PACKETS) || OSPF_FORCE_DEBUG)		\
+    { log(L_TRACE "%s: " msg, p->p.name, ## args ); dumpfn(p, buffer); } } while(0)
+
+#define LOG_PKT(msg, args...) \
+  log_rl(&p->log_pkt_tbf, L_REMOTE "%s: " msg, p->p.name, args)
+
+#define LOG_PKT_AUTH(msg, args...) \
+  log_rl(&p->log_pkt_tbf, L_AUTH "%s: " msg, p->p.name, args)
+
+#define LOG_PKT_WARN(msg, args...) \
+  log_rl(&p->log_pkt_tbf, L_WARN "%s: " msg, p->p.name, args)
+
+#define LOG_LSA1(msg, args...) \
+  log_rl(&p->log_lsa_tbf, L_REMOTE "%s: " msg, p->p.name, args)
+
+#define LOG_LSA2(msg, args...) \
+  do { if (! p->log_lsa_tbf.mark) \
+    log(L_REMOTE "%s: " msg, p->p.name, args); } while(0)
 
 
 #define OSPF_PROTO 89
@@ -248,6 +264,8 @@ struct ospf_proto
   sock *vlink_sk;		/* IP socket used for vlink TX */
   u32 router_id;
   u32 last_vlink_id;		/* Interface IDs for vlinks (starts at 0x80000000) */
+  struct tbf log_pkt_tbf;	/* TBF for packet messages */
+  struct tbf log_lsa_tbf;	/* TBF for LSA messages */
 };
 
 struct ospf_area
@@ -283,7 +301,7 @@ struct ospf_iface
 
   pool *pool;
   sock *sk;			/* IP socket */
-  list neigh_list;		/* List of neigbours (struct ospf_neighbor) */
+  list neigh_list;		/* List of neighbors (struct ospf_neighbor) */
   u32 cost;			/* Cost of iface */
   u32 waitint;			/* number of sec before changing state from wait */
   u32 rxmtint;			/* number of seconds between LSA retransmissions */
@@ -368,8 +386,8 @@ struct ospf_neighbor
 
   /* Entries dr and bdr store IP addresses in OSPFv2 and router IDs in
      OSPFv3, we use the same type to simplify handling */
-  u32 dr;			/* Neigbour's idea of DR */
-  u32 bdr;			/* Neigbour's idea of BDR */
+  u32 dr;			/* Neighbor's idea of DR */
+  u32 bdr;			/* Neighbor's idea of BDR */
   u32 iface_id;			/* ID of Neighbour's iface connected to common network */
 
   /* Database summary list iterator, controls initial dbdes exchange.
@@ -890,7 +908,6 @@ void ospf_neigh_sm(struct ospf_neighbor *n, int event);
 void ospf_dr_election(struct ospf_iface *ifa);
 struct ospf_neighbor *find_neigh(struct ospf_iface *ifa, u32 rid);
 struct ospf_neighbor *find_neigh_by_ip(struct ospf_iface *ifa, ip_addr ip);
-void ospf_neigh_remove(struct ospf_neighbor *n);
 void ospf_neigh_update_bfd(struct ospf_neighbor *n, int use_bfd);
 void ospf_sh_neigh_info(struct ospf_neighbor *n);
 
@@ -916,6 +933,10 @@ static inline void ospf_send_to_des(struct ospf_iface *ifa)
     ospf_send_to_bdr(ifa);
 }
 
+#define DROP(DSC,VAL) do { err_dsc = DSC; err_val = VAL; goto drop; } while(0)
+#define DROP1(DSC) do { err_dsc = DSC; goto drop; } while(0)
+#define SKIP(DSC) do { err_dsc = DSC; goto skip; } while(0)
+
 static inline uint ospf_pkt_hdrlen(struct ospf_proto *p)
 { return ospf_is_v2(p) ? (sizeof(struct ospf_packet) + sizeof(union ospf_auth)) : sizeof(struct ospf_packet); }
 
@@ -931,7 +952,8 @@ void ospf_send_hello(struct ospf_iface *ifa, int kind, struct ospf_neighbor *dir
 void ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa, struct ospf_neighbor *n, ip_addr faddr);
 
 /* dbdes.c */
-void ospf_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n, int next);
+void ospf_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n);
+void ospf_rxmt_dbdes(struct ospf_proto *p, struct ospf_neighbor *n);
 void ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa, struct ospf_neighbor *n);
 
 /* lsreq.c */

@@ -338,7 +338,7 @@ ospf_send_lsupd(struct ospf_proto *p, struct top_hash_entry **lsa_list, uint lsa
       { i++; continue; }
 
     OSPF_PACKET(ospf_dump_lsupd, ospf_tx_buffer(ifa),
-		"LSUPD packet sent to %I via %s", n->ip, ifa->ifname);
+		"LSUPD packet sent to nbr %R on %s", n->rid, ifa->ifname);
 
     ospf_send_to(ifa, n->ip);
   }
@@ -396,24 +396,22 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
 		   struct ospf_neighbor *n)
 {
   struct ospf_proto *p = ifa->oa->po;
-
-  /* RFC 2328 13. */
-
+  const char *err_dsc = NULL;
+  uint plen, err_val = 0;
   int skip_lsreq = 0;
   n->want_lsreq = 0;
 
-  uint plen = ntohs(pkt->length);
-  if (plen < (ospf_lsupd_hdrlen(p) + sizeof(struct ospf_lsa_header)))
-  {
-    log(L_ERR "OSPF: Bad LSUPD packet from %I - too short (%u B)", n->ip, plen);
-    return;
-  }
+  /* RFC 2328 13. */
 
-  OSPF_PACKET(ospf_dump_lsupd, pkt, "LSUPD packet received from %I via %s", n->ip, ifa->ifname);
+  plen = ntohs(pkt->length);
+  if (plen < (ospf_lsupd_hdrlen(p) + sizeof(struct ospf_lsa_header)))
+    DROP("too short", plen);
+
+  OSPF_PACKET(ospf_dump_lsupd, pkt, "LSUPD packet received from nbr %R on %s", n->rid, ifa->ifname);
 
   if (n->state < NEIGHBOR_EXCHANGE)
   {
-    OSPF_TRACE(D_PACKETS, "Received lsupd in lesser state than EXCHANGE from (%I)", n->ip);
+    OSPF_TRACE(D_PACKETS, "LSUPD packet ignored - lesser state than Exchange");
     return;
   }
 
@@ -429,33 +427,18 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
     u32 lsa_len, lsa_type, lsa_domain;
 
     if (offset > bound)
-    {
-      log(L_WARN "%s: Received LSUPD from %I is too short", p->p.name, n->ip);
-      ospf_neigh_sm(n, INM_BADLSREQ);
-      return;
-    }
+      DROP("too short", plen);
 
     /* LSA header in network order */
     lsa_n = ((void *) pkt) + offset;
     lsa_len = ntohs(lsa_n->length);
     offset += lsa_len;
 
-    if ((offset > plen) || ((lsa_len % 4) != 0) ||
-	(lsa_len <= sizeof(struct ospf_lsa_header)))
-    {
-      log(L_WARN "%s: Received LSA from %I with bad length", p->p.name, n->ip);
-      ospf_neigh_sm(n, INM_BADLSREQ);
-      return;
-    }
+    if (offset > plen)
+      DROP("too short", plen);
 
-    /* RFC 2328 13. (1) - validate LSA checksum */
-    u16 chsum = lsa_n->checksum;
-    if (chsum != lsasum_check(lsa_n, NULL))
-    {
-      log(L_WARN "%s: Received LSA from %I with bad checksum: %x %x",
-	  p->p.name, n->ip, chsum, lsa_n->checksum);
-      continue;
-    }
+    if (((lsa_len % 4) != 0) || (lsa_len <= sizeof(struct ospf_lsa_header)))
+      DROP("invalid LSA length", lsa_len);
 
     /* LSA header in host order */
     lsa_ntoh_hdr(lsa_n, &lsa);
@@ -464,33 +447,25 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
     DBG("Update Type: %04x, Id: %R, Rt: %R, Sn: 0x%08x, Age: %u, Sum: %u\n",
 	lsa_type, lsa.id, lsa.rt, lsa.sn, lsa.age, lsa.checksum);
 
+    /* RFC 2328 13. (1) - validate LSA checksum */
+    if (lsa_n->checksum != lsasum_check(lsa_n, NULL))
+      SKIP("invalid checksum");
+
     /* RFC 2328 13. (2) */
     if (!lsa_type)
-    {
-      log(L_WARN "%s: Received unknown LSA type from %I", p->p.name, n->ip);
-      continue;
-    }
+      SKIP("unknown type");
 
     /* RFC 5340 4.5.1 (2) and RFC 2328 13. (3) */
     if (!oa_is_ext(ifa->oa) && (LSA_SCOPE(lsa_type) == LSA_SCOPE_AS))
-    {
-      log(L_WARN "%s: Received LSA with AS scope in stub area from %I", p->p.name, n->ip);
-      continue;
-    }
+      SKIP("AS scope in stub area");
 
     /* Errata 3746 to RFC 2328 - rt-summary-LSAs forbidden in stub areas */
     if (!oa_is_ext(ifa->oa) && (lsa_type == LSA_T_SUM_RT))
-    {
-      log(L_WARN "%s: Received rt-summary-LSA in stub area from %I", p->p.name, n->ip);
-      continue;
-    }
+      SKIP("rt-summary-LSA in stub area");
 
     /* RFC 5340 4.5.1 (3) */
     if (LSA_SCOPE(lsa_type) == LSA_SCOPE_RES)
-    {
-      log(L_WARN "%s: Received LSA with invalid scope from %I", p->p.name, n->ip);
-      continue;
-    }
+      SKIP("invalid scope");
 
     /* Find local copy of LSA in link state database */
     en = ospf_hash_find(p->gr, lsa_domain, lsa.id, lsa.rt, lsa_type);
@@ -528,9 +503,8 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
       if (lsa_validate(&lsa, lsa_type, ospf_is_v2(p), body) == 0)
       {
-	log(L_WARN "%s: Received invalid LSA from %I", p->p.name, n->ip);
 	mb_free(body);
-	continue;
+	SKIP("invalid body");
       }
 
       /* 13. (5f) - handle self-originated LSAs, see also 13.4. */
@@ -542,8 +516,8 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	continue;
       }
 
-      /* 13. (5c) - remove old LSA from all retransmission lists */
-      /*
+      /* 13. (5c) - remove old LSA from all retransmission lists
+       *
        * We only need to remove it from the retransmission list of the neighbor
        * that send us the new LSA. The old LSA is automatically replaced in
        * retransmission lists by the new LSA.
@@ -561,8 +535,8 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
       WALK_LIST(ifi, p->iface_list)
 	WALK_LIST(ni, ifi->neigh_list)
-	if (ni->state > NEIGHBOR_EXSTART)
-	  ospf_lsa_lsrt_down(en, ni);
+	  if (ni->state > NEIGHBOR_EXSTART)
+	    ospf_lsa_lsrt_down(en, ni);
 #endif
 
       /* 13. (5d) - install new LSA into database */
@@ -615,7 +589,13 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       /* Send newer local copy back to neighbor */
       /* FIXME - check for MinLSArrival ? */
       ospf_send_lsupd(p, &en, 1, n);
+
+      continue;
     }
+
+  skip:
+    LOG_LSA1("Bad LSA (Type: %04x, Id: %R, Rt: %R) in LSUPD", lsa_type, lsa.id, lsa.rt);
+    LOG_LSA2("  received from nbr %R on %s - %s", n->rid, ifa->ifname, err_dsc);
   }
 
   /* Send direct LSACKs */
@@ -630,4 +610,14 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
    */
   if ((n->state == NEIGHBOR_LOADING) && n->want_lsreq && !skip_lsreq)
     ospf_send_lsreq(p, n);
+
+  return;
+
+drop:
+  LOG_PKT("Bad LSUPD packet from nbr %R on %s - %s (%u)",
+	  n->rid, ifa->ifname, err_dsc, err_val);
+
+  // XXXX realy?
+  ospf_neigh_sm(n, INM_SEQMIS);
+  return;
 }
