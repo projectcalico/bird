@@ -187,7 +187,7 @@ pxlen:
      $$ = $2;
    }
  | ':' ipa {
-     $$ = ipa_mklen($2);
+     $$ = ipa_masklen($2);
      if ($$ < 0) cf_error("Invalid netmask %I", $2);
    }
  ;

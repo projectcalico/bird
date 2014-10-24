@@ -63,7 +63,7 @@ bgp_proto:
  | bgp_proto NEIGHBOR ipa ipa_scope ipa_port AS expr ';' {
      if (ipa_nonzero(BGP_CFG->remote_ip))
        cf_error("Only one neighbor per BGP instance is allowed");
-     if (!ipa_has_link_scope($3) != !$4)
+     if (!ipa_is_link_local($3) != !$4)
        cf_error("Link-local address and interface scope must be used together");
 
      BGP_CFG->remote_ip = $3;

@@ -37,36 +37,9 @@
 #endif
 
 
-#define IP4_MIN_MTU		576
-#define IP6_MIN_MTU		1280
-
-#define IP4_OSPF_ALL_ROUTERS	ipa_build4(224, 0, 0, 5)
-#define IP4_OSPF_DES_ROUTERS	ipa_build4(224, 0, 0, 6)
-
-#define IP6_OSPF_ALL_ROUTERS	ipa_build6(0xFF020000, 0, 0, 5)
-#define IP6_OSPF_DES_ROUTERS	ipa_build6(0xFF020000, 0, 0, 6)
-
 #ifdef IPV6
-#define ip4_addr u32
-#define ip6_addr ip_addr
-#define _MI6(x1,x2,x3,x4) _MI(x1, x2, x3, x4)
-#define ipa_is_link_local(x) ipa_has_link_scope(x)
-#define ipa_from_u32(x) _MI6(0,0,0xffff,x)
-#define ipa_to_u32(x) _I3(x)
-#define ipa_build4(a,b,c,d) IPA_NONE
-#define ipa_build6(a,b,c,d) _MI6(a,b,c,d)
 #define OSPF_IS_V2 0
 #else
-#define ip4_addr u32
-#define ip6_addr ip_addr
-#define _I0(X) 0
-#define _I1(X) 0
-#define _I2(X) 0
-#define _I3(X) 0
-#define _MI6(x1,x2,x3,x4) IPA_NONE
-#define ipa_is_link_local(x) 0
-#define ipa_build4(a,b,c,d) _MI(((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
-#define ipa_build6(a,b,c,d) IPA_NONE
 #define OSPF_IS_V2 1
 #endif
 
@@ -744,9 +717,11 @@ lsa_net_count(struct ospf_lsa_header *lsa)
 #define ipa_from_rid(x) ipa_from_u32(x)
 #define ipa_to_rid(x) ipa_to_u32(x)
 
-
 #define IPV6_PREFIX_SPACE(x) ((((x) + 63) / 32) * 4)
 #define IPV6_PREFIX_WORDS(x) (((x) + 63) / 32)
+
+/* FIXME: these four functions should be significantly redesigned w.r.t. integration,
+   also should be named as ospf3_* instead of *_ipv6_* */
 
 static inline u32 *
 lsa_get_ipv6_prefix(u32 *buf, ip_addr *addr, int *pxlen, u8 *pxopts, u16 *rest)
@@ -787,6 +762,7 @@ lsa_get_ipv6_addr(u32 *buf, ip_addr *addr)
 static inline u32 *
 put_ipv6_prefix(u32 *buf, ip_addr addr, u8 pxlen, u8 pxopts, u16 lh)
 {
+#ifdef IPV6
   *buf++ = ((pxlen << 24) | (pxopts << 16) | lh);
 
   if (pxlen > 0)
@@ -797,6 +773,7 @@ put_ipv6_prefix(u32 *buf, ip_addr addr, u8 pxlen, u8 pxopts, u16 lh)
     *buf++ = _I2(addr);
   if (pxlen > 96)
     *buf++ = _I3(addr);
+#endif
   return buf;
 }
 

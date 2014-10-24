@@ -305,7 +305,7 @@ advertise_entry( struct proto *p, struct rip_block *b, ip_addr whotoldme, struct
   A.flags = 0;
 #ifndef IPV6
   A.gw = ipa_nonzero(b->nexthop) ? b->nexthop : whotoldme;
-  pxlen = ipa_mklen(b->netmask);
+  pxlen = ipa_masklen(b->netmask);
 #else
   /* FIXME: next hop is in other packet for v6 */
   A.gw = whotoldme; 
@@ -365,7 +365,7 @@ process_block( struct proto *p, struct rip_block *block, ip_addr whotoldme, stru
 
 #ifndef IPV6
   metric = ntohl( block->metric );
-  pxlen = ipa_mklen(block->netmask);
+  pxlen = ipa_masklen(block->netmask);
 #else
   metric = block->metric;
   pxlen = block->pxlen;
@@ -447,7 +447,7 @@ rip_process_packet( struct proto *p, struct rip_packet *packet, int num, ip_addr
 	    ipa_ntoh( block->netmask );
 	    ipa_ntoh( block->nexthop );
 	    if (packet->heading.version == RIP_V1)	/* FIXME (nonurgent): switch to disable this? */
-	      block->netmask = ipa_class_mask(block->network);
+	      block->netmask = ip4_class_mask(ipa_to_ip4(block->network));
 #endif
 	    process_block( p, block, whotoldme, iface );
 	  }
@@ -721,7 +721,7 @@ new_iface(struct proto *p, struct iface *new, unsigned long flags, struct iface_
 #ifndef IPV6
       rif->sock->daddr = ipa_from_u32(0xe0000009);
 #else
-      rif->sock->daddr = ipa_build(0xff020000, 0, 0, 9);
+      rif->sock->daddr = IP6_RIP_ROUTERS;
 #endif
     } else {
       rif->sock->daddr = new->addr->brd;
@@ -812,7 +812,7 @@ rip_if_notify(struct proto *p, unsigned c, struct iface *iface)
 #ifndef IPV6
       lock->addr = ipa_from_u32(0xe0000009);
 #else
-      ip_pton("FF02::9", &lock->addr);
+      lock->addr = IP6_RIP_ROUTERS;
 #endif
     else
       lock->addr = iface->addr->brd;

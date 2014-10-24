@@ -69,8 +69,8 @@ mrt_put_bgp4_hdr(byte *buf, struct bgp_conn *conn, int as4)
   put_u16(buf+0, (p->neigh && p->neigh->iface) ? p->neigh->iface->index : 0);
   put_u16(buf+2, BGP_AF);
   buf+=4;
-  buf = ipa_put_addr(buf, conn->sk ? conn->sk->daddr : IPA_NONE);
-  buf = ipa_put_addr(buf, conn->sk ? conn->sk->saddr : IPA_NONE);
+  buf = put_ipa(buf, conn->sk ? conn->sk->daddr : IPA_NONE);
+  buf = put_ipa(buf, conn->sk ? conn->sk->saddr : IPA_NONE);
 
   return buf;
 }
@@ -522,7 +522,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  *tmp++ = BGP_AF_IPV6;
 	  *tmp++ = 1;
 
-	  if (ipa_has_link_scope(ip))
+	  if (ipa_is_link_local(ip))
 	    ip = IPA_NONE;
 
 	  if (ipa_nonzero(ip_ll))
@@ -1034,7 +1034,7 @@ bgp_set_next_hop(struct bgp_proto *p, rta *a)
   int second = (nh->u.ptr->length == NEXT_HOP_LENGTH) && ipa_nonzero(nexthop[1]);
 
   /* First address should not be link-local, but may be zero in direct mode */
-  if (ipa_has_link_scope(*nexthop))
+  if (ipa_is_link_local(*nexthop))
     *nexthop = IPA_NONE;
 #else
   int second = 0;

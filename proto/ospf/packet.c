@@ -265,7 +265,8 @@ ospf_rx_hook(sock *sk, int len)
   }
 
   /* Second, we check packet length, checksum, and the protocol version */
-  struct ospf_packet *pkt = (struct ospf_packet *) ip_skip_header(sk->rbuf, &len);
+  struct ospf_packet *pkt = (void *) sk_rx_buffer(sk, &len);
+
 
   if (pkt == NULL)
     DROP("bad IP header", len);

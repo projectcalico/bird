@@ -1319,7 +1319,7 @@ prepare_link_lsa_body(struct ospf_proto *p, struct ospf_iface *ifa)
   ASSERT(p->lsab_used == 0);
   ll = lsab_allocz(p, sizeof(struct ospf_lsa_link));
   ll->options = ifa->oa->options | (ifa->priority << 24);
-  ll->lladdr = ifa->addr->ip;
+  ll->lladdr = ipa_to_ip6(ifa->addr->ip);
   ll = NULL; /* buffer might be reallocated later */
 
   struct ifa *a;

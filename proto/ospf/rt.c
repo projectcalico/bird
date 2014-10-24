@@ -1822,10 +1822,10 @@ calc_next_hop(struct ospf_area *oa, struct top_hash_entry *en,
 
       struct ospf_lsa_link *llsa = lhe->lsa_body;
 
-      if (ipa_zero(llsa->lladdr))
+      if (ip6_zero(llsa->lladdr))
 	return NULL;
 
-      return new_nexthop(p, llsa->lladdr, pn->iface, pn->weight);
+      return new_nexthop(p, ipa_from_ip6(llsa->lladdr), pn->iface, pn->weight);
     }
   }
 
