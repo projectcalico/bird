@@ -3390,11 +3390,10 @@ versions of BIRD:
 <sect>Getting more help
 
 <p>If you use BIRD, you're welcome to join the bird-users mailing list
-(<HTMLURL URL="mailto:bird-users@bird.network.cz" name="bird-users@bird.network.cz">)
+(<HTMLURL URL="mailto:bird-users@network.cz" name="bird-users@network.cz">)
 where you can share your experiences with the other users and consult
-your problems with the authors. To subscribe to the list, just send a
-<tt/subscribe bird-users/ command in a body of a mail to
-(<HTMLURL URL="mailto:majordomo@bird.network.cz" name="majordomo@bird.network.cz">).
+your problems with the authors. To subscribe to the list, visit
+<HTMLURL URL="http://bird.network.cz/?m_list" name="http://bird.network.cz/?m_list">.
 The home page of BIRD can be found at <HTMLURL URL="http://bird.network.cz/" name="http://bird.network.cz/">.
 
 <p>BIRD is a relatively young system and it probably contains some bugs. You can
