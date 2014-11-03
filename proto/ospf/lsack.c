@@ -162,23 +162,20 @@ ospf_receive_lsack(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
     if (lsa_comp(&lsa, &ret->lsa) != CMP_SAME)
     {
-      OSPF_TRACE(D_PACKETS, "Strange LSACK from %I", n->ip);
-      OSPF_TRACE(D_PACKETS, "Type: %04x, Id: %R, Rt: %R",
+      OSPF_TRACE(D_PACKETS, "Strange LSACK from nbr %R on %s", n->rid, ifa->ifname);
+      OSPF_TRACE(D_PACKETS, "    Type: %04x, Id: %R, Rt: %R",
 		 lsa_type, lsa.id, lsa.rt);
-      OSPF_TRACE(D_PACKETS, "I have: Age: %4u, Seq: %08x, Sum: %04x",
-		 ret->lsa.age, ret->lsa.sn, ret->lsa.checksum);
-      OSPF_TRACE(D_PACKETS, "He has: Age: %4u, Seq: %08x, Sum: %04x",
-		 lsa.age, lsa.sn, lsa.checksum);
+      OSPF_TRACE(D_PACKETS, "    I have: Seq: %08x, Age: %4u, Sum: %04x",
+		 ret->lsa.sn, ret->lsa.age, ret->lsa.checksum);
+      OSPF_TRACE(D_PACKETS, "    It has: Seq: %08x, Age: %4u, Sum: %04x",
+		 lsa.sn, lsa.age, lsa.checksum);
       continue;
     }
 
-    en = ospf_hash_find_entry(p->gr, ret);
-    if (en)
-      en->ret_count--;
-
     DBG("Deleting LSA (Type: %04x Id: %R Rt: %R) from lsrtl for neighbor %R\n",
 	lsa_type, lsa.id, lsa.rt, n->rid);
-    s_rem_node(SNODE ret);
-    ospf_hash_delete(n->lsrth, ret);
+
+    en = ospf_hash_find_entry(p->gr, ret);
+    ospf_lsa_lsrt_down_(en, n, ret);
   }
 }

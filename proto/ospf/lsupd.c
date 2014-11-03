@@ -32,8 +32,8 @@ ospf_dump_lsahdr(struct ospf_proto *p, struct ospf_lsa_header *lsa_n)
   lsa_ntoh_hdr(lsa_n, &lsa);
   lsa_etype = lsa_get_etype(&lsa, p);
 
-  log(L_TRACE "%s:     LSA      Type: %04x, Id: %R, Rt: %R, Age: %u, Seq: %08x, Sum: %04x",
-      p->p.name, lsa_etype, lsa.id, lsa.rt, lsa.age, lsa.sn, lsa.checksum);
+  log(L_TRACE "%s:     LSA      Type: %04x, Id: %R, Rt: %R, Seq: %08x, Age: %u, Sum: %04x",
+      p->p.name, lsa_etype, lsa.id, lsa.rt, lsa.sn, lsa.age, lsa.checksum);
 }
 
 void
@@ -65,44 +65,62 @@ ospf_lsupd_set_lsa_count(struct ospf_packet *pkt, uint hdrlen, u32 val)
 
 static inline void
 ospf_lsupd_body(struct ospf_proto *p, struct ospf_packet *pkt,
-		uint *offset, uint *bound, uint *lsa_count)
+		uint *offset, uint *lsa_count)
 {
   uint hlen = ospf_lsupd_hdrlen(p);
   *offset = hlen;
-  *bound = ntohs(pkt->length) - sizeof(struct ospf_lsa_header);
   *lsa_count = ospf_lsupd_get_lsa_count(pkt, hlen);
 }
 
 static void
 ospf_dump_lsupd(struct ospf_proto *p, struct ospf_packet *pkt)
 {
-  uint offset, bound, i, lsa_count, lsalen;
+  uint offset, plen, i, lsa_count, lsa_len;
 
   ASSERT(pkt->type == LSUPD_P);
   ospf_dump_common(p, pkt);
 
-  ospf_lsupd_body(p, pkt, &offset, &bound, &lsa_count);
+  plen = ntohs(pkt->length);
+  ospf_lsupd_body(p, pkt, &offset, &lsa_count);
   for (i = 0; i < lsa_count; i++)
   {
-    if (offset > bound)
-    {
-      log(L_TRACE "%s:     LSA      invalid", p->p.name);
-      return;
-    }
+    if ((offset + sizeof(struct ospf_lsa_header)) > plen)
+      goto invalid;
 
     struct ospf_lsa_header *lsa = ((void *) pkt) + offset;
-    ospf_dump_lsahdr(p, lsa);
-    lsalen = ntohs(lsa->length);
-    offset += lsalen;
+    lsa_len = ntohs(lsa->length);
 
-    if (((lsalen % 4) != 0) || (lsalen <= sizeof(struct ospf_lsa_header)))
-    {
-      log(L_TRACE "%s:     LSA      invalid", p->p.name);
-      return;
-    }
+    if (((lsa_len % 4) != 0) || (lsa_len <= sizeof(struct ospf_lsa_header)))
+      goto invalid;
+
+    ospf_dump_lsahdr(p, lsa);
+    offset += lsa_len;
   }
+  return;
+
+invalid:
+  log(L_TRACE "%s:     LSA      invalid", p->p.name);
+  return;
 }
 
+
+static inline void
+ospf_lsa_lsrq_down(struct top_hash_entry *req, struct ospf_neighbor *n, struct ospf_neighbor *from)
+{
+  if (req == n->lsrqi)
+    n->lsrqi = SNODE_NEXT(req);
+
+  s_rem_node(SNODE req);
+  ospf_hash_delete(n->lsrqh, req);
+
+  if (EMPTY_SLIST(n->lsrql))
+  {
+    tm_stop(n->lsrq_timer);
+
+    if (n->state == NEIGHBOR_LOADING)
+      ospf_neigh_sm(n, INM_LOADDONE);
+  }
+}
 
 static inline void
 ospf_lsa_lsrt_up(struct top_hash_entry *en, struct ospf_neighbor *n)
@@ -117,6 +135,22 @@ ospf_lsa_lsrt_up(struct top_hash_entry *en, struct ospf_neighbor *n)
 
   ret->lsa = en->lsa;
   ret->lsa_body = LSA_BODY_DUMMY;
+
+  if (!tm_active(n->lsrt_timer))
+    tm_start(n->lsrt_timer, n->ifa->rxmtint);
+}
+
+void
+ospf_lsa_lsrt_down_(struct top_hash_entry *en, struct ospf_neighbor *n, struct top_hash_entry *ret)
+{
+  if (en)
+    en->ret_count--;
+
+  s_rem_node(SNODE ret);
+  ospf_hash_delete(n->lsrth, ret);
+
+  if (EMPTY_SLIST(n->lsrtl))
+    tm_stop(n->lsrt_timer);
 }
 
 static inline int
@@ -125,14 +159,9 @@ ospf_lsa_lsrt_down(struct top_hash_entry *en, struct ospf_neighbor *n)
   struct top_hash_entry *ret = ospf_hash_find_entry(n->lsrth, en);
 
   if (ret)
-  {
-    en->ret_count--;
-    s_rem_node(SNODE ret);
-    ospf_hash_delete(n->lsrth, ret);
-    return 1;
-  }
+    ospf_lsa_lsrt_down_(en, n, ret);
 
-  return 0;
+  return ret != NULL;
 }
 
 void
@@ -144,10 +173,61 @@ ospf_add_flushed_to_lsrt(struct ospf_proto *p, struct ospf_neighbor *n)
     if ((en->lsa.age == LSA_MAXAGE) && (en->lsa_body != NULL) &&
 	lsa_flooding_allowed(en->lsa_type, en->domain, n->ifa))
       ospf_lsa_lsrt_up(en, n);
+
+  /* If we found any flushed LSA, we send them ASAP */
+  if (tm_active(n->lsrt_timer))
+    tm_start(n->lsrt_timer, 0);
 }
 
+static int ospf_flood_lsupd(struct ospf_proto *p, struct top_hash_entry **lsa_list, uint lsa_count, uint lsa_min_count, struct ospf_iface *ifa);
 
-static void ospf_send_lsupd_to_ifa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_iface *ifa);
+static void
+ospf_enqueue_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_iface *ifa)
+{
+  if (ifa->flood_queue_used == ifa->flood_queue_size)
+  {
+    /* If we already have full queue, we send some packets */
+    uint sent = ospf_flood_lsupd(p, ifa->flood_queue, ifa->flood_queue_used, ifa->flood_queue_used / 2, ifa);
+    int i;
+
+    for (i = 0; i < sent; i++)
+      ifa->flood_queue[i]->ret_count--;
+
+    ifa->flood_queue_used -= sent;
+    memmove(ifa->flood_queue, ifa->flood_queue + sent, ifa->flood_queue_used * sizeof(void *));
+    bzero(ifa->flood_queue + ifa->flood_queue_used, sent * sizeof(void *));
+  }
+
+  en->ret_count++;
+  ifa->flood_queue[ifa->flood_queue_used] = en;
+  ifa->flood_queue_used++;
+
+  if (!ev_active(p->flood_event))
+    ev_schedule(p->flood_event);
+}
+
+void
+ospf_flood_event(void *ptr)
+{
+  struct ospf_proto *p = ptr;
+  struct ospf_iface *ifa;
+  int i, count;
+
+  WALK_LIST(ifa, p->iface_list)
+  {
+    if (ifa->flood_queue_used == 0)
+      continue;
+
+    count = ifa->flood_queue_used;
+    ospf_flood_lsupd(p, ifa->flood_queue, count, count, ifa);
+
+    for (i = 0; i < count; i++)
+      ifa->flood_queue[i]->ret_count--;
+
+    ifa->flood_queue_used = 0;
+    bzero(ifa->flood_queue, count * sizeof(void *));
+  }
+}
 
 
 /**
@@ -195,14 +275,7 @@ ospf_flood_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_neig
 
 	  /* If same or newer, remove LSA from the link state request list */
 	  if (cmp > CMP_OLDER)
-	  {
-	    s_rem_node(SNODE req);
-	    ospf_hash_delete(n->lsrqh, req);
-	    n->want_lsreq = 1;
-
-	    if ((EMPTY_SLIST(n->lsrql)) && (n->state == NEIGHBOR_LOADING))
-	      ospf_neigh_sm(n, INM_LOADDONE);
-	  }
+	    ospf_lsa_lsrq_down(req, n, from);
 
 	  /* If older or same, skip processing of this neighbor */
 	  if (cmp < CMP_NEWER)
@@ -242,7 +315,7 @@ ospf_flood_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_neig
     }
 
     /* 13.3 (5) - finally flood the packet */
-    ospf_send_lsupd_to_ifa(p, en, ifa);
+    ospf_enqueue_lsa(p, en, ifa);
   }
 
   return back;
@@ -302,26 +375,33 @@ ospf_prepare_lsupd(struct ospf_proto *p, struct ospf_iface *ifa,
 }
 
 
-static void
-ospf_send_lsupd_to_ifa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_iface *ifa)
+static int
+ospf_flood_lsupd(struct ospf_proto *p, struct top_hash_entry **lsa_list, uint lsa_count, uint lsa_min_count, struct ospf_iface *ifa)
 {
-  uint c = ospf_prepare_lsupd(p, ifa, &en, 1);
+  uint i, c;
 
-  if (!c)	/* Too large LSA */
-    return;
-
-  OSPF_PACKET(ospf_dump_lsupd, ospf_tx_buffer(ifa),
-	      "LSUPD packet flooded via %s", ifa->ifname);
-
-  if (ifa->type == OSPF_IT_BCAST)
+  for (i = 0; i < lsa_min_count; i += c)
   {
-    if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
-      ospf_send_to_all(ifa);
+    c = ospf_prepare_lsupd(p, ifa, lsa_list + i, lsa_count - i);
+
+    if (!c)	/* Too large LSA */
+      { i++; continue; }
+
+    OSPF_PACKET(ospf_dump_lsupd, ospf_tx_buffer(ifa),
+		"LSUPD packet flooded via %s", ifa->ifname);
+
+    if (ifa->type == OSPF_IT_BCAST)
+    {
+      if ((ifa->state == OSPF_IS_DR) || (ifa->state == OSPF_IS_BACKUP))
+	ospf_send_to_all(ifa);
+      else
+	ospf_send_to_des(ifa);
+    }
     else
-      ospf_send_to_des(ifa);
+      ospf_send_to_agt(ifa, NEIGHBOR_EXCHANGE);
   }
-  else
-    ospf_send_to_agt(ifa, NEIGHBOR_EXCHANGE);
+
+  return i;
 }
 
 int
@@ -343,16 +423,18 @@ ospf_send_lsupd(struct ospf_proto *p, struct top_hash_entry **lsa_list, uint lsa
     ospf_send_to(ifa, n->ip);
   }
 
-  return lsa_count;
+  return i;
 }
 
 void
 ospf_rxmt_lsupd(struct ospf_proto *p, struct ospf_neighbor *n)
 {
-  const uint max = 128;
+  uint max = 2 * n->ifa->flood_queue_size;
   struct top_hash_entry *entries[max];
   struct top_hash_entry *ret, *nxt, *en;
   uint i = 0;
+
+  /* ASSERT((n->state >= NEIGHBOR_EXCHANGE) && !EMPTY_SLIST(n->lsrtl)); */
 
   WALK_SLIST_DELSAFE(ret, nxt, n->lsrtl)
   {
@@ -398,14 +480,15 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
   struct ospf_proto *p = ifa->oa->po;
   const char *err_dsc = NULL;
   uint plen, err_val = 0;
-  int skip_lsreq = 0;
-  n->want_lsreq = 0;
 
   /* RFC 2328 13. */
 
   plen = ntohs(pkt->length);
-  if (plen < (ospf_lsupd_hdrlen(p) + sizeof(struct ospf_lsa_header)))
-    DROP("too short", plen);
+  if (plen < ospf_lsupd_hdrlen(p))
+  {
+    LOG_PKT("Bad LSUPD packet from nbr %R on %s - %s (%u)", n->rid, ifa->ifname, "too short", plen);
+    return;
+  }
 
   OSPF_PACKET(ospf_dump_lsupd, pkt, "LSUPD packet received from nbr %R on %s", n->rid, ifa->ifname);
 
@@ -417,8 +500,8 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
 
   ospf_neigh_sm(n, INM_HELLOREC);	/* Questionable */
 
-  uint offset, bound, i, lsa_count;
-  ospf_lsupd_body(p, pkt, &offset, &bound, &lsa_count);
+  uint offset, i, lsa_count;
+  ospf_lsupd_body(p, pkt, &offset, &lsa_count);
 
   for (i = 0; i < lsa_count; i++)
   {
@@ -426,7 +509,7 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
     struct top_hash_entry *en;
     u32 lsa_len, lsa_type, lsa_domain;
 
-    if (offset > bound)
+    if ((offset + sizeof(struct ospf_lsa_header)) > plen)
       DROP("too short", plen);
 
     /* LSA header in network order */
@@ -492,7 +575,6 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       if (en && ((now - en->inst_time) < MINLSARRIVAL))
       {
 	OSPF_TRACE(D_EVENTS, "Skipping LSA received in less that MinLSArrival");
-	skip_lsreq = 1;
 	continue;
       }
 
@@ -559,7 +641,9 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       continue;
     }
 
-    /* FIXME pg145 (6) */
+    /* 13. (6) - received LSA is in Link state request list (but not newer) */
+    if (ospf_hash_find_entry(n->lsrqh, en) != NULL)
+      DROP1("error in LSA database exchange");
 
     /* 13. (7) - received LSA is same */
     if (lsa_comp(&lsa, &en->lsa) == CMP_SAME)
@@ -576,7 +660,6 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
       else
 	ospf_enqueue_lsack(n, lsa_n, ACKL_DIRECT);
 
-      skip_lsreq = 1;
       continue;
     }
 
@@ -601,15 +684,24 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
   /* Send direct LSACKs */
   ospf_send_lsack(p, n, ACKL_DIRECT);
 
+  /* Send enqueued LSAs immediately, do not wait for flood_event */
+  if (ev_active(p->flood_event))
+  {
+    ev_postpone(p->flood_event);
+    ospf_flood_event(p);
+  }
+
   /*
-   * In loading state, we should ask for another batch of LSAs. This is only
-   * vaguely mentioned in RFC 2328. We send a new LSREQ only if the current
-   * LSUPD actually removed some entries from LSA request list (want_lsreq) and
-   * did not contain duplicate or early LSAs (skip_lsreq). The first condition
-   * prevents endless floods, the second condition helps with flow control.
+   * During loading, we should ask for another batch of LSAs. This is only
+   * vaguely mentioned in RFC 2328. We send a new LSREQ if all requests sent in
+   * the last packet were already answered and/or removed from the LS request
+   * list and therefore lsrqi is pointing to the first node of the list.
    */
-  if ((n->state == NEIGHBOR_LOADING) && n->want_lsreq && !skip_lsreq)
+  if (!EMPTY_SLIST(n->lsrql) && (n->lsrqi == SHEAD(n->lsrql)))
+  {
     ospf_send_lsreq(p, n);
+    tm_start(n->lsrq_timer, n->ifa->rxmtint);
+  }
 
   return;
 
@@ -617,7 +709,7 @@ drop:
   LOG_PKT("Bad LSUPD packet from nbr %R on %s - %s (%u)",
 	  n->rid, ifa->ifname, err_dsc, err_val);
 
-  // XXXX realy?
-  ospf_neigh_sm(n, INM_SEQMIS);
+  /* Malformed LSUPD - there is no defined error event, we abuse BadLSReq */
+  ospf_neigh_sm(n, INM_BADLSREQ);
   return;
 }

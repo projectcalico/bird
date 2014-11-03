@@ -23,14 +23,18 @@ const char *ospf_inm_names[] = {
 
 
 static int can_do_adj(struct ospf_neighbor *n);
-static void neighbor_timer_hook(timer * timer);
-static void rxmt_timer_hook(timer * timer);
-static void ackd_timer_hook(timer * t);
+static void inactivity_timer_hook(timer * timer);
+static void dbdes_timer_hook(timer *t);
+static void lsrq_timer_hook(timer *t);
+static void lsrt_timer_hook(timer *t);
+static void ackd_timer_hook(timer *t);
+
 
 static void
 init_lists(struct ospf_proto *p, struct ospf_neighbor *n)
 {
   s_init_list(&(n->lsrql));
+  n->lsrqi = SHEAD(n->lsrql);
   n->lsrqh = ospf_top_new(p, n->pool);
 
   s_init_list(&(n->lsrtl));
@@ -57,9 +61,16 @@ release_lsrtl(struct ospf_proto *p, struct ospf_neighbor *n)
 static void
 reset_lists(struct ospf_proto *p, struct ospf_neighbor *n)
 {
-  release_lsrtl(p,n);
+  release_lsrtl(p, n);
   ospf_top_free(n->lsrqh);
   ospf_top_free(n->lsrth);
+  ospf_reset_lsack_queue(n);
+
+  tm_stop(n->dbdes_timer);
+  tm_stop(n->lsrq_timer);
+  tm_stop(n->lsrt_timer);
+  tm_stop(n->ackd_timer);
+
   init_lists(p, n);
 }
 
@@ -80,30 +91,14 @@ ospf_neighbor_new(struct ospf_iface *ifa)
   init_lists(p, n);
   s_init(&(n->dbsi), &(p->lsal));
 
-  n->inactim = tm_new(pool);
-  n->inactim->data = n;
-  n->inactim->randomize = 0;
-  n->inactim->hook = neighbor_timer_hook;
-  n->inactim->recurrent = 0;
-  DBG("%s: Installing inactivity timer.\n", p->p.name);
-
-  n->rxmt_timer = tm_new(pool);
-  n->rxmt_timer->data = n;
-  n->rxmt_timer->randomize = 0;
-  n->rxmt_timer->hook = rxmt_timer_hook;
-  n->rxmt_timer->recurrent = ifa->rxmtint;
-  tm_start(n->rxmt_timer, n->ifa->rxmtint);
-  DBG("%s: Installing rxmt timer.\n", p->p.name);
-
-  n->ackd_timer = tm_new(pool);
-  n->ackd_timer->data = n;
-  n->ackd_timer->randomize = 0;
-  n->ackd_timer->hook = ackd_timer_hook;
-  n->ackd_timer->recurrent = ifa->rxmtint / 2;
   init_list(&n->ackl[ACKL_DIRECT]);
   init_list(&n->ackl[ACKL_DELAY]);
-  tm_start(n->ackd_timer, n->ifa->rxmtint / 2);
-  DBG("%s: Installing ackd timer.\n", p->p.name);
+
+  n->inactim = tm_new_set(pool, inactivity_timer_hook, n, 0, 0);
+  n->dbdes_timer = tm_new_set(pool, dbdes_timer_hook, n, 0, ifa->rxmtint);
+  n->lsrq_timer = tm_new_set(pool, lsrq_timer_hook, n, 0, ifa->rxmtint);
+  n->lsrt_timer = tm_new_set(pool, lsrt_timer_hook, n, 0, ifa->rxmtint);
+  n->ackd_timer = tm_new_set(pool, ackd_timer_hook, n, 0, ifa->rxmtint / 2);
 
   return (n);
 }
@@ -188,6 +183,9 @@ ospf_neigh_chstate(struct ospf_neighbor *n, u8 state)
 
     n->dds++;
     n->myimms = DBDES_IMMS;
+
+    tm_start(n->dbdes_timer, 0);
+    tm_start(n->ackd_timer, ifa->rxmtint / 2);
   }
 
   if (state > NEIGHBOR_EXSTART)
@@ -253,16 +251,16 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
 
       /* Add MaxAge LSA entries to retransmission list */
       ospf_add_flushed_to_lsrt(p, n);
-
-      /* FIXME: Why is this here ? */
-      ospf_reset_lsack_queue(n);
     }
     else
       bug("NEGDONE and I'm not in EXSTART?");
     break;
 
   case INM_EXDONE:
-    ospf_neigh_chstate(n, NEIGHBOR_LOADING);
+    if (!EMPTY_SLIST(n->lsrql))
+      ospf_neigh_chstate(n, NEIGHBOR_LOADING);
+    else
+      ospf_neigh_chstate(n, NEIGHBOR_FULL);
     break;
 
   case INM_LOADDONE:
@@ -270,23 +268,15 @@ ospf_neigh_sm(struct ospf_neighbor *n, int event)
     break;
 
   case INM_ADJOK:
-    switch (n->state)
+    /* Can In build adjacency? */
+    if ((n->state == NEIGHBOR_2WAY) && can_do_adj(n))
     {
-    case NEIGHBOR_2WAY:
-      /* Can In build adjacency? */
-      if (can_do_adj(n))
-      {
-	ospf_neigh_chstate(n, NEIGHBOR_EXSTART);
-      }
-      break;
-    default:
-      if (n->state >= NEIGHBOR_EXSTART)
-	if (!can_do_adj(n))
-	{
-	  reset_lists(p, n);
-	  ospf_neigh_chstate(n, NEIGHBOR_2WAY);
-	}
-      break;
+      ospf_neigh_chstate(n, NEIGHBOR_EXSTART);
+    }
+    else if ((n->state >= NEIGHBOR_EXSTART) && !can_do_adj(n))
+    {
+      reset_lists(p, n);
+      ospf_neigh_chstate(n, NEIGHBOR_2WAY);
     }
     break;
 
@@ -566,12 +556,12 @@ find_neigh_by_ip(struct ospf_iface *ifa, ip_addr ip)
 }
 
 static void
-neighbor_timer_hook(timer * timer)
+inactivity_timer_hook(timer * timer)
 {
   struct ospf_neighbor *n = (struct ospf_neighbor *) timer->data;
   struct ospf_proto *p = n->ifa->oa->po;
 
-  OSPF_TRACE(D_EVENTS, "Inactivity timer expired for neighbor %R on %s",
+  OSPF_TRACE(D_EVENTS, "Inactivity timer expired for nbr %R on %s",
 	     n->rid, n->ifa->ifname);
   ospf_neigh_sm(n, INM_INACTTIM);
 }
@@ -584,7 +574,7 @@ ospf_neigh_bfd_hook(struct bfd_request *req)
 
   if (req->down)
   {
-    OSPF_TRACE(D_EVENTS, "BFD session down for neighbor %R on %s",
+    OSPF_TRACE(D_EVENTS, "BFD session down for nbr %R on %s",
 	       n->rid, n->ifa->ifname);
     ospf_neigh_sm(n, INM_INACTTIM);
   }
@@ -605,11 +595,60 @@ ospf_neigh_update_bfd(struct ospf_neighbor *n, int use_bfd)
 }
 
 
+static void
+dbdes_timer_hook(timer *t)
+{
+  struct ospf_neighbor *n = t->data;
+  struct ospf_proto *p = n->ifa->oa->po;
+
+  // OSPF_TRACE(D_EVENTS, "DBDES timer expired for nbr %R on %s", n->rid, n->ifa->ifname);
+
+  if (n->state == NEIGHBOR_EXSTART)
+    ospf_send_dbdes(p, n);
+
+  if ((n->state == NEIGHBOR_EXCHANGE) && (n->myimms & DBDES_MS))
+    ospf_rxmt_dbdes(p, n);
+}
+
+static void
+lsrq_timer_hook(timer *t)
+{
+  struct ospf_neighbor *n = t->data;
+  struct ospf_proto *p = n->ifa->oa->po;
+
+  // OSPF_TRACE(D_EVENTS, "LSRQ timer expired for nbr %R on %s", n->rid, n->ifa->ifname);
+
+  if ((n->state >= NEIGHBOR_EXCHANGE) && !EMPTY_SLIST(n->lsrql))
+    ospf_send_lsreq(p, n);
+}
+
+static void
+lsrt_timer_hook(timer *t)
+{
+  struct ospf_neighbor *n = t->data;
+  struct ospf_proto *p = n->ifa->oa->po;
+
+  // OSPF_TRACE(D_EVENTS, "LSRT timer expired for nbr %R on %s", n->rid, n->ifa->ifname);
+
+  if ((n->state >= NEIGHBOR_EXCHANGE) && !EMPTY_SLIST(n->lsrtl))
+    ospf_rxmt_lsupd(p, n);
+}
+
+static void
+ackd_timer_hook(timer *t)
+{
+  struct ospf_neighbor *n = t->data;
+  struct ospf_proto *p = n->ifa->oa->po;
+
+  ospf_send_lsack(p, n, ACKL_DELAY);
+}
+
+
 void
 ospf_sh_neigh_info(struct ospf_neighbor *n)
 {
   struct ospf_iface *ifa = n->ifa;
-  char *pos = "ptp  ";
+  char *pos = "PtP  ";
   char etime[6];
   int exp, sec, min;
 
@@ -628,55 +667,13 @@ ospf_sh_neigh_info(struct ospf_neighbor *n)
   if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
   {
     if (n->rid == ifa->drid)
-      pos = "dr   ";
+      pos = "DR   ";
     else if (n->rid == ifa->bdrid)
-      pos = "bdr  ";
+      pos = "BDR  ";
     else
-      pos = "other";
+      pos = "Other";
   }
 
   cli_msg(-1013, "%-1R\t%3u\t%s/%s\t%-5s\t%-10s %-1I", n->rid, n->priority,
 	  ospf_ns_names[n->state], pos, etime, ifa->ifname, n->ip);
-}
-
-static void
-rxmt_timer_hook(timer *t)
-{
-  struct ospf_neighbor *n = t->data;
-  struct ospf_proto *p = n->ifa->oa->po;
-
-  DBG("%s: RXMT timer fired on %s for neigh %I\n",
-      p->p.name, n->ifa->ifname, n->ip);
-
-  switch (n->state)
-  {
-  case NEIGHBOR_EXSTART:
-    ospf_send_dbdes(p, n);
-    return;
-
-  case NEIGHBOR_EXCHANGE:
-    if (n->myimms & DBDES_MS)
-      ospf_rxmt_dbdes(p, n);
-  case NEIGHBOR_LOADING:
-    ospf_send_lsreq(p, n);
-    return;
-
-  case NEIGHBOR_FULL:
-    /* LSA retransmissions */
-    if (!EMPTY_SLIST(n->lsrtl))
-      ospf_rxmt_lsupd(p, n);
-    return;
-  }
-}
-
-static void
-ackd_timer_hook(timer *t)
-{
-  struct ospf_neighbor *n = t->data;
-  struct ospf_proto *p = n->ifa->oa->po;
-
-  DBG("%s: ACKD timer fired on %s for neigh %I\n",
-      p->p.name, n->ifa->ifname, n->ip);
-
-  ospf_send_lsack(p, n, ACKL_DELAY);
 }

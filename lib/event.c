@@ -27,7 +27,7 @@ event_list global_event_list;
 inline void
 ev_postpone(event *e)
 {
-  if (e->n.next)
+  if (ev_active(e))
     {
       rem_node(&e->n);
       e->n.next = NULL;

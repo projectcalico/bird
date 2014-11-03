@@ -304,11 +304,8 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	nn->found = 1;
     }
 
-    // XXXX format
-    // "ospf1: New neighbor found: 192.168.1.1/fe80:1234:1234:1234:1234 on eth0";
-    // "ospf1: New neighbor found: 192.168.1.1 on eth0 at fe80:1234:1234:1234:1234";
-    // "ospf1: Neighbor 192.168.1.1 on eth0 found, IP adress fe80:1234:1234:1234:1234";
-    OSPF_TRACE(D_EVENTS, "New neighbor found: %I on %s", faddr, ifa->ifname);
+    OSPF_TRACE(D_EVENTS, "New neighbor %R on %s, IP address %I",
+	       rcv_rid, ifa->ifname, faddr);
 
     n = ospf_neighbor_new(ifa);
 

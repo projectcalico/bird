@@ -235,11 +235,7 @@ ospf_start(struct proto *P)
   p->asbr = c->asbr;
   p->ecmp = c->ecmp;
   p->tick = c->tick;
-  p->disp_timer = tm_new(P->pool);
-  p->disp_timer->data = p;
-  p->disp_timer->randomize = 0;
-  p->disp_timer->hook = ospf_disp;
-  p->disp_timer->recurrent = p->tick;
+  p->disp_timer = tm_new_set(P->pool, ospf_disp, p, 0, p->tick);
   tm_start(p->disp_timer, 1);
   p->lsab_size = 256;
   p->lsab_used = 0;
@@ -251,6 +247,10 @@ ospf_start(struct proto *P)
   p->areano = 0;
   p->gr = ospf_top_new(p, P->pool);
   s_init_list(&(p->lsal));
+
+  p->flood_event = ev_new(P->pool);
+  p->flood_event->hook = ospf_flood_event;
+  p->flood_event->data = p;
 
   p->log_pkt_tbf = (struct tbf){ .rate = 1, .burst = 5 };
   p->log_lsa_tbf = (struct tbf){ .rate = 4, .burst = 20 };
@@ -1439,14 +1439,14 @@ ospf_sh_lsadb(struct lsadb_show_data *ld)
 	break;
       }
       cli_msg(-1017, "");
-      cli_msg(-1017," Type   LS ID           Router           Age  Sequence  Checksum");
+      cli_msg(-1017," Type   LS ID           Router          Sequence   Age  Checksum");
 
       last_dscope = dscope;
       last_domain = hea[i]->domain;
     }
 
-    cli_msg(-1017," %04x  %-15R %-15R %5u  %08x    %04x",
-	    lsa_type, lsa->id, lsa->rt, lsa->age, lsa->sn, lsa->checksum);
+    cli_msg(-1017," %04x  %-15R %-15R  %08x %5u    %04x",
+	    lsa_type, lsa->id, lsa->rt, lsa->sn, lsa->age, lsa->checksum);
   }
   cli_msg(0, "");
 }

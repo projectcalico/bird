@@ -212,17 +212,6 @@ ospf_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
 
   ospf_prepare_dbdes(p, n);
   ospf_do_send_dbdes(p, n);
-
-  if (n->state == NEIGHBOR_EXSTART)
-    return;
-
-  /* Master should restart RXMT timer for each DBDES exchange */
-  if (n->myimms & DBDES_MS)
-    tm_start(n->rxmt_timer, n->ifa->rxmtint);
-
-  if (!(n->myimms & DBDES_MS))
-    if (!(n->myimms & DBDES_M) && !(n->imms & DBDES_M))
-      ospf_neigh_sm(n, INM_EXDONE);
 }
 
 void
@@ -277,13 +266,20 @@ ospf_process_dbdes(struct ospf_proto *p, struct ospf_packet *pkt, struct ospf_ne
     en = ospf_hash_find(p->gr, lsa_domain, lsa.id, lsa.rt, lsa_type);
     if (!en || (lsa_comp(&lsa, &(en->lsa)) == CMP_NEWER))
     {
+      /* This should be splitted to ospf_lsa_lsrq_up() */
       req = ospf_hash_get(n->lsrqh, lsa_domain, lsa.id, lsa.rt, lsa_type);
 
       if (!SNODE_VALID(req))
 	s_add_tail(&n->lsrql, SNODE req);
 
+      if (!SNODE_VALID(n->lsrqi))
+	n->lsrqi = req;
+
       req->lsa = lsa;
       req->lsa_body = LSA_BODY_DUMMY;
+
+      if (!tm_active(n->lsrq_timer))
+	tm_start(n->lsrq_timer, 0);
     }
   }
 
@@ -306,13 +302,16 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
   u32 rcv_ddseq, rcv_options;
   u16 rcv_iface_mtu;
   u8 rcv_imms;
-  uint plen, err_val = 0, err_seqmis = 0;
+  uint plen, err_val = 0;
 
   /* RFC 2328 10.6 */
 
   plen = ntohs(pkt->length);
   if (plen < ospf_dbdes_hdrlen(p))
-    DROP("too short", plen);
+  {
+    LOG_PKT("Bad DBDES packet from nbr %R on %s - %s (%u)", n->rid, ifa->ifname, "too short", plen);
+    return;
+  }
 
   OSPF_PACKET(ospf_dump_dbdes, pkt, "DBDES packet received from nbr %R on %s", n->rid, ifa->ifname);
 
@@ -366,6 +365,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       n->options = rcv_options;
       n->myimms &= ~DBDES_MS;
       n->imms = rcv_imms;
+      tm_stop(n->dbdes_timer);
       ospf_neigh_sm(n, INM_NEGDONE);
       ospf_send_dbdes(p, n);
       break;
@@ -381,6 +381,7 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
       n->ddr = rcv_ddseq - 1;	/* It will be set corectly a few lines down */
       n->imms = rcv_imms;
       ospf_neigh_sm(n, INM_NEGDONE);
+      /* Continue to the NEIGHBOR_EXCHANGE case */
     }
     else
     {
@@ -393,9 +394,6 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	(rcv_options == n->options) &&
 	(rcv_ddseq == n->ddr))
       goto duplicate;
-
-    /* Do INM_SEQMIS during packet error */
-    err_seqmis = 1;
 
     if ((rcv_imms & DBDES_MS) != (n->imms & DBDES_MS))
       DROP("MS-bit mismatch", rcv_imms);
@@ -422,9 +420,14 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	return;
 
       if (!(n->myimms & DBDES_M) && !(n->imms & DBDES_M))
+      {
+	tm_stop(n->dbdes_timer);
 	ospf_neigh_sm(n, INM_EXDONE);
-      else
-	ospf_send_dbdes(p, n);
+	break;
+      }
+
+      ospf_send_dbdes(p, n);
+      tm_start(n->dbdes_timer, n->ifa->rxmtint);
     }
     else
     {
@@ -440,6 +443,9 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	return;
 
       ospf_send_dbdes(p, n);
+
+      if (!(n->myimms & DBDES_M) && !(n->imms & DBDES_M))
+	ospf_neigh_sm(n, INM_EXDONE);
     }
     break;
 
@@ -449,8 +455,6 @@ ospf_receive_dbdes(struct ospf_packet *pkt, struct ospf_iface *ifa,
 	(rcv_options == n->options) &&
 	(rcv_ddseq == n->ddr))
       goto duplicate;
-
-    err_seqmis = 1;
 
     DROP("too late for DD exchange", n->state);
 
@@ -471,7 +475,6 @@ drop:
   LOG_PKT("Bad DBDES packet from nbr %R on %s - %s (%u)",
 	  n->rid, ifa->ifname, err_dsc, err_val);
 
-  if (err_seqmis)
-    ospf_neigh_sm(n, INM_SEQMIS);
+  ospf_neigh_sm(n, INM_SEQMIS);
   return;
 }

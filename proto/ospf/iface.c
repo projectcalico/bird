@@ -58,6 +58,12 @@ ifa_bufsize(struct ospf_iface *ifa)
   return MAX(bsize, ifa->tx_length);
 }
 
+static inline uint
+ifa_flood_queue_size(struct ospf_iface *ifa)
+{
+  return ifa->tx_length / 24;
+}
+
 int
 ospf_iface_assure_bufsize(struct ospf_iface *ifa, uint plen)
 {
@@ -476,6 +482,9 @@ ospf_iface_add(struct object_lock *lock)
 
     if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
       ifa->wait_timer = tm_new_set(ifa->pool, wait_timer_hook, ifa, 0, 0);
+
+    ifa->flood_queue_size = ifa_flood_queue_size(ifa);
+    ifa->flood_queue = mb_allocz(ifa->pool, ifa->flood_queue_size * sizeof(void *));
   }
 
   /* Do iface UP, unless there is no link and we use link detection */
@@ -679,6 +688,9 @@ ospf_iface_new_vlink(struct ospf_proto *p, struct ospf_iface_patt *ip)
   add_tail(&p->iface_list, NODE ifa);
 
   ifa->hello_timer = tm_new_set(ifa->pool, hello_timer_hook, ifa, 0, ifa->helloint);
+
+  ifa->flood_queue_size = ifa_flood_queue_size(ifa);
+  ifa->flood_queue = mb_allocz(ifa->pool, ifa->flood_queue_size * sizeof(void *));
 }
 
 static void
@@ -691,6 +703,20 @@ ospf_iface_change_timer(timer *tm, uint val)
 
   if (tm->expires)
     tm_start(tm, val);
+}
+
+static inline void
+ospf_iface_update_flood_queue_size(struct ospf_iface *ifa)
+{
+  uint old_size = ifa->flood_queue_size;
+  uint new_size = ifa_flood_queue_size(ifa);
+
+  if (new_size <= old_size)
+    return;
+
+  ifa->flood_queue_size = new_size;
+  ifa->flood_queue = mb_realloc(ifa->flood_queue, new_size * sizeof(void *));
+  bzero(ifa->flood_queue + old_size, (new_size - old_size) * sizeof(void *));
 }
 
 int
@@ -739,6 +765,7 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
 	       ifname, ifa->rxmtint, new->rxmtint);
 
     ifa->rxmtint = new->rxmtint;
+    /* FIXME: Update neighbors' timers */
   }
 
   /* POLL TIMER */
@@ -874,6 +901,9 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
     /* ifa cannot be vlink */
     ifa->tx_length = ifa_tx_length(ifa);
     update_buffers = 1;
+
+    if (!ifa->stub)
+      ospf_iface_update_flood_queue_size(ifa);
   }
 
   /* RX BUFFER */
@@ -1211,6 +1241,9 @@ ospf_iface_change_mtu(struct ospf_proto *p, struct ospf_iface *ifa)
     sk_set_rbsize(ifa->sk, bsize);
   if (bsize > ifa->sk->tbsize)
     sk_set_tbsize(ifa->sk, bsize);
+
+  if (!ifa->stub)
+    ospf_iface_update_flood_queue_size(ifa);
 }
 
 static void

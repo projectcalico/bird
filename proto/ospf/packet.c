@@ -260,7 +260,7 @@ ospf_rx_hook(sock *sk, int len)
      * link-local src address, but does not enforce it. Strange.
      */
     if (dst_mcast && !src_local)
-      LOG_PKT_WARN("Multicast packet received from not-link-local %I via %s",
+      LOG_PKT_WARN("Multicast packet received from non-link-local %I via %s",
 		   sk->faddr, ifa->ifname);
   }
 
@@ -396,8 +396,7 @@ found:
 
   if (!n && (pkt->type != HELLO_P))
   {
-    // XXXX format
-    OSPF_TRACE(D_PACKETS, "Non-HELLO packet received from unknown neighbor %R on %s (%I)",
+    OSPF_TRACE(D_PACKETS, "Non-HELLO packet received from unknown nbr %R on %s, src %I",
 	       rid, ifa->ifname, sk->faddr);
     return 1;
   }

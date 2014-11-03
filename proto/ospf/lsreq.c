@@ -54,41 +54,36 @@ ospf_send_lsreq(struct ospf_proto *p, struct ospf_neighbor *n)
 {
   struct ospf_iface *ifa = n->ifa;
   struct ospf_lsreq_header *lsrs;
-  struct top_hash_entry *en;
+  struct top_hash_entry *req;
   struct ospf_packet *pkt;
   uint i, lsr_max, length;
 
   /* RFC 2328 10.9 */
 
-  if (EMPTY_SLIST(n->lsrql))
-  {
-    if (n->state == NEIGHBOR_LOADING)
-      ospf_neigh_sm(n, INM_LOADDONE);
-    return;
-  }
+  /* ASSERT((n->state >= NEIGHBOR_EXCHANGE) && !EMPTY_SLIST(n->lsrql)); */
 
   pkt = ospf_tx_buffer(ifa);
   ospf_pkt_fill_hdr(ifa, pkt, LSREQ_P);
   ospf_lsreq_body(p, pkt, &lsrs, &lsr_max);
 
-  /* We send smaller LSREQ to prevent multiple LSACKs as answer */
-  lsr_max = lsr_max / 4;
-
   i = 0;
-  WALK_SLIST(en, n->lsrql)
+  WALK_SLIST(req, n->lsrql)
   {
     if (i == lsr_max)
       break;
 
     DBG("Requesting %uth LSA: Type: %04u, ID: %R, RT: %R, SN: 0x%x, Age %u\n",
-	i, en->lsa_type, en->lsa.id, en->lsa.rt, en->lsa.sn, en->lsa.age);
+	i, req->lsa_type, req->lsa.id, req->lsa.rt, req->lsa.sn, req->lsa.age);
 
-    u32 etype = lsa_get_etype(&en->lsa, p);
+    u32 etype = lsa_get_etype(&req->lsa, p);
     lsrs[i].type = htonl(etype);
-    lsrs[i].rt = htonl(en->lsa.rt);
-    lsrs[i].id = htonl(en->lsa.id);
+    lsrs[i].rt = htonl(req->lsa.rt);
+    lsrs[i].id = htonl(req->lsa.id);
     i++;
   }
+
+  /* We store the position to see whether requested LSAs have been received */
+  n->lsrqi = req;
 
   length = ospf_pkt_hdrlen(p) + i * sizeof(struct ospf_lsreq_header);
   pkt->length = htons(length);

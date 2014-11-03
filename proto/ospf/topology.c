@@ -404,9 +404,6 @@ ospf_refresh_lsa(struct ospf_proto *p, struct top_hash_entry *en)
 void
 ospf_flush_lsa(struct ospf_proto *p, struct top_hash_entry *en)
 {
-  OSPF_TRACE(D_EVENTS, "Flushing LSA: Type: %04x, Id: %R, Rt: %R, Seq: %08x",
-	     en->lsa_type, en->lsa.id, en->lsa.rt, en->lsa.sn);
-
   if (en->next_lsa_body)
   {
     mb_free(en->next_lsa_body);
@@ -417,6 +414,9 @@ ospf_flush_lsa(struct ospf_proto *p, struct top_hash_entry *en)
 
   if (en->lsa.age == LSA_MAXAGE)
     return;
+
+  OSPF_TRACE(D_EVENTS, "Flushing LSA: Type: %04x, Id: %R, Rt: %R, Seq: %08x",
+	     en->lsa_type, en->lsa.id, en->lsa.rt, en->lsa.sn);
 
   en->lsa.age = LSA_MAXAGE;
   ospf_flood_lsa(p, en, NULL);
@@ -433,7 +433,11 @@ ospf_clear_lsa(struct ospf_proto *p, struct top_hash_entry *en)
   /*
    * Called by ospf_update_lsadb() as part of LSA flushing process.
    * Flushed LSA was acknowledged by neighbors and we can free its content.
+   * The log message is for 'remove' - we hide empty LSAs from users.
    */
+
+  OSPF_TRACE(D_EVENTS, "Removing LSA: Type: %04x, Id: %R, Rt: %R, Seq: %08x",
+	     en->lsa_type, en->lsa.id, en->lsa.rt, en->lsa.sn);
 
   if (en->lsa.sn == LSA_MAXSEQNO)
     en->lsa.sn = LSA_ZEROSEQNO;
@@ -1143,6 +1147,9 @@ ospf_originate_ext_lsa(struct ospf_proto *p, struct ospf_area *oa, ort *nf, u8 m
   ospf_originate_lsa(p, &lsa);
 }
 
+static struct top_hash_entry *
+ospf_hash_find_(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type);
+
 static void
 ospf_flush_ext_lsa(struct ospf_proto *p, struct ospf_area *oa, ort *nf)
 {
@@ -1152,7 +1159,7 @@ ospf_flush_ext_lsa(struct ospf_proto *p, struct ospf_area *oa, ort *nf)
   u32 dom = oa ? oa->areaid : 0;
   u32 id = ort_to_lsaid(p, nf);
 
-  en = ospf_hash_find(p->gr, dom, id, p->router_id, type);
+  en = ospf_hash_find_(p->gr, dom, id, p->router_id, type);
 
   if (!en || (en->nf != nf))
     return;
@@ -1795,8 +1802,8 @@ ospf_top_rehash(struct top_graph *f, int step)
   ospf_top_ht_free(oldt);
 }
 
-struct top_hash_entry *
-ospf_hash_find(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
+static struct top_hash_entry *
+ospf_hash_find_(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
 {
   struct top_hash_entry *e;
   e = f->hash_table[ospf_top_hash(f, domain, lsa, rtr, type)];
@@ -1804,6 +1811,14 @@ ospf_hash_find(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
   while (e && (e->lsa.id != lsa || e->lsa.rt != rtr ||
 	       e->lsa_type != type || e->domain != domain))
     e = e->next;
+
+  return e;
+}
+
+struct top_hash_entry *
+ospf_hash_find(struct top_graph *f, u32 domain, u32 lsa, u32 rtr, u32 type)
+{
+  struct top_hash_entry *e = ospf_hash_find_(f, domain, lsa, rtr, type);
 
   /* Hide hash entry with empty lsa_body */
   return (e && e->lsa_body) ? e : NULL;

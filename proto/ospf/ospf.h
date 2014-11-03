@@ -231,6 +231,7 @@ struct ospf_proto
   byte asbr;			/* May i originate any ext/NSSA lsa? */
   byte ecmp;			/* Maximal number of nexthops in ECMP route, or 0 */
   struct ospf_area *backbone;	/* If exists */
+  event *flood_event;		/* Event for flooding LS updates */
   void *lsab;			/* LSA buffer used when originating router LSAs */
   int lsab_size, lsab_used;
   linpool *nhpool;		/* Linpool used for next hops computed in SPF */
@@ -317,8 +318,11 @@ struct ospf_iface
   struct top_hash_entry *link_lsa;	/* Originated link LSA */
   struct top_hash_entry *net_lsa;	/* Originated network LSA */
   struct top_hash_entry *pxn_lsa;	/* Originated prefix LSA */
+  struct top_hash_entry **flood_queue;	/* LSAs queued for LSUPD */
   u8 update_link_lsa;
   u8 update_net_lsa;
+  u16 flood_queue_used;		/* The current number of LSAs in flood_queue */
+  u16 flood_queue_size;		/* The maximum number of LSAs in flood_queue */
   int fadj;			/* Number of fully adjacent neighbors */
   list nbma_list;
   u8 priority;			/* A router priority for DR election */
@@ -354,7 +358,6 @@ struct ospf_neighbor
   ip_addr ip;			/* IP of it's interface */
   u8 priority;			/* Priority */
   u8 adj;			/* built adjacency? */
-  u8 want_lsreq;		/* Set to 1 when lsrql was shortened during LSUPD */
   u32 options;			/* Options received */
 
   /* Entries dr and bdr store IP addresses in OSPFv2 and router IDs in
@@ -373,6 +376,7 @@ struct ospf_neighbor
    */
   slist lsrql;			/* slist of struct top_hash_entry from n->lsrqh */
   struct top_graph *lsrqh;
+  struct top_hash_entry *lsrqi;	/* Pointer to the first unsent node in lsrql */
 
   /* Link state retransmission list, controls LSA retransmission during flood.
    * Entries added as sent in lsupd packets, removed when received in lsack packets.
@@ -380,7 +384,9 @@ struct ospf_neighbor
    */
   slist lsrtl;			/* slist of struct top_hash_entry from n->lsrth */
   struct top_graph *lsrth;
-  timer *rxmt_timer;		/* RXMT timer */
+  timer *dbdes_timer;		/* DBDES exchange timer */
+  timer *lsrq_timer;		/* LSA request timer */
+  timer *lsrt_timer;		/* LSA retransmission timer */
   list ackl[2];
 #define ACKL_DIRECT 0
 #define ACKL_DELAY 1
@@ -940,7 +946,9 @@ void ospf_receive_lsreq(struct ospf_packet *pkt, struct ospf_iface *ifa, struct 
 /* lsupd.c */
 void ospf_dump_lsahdr(struct ospf_proto *p, struct ospf_lsa_header *lsa_n);
 void ospf_dump_common(struct ospf_proto *p, struct ospf_packet *pkt);
+void ospf_lsa_lsrt_down_(struct top_hash_entry *en, struct ospf_neighbor *n, struct top_hash_entry *ret);
 void ospf_add_flushed_to_lsrt(struct ospf_proto *p, struct ospf_neighbor *n);
+void ospf_flood_event(void *ptr);
 int ospf_flood_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_neighbor *from);
 int ospf_send_lsupd(struct ospf_proto *p, struct top_hash_entry **lsa_list, uint lsa_count, struct ospf_neighbor *n);
 void ospf_rxmt_lsupd(struct ospf_proto *p, struct ospf_neighbor *n);
