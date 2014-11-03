@@ -1009,6 +1009,9 @@ ospf_walk_matching_iface_patts(struct ospf_proto *p, struct ospf_mip_walk *s)
 
   WALK_LIST(s->oa, p->area_list)
   {
+    if (s->oa->marked)
+      continue;
+
     WALK_LIST(s->ip, s->oa->ac->patt_list)
     {
       id = s->ip->instance_id;
