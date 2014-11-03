@@ -1177,9 +1177,7 @@ use_gw_for_fwaddr(struct ospf_proto *p, ip_addr gw, struct iface *iface)
 
   WALK_LIST(ifa, p->iface_list)
     if ((ifa->iface == iface) &&
-	((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA)) &&
-	(!ospf_is_v2(p) || ipa_in_net(gw, ifa->addr->prefix, ifa->addr->pxlen)) &&
-	(!ifa->cf->stub))
+	(!ospf_is_v2(p) || ipa_in_net(gw, ifa->addr->prefix, ifa->addr->pxlen)))
       return 1;
 
   return 0;

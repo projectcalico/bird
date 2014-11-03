@@ -281,9 +281,15 @@ void
 ospf_iface_remove(struct ospf_iface *ifa)
 {
   struct ospf_proto *p = ifa->oa->po;
+  int i;
 
   if (ifa->type == OSPF_IT_VLINK)
     OSPF_TRACE(D_EVENTS, "Removing vlink to %R via area %R", ifa->vid, ifa->voa->areaid);
+
+  /* Release LSAs from flood queue */
+  if (!ifa->stub)
+    for (i = 0; i < ifa->flood_queue_used; i++)
+      ifa->flood_queue[i]->ret_count--;
 
   ospf_iface_sm(ifa, ISM_DOWN);
   rem_node(NODE ifa);
