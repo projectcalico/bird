@@ -319,13 +319,13 @@ struct immsb
   u8 i:1;
   u8 padding:5;
 #endif
-}__attribute__((packed));;
+}__attribute__((packed));
 
 union imms
 {
   u8 byte;
   struct immsb bit;
-}__attribute__((packed));;
+}__attribute__((packed));
 #define DBDES_MS 1
 #define DBDES_M 2
 #define DBDES_I 4
