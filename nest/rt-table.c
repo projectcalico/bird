@@ -2409,11 +2409,12 @@ rt_show(struct rt_show_data *d)
 	n = net_route(d->table, d->prefix, d->pxlen);
       else
 	n = net_find(d->table, d->prefix, d->pxlen);
+
       if (n)
-	{
-	  rt_show_net(this_cli, n, d);
-	  cli_msg(0, "");
-	}
+	rt_show_net(this_cli, n, d);
+
+      if (d->rt_counter)
+	cli_msg(0, "");
       else
 	cli_msg(8001, "Network not in table");
     }
