@@ -382,7 +382,7 @@ krt_read_route(struct ks_msg *msg, struct krt_proto *p, int scan)
   if ((c < 0) || !(c & IADDR_HOST) || ((c & IADDR_SCOPE_MASK) <= SCOPE_LINK))
     SKIP("strange class/scope\n");
 
-  int pxlen = (flags & RTF_HOST) ? MAX_PREFIX_LENGTH : ipa_mklen(imask);
+  int pxlen = (flags & RTF_HOST) ? MAX_PREFIX_LENGTH : ipa_masklen(imask);
   if (pxlen < 0)
     { log(L_ERR "%s (%I) - netmask %I", errmsg, idst, imask); return; }
 
@@ -653,7 +653,7 @@ krt_read_addr(struct ks_msg *msg, int scan)
   ibrd  = ipa_from_sa(&brd);
 
 
-  if ((masklen = ipa_mklen(imask)) < 0)
+  if ((masklen = ipa_masklen(imask)) < 0)
   {
     log(L_ERR "KIF: Invalid masklen %I for %s", imask, iface->name);
     return;

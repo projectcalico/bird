@@ -764,6 +764,29 @@ sk_set_tos6(sock *s, int tos)
   return 0;
 }
 
+static inline byte *
+sk_skip_ip_header(byte *pkt, int *len)
+{
+  if ((*len < 20) || ((*pkt & 0xf0) != 0x40))
+    return NULL;
+
+  int hlen = (*pkt & 0x0f) * 4;
+  if ((hlen < 20) || (hlen > *len))
+    return NULL;
+
+  *len -= hlen;
+  return pkt + hlen;
+}
+
+byte *
+sk_rx_buffer(sock *s, int *len)
+{
+  if (sk_is_ipv4(s) && (s->type == SK_IP))
+    return sk_skip_ip_header(s->rbuf, len);
+  else
+    return s->rbuf;
+}
+
 
 /*
  *	Public socket functions

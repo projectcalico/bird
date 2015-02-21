@@ -1,3 +1,7 @@
+Version 1.5.0pre (2014-11-05) - Not for production
+  o Major OSPF protocol redesign
+  o RFC 6549 - OSPFv2 multi-instance extension
+
 Version 1.4.5 (2014-10-06)
   o New 'show route noexport' command option.
   o Port option for BGP sessions.

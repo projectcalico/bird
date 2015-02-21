@@ -36,9 +36,18 @@ password_find(list *l, int first_fit)
   return pf;
 }
 
-void password_cpy(char *dst, char *src, int size)
+struct password_item *
+password_find_by_id(list *l, int id)
 {
-  bzero(dst, size);
-  memcpy(dst, src, (strlen(src) < (unsigned) size ? strlen(src) : (unsigned) size));
+  struct password_item *pi;
+
+  if (!l)
+    return NULL;
+
+  WALK_LIST(pi, *l)
+    if ((pi->id == id) && (pi->accfrom <= now_real) && (now_real < pi->accto))
+      return pi;
+
+  return NULL;
 }
 

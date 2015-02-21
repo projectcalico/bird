@@ -689,7 +689,7 @@ bgp_connect(struct bgp_proto *p)	/* Enter Connect state and start establishing c
   s->password = p->cf->password;
   s->tx_hook = bgp_connected;
   BGP_TRACE(D_EVENTS, "Connecting to %I%J from local address %I%J", s->daddr, p->cf->iface,
-	    s->saddr, ipa_has_link_scope(s->saddr) ? s->iface : NULL);
+	    s->saddr, ipa_is_link_local(s->saddr) ? s->iface : NULL);
   bgp_setup_conn(p, conn);
   bgp_setup_sk(conn, s);
   bgp_conn_set_state(conn, BS_CONNECT);
@@ -735,7 +735,7 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
       {
 	struct bgp_proto *p = (struct bgp_proto *) pc->proto;
 	if (ipa_equal(p->cf->remote_ip, sk->daddr) &&
-	    (!ipa_has_link_scope(sk->daddr) || (p->cf->iface == sk->iface)))
+	    (!ipa_is_link_local(sk->daddr) || (p->cf->iface == sk->iface)))
 	  {
 	    /* We are in proper state and there is no other incoming connection */
 	    int acc = (p->p.proto_state == PS_START || p->p.proto_state == PS_UP) &&
@@ -750,7 +750,7 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
 	    }
 
 	    BGP_TRACE(D_EVENTS, "Incoming connection from %I%J (port %d) %s",
-		      sk->daddr, ipa_has_link_scope(sk->daddr) ? sk->iface : NULL,
+		      sk->daddr, ipa_is_link_local(sk->daddr) ? sk->iface : NULL,
 		      sk->dport, acc ? "accepted" : "rejected");
 
 	    if (!acc)
@@ -779,7 +779,7 @@ bgp_incoming_connection(sock *sk, int dummy UNUSED)
       }
 
   log(L_WARN "BGP: Unexpected connect from unknown address %I%J (port %d)",
-      sk->daddr, ipa_has_link_scope(sk->daddr) ? sk->iface : NULL, sk->dport);
+      sk->daddr, ipa_is_link_local(sk->daddr) ? sk->iface : NULL, sk->dport);
  reject:
   rfree(sk);
   return 0;
@@ -1169,8 +1169,8 @@ bgp_check_config(struct bgp_config *c)
   if (c->multihop && (c->gw_mode == GW_DIRECT))
     cf_error("Multihop BGP cannot use direct gateway mode");
 
-  if (c->multihop && (ipa_has_link_scope(c->remote_ip) || 
-		      ipa_has_link_scope(c->source_addr)))
+  if (c->multihop && (ipa_is_link_local(c->remote_ip) ||
+		      ipa_is_link_local(c->source_addr)))
     cf_error("Multihop BGP cannot be used with link-local addresses");
 
   if (c->multihop && c->bfd && ipa_zero(c->source_addr))

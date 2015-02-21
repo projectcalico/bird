@@ -2,103 +2,21 @@
  *	BIRD -- OSPF
  *
  *	(c) 1999--2004 Ondrej Filip <feela@network.cz>
+ *	(c) 2009--2014 Ondrej Zajicek <santiago@crfreenet.org>
+ *	(c) 2009--2014 CZ.NIC z.s.p.o.
  *
  *	Can be freely distributed and used under the terms of the GNU GPL.
  */
 
 #include "ospf.h"
 
-void
-flush_lsa(struct top_hash_entry *en, struct proto_ospf *po)
-{
-  struct proto *p = &po->proto;
-
-  OSPF_TRACE(D_EVENTS,
-	     "Going to remove LSA Type: %04x, Id: %R, Rt: %R, Age: %u, Seqno: 0x%x",
-	     en->lsa.type, en->lsa.id, en->lsa.rt, en->lsa.age, en->lsa.sn);
-  s_rem_node(SNODE en);
-  if (en->lsa_body != NULL)
-    mb_free(en->lsa_body);
-  en->lsa_body = NULL;
-  ospf_hash_delete(po->gr, en);
-}
-
-void
-ospf_flush_area(struct proto_ospf *po, u32 areaid)
-{
-  struct top_hash_entry *en, *nxt;
-
-  WALK_SLIST_DELSAFE(en, nxt, po->lsal)
-  {
-    if ((LSA_SCOPE(&en->lsa) == LSA_SCOPE_AREA) && (en->domain == areaid))
-      flush_lsa(en, po);
-  }
-}
-
-/**
- * ospf_age
- * @po: ospf protocol
- *
- * This function is periodicaly invoked from ospf_disp(). It computes the new
- * age of all LSAs and old (@age is higher than %LSA_MAXAGE) LSAs are flushed
- * whenever possible. If an LSA originated by the router itself is older
- * than %LSREFRESHTIME a new instance is originated.
- *
- * The RFC says that a router should check the checksum of every LSA to detect
- * hardware problems. BIRD does not do this to minimalize CPU utilization.
- *
- * If routing table calculation is scheduled, it also invalidates the old routing
- * table calculation results.
- */
-void
-ospf_age(struct proto_ospf *po)
-{
-  struct proto *p = &po->proto;
-  struct top_hash_entry *en, *nxt;
-  int flush = can_flush_lsa(po);
-
-  WALK_SLIST_DELSAFE(en, nxt, po->lsal)
-  {
-    if (en->lsa.age == LSA_MAXAGE)
-    {
-      if (flush)
-	flush_lsa(en, po);
-      continue;
-    }
-    if ((en->lsa.rt == po->router_id) && (en->lsa.age >= LSREFRESHTIME))
-    {
-      OSPF_TRACE(D_EVENTS, "Refreshing my LSA: Type: %u, Id: %R, Rt: %R",
-		 en->lsa.type, en->lsa.id, en->lsa.rt);
-      en->lsa.sn++;
-      en->lsa.age = 0;
-      en->inst_t = now;
-      en->ini_age = 0;
-      lsasum_calculate(&en->lsa, en->lsa_body);
-      ospf_lsupd_flood(po, NULL, NULL, &en->lsa, en->domain, 1);
-      continue;
-    }
-    if ((en->lsa.age = (en->ini_age + (now - en->inst_t))) >= LSA_MAXAGE)
-    {
-      if (flush)
-      {
-	flush_lsa(en, po);
-	schedule_rtcalc(po);
-      }
-      else
-	en->lsa.age = LSA_MAXAGE;
-    }
-  }
-}
 
 #ifndef CPU_BIG_ENDIAN
 void
-htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
+lsa_hton_hdr(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
 {
   n->age = htons(h->age);
-#ifdef OSPFv2
-  n->options = h->options;
-#endif
-  n->type = htont(h->type);
+  n->type_raw = htons(h->type_raw);
   n->id = htonl(h->id);
   n->rt = htonl(h->rt);
   n->sn = htonl(h->sn);
@@ -107,13 +25,10 @@ htonlsah(struct ospf_lsa_header *h, struct ospf_lsa_header *n)
 }
 
 void
-ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
+lsa_ntoh_hdr(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
 {
   h->age = ntohs(n->age);
-#ifdef OSPFv2
-  h->options = n->options;
-#endif
-  h->type = ntoht(n->type);
+  h->type_raw = ntohs(n->type_raw);
   h->id = ntohl(n->id);
   h->rt = ntohl(n->rt);
   h->sn = ntohl(n->sn);
@@ -122,27 +37,119 @@ ntohlsah(struct ospf_lsa_header *n, struct ospf_lsa_header *h)
 }
 
 void
-htonlsab(void *h, void *n, u16 len)
+lsa_hton_body(void *h, void *n, u16 len)
 {
   u32 *hid = h;
   u32 *nid = n;
-  unsigned i;
+  uint i;
 
   for (i = 0; i < (len / sizeof(u32)); i++)
     nid[i] = htonl(hid[i]);
 }
 
 void
-ntohlsab(void *n, void *h, u16 len)
+lsa_ntoh_body(void *n, void *h, u16 len)
 {
   u32 *nid = n;
   u32 *hid = h;
-  unsigned i;
+  uint i;
 
   for (i = 0; i < (len / sizeof(u32)); i++)
     hid[i] = ntohl(nid[i]);
 }
 #endif /* little endian */
+
+
+
+int
+lsa_flooding_allowed(u32 type, u32 domain, struct ospf_iface *ifa)
+{
+  /* Handle inactive vlinks */
+  if (ifa->state == OSPF_IS_DOWN)
+    return 0;
+
+  /* 4.5.2 (Case 2) */
+  switch (LSA_SCOPE(type))
+  {
+  case LSA_SCOPE_LINK:
+    return ifa->iface_id == domain;
+
+  case LSA_SCOPE_AREA:
+    return ifa->oa->areaid == domain;
+
+  case LSA_SCOPE_AS:
+    if (ifa->type == OSPF_IT_VLINK)
+      return 0;
+    if (!oa_is_ext(ifa->oa))
+      return 0;
+    return 1;
+
+  default:
+    log(L_ERR "OSPF: LSA with invalid scope");
+    return 0;
+  }
+}
+
+
+static int
+unknown_lsa_type(u32 type)
+{
+  switch (type)
+  {
+  case LSA_T_RT:
+  case LSA_T_NET:
+  case LSA_T_SUM_NET:
+  case LSA_T_SUM_RT:
+  case LSA_T_EXT:
+  case LSA_T_NSSA:
+  case LSA_T_LINK:
+  case LSA_T_PREFIX:
+    return 0;
+
+  default:
+    return 1;
+  }
+}
+
+#define LSA_V2_TMAX 8
+static const u16 lsa_v2_types[LSA_V2_TMAX] =
+  {0, LSA_T_RT, LSA_T_NET, LSA_T_SUM_NET, LSA_T_SUM_RT, LSA_T_EXT, 0, LSA_T_NSSA};
+
+void
+lsa_get_type_domain_(u32 itype, struct ospf_iface *ifa, u32 *otype, u32 *domain)
+{
+  if (ospf_is_v2(ifa->oa->po))
+  {
+    itype = itype & LSA_T_V2_MASK;
+    itype = (itype < LSA_V2_TMAX) ? lsa_v2_types[itype] : 0;
+  }
+  else
+  {
+    /* For unkown LSAs without U-bit change scope to LSA_SCOPE_LINK */
+    if (unknown_lsa_type(itype) && !(itype & LSA_UBIT))
+      itype = itype & ~LSA_SCOPE_MASK;
+  }
+
+  *otype = itype;
+
+  switch (LSA_SCOPE(itype))
+  {
+  case LSA_SCOPE_LINK:
+    *domain = ifa->iface_id;
+    return;
+
+  case LSA_SCOPE_AREA:
+    *domain = ifa->oa->areaid;
+    return;
+
+  case LSA_SCOPE_AS:
+  default:
+    *domain = 0;
+    return;
+  }
+}
+
+
 
 /*
 void
@@ -188,8 +195,8 @@ lsasum_calculate(struct ospf_lsa_header *h, void *body)
   u16 length = h->length;
 
   //  log(L_WARN "Checksum %R %R %d start (len %d)", h->id, h->rt, h->type, length);
-  htonlsah(h, h);
-  htonlsab1(body, length - sizeof(struct ospf_lsa_header));
+  lsa_hton_hdr(h, h);
+  lsa_hton_body1(body, length - sizeof(struct ospf_lsa_header));
 
   /*
   char buf[1024];
@@ -202,8 +209,8 @@ lsasum_calculate(struct ospf_lsa_header *h, void *body)
 
   //  log(L_WARN "Checksum result %4x", h->checksum);
 
-  ntohlsah(h, h);
-  ntohlsab1(body, length - sizeof(struct ospf_lsa_header));
+  lsa_ntoh_hdr(h, h);
+  lsa_ntoh_body1(body, length - sizeof(struct ospf_lsa_header));
 }
 
 /*
@@ -231,7 +238,7 @@ lsasum_check(struct ospf_lsa_header *h, void *body)
       q = ep;
     for (p = sp; p < q; p++)
     {
-      /* 
+      /*
        * I count with bytes from header and than from body
        * but if there is no body, it's appended to header
        * (probably checksum in update receiving) and I go on
@@ -292,33 +299,204 @@ lsa_comp(struct ospf_lsa_header *l1, struct ospf_lsa_header *l2)
   return CMP_SAME;
 }
 
+
+static inline int
+lsa_walk_rt2(struct ospf_lsa_rt_walk *rt)
+{
+  if (rt->buf >= rt->bufend)
+    return 0;
+
+  struct ospf_lsa_rt2_link *l = rt->buf;
+  rt->buf += sizeof(struct ospf_lsa_rt2_link) + l->no_tos * sizeof(struct ospf_lsa_rt2_tos);
+
+  rt->type = l->type;
+  rt->metric = l->metric;
+  rt->id = l->id;
+  rt->data = l->data;
+  return 1;
+}
+
+static inline int
+lsa_walk_rt3(struct ospf_lsa_rt_walk *rt)
+{
+  while (rt->buf >= rt->bufend)
+  {
+    rt->en = ospf_hash_find_rt3_next(rt->en);
+    if (!rt->en)
+      return 0;
+
+    rt->buf = rt->en->lsa_body;
+    rt->bufend = rt->buf + rt->en->lsa.length - sizeof(struct ospf_lsa_header);
+    rt->buf += sizeof(struct ospf_lsa_rt);
+  }
+
+  struct ospf_lsa_rt3_link *l = rt->buf;
+  rt->buf += sizeof(struct ospf_lsa_rt3_link);
+
+  rt->type = l->type;
+  rt->metric = l->metric;
+  rt->lif = l->lif;
+  rt->nif = l->nif;
+  rt->id = l->id;
+  return 1;
+}
+
+void
+lsa_walk_rt_init(struct ospf_proto *p, struct top_hash_entry *act, struct ospf_lsa_rt_walk *rt)
+{
+  rt->ospf2 = ospf_is_v2(p);
+  rt->id = rt->data = rt->lif = rt->nif = 0;
+
+  if (rt->ospf2)
+    rt->en = act;
+  else
+    rt->en = ospf_hash_find_rt3_first(p->gr, act->domain, act->lsa.rt);
+
+  rt->buf = rt->en->lsa_body;
+  rt->bufend = rt->buf + rt->en->lsa.length - sizeof(struct ospf_lsa_header);
+  rt->buf += sizeof(struct ospf_lsa_rt);
+}
+
+int
+lsa_walk_rt(struct ospf_lsa_rt_walk *rt)
+{
+  return rt->ospf2 ? lsa_walk_rt2(rt) : lsa_walk_rt3(rt);
+}
+
+
+void
+lsa_parse_sum_net(struct top_hash_entry *en, int ospf2, ip_addr *ip, int *pxlen, u8 *pxopts, u32 *metric)
+{
+  if (ospf2)
+  {
+    struct ospf_lsa_sum2 *ls = en->lsa_body;
+    *ip = ipa_from_u32(en->lsa.id & ls->netmask);
+    *pxlen = u32_masklen(ls->netmask);
+    *pxopts = 0;
+    *metric = ls->metric & LSA_METRIC_MASK;
+  }
+  else
+  {
+    struct ospf_lsa_sum3_net *ls = en->lsa_body;
+    u16 rest;
+    lsa_get_ipv6_prefix(ls->prefix, ip, pxlen, pxopts, &rest);
+    *metric = ls->metric & LSA_METRIC_MASK;
+  }
+}
+
+void
+lsa_parse_sum_rt(struct top_hash_entry *en, int ospf2, u32 *drid, u32 *metric, u32 *options)
+{
+  if (ospf2)
+  {
+    struct ospf_lsa_sum2 *ls = en->lsa_body;
+    *drid = en->lsa.id;
+    *metric = ls->metric & LSA_METRIC_MASK;
+    *options = 0;
+  }
+  else
+  {
+    struct ospf_lsa_sum3_rt *ls = en->lsa_body;
+    *drid = ls->drid;
+    *metric = ls->metric & LSA_METRIC_MASK;
+    *options = ls->options & LSA_OPTIONS_MASK;
+  }
+}
+
+void
+lsa_parse_ext(struct top_hash_entry *en, int ospf2, struct ospf_lsa_ext_local *rt)
+{
+  if (ospf2)
+  {
+    struct ospf_lsa_ext2 *ext = en->lsa_body;
+    rt->ip = ipa_from_u32(en->lsa.id & ext->netmask);
+    rt->pxlen = u32_masklen(ext->netmask);
+    rt->pxopts = 0;
+    rt->metric = ext->metric & LSA_METRIC_MASK;
+    rt->ebit = ext->metric & LSA_EXT2_EBIT;
+
+    rt->fbit = ext->fwaddr;
+    rt->fwaddr = ipa_from_u32(ext->fwaddr);
+
+    rt->tag = ext->tag;
+    rt->propagate = lsa_get_options(&en->lsa) & OPT_P;
+  }
+  else
+  {
+    struct ospf_lsa_ext3 *ext = en->lsa_body;
+    u16 rest;
+    u32 *buf = lsa_get_ipv6_prefix(ext->rest, &rt->ip, &rt->pxlen, &rt->pxopts, &rest);
+    rt->metric = ext->metric & LSA_METRIC_MASK;
+    rt->ebit = ext->metric & LSA_EXT3_EBIT;
+
+    rt->fbit = ext->metric & LSA_EXT3_FBIT;
+    if (rt->fbit)
+      buf = lsa_get_ipv6_addr(buf, &rt->fwaddr);
+    else
+      rt->fwaddr = IPA_NONE;
+
+    rt->tag = (ext->metric & LSA_EXT3_TBIT) ? *buf++ : 0;
+    rt->propagate = rt->pxopts & OPT_PX_P;
+  }
+}
+
 #define HDRLEN sizeof(struct ospf_lsa_header)
 
 static int
-lsa_validate_rt(struct ospf_lsa_header *lsa, struct ospf_lsa_rt *body)
+lsa_validate_rt2(struct ospf_lsa_header *lsa, struct ospf_lsa_rt *body)
 {
-  unsigned int i, max;
-
   if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_rt)))
     return 0;
 
-  struct ospf_lsa_rt_link *rtl = (struct ospf_lsa_rt_link *) (body + 1);
-  max = lsa_rt_count(lsa);
+  uint i = 0;
+  void *buf = body;
+  void *bufend = buf + lsa->length - HDRLEN;
+  buf += sizeof(struct ospf_lsa_rt);
 
-#ifdef OSPFv2
-  if (body->links != max)
-    return 0;
-#endif  
-
-  for (i = 0; i < max; i++)
+  while (buf < bufend)
   {
-    u8 type = rtl[i].type;
-    if (!((type == LSART_PTP) ||
-	  (type == LSART_NET) ||
-#ifdef OSPFv2
-	  (type == LSART_STUB) ||
-#endif
-	  (type == LSART_VLNK)))
+    struct ospf_lsa_rt2_link *l = buf;
+    buf += sizeof(struct ospf_lsa_rt2_link) + l->no_tos * sizeof(struct ospf_lsa_rt2_tos);
+    i++;
+
+    if (buf > bufend)
+      return 0;
+
+    if (!((l->type == LSART_PTP) ||
+	  (l->type == LSART_NET) ||
+	  (l->type == LSART_STUB) ||
+	  (l->type == LSART_VLNK)))
+      return 0;
+  }
+
+  if ((body->options & LSA_RT2_LINKS) != i)
+    return 0;
+
+  return 1;
+}
+
+
+static int
+lsa_validate_rt3(struct ospf_lsa_header *lsa, struct ospf_lsa_rt *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_rt)))
+    return 0;
+
+  void *buf = body;
+  void *bufend = buf + lsa->length - HDRLEN;
+  buf += sizeof(struct ospf_lsa_rt);
+
+  while (buf < bufend)
+  {
+    struct ospf_lsa_rt3_link *l = buf;
+    buf += sizeof(struct ospf_lsa_rt3_link);
+
+    if (buf > bufend)
+      return 0;
+
+    if (!((l->type == LSART_PTP) ||
+	  (l->type == LSART_NET) ||
+	  (l->type == LSART_VLNK)))
       return 0;
   }
   return 1;
@@ -333,37 +511,18 @@ lsa_validate_net(struct ospf_lsa_header *lsa, struct ospf_lsa_net *body UNUSED)
   return 1;
 }
 
-#ifdef OSPFv2
-
 static int
-lsa_validate_sum(struct ospf_lsa_header *lsa, struct ospf_lsa_sum *body)
+lsa_validate_sum2(struct ospf_lsa_header *lsa, struct ospf_lsa_sum2 *body)
 {
-  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_sum)))
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_sum2)))
     return 0;
 
   /* First field should have TOS = 0, we ignore other TOS fields */
-  if ((body->metric & LSA_SUM_TOS) != 0)
+  if ((body->metric & LSA_SUM2_TOS) != 0)
     return 0;
 
   return 1;
 }
-#define lsa_validate_sum_net(A,B) lsa_validate_sum(A,B)
-#define lsa_validate_sum_rt(A,B)  lsa_validate_sum(A,B)
-
-static int
-lsa_validate_ext(struct ospf_lsa_header *lsa, struct ospf_lsa_ext *body)
-{
-  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_ext)))
-    return 0;
-
-  /* First field should have TOS = 0, we ignore other TOS fields */
-  if ((body->metric & LSA_EXT_TOS) != 0)
-    return 0;
-
-  return 1;
-}
-
-#else /* OSPFv3 */
 
 static inline int
 pxlen(u32 *buf)
@@ -372,36 +531,48 @@ pxlen(u32 *buf)
 }
 
 static int
-lsa_validate_sum_net(struct ospf_lsa_header *lsa, struct ospf_lsa_sum_net *body)
+lsa_validate_sum3_net(struct ospf_lsa_header *lsa, struct ospf_lsa_sum3_net *body)
 {
-  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_sum_net) + 4))
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_sum3_net) + 4))
     return 0;
 
   u8 pxl = pxlen(body->prefix);
   if (pxl > MAX_PREFIX_LENGTH)
     return 0;
 
-  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_sum_net) + 
+  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_sum3_net) +
 		      IPV6_PREFIX_SPACE(pxl)))
     return 0;
 
   return 1;
 }
 
-
 static int
-lsa_validate_sum_rt(struct ospf_lsa_header *lsa, struct ospf_lsa_sum_rt *body)
+lsa_validate_sum3_rt(struct ospf_lsa_header *lsa, struct ospf_lsa_sum3_rt *body)
 {
-  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_sum_rt)))
+  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_sum3_rt)))
     return 0;
 
   return 1;
 }
 
 static int
-lsa_validate_ext(struct ospf_lsa_header *lsa, struct ospf_lsa_ext *body)
+lsa_validate_ext2(struct ospf_lsa_header *lsa, struct ospf_lsa_ext2 *body)
 {
-  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_ext) + 4))
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_ext2)))
+    return 0;
+
+  /* First field should have TOS = 0, we ignore other TOS fields */
+  if ((body->metric & LSA_EXT2_TOS) != 0)
+    return 0;
+
+  return 1;
+}
+
+static int
+lsa_validate_ext3(struct ospf_lsa_header *lsa, struct ospf_lsa_ext3 *body)
+{
+  if (lsa->length < (HDRLEN + sizeof(struct ospf_lsa_ext3) + 4))
     return 0;
 
   u8 pxl = pxlen(body->rest);
@@ -409,23 +580,23 @@ lsa_validate_ext(struct ospf_lsa_header *lsa, struct ospf_lsa_ext *body)
     return 0;
 
   int len = IPV6_PREFIX_SPACE(pxl);
-  if (body->metric & LSA_EXT_FBIT) // forwardinf address
+  if (body->metric & LSA_EXT3_FBIT) // forwardinf address
     len += 16;
-  if (body->metric & LSA_EXT_TBIT) // route tag
+  if (body->metric & LSA_EXT3_TBIT) // route tag
     len += 4;
   if (*body->rest & 0xFFFF) // referenced LS type field
     len += 4;
 
-  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_ext) + len))
+  if (lsa->length != (HDRLEN + sizeof(struct ospf_lsa_ext3) + len))
     return 0;
 
   return 1;
 }
 
 static int
-lsa_validate_pxlist(struct ospf_lsa_header *lsa, u32 pxcount, unsigned int offset, u8 *pbuf)
+lsa_validate_pxlist(struct ospf_lsa_header *lsa, u32 pxcount, uint offset, u8 *pbuf)
 {
-  unsigned int bound = lsa->length - HDRLEN - 4;
+  uint bound = lsa->length - HDRLEN - 4;
   u32 i;
 
   for (i = 0; i < pxcount; i++)
@@ -436,7 +607,7 @@ lsa_validate_pxlist(struct ospf_lsa_header *lsa, u32 pxcount, unsigned int offse
       u8 pxl = pxlen((u32 *) (pbuf + offset));
       if (pxl > MAX_PREFIX_LENGTH)
 	return 0;
-  
+
       offset += IPV6_PREFIX_SPACE(pxl);
     }
 
@@ -464,8 +635,6 @@ lsa_validate_prefix(struct ospf_lsa_header *lsa, struct ospf_lsa_prefix *body)
   return lsa_validate_pxlist(lsa, body->pxcount, sizeof(struct ospf_lsa_prefix), (u8 *) body);
 }
 
-#endif
-
 
 /**
  * lsa_validate - check whether given LSA is valid
@@ -477,85 +646,48 @@ lsa_validate_prefix(struct ospf_lsa_header *lsa, struct ospf_lsa_prefix *body)
  */
 
 int
-lsa_validate(struct ospf_lsa_header *lsa, void *body)
+lsa_validate(struct ospf_lsa_header *lsa, u32 lsa_type, int ospf2, void *body)
 {
-  switch (lsa->type)
+  if (ospf2)
+  {
+    switch (lsa_type)
     {
     case LSA_T_RT:
-      return lsa_validate_rt(lsa, body);
+      return lsa_validate_rt2(lsa, body);
     case LSA_T_NET:
       return lsa_validate_net(lsa, body);
     case LSA_T_SUM_NET:
-      return lsa_validate_sum_net(lsa, body);
+      return lsa_validate_sum2(lsa, body);
     case LSA_T_SUM_RT:
-      return lsa_validate_sum_rt(lsa, body);
+      return lsa_validate_sum2(lsa, body);
     case LSA_T_EXT:
     case LSA_T_NSSA:
-      return lsa_validate_ext(lsa, body);
-#ifdef OSPFv3
+      return lsa_validate_ext2(lsa, body);
+    default:
+      return 0;	/* Should not happen, unknown LSAs are already rejected */
+    }
+  }
+  else
+  {
+    switch (lsa_type)
+    {
+    case LSA_T_RT:
+      return lsa_validate_rt3(lsa, body);
+    case LSA_T_NET:
+      return lsa_validate_net(lsa, body);
+    case LSA_T_SUM_NET:
+      return lsa_validate_sum3_net(lsa, body);
+    case LSA_T_SUM_RT:
+      return lsa_validate_sum3_rt(lsa, body);
+    case LSA_T_EXT:
+    case LSA_T_NSSA:
+      return lsa_validate_ext3(lsa, body);
     case LSA_T_LINK:
       return lsa_validate_link(lsa, body);
     case LSA_T_PREFIX:
       return lsa_validate_prefix(lsa, body);
-#endif
     default:
-      /* In OSPFv3, unknown LSAs are OK,
-	 In OSPFv2, unknown LSAs are already rejected
-      */
-      return 1;
+      return 1;	/* Unknown LSAs are OK in OSPFv3 */
     }
-}
-
-/**
- * lsa_install_new - install new LSA into database
- * @po: OSPF protocol
- * @lsa: LSA header
- * @domain: domain of LSA
- * @body: pointer to LSA body
- *
- * This function ensures installing new LSA into LSA database. Old instance is
- * replaced. Several actions are taken to detect if new routing table
- * calculation is necessary. This is described in 13.2 of RFC 2328.
- */
-struct top_hash_entry *
-lsa_install_new(struct proto_ospf *po, struct ospf_lsa_header *lsa, u32 domain, void *body)
-{
-  /* LSA can be temporarrily, but body must be mb_allocated. */
-  int change = 0;
-  struct top_hash_entry *en;
-
-  if ((en = ospf_hash_find_header(po->gr, domain, lsa)) == NULL)
-  {
-    en = ospf_hash_get_header(po->gr, domain, lsa);
-    change = 1;
   }
-  else
-  {
-    if ((en->lsa.length != lsa->length)
-#ifdef OSPFv2       
-	|| (en->lsa.options != lsa->options)
-#endif
-	|| (en->lsa.age == LSA_MAXAGE)
-	|| (lsa->age == LSA_MAXAGE)
-	|| memcmp(en->lsa_body, body, lsa->length - sizeof(struct ospf_lsa_header)))
-      change = 1;
-
-    s_rem_node(SNODE en);
-  }
-
-  DBG("Inst lsa: Id: %R, Rt: %R, Type: %u, Age: %u, Sum: %u, Sn: 0x%x\n",
-      lsa->id, lsa->rt, lsa->type, lsa->age, lsa->checksum, lsa->sn);
-
-  s_add_tail(&po->lsal, SNODE en);
-  en->inst_t = now;
-  if (en->lsa_body != NULL)
-    mb_free(en->lsa_body);
-  en->lsa_body = body;
-  memcpy(&en->lsa, lsa, sizeof(struct ospf_lsa_header));
-  en->ini_age = en->lsa.age;
-
-  if (change)
-    schedule_rtcalc(po);
-
-  return en;
 }
