@@ -70,7 +70,7 @@ olock_free(resource *r)
 	  DBG("olock: -> %p becomes locked\n", n);
 	  q = SKIP_BACK(struct object_lock, n, n);
 	  rem_node(n);
-	  add_tail_list(&l->waiters, &q->waiters);
+	  add_tail_list(&q->waiters, &l->waiters);
 	  q->state = OLOCK_STATE_EVENT;
 	  add_head(&olock_list, n);
 	  ev_schedule(olock_event);
