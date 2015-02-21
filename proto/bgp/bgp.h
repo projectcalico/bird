@@ -62,6 +62,7 @@ struct bgp_config {
 
   char *password;			/* Password used for MD5 authentication */
   struct rtable_config *igp_table;	/* Table used for recursive next hop lookups */
+  int check_link;			/* Use iface link state for liveness detection */
   int bfd;				/* Use BFD for liveness detection */
 };
 
@@ -335,8 +336,9 @@ void bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsi
 #define BEM_INVALID_NEXT_HOP	2
 #define BEM_INVALID_MD5		3	/* MD5 authentication kernel request failed (possibly not supported) */
 #define BEM_NO_SOCKET		4
-#define BEM_BFD_DOWN		5
-#define BEM_GRACEFUL_RESTART	6
+#define BEM_LINK_DOWN		5
+#define BEM_BFD_DOWN		6
+#define BEM_GRACEFUL_RESTART	7
 
 /* Automatic shutdown error codes */
 

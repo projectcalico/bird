@@ -366,7 +366,7 @@ void
 bgp_conn_enter_established_state(struct bgp_conn *conn)
 {
   struct bgp_proto *p = conn->bgp;
- 
+
   BGP_TRACE(D_EVENTS, "BGP session established");
   DBG("BGP: UP!!!\n");
 
@@ -828,7 +828,7 @@ bgp_start_neighbor(struct bgp_proto *p)
   /* Called only for single-hop BGP sessions */
 
   if (ipa_zero(p->source_addr))
-    p->source_addr = p->neigh->ifa->ip; 
+    p->source_addr = p->neigh->ifa->ip;
 
 #ifdef IPV6
   {
@@ -855,25 +855,43 @@ static void
 bgp_neigh_notify(neighbor *n)
 {
   struct bgp_proto *p = (struct bgp_proto *) n->proto;
+  int ps = p->p.proto_state;
 
-  if (! (n->flags & NEF_STICKY))
+  if (n != p->neigh)
     return;
 
-  if (n->scope > 0)
+  if ((ps == PS_DOWN) || (ps == PS_STOP))
+    return;
+
+  int prepare = (ps == PS_START) && (p->start_state == BSS_PREPARE);
+
+  if (n->scope <= 0)
     {
-      if ((p->p.proto_state == PS_START) && (p->start_state == BSS_PREPARE))
-	{
-	  BGP_TRACE(D_EVENTS, "Neighbor found");
-	  bgp_start_neighbor(p);
+      if (!prepare)
+        {
+	  BGP_TRACE(D_EVENTS, "Neighbor lost");
+	  bgp_store_error(p, NULL, BE_MISC, BEM_NEIGHBOR_LOST);
+	  /* Perhaps also run bgp_update_startup_delay(p)? */
+	  bgp_stop(p, 0);
+	}
+    }
+  else if (p->cf->check_link && !(n->iface->flags & IF_LINK_UP))
+    {
+      if (!prepare)
+        {
+	  BGP_TRACE(D_EVENTS, "Link down");
+	  bgp_store_error(p, NULL, BE_MISC, BEM_LINK_DOWN);
+	  if (ps == PS_UP)
+	    bgp_update_startup_delay(p);
+	  bgp_stop(p, 0);
 	}
     }
   else
     {
-      if ((p->p.proto_state == PS_START) || (p->p.proto_state == PS_UP))
+      if (prepare)
 	{
-	  BGP_TRACE(D_EVENTS, "Neighbor lost");
-	  bgp_store_error(p, NULL, BE_MISC, BEM_NEIGHBOR_LOST);
-	  bgp_stop(p, 0);
+	  BGP_TRACE(D_EVENTS, "Neighbor ready");
+	  bgp_start_neighbor(p);
 	}
     }
 }
@@ -952,8 +970,8 @@ bgp_start_locked(struct object_lock *lock)
       return;
     }
 
-  p->neigh = neigh_find2(&p->p, &cf->remote_ip, cf->iface, NEF_STICKY);
-  if (!p->neigh || (p->neigh->scope == SCOPE_HOST))
+  neighbor *n = neigh_find2(&p->p, &cf->remote_ip, cf->iface, NEF_STICKY);
+  if (!n)
     {
       log(L_ERR "%s: Invalid remote address %I%J", p->p.name, cf->remote_ip, cf->iface);
       /* As we do not start yet, we can just disable protocol */
@@ -962,11 +980,15 @@ bgp_start_locked(struct object_lock *lock)
       proto_notify_state(&p->p, PS_DOWN);
       return;
     }
-  
-  if (p->neigh->scope > 0)
-    bgp_start_neighbor(p);
-  else
+
+  p->neigh = n;
+
+  if (n->scope <= 0)
     BGP_TRACE(D_EVENTS, "Waiting for %I%J to become my neighbor", cf->remote_ip, cf->iface);
+  else if (p->cf->check_link && !(n->iface->flags & IF_LINK_UP))
+    BGP_TRACE(D_EVENTS, "Waiting for link on %s", n->iface->name);
+  else
+    bgp_start_neighbor(p);
 }
 
 static int
@@ -1173,6 +1195,9 @@ bgp_check_config(struct bgp_config *c)
 		      ipa_is_link_local(c->source_addr)))
     cf_error("Multihop BGP cannot be used with link-local addresses");
 
+  if (c->multihop && c->check_link)
+    cf_error("Multihop BGP cannot depend on link state");
+
   if (c->multihop && c->bfd && ipa_zero(c->source_addr))
     cf_error("Multihop BGP with BFD requires specified source address");
 
@@ -1288,7 +1313,7 @@ bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code)
 
 static char *bgp_state_names[] = { "Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established", "Close" };
 static char *bgp_err_classes[] = { "", "Error: ", "Socket: ", "Received: ", "BGP Error: ", "Automatic shutdown: ", ""};
-static char *bgp_misc_errors[] = { "", "Neighbor lost", "Invalid next hop", "Kernel MD5 auth failed", "No listening socket", "BFD session down", "Graceful restart"};
+static char *bgp_misc_errors[] = { "", "Neighbor lost", "Invalid next hop", "Kernel MD5 auth failed", "No listening socket", "Link down", "BFD session down", "Graceful restart"};
 static char *bgp_auto_errors[] = { "", "Route limit exceeded"};
 
 static const char *
@@ -1396,7 +1421,7 @@ bgp_show_proto_info(struct proto *P)
 	      tm_remains(c->keepalive_timer), c->keepalive_time);
     }
 
-  if ((p->last_error_class != BE_NONE) && 
+  if ((p->last_error_class != BE_NONE) &&
       (p->last_error_class != BE_MAN_DOWN))
     {
       const char *err1 = bgp_err_classes[p->last_error_class];

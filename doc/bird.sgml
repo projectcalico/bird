@@ -316,20 +316,20 @@ protocol rip {
 <sect>Global options
 
 <p><descrip>
-	<tag>include "<m/filename/"</tag> 
+	<tag>include "<m/filename/"</tag>
 	This statement causes inclusion of a new file. <m/Filename/ could also
 	be a wildcard. The maximal depth is 8. Note that this statement could be
 	used anywhere in the config file, not just as a top-level option.
 
-	<tag><label id="dsc-log">log "<m/filename/"|syslog [name <m/name/]|stderr all|{ <m/list of classes/ }</tag> 
+	<tag><label id="dsc-log">log "<m/filename/"|syslog [name <m/name/]|stderr all|{ <m/list of classes/ }</tag>
 	Set logging of messages having the given class (either <cf/all/ or
 	<cf/{ error, trace }/ etc.) into selected destination (a file specified
 	as a filename string, syslog with optional name argument, or the stderr
 	output). Classes are:
 	<cf/info/, <cf/warning/, <cf/error/ and <cf/fatal/ for messages about local problems,
-	<cf/debug/ for debugging messages, 
-	<cf/trace/ when you want to know what happens in the network, 
-	<cf/remote/ for messages about misbehavior of remote machines, 
+	<cf/debug/ for debugging messages,
+	<cf/trace/ when you want to know what happens in the network,
+	<cf/remote/ for messages about misbehavior of remote machines,
 	<cf/auth/ about authentication failures,
 	<cf/bug/ for internal BIRD bugs.
 	You may specify more than one <cf/log/ line to establish logging to
@@ -358,7 +358,7 @@ protocol rip {
 
 	<tag>function <m/name/ (<m/parameters/) <m/local variables/ { <m/commands/ }</tag>
 	Define a function. You can learn more about functions in the following chapter.
- 
+
 	<tag>protocol rip|ospf|bgp|... [<m/name/ [from <m/name2/]] { <m>protocol options</m> }</tag>
 	Define a protocol instance called <cf><m/name/</cf> (or with a name like
 	"rip5" generated automatically if you don't specify any
@@ -508,7 +508,7 @@ agreement").
 	This option can be used to override global router id for a given
 	protocol. Default: uses global router id.
 
-	<tag>import all | none | filter <m/name/ | filter { <m/filter commands/ } | where <m/filter expression/</tag> 
+	<tag>import all | none | filter <m/name/ | filter { <m/filter commands/ } | where <m/filter expression/</tag>
 	Specify a filter to be used for filtering routes coming from the
 	protocol to the routing table. <cf/all/ is shorthand for <cf/where true/
 	and <cf/none/ is shorthand for <cf/where false/. Default: <cf/all/.
@@ -586,7 +586,7 @@ agreement").
 	An interface option can be used more times with different interface-specific
 	options, in that case for given interface the first matching interface
 	option is used.
-	
+
 	This option is allowed in BFD, Direct, OSPF, RAdv and RIP protocols, but
 	in OSPF protocol it is used in the <cf/area/ subsection.
 
@@ -599,7 +599,7 @@ agreement").
 
 	<cf>interface "eth1", "eth4", "eth5" { type ptp; };</cf> - start the
 	protocol on enumerated interfaces with <cf>type ptp</cf> option.
-	
+
 	<cf>interface -192.168.1.0/24, 192.168.0.0/16;</cf> - start the protocol
 	on all interfaces that have address from 192.168.0.0/16, but not from
 	192.168.1.0/24.
@@ -632,7 +632,7 @@ agreement").
 	used. Specifying passwords does not mean that authentication is enabled,
 	authentication can be enabled by separate, protocol-dependent
 	<cf/authentication/ option.
-	
+
 	This option is allowed in OSPF and RIP protocols. BGP has also
 	<cf/password/ option, but it is slightly different and described
 	separately.
@@ -1085,7 +1085,7 @@ foot).
 	is true, but <cf>1.0.0.0/16 &tilde; [ 1.0.0.0/8- ]</cf> is false.
 
 	Cisco-style patterns like <cf>10.0.0.0/8 ge 16 le 24</cf> can be expressed
-	in BIRD as <cf>10.0.0.0/8{16,24}</cf>, <cf>192.168.0.0/16 le 24</cf> as 
+	in BIRD as <cf>10.0.0.0/8{16,24}</cf>, <cf>192.168.0.0/16 le 24</cf> as
 	<cf>192.168.0.0/16{16,24}</cf> and <cf>192.168.0.0/16 ge 24</cf> as
 	<cf>192.168.0.0/16{24,32}</cf>.
 
@@ -1129,7 +1129,7 @@ foot).
 	&tilde; [= 2 3 5 * =]</cf> syntax). The masks resemble wildcard patterns
 	as used by UNIX shells. Autonomous system numbers match themselves,
 	<cf/*/ matches any (even empty) sequence of arbitrary AS numbers and
-	<cf/?/ matches one arbitrary AS number. For example, if <cf>bgp_path</cf> 
+	<cf/?/ matches one arbitrary AS number. For example, if <cf>bgp_path</cf>
  	is 4 3 2 1, then: <tt>bgp_path &tilde; [= * 4 3 * =]</tt> is true,
 	but <tt>bgp_path &tilde; [= * 4 5 * =]</tt> is false. BGP mask
 	expressions can also contain integer expressions enclosed in parenthesis
@@ -1206,7 +1206,7 @@ prefix and an ASN as arguments.
 
 <sect>Control structures
 
-<p>Filters support two control structures: conditions and case switches. 
+<p>Filters support two control structures: conditions and case switches.
 
 <p>Syntax of a condition is: <cf>if <M>boolean expression</M> then <m/command1/;
 else <m/command2/;</cf> and you can use <cf>{ <m/command_1/; <m/command_2/;
@@ -1232,9 +1232,9 @@ case arg1 {
 	else: print "something else";
 }
 
-if 1234 = i then printn "."; else { 
-  print "not 1234"; 
-  print "You need {} around multiple commands"; 
+if 1234 = i then printn "."; else {
+  print "not 1234";
+  print "You need {} around multiple commands";
 }
 </code>
 
@@ -1267,7 +1267,7 @@ clist for most purposes.
 
 	<tag><m/ip/ from</tag>
 	The router which the route has originated from.
-	
+
 	<tag><m/ip/ gw</tag>
 	Next hop packets routed using this route should be forwarded to.
 
@@ -1448,7 +1448,7 @@ protocol bfd [&lt;name&gt;] {
 	BFD sessions are usually created on demand as requested by other
 	protocols (like OSPF or BGP). This option allows to explicitly add
 	a BFD session to the specified neighbor regardless of such requests.
-	
+
 	The session is identified by the IP address of the neighbor, with
 	optional specification of used interface and local IP. By default
 	the neighbor must be directly connected, unless the the session is
@@ -1559,13 +1559,13 @@ MD5 password authentication
 (RFC 2385<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc2385.txt">),
 extended communities
 (RFC 4360<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4360.txt">),
-route reflectors 
+route reflectors
 (RFC 4456<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4456.txt">),
 graceful restart
 (RFC 4724<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4724.txt">),
 multiprotocol extensions
 (RFC 4760<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4760.txt">),
-4B AS numbers 
+4B AS numbers
 (RFC 4893<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc4893.txt">),
 and 4B AS numbers in extended communities
 (RFC 5668<htmlurl url="ftp://ftp.rfc-editor.org/in-notes/rfc5668.txt">).
@@ -1691,6 +1691,13 @@ using the following configuration parameters:
 	Specifies a table that is used as an IGP routing table. Default: the
 	same as the table BGP is connected to.
 
+	<tag>check link <M>switch</M></tag>
+	BGP could use hardware link state into consideration.  If enabled,
+	BIRD tracks the link state of the associated interface and when link
+	disappears (e.g. an ethernet cable is unplugged), the BGP session is
+	immediately shut down. Note that this option cannot be used with
+	multihop BGP. Default: disabled.
+
 	<tag>bfd <M>switch</M></tag>
 	BGP could use BFD protocol as an advisory mechanism for neighbor
 	liveness and failure detection. If enabled, BIRD setups a BFD session
@@ -1709,7 +1716,7 @@ using the following configuration parameters:
 	(IPv4), 2.6.35+ (IPv6), BSD: since long ago, IPv4 only. Note that full
 	(ICMP protection, for example) RFC 5082 support is provided by Linux
 	only. Default: disabled.
-	
+
 	<tag>password <m/string/</tag>
 	Use this password for MD5 authentication of BGP sessions. Default: no
 	authentication. Password has to be set by external utility
@@ -1732,7 +1739,7 @@ using the following configuration parameters:
 	id. Clients in a cluster need not know their cluster id and this option
 	is not allowed for them. Default: the same as router id.
 
-	<tag>rs client</tag> 
+	<tag>rs client</tag>
 	Be a route server and treat the neighbor as a route server client.
 	A route server is used as a replacement for full mesh EBGP routing in
 	Internet exchange points in a similar way to route reflectors used in
@@ -1760,7 +1767,7 @@ using the following configuration parameters:
 	TX direction. When active, all available routes accepted by the export
 	filter are advertised to the neighbor. Default: off.
 
-	<tag>allow local as [<m/number/]</tag> 
+	<tag>allow local as [<m/number/]</tag>
 	BGP prevents routing loops by rejecting received routes with the local
 	AS number in the AS path. This option allows to loose or disable the
 	check. Optional <cf/number/ argument can be used to specify the maximum
