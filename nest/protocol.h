@@ -40,7 +40,8 @@ struct protocol {
   int name_counter;			/* Counter for automatic name generation */
   int attr_class;			/* Attribute class known to this protocol */
   int multitable;			/* Protocol handles all announce hooks itself */
-  unsigned preference;			/* Default protocol preference */
+  uint preference;			/* Default protocol preference */
+  uint config_size;			/* Size of protocol config */
 
   void (*preconfig)(struct protocol *, struct config *);	/* Just before configuring */
   void (*postconfig)(struct proto_config *);			/* After configuring each instance */
@@ -126,7 +127,7 @@ struct proto_stats {
   u32 exp_updates_received;	/* Number of route updates received */
   u32 exp_updates_rejected;	/* Number of route updates rejected by protocol */
   u32 exp_updates_filtered;	/* Number of route updates rejected by filters */
-  u32 exp_updates_accepted;	/* Number of route updates accepted and exported */ 
+  u32 exp_updates_accepted;	/* Number of route updates accepted and exported */
   u32 exp_withdraws_received;	/* Number of route withdraws received */
   u32 exp_withdraws_accepted;	/* Number of route withdraws accepted and processed */
 };
@@ -148,7 +149,7 @@ struct proto {
   byte disabled;			/* Manually disabled */
   byte proto_state;			/* Protocol state machine (PS_*, see below) */
   byte core_state;			/* Core state machine (FS_*, see below) */
-  byte export_state;			/* Route export state (ES_*, see below) */	
+  byte export_state;			/* Route export state (ES_*, see below) */
   byte reconfiguring;			/* We're shutting down due to reconfiguration */
   byte refeeding;			/* We are refeeding (valid only if export_state == ES_FEEDING) */
   byte flushing;			/* Protocol is flushed in current flush loop round */
@@ -194,7 +195,7 @@ struct proto {
   /*
    *	Routing entry hooks (called only for routes belonging to this protocol):
    *
-   *	   rte_recalculate Called at the beginning of the best route selection  
+   *	   rte_recalculate Called at the beginning of the best route selection
    *	   rte_better	Compare two rte's and decide which one is better (1=first, 0=second).
    *       rte_same	Compare two rte's and decide whether they are identical (1=yes, 0=no).
    *	   rte_insert	Called whenever a rte is inserted to a routing table.
@@ -239,7 +240,7 @@ struct proto_spec {
 
 
 void *proto_new(struct proto_config *, unsigned size);
-void *proto_config_new(struct protocol *, unsigned size, int class);
+void *proto_config_new(struct protocol *, int class);
 void proto_copy_config(struct proto_config *dest, struct proto_config *src);
 void proto_request_feeding(struct proto *p);
 
@@ -350,7 +351,7 @@ void proto_notify_state(struct proto *p, unsigned state);
  *		FEEDING/UP --> HAPPY/UP --> FLUSHING/STOP|DOWN -->
  *		HUNGRY/STOP|DOWN --> HUNGRY/DOWN
  *
- *	Sometimes, protocol might switch from HAPPY/UP to FEEDING/UP 
+ *	Sometimes, protocol might switch from HAPPY/UP to FEEDING/UP
  *	if it wants to refeed the routes (for example BGP does so
  *	as a result of received ROUTE-REFRESH request).
  */
@@ -432,7 +433,7 @@ proto_reset_limit(struct proto_limit *l)
     l->state = PLS_INITIAL;
 }
 
- 
+
 /*
  *	Route Announcement Hook
  */

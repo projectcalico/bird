@@ -531,6 +531,7 @@ struct protocol proto_static = {
   .name =		"Static",
   .template =		"static%d",
   .preference =		DEF_PREF_STATIC,
+  .config_size =	sizeof(struct static_config),
   .init =		static_init,
   .dump =		static_dump,
   .start =		static_start,

@@ -1457,6 +1457,7 @@ struct protocol proto_ospf = {
   .template =		"ospf%d",
   .attr_class =		EAP_OSPF,
   .preference =		DEF_PREF_OSPF,
+  .config_size =	sizeof(struct ospf_config),
   .init =		ospf_init,
   .dump =		ospf_dump,
   .start =		ospf_start,

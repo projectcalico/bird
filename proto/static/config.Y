@@ -26,7 +26,7 @@ CF_GRAMMAR
 CF_ADDTO(proto, static_proto '}')
 
 static_proto_start: proto_start STATIC {
-     this_proto = proto_config_new(&proto_static, sizeof(struct static_config), $1);
+     this_proto = proto_config_new(&proto_static, $1);
      static_init_config((struct static_config *) this_proto);
   }
  ;

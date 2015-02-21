@@ -1050,12 +1050,12 @@ struct protocol proto_rip = {
   .template =		"rip%d",
   .attr_class =		EAP_RIP,
   .preference =		DEF_PREF_RIP,
-  .get_route_info =	rip_get_route_info,
-  .get_attr =		rip_get_attr,
-
+  .config_size =	sizeof(struct rip_proto_config),
   .init =		rip_init,
   .dump =		rip_dump,
   .start =		rip_start,
   .reconfigure =	rip_reconfigure,
-  .copy_config =	rip_copy_config
+  .copy_config =	rip_copy_config,
+  .get_route_info =	rip_get_route_info,
+  .get_attr =		rip_get_attr
 };

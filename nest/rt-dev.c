@@ -93,7 +93,7 @@ dev_reconfigure(struct proto *p, struct proto_config *new)
 {
   struct rt_dev_config *o = (struct rt_dev_config *) p->cf;
   struct rt_dev_config *n = (struct rt_dev_config *) new;
-  
+
   return iface_patts_equal(&o->iface_list, &n->iface_list, NULL);
 }
 
@@ -115,6 +115,7 @@ struct protocol proto_device = {
   .name = 		"Direct",
   .template = 		"direct%d",
   .preference = 	DEF_PREF_DIRECT,
+  .config_size =	sizeof(struct rt_dev_config),
   .init = 		dev_init,
   .reconfigure = 	dev_reconfigure,
   .copy_config = 	dev_copy_config

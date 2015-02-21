@@ -34,7 +34,7 @@ CF_ADDTO(proto, bfd_proto)
 
 bfd_proto_start: proto_start BFD
 {
-  this_proto = proto_config_new(&proto_bfd, sizeof(struct bfd_config), $1);
+  this_proto = proto_config_new(&proto_bfd, $1);
   init_list(&BFD_CFG->patt_list);
   init_list(&BFD_CFG->neigh_list);
 

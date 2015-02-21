@@ -251,7 +251,7 @@ kif_init_config(int class)
   if (kif_cf)
     cf_error("Kernel device protocol already defined");
 
-  kif_cf = (struct kif_config *) proto_config_new(&proto_unix_iface, sizeof(struct kif_config), class);
+  kif_cf = (struct kif_config *) proto_config_new(&proto_unix_iface, class);
   kif_cf->scan_time = 60;
   init_list(&kif_cf->primary);
 
@@ -280,6 +280,7 @@ struct protocol proto_unix_iface = {
   .name = 		"Device",
   .template = 		"device%d",
   .preference =		DEF_PREF_DIRECT,
+  .config_size =	sizeof(struct kif_config),
   .preconfig =		kif_preconfig,
   .init =		kif_init,
   .start =		kif_start,
@@ -1150,7 +1151,7 @@ krt_init_config(int class)
     cf_error("Kernel protocol already defined");
 #endif
 
-  krt_cf = (struct krt_config *) proto_config_new(&proto_unix_kernel, sizeof(struct krt_config), class);
+  krt_cf = (struct krt_config *) proto_config_new(&proto_unix_kernel, class);
   krt_cf->scan_time = 60;
 
   krt_sys_init_config(krt_cf);
@@ -1202,6 +1203,7 @@ struct protocol proto_unix_kernel = {
   .template =		"kernel%d",
   .attr_class =		EAP_KRT,
   .preference =		DEF_PREF_INHERITED,
+  .config_size =	sizeof(struct krt_config),
   .preconfig =		krt_preconfig,
   .postconfig =		krt_postconfig,
   .init =		krt_init,

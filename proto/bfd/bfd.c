@@ -1112,6 +1112,7 @@ bfd_show_sessions(struct proto *P)
 struct protocol proto_bfd = {
   .name =		"BFD",
   .template =		"bfd%d",
+  .config_size =	sizeof(struct bfd_config),
   .init =		bfd_init,
   .start =		bfd_start,
   .shutdown =		bfd_shutdown,

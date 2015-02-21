@@ -1455,6 +1455,7 @@ struct protocol proto_bgp = {
   .template = 		"bgp%d",
   .attr_class = 	EAP_BGP,
   .preference = 	DEF_PREF_BGP,
+  .config_size =	sizeof(struct bgp_config),
   .init = 		bgp_init,
   .start = 		bgp_start,
   .shutdown = 		bgp_shutdown,
