@@ -108,6 +108,8 @@ struct symbol {
   char name[1];
 };
 
+#define SYM_MAX_LEN 64
+
 /* Remember to update cf_symbol_class_name() */
 #define SYM_VOID 0
 #define SYM_PROTO 1

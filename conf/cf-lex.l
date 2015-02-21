@@ -61,7 +61,6 @@ static struct keyword *kw_hash[KW_HASH_SIZE];
 static int kw_hash_inited;
 
 #define SYM_HASH_SIZE 128
-#define SYM_MAX_LEN 32
 
 struct sym_scope {
   struct sym_scope *next;		/* Next on scope stack */
