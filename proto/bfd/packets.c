@@ -33,7 +33,7 @@ static inline u8 bfd_pkt_get_version(struct bfd_ctl_packet *pkt)
 { return pkt->vdiag >> 5; }
 
 static inline u8 bfd_pkt_get_diag(struct bfd_ctl_packet *pkt)
-{ return pkt->vdiag && 0x1f; }
+{ return pkt->vdiag & 0x1f; }
 
 
 static inline u8 bfd_pkt_get_state(struct bfd_ctl_packet *pkt)
