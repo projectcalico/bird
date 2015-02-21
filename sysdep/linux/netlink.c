@@ -95,7 +95,7 @@ nl_send(struct nl_sock *nl, struct nlmsghdr *nh)
 }
 
 static void
-nl_request_dump(int cmd)
+nl_request_dump(int af, int cmd)
 {
   struct {
     struct nlmsghdr nh;
@@ -104,9 +104,7 @@ nl_request_dump(int cmd)
   req.nh.nlmsg_type = cmd;
   req.nh.nlmsg_len = sizeof(req);
   req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-  /* Is it important which AF_* is used for link-level interface scan?
-     It seems that some information is available only when AF_INET is used. */
-  req.g.rtgen_family = (cmd == RTM_GETLINK) ? AF_INET : BIRD_AF;
+  req.g.rtgen_family = af;
   nl_send(&nl_scan, &req.nh);
 }
 
@@ -563,14 +561,14 @@ kif_do_scan(struct kif_proto *p UNUSED)
 
   if_start_update();
 
-  nl_request_dump(RTM_GETLINK);
+  nl_request_dump(AF_UNSPEC, RTM_GETLINK);
   while (h = nl_get_scan())
     if (h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)
       nl_parse_link(h, 1);
     else
       log(L_DEBUG "nl_scan_ifaces: Unknown packet received (type=%d)", h->nlmsg_type);
 
-  nl_request_dump(RTM_GETADDR);
+  nl_request_dump(BIRD_AF, RTM_GETADDR);
   while (h = nl_get_scan())
     if (h->nlmsg_type == RTM_NEWADDR || h->nlmsg_type == RTM_DELADDR)
       nl_parse_addr(h, 1);
@@ -942,7 +940,7 @@ krt_do_scan(struct krt_proto *p UNUSED)	/* CONFIG_ALL_TABLES_AT_ONCE => p is NUL
 {
   struct nlmsghdr *h;
 
-  nl_request_dump(RTM_GETROUTE);
+  nl_request_dump(BIRD_AF, RTM_GETROUTE);
   while (h = nl_get_scan())
     if (h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE)
       nl_parse_route(h, 1);
