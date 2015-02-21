@@ -80,8 +80,8 @@ struct f_tree *find_tree(struct f_tree *t, struct f_val val);
 int same_tree(struct f_tree *t1, struct f_tree *t2);
 void tree_format(struct f_tree *t, buffer *buf);
 
-struct f_trie *f_new_trie(linpool *lp);
-void trie_add_prefix(struct f_trie *t, ip_addr px, int plen, int l, int h);
+struct f_trie *f_new_trie(linpool *lp, uint node_size);
+void *trie_add_prefix(struct f_trie *t, ip_addr px, int plen, int l, int h);
 int trie_match_prefix(struct f_trie *t, ip_addr px, int plen);
 int trie_same(struct f_trie *t1, struct f_trie *t2);
 void trie_format(struct f_trie *t, buffer *buf);
@@ -204,7 +204,8 @@ struct f_trie
 {
   linpool *lp;
   int zero;
-  struct f_trie_node root;
+  uint node_size;
+  struct f_trie_node root[0];		/* Root trie node follows */
 };
 
 #define NEW_F_VAL struct f_val * val; val = cfg_alloc(sizeof(struct f_val));

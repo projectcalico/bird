@@ -592,7 +592,7 @@ fprefix:
  ;
 
 fprefix_set:
-   fprefix { $$ = f_new_trie(cfg_mem); trie_add_fprefix($$, &($1.val.px)); }
+   fprefix { $$ = f_new_trie(cfg_mem, sizeof(struct f_trie_node)); trie_add_fprefix($$, &($1.val.px)); }
  | fprefix_set ',' fprefix { $$ = $1; trie_add_fprefix($$, &($3.val.px)); }
  ;
 
