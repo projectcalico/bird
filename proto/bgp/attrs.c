@@ -717,7 +717,7 @@ bgp_new_bucket(struct bgp_proto *p, ea_list *new, unsigned hash)
   struct bgp_bucket *b;
   unsigned ea_size = sizeof(ea_list) + new->count * sizeof(eattr);
   unsigned ea_size_aligned = BIRD_ALIGN(ea_size, CPU_STRUCT_ALIGN);
-  unsigned size = sizeof(struct bgp_bucket) + ea_size;
+  unsigned size = sizeof(struct bgp_bucket) + ea_size_aligned;
   unsigned i;
   byte *dest;
   unsigned index = hash & (p->hash_size - 1);
