@@ -51,10 +51,10 @@ struct bgp_config {
   int allow_local_as;			/* Allow that number of local ASNs in incoming AS_PATHs */
   int gr_mode;				/* Graceful restart mode (BGP_GR_*) */
   unsigned gr_time;			/* Graceful restart timeout */
-  unsigned connect_retry_time;
+  unsigned connect_delay_time;		/* Minimum delay between connect attempts */
+  unsigned connect_retry_time;		/* Timeout for connect attempts */
   unsigned hold_time, initial_hold_time;
   unsigned keepalive_time;
-  unsigned start_delay_time;		/* Minimum delay between connects */
   unsigned error_amnesia_time;		/* Errors are forgotten after */
   unsigned error_delay_time_min;	/* Time to wait after an error is detected */
   unsigned error_delay_time_max;

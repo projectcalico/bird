@@ -38,11 +38,11 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->remote_port = BGP_PORT;
      BGP_CFG->multihop = -1;	/* undefined */
      BGP_CFG->hold_time = 240;
-     BGP_CFG->connect_retry_time = 120;
      BGP_CFG->initial_hold_time = 240;
      BGP_CFG->compare_path_lengths = 1;
      BGP_CFG->igp_metric = 1;
-     BGP_CFG->start_delay_time = 5;
+     BGP_CFG->connect_delay_time = 5;
+     BGP_CFG->connect_retry_time = 120;
      BGP_CFG->error_amnesia_time = 300;
      BGP_CFG->error_delay_time_min = 60;
      BGP_CFG->error_delay_time_max = 300;
@@ -81,8 +81,6 @@ bgp_proto:
  | bgp_proto RS CLIENT ';' { BGP_CFG->rs_client = 1; }
  | bgp_proto HOLD TIME expr ';' { BGP_CFG->hold_time = $4; }
  | bgp_proto STARTUP HOLD TIME expr ';' { BGP_CFG->initial_hold_time = $5; }
- | bgp_proto CONNECT RETRY TIME expr ';' { BGP_CFG->connect_retry_time = $5; }
- | bgp_proto KEEPALIVE TIME expr ';' { BGP_CFG->keepalive_time = $4; }
  | bgp_proto DIRECT ';' { BGP_CFG->multihop = 0; }
  | bgp_proto MULTIHOP ';' { BGP_CFG->multihop = 64; }
  | bgp_proto MULTIHOP expr ';' { BGP_CFG->multihop = $3; if (($3<1) || ($3>255)) cf_error("Multihop must be in range 1-255"); }
@@ -101,7 +99,10 @@ bgp_proto:
  | bgp_proto DEFAULT BGP_MED expr ';' { BGP_CFG->default_med = $4; }
  | bgp_proto DEFAULT BGP_LOCAL_PREF expr ';' { BGP_CFG->default_local_pref = $4; }
  | bgp_proto SOURCE ADDRESS ipa ';' { BGP_CFG->source_addr = $4; }
- | bgp_proto START DELAY TIME expr ';' { BGP_CFG->start_delay_time = $5; }
+ | bgp_proto START DELAY TIME expr ';' { BGP_CFG->connect_delay_time = $5; log(L_WARN "%s: Start delay time option is deprecated, use connect delay time", this_proto->name); }
+ | bgp_proto CONNECT DELAY TIME expr ';' { BGP_CFG->connect_delay_time = $5; }
+ | bgp_proto CONNECT RETRY TIME expr ';' { BGP_CFG->connect_retry_time = $5; }
+ | bgp_proto KEEPALIVE TIME expr ';' { BGP_CFG->keepalive_time = $4; }
  | bgp_proto ERROR FORGET TIME expr ';' { BGP_CFG->error_amnesia_time = $5; }
  | bgp_proto ERROR WAIT TIME expr ',' expr ';' { BGP_CFG->error_delay_time_min = $5; BGP_CFG->error_delay_time_max = $7; }
  | bgp_proto DISABLE AFTER ERROR bool ';' { BGP_CFG->disable_after_error = $5; }
@@ -114,6 +115,7 @@ bgp_proto:
      this_proto->in_limit = cfg_allocz(sizeof(struct proto_limit));
      this_proto->in_limit->limit = $4;
      this_proto->in_limit->action = PLA_RESTART;
+     log(L_WARN "%s: Route limit option is deprecated, use import limit", this_proto->name);
    }
  | bgp_proto PASSIVE bool ';' { BGP_CFG->passive = $3; }
  | bgp_proto INTERPRET COMMUNITIES bool ';' { BGP_CFG->interpret_communities = $4; }

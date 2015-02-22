@@ -168,7 +168,7 @@ bgp_initiate(struct bgp_proto *p)
   if (p->startup_delay)
     {
       p->start_state = BSS_DELAY;
-      BGP_TRACE(D_EVENTS, "Startup delayed by %d seconds", p->startup_delay);
+      BGP_TRACE(D_EVENTS, "Startup delayed by %d seconds due to errors", p->startup_delay);
       bgp_start_timer(p->startup_timer, p->startup_delay);
     }
   else
@@ -651,7 +651,7 @@ bgp_setup_sk(struct bgp_conn *conn, sock *s)
 static void
 bgp_active(struct bgp_proto *p)
 {
-  int delay = MAX(1, p->cf->start_delay_time);
+  int delay = MAX(1, p->cf->connect_delay_time);
   struct bgp_conn *conn = &p->outgoing_conn;
 
   BGP_TRACE(D_EVENTS, "Connect delayed by %d seconds", delay);
@@ -1417,8 +1417,8 @@ bgp_show_proto_info(struct proto *P)
 
       if ((oc->state == BS_ACTIVE) &&
 	  (oc->connect_retry_timer->expires))
-	cli_msg(-1006, "    Start delay:      %d/%d",
-		oc->connect_retry_timer->expires - now, p->cf->start_delay_time);
+	cli_msg(-1006, "    Connect delay:    %d/%d",
+		oc->connect_retry_timer->expires - now, p->cf->connect_delay_time);
 
       if (p->gr_active && p->gr_timer->expires)
 	cli_msg(-1006, "    Restart timer:    %d/-", p->gr_timer->expires - now);

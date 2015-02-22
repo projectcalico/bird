@@ -1875,13 +1875,13 @@ using the following configuration parameters:
 	Delay in seconds between sending of two consecutive Keepalive messages.
 	Default: One third of the hold time.
 
+	<tag>connect delay time <m/number/</tag>
+	Delay in seconds between protocol startup and the first attempt to
+	connect. Default: 5 seconds.
+
 	<tag>connect retry time <m/number/</tag>
 	Time in seconds to wait before retrying a failed attempt to connect.
 	Default: 120 seconds.
-
-	<tag>start delay time <m/number/</tag>
-	Delay in seconds between protocol startup and the first attempt to
-	connect. Default: 5 seconds.
 
 	<tag>error wait time <m/number/,<m/number/</tag>
 	Minimum and maximum delay in seconds between a protocol failure (either
