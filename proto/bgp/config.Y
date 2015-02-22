@@ -27,7 +27,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY,
 	INTERPRET, COMMUNITIES, BGP_ORIGINATOR_ID, BGP_CLUSTER_LIST, IGP,
 	TABLE, GATEWAY, DIRECT, RECURSIVE, MED, TTL, SECURITY, DETERMINISTIC,
 	SECONDARY, ALLOW, BFD, ADD, PATHS, RX, TX, GRACEFUL, RESTART, AWARE,
-	CHECK, LINK)
+	CHECK, LINK, PORT)
 
 CF_GRAMMAR
 
@@ -35,6 +35,7 @@ CF_ADDTO(proto, bgp_proto '}' { bgp_check_config(BGP_CFG); } )
 
 bgp_proto_start: proto_start BGP {
      this_proto = proto_config_new(&proto_bgp, $1);
+     BGP_CFG->remote_port = BGP_PORT;
      BGP_CFG->multihop = -1;	/* undefined */
      BGP_CFG->hold_time = 240;
      BGP_CFG->connect_retry_time = 120;
@@ -56,22 +57,25 @@ bgp_proto_start: proto_start BGP {
  }
  ;
 
+bgp_nbr_opts:
+   /* empty */
+ | bgp_nbr_opts PORT expr { BGP_CFG->remote_port = $3; if (($3<1) || ($3>65535)) cf_error("Invalid port number");  }
+ | bgp_nbr_opts AS expr { BGP_CFG->remote_as = $3; }
+ ;
+
 bgp_proto:
    bgp_proto_start proto_name '{'
  | bgp_proto proto_item ';'
  | bgp_proto LOCAL AS expr ';' { BGP_CFG->local_as = $4; }
  | bgp_proto LOCAL ipa AS expr ';' { BGP_CFG->source_addr = $3; BGP_CFG->local_as = $5; }
- | bgp_proto NEIGHBOR ipa ipa_scope ipa_port AS expr ';' {
+ | bgp_proto NEIGHBOR bgp_nbr_opts ';'
+ | bgp_proto NEIGHBOR ipa ipa_scope bgp_nbr_opts ';' {
      if (ipa_nonzero(BGP_CFG->remote_ip))
        cf_error("Only one neighbor per BGP instance is allowed");
-     if (!ipa_is_link_local($3) != !$4)
-       cf_error("Link-local address and interface scope must be used together");
-
      BGP_CFG->remote_ip = $3;
-     BGP_CFG->iface = $4;
-     BGP_CFG->remote_port = ($5 > 0) ? $5 : BGP_PORT;
-     BGP_CFG->remote_as = $7;
+     if ($4) BGP_CFG->iface = $4;
    }
+ | bgp_proto INTERFACE TEXT ';' { BGP_CFG->iface = if_get_by_name($3); }
  | bgp_proto RR CLUSTER ID idval ';' { BGP_CFG->rr_cluster_id = $5; }
  | bgp_proto RR CLIENT ';' { BGP_CFG->rr_client = 1; }
  | bgp_proto RS CLIENT ';' { BGP_CFG->rs_client = 1; }

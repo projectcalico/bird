@@ -1196,8 +1196,17 @@ bgp_check_config(struct bgp_config *c)
   if (!c->local_as)
     cf_error("Local AS number must be set");
 
-  if (!c->remote_as)
+  if (ipa_zero(c->remote_ip))
     cf_error("Neighbor must be configured");
+
+  if (!c->remote_as)
+    cf_error("Remote AS number must be set");
+
+  // if (ipa_is_link_local(c->remote_ip) && !c->iface)
+  //   cf_error("Link-local neighbor address requires specified interface");
+
+  if (!ipa_is_link_local(c->remote_ip) != !c->iface)
+    cf_error("Link-local address and interface scope must be used together");
 
   if (!(c->capabilities && c->enable_as4) && (c->remote_as > 0xFFFF))
     cf_error("Neighbor AS number out of range (AS4 not available)");

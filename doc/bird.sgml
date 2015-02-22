@@ -1620,10 +1620,20 @@ using the following configuration parameters:
 	address, equivalent to the <cf/source address/ option (see below). This
 	parameter is mandatory.
 
-	<tag>neighbor <m/ip/ [port <m/number/] as <m/number/</tag>
+	<tag>neighbor [<m/ip/] [port <m/number/] [as <m/number/]</tag>
 	Define neighboring router this instance will be talking to and what AS
-	it's located in. In case the neighbor is in the same AS as we are, we
-	automatically switch to iBGP. This parameter is mandatory.
+	it is located in. In case the neighbor is in the same AS as we are, we
+	automatically switch to iBGP. Optionally, the remote port may also be
+	specified. The parameter may be used multiple times with different
+	sub-options (e.g., both <cf/neighbor 10.0.0.1 as 65000;/ and
+	<cf/neighbor 10.0.0.1; neighbor as 65000;/ are valid). This parameter is
+	mandatory.
+
+	<tag>interface <m/string/</tag>
+	Define interface we should use for link-local BGP IPv6 sessions.
+	Interface can also be specified as a part of <cf/neighbor address/
+	(e.g., <cf/neighbor fe80::1234%eth0 as 65000;/). It is an error to use
+	this parameter for non link-local sessions.
 
 	<tag>direct</tag>
 	Specify that the neighbor is directly connected. The IP address of the
