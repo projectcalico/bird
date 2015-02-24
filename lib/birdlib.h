@@ -33,6 +33,10 @@
 #define ABS(a)   ((a)>=0 ? (a) : -(a))
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
 
+
+/* Bitfield macros */
+
+/* b is u32 array (or ptr), l is size of it in bits (multiple of 32), p is 0..(l-1) */
 #define BIT32_VAL(p)		(((u32) 1) << ((p) % 32))
 #define BIT32_TEST(b,p)		((b)[(p)/32] & BIT32_VAL(p))
 #define BIT32_SET(b,p)		((b)[(p)/32] |= BIT32_VAL(p))
