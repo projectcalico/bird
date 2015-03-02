@@ -999,7 +999,11 @@ bgp_rte_update(struct bgp_proto *p, ip_addr prefix, int pxlen,
   if (!*a)
     {
       a0->src = *src;
+
+      /* Workaround for rta_lookup() breaking eattrs */
+      ea_list *ea = a0->eattrs;
       *a = rta_lookup(a0);
+      a0->eattrs = ea;
     }
 
   net *n = net_get(p->p.table, prefix, pxlen);
