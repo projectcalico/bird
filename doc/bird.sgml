@@ -344,6 +344,23 @@ protocol rip {
 	of connects and disconnects, 2 and higher for logging of all client
 	commands). Default: 0.
 
+	<tag>debug latency <m/switch/</tag>
+	Activate tracking of elapsed time for internal events. Recent events
+	could be examined using <cf/dump events/ command. Default: off.
+
+	<tag>debug latency limit <m/time/</tag>
+	If <cf/debug latency/ is enabled, this option allows to specify a limit
+	for elapsed time. Events exceeding the limit are logged. Default: 1 s.
+
+	<tag>watchdog warning <m/time/</tag>
+	Set time limit for I/O loop cycle. If one iteration took more time to
+	complete, a warning is logged. Default: 5 s.
+
+	<tag>watchdog timeout <m/time/</tag>
+	Set time limit for I/O loop cycle. If the limit is breached, BIRD is
+	killed by abort signal. The timeout has effective granularity of
+	seconds, zero means disabled. Default: disabled (0).
+
 	<tag>mrtdump "<m/filename/"</tag>
 	Set MRTdump file name. This option must be specified to allow MRTdump
 	feature. Default: no dump file.

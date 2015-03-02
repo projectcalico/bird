@@ -332,6 +332,8 @@ tm_first_shot(void)
   return x;
 }
 
+void io_log_event(void *hook, void *data);
+
 static void
 tm_shot(void)
 {
@@ -372,6 +374,7 @@ tm_shot(void)
 	    i = 0;
 	  tm_start(t, i);
 	}
+      io_log_event(t->hook, t->data);
       t->hook(t);
     }
 }
@@ -1840,6 +1843,162 @@ sk_dump_all(void)
 
 
 /*
+ *	Internal event log and watchdog
+ */
+
+#define EVENT_LOG_LENGTH 32
+
+struct event_log_entry
+{
+  void *hook;
+  void *data;
+  btime timestamp;
+  btime duration;
+};
+
+static struct event_log_entry event_log[EVENT_LOG_LENGTH];
+static struct event_log_entry *event_open;
+static int event_log_pos, event_log_num, watchdog_active;
+static btime last_time;
+static btime loop_time;
+
+static void
+io_update_time(void)
+{
+  struct timespec ts;
+  int rv;
+
+  if (!clock_monotonic_available)
+    return;
+
+  /*
+   * This is third time-tracking procedure (after update_times() above and
+   * times_update() in BFD), dedicated to internal event log and latency
+   * tracking. Hopefully, we consolidate these sometimes.
+   */
+
+  rv = clock_gettime(CLOCK_MONOTONIC, &ts);
+  if (rv < 0)
+    die("clock_gettime: %m");
+
+  last_time = ((s64) ts.tv_sec S) + (ts.tv_nsec / 1000);
+
+  if (event_open)
+  {
+    event_open->duration = last_time - event_open->timestamp;
+
+    if (event_open->duration > config->latency_limit)
+      log(L_WARN "Event 0x%p 0x%p took %d ms",
+	  event_open->hook, event_open->data, (int) (event_open->duration TO_MS));
+
+    event_open = NULL;
+  }
+}
+
+/**
+ * io_log_event - mark approaching event into event log
+ * @hook: event hook address
+ * @data: event data address
+ *
+ * Store info (hook, data, timestamp) about the following internal event into
+ * a circular event log (@event_log). When latency tracking is enabled, the log
+ * entry is kept open (in @event_open) so the duration can be filled later.
+ */
+void
+io_log_event(void *hook, void *data)
+{
+  if (config->latency_debug)
+    io_update_time();
+
+  struct event_log_entry *en = event_log + event_log_pos;
+
+  en->hook = hook;
+  en->data = data;
+  en->timestamp = last_time;
+  en->duration = 0;
+
+  event_log_num++;
+  event_log_pos++;
+  event_log_pos %= EVENT_LOG_LENGTH;
+
+  event_open = config->latency_debug ? en : NULL;
+}
+
+static inline void
+io_close_event(void)
+{
+  if (event_open)
+    io_update_time();
+}
+
+void
+io_log_dump(void)
+{
+  int i;
+
+  log(L_DEBUG "Event log:");
+  for (i = 0; i < EVENT_LOG_LENGTH; i++)
+  {
+    struct event_log_entry *en = event_log + (event_log_pos + i) % EVENT_LOG_LENGTH;
+    if (en->hook)
+      log(L_DEBUG "  Event 0x%p 0x%p at %8d for %d ms", en->hook, en->data,
+	  (int) ((last_time - en->timestamp) TO_MS), (int) (en->duration TO_MS));
+  }
+}
+
+void
+watchdog_sigalrm(int sig UNUSED)
+{
+  /* Update last_time and duration, but skip latency check */
+  config->latency_limit = 0xffffffff;
+  io_update_time();
+
+  /* We want core dump */
+  abort();
+}
+
+static inline void
+watchdog_start1(void)
+{
+  io_update_time();
+
+  loop_time = last_time;
+}
+
+static inline void
+watchdog_start(void)
+{
+  io_update_time();
+
+  loop_time = last_time;
+  event_log_num = 0;
+
+  if (config->watchdog_timeout)
+  {
+    alarm(config->watchdog_timeout);
+    watchdog_active = 1;
+  }
+}
+
+static inline void
+watchdog_stop(void)
+{
+  io_update_time();
+
+  if (watchdog_active)
+  {
+    alarm(0);
+    watchdog_active = 0;
+  }
+
+  btime duration = last_time - loop_time;
+  if (duration > config->watchdog_warning)
+    log(L_WARN "I/O loop cycle took %d ms for %d events",
+	(int) (duration TO_MS), event_log_num);
+}
+
+
+/*
  *	Main I/O Loop
  */
 
@@ -1873,6 +2032,7 @@ io_loop(void)
   sock *s;
   node *n;
 
+  watchdog_start1();
   sock_recalc_fdsets_p = 1;
   for(;;)
     {
@@ -1886,6 +2046,8 @@ io_loop(void)
 	}
       timo.tv_sec = events ? 0 : MIN(tout - now, 3);
       timo.tv_usec = 0;
+
+      io_close_event();
 
       if (sock_recalc_fdsets_p)
 	{
@@ -1923,25 +2085,30 @@ io_loop(void)
 
       if (async_config_flag)
 	{
+	  io_log_event(async_config, NULL);
 	  async_config();
 	  async_config_flag = 0;
 	  continue;
 	}
       if (async_dump_flag)
 	{
+	  io_log_event(async_dump, NULL);
 	  async_dump();
 	  async_dump_flag = 0;
 	  continue;
 	}
       if (async_shutdown_flag)
 	{
+	  io_log_event(async_shutdown, NULL);
 	  async_shutdown();
 	  async_shutdown_flag = 0;
 	  continue;
 	}
 
       /* And finally enter select() to find active sockets */
+      watchdog_stop();
       hi = select(hi+1, &rd, &wr, NULL, &timo);
+      watchdog_start();
 
       if (hi < 0)
 	{
@@ -1965,6 +2132,7 @@ io_loop(void)
 		do
 		  {
 		    steps--;
+		    io_log_event(s->rx_hook, s->data);
 		    e = sk_read(s);
 		    if (s != current_sock)
 		      goto next;
@@ -1976,6 +2144,7 @@ io_loop(void)
 		do
 		  {
 		    steps--;
+		    io_log_event(s->tx_hook, s->data);
 		    e = sk_write(s);
 		    if (s != current_sock)
 		      goto next;
@@ -2003,6 +2172,7 @@ io_loop(void)
 	      if ((s->type < SK_MAGIC) && FD_ISSET(s->fd, &rd) && s->rx_hook)
 		{
 		  count++;
+		  io_log_event(s->rx_hook, s->data);
 		  e = sk_read(s);
 		  if (s != current_sock)
 		      goto next2;
