@@ -181,6 +181,12 @@ proto_name:
      cf_define_symbol($1, this_proto->class, this_proto);
      this_proto->name = $1->name;
    }
+ | FROM SYM {
+     struct symbol *s = cf_default_name(this_proto->protocol->template, &this_proto->protocol->name_counter);
+     this_proto->name = s->name;
+     if (($2->class != SYM_TEMPLATE) && ($2->class != SYM_PROTO)) cf_error("Template or protocol name expected");
+     proto_copy_config(this_proto, $2->def);
+   }
  | SYM FROM SYM {
      if (($3->class != SYM_TEMPLATE) && ($3->class != SYM_PROTO)) cf_error("Template or protocol name expected");
 
