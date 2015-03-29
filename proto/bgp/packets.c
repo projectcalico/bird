@@ -943,7 +943,8 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   if (hold > 0 && hold < 3)
     { bgp_error(conn, 2, 6, pkt+22, 2); return; }
 
-  if (!id || id == 0xffffffff || id == p->local_id)
+  /* RFC 6286 2.2 - router ID is nonzero and AS-wide unique */
+  if (!id || (p->is_internal && id == p->local_id))
     { bgp_error(conn, 2, 3, pkt+24, -4); return; }
 
   if ((conn->advertised_as != base_as) && (base_as != AS_TRANS))
@@ -978,8 +979,23 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
       break;
 
     case BS_OPENCONFIRM:
-      if ((p->local_id < id) == (conn == &p->incoming_conn))
-	{
+      /*
+       * Description of collision detection rules in RFC 4271 is confusing and
+       * contradictory, but it is essentially:
+       *
+       * 1. Router with higher ID is dominant
+       * 2. If both have the same ID, router with higher ASN is dominant [RFC6286]
+       * 3. When both connections are in OpenConfirm state, one initiated by
+       *    the dominant router is kept.
+       *
+       * The first line in the expression below evaluates whether the neighbor
+       * is dominant, the second line whether the new connection was initiated
+       * by the neighbor. If both are true (or both are false), we keep the new
+       * connection, otherwise we keep the old one.
+       */
+      if (((p->local_id < id) || ((p->local_id == id) && (p->local_as < p->remote_as)))
+	  == (conn == &p->incoming_conn))
+        {
 	  /* Should close the other connection */
 	  BGP_TRACE(D_EVENTS, "Connection collision, giving up the other connection");
 	  bgp_error(other, 6, 7, NULL, 0);
