@@ -22,6 +22,12 @@
 
 #include "bgp.h"
 
+
+#define BGP_RR_REQUEST		0
+#define BGP_RR_BEGIN		1
+#define BGP_RR_END		2
+
+
 static struct tbf rl_rcv_update = TBF_DEFAULT_LOG_LIMITS;
 static struct tbf rl_snd_update = TBF_DEFAULT_LOG_LIMITS;
 
@@ -210,6 +216,15 @@ bgp_put_cap_add_path(struct bgp_proto *p, byte *buf)
 }
 
 static byte *
+bgp_put_cap_err(struct bgp_proto *p UNUSED, byte *buf)
+{
+  *buf++ = 70;		/* Capability 70: Support for enhanced route refresh */
+  *buf++ = 0;		/* Capability data length */
+  return buf;
+}
+
+
+static byte *
 bgp_create_open(struct bgp_conn *conn, byte *buf)
 {
   struct bgp_proto *p = conn->bgp;
@@ -255,6 +270,9 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
 
   if (p->cf->add_path)
     cap = bgp_put_cap_add_path(p, cap);
+
+  if (p->cf->enable_refresh)
+    cap = bgp_put_cap_err(p, cap);
 
   cap_len = cap - buf - 12;
   if (cap_len > 0)
@@ -389,7 +407,7 @@ static byte *
 bgp_create_end_mark(struct bgp_conn *conn, byte *buf)
 {
   struct bgp_proto *p = conn->bgp;
-  BGP_TRACE(D_PACKETS, "Sending End-of-RIB");
+  BGP_TRACE(D_PACKETS, "Sending END-OF-RIB");
 
   put_u32(buf, 0);
   return buf+4;
@@ -568,7 +586,7 @@ static byte *
 bgp_create_end_mark(struct bgp_conn *conn, byte *buf)
 {
   struct bgp_proto *p = conn->bgp;
-  BGP_TRACE(D_PACKETS, "Sending End-of-RIB");
+  BGP_TRACE(D_PACKETS, "Sending END-OF-RIB");
 
   put_u16(buf+0, 0);
   put_u16(buf+2, 6);	/* length 4-9 */
@@ -586,18 +604,48 @@ bgp_create_end_mark(struct bgp_conn *conn, byte *buf)
 
 #endif
 
-static byte *
+static inline byte *
 bgp_create_route_refresh(struct bgp_conn *conn, byte *buf)
 {
   struct bgp_proto *p = conn->bgp;
   BGP_TRACE(D_PACKETS, "Sending ROUTE-REFRESH");
 
+  /* Original original route refresh request, RFC 2918 */
   *buf++ = 0;
   *buf++ = BGP_AF;
-  *buf++ = 0;		/* RFU */
-  *buf++ = 1;		/* and SAFI 1 */
+  *buf++ = BGP_RR_REQUEST;
+  *buf++ = 1;		/* SAFI */
   return buf;
 }
+
+static inline byte *
+bgp_create_begin_refresh(struct bgp_conn *conn, byte *buf)
+{
+  struct bgp_proto *p = conn->bgp;
+  BGP_TRACE(D_PACKETS, "Sending BEGIN-OF-RR");
+
+  /* Demarcation of beginning of route refresh (BoRR), RFC 7313 */
+  *buf++ = 0;
+  *buf++ = BGP_AF;
+  *buf++ = BGP_RR_BEGIN;
+  *buf++ = 1;		/* SAFI */
+  return buf;
+}
+
+static inline byte *
+bgp_create_end_refresh(struct bgp_conn *conn, byte *buf)
+{
+  struct bgp_proto *p = conn->bgp;
+  BGP_TRACE(D_PACKETS, "Sending END-OF-RR");
+
+  /* Demarcation of ending of route refresh (EoRR), RFC 7313 */
+  *buf++ = 0;
+  *buf++ = BGP_AF;
+  *buf++ = BGP_RR_END;
+  *buf++ = 1;		/* SAFI */
+  return buf;
+}
+
 
 static void
 bgp_create_header(byte *buf, unsigned int len, unsigned int type)
@@ -666,24 +714,44 @@ bgp_fire_tx(struct bgp_conn *conn)
       type = PKT_ROUTE_REFRESH;
       end = bgp_create_route_refresh(conn, pkt);
     }
+  else if (s & (1 << PKT_BEGIN_REFRESH))
+    {
+      s &= ~(1 << PKT_BEGIN_REFRESH);
+      type = PKT_ROUTE_REFRESH;	/* BoRR is a subtype of RR */
+      end = bgp_create_begin_refresh(conn, pkt);
+    }
   else if (s & (1 << PKT_UPDATE))
     {
-      end = bgp_create_update(conn, pkt);
       type = PKT_UPDATE;
+      end = bgp_create_update(conn, pkt);
 
       if (!end)
-	{
+        {
+	  /* No update to send, perhaps we need to send End-of-RIB or EoRR */
+
 	  conn->packets_to_send = 0;
 
-	  if (!p->send_end_mark)
+	  if (p->feed_state == BFS_LOADED)
+	  {
+	    type = PKT_UPDATE;
+	    end = bgp_create_end_mark(conn, pkt);
+	  }
+
+	  else if (p->feed_state == BFS_REFRESHED)
+	  {
+	    type = PKT_ROUTE_REFRESH;
+	    end = bgp_create_end_refresh(conn, pkt);
+	  }
+
+	  else /* Really nothing to send */
 	    return 0;
 
-	  p->send_end_mark = 0;
-	  end = bgp_create_end_mark(conn, pkt);
+	  p->feed_state = BFS_NONE;
 	}
     }
   else
     return 0;
+
   conn->packets_to_send = s;
   bgp_create_header(buf, end - buf, type);
   return sk_send(sk, end - buf);
@@ -737,7 +805,7 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
     {
       if (len < 2 || len < 2 + opt[1])
 	goto err;
-      
+
       cl = opt[1];
 
       switch (opt[0])
@@ -780,7 +848,12 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 	      conn->peer_add_path = opt[2+i+3];
 	  if (conn->peer_add_path > ADD_PATH_FULL)
 	    goto err;
+	  break;
 
+	case 70: /* Enhanced route refresh capability, RFC 7313 */
+	  if (cl != 0)
+	    goto err;
+	  conn->peer_enhanced_refresh_support = 1;
 	  break;
 
 	  /* We can safely ignore all other capabilities */
@@ -945,7 +1018,10 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
 static inline void
 bgp_rx_end_mark(struct bgp_proto *p)
 {
-  BGP_TRACE(D_PACKETS, "Got End-of-RIB");
+  BGP_TRACE(D_PACKETS, "Got END-OF-RIB");
+
+  if (p->load_state == BFS_LOADING)
+    p->load_state = BFS_NONE;
 
   if (p->p.gr_recovery)
     proto_graceful_restart_unlock(&p->p);
@@ -1353,7 +1429,9 @@ static struct {
   { 6, 5, "Connection rejected" },
   { 6, 6, "Other configuration change" },
   { 6, 7, "Connection collision resolution" },
-  { 6, 8, "Out of Resources" }
+  { 6, 8, "Out of Resources" },
+  { 7, 0, "Invalid ROUTE-REFRESH message" }, /* [RFC7313] */
+  { 7, 1, "Invalid ROUTE-REFRESH message length" } /* [RFC7313] */
 };
 
 /**
@@ -1484,22 +1562,47 @@ bgp_rx_route_refresh(struct bgp_conn *conn, byte *pkt, int len)
 {
   struct bgp_proto *p = conn->bgp;
 
-  BGP_TRACE(D_PACKETS, "Got ROUTE-REFRESH");
-
   if (conn->state != BS_ESTABLISHED)
     { bgp_error(conn, 5, fsm_err_subcode[conn->state], NULL, 0); return; }
 
   if (!p->cf->enable_refresh)
     { bgp_error(conn, 1, 3, pkt+18, 1); return; }
 
-  if (len != (BGP_HEADER_LENGTH + 4))
+  if (len < (BGP_HEADER_LENGTH + 4))
     { bgp_error(conn, 1, 2, pkt+16, 2); return; }
+
+  if (len > (BGP_HEADER_LENGTH + 4))
+    { bgp_error(conn, 7, 1, pkt, MIN(len, 2048)); return; }
 
   /* FIXME - we ignore AFI/SAFI values, as we support
      just one value and even an error code for an invalid
      request is not defined */
 
-  proto_request_feeding(&p->p);
+  /* RFC 7313 redefined reserved field as RR message subtype */
+  uint subtype = conn->peer_enhanced_refresh_support ? pkt[21] : BGP_RR_REQUEST;
+
+  switch (subtype)
+  {
+  case BGP_RR_REQUEST:
+    BGP_TRACE(D_PACKETS, "Got ROUTE-REFRESH");
+    proto_request_feeding(&p->p);
+    break;
+
+  case BGP_RR_BEGIN:
+    BGP_TRACE(D_PACKETS, "Got BEGIN-OF-RR");
+    bgp_refresh_begin(p);
+    break;
+
+  case BGP_RR_END:
+    BGP_TRACE(D_PACKETS, "Got END-OF-RR");
+    bgp_refresh_end(p);
+    break;
+
+  default:
+    log(L_WARN "%s: Got ROUTE-REFRESH message with unknown subtype %u, ignoring",
+	p->p.name, subtype);
+    break;
+  }
 }
 
 
