@@ -769,7 +769,7 @@ bgp_schedule_packet(struct bgp_conn *conn, int type)
 {
   DBG("BGP: Scheduling packet type %d\n", type);
   conn->packets_to_send |= 1 << type;
-  if (conn->sk && conn->sk->tpos == conn->sk->tbuf)
+  if (conn->sk && conn->sk->tpos == conn->sk->tbuf && !ev_active(conn->tx_ev))
     ev_schedule(conn->tx_ev);
 }
 
