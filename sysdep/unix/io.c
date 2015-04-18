@@ -767,6 +767,32 @@ sk_set_tos6(sock *s, int tos)
   return 0;
 }
 
+static inline int
+sk_set_high_port(sock *s)
+{
+  /* Port range setting is optional, ignore it if not supported */
+
+#ifdef IP_PORTRANGE
+  if (sk_is_ipv4(s))
+  {
+    int range = IP_PORTRANGE_HIGH;
+    if (setsockopt(s->fd, SOL_IP, IP_PORTRANGE, &range, sizeof(range)) < 0)
+      ERR("IP_PORTRANGE");
+  }
+#endif
+
+#ifdef IPV6_PORTRANGE
+  if (sk_is_ipv6(s))
+  {
+    int range = IPV6_PORTRANGE_HIGH;
+    if (setsockopt(s->fd, SOL_IPV6, IPV6_PORTRANGE, &range, sizeof(range)) < 0)
+      ERR("IPV6_PORTRANGE");
+  }
+#endif
+
+  return 0;
+}
+
 static inline byte *
 sk_skip_ip_header(byte *pkt, int *len)
 {
@@ -1402,14 +1428,10 @@ sk_open(sock *s)
       }
 #endif
     }
-#ifdef IP_PORTRANGE
-    else if (s->flags & SKF_HIGH_PORT)
-    {
-      int range = IP_PORTRANGE_HIGH;
-      if (setsockopt(fd, IPPROTO_IP, IP_PORTRANGE, &range, sizeof(range)) < 0)
-        log(L_WARN "Socket error: %s%#m", "IP_PORTRANGE");
-    }
-#endif
+    else
+      if (s->flags & SKF_HIGH_PORT)
+	if (sk_set_high_port(s) < 0)
+	  log(L_WARN "Socket error: %s%#m", s->err);
 
     sockaddr_fill(&sa, af, bind_addr, s->iface, bind_port);
     if (bind(fd, &sa.sa, SA_LEN(sa)) < 0)
