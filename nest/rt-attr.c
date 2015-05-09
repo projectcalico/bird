@@ -563,6 +563,32 @@ get_generic_attr(eattr *a, byte **buf, int buflen UNUSED)
   return GA_UNKNOWN;
 }
 
+void
+ea_format_bitfield(struct eattr *a, byte *buf, int bufsize, const char **names, int min, int max)
+{
+  byte *bound = buf + bufsize - 32;
+  u32 data = a->u.data;
+  int i;
+
+  for (i = min; i < max; i++)
+    if ((data & (1u << i)) && names[i])
+    {
+      if (buf > bound)
+      {
+	strcpy(buf, " ...");
+	return;
+      }
+
+      buf += bsprintf(buf, " %s", names[i]);
+      data &= ~(1u << i);
+    }
+
+  if (data)
+    bsprintf(buf, " %08x", data);
+
+  return;
+}
+
 static inline void
 opaque_format(struct adata *ad, byte *buf, unsigned int size)
 {
@@ -664,6 +690,9 @@ ea_show(struct cli *c, eattr *e)
 	  break;
 	case EAF_TYPE_AS_PATH:
 	  as_path_format(ad, pos, end - pos);
+	  break;
+	case EAF_TYPE_BITFIELD:
+	  bsprintf(pos, "%08x", e->u.data);
 	  break;
 	case EAF_TYPE_INT_SET:
 	  ea_show_int_set(c, ad, 1, pos, buf, end);
