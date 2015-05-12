@@ -461,8 +461,14 @@ static inline void rt_lock_source(struct rte_src *src) { src->uc++; }
 static inline void rt_unlock_source(struct rte_src *src) { src->uc--; }
 void rt_prune_sources(void);
 
+struct ea_walk_state {
+  ea_list *eattrs;			/* Ccurrent ea_list, initially set by caller */
+  eattr *ea;				/* Current eattr, initially NULL */
+  u32 visited[4];			/* Bitfield, limiting max to 128 */
+};
 
 eattr *ea_find(ea_list *, unsigned ea);
+eattr *ea_walk(struct ea_walk_state *s, uint id, uint max);
 int ea_get_int(ea_list *, unsigned ea, int def);
 void ea_dump(ea_list *);
 void ea_sort(ea_list *);		/* Sort entries in all sub-lists */
