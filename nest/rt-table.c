@@ -1816,15 +1816,20 @@ again:
 	  {
 	    if (p->export_state != ES_FEEDING)
 	      return 1;  /* In the meantime, the protocol fell down. */
+
 	    do_feed_baby(p, p->accept_ra_types, h, n, e);
 	    max_feed--;
 	  }
 
       if (p->accept_ra_types == RA_ANY)
-	for(e = n->routes; rte_is_valid(e); e = e->next)
+	for(e = n->routes; e; e = e->next)
 	  {
 	    if (p->export_state != ES_FEEDING)
 	      return 1;  /* In the meantime, the protocol fell down. */
+
+	    if (!rte_is_valid(e))
+	      continue;
+
 	    do_feed_baby(p, RA_ANY, h, n, e);
 	    max_feed--;
 	  }
