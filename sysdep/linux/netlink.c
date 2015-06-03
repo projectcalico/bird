@@ -703,6 +703,11 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
   r.r.rtm_scope = RT_SCOPE_UNIVERSE;
   nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
 
+  /* For route delete, we do not specify route attributes */
+  if (!new)
+    return nl_exchange(&r.h);
+
+
   if (ea = ea_find(eattrs, EA_KRT_METRIC))
     nl_add_attr_u32(&r.h, sizeof(r), RTA_PRIORITY, ea->u.data);
 
