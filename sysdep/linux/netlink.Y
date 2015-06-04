@@ -26,7 +26,7 @@ kern_sys_item:
 
 CF_ADDTO(dynamic_attr, KRT_PREFSRC { $$ = f_new_dynamic_attr(EAF_TYPE_IP_ADDRESS, T_IP, EA_KRT_PREFSRC); })
 CF_ADDTO(dynamic_attr, KRT_REALM { $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_KRT_REALM); })
-CF_ADDTO(dynamic_attr, KRT_TUNNEL { $$ = f_new_dynamic_attr(EAF_TYPE_OPAQUE, T_ENUM_EMPTY, EA_KRT_TUNNEL); })
+CF_ADDTO(dynamic_attr, KRT_TUNNEL { $$ = f_new_dynamic_attr(EAF_TYPE_STRING, T_STRING, EA_KRT_TUNNEL); })
 
 CF_CODE
 
