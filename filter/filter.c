@@ -541,6 +541,8 @@ interpret(struct f_inst *what)
   unsigned u1, u2;
   int i;
   u32 as;
+  int len;
+  struct adata *ad;
 
   res.type = T_VOID;
   if (!what)
@@ -895,6 +897,10 @@ interpret(struct f_inst *what)
 	res.type = T_INT;
 	res.val.i = e->u.data;
 	break;
+      case EAF_TYPE_STRING:
+        res.type = T_STRING;
+        res.val.s = e->u.ptr->data;
+        break;
       case EAF_TYPE_ROUTER_ID:
 	res.type = T_QUAD;
 	res.val.i = e->u.data;
@@ -947,6 +953,16 @@ interpret(struct f_inst *what)
 	l->attrs[0].u.data = v1.val.i;
 	break;
 
+      case EAF_TYPE_STRING:
+        if (v1.type != T_STRING)
+          runtime( "Setting string attribute to non-string value" );
+        len = strlen(v1.val.s) + 1;
+	ad = lp_alloc(f_pool, sizeof(struct adata) + len);
+        ad->length = len;
+        strcpy(ad->data, v1.val.s);
+        l->attrs[0].u.ptr = ad;
+        break;
+
       case EAF_TYPE_ROUTER_ID:
 #ifndef IPV6
 	/* IP->Quad implicit conversion */
@@ -967,8 +983,8 @@ interpret(struct f_inst *what)
       case EAF_TYPE_IP_ADDRESS:
 	if (v1.type != T_IP)
 	  runtime( "Setting ip attribute to non-ip value" );
-	int len = sizeof(ip_addr);
-	struct adata *ad = lp_alloc(f_pool, sizeof(struct adata) + len);
+	len = sizeof(ip_addr);
+	ad = lp_alloc(f_pool, sizeof(struct adata) + len);
 	ad->length = len;
 	(* (ip_addr *) ad->data) = v1.val.px.ip;
 	l->attrs[0].u.ptr = ad;

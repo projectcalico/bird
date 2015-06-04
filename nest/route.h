@@ -421,6 +421,7 @@ typedef struct eattr {
 #define EAF_TYPE_MASK 0x0f		/* Mask with this to get type */
 #define EAF_TYPE_INT 0x01		/* 32-bit signed integer number */
 #define EAF_TYPE_OPAQUE 0x02		/* Opaque byte string (not filterable) */
+#define EAF_TYPE_STRING 0x03            /* String */
 #define EAF_TYPE_IP_ADDRESS 0x04	/* IP address */
 #define EAF_TYPE_ROUTER_ID 0x05		/* Router ID (IPv4 address) */
 #define EAF_TYPE_AS_PATH 0x06		/* BGP AS path (encoding per RFC 1771:4.3) */
