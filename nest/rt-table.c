@@ -208,12 +208,10 @@ export_filter(struct announce_hook *ah, rte *rt0, rte **rt_free, ea_list **tmpa,
   rt = rt0;
   *rt_free = NULL;
 
-  /* If called does not care for eattrs, we prepare one internally */
   if (!tmpa)
-    {
-      tmpb = make_tmp_attrs(rt, rte_update_pool);
-      tmpa = &tmpb;
-    }
+    tmpa = &tmpb;
+
+  *tmpa = make_tmp_attrs(rt, rte_update_pool);
 
   v = p->import_control ? p->import_control(p, &rt, tmpa, rte_update_pool) : 0;
   if (v < 0)
@@ -347,7 +345,7 @@ do_rt_notify(struct announce_hook *ah, net *net, rte *new, rte *old, ea_list *tm
 }
 
 static void
-rt_notify_basic(struct announce_hook *ah, net *net, rte *new0, rte *old0, ea_list *tmpa, int refeed)
+rt_notify_basic(struct announce_hook *ah, net *net, rte *new0, rte *old0, int refeed)
 {
   struct proto *p = ah->proto;
   struct proto_stats *stats = ah->stats;
@@ -356,6 +354,7 @@ rt_notify_basic(struct announce_hook *ah, net *net, rte *new0, rte *old0, ea_lis
   rte *old = old0;
   rte *new_free = NULL;
   rte *old_free = NULL;
+  ea_list *tmpa = NULL;
 
   if (new)
     stats->exp_updates_received++;
@@ -419,17 +418,17 @@ rt_notify_basic(struct announce_hook *ah, net *net, rte *new0, rte *old0, ea_lis
 }
 
 static void
-rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *old_changed, rte *before_old,
-		   ea_list *tmpa, int feed)
+rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *old_changed, rte *before_old, int feed)
 {
   // struct proto *p = ah->proto;
   struct proto_stats *stats = ah->stats;
 
+  rte *r;
   rte *new_best = NULL;
   rte *old_best = NULL;
   rte *new_free = NULL;
   rte *old_free = NULL;
-  rte *r;
+  ea_list *tmpa = NULL;
 
   /* Used to track whether we met old_changed position. If before_old is NULL
      old_changed was the first and we met it implicitly before current best route. */
@@ -543,7 +542,6 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
  * @net: network in question
  * @new: the new route to be announced
  * @old: the previous route for the same network
- * @tmpa: a list of temporary attributes belonging to the new route
  *
  * This function gets a routing table update and announces it
  * to all protocols that acccepts given type of route announcement
@@ -566,7 +564,7 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
  * the protocol gets called.
  */
 static void
-rte_announce(rtable *tab, unsigned type, net *net, rte *new, rte *old, rte *before_old, ea_list *tmpa)
+rte_announce(rtable *tab, unsigned type, net *net, rte *new, rte *old, rte *before_old)
 {
   if (!rte_is_valid(old))
     old = before_old = NULL;
@@ -594,9 +592,9 @@ rte_announce(rtable *tab, unsigned type, net *net, rte *new, rte *old, rte *befo
       ASSERT(a->proto->export_state != ES_DOWN);
       if (a->proto->accept_ra_types == type)
 	if (type == RA_ACCEPTED)
-	  rt_notify_accepted(a, net, new, old, before_old, tmpa, 0);
+	  rt_notify_accepted(a, net, new, old, before_old, 0);
 	else
-	  rt_notify_basic(a, net, new, old, tmpa, 0);
+	  rt_notify_basic(a, net, new, old, 0);
     }
 }
 
@@ -659,7 +657,7 @@ rte_same(rte *x, rte *y)
 static inline int rte_is_ok(rte *e) { return e && !rte_is_filtered(e); }
 
 static void
-rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, struct rte_src *src)
+rte_recalculate(struct announce_hook *ah, net *net, rte *new, struct rte_src *src)
 {
   struct proto *p = ah->proto;
   struct rtable *table = ah->table;
@@ -900,11 +898,11 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, ea_list *tmpa, str
     }
 
   /* Propagate the route change */
-  rte_announce(table, RA_ANY, net, new, old, NULL, tmpa);
+  rte_announce(table, RA_ANY, net, new, old, NULL);
   if (net->routes != old_best)
-    rte_announce(table, RA_OPTIMAL, net, net->routes, old_best, NULL, tmpa);
+    rte_announce(table, RA_OPTIMAL, net, net->routes, old_best, NULL);
   if (table->config->sorted)
-    rte_announce(table, RA_ACCEPTED, net, new, old, before_old, tmpa);
+    rte_announce(table, RA_ACCEPTED, net, new, old, before_old);
 
   if (!net->routes &&
       (table->gc_counter++ >= table->config->gc_max_ops) &&
@@ -1069,7 +1067,7 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src)
 
  recalc:
   rte_hide_dummy_routes(net, &dummy);
-  rte_recalculate(ah, net, new, tmpa, src);
+  rte_recalculate(ah, net, new, src);
   rte_unhide_dummy_routes(net, &dummy);
   rte_update_unlock();
   return;
@@ -1077,7 +1075,6 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src)
  drop:
   rte_free(new);
   new = NULL;
-  tmpa = NULL;
   goto recalc;
 }
 
@@ -1086,11 +1083,8 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src)
 static inline void 
 rte_announce_i(rtable *tab, unsigned type, net *n, rte *new, rte *old)
 {
-  ea_list *tmpa;
-
   rte_update_lock();
-  tmpa = make_tmp_attrs(new, rte_update_pool);
-  rte_announce(tab, type, n, new, old, NULL, tmpa);
+  rte_announce(tab, type, n, new, old, NULL);
   rte_update_unlock();
 }
 
@@ -1098,7 +1092,7 @@ void
 rte_discard(rtable *t, rte *old)	/* Non-filtered route deletion, used during garbage collection */
 {
   rte_update_lock();
-  rte_recalculate(old->sender, old->net, NULL, NULL, old->attrs->src);
+  rte_recalculate(old->sender, old->net, NULL, old->attrs->src);
   rte_update_unlock();
 }
 
@@ -1758,14 +1752,11 @@ rt_commit(struct config *new, struct config *old)
 static inline void
 do_feed_baby(struct proto *p, int type, struct announce_hook *h, net *n, rte *e)
 {
-  ea_list *tmpa;
-
   rte_update_lock();
-  tmpa = make_tmp_attrs(e, rte_update_pool);
   if (type == RA_ACCEPTED)
-    rt_notify_accepted(h, n, e, NULL, NULL, tmpa, p->refeeding ? 2 : 1);
+    rt_notify_accepted(h, n, e, NULL, NULL, p->refeeding ? 2 : 1);
   else
-    rt_notify_basic(h, n, e, p->refeeding ? e : NULL, tmpa, p->refeeding);
+    rt_notify_basic(h, n, e, p->refeeding ? e : NULL, p->refeeding);
   rte_update_unlock();
 }
 
