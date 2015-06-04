@@ -632,6 +632,7 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
     struct rtmsg r;
     char buf[128 + nh_bufsize(a->nexthops)];
   } r;
+  struct iface* i;
 
   DBG("nl_send_route(%I/%d,new=%d)\n", net->n.prefix, net->n.pxlen, new);
 
@@ -669,8 +670,22 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
     {
     case RTD_ROUTER:
       r.r.rtm_type = RTN_UNICAST;
-      nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, a->iface->index);
-      nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->gw);
+      if ((ea = ea_find(eattrs, EA_KRT_TUNNEL)) &&
+          (i = if_find_by_name(ea->u.ptr->data)))
+      {
+        /*
+         * Tunnel attribute is set, so set the route up using the specified tunnel device
+         * to the originator of the route.
+         */
+        nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, i->index);
+        nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->from);
+        r.r.rtm_flags |= RTNH_F_ONLINK;
+      }
+      else
+      {
+         nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, a->iface->index);
+         nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->gw);
+      }
       break;
     case RTD_DEVICE:
       r.r.rtm_type = RTN_UNICAST;

@@ -1211,6 +1211,10 @@ krt_get_attr(eattr * a, byte * buf, int buflen UNUSED)
     bsprintf(buf, "realm");
     return GA_NAME;
 
+  case EA_KRT_TUNNEL:
+    bsprintf(buf, "tunnel");
+    return GA_NAME;
+
   default:
     return GA_UNKNOWN;
   }

@@ -30,6 +30,7 @@ struct kif_proto;
 #define EA_KRT_METRIC	EA_CODE(EAP_KRT, 1)
 #define EA_KRT_PREFSRC	EA_CODE(EAP_KRT, 2)
 #define EA_KRT_REALM	EA_CODE(EAP_KRT, 3)
+#define EA_KRT_TUNNEL	EA_CODE(EAP_KRT, 4)
 
 /* Whenever we recognize our own routes, we allow learing of foreign routes */
 
