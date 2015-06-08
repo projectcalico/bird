@@ -2227,6 +2227,18 @@ limitations can be overcome using another routing table and the pipe protocol.
 	a graceful restart recovery is active, the Kernel protocol will defer
 	synchronization of routing tables until the end of the recovery. Note
 	that import of kernel routes to BIRD is not affected.
+
+	<tag>merge paths <M>switch</M> [limit <M>number</M>]</tag>
+	Usually, only best routes are exported to the kernel protocol. With path
+	merging enabled, both best routes and equivalent non-best routes are
+	merged during export to generate one ECMP (equal-cost multipath) route
+	for each network. This is useful e.g. for BGP multipath. Note that best
+	routes are still pivotal for route export (responsible for most
+	properties of resulting ECMP routes), while exported non-best routes are
+	responsible just for additional multipath next hops. This option also
+	allows to specify a limit on maximal number of nexthops in one route. By
+	default, multipath merging is disabled. If enabled, default value of the
+	limit is 16.
 </descrip>
 
 <sect1>Attributes

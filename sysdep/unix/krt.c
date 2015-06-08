@@ -595,8 +595,12 @@ krt_flush_routes(struct krt_proto *p)
 static struct rte *
 krt_export_net(struct krt_proto *p, net *net, rte **rt_free, ea_list **tmpa)
 {
-  struct filter *filter = p->p.main_ahook->out_filter;
+  struct announce_hook *ah = p->p.main_ahook;
+  struct filter *filter = ah->out_filter;
   rte *rt;
+
+  if (p->p.accept_ra_types == RA_MERGED)
+    return rt_export_merged(ah, net, rt_free, tmpa, 1);
 
   rt = net->routes;
   *rt_free = NULL;
@@ -1091,11 +1095,13 @@ krt_rte_same(rte *a, rte *b)
 struct krt_config *krt_cf;
 
 static struct proto *
-krt_init(struct proto_config *c)
+krt_init(struct proto_config *C)
 {
-  struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
+  struct krt_proto *p = proto_new(C, sizeof(struct krt_proto));
+  struct krt_config *c = (struct krt_config *) C;
 
-  p->p.accept_ra_types = RA_OPTIMAL;
+  p->p.accept_ra_types = c->merge_paths ? RA_MERGED : RA_OPTIMAL;
+  p->p.merge_limit = c->merge_paths;
   p->p.import_control = krt_import_control;
   p->p.rt_notify = krt_rt_notify;
   p->p.if_notify = krt_if_notify;
@@ -1161,7 +1167,8 @@ krt_reconfigure(struct proto *p, struct proto_config *new)
     return 0;
 
   /* persist, graceful restart need not be the same */
-  return o->scan_time == n->scan_time && o->learn == n->learn && o->devroutes == n->devroutes;
+  return o->scan_time == n->scan_time && o->learn == n->learn &&
+    o->devroutes == n->devroutes && o->merge_paths == n->merge_paths;
 }
 
 static void

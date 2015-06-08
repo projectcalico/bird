@@ -352,6 +352,12 @@ static_if_notify(struct proto *p, unsigned flags, struct iface *i)
     }
 }
 
+int
+static_rte_mergable(rte *pri, rte *sec)
+{
+  return 1;
+}
+
 void
 static_init_config(struct static_config *c)
 {
@@ -366,6 +372,7 @@ static_init(struct proto_config *c)
 
   p->neigh_notify = static_neigh_notify;
   p->if_notify = static_if_notify;
+  p->rte_mergable = static_rte_mergable;
 
   return p;
 }

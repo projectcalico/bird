@@ -1243,6 +1243,7 @@ bgp_init(struct proto_config *C)
   P->feed_begin = bgp_feed_begin;
   P->feed_end = bgp_feed_end;
   P->rte_better = bgp_rte_better;
+  P->rte_mergable = bgp_rte_mergable;
   P->rte_recalculate = c->deterministic_med ? bgp_rte_recalculate : NULL;
 
   p->cf = c;

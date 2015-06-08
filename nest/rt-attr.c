@@ -1138,6 +1138,16 @@ rta__free(rta *a)
   sl_free(rta_slab, a);
 }
 
+rta *
+rta_do_cow(rta *o, linpool *lp)
+{
+  rta *r = lp_alloc(lp, sizeof(rta));
+  memcpy(r, o, sizeof(rta));
+  r->aflags = 0;
+  r->uc = 0;
+  return r;
+}
+
 /**
  * rta_dump - dump route attributes
  * @a: attribute structure to dump
