@@ -359,8 +359,7 @@ nl_parse_multipath(struct krt_proto *p, struct rtattr *ra)
 	  memcpy(&rv->gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ip_addr));
 	  ipa_ntoh(rv->gw);
 
-	  neighbor *ng = neigh_find2(&p->p, &rv->gw, rv->iface,
-				     (nh->rtnh_flags & RTNH_F_ONLINK) ? NEF_ONLINK : 0);
+	  neighbor *ng = neigh_find2(&p->p, &rv->gw, rv->iface, NEF_ONLINK);
 	  if (!ng || (ng->scope == SCOPE_HOST))
 	    return NULL;
 	}
@@ -874,8 +873,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 	    return;
 #endif
 
-	  ng = neigh_find2(&p->p, &ra.gw, ra.iface,
-			   (i->rtm_flags & RTNH_F_ONLINK) ? NEF_ONLINK : 0);
+	  ng = neigh_find2(&p->p, &ra.gw, ra.iface, NEF_ONLINK);
 	  if (!ng || (ng->scope == SCOPE_HOST))
 	    {
 	      log(L_ERR "KRT: Received route %I/%d with strange next-hop %I",
