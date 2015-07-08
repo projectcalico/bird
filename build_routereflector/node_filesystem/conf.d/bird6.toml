@@ -1,0 +1,9 @@
+[template]
+src = "bird6.cfg.template"
+dest = "/config/bird6.cfg"
+prefix = "/calico/bgp/v1"
+keys = [
+    "/host",
+    "/global"
+]
+reload_cmd = "pkill -HUP bird6 || true"
