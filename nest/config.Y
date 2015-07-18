@@ -94,6 +94,7 @@ rtrid:
 
 idval:
    NUM { $$ = $1; }
+ | '(' term ')' { $$ = f_eval_int($2); }
  | RTRID
  | IPA {
 #ifndef IPV6
@@ -101,6 +102,16 @@ idval:
 #else
      cf_error("Router IDs must be entered as hexadecimal numbers or IPv4 addresses in IPv6 version");
 #endif
+   }
+ | SYM {
+     if ($1->class == (SYM_CONSTANT | T_INT) || $1->class == (SYM_CONSTANT | T_QUAD))
+       $$ = SYM_VAL($1).i;
+#ifndef IPV6
+     else if ($1->class == (SYM_CONSTANT | T_IP))
+       $$ = SYM_VAL($1).px.ip;
+#endif
+     else
+       cf_error("Number of IPv4 address constant expected");
    }
  ;
 
