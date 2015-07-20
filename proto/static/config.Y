@@ -14,6 +14,7 @@ CF_DEFINES
 
 #define STATIC_CFG ((struct static_config *) this_proto)
 static struct static_route *this_srt, *this_srt_nh, *last_srt_nh;
+static struct f_inst **this_srt_last_cmd;
 
 CF_DECLS
 
@@ -36,7 +37,7 @@ static_proto:
  | static_proto proto_item ';'
  | static_proto CHECK LINK bool ';' { STATIC_CFG->check_link = $4; }
  | static_proto IGP TABLE rtable ';' { STATIC_CFG->igp_table = $4; }
- | static_proto stat_route ';'
+ | static_proto stat_route stat_route_opt_list ';'
  ;
 
 stat_route0: ROUTE prefix {
@@ -44,6 +45,7 @@ stat_route0: ROUTE prefix {
      add_tail(&STATIC_CFG->other_routes, &this_srt->n);
      this_srt->net = $2.addr;
      this_srt->masklen = $2.len;
+     this_srt_last_cmd = &(this_srt->cmds);
   }
  ;
 
@@ -93,6 +95,21 @@ stat_route:
  | stat_route0 UNREACHABLE	{ this_srt->dest = RTD_UNREACHABLE; }
  | stat_route0 PROHIBIT		{ this_srt->dest = RTD_PROHIBIT; }
  ;
+
+stat_route_item:
+   cmd { *this_srt_last_cmd = $1; this_srt_last_cmd = &($1->next); }
+ ;
+
+stat_route_opts:
+   /* empty */
+ | stat_route_opts stat_route_item
+ ;
+
+stat_route_opt_list:
+   /* empty */
+ | '{' stat_route_opts '}'
+ ;
+
 
 CF_CLI(SHOW STATIC, optsym, [<name>], [[Show details of static protocol]])
 { static_show(proto_get_named($3, &proto_static)); } ;

@@ -31,6 +31,7 @@ struct static_route {
   struct neighbor *neigh;
   byte *if_name;			/* Name for RTD_DEVICE routes */
   struct static_route *mp_next;		/* Nexthops for RTD_MULTIPATH routes */
+  struct f_inst *cmds;			/* List of commands for setting attributes */
   int installed;			/* Installed in rt table, -1 for reinstall */
 };
 

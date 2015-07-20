@@ -1527,6 +1527,30 @@ f_run(struct filter *filter, struct rte **rte, struct ea_list **tmp_attrs, struc
   return res.val.i;
 }
 
+/* TODO: perhaps we could integrate f_eval(), f_eval_rte() and f_run() */
+
+struct f_val
+f_eval_rte(struct f_inst *expr, struct rte **rte, struct linpool *tmp_pool)
+{
+  struct ea_list *tmp_attrs = NULL;
+
+  f_rte = rte;
+  f_old_rta = NULL;
+  f_tmp_attrs = &tmp_attrs;
+  f_pool = tmp_pool;
+  f_flags = 0;
+
+  LOG_BUFFER_INIT(f_buf);
+
+  /* Note that in this function we assume that rte->attrs is private / uncached */
+  struct f_val res = interpret(expr);
+
+  /* Hack to include EAF_TEMP attributes to the main list */
+  (*rte)->attrs->eattrs = ea_append(tmp_attrs, (*rte)->attrs->eattrs);
+
+  return res;
+}
+
 struct f_val
 f_eval(struct f_inst *expr, struct linpool *tmp_pool)
 {
