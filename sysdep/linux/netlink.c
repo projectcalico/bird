@@ -294,7 +294,7 @@ nl_add_multipath(struct nlmsghdr *h, unsigned bufsize, struct mpnh *nh)
   char *buf = (char *)h + pos;
   struct rtattr *rt = (void *) buf;
   buf += len;
-  
+
   for (; nh; nh = nh->next)
     {
       len += RTNH_SIZE;
@@ -674,10 +674,10 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
       {
         /*
          * Tunnel attribute is set, so set the route up using the specified tunnel device
-         * to the originator of the route.
+         * to the next hop.
          */
         nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, i->index);
-        nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->from);
+        nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->gw);
         r.r.rtm_flags |= RTNH_F_ONLINK;
       }
       else
@@ -848,7 +848,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 		  net->n.prefix, net->n.pxlen);
 	      return;
 	    }
-	    
+
 	  break;
 	}
 
@@ -909,7 +909,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   e->u.krt.type = i->rtm_type;
 
   if (a[RTA_PRIORITY])
-    memcpy(&e->u.krt.metric, RTA_DATA(a[RTA_PRIORITY]), sizeof(e->u.krt.metric)); 
+    memcpy(&e->u.krt.metric, RTA_DATA(a[RTA_PRIORITY]), sizeof(e->u.krt.metric));
   else
     e->u.krt.metric = 0;
 
