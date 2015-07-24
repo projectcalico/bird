@@ -16,10 +16,22 @@ CF_DEFINES
 static struct static_route *this_srt, *this_srt_nh, *last_srt_nh;
 static struct f_inst **this_srt_last_cmd;
 
+static void
+static_route_finish(void)
+{
+  struct static_route *r;
+
+  /* Update undefined use_bfd entries in multipath nexthops */
+  if (this_srt->dest == RTD_MULTIPATH)
+    for (r = this_srt->mp_next; r; r = r->mp_next)
+      if (r->use_bfd < 0)
+        r->use_bfd = this_srt->use_bfd;
+}
+
 CF_DECLS
 
 CF_KEYWORDS(STATIC, ROUTE, VIA, DROP, REJECT, PROHIBIT, PREFERENCE, CHECK, LINK)
-CF_KEYWORDS(MULTIPATH, WEIGHT, RECURSIVE, IGP, TABLE, BLACKHOLE, UNREACHABLE)
+CF_KEYWORDS(MULTIPATH, WEIGHT, RECURSIVE, IGP, TABLE, BLACKHOLE, UNREACHABLE, BFD)
 
 
 CF_GRAMMAR
@@ -37,7 +49,7 @@ static_proto:
  | static_proto proto_item ';'
  | static_proto CHECK LINK bool ';' { STATIC_CFG->check_link = $4; }
  | static_proto IGP TABLE rtable ';' { STATIC_CFG->igp_table = $4; }
- | static_proto stat_route stat_route_opt_list ';'
+ | static_proto stat_route stat_route_opt_list ';' { static_route_finish(); }
  ;
 
 stat_route0: ROUTE prefix {
@@ -57,10 +69,14 @@ stat_multipath1:
      this_srt_nh->via = $2;
      this_srt_nh->via_if = $3;
      this_srt_nh->if_name = (void *) this_srt; /* really */
+     this_srt_nh->use_bfd = -1; /* undefined */
    }
  | stat_multipath1 WEIGHT expr {
      this_srt_nh->masklen = $3 - 1; /* really */
      if (($3<1) || ($3>256)) cf_error("Weight must be in range 1-256"); 
+   }
+ | stat_multipath1 BFD bool {
+     this_srt_nh->use_bfd = $3; cf_check_bfd($3);
    }
  ;
 
@@ -98,6 +114,7 @@ stat_route:
 
 stat_route_item:
    cmd { *this_srt_last_cmd = $1; this_srt_last_cmd = &($1->next); }
+ | BFD bool ';' { this_srt->use_bfd = $2; cf_check_bfd($2); }
  ;
 
 stat_route_opts:
