@@ -108,7 +108,7 @@ idval:
        $$ = SYM_VAL($1).i;
 #ifndef IPV6
      else if ($1->class == (SYM_CONSTANT | T_IP))
-       $$ = SYM_VAL($1).px.ip;
+       $$ = ipa_to_u32(SYM_VAL($1).px.ip);
 #endif
      else
        cf_error("Number of IPv4 address constant expected");
