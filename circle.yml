@@ -1,0 +1,10 @@
+general:
+  artifacts:
+    - "dist"
+machine:
+  services:
+    - docker
+
+test:
+  override:
+    - ./build.sh 
