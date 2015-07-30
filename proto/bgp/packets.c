@@ -1163,6 +1163,7 @@ bgp_set_next_hop(struct bgp_proto *p, rta *a)
       if (ipa_zero(*nexthop))
 	  return 0;
 
+      a->orig_gw = *nexthop;
       rta_set_recursive_next_hop(p->p.table, a, p->igp_table, nexthop, nexthop + second);
     }
 

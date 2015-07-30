@@ -677,7 +677,7 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
          * to the originator of the route.
          */
         nl_add_attr_u32(&r.h, sizeof(r), RTA_OIF, i->index);
-        nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->from);
+        nl_add_attr_ipa(&r.h, sizeof(r), RTA_GATEWAY, a->orig_gw);
         r.r.rtm_flags |= RTNH_F_ONLINK;
       }
       else
