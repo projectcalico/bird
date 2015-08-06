@@ -86,7 +86,7 @@ Calico Docker node peer with every Route Reflector, set this up one time as
 global configuration.
 
 
-### Turn of the full node-to-node mesh
+### Turn off the full node-to-node mesh
 
 From any Calico Docker node, run the following:
 
