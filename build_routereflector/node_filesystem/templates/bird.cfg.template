@@ -18,10 +18,12 @@ template bgp bgp_template {
   graceful restart;  # See comment in kernel section about graceful restart.
 }
 
+{{$our_rr_key := printf "/rr_v4/%s" (getenv "IP")}}
+{{if ls $our_rr_key}}{{$our_rr_data := json (getv $our_rr_key)}}
 
 # ------------- RR-to-RR full mesh -------------
-{{ if (getenv "RR_IP_ADDRS") }}
-{{range $rr_ip := split (getenv "RR_IP_ADDRS") ","}}
+{{if ls "/rr_v4"}}
+{{range gets "/rr_v4/*"}}{{$data := json .Value}}{{$rr_ip := $data.ip}}
 {{$nums := split $rr_ip "."}}{{$id := join $nums "_"}}
 # For RR {{$rr_ip}}
 {{if eq $rr_ip (getenv "IP") }}# Skipping ourselves
@@ -29,8 +31,6 @@ template bgp bgp_template {
   local as {{getv "/global/as_num"}};
   neighbor {{$rr_ip}} as {{getv "/global/as_num"}};
 }{{end}}{{end}}
-{{else}}
-# No other route reflectors specified.
 {{end}}
 
 
@@ -48,6 +48,7 @@ protocol bgp Global_{{$id}} from bgp_template {
   local as {{$data.as_num}};
   neighbor {{$cnode_ip}} as {{if exists $cnode_as_key}}{{getv $cnode_as_key}}{{else}}{{getv "/global/as_num"}}{{end}};
   rr client;
+  {{if $our_rr_data.cluster_id}}rr cluster id {{$our_rr_data.cluster_id}};{{end}}
 }
 {{end}}
 {{end}}
@@ -69,8 +70,11 @@ protocol bgp Node_{{$id}} from bgp_template {
   local as {{$data.as_num}};
   neighbor {{$cnode_ip}} as {{if exists $cnode_as_key}}{{getv $cnode_as_key}}{{else}}{{getv "/global/as_num"}}{{end}};
   rr client;
+  {{if $our_rr_data.cluster_id}}rr cluster id {{$our_rr_data.cluster_id}};{{end}}
 }
 {{end}}
 {{end}}
 {{end}}
+{{end}}
+
 {{end}}
