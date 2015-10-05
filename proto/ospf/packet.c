@@ -223,7 +223,7 @@ ospf_rx_hook(sock *sk, int len)
     return 1;
 
   DBG("OSPF: RX hook called (iface %s, src %I, dst %I)\n",
-      sk->ifname, sk->faddr, sk->laddr);
+      sk->iface->name, sk->faddr, sk->laddr);
 
   /* Initially, the packet is associated with the 'master' iface */
   struct ospf_iface *ifa = sk->data;
