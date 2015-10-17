@@ -239,6 +239,16 @@ nl_parse_attrs(struct rtattr *a, struct rtattr **k, int ksize)
     return 1;
 }
 
+static inline ip4_addr rta_get_u32(struct rtattr *a)
+{ return *(u32 *) RTA_DATA(a); }
+
+static inline ip4_addr rta_get_ip4(struct rtattr *a)
+{ return ip4_ntoh(*(ip4_addr *) RTA_DATA(a)); }
+
+static inline ip6_addr rta_get_ip6(struct rtattr *a)
+{ return ip6_ntoh(*(ip6_addr *) RTA_DATA(a)); }
+
+
 struct rtattr *
 nl_add_attr(struct nlmsghdr *h, uint bufsize, uint code, const void *data, uint dlen)
 {
@@ -420,7 +430,7 @@ nl_parse_metrics(struct rtattr *hdr, u32 *metrics, int max)
       return -1;
 
     metrics[0] |= 1 << a->rta_type;
-    metrics[a->rta_type] = *(u32 *)RTA_DATA(a);
+    metrics[a->rta_type] = rta_get_u32(a);
   }
 
   if (len > 0)
@@ -456,7 +466,7 @@ nl_parse_link(struct nlmsghdr *h, int scan)
       return;
     }
   name = RTA_DATA(a[IFLA_IFNAME]);
-  memcpy(&mtu, RTA_DATA(a[IFLA_MTU]), sizeof(u32));
+  mtu = rta_get_u32(a[IFLA_MTU]);
 
   ifi = if_find_by_index(i->ifi_index);
   if (!new)
@@ -831,7 +841,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
     }
 
   if (a[RTA_OIF])
-    memcpy(&oif, RTA_DATA(a[RTA_OIF]), sizeof(oif));
+    oif = rta_get_u32(a[RTA_OIF]);
 
   p = nl_table_map[i->rtm_table];	/* Do we know this table? */
   DBG("KRT: Got %I/%d, type=%d, oif=%d, table=%d, prid=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, i->rtm_protocol, p ? p->p.name : "(none)");
@@ -965,11 +975,10 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   e->u.krt.src = src;
   e->u.krt.proto = i->rtm_protocol;
   e->u.krt.type = i->rtm_type;
+  e->u.krt.metric = 0;
 
   if (a[RTA_PRIORITY])
-    memcpy(&e->u.krt.metric, RTA_DATA(a[RTA_PRIORITY]), sizeof(e->u.krt.metric));
-  else
-    e->u.krt.metric = 0;
+    e->u.krt.metric = rta_get_u32(a[RTA_PRIORITY]);
 
   if (a[RTA_PREFSRC])
     {
@@ -1000,7 +1009,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
       ea->attrs[0].id = EA_KRT_REALM;
       ea->attrs[0].flags = 0;
       ea->attrs[0].type = EAF_TYPE_INT;
-      memcpy(&ea->attrs[0].u.data, RTA_DATA(a[RTA_FLOW]), 4);
+      ea->attrs[0].u.data = rta_get_u32(a[RTA_FLOW]);
     }
 
   if (a[RTA_METRICS])
