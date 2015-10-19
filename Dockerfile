@@ -1,7 +1,16 @@
 FROM alpine:latest
 MAINTAINER Tom Denham <tom@projectcalico.org>
 
-RUN apk update
-RUN apk add alpine-sdk linux-headers autoconf flex bison ncurses-dev readline-dev 
+ADD dist/bird /usr/local/bin/bird
+ADD dist/bird6 /usr/local/bin/bird6
+ADD dist/birdcl /usr/local/bin/birdcl
 
-WORKDIR /code
+# Provide just enough config for bird to start.
+#RUN mkdir /config
+#RUN echo "protocol device {}" > /config/bird2.cfg
+
+# The /config volume should map --volume-from calico-confd
+#VOLUME /config
+
+CMD ["birdcl", "-s", "/bird.ctl"]
+
