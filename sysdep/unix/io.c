@@ -1309,6 +1309,16 @@ sk_passive_connected(sock *s, int type)
     return 0;
   }
 
+  if (fd >= FD_SETSIZE)
+  {
+    /* FIXME: Call err_hook instead ? */
+    log(L_ERR "SOCK: Incoming connection from %I%J (port %d) %s",
+	t->daddr, ipa_is_link_local(t->daddr) ? t->iface : NULL,
+	t->dport, "rejected due to FD_SETSIZE limit");
+    close(fd);
+    return 1;
+  }
+
   sock *t = sk_new(s->pool);
   t->type = type;
   t->fd = fd;
@@ -1403,6 +1413,9 @@ sk_open(sock *s)
 
   if (fd < 0)
     ERR("socket");
+
+  if (fd >= FD_SETSIZE)
+    ERR2("FD_SETSIZE limit reached");
 
   s->af = af;
   s->fd = fd;
