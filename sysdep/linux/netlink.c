@@ -25,12 +25,14 @@
 #include "lib/krt.h"
 #include "lib/socket.h"
 #include "lib/string.h"
+#include "lib/hash.h"
 #include "conf/conf.h"
 
 #include <asm/types.h>
 #include <linux/if.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+
 
 #ifndef MSG_TRUNC			/* Hack: Several versions of glibc miss this one :( */
 #define MSG_TRUNC 0x20
@@ -39,6 +41,11 @@
 #ifndef IFF_LOWER_UP
 #define IFF_LOWER_UP 0x10000
 #endif
+
+#ifndef RTA_TABLE
+#define RTA_TABLE  15
+#endif
+
 
 /*
  *	Synchronous Netlink interface
@@ -650,7 +657,23 @@ kif_do_scan(struct kif_proto *p UNUSED)
  *	Routes
  */
 
-static struct krt_proto *nl_table_map[NL_NUM_TABLES];
+static inline u32
+krt_table_id(struct krt_proto *p)
+{
+  return KRT_CF->sys.table_id;
+}
+
+static HASH(struct krt_proto) nl_table_map;
+
+#define RTH_FN(k)	u32_hash(k)
+#define RTH_EQ(k1,k2)	k1 == k2
+#define RTH_KEY(p)	krt_table_id(p)
+#define RTH_NEXT(p)	p->sys.hash_next
+
+#define RTH_REHASH		rth_rehash
+#define RTH_PARAMS		/8, *2, 2, 2, 6, 20
+
+HASH_DEFINE_REHASH_FN(RTH, struct krt_proto)
 
 int
 krt_capable(rte *e)
@@ -708,11 +731,14 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
 
   r.r.rtm_family = BIRD_AF;
   r.r.rtm_dst_len = net->n.pxlen;
-  r.r.rtm_tos = 0;
-  r.r.rtm_table = KRT_CF->sys.table_id;
   r.r.rtm_protocol = RTPROT_BIRD;
   r.r.rtm_scope = RT_SCOPE_UNIVERSE;
   nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
+
+  if (krt_table_id(p) < 256)
+    r.r.rtm_table = krt_table_id(p);
+  else
+    nl_add_attr_u32(&r.h, sizeof(r), RTA_TABLE, krt_table_id(p));
 
   /* For route delete, we do not specify route attributes */
   if (!new)
@@ -809,11 +835,12 @@ nl_parse_route(struct nlmsghdr *h, int scan)
 {
   struct krt_proto *p;
   struct rtmsg *i;
-  struct rtattr *a[RTA_CACHEINFO+1];
+  struct rtattr *a[RTA_TABLE+1];
   int new = h->nlmsg_type == RTM_NEWROUTE;
 
   ip_addr dst = IPA_NONE;
   u32 oif = ~0;
+  u32 table;
   int src;
 
   if (!(i = nl_checkin(h, sizeof(*i))) || !nl_parse_attrs(RTM_RTA(i), a, sizeof(a)))
@@ -825,6 +852,7 @@ nl_parse_route(struct nlmsghdr *h, int scan)
       (a[RTA_IIF] && RTA_PAYLOAD(a[RTA_IIF]) != 4) ||
 #endif
       (a[RTA_OIF] && RTA_PAYLOAD(a[RTA_OIF]) != 4) ||
+      (a[RTA_TABLE] && RTA_PAYLOAD(a[RTA_TABLE]) != 4) ||
       (a[RTA_GATEWAY] && RTA_PAYLOAD(a[RTA_GATEWAY]) != sizeof(ip_addr)) ||
       (a[RTA_PRIORITY] && RTA_PAYLOAD(a[RTA_PRIORITY]) != 4) ||
       (a[RTA_PREFSRC] && RTA_PAYLOAD(a[RTA_PREFSRC]) != sizeof(ip_addr)) ||
@@ -843,10 +871,15 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   if (a[RTA_OIF])
     oif = rta_get_u32(a[RTA_OIF]);
 
-  p = nl_table_map[i->rtm_table];	/* Do we know this table? */
-  DBG("KRT: Got %I/%d, type=%d, oif=%d, table=%d, prid=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, i->rtm_table, i->rtm_protocol, p ? p->p.name : "(none)");
+  if (a[RTA_TABLE])
+    table = rta_get_u32(a[RTA_TABLE]);
+  else
+    table = i->rtm_table;
+
+  p = HASH_FIND(nl_table_map, RTH, table); /* Do we know this table? */
+  DBG("KRT: Got %I/%d, type=%d, oif=%d, table=%d, prid=%d, proto=%s\n", dst, i->rtm_dst_len, i->rtm_type, oif, table, i->rtm_protocol, p ? p->p.name : "(none)");
   if (!p)
-    SKIP("unknown table %d\n", i->rtm_table);
+    SKIP("unknown table %d\n", table);
 
 
 #ifdef IPV6
@@ -1186,48 +1219,47 @@ nl_open_async(void)
     bug("Netlink: sk_open failed");
 }
 
+
 /*
  *	Interface to the UNIX krt module
  */
 
-static u8 nl_cf_table[(NL_NUM_TABLES+7) / 8];
-
 void
+krt_sys_io_init(void)
+{
+  HASH_INIT(nl_table_map, krt_pool, 6);
+}
+
+int
 krt_sys_start(struct krt_proto *p)
 {
-  nl_table_map[KRT_CF->sys.table_id] = p;
+  struct krt_proto *old = HASH_FIND(nl_table_map, RTH, krt_table_id(p));
+
+  if (old)
+    {
+      log(L_ERR "%s: Kernel table %u already registered by %s",
+	  p->p.name, krt_table_id(p), old->p.name);
+      return 0;
+    }
+
+  HASH_INSERT2(nl_table_map, RTH, krt_pool, p);
 
   nl_open();
   nl_open_async();
+
+  return 1;
 }
 
 void
-krt_sys_shutdown(struct krt_proto *p UNUSED)
+krt_sys_shutdown(struct krt_proto *p)
 {
-  nl_table_map[KRT_CF->sys.table_id] = NULL;
+  HASH_REMOVE2(nl_table_map, RTH, krt_pool, p);
 }
 
 int
 krt_sys_reconfigure(struct krt_proto *p UNUSED, struct krt_config *n, struct krt_config *o)
 {
   return n->sys.table_id == o->sys.table_id;
-}
-
-
-void
-krt_sys_preconfig(struct config *c UNUSED)
-{
-  bzero(&nl_cf_table, sizeof(nl_cf_table));
-}
-
-void
-krt_sys_postconfig(struct krt_config *x)
-{
-  int id = x->sys.table_id;
-
-  if (nl_cf_table[id/8] & (1 << (id%8)))
-    cf_error("Multiple kernel syncers defined for table #%d", id);
-  nl_cf_table[id/8] |= (1 << (id%8));
 }
 
 void
