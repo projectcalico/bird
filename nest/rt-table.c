@@ -1663,7 +1663,7 @@ rt_prune_loop(void)
 void
 rt_preconfig(struct config *c)
 {
-  struct symbol *s = cf_find_symbol("master");
+  struct symbol *s = cf_get_symbol("master");
 
   init_list(&c->tables);
   c->master_rtc = rt_new_table(s);
@@ -1903,7 +1903,7 @@ rt_commit(struct config *new, struct config *old)
 	  rtable *ot = o->table;
 	  if (!ot->deleted)
 	    {
-	      struct symbol *sym = cf_find_symbol(o->name);
+	      struct symbol *sym = cf_find_symbol(new, o->name);
 	      if (sym && sym->class == SYM_TABLE && !new->shutdown)
 		{
 		  DBG("\t%s: same\n", o->name);
