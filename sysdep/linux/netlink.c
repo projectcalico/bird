@@ -246,7 +246,7 @@ nl_parse_attrs(struct rtattr *a, struct rtattr **k, int ksize)
     return 1;
 }
 
-static inline ip4_addr rta_get_u32(struct rtattr *a)
+static inline u32 rta_get_u32(struct rtattr *a)
 { return *(u32 *) RTA_DATA(a); }
 
 static inline ip4_addr rta_get_ip4(struct rtattr *a)
