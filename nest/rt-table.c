@@ -1868,6 +1868,7 @@ rt_unlock_table(rtable *r)
     {
       struct config *conf = r->deleted;
       DBG("Deleting routing table %s\n", r->name);
+      r->config->table = NULL;
       if (r->hostcache)
 	rt_free_hostcache(r);
       rem_node(&r->n);
