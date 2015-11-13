@@ -1,3 +1,5 @@
+sha1.c
+sha1.h
 birdlib.h
 bitops.c
 bitops.h
