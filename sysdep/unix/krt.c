@@ -84,8 +84,8 @@ krt_io_init(void)
  *	Interfaces
  */
 
+struct kif_proto *kif_proto;
 static struct kif_config *kif_cf;
-static struct kif_proto *kif_proto;
 static timer *kif_scan_timer;
 static bird_clock_t kif_last_shot;
 
