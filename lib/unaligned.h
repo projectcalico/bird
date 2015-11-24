@@ -20,7 +20,7 @@
 #include "lib/string.h"
 
 static inline u16
-get_u16(void *p)
+get_u16(const void *p)
 {
   u16 x;
   memcpy(&x, p, 2);
@@ -28,7 +28,7 @@ get_u16(void *p)
 }
 
 static inline u32
-get_u32(void *p)
+get_u32(const void *p)
 {
   u32 x;
   memcpy(&x, p, 4);
