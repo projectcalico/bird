@@ -56,16 +56,16 @@ Where:
    node in the etcd cluster.
 
 #### Adding the Route Reflector into etcd
-   
+
 Add an entry in etcd for this Route Reflector.  This tells the Route Reflector
 to participate in peering, and provides enough information to allow the Route
 Reflector instances to automatically form a full BGP mesh.
 
-The configuration for the Route Reflector is stored at:
+The configuration for the Route Reflector is stored for IPv4 at:
 
 	/calico/bgp/v1/rr_v4/<RR IPv4 address>
 	
-and
+and IPv6 at:
 
 	/calico/bgp/v1/rr_v6/<RR IPv6 address>
 
@@ -76,19 +76,52 @@ In all cases, the data is a JSON blob in the form:
           "cluster_id": "<Cluster ID for this RR (see notes)>"
         }
 
-To add this entry into etcd, you could use the following command:
+To add this entry into etcd, you could use the following commands:
+```
+# IPv4 entries
+curl -L http://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v4/<IPv4_RR> -XPUT -d value="{\"ip\":\"<IPv4_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
 
-    curl -L http://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v4/<IPv4_RR> -XPUT -d value="{\"ip\":\"<IPv4_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
-    
-or
-
-    curl -L http://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v6/<IPv6_RR> -XPUT -d value="{\"ip\":\"<IPv6_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
-
+# IPv6 entries
+curl -L http://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v6/<IPv6_RR> -XPUT -d value="{\"ip\":\"<IPv6_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
+```
 See [below](#topology-with-multiple-calico-bird-route-reflectors) for details 
 about large networks and the use and format of the cluster ID.
 
 Repeat the above instructions for every Route Reflector in the cluster.
 
+### Route Reflector with TLS/SSL Etcd
+
+If you are running secure etcd, you will need to pass in additional options
+and set environment variables for the certificate and key files associated
+with your etcd instance.
+
+When starting the Route Reflector container image, you need to mount the
+certificate files and environment variable filepaths for each file:
+```
+docker run -privileged -net=host -d                                \
+           -e IP=<IPv4_RR>                                         \
+           [-e IP6=<IPv6_RR>]                                      \
+           -e ETCD_AUTHORITY=<ETCD_IP:PORT>                        \
+           -v <FULL_PATH_TO_CERT_DIR>:<MOUNT_DIR>                  \
+           -e ETCD_SCHEME=https                                    \
+           -e ETCD_CA_CERT_FILE=<MOUNT_DIR>/<CA_FILE>              \
+           -e ETCD_CERT_FILE=<MOUNT_DIR>/<CERT_FILE>               \
+           -e ETCD_KEY_FILE=<MOUNT_DIR>/<KEY_FILE>                 \
+           calico/routereflector
+```
+Where `<FULL_PATH_TO_CERT_DIR>` is a directory on the host that contains
+the certificate files (you can mount multiple directories with additional
+`-v <DIR>` parameters if they are in separate directories, but be sure
+to choose different `<MOUNT_DIR>` locations if this is the case).
+
+You will also need to pass the certificate and key files as parameters
+in the curl statement when adding entries:
+```
+# IPv4 entries
+curl --cacert <path_to_ca_cert> --cert <path_to_cert> --key <path_to_key> -L https://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v4/<IPv4_RR> -XPUT -d value="{\"ip\":\"<IPv4_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
+# IPv6 entries
+curl --cacert <path_to_ca_cert> --cert <path_to_cert> --key <path_to_key> -L https://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v6/<IPv6_RR> -XPUT -d value="{\"ip\":\"<IPv6_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
+```
 
 ## Global Calico Docker configuration
 
