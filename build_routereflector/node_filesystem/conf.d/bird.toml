@@ -3,4 +3,5 @@ src = "bird.cfg.template"
 dest = "/config/bird.cfg"
 prefix = "/calico/bgp/v1"
 keys = ["/"]
+check_cmd = "bird -p -c {{.src}}"
 reload_cmd = "pkill -HUP bird || true"
