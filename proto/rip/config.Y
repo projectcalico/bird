@@ -147,7 +147,7 @@ rip_auth:
    NONE			{ $$ = RIP_AUTH_NONE; }
  | PLAINTEXT		{ $$ = RIP_AUTH_PLAIN; }
  | CRYPTOGRAPHIC	{ $$ = RIP_AUTH_CRYPTO; }
- | MD5			{ $$ = RIP_AUTH_CRYPTO; }
+ | MD5			{ $$ = RIP_AUTH_CRYPTO; }	/* For backward compatibility */
  ;
 
 rip_iface_opts:

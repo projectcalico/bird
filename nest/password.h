@@ -9,12 +9,15 @@
 
 #ifndef PASSWORD_H
 #define PASSWORD_H
+
 #include "lib/timer.h"
 
 struct password_item {
   node n;
-  char *password;
-  int id;
+  char *password;			/* Key data, null terminated */
+  uint length;				/* Key length, without null */
+  uint id;				/* Key ID */
+  uint alg;				/* MAC algorithm */
   bird_clock_t accfrom, accto, genfrom, gento;
 };
 

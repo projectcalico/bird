@@ -13,6 +13,7 @@ CF_HDR
 #include "nest/password.h"
 #include "nest/cmds.h"
 #include "lib/lists.h"
+#include "lib/mac.h"
 
 CF_DEFINES
 
@@ -57,6 +58,7 @@ CF_KEYWORDS(ROUTER, ID, PROTOCOL, TEMPLATE, PREFERENCE, DISABLED, DEBUG, ALL, OF
 CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(RECEIVE, LIMIT, ACTION, WARN, BLOCK, RESTART, DISABLE, KEEP, FILTERED)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
+CF_KEYWORDS(ALGORITHM, KEYED, HMAC, MD5, SHA1, SHA256, SHA384, SHA512)
 CF_KEYWORDS(PRIMARY, STATS, COUNT, FOR, COMMANDS, PREEXPORT, NOEXPORT, GENERATE, ROA)
 CF_KEYWORDS(LISTEN, BGP, V6ONLY, DUAL, ADDRESS, PORT, PASSWORDS, DESCRIPTION, SORTED)
 CF_KEYWORDS(RELOAD, IN, OUT, MRTDUMP, MESSAGES, RESTRICT, MEMORY, IGP_METRIC, CLASS, DSCP)
@@ -77,7 +79,7 @@ CF_ENUM(T_ENUM_ROA, ROA_, UNKNOWN, VALID, INVALID)
 %type <ro> roa_args
 %type <rot> roa_table_arg
 %type <sd> sym_args
-%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_mode roa_mode limit_action tab_sorted tos
+%type <i> proto_start echo_mask echo_size debug_mask debug_list debug_flag mrtdump_mask mrtdump_list mrtdump_flag export_mode roa_mode limit_action tab_sorted tos password_algorithm
 %type <ps> proto_patt proto_patt2
 %type <g> limit_spec
 
@@ -416,11 +418,13 @@ password_item_begin:
      }
      this_p_item = cfg_alloc(sizeof (struct password_item));
      this_p_item->password = $2;
+     this_p_item->length = strlen($2);
      this_p_item->genfrom = 0;
      this_p_item->gento = TIME_INFINITY;
      this_p_item->accfrom = 0;
      this_p_item->accto = TIME_INFINITY;
      this_p_item->id = password_id++;
+     this_p_item->alg = ALG_UNDEFINED;
      add_tail(this_p_list, &this_p_item->n);
    }
 ;
@@ -431,10 +435,24 @@ password_item_params:
  | GENERATE TO datetime ';' password_item_params { this_p_item->gento = $3; }
  | ACCEPT FROM datetime ';' password_item_params { this_p_item->accfrom = $3; }
  | ACCEPT TO datetime ';' password_item_params { this_p_item->accto = $3; }
+ | FROM datetime ';' password_item_params { this_p_item->genfrom = this_p_item->accfrom = $2; }
+ | TO datetime ';' password_item_params { this_p_item->gento = this_p_item->accto = $2; }
  | ID expr ';' password_item_params { this_p_item->id = $2; if ($2 <= 0) cf_error("Password ID has to be greated than zero."); }
+ | ALGORITHM password_algorithm ';' password_item_params { this_p_item->alg = $2; }
  ;
 
-
+password_algorithm:
+   KEYED MD5	{ $$ = ALG_MD5; }
+ | KEYED SHA1	{ $$ = ALG_SHA1; }
+ | KEYED SHA256	{ $$ = ALG_SHA256; }
+ | KEYED SHA384	{ $$ = ALG_SHA384; }
+ | KEYED SHA512	{ $$ = ALG_SHA512; }
+ | HMAC MD5	{ $$ = ALG_HMAC_MD5; }
+ | HMAC SHA1	{ $$ = ALG_HMAC_SHA1; }
+ | HMAC SHA256	{ $$ = ALG_HMAC_SHA256; }
+ | HMAC SHA384	{ $$ = ALG_HMAC_SHA384; }
+ | HMAC SHA512	{ $$ = ALG_HMAC_SHA512; }
+ ;
 
 /* Core commands */
 CF_CLI_HELP(SHOW, ..., [[Show status information]])
