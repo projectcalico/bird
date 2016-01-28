@@ -664,13 +664,13 @@ agreement").
 	protocol packets are processed in the local TX queues. This option is
 	Linux specific. Default value is 7 (highest priority, privileged traffic).
 
-	<tag><label id="proto-pass">password "<m/password/" [ { id <m/num/; generate from <m/time/; generate to <m/time/; accept from <m/time/; accept to <m/time/; } ]</tag>
-	Specifies a password that can be used by the protocol. Password option
-	can be used more times to specify more passwords. If more passwords are
-	specified, it is a protocol-dependent decision which one is really
-	used. Specifying passwords does not mean that authentication is enabled,
-	authentication can be enabled by separate, protocol-dependent
-	<cf/authentication/ option.
+	<tag><label id="proto-pass">password "<m/password/" [ { <m>password options</m> } ]</tag>
+	Specifies a password that can be used by the protocol as a shared secret
+	key. Password option can be used more times to specify more passwords.
+	If more passwords are specified, it is a protocol-dependent decision
+	which one is really used. Specifying passwords does not mean that
+	authentication is enabled, authentication can be enabled by separate,
+	protocol-dependent <cf/authentication/ option.
 
 	This option is allowed in OSPF and RIP protocols. BGP has also
 	<cf/password/ option, but it is slightly different and described
@@ -700,6 +700,19 @@ agreement").
 
 	<tag><label id="proto-pass-accept-to">accept to "<m/time/"</tag>
 	The last time of the usage of the password for packet verification.
+
+	<tag><label id="proto-pass-from">from "<m/time/"</tag>
+	Shorthand for setting both <cf/generate from/ and <cf/accept from/.
+
+	<tag><label id="proto-pass-to">to "<m/time/"</tag>
+	Shorthand for setting both <cf/generate to/ and <cf/accept to/.
+
+	<tag><label id="proto-pass-algorithm">algorithm ( keyed md5 | keyed sha1 | hmac sha1 | hmac sha256 | hmac sha384 | hmac sha512 )</tag>
+	The message authentication algorithm for the password when cryptographic
+	authentication is enabled. The default value depends on the protocol.
+	For RIP and OSPFv2 it is Keyed-MD5 (for compatibility), for OSPFv3
+	protocol it is HMAC-SHA-256.
+
 </descrip>
 
 <chapt>Remote control
@@ -2659,7 +2672,7 @@ protocol ospf &lt;name&gt; {
 			ttl security [&lt;switch&gt;; | tx only]
 			tx class|dscp &lt;num&gt;;
 			tx priority &lt;num&gt;;
-			authentication [none|simple|cryptographic];
+			authentication none|simple|cryptographic;
 			password "&lt;text&gt;";
 			password "&lt;text&gt;" {
 				id &lt;num&gt;;
@@ -2667,6 +2680,9 @@ protocol ospf &lt;name&gt; {
 				generate to "&lt;date&gt;";
 				accept from "&lt;date&gt;";
 				accept to "&lt;date&gt;";
+				from "&lt;date&gt;";
+				to "&lt;date&gt;";
+				algorithm ( keyed md5 | keyed sha1 | hmac sha1 | hmac sha256 | hmac sha384 | hmac sha512 );
 			};
 			neighbors {
 				&lt;ip&gt;;
@@ -2679,8 +2695,18 @@ protocol ospf &lt;name&gt; {
 			wait &lt;num&gt;;
 			dead count &lt;num&gt;;
 			dead &lt;num&gt;;
-			authentication [none|simple|cryptographic];
+			authentication none|simple|cryptographic;
 			password "&lt;text&gt;";
+			password "&lt;text&gt;" {
+				id &lt;num&gt;;
+				generate from "&lt;date&gt;";
+				generate to "&lt;date&gt;";
+				accept from "&lt;date&gt;";
+				accept to "&lt;date&gt;";
+				from "&lt;date&gt;";
+				to "&lt;date&gt;";
+				algorithm ( keyed md5 | keyed sha1 | hmac sha1 | hmac sha256 | hmac sha384 | hmac sha512 );
+			};
 		};
 	};
 }
@@ -2999,15 +3025,18 @@ protocol ospf &lt;name&gt; {
 	<tag><label id="ospf-auth-simple">authentication simple</tag>
 	Every packet carries 8 bytes of password. Received packets lacking this
 	password are ignored. This authentication mechanism is very weak.
+	This option is not available in OSPFv3.
 
 	<tag><label id="ospf-auth-cryptographic">authentication cryptographic</tag>
-	16-byte long MD5 digest is appended to every packet. For the digest
-	generation 16-byte long passwords are used. Those passwords are not sent
-	via network, so this mechanism is quite secure. Packets can still be
-	read by an attacker.
+	An authentication code is appended to every packet. The specific
+	cryptographic algorithm is selected by option <cf/algorithm/ for each
+	key. The default cryptographic algorithm for OSPFv2 keys is Keyed-MD5
+	and for OSPFv3 keys is HMAC-SHA-256. Passwords are not sent open via
+	network, so this mechanism is quite secure. Packets can still be read by
+	an attacker.
 
 	<tag><label id="ospf-pass">password "<M>text</M>"</tag>
-	An 8-byte or 16-byte password used for authentication. See
+	Specifies a password used for authentication. See
 	<ref id="proto-pass" name="password"> common option for detailed
 	description.
 
@@ -3069,11 +3098,13 @@ protocol ospf MyOSPF {
 				id 1;
 				generate to "22-04-2003 11:00:06";
 				accept from "17-01-2001 12:01:05";
+				algorithm hmac sha384;
 			};
 			password "def" {
 				id 2;
 				generate to "22-07-2005 17:03:21";
 				accept from "22-02-2001 11:34:06";
+				algorithm hmac sha512;
 			};
 		};
 		interface "arc0" {
@@ -3500,8 +3531,7 @@ you can't use RIP on networks where maximal distance is higher than 15
 hosts.
 
 <p>BIRD supports RIPv1 (<rfc id="1058">), RIPv2 (<rfc id="2453">), RIPng (<rfc
-id="2080">), and RIP cryptographic authentication (SHA-1 not implemented)
-(<rfc id="4822">).
+id="2080">), and RIP cryptographic authentication (<rfc id="4822">).
 
 <p>RIP is a very simple protocol, and it has a lot of shortcomings. Slow
 convergence, big network load and inability to handle larger networks makes it
@@ -3545,6 +3575,9 @@ protocol rip [&lt;name&gt;] {
 			generate to "&lt;date&gt;";
 			accept from "&lt;date&gt;";
 			accept to "&lt;date&gt;";
+			from "&lt;date&gt;";
+			to "&lt;date&gt;";
+			algorithm ( keyed md5 | keyed sha1 | hmac sha1 | hmac sha256 | hmac sha384 | hmac sha512 );
 		};
 	};
 }
@@ -3658,7 +3691,9 @@ protocol rip [&lt;name&gt;] {
 	Selects authentication method to be used. <cf/none/ means that packets
 	are not authenticated at all, <cf/plaintext/ means that a plaintext
 	password is embedded into each packet, and <cf/cryptographic/ means that
-	packets are authenticated using a MD5 cryptographic hash. If you set
+	packets are authenticated using some cryptographic hash function
+	selected by option <cf/algorithm/ for each key. The default
+	cryptographic algorithm for RIP keys is Keyed-MD5. If you set
 	authentication to not-none, it is a good idea to add <cf>password</cf>
 	section. Default: none.
 
@@ -3704,8 +3739,8 @@ protocol rip [&lt;name&gt;] {
 	consideration. When the link disappears (e.g. an ethernet cable is
 	unplugged), neighbors are immediately considered unreachable and all
 	routes received from them are withdrawn. It is possible that some
-	hardware drivers or platforms do not implement this feature. Default:
-	no.
+	hardware drivers or platforms do not implement this feature.
+	Default: no.
 </descrip>
 
 <sect1>Attributes
@@ -3737,8 +3772,9 @@ protocol rip {
         period 12;
         garbage time 60;
         interface "eth0" { metric 3; mode multicast; };
-	interface "eth*" { metric 2; mode broadcast; };
-        authentication none;
+        interface "eth*" { metric 2; mode broadcast; };
+        authentication cryptographic;
+        password "secret-shared-key" { algorithm hmac sha256; };
         import filter { print "importing"; accept; };
         export filter { print "exporting"; accept; };
 }
