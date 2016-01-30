@@ -1,7 +1,0 @@
-FROM alpine:latest
-
-ADD dist/bird6 /usr/local/bin/bird6
-ADD dist/birdcl /usr/local/bin/birdcl
-
-CMD ["birdcl", "-s", "/bird6.ctl"]
-
