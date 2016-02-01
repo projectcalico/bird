@@ -9,4 +9,6 @@ configure
 configure.lineno
 dist/
 obj/
+*.tar
+*.aci
 

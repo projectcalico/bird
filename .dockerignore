@@ -3,3 +3,6 @@ dist
 doc
 obj
 .git
+build_and_run.sh
+*.tar
+*.aci
