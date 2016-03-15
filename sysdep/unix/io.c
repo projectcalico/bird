@@ -1760,7 +1760,7 @@ sk_send_full(sock *s, unsigned len, struct iface *ifa,
  /* sk_read() and sk_write() are called from BFD's event loop */
 
 int
-sk_read(sock *s)
+sk_read(sock *s, int revents)
 {
   switch (s->type)
   {
@@ -1779,6 +1779,11 @@ sk_read(sock *s)
       {
 	if (errno != EINTR && errno != EAGAIN)
 	  s->err_hook(s, errno);
+	else if (errno == EAGAIN && !(revents & POLLIN))
+	{
+	  log(L_ERR "Got EAGAIN from read when revents=%x (without POLLIN)", revents);
+	  s->err_hook(s, 0);
+	}
       }
       else if (!c)
 	s->err_hook(s, 0);
@@ -2159,7 +2164,7 @@ io_loop(void)
 		  {
 		    steps--;
 		    io_log_event(s->rx_hook, s->data);
-		    e = sk_read(s);
+		    e = sk_read(s, pfd[s->index].revents);
 		    if (s != current_sock)
 		      goto next;
 		  }
@@ -2203,7 +2208,7 @@ io_loop(void)
 		{
 		  count++;
 		  io_log_event(s->rx_hook, s->data);
-		  sk_read(s);
+		  sk_read(s, pfd[s->index].revents);
 		  if (s != current_sock)
 		      goto next2;
 		}
