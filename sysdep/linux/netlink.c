@@ -911,7 +911,10 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   e->net = net;
   e->u.krt.src = src;
   e->u.krt.proto = i->rtm_protocol;
-  e->u.krt.type = i->rtm_type;
+  /*e->u.krt.type = i->rtm_type;*/
+  e->u.krt.seen = 0;
+  e->u.krt.best = 0;
+  e->u.krt.metric = 0;
 
   if (a[RTA_PRIORITY])
     memcpy(&e->u.krt.metric, RTA_DATA(a[RTA_PRIORITY]), sizeof(e->u.krt.metric)); 
