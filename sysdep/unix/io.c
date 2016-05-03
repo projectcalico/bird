@@ -1211,7 +1211,7 @@ sk_setup(sock *s)
   if (s->iface)
   {
 #ifdef SO_BINDTODEVICE
-    struct ifreq ifr;
+    struct ifreq ifr = {};
     strcpy(ifr.ifr_name, s->iface->name);
     if (setsockopt(s->fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
       ERR("SO_BINDTODEVICE");
