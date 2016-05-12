@@ -554,12 +554,13 @@ lsa_validate_prefix(struct ospf_lsa_header *lsa, struct ospf_lsa_prefix *body)
 /**
  * lsa_validate - check whether given LSA is valid
  * @lsa: LSA header
+ * @lsa_type: one of %LSA_T_xxx
+ * @ospf2: %true means OSPF version 2, %false means OSPF version 3
  * @body: pointer to LSA body
  *
  * Checks internal structure of given LSA body (minimal length,
  * consistency). Returns true if valid.
  */
-
 int
 lsa_validate(struct ospf_lsa_header *lsa, u32 lsa_type, int ospf2, void *body)
 {

@@ -448,6 +448,7 @@ tm_format_reltime(char *x, struct tm *tm, bird_clock_t delta)
 /**
  * tm_format_datetime - convert date and time to textual representation
  * @x: destination buffer of size %TM_DATETIME_BUFFER_SIZE
+ * @fmt_spec: specification of resulting textual representation of the time
  * @t: time
  *
  * This function formats the given relative time value @t to a textual

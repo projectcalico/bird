@@ -718,6 +718,7 @@ graceful_restart_init(void)
 
 /**
  * graceful_restart_done - finalize graceful restart
+ * @t: unused
  *
  * When there are no locks on graceful restart, the functions finalizes the
  * graceful restart recovery. Protocols postponing route export until the end of
