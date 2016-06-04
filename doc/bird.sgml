@@ -1035,7 +1035,7 @@ foot).
 	or <cf><m>ipaddress</m>/<m>netmask</m></cf>. There are two special
 	operators on prefixes: <cf/.ip/ which extracts the IP address from the
 	pair, and <cf/.len/, which separates prefix length from the pair.
-	So <cf>1.2.0.0/16.pxlen = 16</cf> is true.
+	So <cf>1.2.0.0/16.len = 16</cf> is true.
 
 	<tag/ec/
 	This is a specialized type used to represent BGP extended community
