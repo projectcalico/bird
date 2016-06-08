@@ -79,6 +79,10 @@ pm_format(struct f_path_mask *p, buffer *buf)
       buffer_puts(buf, "* ");
       break;
 
+    case PM_ASN_RANGE:
+      buffer_print(buf, "%u..%u ", p->val, p->val2);
+      break;
+
     case PM_ASN_EXPR:
       buffer_print(buf, "%u ", f_eval_asn((struct f_inst *) p->val));
       break;
