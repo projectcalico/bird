@@ -163,12 +163,23 @@ val_compare(struct f_val v1, struct f_val v2)
 }
 
 static int
-pm_path_same(struct f_path_mask *m1, struct f_path_mask *m2)
+pm_same(struct f_path_mask *m1, struct f_path_mask *m2)
 {
   while (m1 && m2)
   {
-    if ((m1->kind != m2->kind) || (m1->val != m2->val))
+    if (m1->kind != m2->kind)
       return 0;
+
+    if (m1->kind == PM_ASN_EXPR)
+    {
+      if (!i_same((struct f_inst *) m1->val, (struct f_inst *) m2->val))
+	return 0;
+    }
+    else
+    {
+      if ((m1->val != m2->val) || (m1->val2 != m2->val2))
+	return 0;
+    }
 
     m1 = m1->next;
     m2 = m2->next;
@@ -199,7 +210,7 @@ val_same(struct f_val v1, struct f_val v2)
 
   switch (v1.type) {
   case T_PATH_MASK:
-    return pm_path_same(v1.val.path_mask, v2.val.path_mask);
+    return pm_same(v1.val.path_mask, v2.val.path_mask);
   case T_PATH:
   case T_CLIST:
   case T_ECLIST:
