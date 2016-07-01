@@ -1461,7 +1461,8 @@ i_same(struct f_inst *f1, struct f_inst *f2)
   case P('A','p'): TWOARGS; break;
   case P('C','a'): TWOARGS; break;
   case P('a','f'):
-  case P('a','l'): ONEARG; break;
+  case P('a','l'):
+  case P('a','L'): ONEARG; break;
   case P('R','C'):
     TWOARGS;
     /* Does not really make sense - ROA check resuls may change anyway */
