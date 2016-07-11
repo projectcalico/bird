@@ -20,6 +20,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "nest/bird.h"
 #include "nest/cli.h"
@@ -314,7 +315,11 @@ log_init_debug(char *f)
   else if (!*f)
     dbgf = stderr;
   else if (!(dbgf = fopen(f, "a")))
-    log(L_ERR "Error opening debug file `%s': %m", f);
+  {
+    /* Cannot use die() nor log() here, logging is not yet initialized */
+    fprintf(stderr, "bird: Unable to open debug file %s: %s\n", f, strerror(errno));
+    exit(1);
+  }
   if (dbgf)
     setvbuf(dbgf, NULL, _IONBF, 0);
 }
