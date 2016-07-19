@@ -610,8 +610,8 @@ agreement").
 	options, in that case for given interface the first matching interface
 	option is used.
 
-	This option is allowed in BFD, Direct, OSPF, RAdv and RIP protocols, but
-	in OSPF protocol it is used in the <cf/area/ subsection.
+	This option is allowed in Babel, BFD, Direct, OSPF, RAdv and RIP
+	protocols, but in OSPF protocol it is used in the <cf/area/ subsection.
 
 	Default: none.
 
@@ -1314,7 +1314,7 @@ clist for most purposes.
 	<cf/RTS_DUMMY/, <cf/RTS_STATIC/, <cf/RTS_INHERIT/, <cf/RTS_DEVICE/,
 	<cf/RTS_STATIC_DEVICE/, <cf/RTS_REDIRECT/, <cf/RTS_RIP/, <cf/RTS_OSPF/,
 	<cf/RTS_OSPF_IA/, <cf/RTS_OSPF_EXT1/, <cf/RTS_OSPF_EXT2/, <cf/RTS_BGP/,
-	<cf/RTS_PIPE/.
+	<cf/RTS_PIPE/, <cf/RTS_BABEL/.
 
 	<tag><m/enum/ cast</tag>
 	Route type (Currently <cf/RTC_UNICAST/ for normal routes,
@@ -1476,6 +1476,34 @@ protocol babel [<name>] {
       hardware drivers or platforms do not implement this feature. Default:
       yes.
 </descrip>
+
+<sect1>Attributes
+
+<p>Babel defines just one attribute: the internal babel metric of the route. It
+is exposed as the <cf/babel_metric/ attribute and has range from 1 to infinity
+(65535).
+
+<sect1>Example
+
+<p><code>
+protocol babel {
+	interface "eth*" {
+		type wired;
+	};
+	interface "wlan0", "wlan1" {
+		type wireless;
+		hello interval 1;
+		rxcost 512;
+	};
+	interface "tap0";
+
+	# This matches the default of babeld: redistribute all addresses
+	# configured on local interfaces, plus re-distribute all routes received
+	# from other babel peers.
+
+	export where (source = RTS_DEVICE) || (source = RTS_BABEL);
+}
+</code>
 
 
 <sect><label id="sect-bfd">BFD
