@@ -480,6 +480,7 @@ babel_read_update(struct babel_tlv *hdr, union babel_msg *m,
     if (tlv->plen > 0)
       return PARSE_ERROR;
 
+    msg->plen = 0;
     msg->prefix = IPA_NONE;
     break;
 
@@ -523,7 +524,8 @@ babel_read_update(struct babel_tlv *hdr, union babel_msg *m,
     return PARSE_IGNORE;
   }
 
-  if (!state->router_id_seen)
+  /* Update must have Router ID, unless it is retraction */
+  if (!state->router_id_seen && (msg->metric != BABEL_INFINITY))
   {
     DBG("Babel: No router ID seen before update\n");
     return PARSE_ERROR;

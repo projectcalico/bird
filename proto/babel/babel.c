@@ -1040,17 +1040,18 @@ babel_handle_update(union babel_msg *m, struct babel_iface *ifa)
   struct babel_proto *p = ifa->proto;
   struct babel_msg_update *msg = &m->update;
 
-  struct babel_neighbor *n;
+  struct babel_neighbor *nbr;
   struct babel_entry *e;
   struct babel_source *s;
   struct babel_route *r;
+  node *n;
   int feasible;
 
   TRACE(D_PACKETS, "Handling update for %I/%d with seqno %d metric %d",
 	msg->prefix, msg->plen, msg->seqno, msg->metric);
 
-  n = babel_find_neighbor(ifa, msg->sender);
-  if (!n)
+  nbr = babel_find_neighbor(ifa, msg->sender);
+  if (!nbr)
   {
     DBG("Babel: Haven't heard from neighbor %I; ignoring update.\n", msg->sender);
     return;
@@ -1095,55 +1096,88 @@ babel_handle_update(union babel_msg *m, struct babel_iface *ifa)
    *   of the Interval value included in the update.
    */
 
+  /* Retraction */
   if (msg->metric == BABEL_INFINITY)
-    e = babel_find_entry(p, msg->prefix, msg->plen);
-  else
-    e = babel_get_entry(p, msg->prefix, msg->plen);
+  {
+    if (msg->ae == BABEL_AE_WILDCARD)
+    {
+      /*
+       * Special case: This is a retraction of all prefixes announced by this
+       * neighbour (see second-to-last paragraph of section 4.4.9 in the RFC).
+       */
+      WALK_LIST(n, nbr->routes)
+      {
+	r = SKIP_BACK(struct babel_route, neigh_route, n);
+	r->metric = BABEL_INFINITY;
+	babel_select_route(r->e);
+      }
+    }
+    else
+    {
+      e = babel_find_entry(p, msg->prefix, msg->plen);
 
-  if (!e)
+      if (!e)
+	return;
+
+      /* The route entry indexed by neighbour */
+      r = babel_find_route(e, nbr);
+
+      if (!r)
+	return;
+
+      r->metric = BABEL_INFINITY;
+      babel_select_route(e);
+    }
+
+    /* Done with retractions */
     return;
+  }
 
+  e = babel_get_entry(p, msg->prefix, msg->plen);
+  r = babel_find_route(e, nbr); /* the route entry indexed by neighbour */
   s = babel_find_source(e, msg->router_id); /* for feasibility */
-  r = babel_find_route(e, n); /* the route entry indexed by neighbour */
   feasible = babel_is_feasible(s, msg->seqno, msg->metric);
 
   if (!r)
   {
-    if (!feasible || (msg->metric == BABEL_INFINITY))
+    if (!feasible)
       return;
 
-    r = babel_get_route(e, n);
+    r = babel_get_route(e, nbr);
     r->advert_metric = msg->metric;
     r->router_id = msg->router_id;
-    r->metric = babel_compute_metric(n, msg->metric);
+    r->metric = babel_compute_metric(nbr, msg->metric);
     r->next_hop = msg->next_hop;
     r->seqno = msg->seqno;
   }
   else if (r == r->e->selected_in && !feasible)
   {
-    /* Route is installed and update is infeasible - we may lose the route, so
-       send a unicast seqno request (section 3.8.2.2 second paragraph). */
+    /*
+     * Route is installed and update is infeasible - we may lose the route,
+     * so send a unicast seqno request (section 3.8.2.2 second paragraph).
+     */
     babel_unicast_seqno_request(r);
 
-    if (msg->router_id == r->router_id) return;
-    r->metric = BABEL_INFINITY; /* retraction */
+    if (msg->router_id == r->router_id)
+      return;
+
+    /* Treat as retraction */
+    r->metric = BABEL_INFINITY;
   }
   else
   {
     /* Last paragraph above - update the entry */
     r->advert_metric = msg->metric;
-    r->metric = babel_compute_metric(n, msg->metric);
-    r->router_id = msg->router_id;
+    r->metric = babel_compute_metric(nbr, msg->metric);
     r->next_hop = msg->next_hop;
+
+    r->router_id = msg->router_id;
     r->seqno = msg->seqno;
 
-    if (msg->metric != BABEL_INFINITY)
-    {
-      r->expiry_interval = BABEL_ROUTE_EXPIRY_FACTOR(msg->interval);
-      r->expires = now + r->expiry_interval;
-      if (r->expiry_interval > BABEL_ROUTE_REFRESH_INTERVAL)
-        r->refresh_time = now + r->expiry_interval - BABEL_ROUTE_REFRESH_INTERVAL;
-    }
+    r->expiry_interval = BABEL_ROUTE_EXPIRY_FACTOR(msg->interval);
+    r->expires = now + r->expiry_interval;
+    if (r->expiry_interval > BABEL_ROUTE_REFRESH_INTERVAL)
+      r->refresh_time = now + r->expiry_interval - BABEL_ROUTE_REFRESH_INTERVAL;
 
     /* If the route is not feasible at this point, it means it is from another
        neighbour than the one currently selected; so send a unicast seqno
