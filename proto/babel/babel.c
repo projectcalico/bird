@@ -788,16 +788,21 @@ babel_send_update(struct babel_iface *ifa, bird_clock_t changed)
     msg.update.prefix = e->n.prefix;
     msg.update.router_id = r->router_id;
 
-    /* Update feasibility distance */
-    struct babel_source *s = babel_get_source(e, r->router_id);
-    s->expires = now + BABEL_GARBAGE_INTERVAL;
-    if ((msg.update.seqno > s->seqno) ||
-	((msg.update.seqno == s->seqno) && (msg.update.metric < s->metric)))
-    {
-      s->seqno = msg.update.seqno;
-      s->metric = msg.update.metric;
-    }
     babel_enqueue(&msg, ifa);
+
+    /* Update feasibility distance for redistributed routes */
+    if (!OUR_ROUTE(r))
+    {
+      struct babel_source *s = babel_get_source(e, r->router_id);
+      s->expires = now + BABEL_GARBAGE_INTERVAL;
+
+      if ((msg.update.seqno > s->seqno) ||
+	  ((msg.update.seqno == s->seqno) && (msg.update.metric < s->metric)))
+      {
+	s->seqno = msg.update.seqno;
+	s->metric = msg.update.metric;
+      }
+    }
   }
   FIB_WALK_END;
 }
