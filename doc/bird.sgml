@@ -667,7 +667,7 @@ agreement").
 
 <descrip>
 	<tag>id <M>num</M></tag>
-	ID of the password, (0-255). If it's not used, BIRD will choose ID based
+	ID of the password, (1-255). If it is not used, BIRD will choose ID based
 	on an order of the password item in the interface. For example, second
 	password item in one interface will have default ID 2. ID is used by
 	some routing protocols to identify which password was used to
