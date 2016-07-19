@@ -268,7 +268,7 @@ struct babel_msg_ihu {
 
 struct babel_msg_update {
   u8 type;
-  u8 ae;
+  u8 wildcard;
   u8 plen;
   u16 interval;
   u16 seqno;

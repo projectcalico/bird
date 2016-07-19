@@ -834,8 +834,8 @@ babel_send_retraction(struct babel_iface *ifa, ip_addr prefix, int plen)
   struct babel_proto *p = ifa->proto;
   union babel_msg msg = {};
 
-  TRACE(D_PACKETS, "Sending retraction for %I/%d router-id %lR seqno %d",
-	prefix, plen, p->router_id, p->update_seqno);
+  TRACE(D_PACKETS, "Sending retraction for %I/%d seqno %d",
+	prefix, plen, p->update_seqno);
 
   msg.type = BABEL_TLV_UPDATE;
   msg.update.plen = plen;
@@ -843,7 +843,23 @@ babel_send_retraction(struct babel_iface *ifa, ip_addr prefix, int plen)
   msg.update.seqno = p->update_seqno;
   msg.update.metric = BABEL_INFINITY;
   msg.update.prefix = prefix;
-  msg.update.router_id = p->router_id;
+
+  babel_enqueue(&msg, ifa);
+}
+
+static void
+babel_send_wildcard_retraction(struct babel_iface *ifa)
+{
+  struct babel_proto *p = ifa->proto;
+  union babel_msg msg = {};
+
+  TRACE(D_PACKETS, "Sending wildcard retraction on %s", ifa->ifname);
+
+  msg.type = BABEL_TLV_UPDATE;
+  msg.update.wildcard = 1;
+  msg.update.interval = ifa->cf->update_interval;
+  msg.update.seqno = p->update_seqno;
+  msg.update.metric = BABEL_INFINITY;
 
   babel_enqueue(&msg, ifa);
 }
@@ -1099,7 +1115,7 @@ babel_handle_update(union babel_msg *m, struct babel_iface *ifa)
   /* Retraction */
   if (msg->metric == BABEL_INFINITY)
   {
-    if (msg->ae == BABEL_AE_WILDCARD)
+    if (msg->wildcard)
     {
       /*
        * Special case: This is a retraction of all prefixes announced by this
@@ -1347,6 +1363,7 @@ babel_iface_start(struct babel_iface *ifa)
   ifa->up = 1;
 
   babel_send_hello(ifa, 0);
+  babel_send_wildcard_retraction(ifa);
   babel_send_wildcard_request(ifa);
   babel_send_update(ifa, 0);	/* Full update */
 }
@@ -2056,6 +2073,30 @@ babel_start(struct proto *P)
   return PS_UP;
 }
 
+static inline void
+babel_iface_shutdown(struct babel_iface *ifa)
+{
+  if (ifa->sk)
+  {
+    babel_send_wildcard_retraction(ifa);
+    babel_send_queue(ifa);
+  }
+}
+
+static int
+babel_shutdown(struct proto *P)
+{
+  struct babel_proto *p = (void *) P;
+  struct babel_iface *ifa;
+
+  TRACE(D_EVENTS, "Shutdown requested");
+
+  WALK_LIST(ifa, p->interfaces)
+    babel_iface_shutdown(ifa);
+
+  return PS_DOWN;
+}
+
 static int
 babel_reconfigure(struct proto *P, struct proto_config *c)
 {
@@ -2083,6 +2124,7 @@ struct protocol proto_babel = {
   .init =		babel_init,
   .dump =		babel_dump,
   .start =		babel_start,
+  .shutdown =		babel_shutdown,
   .reconfigure =	babel_reconfigure,
   .get_route_info =	babel_get_route_info,
   .get_attr =		babel_get_attr
