@@ -565,6 +565,11 @@ babel_select_route(struct babel_entry *e)
 
       babel_send_seqno_request(e);
       babel_announce_rte(p, e);
+
+      /* Section 3.6 of the RFC forbids an infeasible from being selected. This
+	 is cleared after announcing the route to the core to make sure an
+	 unreachable route is propagated first. */
+      e->selected_in = NULL;
     }
     else
     {
