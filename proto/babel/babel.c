@@ -1590,6 +1590,9 @@ babel_reconfigure_iface(struct babel_proto *p, struct babel_iface *ifa, struct b
 
   ifa->cf = new;
 
+  if (ifa->next_hello > (now + new->hello_interval))
+    ifa->next_hello = now + (random() % new->hello_interval) + 1;
+
   if (ifa->next_regular > (now + new->update_interval))
     ifa->next_regular = now + (random() % new->update_interval) + 1;
 
