@@ -38,6 +38,10 @@
 #define MSG_TRUNC 0x20
 #endif
 
+#ifndef IFA_FLAGS
+#define IFA_FLAGS 8
+#endif
+
 #ifndef IFF_LOWER_UP
 #define IFF_LOWER_UP 0x10000
 #endif
