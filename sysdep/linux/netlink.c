@@ -247,18 +247,20 @@ static struct nl_want_attrs ifla_attr_want[BIRD_IFLA_MAX] = {
 };
 
 
-#define BIRD_IFA_MAX  (IFA_ANYCAST+1)
+#define BIRD_IFA_MAX  (IFA_FLAGS+1)
 
 #ifndef IPV6
 static struct nl_want_attrs ifa_attr_want4[BIRD_IFA_MAX] = {
   [IFA_ADDRESS]	  = { 1, 1, sizeof(ip4_addr) },
   [IFA_LOCAL]	  = { 1, 1, sizeof(ip4_addr) },
   [IFA_BROADCAST] = { 1, 1, sizeof(ip4_addr) },
+  [IFA_FLAGS]	  = { 1, 1, sizeof(u32) },
 };
 #else
 static struct nl_want_attrs ifa_attr_want6[BIRD_IFA_MAX] = {
   [IFA_ADDRESS]	  = { 1, 1, sizeof(ip6_addr) },
   [IFA_LOCAL]	  = { 1, 1, sizeof(ip6_addr) },
+  [IFA_FLAGS]	  = { 1, 1, sizeof(u32) },
 };
 #endif
 
@@ -611,6 +613,7 @@ nl_parse_addr(struct nlmsghdr *h, int scan)
   struct ifa ifa;
   struct iface *ifi;
   int scope;
+  u32 ifa_flags;
 
   if (!(i = nl_checkin(h, sizeof(*i))))
     return;
@@ -643,6 +646,11 @@ nl_parse_addr(struct nlmsghdr *h, int scan)
       return;
     }
 
+  if (a[IFA_FLAGS])
+    ifa_flags = rta_get_u32(a[IFA_FLAGS]);
+  else
+    ifa_flags = i->ifa_flags;
+
   ifi = if_find_by_index(i->ifa_index);
   if (!ifi)
     {
@@ -652,8 +660,14 @@ nl_parse_addr(struct nlmsghdr *h, int scan)
 
   bzero(&ifa, sizeof(ifa));
   ifa.iface = ifi;
-  if (i->ifa_flags & IFA_F_SECONDARY)
+  if (ifa_flags & IFA_F_SECONDARY)
     ifa.flags |= IA_SECONDARY;
+
+#ifdef IPV6
+  /* Ignore tentative addresses silently */
+  if (ifa_flags & IFA_F_TENTATIVE)
+    return;
+#endif
 
   /* IFA_LOCAL can be unset for IPv6 interfaces */
   memcpy(&ifa.ip, RTA_DATA(a[IFA_LOCAL] ? : a[IFA_ADDRESS]), sizeof(ifa.ip));
