@@ -1,5 +1,10 @@
 		       BIRD Internet Routing Daemon
 
+                Mailing list    bird-users@network.cz
+                                http://bird.network.cz/mailman/listinfo/bird-users
+
+                Home page       http://bird.network.cz/
+
 		(c) 1998--2008  Martin Mares <mj@ucw.cz>
                 (c) 1998--2000  Pavel Machek <pavel@ucw.cz>
                 (c) 1998--2008  Ondrej Filip <feela@network.cz>
@@ -13,10 +18,10 @@ routing protocols, easy to use configuration interface and powerful route
 filtering language.
 
 If you want to help us debugging, enhancing and porting BIRD or just lurk
-around to see what's going to develop from this strange creature, feel free
-to subscribe to the BIRD users mailing list (bird-users@bird.network.cz),
-send subscribes to majordomo at the same machine).  Bug reports, suggestions,
-feature requests (: and code :) are welcome.
+around to see what's going to develop from this strange creature, feel free to
+subscribe to the BIRD users mailing list (bird-users@bird.network.cz), send
+subscribes to majordomo at the same machine). Bug reports, suggestions, feature
+requests (: and code :) are welcome. We don't use gitlab issues reporting, sorry.
 
 You can download the latest version from ftp://bird.network.cz/pub/bird/
 and look at the BIRD home page at http://bird.network.cz/.
