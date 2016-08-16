@@ -47,14 +47,16 @@ How to install BIRD
 	o  From source code of the actual development version
 	   https://gitlab.labs.nic.cz/labs/bird
 
-How to compile BIRD from source code
+How to install BIRD from source code
 ------------------------------------
-
 	$  ./configure
 	$  make
 	$  sudo make install
 	$  sudo vi /usr/local/etc/bird.conf
 	$  bird
+
+Look at the file INSTALL for more information about installation using source
+code.
 
 Documentation
 =============
