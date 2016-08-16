@@ -185,7 +185,7 @@ pm_same(struct f_path_mask *m1, struct f_path_mask *m2)
     m2 = m2->next;
   }
 
- return !m1 && !m2;
+  return !m1 && !m2;
 }
 
 /**
