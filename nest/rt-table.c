@@ -1777,7 +1777,7 @@ rt_next_hop_update_net(rtable *tab, net *n)
   /* FIXME: Better announcement of merged routes */
   rte_announce_i(tab, RA_MERGED, n, new, old_best, new, old_best);
 
-   if (free_old_best)
+  if (free_old_best)
     rte_free_quick(old_best);
 
   return count;
