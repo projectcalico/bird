@@ -22,8 +22,9 @@ What do we support
 	o  Both IPv4 and IPv6 (use --enable-ipv6 when configuring)
 	o  Multiple routing tables
 	o  Border Gateway Protocol (BGPv4)
-	o  Routing Information Protocol (RIPv2)
+	o  Routing Information Protocol (RIPv2, RIPng)
 	o  Open Shortest Path First protocol (OSPFv2, OSPFv3)
+	o  Babel Routing Protocol (Babel)
 	o  Bidirectional Forwarding Detection (BFD)
 	o  IPv6 router advertisements
 	o  Static routes
@@ -42,21 +43,25 @@ How to install BIRD
 ===================
 
 	o  From standard distribution package of your OS (recommended)
+	o  From official binary packages for Debian and Red Hat Linux
+	   ftp://bird.network.cz/pub/bird/debian/
+	   ftp://bird.network.cz/pub/bird/redhat/
 	o  From source code of the latest stable release version
 	   ftp://bird.network.cz/pub/bird/
 	o  From source code of the actual development version
-	   https://gitlab.labs.nic.cz/labs/bird
+	   git://git.nic.cz/bird.git
+	   https://gitlab.labs.nic.cz/labs/bird/
 
 How to install BIRD from source code
 ------------------------------------
+
 	$  ./configure
 	$  make
-	$  sudo make install
-	$  sudo vi /usr/local/etc/bird.conf
-	$  bird
+	$  su
+	#  make install
+	#  vi /usr/local/etc/bird.conf
 
-Look at the file INSTALL for more information about installation using source
-code.
+See the file INSTALL for more information about installation from source code.
 
 Documentation
 =============
@@ -71,10 +76,13 @@ User support
 ============
 
 If you want to help us debugging, enhancing and porting BIRD or just lurk
-around to see what's going to develop, feel free to subscribe to the BIRD users
-mailing list bird-users@bird.network.cz, just send `subscribe bird-users' to
-majordomo@network.cz. Bug reports, suggestions, feature requests and code are
-welcome! We don't use gitlab issues for reporting, sorry.
+around to see what's going to develop, feel free to subscribe to the BIRD
+users mailing list bird-users@network.cz, just send `subscribe' to
+bird-request@network.cz. Bug reports, suggestions, feature requests and
+code are welcome! We don't use gitlab issues for reporting, sorry.
+
+Subscribe:	http://bird.network.cz/mailman/listinfo/bird-users/
+Archive:	http://bird.network.cz/pipermail/bird-users/
 
 Licence
 =======
