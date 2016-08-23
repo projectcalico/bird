@@ -163,9 +163,9 @@ tree_format(struct f_tree *t, buffer *buf)
 {
   buffer_puts(buf, "[");
  
- tree_node_format(t, buf);
+  tree_node_format(t, buf);
 
- /* Undo last separator */
+  /* Undo last separator */
   if (buf->pos[-1] != '[')
     buf->pos -= 2;
  
