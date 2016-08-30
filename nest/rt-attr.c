@@ -302,6 +302,34 @@ mpnh_merge(struct mpnh *x, struct mpnh *y, int rx, int ry, int max, linpool *lp)
   return root;
 }
 
+void
+mpnh_insert(struct mpnh **n, struct mpnh *x)
+{
+  for (; *n; n = &((*n)->next))
+  {
+    int cmp = mpnh_compare_node(*n, x);
+
+    if (cmp < 0)
+      continue;
+    else if (cmp > 0)
+      break;
+    else
+      return;
+  }
+
+  x->next = *n;
+  *n = x;
+}
+
+int
+mpnh_is_sorted(struct mpnh *x)
+{
+  for (; x && x->next; x = x->next)
+    if (mpnh_compare_node(x, x->next) >= 0)
+      return 0;
+
+  return 1;
+}
 
 static struct mpnh *
 mpnh_copy(struct mpnh *o)

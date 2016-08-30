@@ -81,7 +81,6 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
     {
       struct static_route *r2;
       struct mpnh *nhs = NULL;
-      struct mpnh **nhp = &nhs;
 
       for (r2 = r->mp_next; r2; r2 = r2->mp_next)
 	if (r2->installed)
@@ -90,9 +89,7 @@ static_install(struct proto *p, struct static_route *r, struct iface *ifa)
 	    nh->gw = r2->via;
 	    nh->iface = r2->neigh->iface;
 	    nh->weight = r2->masklen; /* really */
-	    nh->next = NULL;
-	    *nhp = nh;
-	    nhp = &(nh->next);
+	    mpnh_insert(&nhs, nh);
 	  }
 
       /* There is at least one nexthop */

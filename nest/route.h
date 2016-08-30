@@ -506,6 +506,8 @@ int mpnh__same(struct mpnh *x, struct mpnh *y); /* Compare multipath nexthops */
 static inline int mpnh_same(struct mpnh *x, struct mpnh *y)
 { return (x == y) || mpnh__same(x, y); }
 struct mpnh *mpnh_merge(struct mpnh *x, struct mpnh *y, int rx, int ry, int max, linpool *lp);
+void mpnh_insert(struct mpnh **n, struct mpnh *y);
+int mpnh_is_sorted(struct mpnh *x);
 
 void rta_init(void);
 rta *rta_lookup(rta *);			/* Get rta equivalent to this one, uc++ */

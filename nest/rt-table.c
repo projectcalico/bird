@@ -804,6 +804,13 @@ rte_validate(rte *e)
       return 0;
     }
 
+  if ((e->attrs->dest == RTD_MULTIPATH) && !mpnh_is_sorted(e->attrs->nexthops))
+    {
+      log(L_WARN "Ignoring unsorted multipath route %I/%d received via %s",
+	  n->n.prefix, n->n.pxlen, e->sender->proto->name);
+      return 0;
+    }
+
   return 1;
 }
 
