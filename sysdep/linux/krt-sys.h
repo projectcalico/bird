@@ -32,6 +32,8 @@ static inline struct ifa * kif_get_primary_ip(struct iface *i) { return NULL; }
 
 /* Kernel routes */
 
+#define KRT_ALLOW_MERGE_PATHS	1
+
 #define EA_KRT_PREFSRC		EA_CODE(EAP_KRT, 0x10)
 #define EA_KRT_REALM		EA_CODE(EAP_KRT, 0x11)
 
