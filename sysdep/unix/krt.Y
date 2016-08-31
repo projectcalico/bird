@@ -56,7 +56,7 @@ kern_item:
  | GRACEFUL RESTART bool { THIS_KRT->graceful_restart = $3; }
  | MERGE PATHS bool kern_mp_limit {
       THIS_KRT->merge_paths = $3 ? $4 : 0;
-#ifndef KRT_ALLOW_LEARN
+#ifndef KRT_ALLOW_MERGE_PATHS
       if ($3)
 	cf_error("Path merging not supported on this platform");
 #endif
