@@ -88,6 +88,7 @@ static inline struct ifa * kif_get_primary_ip(struct iface *i) { return NULL; }
 
 struct krt_params {
   u32 table_id;				/* Kernel table ID we sync with */
+  u32 metric;				/* Kernel metric used for all routes */
 };
 
 struct krt_state {

@@ -880,6 +880,8 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int op, int d
   eattr *ea;
   net *net = e->net;
   rta *a = e->attrs;
+  u32 priority = 0;
+
   struct {
     struct nlmsghdr h;
     struct rtmsg r;
@@ -912,12 +914,19 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int op, int d
   else
     nl_add_attr_u32(&r.h, sizeof(r), RTA_TABLE, krt_table_id(p));
 
+  if (a->source == RTS_DUMMY)
+    priority = e->u.krt.metric;
+  else if (KRT_CF->sys.metric)
+    priority = KRT_CF->sys.metric;
+  else if ((op != NL_OP_DELETE) && (ea = ea_find(eattrs, EA_KRT_METRIC)))
+    priority = ea->u.data;
+
+  if (priority)
+    nl_add_attr_u32(&r.h, sizeof(r), RTA_PRIORITY, priority);
+
   /* For route delete, we do not specify remaining route attributes */
   if (op == NL_OP_DELETE)
     goto dest;
-
-  if (ea = ea_find(eattrs, EA_KRT_METRIC))
-    nl_add_attr_u32(&r.h, sizeof(r), RTA_PRIORITY, ea->u.data);
 
   if (ea = ea_find(eattrs, EA_KRT_PREFSRC))
     nl_add_attr_ipa(&r.h, sizeof(r), RTA_PREFSRC, *(ip_addr *)ea->u.ptr->data);
@@ -1585,19 +1594,21 @@ krt_sys_shutdown(struct krt_proto *p)
 int
 krt_sys_reconfigure(struct krt_proto *p UNUSED, struct krt_config *n, struct krt_config *o)
 {
-  return n->sys.table_id == o->sys.table_id;
+  return (n->sys.table_id == o->sys.table_id) && (n->sys.metric == o->sys.metric);
 }
 
 void
 krt_sys_init_config(struct krt_config *cf)
 {
   cf->sys.table_id = RT_TABLE_MAIN;
+  cf->sys.metric = 0;
 }
 
 void
 krt_sys_copy_config(struct krt_config *d, struct krt_config *s)
 {
   d->sys.table_id = s->sys.table_id;
+  d->sys.metric = s->sys.metric;
 }
 
 static const char *krt_metrics_names[KRT_METRICS_MAX] = {

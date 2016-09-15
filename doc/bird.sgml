@@ -2388,6 +2388,17 @@ limitations can be overcome using another routing table and the pipe protocol.
 	protocol work with. Available only on systems supporting multiple
 	routing tables.
 
+	<tag>metric <m/number/</tag> (Linux)
+	Use specified value as a kernel metric (priority) for all routes sent to
+	the kernel. When multiple routes for the same network are in the kernel
+	routing table, the Linux kernel chooses one with lower metric. Also,
+	routes with different metrics do not clash with each other, therefore
+	using dedicated metric value is a reliable way to avoid overwriting
+	routes from other sources (e.g. kernel device routes). Metric 0 has a
+	special meaning of undefined metric, in which either OS default is used,
+	or per-route metric can be set using <cf/krt_metric/ attribute. Default:
+	0 (undefined).
+
 	<tag>graceful restart <m/switch/</tag>
 	Participate in graceful restart recovery. If this option is enabled and
 	a graceful restart recovery is active, the Kernel protocol will defer
@@ -2420,9 +2431,11 @@ these attributes:
 	route. See /etc/iproute2/rt_protos for common values. On BSD, it is
 	based on STATIC and PROTOx flags. The attribute is read-only.
 
-	<tag>int <cf/krt_metric/</tag>
+	<tag>int <cf/krt_metric/</tag> (Linux)
 	The kernel metric of the route. When multiple same routes are in a
 	kernel routing table, the Linux kernel chooses one with lower metric.
+	Note that preferred way to set kernel metric is to use protocol option
+	<cf/metric/, unless per-route metric values are needed.
 
 	<tag>ip <cf/krt_prefsrc/</tag> (Linux)
 	The preferred source address. Used in source address selection for
