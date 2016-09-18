@@ -10,7 +10,7 @@ protocol device {
 {{else}}
 # Template for all BGP clients
 template bgp bgp_template {
-  debug all;
+  debug off;
   description "Connection to BGP peer";
   multihop;
   import all;        # Import all routes, since we don't know what the upstream
