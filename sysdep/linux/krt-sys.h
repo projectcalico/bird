@@ -36,6 +36,7 @@ static inline struct ifa * kif_get_primary_ip(struct iface *i) { return NULL; }
 
 #define EA_KRT_PREFSRC		EA_CODE(EAP_KRT, 0x10)
 #define EA_KRT_REALM		EA_CODE(EAP_KRT, 0x11)
+#define EA_KRT_SCOPE		EA_CODE(EAP_KRT, 0x12)
 
 
 #define KRT_METRICS_MAX		0x10	/* RTAX_QUICKACK+1 */

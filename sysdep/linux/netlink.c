@@ -899,7 +899,7 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int op, int d
   r.r.rtm_family = BIRD_AF;
   r.r.rtm_dst_len = net->n.pxlen;
   r.r.rtm_protocol = RTPROT_BIRD;
-  r.r.rtm_scope = RT_SCOPE_UNIVERSE;
+  r.r.rtm_scope = RT_SCOPE_NOWHERE;
   nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
 
   /*
@@ -927,6 +927,12 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int op, int d
   /* For route delete, we do not specify remaining route attributes */
   if (op == NL_OP_DELETE)
     goto dest;
+
+  /* Default scope is LINK for device routes, UNIVERSE otherwise */
+  if (ea = ea_find(eattrs, EA_KRT_SCOPE))
+    r.r.rtm_scope = ea->u.data;
+  else
+    r.r.rtm_scope = (dest == RTD_DEVICE) ? RT_SCOPE_LINK : RT_SCOPE_UNIVERSE;
 
   if (ea = ea_find(eattrs, EA_KRT_PREFSRC))
     nl_add_attr_ipa(&r.h, sizeof(r), RTA_PREFSRC, *(ip_addr *)ea->u.ptr->data);
@@ -1135,6 +1141,7 @@ nl_parse_route(struct nl_parse_state *s, struct nlmsghdr *h)
   u32 oif = ~0;
   u32 table;
   u32 priority = 0;
+  u32 def_scope = RT_SCOPE_UNIVERSE;
   int src;
 
   if (!(i = nl_checkin(h, sizeof(*i))))
@@ -1156,7 +1163,6 @@ nl_parse_route(struct nl_parse_state *s, struct nlmsghdr *h)
       default:
 	return;
     }
-
 
   if (a[RTA_DST])
     {
@@ -1194,11 +1200,6 @@ nl_parse_route(struct nl_parse_state *s, struct nlmsghdr *h)
   int c = ipa_classify_net(dst);
   if ((c < 0) || !(c & IADDR_HOST) || ((c & IADDR_SCOPE_MASK) <= SCOPE_LINK))
     SKIP("strange class/scope\n");
-
-  // ignore rtm_scope, it is not a real scope
-  // if (i->rtm_scope != RT_SCOPE_UNIVERSE)
-  //   SKIP("scope %u\n", i->rtm_scope);
-
 
   switch (i->rtm_protocol)
     {
@@ -1286,6 +1287,7 @@ nl_parse_route(struct nl_parse_state *s, struct nlmsghdr *h)
       else
 	{
 	  ra->dest = RTD_DEVICE;
+	  def_scope = RT_SCOPE_LINK;
 	}
 
       break;
@@ -1302,6 +1304,19 @@ nl_parse_route(struct nl_parse_state *s, struct nlmsghdr *h)
     default:
       SKIP("type %d\n", i->rtm_type);
       return;
+    }
+
+  if (i->rtm_scope != def_scope)
+    {
+      ea_list *ea = lp_alloc(s->pool, sizeof(ea_list) + sizeof(eattr));
+      ea->next = ra->eattrs;
+      ra->eattrs = ea;
+      ea->flags = EALF_SORTED;
+      ea->count = 1;
+      ea->attrs[0].id = EA_KRT_SCOPE;
+      ea->attrs[0].flags = 0;
+      ea->attrs[0].type = EAF_TYPE_INT;
+      ea->attrs[0].u.data = i->rtm_scope;
     }
 
   if (a[RTA_PREFSRC])
@@ -1631,6 +1646,10 @@ krt_sys_get_attr(eattr *a, byte *buf, int buflen UNUSED)
 
   case EA_KRT_REALM:
     bsprintf(buf, "realm");
+    return GA_NAME;
+
+  case EA_KRT_SCOPE:
+    bsprintf(buf, "scope");
     return GA_NAME;
 
   case EA_KRT_LOCK:
