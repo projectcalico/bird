@@ -735,6 +735,7 @@ term:
  | term '>' term     { $$ = f_new_inst(); $$->code = '<';        $$->a1.p = $3; $$->a2.p = $1; }
  | term GEQ term { $$ = f_new_inst(); $$->code = P('<','=');     $$->a1.p = $3; $$->a2.p = $1; }
  | term '~' term     { $$ = f_new_inst(); $$->code = '~';        $$->a1.p = $1; $$->a2.p = $3; }
+ | term NMA term { $$ = f_new_inst(); $$->code = P('!','~');     $$->a1.p = $1; $$->a2.p = $3; }
  | '!' term { $$ = f_new_inst(); $$->code = '!'; $$->a1.p = $2; }
  | DEFINED '(' term ')' { $$ = f_new_inst(); $$->code = P('d','e');  $$->a1.p = $3; }
 

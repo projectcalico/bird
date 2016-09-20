@@ -1016,9 +1016,9 @@ foot).
 	of type <cf/string/, print such variables, use standard string
 	comparison operations (e.g. <cf/=, !=, &lt;, &gt;, &lt;=, &gt;=/), but
 	you can't concatenate two strings. String literals are written as
-	<cf/"This is a string constant"/. Additionally matching <cf/&tilde;/
-	operator could be used to match a string value against a shell pattern
-	(represented also as a string).
+	<cf/"This is a string constant"/. Additionally matching (<cf/&tilde;,
+	!&tilde;/) operators could be used to match a string value against
+	a shell pattern (represented also as a string).
 
 	<tag/ip/
 	This type can hold a single IP address. Depending on the compile-time
@@ -1202,9 +1202,9 @@ foot).
 	<tag/eclist/
 	Eclist is a data type used for BGP extended community lists. Eclists
 	are very similar to clists, but they are sets of ECs instead of pairs.
-	The same operations (like <cf/add/, <cf/delete/, or <cf/&tilde;/
-	membership operator) can be used to modify or test eclists, with ECs
-	instead of pairs as arguments.
+	The same operations (like <cf/add/, <cf/delete/ or <cf/&tilde;/ and
+	<cf/!&tilde;/ membership operators) can be used to modify or test
+	eclists, with ECs instead of pairs as arguments.
 </descrip>
 
 
@@ -1213,19 +1213,19 @@ foot).
 <p>The filter language supports common integer operators <cf>(+,-,*,/)</cf>,
 parentheses <cf/(a*(b+c))/, comparison <cf/(a=b, a!=b, a&lt;b, a&gt;=b)/.
 Logical operations include unary not (<cf/!/), and (<cf/&amp;&amp;/) and or
-(<cf/&verbar;&verbar;/). Special operators include <cf/&tilde;/ for "is element
-of a set" operation - it can be used on element and set of elements of the same
-type (returning true if element is contained in the given set), or on two
-strings (returning true if first string matches a shell-like pattern stored in
-second string) or on IP and prefix (returning true if IP is within the range
-defined by that prefix), or on prefix and prefix (returning true if first prefix
-is more specific than second one) or on bgppath and bgpmask (returning true if
-the path matches the mask) or on number and bgppath (returning true if the
-number is in the path) or on bgppath and int (number) set (returning true if any
-ASN from the path is in the set) or on pair/quad and clist (returning true if
-the pair/quad is element of the clist) or on clist and pair/quad set (returning
-true if there is an element of the clist that is also a member of the pair/quad
-set).
+(<cf/&verbar;&verbar;/). Special operators include (<cf/&tilde;/,
+<cf/!&tilde;/) for "is (not) element of a set" operation - it can be used on
+element and set of elements of the same type (returning true if element is
+contained in the given set), or on two strings (returning true if first string
+matches a shell-like pattern stored in second string) or on IP and prefix
+(returning true if IP is within the range defined by that prefix), or on prefix
+and prefix (returning true if first prefix is more specific than second one) or
+on bgppath and bgpmask (returning true if the path matches the mask) or on
+number and bgppath (returning true if the number is in the path) or on bgppath
+and int (number) set (returning true if any ASN from the path is in the set) or
+on pair/quad and clist (returning true if the pair/quad is element of the
+clist) or on clist and pair/quad set (returning true if there is an element of
+the clist that is also a member of the pair/quad set).
 
 <p>There is one operator related to ROA infrastructure - <cf/roa_check()/. It
 examines a ROA table and does RFC 6483 route origin validation for a given

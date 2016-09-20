@@ -716,6 +716,16 @@ interpret(struct f_inst *what)
       runtime( "~ applied on unknown type pair" );
     res.val.i = !!res.val.i;
     break;
+
+  case P('!','~'):
+    TWOARGS;
+    res.type = T_BOOL;
+    res.val.i = val_in_range(v1, v2);
+    if (res.val.i == CMP_ERROR)
+      runtime( "!~ applied on unknown type pair" );
+    res.val.i = !res.val.i;
+    break;
+
   case P('d','e'):
     ONEARG;
     res.type = T_BOOL;
