@@ -1,3 +1,6 @@
+/autom4te.cache/
+/doc/*.html
+/obj/
 /Makefile
 /bird
 /birdc
@@ -5,4 +8,5 @@
 /config.log
 /config.status
 /configure
-/obj/
+/bird.conf
+/bird.log
