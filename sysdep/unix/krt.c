@@ -642,13 +642,8 @@ reject:
   return NULL;
 }
 
-/* If additional flag check_iface is true, then ifaces will be compared in
- * case of dest == RTD_ROUTER.
- * TODO: Why it is not compared by default in original code?
- * check_iface - calico-bird specific
- */
 static int
-krt_same_dest(rte *k, rte *e, int check_iface)
+krt_same_dest(rte *k, rte *e)
 {
   rta *ka = k->attrs, *ea = e->attrs;
 
@@ -657,8 +652,6 @@ krt_same_dest(rte *k, rte *e, int check_iface)
   switch (ka->dest)
     {
     case RTD_ROUTER:
-      if (check_iface && strcmp(ka->iface->name, ea->iface->name))
-        return 0;
       return ipa_equal(ka->gw, ea->gw);
     case RTD_DEVICE:
       return !strcmp(ka->iface->name, ea->iface->name);
@@ -730,27 +723,10 @@ krt_got_route(struct krt_proto *p, rte *e)
 
       if (!new)
 	verdict = KRF_DELETE;
+      else if ((net->n.flags & KRF_SYNC_ERROR) || !krt_same_dest(e, new))
+	verdict = KRF_UPDATE;
       else
-      {
-        /* Replace interface with tunnel if there is set tunnel attribute.
-         * EA_KRT_TUNNEL - calico-bird specific
-         */
-        eattr *ea = ea_find(tmpa, EA_KRT_TUNNEL);
-        struct iface* i = NULL;
-        int check_iface = 0;
-        if (ea && (i = if_find_by_name(ea->u.ptr->data)))
-        {
-          /* As long as we change the interface, we must also check interfaces
-           * equality.
-           */
-          new->attrs->iface = i;
-          check_iface = 1;
-        }
-        if ((net->n.flags & KRF_SYNC_ERROR) || !krt_same_dest(e, new, check_iface))
-          verdict = KRF_UPDATE;
-        else
-          verdict = KRF_SEEN;
-      }
+	verdict = KRF_SEEN;
 
       if (rt_free)
 	rte_free(rt_free);
