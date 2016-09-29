@@ -649,9 +649,14 @@ nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int new)
   r.r.rtm_scope = RT_SCOPE_UNIVERSE;
   nl_add_attr_ipa(&r.h, sizeof(r), RTA_DST, net->n.prefix);
 
+  /* For route delete, we do not specify route attributes */
+  if (!new)
+    return nl_exchange(&r.h);
+
   u32 metric = 0;
   if (new && e->attrs->source == RTS_INHERIT)
     metric = e->u.krt.metric;
+
   if (ea = ea_find(eattrs, EA_KRT_METRIC))
     metric = ea->u.data;
   if (metric != 0)
@@ -906,7 +911,10 @@ nl_parse_route(struct nlmsghdr *h, int scan)
   e->net = net;
   e->u.krt.src = src;
   e->u.krt.proto = i->rtm_protocol;
-  e->u.krt.type = i->rtm_type;
+  /*e->u.krt.type = i->rtm_type;*/
+  e->u.krt.seen = 0;
+  e->u.krt.best = 0;
+  e->u.krt.metric = 0;
 
   if (a[RTA_PRIORITY])
     memcpy(&e->u.krt.metric, RTA_DATA(a[RTA_PRIORITY]), sizeof(e->u.krt.metric)); 
