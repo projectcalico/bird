@@ -715,7 +715,9 @@ krt_got_route(struct krt_proto *p, rte *e)
   if (net->n.flags & KRF_INSTALLED)
     {
       rte *new, *rt_free;
-      ea_list *tmpa;
+      ea_list *tmpa = NULL;
+      eattr *ea = NULL;
+      struct iface* i = NULL;
 
       new = krt_export_net(p, net, &rt_free, &tmpa);
 
@@ -723,10 +725,33 @@ krt_got_route(struct krt_proto *p, rte *e)
 
       if (!new)
 	verdict = KRF_DELETE;
-      else if ((net->n.flags & KRF_SYNC_ERROR) || !krt_same_dest(e, new))
-	verdict = KRF_UPDATE;
       else
-	verdict = KRF_SEEN;
+      {
+        /**
+         * Calico-BIRD specific: we check if there is set tunnel attribute in
+         * filter. If it is, then we should set specified tunnel device as
+         * the interface for the route. So, if current interface is not equal
+         * to the tunnel interface, we should update route.
+         * In this case linux/netlink.c nl_send_route also will find and set
+         * tunnel interface to the route.
+         * We keep all original BIRD logic here for cases where we do not find
+         * something of interface, tunnel attribute.
+         */
+        if (!(net->n.flags & KRF_SYNC_ERROR) && krt_same_dest(e, new) &&
+            tmpa &&
+            (e->attrs->dest == RTD_ROUTER) &&
+            (ea = ea_find(tmpa, EA_KRT_TUNNEL)) &&
+            (i = if_find_by_name(ea->u.ptr->data)) &&
+            strcmp(i->name, e->attrs->iface->name))
+          verdict = KRF_UPDATE;
+        else
+        {
+          if ((net->n.flags & KRF_SYNC_ERROR) || !krt_same_dest(e, new))
+              verdict = KRF_UPDATE;
+          else
+              verdict = KRF_SEEN;
+        }
+      }
 
       if (rt_free)
 	rte_free(rt_free);
