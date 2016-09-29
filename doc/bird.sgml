@@ -1506,7 +1506,8 @@ protocol babel {
 </code>
 
 
-<sect><label id="sect-bfd">BFD
+<sect>BFD
+<label id="sect-bfd">
 
 <sect1>Introduction
 
