@@ -36,6 +36,7 @@ f_valid_set_type(int type)
   case T_ENUM:
   case T_IP:
   case T_EC:
+  case T_LC:
     return 1;
 
   default:
@@ -147,6 +148,9 @@ f_generate_empty(struct f_inst *dyn)
       break;
     case EAF_TYPE_EC_SET:
       e->aux = T_ECLIST;
+      break;
+    case EAF_TYPE_LC_SET:
+      e->aux = T_LCLIST;
       break;
     default:
       cf_error("Can't empty that attribute");
@@ -268,14 +272,44 @@ f_generate_ec(u16 kind, struct f_inst *tk, struct f_inst *tv)
   return rv;
 }
 
+static inline struct f_inst *
+f_generate_lc(struct f_inst *t1, struct f_inst *t2, struct f_inst *t3)
+{
+  struct f_inst *rv;
+
+  if ((t1->code == 'c') && (t2->code == 'c') && (t3->code == 'c')) {
+    if ((t1->aux != T_INT) || (t2->aux != T_INT) || (t3->aux != T_INT))
+      cf_error( "LC - Can't operate with value of non-integer type in tuple constructor");
+
+    rv = f_new_inst();
+    rv->code = 'C';
+
+    NEW_F_VAL;
+    rv->a1.p = val;
+    val->type = T_LC;
+    val->val.lc = (lcomm) { t1->a2.i, t2->a2.i, t3->a2.i };
+  }
+  else
+  {
+    rv = cfg_allocz(sizeof(struct f_inst3));
+    rv->lineno = ifs->lino;
+    rv->code = P('m','l');
+    rv->a1.p = t1;
+    rv->a2.p = t2;
+    INST3(rv).p = t3;
+  }
+
+  return rv;
+}
+
 
 
 CF_DECLS
 
 CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 	ACCEPT, REJECT, ERROR, QUITBIRD,
-	INT, BOOL, IP, PREFIX, PAIR, QUAD, EC,
-	SET, STRING, BGPMASK, BGPPATH, CLIST, ECLIST,
+	INT, BOOL, IP, PREFIX, PAIR, QUAD, EC, LC,
+	SET, STRING, BGPMASK, BGPPATH, CLIST, ECLIST, LCLIST,
 	IF, THEN, ELSE, CASE,
 	TRUE, FALSE, RT, RO, UNKNOWN, GENERIC,
 	FROM, GW, NET, MASK, PROTO, SOURCE, SCOPE, CAST, DEST, IFNAME, IFINDEX,
@@ -327,17 +361,20 @@ type:
  | PAIR { $$ = T_PAIR; }
  | QUAD { $$ = T_QUAD; }
  | EC { $$ = T_EC; }
+ | LC { $$ = T_LC; }
  | STRING { $$ = T_STRING; }
  | BGPMASK { $$ = T_PATH_MASK; }
  | BGPPATH { $$ = T_PATH; }
  | CLIST { $$ = T_CLIST; }
  | ECLIST { $$ = T_ECLIST; }
+ | LCLIST { $$ = T_LCLIST; }
  | type SET { 
 	switch ($1) {
 	  case T_INT:
 	  case T_PAIR:
 	  case T_QUAD:
 	  case T_EC:
+	  case T_LC:
 	  case T_IP:
 	       $$ = T_SET;
 	       break;
@@ -657,6 +694,7 @@ constant:
 constructor:
    '(' term ',' term ')' { $$ = f_generate_dpair($2, $4); }
  | '(' ec_kind ',' term ',' term ')' { $$ = f_generate_ec($2, $4, $6); }
+ | '(' term ',' term ',' term ')' { $$ = f_generate_lc($2, $4, $6); }
  ;
 
 
@@ -767,6 +805,7 @@ term:
  | '+' EMPTY '+' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_PATH; }
  | '-' EMPTY '-' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_CLIST; }
  | '-' '-' EMPTY '-' '-' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_ECLIST; }
+ | '-' '-' '-' EMPTY '-' '-' '-' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_LCLIST; }
  | PREPEND '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('A','p'); $$->a1.p = $3; $$->a2.p = $5; } 
  | ADD '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('C','a'); $$->a1.p = $3; $$->a2.p = $5; $$->aux = 'a'; } 
  | DELETE '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('C','a'); $$->a1.p = $3; $$->a2.p = $5; $$->aux = 'd'; }
