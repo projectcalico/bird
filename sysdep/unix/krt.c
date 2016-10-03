@@ -715,7 +715,9 @@ krt_got_route(struct krt_proto *p, rte *e)
   if (net->n.flags & KRF_INSTALLED)
     {
       rte *new, *rt_free;
-      ea_list *tmpa;
+      ea_list *tmpa = NULL;
+      eattr *ea = NULL;
+      struct iface* i = NULL;
 
       new = krt_export_net(p, net, &rt_free, &tmpa);
 
@@ -726,7 +728,22 @@ krt_got_route(struct krt_proto *p, rte *e)
       else if ((net->n.flags & KRF_SYNC_ERROR) || !krt_same_dest(e, new))
 	verdict = KRF_UPDATE;
       else
-	verdict = KRF_SEEN;
+	{
+	  /* Calico-BIRD specific: we check if the export filter set a tunnel
+	   * attribute for the route.  If it did, and the tunnel interface is
+	   * different from the outgoing interface that is already programmed
+	   * for the route, generate KRF_UPDATE here so that the route gets
+	   * updated to have the tunnel as its outgoing interface.
+	   */
+	  if (tmpa &&
+	      (e->attrs->dest == RTD_ROUTER) &&
+	      (ea = ea_find(tmpa, EA_KRT_TUNNEL)) &&
+	      (i = if_find_by_name(ea->u.ptr->data)) &&
+	      strcmp(i->name, e->attrs->iface->name))
+	    verdict = KRF_UPDATE;
+	  else
+	    verdict = KRF_SEEN;
+	}
 
       if (rt_free)
 	rte_free(rt_free);
