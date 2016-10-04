@@ -416,46 +416,58 @@ again:
       net *n = (net *) f;
       rte *e, **ee, *best, **pbest, *old_best;
 
-      old_best = n->routes;
+      /*
+       * Note that old_best may be NULL even if there was an old best route in
+       * the previous step, because it might be replaced in krt_learn_scan().
+       * But in that case there is a new valid best route.
+       */
+
+      old_best = NULL;
       best = NULL;
       pbest = NULL;
       ee = &n->routes;
       while (e = *ee)
 	{
+	  if (e->u.krt.best)
+	    old_best = e;
+
 	  if (!e->u.krt.seen)
 	    {
 	      *ee = e->next;
 	      rte_free(e);
 	      continue;
 	    }
+
 	  if (!best || best->u.krt.metric > e->u.krt.metric)
 	    {
 	      best = e;
 	      pbest = ee;
 	    }
+
 	  e->u.krt.seen = 0;
+	  e->u.krt.best = 0;
 	  ee = &e->next;
 	}
       if (!n->routes)
 	{
 	  DBG("%I/%d: deleting\n", n->n.prefix, n->n.pxlen);
 	  if (old_best)
-	    {
-	      krt_learn_announce_delete(p, n);
-	      n->n.flags &= ~KRF_INSTALLED;
-	    }
+	    krt_learn_announce_delete(p, n);
+
 	  FIB_ITERATE_PUT(&fit, f);
 	  fib_delete(fib, f);
 	  goto again;
 	}
+
+      best->u.krt.best = 1;
       *pbest = best->next;
       best->next = n->routes;
       n->routes = best;
-      if (best != old_best || !(n->n.flags & KRF_INSTALLED) || p->reload)
+
+      if ((best != old_best) || p->reload)
 	{
 	  DBG("%I/%d: announcing (metric=%d)\n", n->n.prefix, n->n.pxlen, best->u.krt.metric);
 	  krt_learn_announce_update(p, best);
-	  n->n.flags |= KRF_INSTALLED;
 	}
       else
 	DBG("%I/%d: uptodate (metric=%d)\n", n->n.prefix, n->n.pxlen, best->u.krt.metric);
@@ -514,31 +526,31 @@ krt_learn_async(struct krt_proto *p, rte *e, int new)
   best = n->routes;
   bestp = &n->routes;
   for(gg=&n->routes; g=*gg; gg=&g->next)
+  {
     if (best->u.krt.metric > g->u.krt.metric)
       {
 	best = g;
 	bestp = gg;
       }
+
+    g->u.krt.best = 0;
+  }
+
   if (best)
     {
+      best->u.krt.best = 1;
       *bestp = best->next;
       best->next = n->routes;
       n->routes = best;
     }
+
   if (best != old_best)
     {
       DBG("krt_learn_async: distributing change\n");
       if (best)
-	{
-	  krt_learn_announce_update(p, best);
-	  n->n.flags |= KRF_INSTALLED;
-	}
+	krt_learn_announce_update(p, best);
       else
-	{
-	  n->routes = NULL;
-	  krt_learn_announce_delete(p, n);
-	  n->n.flags &= ~KRF_INSTALLED;
-	}
+	krt_learn_announce_delete(p, n);
     }
 }
 
@@ -563,7 +575,7 @@ krt_dump(struct proto *P)
 static void
 krt_dump_attrs(rte *e)
 {
-  debug(" [m=%d,p=%d,t=%d]", e->u.krt.metric, e->u.krt.proto, e->u.krt.type);
+  debug(" [m=%d,p=%d]", e->u.krt.metric, e->u.krt.proto);
 }
 
 #endif
@@ -590,6 +602,44 @@ krt_flush_routes(struct krt_proto *p)
 	}
     }
   FIB_WALK_END;
+}
+
+static struct rte *
+krt_export_net(struct krt_proto *p, net *net, rte **rt_free, ea_list **tmpa)
+{
+  struct filter *filter = p->p.main_ahook->out_filter;
+  rte *rt;
+
+  rt = net->routes;
+  *rt_free = NULL;
+
+  if (!rte_is_valid(rt))
+    return NULL;
+
+  if (filter == FILTER_REJECT)
+    return NULL;
+
+  struct proto *src = rt->attrs->src->proto;
+  *tmpa = src->make_tmp_attrs ? src->make_tmp_attrs(rt, krt_filter_lp) : NULL;
+
+  /* We could run krt_import_control() here, but it is already handled by KRF_INSTALLED */
+
+  if (filter == FILTER_ACCEPT)
+    goto accept;
+
+  if (f_run(filter, &rt, tmpa, krt_filter_lp, FF_FORCE_TMPATTR) > F_ACCEPT)
+    goto reject;
+
+
+accept:
+  if (rt != net->routes)
+    *rt_free = rt;
+  return rt;
+
+reject:
+  if (rt != net->routes)
+    rte_free(rt);
+  return NULL;
 }
 
 static int
@@ -620,7 +670,6 @@ krt_same_dest(rte *k, rte *e)
 void
 krt_got_route(struct krt_proto *p, rte *e)
 {
-  rte *old;
   net *net = e->net;
   int verdict;
 
@@ -663,15 +712,43 @@ krt_got_route(struct krt_proto *p, rte *e)
       goto sentenced;
     }
 
-  old = net->routes;
-  if ((net->n.flags & KRF_INSTALLED) && rte_is_valid(old))
+  if (net->n.flags & KRF_INSTALLED)
     {
-      /* There may be changes in route attributes, we ignore that.
-         Also, this does not work well if gw is changed in export filter */
-      if ((net->n.flags & KRF_SYNC_ERROR) || ! krt_same_dest(e, old))
+      rte *new, *rt_free;
+      ea_list *tmpa = NULL;
+      eattr *ea = NULL;
+      struct iface* i = NULL;
+
+      new = krt_export_net(p, net, &rt_free, &tmpa);
+
+      /* TODO: There also may be changes in route eattrs, we ignore that for now. */
+
+      if (!new)
+	verdict = KRF_DELETE;
+      else if ((net->n.flags & KRF_SYNC_ERROR) || !krt_same_dest(e, new))
 	verdict = KRF_UPDATE;
       else
-	verdict = KRF_SEEN;
+	{
+	  /* Calico-BIRD specific: we check if the export filter set a tunnel
+	   * attribute for the route.  If it did, and the tunnel interface is
+	   * different from the outgoing interface that is already programmed
+	   * for the route, generate KRF_UPDATE here so that the route gets
+	   * updated to have the tunnel as its outgoing interface.
+	   */
+	  if (tmpa &&
+	      (e->attrs->dest == RTD_ROUTER) &&
+	      (ea = ea_find(tmpa, EA_KRT_TUNNEL)) &&
+	      (i = if_find_by_name(ea->u.ptr->data)) &&
+	      strcmp(i->name, e->attrs->iface->name))
+	    verdict = KRF_UPDATE;
+	  else
+	    verdict = KRF_SEEN;
+	}
+
+      if (rt_free)
+	rte_free(rt_free);
+
+      lp_flush(krt_filter_lp);
     }
   else
     verdict = KRF_DELETE;
@@ -692,25 +769,6 @@ krt_got_route(struct krt_proto *p, rte *e)
     rte_free(e);
 }
 
-static inline int
-krt_export_rte(struct krt_proto *p, rte **new, ea_list **tmpa)
-{
-  struct filter *filter = p->p.main_ahook->out_filter;
-
-  if (! *new)
-    return 0;
-
-  if (filter == FILTER_REJECT)
-    return 0;
-
-  if (filter == FILTER_ACCEPT)
-    return 1;
-
-  struct proto *src = (*new)->attrs->src->proto;
-  *tmpa = src->make_tmp_attrs ? src->make_tmp_attrs(*new, krt_filter_lp) : NULL;
-  return f_run(filter, new, tmpa, krt_filter_lp, FF_FORCE_TMPATTR) <= F_ACCEPT;
-}
-
 static void
 krt_prune(struct krt_proto *p)
 {
@@ -721,7 +779,7 @@ krt_prune(struct krt_proto *p)
     {
       net *n = (net *) f;
       int verdict = f->flags & KRF_VERDICT_MASK;
-      rte *new, *new0, *old;
+      rte *new, *old, *rt_free = NULL;
       ea_list *tmpa = NULL;
 
       if (verdict == KRF_UPDATE || verdict == KRF_DELETE)
@@ -733,23 +791,18 @@ krt_prune(struct krt_proto *p)
       else
 	old = NULL;
 
-      new = new0 = n->routes;
       if (verdict == KRF_CREATE || verdict == KRF_UPDATE)
 	{
 	  /* We have to run export filter to get proper 'new' route */
-	  if (! krt_export_rte(p, &new, &tmpa))
-	    {
-	      /* Route rejected, should not happen (KRF_INSTALLED) but to be sure .. */
-	      verdict = (verdict == KRF_CREATE) ? KRF_IGNORE : KRF_DELETE;
-	    }
+	  new = krt_export_net(p, n, &rt_free, &tmpa);
+
+	  if (!new)
+	    verdict = (verdict == KRF_CREATE) ? KRF_IGNORE : KRF_DELETE;
 	  else
-	    {
-	      ea_list **x = &tmpa;
-	      while (*x)
-		x = &((*x)->next);
-	      *x = new ? new->attrs->eattrs : NULL;
-	    }
+	    tmpa = ea_append(tmpa, new->attrs->eattrs);
 	}
+      else
+	new = NULL;
 
       switch (verdict)
 	{
@@ -778,8 +831,8 @@ krt_prune(struct krt_proto *p)
 
       if (old)
 	rte_free(old);
-      if (new != new0)
-	rte_free(new);
+      if (rt_free)
+	rte_free(rt_free);
       lp_flush(krt_filter_lp);
       f->flags &= ~KRF_VERDICT_MASK;
     }
@@ -974,7 +1027,8 @@ krt_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *
      * We will remove KRT_INSTALLED flag, which stops such withdraw to be
      * processed in krt_rt_notify() and krt_replace_rte().
      */
-    e->net->n.flags &= ~KRF_INSTALLED;
+    if (e == e->net->routes)
+      e->net->n.flags &= ~KRF_INSTALLED;
 #endif
     return -1;
   }
