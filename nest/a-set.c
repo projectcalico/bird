@@ -144,7 +144,7 @@ ec_set_format(struct adata *set, int from, byte *buf, uint size)
 int
 lc_format(byte *buf, lcomm lc)
 {
-  return bsprintf(buf, "(%d, %d, %d)", lc.asn, lc.ldp1, lc.ldp2);
+  return bsprintf(buf, "(%u, %u, %u)", lc.asn, lc.ldp1, lc.ldp2);
 }
 
 int
@@ -167,7 +167,7 @@ lc_set_format(struct adata *set, int from, byte *buf, uint bufsize)
 	  return i;
 	}
 
-      buf += bsprintf(buf, "(%d, %d, %d)", d[i], d[i+1], d[i+2]);
+      buf += bsprintf(buf, "(%u, %u, %u)", d[i], d[i+1], d[i+2]);
       *buf++ = ' ';
     }
 
