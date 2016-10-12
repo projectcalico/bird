@@ -65,7 +65,7 @@ make_tmp_attrs(struct rte *rt, struct linpool *pool)
 {
   struct ea_list *(*mta)(struct rte *rt, struct linpool *pool);
   mta = rt->attrs->src->proto->make_tmp_attrs;
-  return mta ? mta(rt, rte_update_pool) : NULL;
+  return mta ? mta(rt, pool) : NULL;
 }
 
 /* Like fib_route(), but skips empty net entries */
@@ -596,7 +596,7 @@ mpnh_merge_rta(struct mpnh *nhs, rta *a, linpool *pool, int max)
 {
   struct mpnh nh = { .gw = a->gw, .iface = a->iface };
   struct mpnh *nh2 = (a->dest == RTD_MULTIPATH) ? a->nexthops : &nh;
-  return mpnh_merge(nhs, nh2, 1, 0, max, rte_update_pool);
+  return mpnh_merge(nhs, nh2, 1, 0, max, pool);
 }
 
 rte *
