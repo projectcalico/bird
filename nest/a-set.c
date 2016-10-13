@@ -244,9 +244,13 @@ int_set_add(struct linpool *pool, struct adata *list, u32 val)
   len = list ? list->length : 0;
   res = lp_alloc(pool, sizeof(struct adata) + len + 4);
   res->length = len + 4;
-  * (u32 *) res->data = val;
+
   if (list)
-    memcpy((char *) res->data + 4, list->data, list->length);
+    memcpy(res->data, list->data, list->length);
+
+  u32 *c = (u32 *) (res->data + len);
+  *c = val;
+
   return res;
 }
 
