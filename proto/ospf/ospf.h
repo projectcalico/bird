@@ -766,7 +766,7 @@ lsa_get_ipv6_addr(u32 *buf, ip_addr *addr)
 }
 
 static inline u32 *
-put_ipv6_prefix(u32 *buf, ip_addr addr, u8 pxlen, u8 pxopts, u16 lh)
+put_ipv6_prefix(u32 *buf, ip_addr addr UNUSED4, u8 pxlen UNUSED4, u8 pxopts UNUSED4, u16 lh UNUSED4)
 {
 #ifdef IPV6
   *buf++ = ((pxlen << 24) | (pxopts << 16) | lh);
@@ -840,7 +840,7 @@ static inline int ospf_is_v2(struct ospf_proto *p)
 static inline int ospf_is_v3(struct ospf_proto *p)
 { return ! p->ospf2; }
 */
-static inline int ospf_get_version(struct ospf_proto *p)
+static inline int ospf_get_version(struct ospf_proto *p UNUSED4 UNUSED6)
 { return ospf_is_v2(p) ? 2 : 3; }
 
 struct ospf_area *ospf_find_area(struct ospf_proto *p, u32 aid);
@@ -897,7 +897,7 @@ void ospf_sh_neigh_info(struct ospf_neighbor *n);
 /* packet.c */
 void ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type);
 uint ospf_pkt_maxsize(struct ospf_iface *ifa);
-int ospf_rx_hook(sock * sk, int size);
+int ospf_rx_hook(sock * sk, uint size);
 // void ospf_tx_hook(sock * sk);
 void ospf_err_hook(sock * sk, int err);
 void ospf_verr_hook(sock *sk, int err);
@@ -922,7 +922,7 @@ static inline void ospf_send_to_des(struct ospf_iface *ifa)
 #define SKIP(DSC) do { err_dsc = DSC; goto skip; } while(0)
 #endif
 
-static inline uint ospf_pkt_hdrlen(struct ospf_proto *p)
+static inline uint ospf_pkt_hdrlen(struct ospf_proto *p UNUSED4 UNUSED6)
 { return ospf_is_v2(p) ? (sizeof(struct ospf_packet) + sizeof(union ospf_auth)) : sizeof(struct ospf_packet); }
 
 static inline void * ospf_tx_buffer(struct ospf_iface *ifa)

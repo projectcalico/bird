@@ -39,7 +39,7 @@ static inline u8 bfd_pkt_get_diag(struct bfd_ctl_packet *pkt)
 static inline u8 bfd_pkt_get_state(struct bfd_ctl_packet *pkt)
 { return pkt->flags >> 6; }
 
-static inline void bfd_pkt_set_state(struct bfd_ctl_packet *pkt, u8 val)
+static inline void UNUSED bfd_pkt_set_state(struct bfd_ctl_packet *pkt, u8 val)
 { pkt->flags = val << 6; }
 
 
@@ -97,7 +97,7 @@ bfd_send_ctl(struct bfd_proto *p, struct bfd_session *s, int final)
 #define DROP(DSC,VAL) do { err_dsc = DSC; err_val = VAL; goto drop; } while(0)
 
 static int
-bfd_rx_hook(sock *sk, int len)
+bfd_rx_hook(sock *sk, uint len)
 {
   struct bfd_proto *p =  sk->data;
   struct bfd_ctl_packet *pkt = (struct bfd_ctl_packet *) sk->rbuf;

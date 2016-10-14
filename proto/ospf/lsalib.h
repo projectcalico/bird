@@ -41,7 +41,7 @@ void lsa_get_type_domain_(u32 itype, struct ospf_iface *ifa, u32 *otype, u32 *do
 static inline void lsa_get_type_domain(struct ospf_lsa_header *lsa, struct ospf_iface *ifa, u32 *otype, u32 *domain)
 { lsa_get_type_domain_(lsa->type_raw, ifa, otype, domain); }
 
-static inline u32 lsa_get_etype(struct ospf_lsa_header *h, struct ospf_proto *p)
+static inline u32 lsa_get_etype(struct ospf_lsa_header *h, struct ospf_proto *p UNUSED4 UNUSED6)
 { return ospf_is_v2(p) ? (h->type_raw & LSA_T_V2_MASK) : h->type_raw; }
 
 

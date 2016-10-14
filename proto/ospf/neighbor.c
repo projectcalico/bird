@@ -359,7 +359,7 @@ can_do_adj(struct ospf_neighbor *n)
 }
 
 
-static inline u32 neigh_get_id(struct ospf_proto *p, struct ospf_neighbor *n)
+static inline u32 neigh_get_id(struct ospf_proto *p UNUSED4 UNUSED6, struct ospf_neighbor *n)
 { return ospf_is_v2(p) ? ipa_to_u32(n->ip) : n->rid; }
 
 static struct ospf_neighbor *

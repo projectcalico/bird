@@ -39,7 +39,7 @@ struct ospf_dbdes3_packet
 
 
 static inline uint
-ospf_dbdes_hdrlen(struct ospf_proto *p)
+ospf_dbdes_hdrlen(struct ospf_proto *p UNUSED4 UNUSED6)
 {
   return ospf_is_v2(p) ?
     sizeof(struct ospf_dbdes2_packet) : sizeof(struct ospf_dbdes3_packet);

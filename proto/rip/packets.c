@@ -108,7 +108,7 @@ static inline uint rip_pkt_hdrlen(struct rip_iface *ifa)
 { return sizeof(struct rip_packet) + (ifa->cf->auth_type ? RIP_BLOCK_LENGTH : 0); }
 
 static inline void
-rip_put_block(struct rip_proto *p, byte *pos, struct rip_block *rte)
+rip_put_block(struct rip_proto *p UNUSED4 UNUSED6, byte *pos, struct rip_block *rte)
 {
   if (rip_is_v2(p))
   {
@@ -131,7 +131,7 @@ rip_put_block(struct rip_proto *p, byte *pos, struct rip_block *rte)
 }
 
 static inline void
-rip_put_next_hop(struct rip_proto *p, byte *pos, struct rip_block *rte)
+rip_put_next_hop(struct rip_proto *p UNUSED, byte *pos, struct rip_block *rte UNUSED4)
 {
   struct rip_block_ng *block = (void *) pos;
   block->prefix = ip6_hton(ipa_to_ip6(rte->next_hop));
@@ -141,7 +141,7 @@ rip_put_next_hop(struct rip_proto *p, byte *pos, struct rip_block *rte)
 }
 
 static inline int
-rip_get_block(struct rip_proto *p, byte *pos, struct rip_block *rte)
+rip_get_block(struct rip_proto *p UNUSED4 UNUSED6, byte *pos, struct rip_block *rte)
 {
   if (rip_is_v2(p))
   {
@@ -630,7 +630,7 @@ rip_receive_response(struct rip_proto *p, struct rip_iface *ifa, struct rip_pack
 }
 
 static int
-rip_rx_hook(sock *sk, int len)
+rip_rx_hook(sock *sk, uint len)
 {
   struct rip_iface *ifa = sk->data;
   struct rip_proto *p = ifa->rip;

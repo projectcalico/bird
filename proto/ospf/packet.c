@@ -124,7 +124,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
 
 /* We assume OSPFv2 in ospf_pkt_checkauth() */
 static int
-ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_packet *pkt, int len)
+ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_packet *pkt, uint len)
 {
   struct ospf_proto *p = ifa->oa->po;
   union ospf_auth *auth = (void *) (pkt + 1);
@@ -214,7 +214,7 @@ drop:
  * non generic functions.
  */
 int
-ospf_rx_hook(sock *sk, int len)
+ospf_rx_hook(sock *sk, uint len)
 {
   /* We want just packets from sk->iface. Unfortunately, on BSD we cannot filter
      out other packets at kernel level and we receive all packets on all sockets */

@@ -450,7 +450,7 @@ config_undo(void)
 extern void cmd_reconfig_undo_notify(void);
 
 static void
-config_timeout(struct timer *t)
+config_timeout(struct timer *t UNUSED)
 {
   log(L_INFO "Config timeout expired, starting undo");
   cmd_reconfig_undo_notify();

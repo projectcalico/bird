@@ -380,7 +380,7 @@ clist_filter(struct linpool *pool, struct adata *list, struct f_val set, int pos
       *k++ = v.val.i;
   }
 
-  int nl = (k - tmp) * 4;
+  uint nl = (k - tmp) * sizeof(u32);
   if (nl == list->length)
     return list;
 
@@ -414,7 +414,7 @@ eclist_filter(struct linpool *pool, struct adata *list, struct f_val set, int po
     }
   }
 
-  int nl = (k - tmp) * 4;
+  uint nl = (k - tmp) * sizeof(u32);
   if (nl == list->length)
     return list;
 
@@ -446,7 +446,7 @@ lclist_filter(struct linpool *pool, struct adata *list, struct f_val set, int po
       k = lc_copy(k, l+i);
   }
 
-  int nl = (k - tmp) * 4;
+  uint nl = (k - tmp) * sizeof(u32);
   if (nl == list->length)
     return list;
 

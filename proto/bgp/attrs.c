@@ -191,7 +191,7 @@ validate_as4_path(struct bgp_proto *p, struct adata *path)
 }
 
 static int
-bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a, int len)
+bgp_check_next_hop(struct bgp_proto *p UNUSED, byte *a UNUSED6, int len UNUSED6)
 {
 #ifdef IPV6
   return IGNORE;

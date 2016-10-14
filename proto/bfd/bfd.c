@@ -796,7 +796,7 @@ bfd_start_neighbor(struct bfd_proto *p, struct bfd_neighbor *n)
 }
 
 static void
-bfd_stop_neighbor(struct bfd_proto *p, struct bfd_neighbor *n)
+bfd_stop_neighbor(struct bfd_proto *p UNUSED, struct bfd_neighbor *n)
 {
   if (n->neigh)
     n->neigh->data = NULL;
@@ -853,7 +853,7 @@ void pipe_drain(int fd);
 void pipe_kick(int fd);
 
 static int
-bfd_notify_hook(sock *sk, int len)
+bfd_notify_hook(sock *sk, uint len UNUSED)
 {
   struct bfd_proto *p = sk->data;
   struct bfd_session *s;
@@ -1060,7 +1060,7 @@ bfd_preconfig(struct protocol *P UNUSED, struct config *c UNUSED)
 }
 
 static void
-bfd_copy_config(struct proto_config *dest, struct proto_config *src)
+bfd_copy_config(struct proto_config *dest, struct proto_config *src UNUSED)
 {
   struct bfd_config *d = (struct bfd_config *) dest;
   // struct bfd_config *s = (struct bfd_config *) src;

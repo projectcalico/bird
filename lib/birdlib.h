@@ -62,6 +62,13 @@
 #define UNUSED __attribute__((unused))
 #define PACKED __attribute__((packed))
 
+#ifdef IPV6
+#define UNUSED4
+#define UNUSED6 UNUSED
+#else
+#define UNUSED4 UNUSED
+#define UNUSED6
+#endif
 
 /* Microsecond time */
 

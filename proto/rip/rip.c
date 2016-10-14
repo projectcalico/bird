@@ -1027,7 +1027,7 @@ rip_prepare_attrs(struct linpool *pool, ea_list *next, u8 metric, u16 tag)
 }
 
 static int
-rip_import_control(struct proto *P, struct rte **rt, struct ea_list **attrs, struct linpool *pool)
+rip_import_control(struct proto *P UNUSED, struct rte **rt, struct ea_list **attrs, struct linpool *pool)
 {
   /* Prepare attributes with initial values */
   if ((*rt)->attrs->source != RTS_RIP)
@@ -1144,7 +1144,7 @@ rip_reconfigure(struct proto *P, struct proto_config *c)
 }
 
 static void
-rip_get_route_info(rte *rte, byte *buf, ea_list *attrs)
+rip_get_route_info(rte *rte, byte *buf, ea_list *attrs UNUSED)
 {
   buf += bsprintf(buf, " (%d/%d)", rte->pref, rte->u.rip.metric);
 

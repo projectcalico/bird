@@ -515,7 +515,7 @@ ospf_update_lsadb(struct ospf_proto *p)
 
 
 static inline u32
-ort_to_lsaid(struct ospf_proto *p, ort *nf)
+ort_to_lsaid(struct ospf_proto *p UNUSED4 UNUSED6, ort *nf)
 {
   /*
    * In OSPFv2, We have to map IP prefixes to u32 in such manner that resulting
@@ -607,7 +607,7 @@ lsab_offset(struct ospf_proto *p, uint offset)
   return ((byte *) p->lsab) + offset;
 }
 
-static inline void *
+static inline void * UNUSED
 lsab_end(struct ospf_proto *p)
 {
   return ((byte *) p->lsab) + p->lsab_used;
@@ -1545,7 +1545,7 @@ static void
 add_link_lsa(struct ospf_proto *p, struct ospf_lsa_link *ll, int offset, int *pxc)
 {
   u32 *pxb = ll->rest;
-  int j;
+  uint j;
 
   for (j = 0; j < ll->pxcount; pxb = prefix_advance(pxb), j++)
   {
@@ -1748,7 +1748,7 @@ ospf_top_hash(struct top_graph *f, u32 domain, u32 lsaid, u32 rtrid, u32 type)
  * and request lists of OSPF neighbors.
  */
 struct top_graph *
-ospf_top_new(struct ospf_proto *p, pool *pool)
+ospf_top_new(struct ospf_proto *p UNUSED4 UNUSED6, pool *pool)
 {
   struct top_graph *f;
 

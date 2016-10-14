@@ -103,7 +103,7 @@ static inline int u32_cto(uint x) { return ffs(~x) - 1; }
 static inline u32
 rte_src_alloc_id(void)
 {
-  int i, j;
+  uint i, j;
   for (i = src_id_pos; i < src_id_size; i++)
     if (src_ids[i] != 0xffffffff)
       goto found;
@@ -785,7 +785,7 @@ static inline void
 opaque_format(struct adata *ad, byte *buf, uint size)
 {
   byte *bound = buf + size - 10;
-  int i;
+  uint i;
 
   for(i = 0; i < ad->length; i++)
     {

@@ -898,7 +898,7 @@ kif_do_scan(struct kif_proto *p)
 /* Kernel sockets */
 
 static int
-krt_sock_hook(sock *sk, int size UNUSED)
+krt_sock_hook(sock *sk, uint size UNUSED)
 {
   struct ks_msg msg;
   int l = read(sk->fd, (char *)&msg, sizeof(msg));
@@ -918,7 +918,7 @@ krt_sock_err_hook(sock *sk, int e UNUSED)
 }
 
 static sock *
-krt_sock_open(pool *pool, void *data, int table_id)
+krt_sock_open(pool *pool, void *data, int table_id UNUSED)
 {
   sock *sk;
   int fd;
@@ -1074,7 +1074,7 @@ kif_sys_shutdown(struct kif_proto *p)
 
 
 struct ifa *
-kif_get_primary_ip(struct iface *i)
+kif_get_primary_ip(struct iface *i UNUSED6)
 {
 #ifndef IPV6
   static int fd = -1;

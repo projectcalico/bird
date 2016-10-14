@@ -1049,7 +1049,7 @@ check_sum_rt_lsa(struct ospf_proto *p, ort *nf)
 }
 
 static inline int
-decide_nssa_lsa(struct ospf_proto *p, ort *nf, struct ospf_lsa_ext_local *rt)
+decide_nssa_lsa(struct ospf_proto *p UNUSED4 UNUSED6, ort *nf, struct ospf_lsa_ext_local *rt)
 {
   struct ospf_area *oa = nf->n.oa;
   struct top_hash_entry *en = nf->n.en;
