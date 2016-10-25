@@ -11,6 +11,8 @@ ip.h
 ip.c
 lists.c
 lists.h
+mac.c
+mac.h
 md5.c
 md5.h
 mempool.c

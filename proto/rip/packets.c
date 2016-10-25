@@ -11,6 +11,7 @@
 
 #include "rip.h"
 #include "lib/md5.h"
+#include "lib/mac.h"
 
 
 #define RIP_CMD_REQUEST		1	/* want info */
@@ -241,7 +242,7 @@ rip_fill_authentication(struct rip_proto *p, struct rip_iface *ifa, struct rip_p
 
     *plen += sizeof(struct rip_auth_tail) + RIP_MD5_LENGTH;
 
-    struct md5_context ctx;
+    struct hash_context ctx;
     md5_init(&ctx);
     md5_update(&ctx, (byte *) pkt, *plen);
     memcpy(tail->auth_data, md5_final(&ctx), RIP_MD5_LENGTH);
@@ -315,7 +316,7 @@ rip_check_authentication(struct rip_proto *p, struct rip_iface *ifa, struct rip_
     memcpy(received, tail->auth_data, RIP_MD5_LENGTH);
     strncpy(tail->auth_data, pass->password, RIP_MD5_LENGTH);
 
-    struct md5_context ctx;
+    struct hash_context ctx;
     md5_init(&ctx);
     md5_update(&ctx, (byte *) pkt, *plen);
     char *computed = md5_final(&ctx);

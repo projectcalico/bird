@@ -11,6 +11,7 @@
 #include "ospf.h"
 #include "nest/password.h"
 #include "lib/md5.h"
+#include "lib/mac.h"
 #include "lib/socket.h"
 
 void
@@ -109,7 +110,7 @@ ospf_pkt_finalize(struct ospf_iface *ifa, struct ospf_packet *pkt)
     char password[OSPF_AUTH_CRYPT_SIZE];
     strncpy(password, passwd->password, sizeof(password));
 
-    struct md5_context ctx;
+    struct hash_context ctx;
     md5_init(&ctx);
     md5_update(&ctx, (char *) pkt, plen);
     md5_update(&ctx, password, OSPF_AUTH_CRYPT_SIZE);
@@ -180,7 +181,7 @@ ospf_pkt_checkauth(struct ospf_neighbor *n, struct ospf_iface *ifa, struct ospf_
     memcpy(received, tail, OSPF_AUTH_CRYPT_SIZE);
     strncpy(tail, pass->password, OSPF_AUTH_CRYPT_SIZE);
 
-    struct md5_context ctx;
+    struct hash_context ctx;
     md5_init(&ctx);
     md5_update(&ctx, (byte *) pkt, plen + OSPF_AUTH_CRYPT_SIZE);
     char *computed = md5_final(&ctx);

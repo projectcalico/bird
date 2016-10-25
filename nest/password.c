@@ -37,7 +37,7 @@ password_find(list *l, int first_fit)
 }
 
 struct password_item *
-password_find_by_id(list *l, int id)
+password_find_by_id(list *l, uint id)
 {
   struct password_item *pi;
 
