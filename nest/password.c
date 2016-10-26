@@ -10,6 +10,7 @@
 #include "nest/bird.h"
 #include "nest/password.h"
 #include "lib/string.h"
+#include "lib/mac.h"
 
 struct password_item *last_password_item = NULL;
 
@@ -66,3 +67,17 @@ password_find_by_value(list *l, char *pass, uint size)
   return NULL;
 }
 
+uint
+max_mac_length(list *l)
+{
+  struct password_item *pi;
+  uint val = 0;
+
+  if (!l)
+    return 0;
+
+  WALK_LIST(pi, *l)
+    val = MAX(val, mac_type_length(pi->alg));
+
+  return val;
+}

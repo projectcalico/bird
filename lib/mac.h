@@ -21,6 +21,7 @@
 #define ALG_SHA256		0x04
 #define ALG_SHA384		0x05
 #define ALG_SHA512		0x06
+#define ALG_HMAC		0x10
 #define ALG_HMAC_MD5		0x11
 #define ALG_HMAC_SHA1		0x12
 #define ALG_HMAC_SHA224		0x13
@@ -33,6 +34,9 @@
 #define MAX_HASH_SIZE		SHA512_SIZE
 #define HASH_STORAGE		sizeof(struct sha512_context)
 #define MAC_STORAGE		sizeof(struct hmac_context)
+
+/* This value is used by several IETF protocols for padding */
+#define HMAC_MAGIC		htonl(0x878FE1F3)
 
 /* Generic context used by hash functions */
 struct hash_context

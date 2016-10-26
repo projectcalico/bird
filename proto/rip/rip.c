@@ -590,7 +590,7 @@ rip_iface_update_buffers(struct rip_iface *ifa)
   ifa->tx_plen = tbsize - headers;
 
   if (ifa->cf->auth_type == RIP_AUTH_CRYPTO)
-    ifa->tx_plen -= RIP_AUTH_TAIL_LENGTH;
+    ifa->tx_plen -= RIP_AUTH_TAIL_LENGTH + max_mac_length(ifa->cf->passwords);
 }
 
 static inline void
@@ -702,11 +702,10 @@ rip_reconfigure_iface(struct rip_proto *p, struct rip_iface *ifa, struct rip_ifa
 
   ifa->cf = new;
 
+  rip_iface_update_buffers(ifa);
+
   if (ifa->next_regular > (now + new->update_time))
     ifa->next_regular = now + (random() % new->update_time) + 1;
-
-  if ((new->tx_length != old->tx_length) || (new->rx_buffer != old->rx_buffer))
-    rip_iface_update_buffers(ifa);
 
   if (new->check_link != old->check_link)
     rip_iface_update_state(ifa);

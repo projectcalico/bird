@@ -34,4 +34,6 @@ static inline int password_verify(struct password_item *p1, char *p2, uint size)
   return !memcmp(buf, p2, size);
 }
 
+uint max_mac_length(list *l);
+
 #endif
