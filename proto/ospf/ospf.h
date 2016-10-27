@@ -180,11 +180,7 @@ struct ospf_iface_patt
 
 #define OSPF_RXBUF_MINSIZE 256	/* Minimal allowed size */
   u8 instance_id;
-  u8 autype;			/* Not really used in OSPFv3 */
-#define OSPF_AUTH_NONE 0
-#define OSPF_AUTH_SIMPLE 1
-#define OSPF_AUTH_CRYPT 2
-#define OSPF_AUTH_CRYPT_SIZE 16
+  u8 autype;			/* OSPF_AUTH_*, not really used in OSPFv3 */
   u8 strictnbma;
   u8 check_link;
   u8 ecmp_weight;
@@ -334,6 +330,7 @@ struct ospf_iface
   u8 marked;			/* Used in OSPF reconfigure, 2 for force restart */
   u16 rxbuf;			/* Buffer size */
   u16 tx_length;		/* Soft TX packet length limit, usually MTU */
+  u16 tx_hdrlen;		/* Expected packet header length, less than tx_length */
   u8 check_link;		/* Whether iface link change is used */
   u8 ecmp_weight;		/* Weight used for ECMP */
   u8 link_lsa_suppression;	/* Suppression of Link-LSA origination */
@@ -424,6 +421,11 @@ struct ospf_neighbor
 #define ISM_UNLOOP	5	/* Link up */
 #define ISM_DOWN	6	/* Interface down */
 
+/* OSPF authentication types */
+#define OSPF_AUTH_NONE	0
+#define OSPF_AUTH_SIMPLE 1
+#define OSPF_AUTH_CRYPT	2
+
 
 /* OSPF neighbor states */
 #define NEIGHBOR_DOWN	0
@@ -453,7 +455,6 @@ struct ospf_neighbor
 #define TRANS_OFF	0
 #define TRANS_ON	1
 #define TRANS_WAIT	2	/* Waiting before the end of translation */
-
 
 
 /* Generic option flags */
@@ -491,7 +492,7 @@ struct ospf_packet
   u8 autype;			/* Undefined for OSPFv3 */
 };
 
-struct ospf_md5
+struct ospf_auth_crypto
 {
   u16 zero;
   u8 keyid;
@@ -502,7 +503,7 @@ struct ospf_md5
 union ospf_auth
 {
   u8 password[8];
-  struct ospf_md5 md5;
+  struct ospf_auth_crypto c32;
 };
 
 /* Packet types */
@@ -896,7 +897,6 @@ void ospf_sh_neigh_info(struct ospf_neighbor *n);
 
 /* packet.c */
 void ospf_pkt_fill_hdr(struct ospf_iface *ifa, void *buf, u8 h_type);
-uint ospf_pkt_maxsize(struct ospf_iface *ifa);
 int ospf_rx_hook(sock * sk, uint size);
 // void ospf_tx_hook(sock * sk);
 void ospf_err_hook(sock * sk, int err);
@@ -904,6 +904,9 @@ void ospf_verr_hook(sock *sk, int err);
 void ospf_send_to(struct ospf_iface *ifa, ip_addr ip);
 void ospf_send_to_agt(struct ospf_iface *ifa, u8 state);
 void ospf_send_to_bdr(struct ospf_iface *ifa);
+
+static inline uint ospf_pkt_maxsize(struct ospf_iface *ifa)
+{ return ifa->tx_length - ifa->tx_hdrlen; }
 
 static inline void ospf_send_to_all(struct ospf_iface *ifa)
 { ospf_send_to(ifa, ifa->all_routers); }
