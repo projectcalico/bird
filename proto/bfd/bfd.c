@@ -316,6 +316,7 @@ bfd_session_timeout(struct bfd_session *s)
   s->rem_min_rx_int = 1;
   s->rem_demand_mode = 0;
   s->rem_detect_mult = 0;
+  s->rx_csn_known = 0;
 
   s->poll_active = 0;
   s->poll_scheduled = 0;
@@ -429,6 +430,7 @@ bfd_add_session(struct bfd_proto *p, ip_addr addr, ip_addr local, struct iface *
   s->rem_min_rx_int = 1;
   s->detect_mult = ifa->cf->multiplier;
   s->passive = ifa->cf->passive;
+  s->tx_csn = random_u32();
 
   s->tx_timer = tm2_new_init(p->tpool, bfd_tx_timer_hook, s, 0, 0);
   s->hold_timer = tm2_new_init(p->tpool, bfd_hold_timer_hook, s, 0, 0);

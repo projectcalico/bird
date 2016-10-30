@@ -672,7 +672,7 @@ agreement").
 	authentication is enabled, authentication can be enabled by separate,
 	protocol-dependent <cf/authentication/ option.
 
-	This option is allowed in OSPF and RIP protocols. BGP has also
+	This option is allowed in BFD, OSPF and RIP protocols. BGP has also
 	<cf/password/ option, but it is slightly different and described
 	separately.
 	Default: none.
@@ -1637,6 +1637,19 @@ protocol bfd [&lt;name&gt;] {
 		idle tx interval &lt;time&gt;;
 		multiplier &lt;num&gt;;
 		passive &lt;switch&gt;;
+		authentication none;
+		authentication simple;
+		authentication [meticulous] keyed md5|sha1;
+		password "&lt;text&gt;";
+		password "&lt;text&gt;" {
+			id &lt;num&gt;;
+			generate from "&lt;date&gt;";
+			generate to "&lt;date&gt;";
+			accept from "&lt;date&gt;";
+			accept to "&lt;date&gt;";
+			from "&lt;date&gt;";
+			to "&lt;date&gt;";
+		};
 	};
 	multihop {
 		interval &lt;time&gt;;
@@ -1720,6 +1733,32 @@ protocol bfd [&lt;name&gt;] {
 	sending control packets to the other side. This option allows to enable
 	passive mode, which means that the router does not send BFD packets
 	until it has received one from the other side. Default: disabled.
+
+	<tag>authentication none</tag>
+	No passwords are sent in BFD packets. This is the default value.
+
+	<tag>authentication simple</tag>
+	Every packet carries 16 bytes of password. Received packets lacking this
+	password are ignored. This authentication mechanism is very weak.
+
+	<tag>authentication [meticulous] keyed md5|sha1</tag>
+	An authentication code is appended to each packet. The cryptographic
+	algorithm is keyed MD5 or keyed SHA-1. Note that the algorithm is common
+	for all keys (on one interface), in contrast to OSPF or RIP, where it
+	is a per-key option. Passwords (keys) are not sent open via network.
+
+	The <cf/meticulous/ variant means that cryptographic sequence numbers
+	are increased for each sent packet, while in the basic variant they are
+	increased about once per second. Generally, the <cf/meticulous/ variant
+	offers better resistance to replay attacks but may require more
+	computation.
+
+	<tag>password "<M>text</M>"</tag>
+	Specifies a password used for authentication. See <ref id="dsc-pass"
+	name="password"> common option for detailed description. Note that
+	password option <cf/algorithm/ is not available in BFD protocol. The
+	algorithm is selected by <cf/authentication/ option for all passwords.
+
 </descrip>
 
 <sect1>Example
