@@ -28,9 +28,8 @@
 #endif
 
 
-#ifndef SA_LEN
+#undef  SA_LEN
 #define SA_LEN(x) (x).sa.sa_len
-#endif
 
 
 /*
