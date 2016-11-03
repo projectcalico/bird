@@ -89,7 +89,7 @@ struct mac_desc {
   byte *(*hash_final)(struct hash_context *ctx);
 };
 
-const struct mac_desc mac_table[ALG_MAX];
+extern const struct mac_desc mac_table[ALG_MAX];
 
 static inline const char *mac_type_name(uint id)
 { return mac_table[id].name; }
