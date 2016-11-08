@@ -158,7 +158,7 @@ f_new_lc_item(u32 f1, u32 t1, u32 f2, u32 t2, u32 f3, u32 t3)
 
 static inline struct f_inst *
 f_generate_empty(struct f_inst *dyn)
-{ 
+{
   struct f_inst *e = f_new_inst();
   e->code = 'E';
 
@@ -261,7 +261,7 @@ f_generate_ec(u16 kind, struct f_inst *tk, struct f_inst *tv)
 
   if (c1 && c2) {
     u64 ec;
-  
+
     if (kind == EC_GENERIC) {
       ec = ec_generic(key, val2);
     }
@@ -280,7 +280,7 @@ f_generate_ec(u16 kind, struct f_inst *tk, struct f_inst *tv)
     NEW_F_VAL;
     rv = f_new_inst();
     rv->code = 'C';
-    rv->a1.p = val;    
+    rv->a1.p = val;
     val->type = T_EC;
     val->val.ec = ec;
   }
@@ -355,7 +355,7 @@ CF_KEYWORDS(FUNCTION, PRINT, PRINTN, UNSET, RETURN,
 %type <e> pair_item ec_item lc_item set_item switch_item set_items switch_items switch_body
 %type <trie> fprefix_set
 %type <v> set_atom switch_atom fprefix fprefix_s fipa
-%type <s> decls declsn one_decl function_params 
+%type <s> decls declsn one_decl function_params
 %type <h> bgp_path bgp_path_tail1 bgp_path_tail2
 
 CF_GRAMMAR
@@ -391,7 +391,7 @@ type:
  | CLIST { $$ = T_CLIST; }
  | ECLIST { $$ = T_ECLIST; }
  | LCLIST { $$ = T_LCLIST; }
- | type SET { 
+ | type SET {
 	switch ($1) {
 	  case T_INT:
 	  case T_PAIR:
@@ -506,7 +506,7 @@ function_def:
    } function_params function_body {
      $2->def = $5;
      $2->aux2 = $4;
-     DBG("Hmm, we've got one function here - %s\n", $2->name); 
+     DBG("Hmm, we've got one function here - %s\n", $2->name);
      cf_pop_scope();
    }
  ;
@@ -652,7 +652,7 @@ fprefix:
    fprefix_s { $$ = $1; }
  | fprefix_s '+' { $$ = $1; $$.val.px.len |= LEN_PLUS; }
  | fprefix_s '-' { $$ = $1; $$.val.px.len |= LEN_MINUS; }
- | fprefix_s '{' NUM ',' NUM '}' { 
+ | fprefix_s '{' NUM ',' NUM '}' {
      if (! ((0 <= $3) && ($3 <= $5) && ($5 <= MAX_PREFIX_LENGTH))) cf_error("Invalid prefix pattern range: {%d, %d}.", $3, $5);
      $$ = $1; $$.val.px.len |= LEN_RANGE | ($3 << 16) | ($5 << 8);
    }
@@ -671,7 +671,7 @@ switch_body: /* EMPTY */ { $$ = NULL; }
        t->data = $4;
      $$ = f_merge_items($1, $2);
    }
- | switch_body ELSECOL cmds { 
+ | switch_body ELSECOL cmds {
      struct f_tree *t = f_new_tree();
      t->from.type = t->to.type = T_VOID;
      t->right = t;
@@ -683,7 +683,7 @@ switch_body: /* EMPTY */ { $$ = NULL; }
 /* CONST '(' expr ')' { $$ = f_new_inst(); $$->code = 'c'; $$->aux = T_INT; $$->a2.i = $3; } */
 
 bgp_path_expr:
-   symbol       { $$ = $1; }   
+   symbol       { $$ = $1; }
  | '(' term ')' { $$ = $2; }
  ;
 
@@ -836,8 +836,8 @@ term:
  | '-' EMPTY '-' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_CLIST; }
  | '-' '-' EMPTY '-' '-' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_ECLIST; }
  | '-' '-' '-' EMPTY '-' '-' '-' { $$ = f_new_inst(); $$->code = 'E'; $$->aux = T_LCLIST; }
- | PREPEND '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('A','p'); $$->a1.p = $3; $$->a2.p = $5; } 
- | ADD '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('C','a'); $$->a1.p = $3; $$->a2.p = $5; $$->aux = 'a'; } 
+ | PREPEND '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('A','p'); $$->a1.p = $3; $$->a2.p = $5; }
+ | ADD '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('C','a'); $$->a1.p = $3; $$->a2.p = $5; $$->aux = 'a'; }
  | DELETE '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('C','a'); $$->a1.p = $3; $$->a2.p = $5; $$->aux = 'd'; }
  | FILTER '(' term ',' term ')' { $$ = f_new_inst(); $$->code = P('C','a'); $$->a1.p = $3; $$->a2.p = $5; $$->aux = 'f'; }
 
@@ -892,7 +892,7 @@ print_list: /* EMPTY */ { $$ = NULL; }
    }
  ;
 
-var_listn: term { 
+var_listn: term {
      $$ = f_new_inst();
      $$->code = 's';
      $$->a1.p = NULL;
@@ -960,7 +960,7 @@ cmd:
      $$ = f_new_inst();
      $$->code = P('P','S');
      $$->a1.p = $3;
-   } 
+   }
  | UNSET '(' rtadot dynamic_attr ')' ';' {
      $$ = $4;
      $$->aux = EAF_TYPE_UNDEF | EAF_TEMP;

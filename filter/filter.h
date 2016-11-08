@@ -35,7 +35,7 @@ struct f_inst {		/* Instruction */
 /* Not enough fields in f_inst for three args used by roa_check() */
 struct f_inst_roa_check {
   struct f_inst i;
-  struct roa_table_config *rtc;	
+  struct roa_table_config *rtc;
 };
 
 struct f_inst3 {
@@ -65,7 +65,7 @@ struct f_val {
     uint i;
     u64 ec;
     lcomm lc;
-    /*    ip_addr ip; Folded into prefix */	
+    /*    ip_addr ip; Folded into prefix */
     struct f_prefix px;
     char *s;
     struct f_tree *t;
@@ -190,16 +190,16 @@ void val_format(struct f_val v, buffer *buf);
 #define T_PREFIX_SET 0x81
 
 
-#define SA_FROM		 1    
-#define SA_GW		 2      
-#define SA_NET		 3     
-#define SA_PROTO	 4   
-#define SA_SOURCE	 5  
-#define SA_SCOPE	 6   
-#define SA_CAST    	 7
-#define SA_DEST    	 8
-#define SA_IFNAME  	 9
-#define SA_IFINDEX    	10
+#define SA_FROM		 1
+#define SA_GW		 2
+#define SA_NET		 3
+#define SA_PROTO	 4
+#define SA_SOURCE	 5
+#define SA_SCOPE	 6
+#define SA_CAST		 7
+#define SA_DEST		 8
+#define SA_IFNAME	 9
+#define SA_IFINDEX	10
 
 
 struct f_tree {

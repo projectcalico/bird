@@ -9,7 +9,9 @@
 
 /* Unfortunately, some glibc versions hide parts of RFC 3542 API
    if _GNU_SOURCE is not defined. */
-#define _GNU_SOURCE 1
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2046,6 +2048,7 @@ watchdog_stop(void)
 
 volatile int async_config_flag;		/* Asynchronous reconfiguration/dump scheduled */
 volatile int async_dump_flag;
+volatile int async_shutdown_flag;
 
 void
 io_init(void)

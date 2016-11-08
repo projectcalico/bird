@@ -21,7 +21,7 @@ struct config {
   list protos;				/* Configured protocol instances (struct proto_config) */
   list tables;				/* Configured routing tables (struct rtable_config) */
   list roa_tables;			/* Configured ROA tables (struct roa_table_config) */
-  list logfiles;			/* Configured log fils (sysdep) */
+  list logfiles;			/* Configured log files (sysdep) */
 
   int mrtdump_file;			/* Configured MRTDump file (sysdep, fd in unix) */
   char *syslog_name;			/* Name used for syslog (NULL -> no syslog) */
@@ -61,7 +61,7 @@ struct config {
 extern struct config *config;		/* Currently active configuration */
 extern struct config *new_config;	/* Configuration being parsed */
 
-struct config *config_alloc(byte *name);
+struct config *config_alloc(const byte *name);
 int config_parse(struct config *);
 int cli_parse(struct config *);
 void config_free(struct config *);
@@ -95,7 +95,7 @@ extern linpool *cfg_mem;
 #define cfg_alloc(size) lp_alloc(cfg_mem, size)
 #define cfg_allocu(size) lp_allocu(cfg_mem, size)
 #define cfg_allocz(size) lp_allocz(cfg_mem, size)
-char *cfg_strdup(char *c);
+char *cfg_strdup(const char *c);
 void cfg_copy_list(list *dest, list *src, unsigned node_size);
 
 /* Lexer */
