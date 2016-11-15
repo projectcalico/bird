@@ -1077,7 +1077,7 @@ static inline void
 bgp_cluster_list_prepend(rte *e, ea_list **attrs, struct linpool *pool, u32 cid)
 {
   eattr *a = ea_find(e->attrs->eattrs, EA_CODE(EAP_BGP, BA_CLUSTER_LIST));
-  bgp_attach_attr(attrs, pool, BA_CLUSTER_LIST, (uintptr_t) int_set_add(pool, a ? a->u.ptr : NULL, cid));
+  bgp_attach_attr(attrs, pool, BA_CLUSTER_LIST, (uintptr_t) int_set_prepend(pool, a ? a->u.ptr : NULL, cid));
 }
 
 static int
