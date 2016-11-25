@@ -934,6 +934,15 @@ bgp_init_prefix_table(struct bgp_proto *p, u32 order)
   p->prefix_slab = sl_new(p->p.pool, sizeof(struct bgp_prefix));
 }
 
+void
+bgp_free_prefix_table(struct bgp_proto *p)
+{
+  HASH_FREE(p->prefix_hash);
+
+  rfree(p->prefix_slab);
+  p->prefix_slab = NULL;
+}
+
 static struct bgp_prefix *
 bgp_get_prefix(struct bgp_proto *p, ip_addr prefix, int pxlen, u32 path_id)
 {
@@ -1938,6 +1947,23 @@ bgp_init_bucket_table(struct bgp_proto *p)
   init_list(&p->bucket_queue);
   p->withdraw_bucket = NULL;
   // fib_init(&p->prefix_fib, p->p.pool, sizeof(struct bgp_prefix), 0, bgp_init_prefix);
+}
+
+void
+bgp_free_bucket_table(struct bgp_proto *p)
+{
+  mb_free(p->bucket_hash);
+  p->bucket_hash = NULL;
+
+  struct bgp_bucket *b;
+  WALK_LIST_FIRST(b, p->bucket_queue)
+  {
+    rem_node(&b->send_node);
+    mb_free(b);
+  }
+
+  mb_free(p->withdraw_bucket);
+  p->withdraw_bucket = NULL;
 }
 
 void

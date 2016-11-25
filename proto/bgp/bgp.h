@@ -253,8 +253,10 @@ int bgp_rte_recalculate(rtable *table, net *net, rte *new, rte *old, rte *old_be
 void bgp_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old UNUSED, ea_list *attrs);
 int bgp_import_control(struct proto *, struct rte **, struct ea_list **, struct linpool *);
 void bgp_init_bucket_table(struct bgp_proto *);
+void bgp_free_bucket_table(struct bgp_proto *p);
 void bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck);
 void bgp_init_prefix_table(struct bgp_proto *p, u32 order);
+void bgp_free_prefix_table(struct bgp_proto *p);
 void bgp_free_prefix(struct bgp_proto *p, struct bgp_prefix *bp);
 uint bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains);
 void bgp_get_route_info(struct rte *, byte *buf, struct ea_list *attrs);
