@@ -41,7 +41,7 @@ Run the following command to start the Route Reflector container image.
 docker run -privileged -net=host -d                                \ 
            -e IP=<IPv4_RR>                                         \
            [-e IP6=<IPv6_RR>]                                      \
-           -e ETCD_AUTHORITY=<ETCD_IP:PORT>                        \
+           -e ETCD_ENDPOINTS=<http://ETCD_IP:PORT>                 \
            calico/routereflector
 ```
 
@@ -101,9 +101,8 @@ certificate files and environment variable filepaths for each file:
 docker run -privileged -net=host -d                                \
            -e IP=<IPv4_RR>                                         \
            [-e IP6=<IPv6_RR>]                                      \
-           -e ETCD_AUTHORITY=<ETCD_IP:PORT>                        \
+           -e ETCD_ENDPOINTS=<https://ETCD_IP:PORT>                \
            -v <FULL_PATH_TO_CERT_DIR>:<MOUNT_DIR>                  \
-           -e ETCD_SCHEME=https                                    \
            -e ETCD_CA_CERT_FILE=<MOUNT_DIR>/<CA_FILE>              \
            -e ETCD_CERT_FILE=<MOUNT_DIR>/<CERT_FILE>               \
            -e ETCD_KEY_FILE=<MOUNT_DIR>/<KEY_FILE>                 \
@@ -143,7 +142,7 @@ From any Calico Docker node, run the following:
 
     calicoctl bgp node-mesh off
 
-You may need to set the ETCD_AUTHORITY environment variable to run the 
+You may need to set the ETCD_ENDPOINTS environment variable to run the 
 calicoctl commands.
 
 
