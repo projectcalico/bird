@@ -84,6 +84,7 @@ typedef struct ort
   rta *old_rta;
   u8 external_rte;
   u8 area_net;
+  u8 keep;
 }
 ort;
 
