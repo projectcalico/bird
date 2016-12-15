@@ -1405,7 +1405,6 @@ ospf_ext_spf(struct ospf_proto *p)
   struct top_hash_entry *en;
   struct ospf_lsa_ext_local rt;
   ort *nf1, *nf2;
-  orta nfa = {};
   ip_addr rtid;
   u32 br_metric;
   struct ospf_area *atmp;
@@ -1414,6 +1413,8 @@ ospf_ext_spf(struct ospf_proto *p)
 
   WALK_SLIST(en, p->lsal)
   {
+    orta nfa = {};
+
     /* 16.4. (1) */
     if ((en->lsa_type != LSA_T_EXT) && (en->lsa_type != LSA_T_NSSA))
       continue;
