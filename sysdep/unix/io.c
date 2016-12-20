@@ -2238,7 +2238,8 @@ io_loop(void)
 	      if (pfd[s->index].revents & (POLLHUP | POLLERR))
 		{
 		  sk_err(s, pfd[s->index].revents);
-		  goto next2;
+		  if (s != current_sock)
+		    goto next2;
 		}
 
 	      current_sock = sk_next(s);
