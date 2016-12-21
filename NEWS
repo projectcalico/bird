@@ -1,3 +1,10 @@
+Version 1.6.3 (2016-12-21)
+  o Large BGP communities
+  o BFD authentication (MD5, SHA1)
+  o SHA1 and SHA2 authentication for RIP and OSPF
+  o Improved documentation
+  o Several bug fixes
+
 Version 1.6.2 (2016-09-29)
   o Fixes serious bug introduced in the previous version
 
