@@ -170,7 +170,7 @@ global configuration.
 From any Calico Docker node, run the following for each Route Reflector:
 
 ```
-calicoctl bgppeer add <IP_RR> as <AS_NUM>
+calicoctl bgp peer add <IP_RR> as <AS_NUM>
 ``` 
 
 Where:
@@ -199,7 +199,7 @@ To configure a Route Reflector as a peer of a specific node, run the following
 *from the node*:
 
 ```
-calicoctl node bgppeer add <IP_RR> as <AS_NUM>
+calicoctl node bgp peer add <IP_RR> as <AS_NUM>
 ``` 
 
 Where:
