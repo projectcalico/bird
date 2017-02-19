@@ -48,7 +48,7 @@ struct bgp_config {
   int passive;				/* Do not initiate outgoing connection */
   int interpret_communities;		/* Hardwired handling of well-known communities */
   int secondary;			/* Accept also non-best routes (i.e. RA_ACCEPTED) */
-  int add_path;				/* Use ADD-PATH extension [draft] */
+  int add_path;				/* Use ADD-PATH extension [RFC7911] */
   int allow_local_as;			/* Allow that number of local ASNs in incoming AS_PATHs */
   int gr_mode;				/* Graceful restart mode (BGP_GR_*) */
   int setkey;				/* Set MD5 password to system SA/SP database */
@@ -104,7 +104,7 @@ struct bgp_conn {
   int start_state;			/* protocol start_state snapshot when connection established */
   u8 peer_refresh_support;		/* Peer supports route refresh [RFC2918] */
   u8 peer_as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
-  u8 peer_add_path;			/* Peer supports ADD-PATH [draft] */
+  u8 peer_add_path;			/* Peer supports ADD-PATH [RFC7911] */
   u8 peer_enhanced_refresh_support;	/* Peer supports enhanced refresh [RFC7313] */
   u8 peer_gr_aware;
   u8 peer_gr_able;
@@ -310,7 +310,7 @@ void bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsi
 #define BA_EXT_COMMUNITY	0x10	/* [RFC4360] */
 #define BA_AS4_PATH             0x11    /* [RFC4893] */
 #define BA_AS4_AGGREGATOR       0x12
-#define BA_LARGE_COMMUNITY	0x20	/* [draft-ietf-idr-large-community] */
+#define BA_LARGE_COMMUNITY	0x20	/* [RFC8092] */
 
 /* BGP connection states */
 

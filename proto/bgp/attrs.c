@@ -51,10 +51,9 @@
  * implementations that pass invalid AS_CONFED_* segments are
  * widespread.
  *
- * Error handling of AS4_* attributes is done as specified by
- * draft-ietf-idr-rfc4893bis-03. There are several possible
- * inconsistencies between AGGREGATOR and AS4_AGGREGATOR that are not
- * handled by that draft, these are logged and ignored (see
+ * Error handling of AS4_* attributes is done as specified by RFC 6793. There
+ * are several possible inconsistencies between AGGREGATOR and AS4_AGGREGATOR
+ * that are not handled by that RFC, these are logged and ignored (see
  * bgp_reconstruct_4b_attrs()).
  */
 

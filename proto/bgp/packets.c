@@ -856,7 +856,7 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 	    conn->advertised_as = get_u32(opt + 2);
 	  break;
 
-	case 69: /* ADD-PATH capability, draft */
+	case 69: /* ADD-PATH capability, RFC 7911 */
 	  if (cl % 4)
 	    goto err;
 	  for (i = 0; i < cl; i += 4)
