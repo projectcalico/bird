@@ -3806,16 +3806,17 @@ protocol rip [&lt;name&gt;] {
 
 <p><code>
 protocol rip {
-        debug all;
-        port 1520;
-        period 12;
-        garbage time 60;
-        interface "eth0" { metric 3; mode multicast; };
-        interface "eth*" { metric 2; mode broadcast; };
-        authentication cryptographic;
-        password "secret-shared-key" { algorithm hmac sha256; };
-        import filter { print "importing"; accept; };
-        export filter { print "exporting"; accept; };
+	import all;
+	export all;
+	interface "eth*" {
+		metric 2;
+		port 1520;
+		mode multicast;
+		update time 12;
+		timeout time 60;
+		authentication cryptographic;
+		password "secret" { algorithm hmac sha256; };
+	};
 }
 </code>
 
