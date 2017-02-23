@@ -126,6 +126,7 @@ bgp_proto:
  | bgp_proto ADD PATHS RX ';' { BGP_CFG->add_path = ADD_PATH_RX; }
  | bgp_proto ADD PATHS TX ';' { BGP_CFG->add_path = ADD_PATH_TX; }
  | bgp_proto ADD PATHS bool ';' { BGP_CFG->add_path = $4 ? ADD_PATH_FULL : 0; }
+ | bgp_proto ALLOW BGP_LOCAL_PREF bool ';' { BGP_CFG->allow_local_pref = $4; }
  | bgp_proto ALLOW LOCAL AS ';' { BGP_CFG->allow_local_as = -1; }
  | bgp_proto ALLOW LOCAL AS expr ';' { BGP_CFG->allow_local_as = $5; }
  | bgp_proto GRACEFUL RESTART bool ';' { BGP_CFG->gr_mode = $4; }

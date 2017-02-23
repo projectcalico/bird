@@ -50,6 +50,7 @@ struct bgp_config {
   int secondary;			/* Accept also non-best routes (i.e. RA_ACCEPTED) */
   int add_path;				/* Use ADD-PATH extension [RFC7911] */
   int allow_local_as;			/* Allow that number of local ASNs in incoming AS_PATHs */
+  int allow_local_pref;			/* Allow LOCAL_PREF in EBGP sessions */
   int gr_mode;				/* Graceful restart mode (BGP_GR_*) */
   int setkey;				/* Set MD5 password to system SA/SP database */
   unsigned gr_time;			/* Graceful restart timeout */
