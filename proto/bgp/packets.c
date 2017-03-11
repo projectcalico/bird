@@ -1037,8 +1037,13 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, uint len)
   p->gr_ready = p->cf->gr_mode && conn->peer_gr_able;
   p->ext_messages = p->cf->enable_extended_messages && conn->peer_ext_messages_support;
 
+  /* Update RA mode */
   if (p->add_path_tx)
     p->p.accept_ra_types = RA_ANY;
+  else if (p->cf->secondary)
+    p->p.accept_ra_types = RA_ACCEPTED;
+  else
+    p->p.accept_ra_types = RA_OPTIMAL;
 
   DBG("BGP: Hold timer set to %d, keepalive to %d, AS to %d, ID to %x, AS4 session to %d\n", conn->hold_time, conn->keepalive_time, p->remote_as, p->remote_id, p->as4_session);
 
