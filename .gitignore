@@ -1,3 +1,21 @@
+# Calico
+/dist
 .idea
 *~
+**/*.sw[pon]
 calicorr.created
+configure.lineno
+
+# Upstream
+/autom4te.cache/
+/doc/*.html
+/obj/
+/Makefile
+/bird
+/birdc
+/birdcl
+/config.log
+/config.status
+/configure
+/bird.conf
+/bird.log

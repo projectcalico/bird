@@ -181,7 +181,7 @@ struct ks_msg
 #define GETADDR(p, F) \
   bzero(p, sizeof(*p));\
   if ((addrs & (F)) && ((struct sockaddr *)body)->sa_len) {\
-    unsigned int l = ROUNDUP(((struct sockaddr *)body)->sa_len);\
+    uint l = ROUNDUP(((struct sockaddr *)body)->sa_len);\
     memcpy(p, body, (l > sizeof(*p) ? sizeof(*p) : l));\
     body += l;}
 
@@ -536,7 +536,7 @@ krt_read_ifinfo(struct ks_msg *msg, int scan)
   struct if_msghdr *ifm = (struct if_msghdr *)&msg->rtm;
   void *body = (void *)(ifm + 1);
   struct sockaddr_dl *dl = NULL;
-  unsigned int i;
+  uint i;
   struct iface *iface = NULL, f = {};
   int fl = ifm->ifm_flags;
   int nlen = 0;
@@ -898,7 +898,7 @@ kif_do_scan(struct kif_proto *p)
 /* Kernel sockets */
 
 static int
-krt_sock_hook(sock *sk, int size UNUSED)
+krt_sock_hook(sock *sk, uint size UNUSED)
 {
   struct ks_msg msg;
   int l = read(sk->fd, (char *)&msg, sizeof(msg));
@@ -911,8 +911,14 @@ krt_sock_hook(sock *sk, int size UNUSED)
   return 0;
 }
 
+static void
+krt_sock_err_hook(sock *sk, int e UNUSED)
+{
+  krt_sock_hook(sk, 0);
+}
+
 static sock *
-krt_sock_open(pool *pool, void *data, int table_id)
+krt_sock_open(pool *pool, void *data, int table_id UNUSED)
 {
   sock *sk;
   int fd;
@@ -932,6 +938,7 @@ krt_sock_open(pool *pool, void *data, int table_id)
   sk = sk_new(pool);
   sk->type = SK_MAGIC;
   sk->rx_hook = krt_sock_hook;
+  sk->err_hook = krt_sock_err_hook;
   sk->fd = fd;
   sk->data = data;
 
@@ -969,13 +976,15 @@ krt_sock_close_shared(void)
   }
 }
 
-void
+int
 krt_sys_start(struct krt_proto *p)
 {
   krt_table_map[KRT_CF->sys.table_id] = p;
 
   krt_sock_open_shared();
   p->sys.sk = krt_sock;
+
+  return 1;
 }
 
 void
@@ -991,10 +1000,11 @@ krt_sys_shutdown(struct krt_proto *p)
 
 #else
 
-void
+int
 krt_sys_start(struct krt_proto *p)
 {
   p->sys.sk = krt_sock_open(p->p.pool, p, KRT_CF->sys.table_id);
+  return 1;
 }
 
 void
@@ -1064,7 +1074,7 @@ kif_sys_shutdown(struct kif_proto *p)
 
 
 struct ifa *
-kif_get_primary_ip(struct iface *i)
+kif_get_primary_ip(struct iface *i UNUSED6)
 {
 #ifndef IPV6
   static int fd = -1;

@@ -77,14 +77,15 @@ krt_io_init(void)
   krt_pool = rp_new(&root_pool, "Kernel Syncer");
   krt_filter_lp = lp_new(krt_pool, 4080);
   init_list(&krt_proto_list);
+  krt_sys_io_init();
 }
 
 /*
  *	Interfaces
  */
 
+struct kif_proto *kif_proto;
 static struct kif_config *kif_cf;
-static struct kif_proto *kif_proto;
 static timer *kif_scan_timer;
 static bird_clock_t kif_last_shot;
 
@@ -607,8 +608,12 @@ krt_flush_routes(struct krt_proto *p)
 static struct rte *
 krt_export_net(struct krt_proto *p, net *net, rte **rt_free, ea_list **tmpa)
 {
-  struct filter *filter = p->p.main_ahook->out_filter;
+  struct announce_hook *ah = p->p.main_ahook;
+  struct filter *filter = ah->out_filter;
   rte *rt;
+
+  if (p->p.accept_ra_types == RA_MERGED)
+    return rt_export_merged(ah, net, rt_free, tmpa, krt_filter_lp, 1);
 
   rt = net->routes;
   *rt_free = NULL;
@@ -921,7 +926,7 @@ krt_scan_timer_start(struct krt_proto *p)
 }
 
 static void
-krt_scan_timer_stop(struct krt_proto *p)
+krt_scan_timer_stop(struct krt_proto *p UNUSED)
 {
   krt_scan_count--;
 
@@ -1010,7 +1015,7 @@ krt_store_tmp_attrs(rte *rt, struct ea_list *attrs)
 }
 
 static int
-krt_import_control(struct proto *P, rte **new, ea_list **attrs, struct linpool *pool)
+krt_import_control(struct proto *P, rte **new, ea_list **attrs UNUSED, struct linpool *pool UNUSED)
 {
   struct krt_proto *p = (struct krt_proto *) P;
   rte *e = *new;
@@ -1120,11 +1125,13 @@ krt_rte_same(rte *a, rte *b)
 struct krt_config *krt_cf;
 
 static struct proto *
-krt_init(struct proto_config *c)
+krt_init(struct proto_config *C)
 {
-  struct krt_proto *p = proto_new(c, sizeof(struct krt_proto));
+  struct krt_proto *p = proto_new(C, sizeof(struct krt_proto));
+  struct krt_config *c = (struct krt_config *) C;
 
-  p->p.accept_ra_types = RA_OPTIMAL;
+  p->p.accept_ra_types = c->merge_paths ? RA_MERGED : RA_OPTIMAL;
+  p->p.merge_limit = c->merge_paths;
   p->p.import_control = krt_import_control;
   p->p.rt_notify = krt_rt_notify;
   p->p.if_notify = krt_if_notify;
@@ -1149,7 +1156,11 @@ krt_start(struct proto *P)
   krt_learn_init(p);
 #endif
 
-  krt_sys_start(p);
+  if (!krt_sys_start(p))
+  {
+    rem_node(&p->krt_node);
+    return PS_START;
+  }
 
   krt_scan_timer_start(p);
 
@@ -1173,8 +1184,10 @@ krt_shutdown(struct proto *P)
   p->ready = 0;
   p->initialized = 0;
 
-  krt_sys_shutdown(p);
+  if (p->p.proto_state == PS_START)
+    return PS_DOWN;
 
+  krt_sys_shutdown(p);
   rem_node(&p->krt_node);
 
   return PS_DOWN;
@@ -1190,7 +1203,8 @@ krt_reconfigure(struct proto *p, struct proto_config *new)
     return 0;
 
   /* persist, graceful restart need not be the same */
-  return o->scan_time == n->scan_time && o->learn == n->learn && o->devroutes == n->devroutes;
+  return o->scan_time == n->scan_time && o->learn == n->learn &&
+    o->devroutes == n->devroutes && o->merge_paths == n->merge_paths;
 }
 
 static void
@@ -1245,7 +1259,7 @@ krt_copy_config(struct proto_config *dest, struct proto_config *src)
 }
 
 static int
-krt_get_attr(eattr * a, byte * buf, int buflen UNUSED)
+krt_get_attr(eattr *a, byte *buf, int buflen)
 {
   switch (a->id)
   {
@@ -1270,7 +1284,7 @@ krt_get_attr(eattr * a, byte * buf, int buflen UNUSED)
     return GA_NAME;
 
   default:
-    return GA_UNKNOWN;
+    return krt_sys_get_attr(a, buf, buflen);
   }
 }
 
