@@ -105,7 +105,7 @@ invalid:
 
 
 static inline void
-ospf_lsa_lsrq_down(struct top_hash_entry *req, struct ospf_neighbor *n, struct ospf_neighbor *from)
+ospf_lsa_lsrq_down(struct top_hash_entry *req, struct ospf_neighbor *n)
 {
   if (req == n->lsrqi)
     n->lsrqi = SNODE_NEXT(req);
@@ -188,7 +188,7 @@ ospf_enqueue_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_if
   {
     /* If we already have full queue, we send some packets */
     uint sent = ospf_flood_lsupd(p, ifa->flood_queue, ifa->flood_queue_used, ifa->flood_queue_used / 2, ifa);
-    int i;
+    uint i;
 
     for (i = 0; i < sent; i++)
       ifa->flood_queue[i]->ret_count--;
@@ -275,7 +275,7 @@ ospf_flood_lsa(struct ospf_proto *p, struct top_hash_entry *en, struct ospf_neig
 
 	  /* If same or newer, remove LSA from the link state request list */
 	  if (cmp > CMP_OLDER)
-	    ospf_lsa_lsrq_down(req, n, from);
+	    ospf_lsa_lsrq_down(req, n);
 
 	  /* If older or same, skip processing of this neighbor */
 	  if (cmp < CMP_NEWER)
@@ -530,8 +530,8 @@ ospf_receive_lsupd(struct ospf_packet *pkt, struct ospf_iface *ifa,
     DBG("Update Type: %04x, Id: %R, Rt: %R, Sn: 0x%08x, Age: %u, Sum: %u\n",
 	lsa_type, lsa.id, lsa.rt, lsa.sn, lsa.age, lsa.checksum);
 
-    /* RFC 2328 13. (1) - validate LSA checksum */
-    if ((lsa_n->checksum == 0) || (lsasum_check(lsa_n, NULL, 0) != 0))
+    /* RFC 2328 13. (1) - verify LSA checksum */
+    if ((lsa_n->checksum == 0) || !lsa_verify_checksum(lsa_n, lsa_len))
       SKIP("invalid checksum");
 
     /* RFC 2328 13. (2) */

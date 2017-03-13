@@ -18,7 +18,8 @@
 typedef struct orta
 {
   u8 type;			/* RTS_OSPF_* */
-  u8 nhs_reuse;			/* Whether nhs nodes can be reused during merging */
+  u8 nhs_reuse;			/* Whether nhs nodes can be reused during merging.
+				   See a note in rt.c:add_cand() */
   u32 options;
   /*
    * For ORT_ROUTER routes, options field are router-LSA style
@@ -83,6 +84,7 @@ typedef struct ort
   rta *old_rta;
   u8 external_rte;
   u8 area_net;
+  u8 keep;
 }
 ort;
 

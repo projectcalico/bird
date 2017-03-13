@@ -43,7 +43,7 @@ unresolved_vlink(ort *ort)
 }
 
 static inline struct mpnh *
-new_nexthop(struct ospf_proto *p, ip_addr gw, struct iface *iface, unsigned char weight)
+new_nexthop(struct ospf_proto *p, ip_addr gw, struct iface *iface, byte weight)
 {
   struct mpnh *nh = lp_alloc(p->nhpool, sizeof(struct mpnh));
   nh->gw = gw;
@@ -51,88 +51,6 @@ new_nexthop(struct ospf_proto *p, ip_addr gw, struct iface *iface, unsigned char
   nh->next = NULL;
   nh->weight = weight;
   return nh;
-}
-
-static inline struct mpnh *
-copy_nexthop(struct ospf_proto *p, const struct mpnh *src)
-{
-  struct mpnh *nh = lp_alloc(p->nhpool, sizeof(struct mpnh));
-  nh->gw = src->gw;
-  nh->iface = src->iface;
-  nh->next = NULL;
-  nh->weight = src->weight;
-  return nh;
-}
-
-/* Compare nexthops during merge.
-   We need to maintain nhs sorted to eliminate duplicities */
-static int
-cmp_nhs(struct mpnh *s1, struct mpnh *s2)
-{
-  int r;
-
-  if (!s1)
-    return 1;
-
-  if (!s2)
-    return -1;
-
-  r = ((int) s2->weight) - ((int) s1->weight);
-  if (r)
-    return r;
-
-  r = ipa_compare(s1->gw, s2->gw);
-  if (r)
-    return r;
-
-  return ((int) s1->iface->index) - ((int) s2->iface->index);
-}
-
-static struct mpnh *
-merge_nexthops(struct ospf_proto *p, struct mpnh *s1, struct mpnh *s2, int r1, int r2)
-{
-  struct mpnh *root = NULL;
-  struct mpnh **n = &root;
-  int count = p->ecmp;
-
-  ASSERT(p->ecmp);
-
-  /*
-   * r1, r2 signalize whether we can reuse nexthops from s1, s2.
-   * New nexthops (s2, new) can be reused if they are not inherited
-   * from the parent (i.e. it is allocated in calc_next_hop()).
-   * Current nexthops (s1, en->nhs) can be reused if they weren't
-   * inherited in previous steps (that is stored in nhs_reuse,
-   * i.e. created by merging or allocalted in calc_next_hop()).
-   *
-   * Generally, a node first inherits shared nexthops from its
-   * parent and later possibly gets reusable copy during merging.
-   */
-
-  while ((s1 || s2) && count--)
-  {
-    int cmp = cmp_nhs(s1, s2);
-    if (cmp < 0)
-    {
-      *n = r1 ? s1 : copy_nexthop(p, s1);
-      s1 = s1->next;
-    }
-    else if (cmp > 0)
-    {
-      *n = r2 ? s2 : copy_nexthop(p, s2);
-      s2 = s2->next;
-    }
-    else
-    {
-      *n = r1 ? s1 : (r2 ? s2 : copy_nexthop(p, s1));
-      s1 = s1->next;
-      s2 = s2->next;
-    }
-    n = &((*n)->next);
-  }
-  *n = NULL;
-
-  return root;
 }
 
 /* Returns true if there are device nexthops in n */
@@ -178,7 +96,7 @@ fix_device_nexthops(struct ospf_proto *p, const struct mpnh *n, ip_addr gw)
     }
   }
 
-  return merge_nexthops(p, root1, root2, 1, 1);
+  return mpnh_merge(root1, root2, 1, 1, p->ecmp, p->nhpool);
 }
 
 
@@ -374,7 +292,8 @@ ort_merge(struct ospf_proto *p, ort *o, const orta *new)
 
   if (old->nhs != new->nhs)
   {
-    old->nhs = merge_nexthops(p, old->nhs, new->nhs, old->nhs_reuse, new->nhs_reuse);
+    old->nhs = mpnh_merge(old->nhs, new->nhs, old->nhs_reuse, new->nhs_reuse,
+			  p->ecmp, p->nhpool);
     old->nhs_reuse = 1;
   }
 
@@ -389,7 +308,8 @@ ort_merge_ext(struct ospf_proto *p, ort *o, const orta *new)
 
   if (old->nhs != new->nhs)
   {
-    old->nhs = merge_nexthops(p, old->nhs, new->nhs, old->nhs_reuse, new->nhs_reuse);
+    old->nhs = mpnh_merge(old->nhs, new->nhs, old->nhs_reuse, new->nhs_reuse,
+			  p->ecmp, p->nhpool);
     old->nhs_reuse = 1;
   }
 
@@ -509,10 +429,9 @@ add_network(struct ospf_area *oa, ip_addr px, int pxlen, int metric, struct top_
   if (en == oa->rt)
   {
     /*
-     * Local stub networks does not have proper iface in en->nhi
-     * (because they all have common top_hash_entry en).
-     * We have to find iface responsible for that stub network.
-     * Configured stubnets does not have any iface. They will
+     * Local stub networks do not have proper iface in en->nhi (because they all
+     * have common top_hash_entry en). We have to find iface responsible for
+     * that stub network. Configured stubnets do not have any iface. They will
      * be removed in rt_sync().
      */
 
@@ -758,7 +677,7 @@ link_back(struct ospf_area *oa, struct top_hash_entry *en, struct top_hash_entry
      which may be later used as the next hop. */
 
   /* In OSPFv2, en->lb is set here. In OSPFv3, en->lb is just cleared here,
-     it is set in process_prefixes() to any global addres in the area */
+     it is set in process_prefixes() to any global address in the area */
 
   en->lb = IPA_NONE;
   en->lb_id = 0;
@@ -1010,7 +929,7 @@ ospf_rt_sum_tr(struct ospf_area *oa)
   }
 }
 
-/* Decide about originating or flushing summary LSAs for condended area networks */
+/* Decide about originating or flushing summary LSAs for condensed area networks */
 static int
 decide_anet_lsa(struct ospf_area *oa, struct area_net *anet, struct ospf_area *anet_oa)
 {
@@ -1129,7 +1048,7 @@ check_sum_rt_lsa(struct ospf_proto *p, ort *nf)
 }
 
 static inline int
-decide_nssa_lsa(struct ospf_proto *p, ort *nf, struct ospf_lsa_ext_local *rt)
+decide_nssa_lsa(struct ospf_proto *p UNUSED4 UNUSED6, ort *nf, struct ospf_lsa_ext_local *rt)
 {
   struct ospf_area *oa = nf->n.oa;
   struct top_hash_entry *en = nf->n.en;
@@ -1486,7 +1405,6 @@ ospf_ext_spf(struct ospf_proto *p)
   struct top_hash_entry *en;
   struct ospf_lsa_ext_local rt;
   ort *nf1, *nf2;
-  orta nfa = {};
   ip_addr rtid;
   u32 br_metric;
   struct ospf_area *atmp;
@@ -1495,6 +1413,8 @@ ospf_ext_spf(struct ospf_proto *p)
 
   WALK_SLIST(en, p->lsal)
   {
+    orta nfa = {};
+
     /* 16.4. (1) */
     if ((en->lsa_type != LSA_T_EXT) && (en->lsa_type != LSA_T_NSSA))
       continue;
@@ -1640,6 +1560,7 @@ ospf_rt_reset(struct ospf_proto *p)
   {
     ri = (ort *) nftmp;
     ri->area_net = 0;
+    ri->keep = 0;
     reset_ri(ri);
   }
   FIB_WALK_END;
@@ -1885,8 +1806,7 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
     return;
   }
 
-  /* We know that en->color == CANDIDATE and en->nhs is defined. */
-
+  /* If en->dist > 0, we know that en->color == CANDIDATE and en->nhs is defined. */
   if ((dist == en->dist) && !nh_is_vlink(en->nhs))
   {
     /*
@@ -1900,7 +1820,14 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
      * allocated in calc_next_hop()).
      *
      * Generally, a node first inherits shared nexthops from its parent and
-     * later possibly gets reusable copy during merging.
+     * later possibly gets reusable (private) copy during merging. This is more
+     * or less same for both top_hash_entry nodes and orta nodes.
+     *
+     * Note that when a child inherits a private nexthop from its parent, it
+     * should make the nexthop shared for both parent and child, while we only
+     * update nhs_reuse for the child node. This makes nhs_reuse field for the
+     * parent technically incorrect, but it is not a problem as parent's nhs
+     * will not be modified (and nhs_reuse examined) afterwards.
      */
 
     /* Keep old ones */
@@ -1909,7 +1836,7 @@ add_cand(list * l, struct top_hash_entry *en, struct top_hash_entry *par,
 
     /* Merge old and new */
     int new_reuse = (par->nhs != nhs);
-    en->nhs = merge_nexthops(p, en->nhs, nhs, en->nhs_reuse, new_reuse);
+    en->nhs = mpnh_merge(en->nhs, nhs, en->nhs_reuse, new_reuse, p->ecmp, p->nhpool);
     en->nhs_reuse = 1;
     return;
   }
@@ -2003,9 +1930,12 @@ again1:
 	}
     }
 
-    /* Remove configured stubnets */
-    if (!nf->n.nhs)
+    /* Remove configured stubnets but keep the entries */
+    if (nf->n.type && !nf->n.nhs)
+    {
       reset_ri(nf);
+      nf->keep = 1;
+    }
 
     if (nf->n.type) /* Add the route */
     {
@@ -2065,7 +1995,7 @@ again1:
     }
 
     /* Remove unused rt entry, some special entries are persistent */
-    if (!nf->n.type && !nf->external_rte && !nf->area_net)
+    if (!nf->n.type && !nf->external_rte && !nf->area_net && !nf->keep)
     {
       FIB_ITERATE_PUT(&fit, nftmp);
       fib_delete(fib, nftmp);

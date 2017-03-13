@@ -222,9 +222,12 @@ ospf_receive_hello(struct ospf_packet *pkt, struct ospf_iface *ifa,
     rcv_priority = ps->priority;
 
     int pxlen = u32_masklen(ntohl(ps->netmask));
+    if (pxlen < 0)
+      DROP("prefix garbled", ntohl(ps->netmask));
+
     if ((ifa->type != OSPF_IT_VLINK) &&
 	(ifa->type != OSPF_IT_PTP) &&
-	(pxlen != ifa->addr->pxlen))
+	((uint) pxlen != ifa->addr->pxlen))
       DROP("prefix length mismatch", pxlen);
 
     neighbors = ps->neighbors;
