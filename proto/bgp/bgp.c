@@ -790,7 +790,7 @@ bgp_find_proto(sock *sk)
       {
 	struct bgp_proto *p = (struct bgp_proto *) pc->proto;
 	if (ipa_equal(p->cf->remote_ip, sk->daddr) &&
-	    (!ipa_is_link_local(sk->daddr) || (p->cf->iface == sk->iface)))
+	    (!p->cf->iface || (p->cf->iface == sk->iface)))
 	  return p;
       }
 
@@ -1324,11 +1324,8 @@ bgp_check_config(struct bgp_config *c)
   if (!c->remote_as)
     cf_error("Remote AS number must be set");
 
-  // if (ipa_is_link_local(c->remote_ip) && !c->iface)
-  //   cf_error("Link-local neighbor address requires specified interface");
-
-  if (!ipa_is_link_local(c->remote_ip) != !c->iface)
-    cf_error("Link-local address and interface scope must be used together");
+  if (ipa_is_link_local(c->remote_ip) && !c->iface)
+    cf_error("Link-local neighbor address requires specified interface");
 
   if (!(c->capabilities && c->enable_as4) && (c->remote_as > 0xFFFF))
     cf_error("Neighbor AS number out of range (AS4 not available)");
@@ -1345,6 +1342,9 @@ bgp_check_config(struct bgp_config *c)
   if (c->multihop && (ipa_is_link_local(c->remote_ip) ||
 		      ipa_is_link_local(c->source_addr)))
     cf_error("Multihop BGP cannot be used with link-local addresses");
+
+  if (c->multihop && c->iface)
+    cf_error("Multihop BGP cannot be bound to interface");
 
   if (c->multihop && c->check_link)
     cf_error("Multihop BGP cannot depend on link state");
