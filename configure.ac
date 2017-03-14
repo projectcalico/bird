@@ -2,8 +2,8 @@ dnl ** This is a configure script template for BIRD
 dnl ** Process it with autoconf to get ./configure
 dnl ** (c) 1999--2000 Martin Mares <mj@ucw.cz>
 
-AC_REVISION($Id$)
-AC_INIT(conf/confbase.Y)
+AC_INIT
+AC_CONFIG_SRCDIR([conf/confbase.Y])
 AC_CONFIG_AUX_DIR(tools)
 
 AC_ARG_ENABLE(debug,	[  --enable-debug          enable internal debugging routines (default: disabled)],,enable_debug=no)
@@ -96,7 +96,7 @@ if test "$enable_pthreads" != no ; then
 	BIRD_CHECK_PTHREADS
 
 	if test "$bird_cv_lib_pthreads" = yes ; then
-		AC_DEFINE(USE_PTHREADS)
+		AC_DEFINE([USE_PTHREADS], [1], [Define to 1 if pthreads are enabled])
 		CFLAGS="$CFLAGS -pthread"
 		LDFLAGS="$LDFLAGS -pthread"
 		proto_bfd=bfd
@@ -191,7 +191,7 @@ if ! test -f $sysdesc ; then
 	AC_MSG_ERROR([The system configuration file is missing.])
 fi
 sysname=`echo $sysdesc | sed 's/\.h$//'`
-AC_DEFINE_UNQUOTED(SYSCONF_INCLUDE, "$sysdesc")
+AC_DEFINE_UNQUOTED([SYSCONF_INCLUDE], ["$sysdesc"], [Which sysdep header to include])
 
 AC_MSG_CHECKING([system-dependent directories])
 sysdep_dirs="`sed <$sysdesc '/^Link: /!d;s/^Link: \(.*\)$/\1/' | tr '\012' ' '` lib"
@@ -217,6 +217,15 @@ if test "$with_protocols" = all ; then
 	with_protocols="$all_protocols"
 fi
 
+AH_TEMPLATE([CONFIG_BABEL], 	[Babel protocol])
+AH_TEMPLATE([CONFIG_BFD],	[BFD protocol])
+AH_TEMPLATE([CONFIG_BGP],	[BGP protocol])
+AH_TEMPLATE([CONFIG_OSPF],	[OSPF protocol])
+AH_TEMPLATE([CONFIG_PIPE],	[Pipe protocol])
+AH_TEMPLATE([CONFIG_RADV],	[RAdv protocol])
+AH_TEMPLATE([CONFIG_RIP],	[RIP protocol])
+AH_TEMPLATE([CONFIG_STATIC],	[Static protocol])
+
 AC_MSG_CHECKING([protocols])
 protocols=`echo "$with_protocols" | sed 's/,/ /g'`
 if test "$protocols" = no ; then protocols= ; fi
@@ -239,18 +248,32 @@ case $sysdesc in
 		;;
 esac
 
-AC_CHECK_HEADER(syslog.h, [AC_DEFINE(HAVE_SYSLOG)])
-AC_CHECK_HEADER(alloca.h, [AC_DEFINE(HAVE_ALLOCA_H)])
+AC_CHECK_HEADER(syslog.h, [AC_DEFINE([HAVE_SYSLOG], [1], [Define to 1 if you have the <syslog.h> header file])])
+AC_CHECK_HEADER(alloca.h, [AC_DEFINE([HAVE_ALLOCA_H], [1], [Define to 1 if you have the <alloca.h> header file])])
 AC_MSG_CHECKING(whether 'struct sockaddr' has sa_len)
-AC_TRY_COMPILE([#include <sys/types.h>
-  #include <sys/socket.h>
-  ], [static struct sockaddr sa; int i = sizeof(sa.sa_len);],
-  [AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_SIN_LEN,,sin_len)],
-  AC_MSG_RESULT(no))
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM(
+    [[
+      #include <sys/types.h>
+      #include <sys/socket.h>
+    ]],
+    [[
+      static struct sockaddr sa;
+      int i = sizeof(sa.sa_len);
+    ]]
+  )],
+  [
+    AC_MSG_RESULT(yes)
+    AC_DEFINE(HAVE_SIN_LEN,,sin_len)
+  ],
+  [AC_MSG_RESULT(no)]
+)
 
-AC_C_BIGENDIAN([AC_DEFINE(CPU_BIG_ENDIAN)], [AC_DEFINE(CPU_LITTLE_ENDIAN)],
-		 [AC_MSG_ERROR([Cannot determine CPU endianity.])])
+AC_C_BIGENDIAN(
+  [AC_DEFINE([CPU_BIG_ENDIAN], [1], [Define to 1 if cpu is big endian])],
+  [AC_DEFINE([CPU_LITTLE_ENDIAN], [1], [Define to 1 if cpu is little endian])],
+  [AC_MSG_ERROR([Cannot determine CPU endianity.])]
+)
 
 BIRD_CHECK_INTEGERS
 BIRD_CHECK_STRUCT_ALIGN
@@ -258,7 +281,7 @@ BIRD_CHECK_TIME_T
 BIRD_CHECK_STRUCT_IP_MREQN
 
 if test "$enable_debug" = yes ; then
-	AC_DEFINE(DEBUGGING)
+	AC_DEFINE([DEBUGGING], [1], [Define to 1 if debugging is enabled])
 	if test "$enable_memcheck" = yes ; then
 		AC_CHECK_LIB(dmalloc, dmalloc_debug)
 		if test $ac_cv_lib_dmalloc_dmalloc_debug != yes ; then
@@ -280,8 +303,8 @@ if test "$enable_client" = yes ; then
 						AC_MSG_ERROR([[The client requires ncurses library. Either install the library or use --disable-client to compile without the client.]]))))))
 	AC_CHECK_LIB(readline, rl_callback_read_char, CLIENT_LIBS="-lreadline $CLIENT_LIBS $USE_TERMCAP_LIB",
 		AC_MSG_ERROR([[The client requires GNU readline library 2.1 or newer. Either install the library or use --disable-client to compile without the client.]]), $USE_TERMCAP_LIB)
-	AC_CHECK_LIB(readline, rl_crlf, AC_DEFINE(HAVE_RL_CRLF),,$USE_TERMCAP_LIB)
-	AC_CHECK_LIB(readline, rl_ding, AC_DEFINE(HAVE_RL_DING),,$USE_TERMCAP_LIB)
+	AC_CHECK_LIB(readline, rl_crlf, AC_DEFINE([HAVE_RL_CRLF], [1], [Define to 1 if you have rl_crlf()]),,$USE_TERMCAP_LIB)
+	AC_CHECK_LIB(readline, rl_ding, AC_DEFINE([HAVE_RL_DING], [1], [Define to 1 if you have rl_ding()]),,$USE_TERMCAP_LIB)
 fi
 AC_SUBST(CLIENT)
 AC_SUBST(CLIENT_LIBS)
@@ -299,16 +322,14 @@ AC_OUTPUT
 
 rm -f $objdir/sysdep/paths.h
 
-cat >&AC_FD_MSG <<EOF
-
-BIRD was configured with the following options:
-	Source directory:	$srcdir
-	Object directory:	$objdir
-	Iproute2 directory:	$iproutedir
-	System configuration:	$sysdesc
-	Debugging:		$enable_debug
-	POSIX threads:		$enable_pthreads
-	Routing protocols:	$protocols
-	Client:			$enable_client
-EOF
+AC_MSG_RESULT()
+AC_MSG_RESULT([BIRD was configured with the following options:])
+AC_MSG_RESULT([        Source directory:	$srcdir])
+AC_MSG_RESULT([        Object directory:	$objdir])
+AC_MSG_RESULT([        Iproute2 directory:	$iproutedir])
+AC_MSG_RESULT([        System configuration:	$sysdesc])
+AC_MSG_RESULT([        Debugging:		$enable_debug])
+AC_MSG_RESULT([        POSIX threads:		$enable_pthreads])
+AC_MSG_RESULT([        Routing protocols:	$protocols])
+AC_MSG_RESULT([        Client:			$enable_client])
 rm -f $objdir/.*-stamp
