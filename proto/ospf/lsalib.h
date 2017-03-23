@@ -41,14 +41,14 @@ void lsa_get_type_domain_(u32 itype, struct ospf_iface *ifa, u32 *otype, u32 *do
 static inline void lsa_get_type_domain(struct ospf_lsa_header *lsa, struct ospf_iface *ifa, u32 *otype, u32 *domain)
 { lsa_get_type_domain_(lsa->type_raw, ifa, otype, domain); }
 
-static inline u32 lsa_get_etype(struct ospf_lsa_header *h, struct ospf_proto *p)
+static inline u32 lsa_get_etype(struct ospf_lsa_header *h, struct ospf_proto *p UNUSED4 UNUSED6)
 { return ospf_is_v2(p) ? (h->type_raw & LSA_T_V2_MASK) : h->type_raw; }
 
 
 int lsa_flooding_allowed(u32 type, u32 domain, struct ospf_iface *ifa);
+void lsa_generate_checksum(struct ospf_lsa_header *lsa, const u8 *body);
+u16 lsa_verify_checksum(const void *lsa_n, int lsa_len);
 
-void lsasum_calculate(struct ospf_lsa_header *header, void *body);
-u16 lsasum_check(struct ospf_lsa_header *h, void *body, int update);
 #define CMP_NEWER 1
 #define CMP_SAME 0
 #define CMP_OLDER -1

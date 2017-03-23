@@ -39,7 +39,7 @@ struct ospf_dbdes3_packet
 
 
 static inline uint
-ospf_dbdes_hdrlen(struct ospf_proto *p)
+ospf_dbdes_hdrlen(struct ospf_proto *p UNUSED4 UNUSED6)
 {
   return ospf_is_v2(p) ?
     sizeof(struct ospf_dbdes2_packet) : sizeof(struct ospf_dbdes3_packet);
@@ -192,6 +192,7 @@ ospf_do_send_dbdes(struct ospf_proto *p, struct ospf_neighbor *n)
 
 /**
  * ospf_send_dbdes - transmit database description packet
+ * @p: OSPF protocol instance
  * @n: neighbor
  *
  * Sending of a database description packet is described in 10.8 of RFC 2328.

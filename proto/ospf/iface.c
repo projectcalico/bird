@@ -9,6 +9,7 @@
  */
 
 #include "ospf.h"
+#include "nest/password.h"
 
 
 const char *ospf_is_names[] = {
@@ -52,6 +53,18 @@ ifa_tx_length(struct ospf_iface *ifa)
 }
 
 static inline uint
+ifa_tx_hdrlen(struct ospf_iface *ifa)
+{
+  uint hlen = SIZE_OF_IP_HEADER;
+
+  /* Relevant just for OSPFv2 */
+  if (ifa->autype == OSPF_AUTH_CRYPT)
+    hlen += max_mac_length(ifa->passwords);
+
+  return hlen;
+}
+
+static inline uint
 ifa_bufsize(struct ospf_iface *ifa)
 {
   uint bsize = ifa->cf->rx_buffer ?: ifa->iface->mtu;
@@ -67,11 +80,7 @@ ifa_flood_queue_size(struct ospf_iface *ifa)
 int
 ospf_iface_assure_bufsize(struct ospf_iface *ifa, uint plen)
 {
-  plen += SIZE_OF_IP_HEADER;
-
-  /* This is relevant just for OSPFv2 */
-  if (ifa->autype == OSPF_AUTH_CRYPT)
-    plen += OSPF_AUTH_CRYPT_SIZE;
+  plen += ifa->tx_hdrlen;
 
   if (plen <= ifa->sk->tbsize)
     return 0;
@@ -493,8 +502,11 @@ ospf_iface_add(struct object_lock *lock)
     ifa->flood_queue = mb_allocz(ifa->pool, ifa->flood_queue_size * sizeof(void *));
   }
 
-  /* Do iface UP, unless there is no link and we use link detection */
-  ospf_iface_sm(ifa, (ifa->check_link && !(ifa->iface->flags & IF_LINK_UP)) ? ISM_LOOP : ISM_UP);
+  /* Do iface UP, unless there is no link (then wait in LOOP state) */
+  if (!ifa->check_link || (ifa->iface->flags & IF_LINK_UP))
+    ospf_iface_sm(ifa, ISM_UP);
+  else
+    ospf_iface_chstate(ifa, OSPF_IS_LOOP);
 }
 
 static inline void
@@ -571,6 +583,7 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
   ifa->stub = ospf_iface_stubby(ip, addr);
   ifa->ioprob = OSPF_I_OK;
   ifa->tx_length = ifa_tx_length(ifa);
+  ifa->tx_hdrlen = ifa_tx_hdrlen(ifa);
   ifa->check_link = ip->check_link;
   ifa->ecmp_weight = ip->ecmp_weight;
   ifa->check_ttl = (ip->ttl_security == 1);
@@ -596,10 +609,10 @@ ospf_iface_new(struct ospf_area *oa, struct ifa *addr, struct ospf_iface_patt *i
   if (ospf_is_v2(p) && (ifa->type == OSPF_IT_NBMA) && (addr->flags & IA_PEER))
     ifa->type = OSPF_IT_PTMP;
 
-  if ((ifa->type == OSPF_IT_BCAST) && !(iface->flags & if_multi_flag))
+  if ((ifa->type == OSPF_IT_BCAST) && !(iface->flags & if_multi_flag) && !ifa->stub)
     ifa->type = OSPF_IT_NBMA;
 
-  if ((ifa->type == OSPF_IT_PTP) && !(iface->flags & if_multi_flag))
+  if ((ifa->type == OSPF_IT_PTP) && !(iface->flags & if_multi_flag) && !ifa->stub)
     ifa->type = OSPF_IT_PTMP;
 
   if (ifa->type != old_type)
@@ -681,6 +694,7 @@ ospf_iface_new_vlink(struct ospf_proto *p, struct ospf_iface_patt *ip)
   ifa->deadint = ip->deadint;
   ifa->inftransdelay = ip->inftransdelay;
   ifa->tx_length = ospf_is_v2(p) ? IP4_MIN_MTU : IP6_MIN_MTU;
+  ifa->tx_hdrlen = ifa_tx_hdrlen(ifa);
   ifa->autype = ip->autype;
   ifa->passwords = ip->passwords;
   ifa->instance_id = ip->instance_id;
@@ -820,6 +834,9 @@ ospf_iface_reconfigure(struct ospf_iface *ifa, struct ospf_iface_patt *new)
 
   /* Update passwords */
   ifa->passwords = new->passwords;
+
+  /* Update header length */
+  ifa->tx_hdrlen = ifa_tx_hdrlen(ifa);
 
   /* Remaining options are just for proper interfaces */
   if (ifa->type == OSPF_IT_VLINK)
@@ -1344,9 +1361,9 @@ ospf_iface_info(struct ospf_iface *ifa)
   cli_msg(-1015, "\tRetransmit timer: %u", ifa->rxmtint);
   if ((ifa->type == OSPF_IT_BCAST) || (ifa->type == OSPF_IT_NBMA))
   {
-    cli_msg(-1015, "\tDesigned router (ID): %R", ifa->drid);
-    cli_msg(-1015, "\tDesigned router (IP): %I", ifa->drip);
-    cli_msg(-1015, "\tBackup designed router (ID): %R", ifa->bdrid);
-    cli_msg(-1015, "\tBackup designed router (IP): %I", ifa->bdrip);
+    cli_msg(-1015, "\tDesignated router (ID): %R", ifa->drid);
+    cli_msg(-1015, "\tDesignated router (IP): %I", ifa->drip);
+    cli_msg(-1015, "\tBackup designated router (ID): %R", ifa->bdrid);
+    cli_msg(-1015, "\tBackup designated router (IP): %I", ifa->bdrip);
   }
 }

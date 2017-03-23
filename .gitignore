@@ -1,3 +1,15 @@
 .idea
 *~
 calicorr.created
+/autom4te.cache/
+/doc/*.html
+/obj/
+/Makefile
+/bird
+/birdc
+/birdcl
+/config.log
+/config.status
+/configure
+/bird.conf
+/bird.log

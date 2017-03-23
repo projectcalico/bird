@@ -84,7 +84,7 @@ struct radv_prefix_config
 {
   node n;
   ip_addr prefix;
-  int pxlen;
+  uint pxlen;
 
   u8 skip;			/* Do not include this prefix to RA */
   u8 onlink;			/* Standard options from RFC 4261 */

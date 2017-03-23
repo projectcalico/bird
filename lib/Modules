@@ -1,3 +1,9 @@
+sha256.c
+sha256.h
+sha512.c
+sha512.h
+sha1.c
+sha1.h
 birdlib.h
 bitops.c
 bitops.h
@@ -5,6 +11,8 @@ ip.h
 ip.c
 lists.c
 lists.h
+mac.c
+mac.h
 md5.c
 md5.h
 mempool.c

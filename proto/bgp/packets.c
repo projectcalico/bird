@@ -84,7 +84,7 @@ mrt_put_bgp4_hdr(byte *buf, struct bgp_conn *conn, int as4)
 static void
 mrt_dump_bgp_packet(struct bgp_conn *conn, byte *pkt, unsigned len)
 {
-  byte buf[BGP_MAX_PACKET_LENGTH + 128];
+  byte *buf = alloca(128+len);	/* 128 is enough for MRT headers */
   byte *bp = buf + MRTDUMP_HDR_LENGTH;
   int as4 = conn->bgp->as4_session;
 
@@ -164,6 +164,14 @@ bgp_put_cap_rr(struct bgp_proto *p UNUSED, byte *buf)
 }
 
 static byte *
+bgp_put_cap_ext_msg(struct bgp_proto *p UNUSED, byte *buf)
+{
+  *buf++ = 6;		/* Capability 6: Support for extended messages */
+  *buf++ = 0;		/* Capability data length */
+  return buf;
+}
+
+static byte *
 bgp_put_cap_gr1(struct bgp_proto *p, byte *buf)
 {
   *buf++ = 64;		/* Capability 64: Support for graceful restart */
@@ -183,7 +191,7 @@ bgp_put_cap_gr1(struct bgp_proto *p, byte *buf)
 }
 
 static byte *
-bgp_put_cap_gr2(struct bgp_proto *p, byte *buf)
+bgp_put_cap_gr2(struct bgp_proto *p UNUSED, byte *buf)
 {
   *buf++ = 64;		/* Capability 64: Support for graceful restart */
   *buf++ = 2;		/* Capability data length */
@@ -274,6 +282,9 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
   if (p->cf->enable_refresh)
     cap = bgp_put_cap_err(p, cap);
 
+  if (p->cf->enable_extended_messages)
+    cap = bgp_put_cap_ext_msg(p, cap);
+
   cap_len = cap - buf - 12;
   if (cap_len > 0)
     {
@@ -289,8 +300,8 @@ bgp_create_open(struct bgp_conn *conn, byte *buf)
     }
 }
 
-static unsigned int
-bgp_encode_prefixes(struct bgp_proto *p, byte *w, struct bgp_bucket *buck, unsigned int remains)
+static uint
+bgp_encode_prefixes(struct bgp_proto *p, byte *w, struct bgp_bucket *buck, uint remains)
 {
   byte *start = w;
   ip_addr a;
@@ -342,7 +353,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 {
   struct bgp_proto *p = conn->bgp;
   struct bgp_bucket *buck;
-  int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
+  int remains = bgp_max_packet_length(p) - BGP_HEADER_LENGTH - 4;
   byte *w;
   int wd_size = 0;
   int r_size = 0;
@@ -358,7 +369,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
     }
   put_u16(buf, wd_size);
 
-  if (remains >= 3072)
+  if (!wd_size)
     {
       while ((buck = (struct bgp_bucket *) HEAD(p->bucket_queue))->send_node.next)
 	{
@@ -371,7 +382,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	    }
 
 	  DBG("Processing bucket %p\n", buck);
-	  a_size = bgp_encode_attrs(p, w+2, buck->eattrs, 2048);
+	  a_size = bgp_encode_attrs(p, w+2, buck->eattrs, remains - 1024);
 
 	  if (a_size < 0)
 	    {
@@ -428,7 +439,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
   struct bgp_proto *p = conn->bgp;
   struct bgp_bucket *buck;
   int size, second, rem_stored;
-  int remains = BGP_MAX_PACKET_LENGTH - BGP_HEADER_LENGTH - 4;
+  int remains = bgp_max_packet_length(p) - BGP_HEADER_LENGTH - 4;
   byte *w, *w_stored, *tmp, *tstart;
   ip_addr *ipp, ip, ip_ll;
   ea_list *ea;
@@ -450,8 +461,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
       w += size;
       remains -= size;
     }
-
-  if (remains >= 3072)
+  else
     {
       while ((buck = (struct bgp_bucket *) HEAD(p->bucket_queue))->send_node.next)
 	{
@@ -467,7 +477,7 @@ bgp_create_update(struct bgp_conn *conn, byte *buf)
 	  rem_stored = remains;
 	  w_stored = w;
 
-	  size = bgp_encode_attrs(p, w, buck->eattrs, 2048);
+	  size = bgp_encode_attrs(p, w, buck->eattrs, remains - 1024);
 	  if (size < 0)
 	    {
 	      log(L_ERR "%s: Attribute list too long, skipping corresponding routes", p->p.name);
@@ -648,7 +658,7 @@ bgp_create_end_refresh(struct bgp_conn *conn, byte *buf)
 
 
 static void
-bgp_create_header(byte *buf, unsigned int len, unsigned int type)
+bgp_create_header(byte *buf, uint len, uint type)
 {
   memset(buf, 0xff, 16);		/* Marker */
   put_u16(buf+16, len);
@@ -669,7 +679,7 @@ static int
 bgp_fire_tx(struct bgp_conn *conn)
 {
   struct bgp_proto *p = conn->bgp;
-  unsigned int s = conn->packets_to_send;
+  uint s = conn->packets_to_send;
   sock *sk = conn->sk;
   byte *buf, *pkt, *end;
   int type;
@@ -816,6 +826,12 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 	  conn->peer_refresh_support = 1;
 	  break;
 
+	case 6: /* Extended message length capability, draft */
+	  if (cl != 0)
+	    goto err;
+	  conn->peer_ext_messages_support = 1;
+	  break;
+
 	case 64: /* Graceful restart capability, RFC 4724 */
 	  if (cl % 4 != 2)
 	    goto err;
@@ -915,7 +931,7 @@ bgp_parse_options(struct bgp_conn *conn, byte *opt, int len)
 }
 
 static void
-bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
+bgp_rx_open(struct bgp_conn *conn, byte *pkt, uint len)
 {
   struct bgp_conn *other;
   struct bgp_proto *p = conn->bgp;
@@ -928,7 +944,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
     { bgp_error(conn, 5, fsm_err_subcode[conn->state], NULL, 0); return; }
 
   /* Check message contents */
-  if (len < 29 || len != 29 + pkt[28])
+  if (len < 29 || len != 29U + pkt[28])
     { bgp_error(conn, 1, 2, pkt+16, 2); return; }
   if (pkt[19] != BGP_VERSION)
     { bgp_error(conn, 2, 1, pkt+19, 1); return; } /* RFC 1771 says 16 bits, draft-09 tells to use 8 */
@@ -1019,6 +1035,7 @@ bgp_rx_open(struct bgp_conn *conn, byte *pkt, int len)
   p->add_path_rx = (p->cf->add_path & ADD_PATH_RX) && (conn->peer_add_path & ADD_PATH_TX);
   p->add_path_tx = (p->cf->add_path & ADD_PATH_TX) && (conn->peer_add_path & ADD_PATH_RX);
   p->gr_ready = p->cf->gr_mode && conn->peer_gr_able;
+  p->ext_messages = p->cf->enable_extended_messages && conn->peer_ext_messages_support;
 
   if (p->add_path_tx)
     p->p.accept_ra_types = RA_ANY;
@@ -1240,16 +1257,15 @@ bgp_do_rx_update(struct bgp_conn *conn,
 #else			/* IPv6 version */
 
 #define DO_NLRI(name)					\
-  start = x = p->name##_start;				\
+  x = p->name##_start;				\
   len = len0 = p->name##_len;				\
   if (len)						\
     {							\
       if (len < 3) { err=9; goto done; }		\
       af = get_u16(x);					\
-      sub = x[2];					\
       x += 3;						\
       len -= 3;						\
-      DBG("\tNLRI AF=%d sub=%d len=%d\n", af, sub, len);\
+      DBG("\tNLRI AF=%d sub=%d len=%d\n", af, x[-1], len);\
     }							\
   else							\
     af = 0;						\
@@ -1275,15 +1291,15 @@ bgp_attach_next_hop(rta *a0, byte *x)
 
 static void
 bgp_do_rx_update(struct bgp_conn *conn,
-		 byte *withdrawn, int withdrawn_len,
-		 byte *nlri, int nlri_len,
+		 byte *withdrawn UNUSED, int withdrawn_len,
+		 byte *nlri UNUSED, int nlri_len,
 		 byte *attrs, int attr_len)
 {
   struct bgp_proto *p = conn->bgp;
   struct rte_src *src = p->p.main_source;
-  byte *start, *x;
+  byte *x;
   int len, len0;
-  unsigned af, sub;
+  unsigned af;
   rta *a0, *a = NULL;
   ip_addr prefix;
   int pxlen, err = 0;
@@ -1359,11 +1375,11 @@ bgp_do_rx_update(struct bgp_conn *conn,
 #endif
 
 static void
-bgp_rx_update(struct bgp_conn *conn, byte *pkt, int len)
+bgp_rx_update(struct bgp_conn *conn, byte *pkt, uint len)
 {
   struct bgp_proto *p = conn->bgp;
   byte *withdrawn, *attrs, *nlri;
-  int withdrawn_len, attr_len, nlri_len;
+  uint withdrawn_len, attr_len, nlri_len;
 
   BGP_TRACE_RL(&rl_rcv_update, D_PACKETS, "Got UPDATE");
 
@@ -1419,7 +1435,7 @@ static struct {
   { 2, 4, "Unsupported optional parameter" },
   { 2, 5, "Authentication failure" },
   { 2, 6, "Unacceptable hold time" },
-  { 2, 7, "Required capability missing" }, /* [RFC3392] */
+  { 2, 7, "Required capability missing" }, /* [RFC5492] */
   { 2, 8, "No supported AFI/SAFI" }, /* This error msg is nonstandard */
   { 3, 0, "Invalid UPDATE message" },
   { 3, 1, "Malformed attribute list" },
@@ -1509,7 +1525,7 @@ bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsigned 
 }
 
 static void
-bgp_rx_notification(struct bgp_conn *conn, byte *pkt, int len)
+bgp_rx_notification(struct bgp_conn *conn, byte *pkt, uint len)
 {
   struct bgp_proto *p = conn->bgp;
   if (len < 21)
@@ -1575,7 +1591,7 @@ bgp_rx_keepalive(struct bgp_conn *conn)
 }
 
 static void
-bgp_rx_route_refresh(struct bgp_conn *conn, byte *pkt, int len)
+bgp_rx_route_refresh(struct bgp_conn *conn, byte *pkt, uint len)
 {
   struct bgp_proto *p = conn->bgp;
 
@@ -1664,9 +1680,10 @@ bgp_rx_packet(struct bgp_conn *conn, byte *pkt, unsigned len)
  * bgp_rx_packet().
  */
 int
-bgp_rx(sock *sk, int size)
+bgp_rx(sock *sk, uint size)
 {
   struct bgp_conn *conn = sk->data;
+  struct bgp_proto *p = conn->bgp;
   byte *pkt_start = sk->rbuf;
   byte *end = pkt_start + size;
   unsigned i, len;
@@ -1683,7 +1700,7 @@ bgp_rx(sock *sk, int size)
 	    break;
 	  }
       len = get_u16(pkt_start+16);
-      if (len < BGP_HEADER_LENGTH || len > BGP_MAX_PACKET_LENGTH)
+      if (len < BGP_HEADER_LENGTH || len > bgp_max_packet_length(p))
 	{
 	  bgp_error(conn, 1, 2, pkt_start+16, 2);
 	  break;
