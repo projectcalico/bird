@@ -44,7 +44,7 @@ template bgp bgp_template {
 {{$cnode_ip_key := printf "/host/%s/ip_addr_v4" $cnode}}{{$cnode_ip := getv $cnode_ip_key}}
 {{$nums := split $cnode_ip "."}}{{$id := join $nums "_"}}
 # Peering with Calico node {{$cnode}}
-protocol bgp Global_{{$id}} from bgp_template {
+protocol bgp Global_{{$cnode}}_{{$id}} from bgp_template {
   local as {{$data.as_num}};
   neighbor {{$cnode_ip}} as {{if exists $cnode_as_key}}{{getv $cnode_as_key}}{{else}}{{getv "/global/as_num"}}{{end}};
   rr client;
