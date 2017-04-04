@@ -30,7 +30,9 @@
 #define MAX(a,b) MAX_(a,b)
 #endif
 
+#define U64(c) UINT64_C(c)
 #define ABS(a)   ((a)>=0 ? (a) : -(a))
+#define DELTA(a,b) (((a)>=(b))?(a)-(b):(b)-(a))
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
 
 
@@ -58,7 +60,15 @@
 
 #define NORET __attribute__((noreturn))
 #define UNUSED __attribute__((unused))
+#define PACKED __attribute__((packed))
 
+#ifdef IPV6
+#define UNUSED4
+#define UNUSED6 UNUSED
+#else
+#define UNUSED4 UNUSED
+#define UNUSED6
+#endif
 
 /* Microsecond time */
 

@@ -584,7 +584,7 @@ ifa_delete(struct ifa *a)
 }
 
 u32
-if_choose_router_id(struct iface_patt *mask, u32 old_id)
+if_choose_router_id(struct iface_patt *mask UNUSED6, u32 old_id UNUSED6)
 {
 #ifndef IPV6
   struct iface *i;

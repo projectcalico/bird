@@ -27,7 +27,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY,
 	INTERPRET, COMMUNITIES, BGP_ORIGINATOR_ID, BGP_CLUSTER_LIST, IGP,
 	TABLE, GATEWAY, DIRECT, RECURSIVE, MED, TTL, SECURITY, DETERMINISTIC,
 	SECONDARY, ALLOW, BFD, ADD, PATHS, RX, TX, GRACEFUL, RESTART, AWARE,
-	CHECK, LINK, PORT)
+	CHECK, LINK, PORT, EXTENDED, MESSAGES, SETKEY, BGP_LARGE_COMMUNITY)
 
 CF_GRAMMAR
 
@@ -54,6 +54,7 @@ bgp_proto_start: proto_start BGP {
      BGP_CFG->default_local_pref = 100;
      BGP_CFG->gr_mode = BGP_GR_AWARE;
      BGP_CFG->gr_time = 120;
+     BGP_CFG->setkey = 1;
  }
  ;
 
@@ -108,9 +109,11 @@ bgp_proto:
  | bgp_proto DISABLE AFTER ERROR bool ';' { BGP_CFG->disable_after_error = $5; }
  | bgp_proto ENABLE ROUTE REFRESH bool ';' { BGP_CFG->enable_refresh = $5; }
  | bgp_proto ENABLE AS4 bool ';' { BGP_CFG->enable_as4 = $4; }
+ | bgp_proto ENABLE EXTENDED MESSAGES bool ';' { BGP_CFG->enable_extended_messages = $5; }
  | bgp_proto CAPABILITIES bool ';' { BGP_CFG->capabilities = $3; }
  | bgp_proto ADVERTISE IPV4 bool ';' { BGP_CFG->advertise_ipv4 = $4; }
  | bgp_proto PASSWORD text ';' { BGP_CFG->password = $3; }
+ | bgp_proto SETKEY bool ';' { BGP_CFG->setkey = $3; }
  | bgp_proto ROUTE LIMIT expr ';' {
      this_proto->in_limit = cfg_allocz(sizeof(struct proto_limit));
      this_proto->in_limit->limit = $4;
@@ -156,6 +159,8 @@ CF_ADDTO(dynamic_attr, BGP_CLUSTER_LIST
 	{ $$ = f_new_dynamic_attr(EAF_TYPE_INT_SET, T_CLIST, EA_CODE(EAP_BGP, BA_CLUSTER_LIST)); })
 CF_ADDTO(dynamic_attr, BGP_EXT_COMMUNITY
 	{ $$ = f_new_dynamic_attr(EAF_TYPE_EC_SET, T_ECLIST, EA_CODE(EAP_BGP, BA_EXT_COMMUNITY)); })
+CF_ADDTO(dynamic_attr, BGP_LARGE_COMMUNITY
+	{ $$ = f_new_dynamic_attr(EAF_TYPE_LC_SET, T_LCLIST, EA_CODE(EAP_BGP, BA_LARGE_COMMUNITY)); })
 
 
 
