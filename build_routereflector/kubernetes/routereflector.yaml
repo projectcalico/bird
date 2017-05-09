@@ -28,7 +28,9 @@ spec:
       nodeSelector:
         role: RouteReflector
       containers:
-        # Runs calico/routereflector container on each Kubernetes node.
+        # Runs calico/node container on each Kubernetes node.  This
+        # container programs network policy and routes on each
+        # host.
         - name: route-reflector
           image: calico/routereflector:master
           env:
