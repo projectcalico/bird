@@ -320,9 +320,6 @@ AC_C_BIGENDIAN(
   [AC_MSG_ERROR([Cannot determine CPU endianity.])]
 )
 
-BIRD_CHECK_STRUCT_ALIGN
-BIRD_CHECK_TIME_T
-
 if test "$enable_debug" = yes ; then
   AC_DEFINE([DEBUGGING], [1], [Define to 1 if debugging is enabled])
   if test "$enable_memcheck" = yes ; then
