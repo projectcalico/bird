@@ -743,10 +743,10 @@ krt_got_route(struct krt_proto *p, rte *e)
 	   * for the route, generate KRF_UPDATE here so that the route gets
 	   * updated to have the tunnel as its outgoing interface.
 	   */
-	   if(strcmp(i->name, e->attrs->iface->name) || !ipa_equal(e->attrs->gw, new->attrs->orig_gw))
-	    verdict = KRF_UPDATE;
-	  else
+	  if (!strcmp(i->name, e->attrs->iface->name) && ipa_equal(e->attrs->gw, new->attrs->orig_gw))
 	    verdict = KRF_SEEN;
+	  else
+	    verdict = KRF_UPDATE;
 	}
 	else if(!krt_same_dest(e, new))
 	  verdict = KRF_UPDATE;
