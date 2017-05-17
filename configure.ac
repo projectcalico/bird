@@ -361,10 +361,10 @@ if test "$enable_client" = yes ; then
     [$TINFO_LIBS]
   )
 
-  AC_SEARCH_LIBS([add_history], [history],
+  AC_SEARCH_LIBS([add_history], [history readline],
     [HISTORY_LIBS="$LIBS"; LIBS=""],
     [AC_MSG_ERROR([The client requires GNU Readline library. Either install the library or use --disable-client to compile without the client.])],
-    [$READLINE_LIBS $TINFO_LIBS]
+    [$TINFO_LIBS]
   )
 
   AC_CHECK_LIB([readline], [rl_crlf],
