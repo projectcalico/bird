@@ -355,15 +355,16 @@ if test "$enable_client" = yes ; then
     [AC_INCLUDES_DEFAULT]
   )
 
-  AC_SEARCH_LIBS([add_history], [history],
-    [HISTORY_LIBS="$LIBS"; LIBS=""],
-    [AC_MSG_ERROR([The client requires GNU Readline library. Either install the library or use --disable-client to compile without the client.])],
-  )
-
   AC_SEARCH_LIBS([rl_callback_read_char], [readline],
     [READLINE_LIBS="$LIBS"; LIBS=""],
     [AC_MSG_ERROR([The client requires GNU Readline library. Either install the library or use --disable-client to compile without the client.])],
     [$TINFO_LIBS]
+  )
+
+  AC_SEARCH_LIBS([add_history], [history],
+    [HISTORY_LIBS="$LIBS"; LIBS=""],
+    [AC_MSG_ERROR([The client requires GNU Readline library. Either install the library or use --disable-client to compile without the client.])],
+    [$READLINE_LIBS $TINFO_LIBS]
   )
 
   AC_CHECK_LIB([readline], [rl_crlf],
@@ -379,7 +380,7 @@ if test "$enable_client" = yes ; then
   )
 
   LIBS="$BASE_LIBS"
-  CLIENT_LIBS="$READLINE_LIBS $HISTORY_LIBS $TINFO_LIBS"
+  CLIENT_LIBS="$HISTORY_LIBS $READLINE_LIBS $TINFO_LIBS"
 fi
 AC_SUBST([CLIENT])
 AC_SUBST([CLIENT_LIBS])
