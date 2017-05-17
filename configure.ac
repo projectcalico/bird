@@ -303,10 +303,7 @@ case $sysdesc in
     AC_CHECK_HEADER([linux/rtnetlink.h],
       [],
       [AC_MSG_ERROR([Appropriate version of Linux kernel headers not found.])],
-      [
-	#include <asm/types.h>
-	#include <sys/socket.h>
-      ]
+      [] dnl Force new AC_CHECK_HEADER semantics
     )
     ;;
 esac
@@ -334,36 +331,51 @@ CLIENT=
 CLIENT_LIBS=
 if test "$enable_client" = yes ; then
   CLIENT=birdc
-  AC_CHECK_LIB([history], [add_history], [CLIENT_LIBS="-lhistory"])
-  AC_CHECK_LIB([ncurses], [tgetent], [USE_TERMCAP_LIB=-lncurses],
-    AC_CHECK_LIB([curses], [tgetent], [USE_TERMCAP_LIB=-lcurses],
-      AC_CHECK_LIB([tinfow], [tgetent], [USE_TERMCAP_LIB=-ltinfow],
-	AC_CHECK_LIB([tinfo], [tgetent], [USE_TERMCAP_LIB=-ltinfo],
-	  AC_CHECK_LIB([termcap], [tgetent], [USE_TERMCAP_LIB=-ltermcap],
-	    [AC_MSG_ERROR([The client requires ncurses library. Either install the library or use --disable-client to compile without the client.])]
-	  )
-	)
-      )
-    )
+  BASE_LIBS="$LIBS"
+  LIBS=""
+
+  AC_CHECK_HEADERS([curses.h],
+    [],
+    [AC_MSG_ERROR([The client requires ncurses library. Either install the library or use --disable-client to compile without the client.])],
+    [] dnl Force new AC_CHECK_HEADER semantics
   )
 
-  AC_CHECK_LIB([readline], [rl_callback_read_char],
-    [CLIENT_LIBS="-lreadline $CLIENT_LIBS $USE_TERMCAP_LIB"],
-    [AC_MSG_ERROR([The client requires GNU readline library 2.1 or newer. Either install the library or use --disable-client to compile without the client.])],
-    [$USE_TERMCAP_LIB]
+  AC_SEARCH_LIBS([tgetent], [tinfo tinfow ncurses curses termcap],
+    [TINFO_LIBS="$LIBS"; LIBS=""],
+    [AC_MSG_ERROR([The client requires ncurses library. Either install the library or use --disable-client to compile without the client.])],
+  )
+
+  AC_CHECK_HEADERS([readline/readline.h readline/history.h],
+    [],
+    [AC_MSG_ERROR([The client requires GNU Readline library. Either install the library or use --disable-client to compile without the client.])],
+    [] dnl Force new AC_CHECK_HEADER semantics
+  )
+
+  AC_SEARCH_LIBS([add_history], [history],
+    [HISTORY_LIBS="$LIBS"; LIBS=""],
+    [AC_MSG_ERROR([The client requires GNU Readline library. Either install the library or use --disable-client to compile without the client.])],
+  )
+
+  AC_SEARCH_LIBS([rl_callback_read_char], [readline],
+    [READLINE_LIBS="$LIBS"; LIBS=""],
+    [AC_MSG_ERROR([The client requires GNU Readline library. Either install the library or use --disable-client to compile without the client.])],
+    [$TINFO_LIBS]
   )
 
   AC_CHECK_LIB([readline], [rl_crlf],
     [AC_DEFINE([HAVE_RL_CRLF], [1], [Define to 1 if you have rl_crlf()])],
     [],
-    [$USE_TERMCAP_LIB]
+    [$TINFO_LIBS]
   )
 
   AC_CHECK_LIB([readline], [rl_ding],
     [AC_DEFINE([HAVE_RL_DING], [1], [Define to 1 if you have rl_ding()])],
     [],
-    [$USE_TERMCAP_LIB]
+    [$TINFO_LIBS]
   )
+
+  LIBS="$BASE_LIBS"
+  CLIENT_LIBS="$READLINE_LIBS $HISTORY_LIBS $TINFO_LIBS"
 fi
 AC_SUBST([CLIENT])
 AC_SUBST([CLIENT_LIBS])
