@@ -8,13 +8,13 @@ make
 rm bird birdcl
 make CC="gcc -static"
 cp bird dist/bird6
-cp birdcl dist
+cp birdcl dist/birdcl
 
 # Rerun the build but without IPv6 (or the client) and store off the result.
 make clean
 ./configure  --with-protocols="bgp pipe static" --enable-client=no --enable-pthreads=yes
 make
-rm bird 
+rm bird
 make CC="gcc -static"
 cp bird dist/bird
 
