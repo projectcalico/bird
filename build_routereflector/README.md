@@ -28,7 +28,7 @@ The peering between the Calico Docker nodes and each Route Reflector is
 entirely configured on the Calico Docker nodes (using [calicoctl][calicoctl]),
 and not through any additional Route Reflector configuration.
 
-## Using the Route Reflector image
+## Using the Route Reflector image (with etcd datastore)
 
 ### Starting up a Route Reflector
 
@@ -98,7 +98,7 @@ with your etcd instance.
 When starting the Route Reflector container image, you need to mount the
 certificate files and environment variable filepaths for each file:
 ```
-docker run -privileged -net=host -d                                \
+docker run --privileged --net=host -d                              \
            -e IP=<IPv4_RR>                                         \
            [-e IP6=<IPv6_RR>]                                      \
            -e ETCD_ENDPOINTS=<https://ETCD_IP:PORT>                \
@@ -122,9 +122,44 @@ curl --cacert <path_to_ca_cert> --cert <path_to_cert> --key <path_to_key> -L htt
 curl --cacert <path_to_ca_cert> --cert <path_to_cert> --key <path_to_key> -L https://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v6/<IPv6_RR> -XPUT -d value="{\"ip\":\"<IPv6_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
 ```
 
-## Global Calico Docker configuration
+## Using the Route Reflector image (with Kubernetes API datastore)
 
-Run through this section  to set up the global Calico Docker configuration
+If you are using Kuberenetes as the datastore for Calico, the routereflector
+image does support this, but only for a single route reflector.  It is not
+possible with this image to set up a cluster of route reflectors.
+
+### Starting up the Route Reflector
+
+On your Route Reflector host, ensure you have [Docker v1.6][docker] or greater
+installed.
+
+You will need a kubeconfig file that you need to mount into the route reflector
+container.
+
+Run the following command to start the Route Reflector container image.
+
+```
+docker run --privileged --net=host -d                              \
+           -e DATASTORE_TYPE=kubernetes                            \
+           -e KUBECONFIG=/kubeconfig                               \
+           -e IP=<IPv4_RR>                                         \
+           -v <KUBECONFIG FILE PATH>:/kubeconfig                   \
+           -e ETCD_ENDPOINTS=<http://ETCD_IP:PORT>                 \
+           calico/routereflector
+```
+
+Where:
+
+-  `<IPv4_RR>` is the IPv4 address of the RR host (the BIRD instance binds to
+   the hosts IPv4 address)
+-  `<KUBECONFIG FILE PATH>` is the path to the kubeconfig file.
+
+When using Kubernetes API as the datastore, this route reflector image only works
+as a single standalone reflector.
+
+## Global Calico configuration
+
+Run through this section  to set up the global Calico configuration
 before configuring any nodes.  This only needs to be done once.
 
 -  Disable the full node-to-node BGP mesh

@@ -36,7 +36,7 @@ $minimal_apt_get_install \
         bird6
 
 # Install Confd
-curl -L https://www.github.com/kelseyhightower/confd/releases/download/v0.9.0/confd-0.9.0-linux-amd64 -o confd
+curl -L https://github.com/projectcalico/confd/releases/download/v0.12.1-calico0.2.0/confd -o confd
 chmod +x confd
 
 # Create the config directory for confd

@@ -1,12 +1,16 @@
 #!/bin/sh
 
-# Use ETCD_ENDPOINTS in preferences to ETCD_AUTHORITY
-ETCD_NODE=${ETCD_ENDPOINTS:=${ETCD_SCHEME:=http}://${ETCD_AUTHORITY}}
-
-# confd needs a "-node" arguments for each etcd endpoint.
-ETCD_ENDPOINTS_CONFD=`echo "-node=$ETCD_NODE" | sed -e 's/,/ -node=/g'`
-
+#!/bin/sh
 exec 2>&1
-exec /confd -confdir=/ -interval=5 -watch --log-level=debug \
-     -client-key=${ETCD_KEY_FILE} -client-cert=${ETCD_CERT_FILE} \
-     -client-ca-keys=${ETCD_CA_CERT_FILE} $ETCD_ENDPOINTS_CONFD
+
+if [ "$DATASTORE_TYPE" = "kubernetes" ]
+then
+    exec /confd -confdir=/ -interval=5 -log-level=debug -backend=k8s -kubeconfig=$KUBECONFIG
+else
+    ETCD_NODE=${ETCD_ENDPOINTS:=${ETCD_SCHEME:=http}://${ETCD_AUTHORITY}}
+    ETCD_ENDPOINTS_CONFD=`echo "-node=$ETCD_NODE" | sed -e 's/,/ -node=/g'`
+
+    exec /confd -confdir=/ -interval=5 -watch --log-level=debug \
+           $ETCD_ENDPOINTS_CONFD -client-key=${ETCD_KEY_FILE} \
+           -client-cert=${ETCD_CERT_FILE} -client-ca-keys=${ETCD_CA_CERT_FILE}
+fi
