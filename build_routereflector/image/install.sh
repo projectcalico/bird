@@ -16,9 +16,6 @@ $minimal_apt_get_install apt-transport-https ca-certificates
 # Install add-apt-repository
 $minimal_apt_get_install software-properties-common
 
-# Install curl, needed below for manual BIRD install.
-$minimal_apt_get_install curl
-
 # Find the list of packages just installed - these can be deleted later.
 grep -Fxvf  /tmp/base.txt <(dpkg -l | grep ^ii | sed 's_  _\t_g' | cut \
 -f 2) >/tmp/add-apt.txt
@@ -26,6 +23,11 @@ grep -Fxvf  /tmp/base.txt <(dpkg -l | grep ^ii | sed 's_  _\t_g' | cut \
 # Add new repos and update again
 LC_ALL=C.UTF-8 LANG=C.UTF-8 add-apt-repository -y ppa:cz.nic-labs/bird
 apt-get update
+
+# Install curl, needed below for manual BIRD install, and for auto-inserting
+# etcd entries for the RR.  It might be better in future to add a static build
+# of etcdctl and then remove curl and other unused installed packages.
+$minimal_apt_get_install curl
 
 # Install packages that should not be removed in the cleanup processing.
 # - bird and bird6
