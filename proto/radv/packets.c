@@ -82,8 +82,8 @@ static struct radv_prefix_config default_prefix = {
 static struct radv_prefix_config *
 radv_prefix_match(struct radv_iface *ifa, struct ifa *a)
 {
-  struct proto *p = &ifa->ra->p;
-  struct radv_config *cf = (struct radv_config *) (p->cf);
+  struct radv_proto *p = ifa->ra;
+  struct radv_config *cf = (struct radv_config *) (p->p.cf);
   struct radv_prefix_config *pc;
 
   if (a->scope <= SCOPE_LINK)
@@ -207,7 +207,7 @@ radv_prepare_dnssl(struct radv_iface *ifa, list *dnssl_list, char **buf, char *b
     else
       op->lifetime = htonl(dcf->lifetime);
 
-    while(NODE_VALID(dcf) && 
+    while(NODE_VALID(dcf) &&
 	  (dcf->lifetime == dcf_base->lifetime) &&
 	  (dcf->lifetime_mult == dcf_base->lifetime_mult))
       {
@@ -238,8 +238,8 @@ radv_prepare_dnssl(struct radv_iface *ifa, list *dnssl_list, char **buf, char *b
 static void
 radv_prepare_ra(struct radv_iface *ifa)
 {
-  struct proto_radv *ra = ifa->ra;
-  struct radv_config *cf = (struct radv_config *) (ra->p.cf);
+  struct radv_proto *p = ifa->ra;
+  struct radv_config *cf = (struct radv_config *) (p->p.cf);
   struct radv_iface_config *ic = ifa->cf;
 
   char *buf = ifa->sk->tbuf;
@@ -251,7 +251,7 @@ radv_prepare_ra(struct radv_iface *ifa)
   pkt->code = 0;
   pkt->checksum = 0;
   pkt->current_hop_limit = ic->current_hop_limit;
-  pkt->router_lifetime = (ra->active || !ic->default_lifetime_sensitive) ?
+  pkt->router_lifetime = (p->active || !ic->default_lifetime_sensitive) ?
     htons(ic->default_lifetime) : 0;
   pkt->flags = (ic->managed ? OPT_RA_MANAGED : 0) |
     (ic->other_config ? OPT_RA_OTHER_CFG : 0) |
@@ -281,7 +281,7 @@ radv_prepare_ra(struct radv_iface *ifa)
 
     if (buf + sizeof(struct radv_opt_prefix) > bufend)
     {
-      log(L_WARN "%s: Too many prefixes on interface %s", ra->p.name, ifa->iface->name);
+      log(L_WARN "%s: Too many prefixes on interface %s", p->p.name, ifa->iface->name);
       goto done;
     }
 
@@ -291,9 +291,9 @@ radv_prepare_ra(struct radv_iface *ifa)
     op->pxlen = addr->pxlen;
     op->flags = (pc->onlink ? OPT_PX_ONLINK : 0) |
       (pc->autonomous ? OPT_PX_AUTONOMOUS : 0);
-    op->valid_lifetime = (ra->active || !pc->valid_lifetime_sensitive) ?
+    op->valid_lifetime = (p->active || !pc->valid_lifetime_sensitive) ?
       htonl(pc->valid_lifetime) : 0;
-    op->preferred_lifetime = (ra->active || !pc->preferred_lifetime_sensitive) ?
+    op->preferred_lifetime = (p->active || !pc->preferred_lifetime_sensitive) ?
       htonl(pc->preferred_lifetime) : 0;
     op->reserved = 0;
     op->prefix = addr->prefix;
@@ -323,7 +323,7 @@ radv_prepare_ra(struct radv_iface *ifa)
 void
 radv_send_ra(struct radv_iface *ifa, int shutdown)
 {
-  struct proto_radv *ra = ifa->ra;
+  struct radv_proto *p = ifa->ra;
 
   /* We store prepared RA in tbuf */
   if (!ifa->plen)
@@ -351,7 +351,7 @@ static int
 radv_rx_hook(sock *sk, uint size)
 {
   struct radv_iface *ifa = sk->data;
-  struct proto_radv *ra = ifa->ra;
+  struct radv_proto *p = ifa->ra;
 
   /* We want just packets from sk->iface */
   if (sk->lifindex != sk->iface->index)
