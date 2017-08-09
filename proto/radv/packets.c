@@ -123,7 +123,7 @@ radv_prepare_rdnss(struct radv_iface *ifa, list *rdnss_list, char **buf, char *b
     else
       op->lifetime = htonl(rcf->lifetime);
 
-    while(NODE_VALID(rcf) && 
+    while(NODE_VALID(rcf) &&
 	  (rcf->lifetime == rcf_base->lifetime) &&
 	  (rcf->lifetime_mult == rcf_base->lifetime_mult))
       {
@@ -136,7 +136,7 @@ radv_prepare_rdnss(struct radv_iface *ifa, list *rdnss_list, char **buf, char *b
 
 	rcf = NODE_NEXT(rcf);
       }
-  
+
     op->length = 1+2*i;
     *buf += 8 * op->length;
   }
@@ -235,6 +235,36 @@ radv_prepare_dnssl(struct radv_iface *ifa, list *dnssl_list, char **buf, char *b
   return -1;
 }
 
+static int
+radv_prepare_prefix(struct radv_iface *ifa, struct radv_prefix_config *pc,
+  struct ifa *addr, char **buf, char *bufend)
+{
+  struct radv_opt_prefix *op = (void *) *buf;
+
+  if (*buf + sizeof(*op) > bufend)
+  {
+    log(L_WARN "%s: Too many prefixes on interface %s", ifa->ra->p.name,
+      ifa->iface->name);
+    return -1;
+  }
+
+  op->type = OPT_PREFIX;
+  op->length = 4;
+  op->pxlen = addr->pxlen;
+  op->flags = (pc->onlink ? OPT_PX_ONLINK : 0) |
+    (pc->autonomous ? OPT_PX_AUTONOMOUS : 0);
+  op->valid_lifetime = (ifa->ra->active || !pc->valid_lifetime_sensitive) ?
+    htonl(pc->valid_lifetime) : 0;
+  op->preferred_lifetime = (ifa->ra->active || !pc->preferred_lifetime_sensitive) ?
+    htonl(pc->preferred_lifetime) : 0;
+  op->reserved = 0;
+  op->prefix = addr->prefix;
+  ipa_hton(op->prefix);
+  *buf += sizeof(*op);
+
+  return 0;
+}
+
 static void
 radv_prepare_ra(struct radv_iface *ifa)
 {
@@ -279,26 +309,8 @@ radv_prepare_ra(struct radv_iface *ifa)
     if (!pc || pc->skip)
       continue;
 
-    if (buf + sizeof(struct radv_opt_prefix) > bufend)
-    {
-      log(L_WARN "%s: Too many prefixes on interface %s", p->p.name, ifa->iface->name);
+    if (radv_prepare_prefix(ifa, pc, addr, &buf, bufend) < 0)
       goto done;
-    }
-
-    struct radv_opt_prefix *op = (void *) buf;
-    op->type = OPT_PREFIX;
-    op->length = 4;
-    op->pxlen = addr->pxlen;
-    op->flags = (pc->onlink ? OPT_PX_ONLINK : 0) |
-      (pc->autonomous ? OPT_PX_AUTONOMOUS : 0);
-    op->valid_lifetime = (p->active || !pc->valid_lifetime_sensitive) ?
-      htonl(pc->valid_lifetime) : 0;
-    op->preferred_lifetime = (p->active || !pc->preferred_lifetime_sensitive) ?
-      htonl(pc->preferred_lifetime) : 0;
-    op->reserved = 0;
-    op->prefix = addr->prefix;
-    ipa_hton(op->prefix);
-    buf += sizeof(*op);
   }
 
   if (! ic->rdnss_local)
