@@ -141,8 +141,8 @@ ifa_send_notify(struct proto *p, unsigned c, struct ifa *a)
   if (p->ifa_notify)
     {
       if (p->debug & D_IFACES)
-	log(L_TRACE "%s < %s address %I/%d on interface %s %s",
-	    p->name, (a->flags & IA_PRIMARY) ? "primary" : "non-primary",
+	log(L_TRACE "%s <%s address %I/%d on interface %s %s",
+	    p->name, (a->flags & IA_PRIMARY) ? " primary" : "",
 	    a->prefix, a->pxlen, a->iface->name,
 	    (c & IF_CHANGE_UP) ? "added" : "removed");
       p->ifa_notify(p, c, a);
