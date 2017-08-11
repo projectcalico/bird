@@ -51,6 +51,15 @@ radv_timer(timer *tm)
 
   RADV_TRACE(D_EVENTS, "Timer fired on %s", ifa->iface->name);
 
+  /* If some dead prefixes expired, regenerate the prefix list and the packet.
+   * We do so by pretending there was a change on the interface.
+   *
+   * This sets the timer, but we replace it just at the end of this function
+   * (replacing a timer is fine).
+   */
+  if (ifa->prefix_expires != 0 && ifa->prefix_expires <= now)
+    radv_iface_notify(ifa, RA_EV_GC);
+
   radv_send_ra(ifa, 0);
 
   /* Update timer */
@@ -67,7 +76,129 @@ radv_timer(timer *tm)
   tm_start(ifa->timer, after);
 }
 
-static char* ev_name[] = { NULL, "Init", "Change", "RS" };
+static struct radv_prefix_config default_prefix = {
+  .onlink = 1,
+  .autonomous = 1,
+  .valid_lifetime = DEFAULT_VALID_LIFETIME,
+  .preferred_lifetime = DEFAULT_PREFERRED_LIFETIME
+};
+
+static struct radv_prefix_config dead_prefix = {
+};
+
+/* Find a corresponding config for the given prefix */
+static struct radv_prefix_config *
+radv_prefix_match(struct radv_iface *ifa, struct ifa *a)
+{
+  struct radv_proto *p = ifa->ra;
+  struct radv_config *cf = (struct radv_config *) (p->p.cf);
+  struct radv_prefix_config *pc;
+
+  if (a->scope <= SCOPE_LINK)
+    return NULL;
+
+  WALK_LIST(pc, ifa->cf->pref_list)
+    if ((a->pxlen >= pc->pxlen) && ipa_in_net(a->prefix, pc->prefix, pc->pxlen))
+      return pc;
+
+  WALK_LIST(pc, cf->pref_list)
+    if ((a->pxlen >= pc->pxlen) && ipa_in_net(a->prefix, pc->prefix, pc->pxlen))
+      return pc;
+
+  return &default_prefix;
+}
+
+/*
+ * Go through the list of prefixes, compare them with configs and decide if we
+ * want them or not. */
+static void
+prefixes_prepare(struct radv_iface *ifa)
+{
+  struct radv_proto *p = ifa->ra;
+  /* First mark all the prefixes as unused */
+  struct radv_prefix *pfx;
+
+  WALK_LIST(pfx, ifa->prefixes)
+    pfx->mark = 0;
+
+  /* Now find all the prefixes we want to use and make sure they are in the
+   * list. */
+  struct ifa *addr;
+  WALK_LIST(addr, ifa->iface->addrs)
+  {
+    struct radv_prefix_config *pc = radv_prefix_match(ifa, addr);
+
+    if (!pc || pc->skip)
+      continue;
+
+    /* Do we have it already? */
+    struct radv_prefix *existing = NULL;
+    WALK_LIST(pfx, ifa->prefixes)
+      if (pfx->len == addr->pxlen &&
+	  memcmp(&pfx->prefix, &addr->prefix, sizeof pfx->prefix) == 0)
+      {
+	existing = pfx;
+	break;
+      }
+
+    if (!existing)
+    {
+      RADV_TRACE(D_EVENTS, "Allocating new prefix %I on %s", addr->prefix,
+		 ifa->iface->name);
+      existing = mb_allocz(ifa->pool, sizeof *existing);
+      existing->prefix = addr->prefix;
+      existing->len = addr->pxlen;
+      add_tail(&ifa->prefixes, NODE existing);
+    }
+    /*
+     * Update the information (it may have changed, or even bring a prefix back
+     * to life).
+     */
+    existing->alive = 1;
+    existing->mark = 1;
+    existing->config = pc;
+  }
+
+  /*
+   * Garbage-collect the prefixes. If something isn't used, it dies (but isn't
+   * dropped just yet). If something is dead and rots there for long enough,
+   * clean it up.
+   */
+  // XXX: Make these 5 minutes it configurable
+  bird_clock_t rotten = now + 300;
+  struct radv_prefix *next;
+  bird_clock_t expires_soonest = 0;
+  WALK_LIST_DELSAFE(pfx, next, ifa->prefixes) {
+    if (pfx->alive && !pfx->mark)
+    {
+      RADV_TRACE(D_EVENTS, "Marking prefix %I on %s as dead", pfx->prefix,
+		 ifa->iface->name);
+      // It just died
+      pfx->alive = 0;
+      pfx->expires = rotten;
+      pfx->config = &dead_prefix;
+    }
+    if (!pfx->alive)
+      if (pfx->expires <= now)
+      {
+	RADV_TRACE(D_EVENTS, "Dropping long dead prefix %I on %s", pfx->prefix,
+		   ifa->iface->name);
+	// It's dead and rotten, clean it up
+	rem_node(NODE pfx);
+	mb_free(pfx);
+      }
+      else
+      {
+	ASSERT(pfx->expires != 0);
+	// Let it rot for a while more, but look when it's ripe.
+	if (expires_soonest == 0 || pfx->expires < expires_soonest)
+	  expires_soonest = pfx->expires;
+      }
+  }
+  ifa->prefix_expires = expires_soonest;
+}
+
+static char* ev_name[] = { NULL, "Init", "Change", "RS", "Garbage collect" };
 
 void
 radv_iface_notify(struct radv_iface *ifa, int event)
@@ -82,6 +213,7 @@ radv_iface_notify(struct radv_iface *ifa, int event)
   switch (event)
   {
   case RA_EV_CHANGE:
+  case RA_EV_GC:
     ifa->plen = 0;
   case RA_EV_INIT:
     ifa->initial = MAX_INITIAL_RTR_ADVERTISEMENTS;
@@ -90,6 +222,8 @@ radv_iface_notify(struct radv_iface *ifa, int event)
   case RA_EV_RS:
     break;
   }
+
+  prefixes_prepare(ifa);
 
   /* Update timer */
   unsigned delta = now - ifa->last;
@@ -152,15 +286,17 @@ find_lladdr(struct iface *iface)
 static void
 radv_iface_new(struct radv_proto *p, struct iface *iface, struct radv_iface_config *cf)
 {
-  pool *pool = p->p.pool;
   struct radv_iface *ifa;
 
   RADV_TRACE(D_EVENTS, "Adding interface %s", iface->name);
 
+  pool *pool = rp_new(p->p.pool, iface->name);
   ifa = mb_allocz(pool, sizeof(struct radv_iface));
+  ifa->pool = pool;
   ifa->ra = p;
   ifa->cf = cf;
   ifa->iface = iface;
+  init_list(&ifa->prefixes);
 
   add_tail(&p->iface_list, NODE ifa);
 
@@ -198,11 +334,7 @@ radv_iface_remove(struct radv_iface *ifa)
 
   rem_node(NODE ifa);
 
-  rfree(ifa->sk);
-  rfree(ifa->timer);
-  rfree(ifa->lock);
-
-  mb_free(ifa);
+  rfree(ifa->pool);
 }
 
 static void

@@ -121,6 +121,23 @@ struct radv_proto
   u8 active;			/* Whether radv is active w.r.t. triggers */
 };
 
+struct radv_prefix		/* One prefix we advertise */
+{
+  node n;
+  ip_addr prefix;
+  u8 len;
+  /* Is the prefix alive? If not, we advertise it with 0 lifetime, so clients
+   * stop using it. */
+  u8 alive;
+  u8 mark;			/* A temporary mark for processing */
+  /* The (absolute) time when we drop this prefix from advertising. It is valid
+   * only if !alive. */
+  bird_clock_t expires;
+  /* The config tied to this prefix. Always valid (we place a dummy config here
+   * when !alive). */
+  struct radv_prefix_config *config;
+};
+
 struct radv_iface
 {
   node n;
@@ -128,6 +145,9 @@ struct radv_iface
   struct radv_iface_config *cf;	/* Related config, must be updated in reconfigure */
   struct iface *iface;
   struct ifa *addr;		/* Link-local address of iface */
+  struct pool *pool;		/* A pool for interface-specific things */
+  list prefixes;		/* The prefixes we advertise */
+  bird_clock_t prefix_expires;	/* When the soonest prefix expires (0 = none dead) */
 
   timer *timer;
   struct object_lock *lock;
@@ -135,12 +155,13 @@ struct radv_iface
 
   bird_clock_t last;		/* Time of last sending of RA */
   u16 plen;			/* Length of prepared RA in tbuf, or 0 if not valid */
-  byte initial;			/* List of active ifaces */
+  byte initial;			/* How many RAs are still to be sent as initial */
 };
 
 #define RA_EV_INIT 1		/* Switch to initial mode */
 #define RA_EV_CHANGE 2		/* Change of options or prefixes */
 #define RA_EV_RS 3		/* Received RS */
+#define RA_EV_GC 4		/* Internal garbage collection of prefixes */
 
 /* Default Router Preferences (RFC 4191) */
 #define RA_PREF_LOW	0x18
