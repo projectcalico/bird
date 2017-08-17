@@ -115,6 +115,7 @@ static void
 prefixes_prepare(struct radv_iface *ifa)
 {
   struct radv_proto *p = ifa->ra;
+  struct radv_iface_config *cf = ifa->cf;
   /* First mark all the prefixes as unused */
   struct radv_prefix *pfx;
 
@@ -164,8 +165,7 @@ prefixes_prepare(struct radv_iface *ifa)
    * dropped just yet). If something is dead and rots there for long enough,
    * clean it up.
    */
-  // XXX: Make these 5 minutes it configurable
-  bird_clock_t rotten = now + 300;
+  bird_clock_t rotten = now + cf->linger_time;
   struct radv_prefix *next;
   bird_clock_t expires_soonest = 0;
   WALK_LIST_DELSAFE(pfx, next, ifa->prefixes) {

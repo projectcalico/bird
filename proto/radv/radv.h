@@ -35,6 +35,7 @@
 #define DEFAULT_MAX_RA_INT 600
 #define DEFAULT_MIN_DELAY 3
 #define DEFAULT_CURRENT_HOP_LIMIT 64
+#define DEFAULT_LINGER_TIME 300
 
 #define DEFAULT_VALID_LIFETIME 86400
 #define DEFAULT_PREFERRED_LIFETIME 14400
@@ -66,6 +67,9 @@ struct radv_iface_config
   u32 max_ra_int;
   u32 min_delay;
 
+  u32 linger_time;		/* How long a dead prefix should still be advertised with 0
+				   lifetime */
+
   u8 rdnss_local;		/* Global list is not used for RDNSS */
   u8 dnssl_local;		/* Global list is not used for DNSSL */
 
@@ -77,7 +81,7 @@ struct radv_iface_config
   u32 current_hop_limit;
   u32 default_lifetime;
   u8 default_lifetime_sensitive; /* Whether default_lifetime depends on trigger */
-  u8 default_preference;	/* Default Router Preference (RFC 4191) */
+  u8 default_preference;	 /* Default Router Preference (RFC 4191) */
 };
 
 struct radv_prefix_config
