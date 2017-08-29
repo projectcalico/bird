@@ -130,16 +130,12 @@ struct radv_prefix		/* One prefix we advertise */
   node n;
   ip_addr prefix;
   u8 len;
-  /* Is the prefix alive? If not, we advertise it with 0 lifetime, so clients
-   * stop using it. */
-  u8 alive;
+  u8 alive;			/* Is the prefix alive? If not, we advertise it
+				   with 0 lifetime, so clients stop using it */
   u8 mark;			/* A temporary mark for processing */
-  /* The (absolute) time when we drop this prefix from advertising. It is valid
-   * only if !alive. */
-  bird_clock_t expires;
-  /* The config tied to this prefix. Always valid (we place a dummy config here
-   * when !alive). */
-  struct radv_prefix_config *config;
+  bird_clock_t expires;		/* The time when we drop this prefix from
+				   advertising. It is valid only if !alive. */
+  struct radv_prefix_config *cf; /* The config tied to this prefix */
 };
 
 struct radv_iface
@@ -150,7 +146,7 @@ struct radv_iface
   struct iface *iface;
   struct ifa *addr;		/* Link-local address of iface */
   struct pool *pool;		/* A pool for interface-specific things */
-  list prefixes;		/* The prefixes we advertise */
+  list prefixes;		/* The prefixes we advertise (struct radv_prefix) */
   bird_clock_t prefix_expires;	/* When the soonest prefix expires (0 = none dead) */
 
   timer *timer;

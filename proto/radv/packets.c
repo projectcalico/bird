@@ -209,16 +209,16 @@ static int
 radv_prepare_prefix(struct radv_iface *ifa, struct radv_prefix *prefix,
 		    char **buf, char *bufend)
 {
-  struct radv_prefix_config *pc = prefix->config;
-  struct radv_opt_prefix *op = (void *) *buf;
+  struct radv_prefix_config *pc = prefix->cf;
 
-  if (*buf + sizeof(*op) > bufend)
+  if (*buf + sizeof(struct radv_opt_prefix) > bufend)
   {
-    log(L_WARN "%s: Too many prefixes on interface %s", ifa->ra->p.name,
-      ifa->iface->name);
+    log(L_WARN "%s: Too many prefixes on interface %s",
+	ifa->ra->p.name, ifa->iface->name);
     return -1;
   }
 
+  struct radv_opt_prefix *op = (void *) *buf;
   op->type = OPT_PREFIX;
   op->length = 4;
   op->pxlen = prefix->len;
