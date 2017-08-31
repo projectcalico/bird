@@ -30,7 +30,10 @@ CF_KEYWORDS(RADV, PREFIX, INTERFACE, MIN, MAX, RA, DELAY, INTERVAL,
 	MANAGED, OTHER, CONFIG, LINGER, LINK, MTU, REACHABLE, TIME, RETRANS,
 	TIMER, CURRENT, HOP, LIMIT, DEFAULT, VALID, PREFERRED, MULT,
 	LIFETIME, SKIP, ONLINK, AUTONOMOUS, RDNSS, DNSSL, NS, DOMAIN,
-	LOCAL, TRIGGER, SENSITIVE, PREFERENCE, LOW, MEDIUM, HIGH)
+	LOCAL, TRIGGER, SENSITIVE, PREFERENCE, LOW, MEDIUM, HIGH, PROPAGATE,
+	ROUTE, ROUTES, RA_PREFERENCE, RA_LIFETIME)
+
+CF_ENUM(T_ENUM_RA_PREFERENCE, RA_PREF_, LOW, MEDIUM, HIGH)
 
 %type<i> radv_mult radv_sensitive radv_preference
 
@@ -45,6 +48,8 @@ radv_proto_start: proto_start RADV
   init_list(&RADV_CFG->pref_list);
   init_list(&RADV_CFG->rdnss_list);
   init_list(&RADV_CFG->dnssl_list);
+  RADV_CFG->route_lifetime = DEFAULT_VALID_LIFETIME;
+  RADV_CFG->route_linger_time = DEFAULT_LINGER_TIME;
 };
 
 radv_proto_item:
@@ -57,6 +62,16 @@ radv_proto_item:
      RADV_CFG->trigger_prefix = $2.addr;
      RADV_CFG->trigger_pxlen = $2.len;
      RADV_CFG->trigger_valid = 1;
+   }
+ | PROPAGATE ROUTES bool { RADV_CFG->propagate_routes = $3; }
+ | ROUTE LIFETIME expr radv_sensitive {
+     RADV_CFG->route_lifetime = $3;
+     if ($4 != -1) RADV_CFG->route_lifetime_sensitive = $4;
+   }
+ | ROUTE LINGER TIME expr {
+     RADV_CFG->route_linger_time = $4;
+     if (($4 < 0) || ($4 > 3600))
+       cf_error("Linger time must be in range 0-3600");
    }
  ;
 
@@ -168,12 +183,10 @@ radv_prefix_item:
  | AUTONOMOUS bool { RADV_PREFIX->autonomous = $2; }
  | VALID LIFETIME expr radv_sensitive {
      RADV_PREFIX->valid_lifetime = $3;
-     if ($3 < 0) cf_error("Valid lifetime must be 0 or positive");
      if ($4 != -1) RADV_PREFIX->valid_lifetime_sensitive = $4;
    }
  | PREFERRED LIFETIME expr radv_sensitive {
      RADV_PREFIX->preferred_lifetime = $3;
-     if ($3 < 0) cf_error("Preferred lifetime must be 0 or positive");
      if ($4 != -1) RADV_PREFIX->preferred_lifetime_sensitive = $4;
    }
  ;
@@ -302,6 +315,9 @@ radv_sensitive:
    /* empty */ { $$ = -1; }
  | SENSITIVE bool { $$ = $2; }
  ;
+
+CF_ADDTO(dynamic_attr, RA_PREFERENCE { $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_ENUM_RA_PREFERENCE, EA_RA_PREFERENCE); })
+CF_ADDTO(dynamic_attr, RA_LIFETIME { $$ = f_new_dynamic_attr(EAF_TYPE_INT, T_INT, EA_RA_LIFETIME); })
 
 CF_CODE
 

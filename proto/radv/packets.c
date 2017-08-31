@@ -26,6 +26,7 @@ struct radv_ra_packet
 
 #define OPT_PREFIX	3
 #define OPT_MTU		5
+#define OPT_ROUTE	24
 #define OPT_RDNSS	25
 #define OPT_DNSSL	31
 
@@ -52,6 +53,15 @@ struct radv_opt_mtu
   u32 mtu;
 };
 
+struct radv_opt_route {
+  u8 type;
+  u8 length;
+  u8 pxlen;
+  u8 flags;
+  u32 lifetime;
+  u8 prefix[];
+};
+
 struct radv_opt_rdnss
 {
   u8 type;
@@ -69,6 +79,41 @@ struct radv_opt_dnssl
   u32 lifetime;
   char domain[];
 };
+
+static int
+radv_prepare_route(struct radv_iface *ifa, struct radv_route *rt,
+		   char **buf, char *bufend)
+{
+  struct radv_proto *p = ifa->ra;
+  struct radv_config *cf = (void *) p->p.cf;
+  u8 px_blocks = (rt->n.pxlen + 63) / 64;
+  u8 opt_len = 8 * (1 + px_blocks);
+
+  if (*buf + opt_len > bufend)
+  {
+    log(L_WARN, "%s: Too many RA options on interface %s",
+	p->p.name, ifa->iface->name);
+    return -1;
+  }
+
+  struct radv_opt_route *opt = (void *) *buf;
+  *buf += opt_len;
+  opt->type = OPT_ROUTE;
+  opt->length = 1 + px_blocks;
+  opt->pxlen = rt->n.pxlen;
+  opt->flags = rt->preference;
+
+  if (p->valid && (p->active || !cf->route_lifetime_sensitive) && rt->alive)
+    opt->lifetime = htonl(rt->lifetime_set ? rt->lifetime : cf->route_lifetime);
+  else
+    opt->lifetime = 0;
+
+  /* Copy the relevant part of the prefix */
+  ip6_addr px_addr = ip6_hton(rt->n.prefix);
+  memcpy(opt->prefix, &px_addr, 8 * px_blocks);
+
+  return 0;
+}
 
 static int
 radv_prepare_rdnss(struct radv_iface *ifa, list *rdnss_list, char **buf, char *bufend)
@@ -252,7 +297,7 @@ radv_prepare_ra(struct radv_iface *ifa)
   pkt->code = 0;
   pkt->checksum = 0;
   pkt->current_hop_limit = ic->current_hop_limit;
-  pkt->router_lifetime = (p->active || !ic->default_lifetime_sensitive) ?
+  pkt->router_lifetime = (p->valid && (p->active || !ic->default_lifetime_sensitive)) ?
     htons(ic->default_lifetime) : 0;
   pkt->flags = (ic->managed ? OPT_RA_MANAGED : 0) |
     (ic->other_config ? OPT_RA_OTHER_CFG : 0) |
@@ -292,32 +337,29 @@ radv_prepare_ra(struct radv_iface *ifa)
   if (radv_prepare_dnssl(ifa, &ic->dnssl_list, &buf, bufend) < 0)
     goto done;
 
+  if (p->fib_up)
+  {
+    FIB_WALK(&p->routes, rt)
+    {
+      if (radv_prepare_route(ifa, (struct radv_route *) rt, &buf, bufend) < 0)
+	goto done;
+    }
+    FIB_WALK_END;
+  }
+
  done:
   ifa->plen = buf - bufstart;
 }
 
 
 void
-radv_send_ra(struct radv_iface *ifa, int shutdown)
+radv_send_ra(struct radv_iface *ifa)
 {
   struct radv_proto *p = ifa->ra;
 
   /* We store prepared RA in tbuf */
   if (!ifa->plen)
     radv_prepare_ra(ifa);
-
-  if (shutdown)
-  {
-    /*
-     * Modify router lifetime to 0, it is not restored because we suppose that
-     * the iface will be removed. The preference value also has to be zeroed.
-     * (RFC 4191 2.2: If router lifetime is 0, the preference value must be 0.)
-     */
-
-    struct radv_ra_packet *pkt = (void *) ifa->sk->tbuf;
-    pkt->router_lifetime = 0;
-    pkt->flags &= ~RA_PREF_MASK;
-  }
 
   RADV_TRACE(D_PACKETS, "Sending RA via %s", ifa->iface->name);
   sk_send_to(ifa->sk, ifa->plen, IP6_ALL_NODES, 0);

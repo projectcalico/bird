@@ -12,36 +12,40 @@
 /**
  * DOC: Router Advertisements
  *
- * The RAdv protocol is implemented in two files: |radv.c| containing
- * the interface with BIRD core and the protocol logic and |packets.c|
- * handling low level protocol stuff (RX, TX and packet formats).
- * The protocol does not export any routes.
+ * The RAdv protocol is implemented in two files: |radv.c| containing the
+ * interface with BIRD core and the protocol logic and |packets.c| handling low
+ * level protocol stuff (RX, TX and packet formats). The protocol does not
+ * export any routes.
  *
- * The RAdv is structured in the usual way - for each handled interface
- * there is a structure &radv_iface that contains a state related to
- * that interface together with its resources (a socket, a timer).
- * There is also a prepared RA stored in a TX buffer of the socket
- * associated with an iface. These iface structures are created
- * and removed according to iface events from BIRD core handled by
- * radv_if_notify() callback.
+ * The RAdv is structured in the usual way - for each handled interface there is
+ * a structure &radv_iface that contains a state related to that interface
+ * together with its resources (a socket, a timer). There is also a prepared RA
+ * stored in a TX buffer of the socket associated with an iface. These iface
+ * structures are created and removed according to iface events from BIRD core
+ * handled by radv_if_notify() callback.
  *
- * The main logic of RAdv consists of two functions:
- * radv_iface_notify(), which processes asynchronous events (specified
- * by RA_EV_* codes), and radv_timer(), which triggers sending RAs and
- * computes the next timeout.
+ * The main logic of RAdv consists of two functions: radv_iface_notify(), which
+ * processes asynchronous events (specified by RA_EV_* codes), and radv_timer(),
+ * which triggers sending RAs and computes the next timeout.
  *
- * The RAdv protocol could receive routes (through
- * radv_import_control() and radv_rt_notify()), but only the
- * configured trigger route is tracked (in &active var).  When a radv
- * protocol is reconfigured, the connected routing table is examined
- * (in radv_check_active()) to have proper &active value in case of
- * the specified trigger prefix was changed.
+ * The RAdv protocol could receive routes (through radv_import_control() and
+ * radv_rt_notify()), but only the configured trigger route is tracked (in
+ * &active var).  When a radv protocol is reconfigured, the connected routing
+ * table is examined (in radv_check_active()) to have proper &active value in
+ * case of the specified trigger prefix was changed.
  *
  * Supported standards:
  * - RFC 4861 - main RA standard
+ * - RFC 4191 - Default Router Preferences and More-Specific Routes
  * - RFC 6106 - DNS extensions (RDDNS, DNSSL)
- * - RFC 4191 (partial) - Default Router Preference
  */
+
+static void radv_prune_prefixes(struct radv_iface *ifa);
+static void radv_prune_routes(struct radv_proto *p);
+
+/* Invalidate cached RA packet */
+static inline void radv_invalidate(struct radv_iface *ifa)
+{ ifa->plen = 0; }
 
 static void
 radv_timer(timer *tm)
@@ -51,17 +55,13 @@ radv_timer(timer *tm)
 
   RADV_TRACE(D_EVENTS, "Timer fired on %s", ifa->iface->name);
 
-  /*
-   * If some dead prefixes expired, regenerate the prefix list and the packet.
-   * We do so by pretending there was a change on the interface.
-   *
-   * This sets the timer, but we replace it just at the end of this function
-   * (replacing a timer is fine).
-   */
-  if (ifa->prefix_expires && (ifa->prefix_expires <= now))
-    radv_iface_notify(ifa, RA_EV_GC);
+  if (ifa->prune_time <= now)
+    radv_prune_prefixes(ifa);
 
-  radv_send_ra(ifa, 0);
+  if (p->prune_time <= now)
+    radv_prune_routes(p);
+
+  radv_send_ra(ifa);
 
   /* Update timer */
   ifa->last = now;
@@ -118,7 +118,7 @@ radv_prepare_prefixes(struct radv_iface *ifa)
 {
   struct radv_proto *p = ifa->ra;
   struct radv_iface_config *cf = ifa->cf;
-  struct radv_prefix *pfx;
+  struct radv_prefix *pfx, *next;
 
   /* First mark all the prefixes as unused */
   WALK_LIST(pfx, ifa->prefixes)
@@ -162,49 +162,53 @@ radv_prepare_prefixes(struct radv_iface *ifa)
     existing->cf = pc;
   }
 
-  /*
-   * Garbage-collect the prefixes. If something isn't used, it dies (but isn't
-   * dropped just yet). If something is dead and rots there for long enough,
-   * clean it up.
-   */
-  bird_clock_t expires = now + cf->linger_time;
-  bird_clock_t expires_min = 0;
-  struct radv_prefix *next;
   WALK_LIST_DELSAFE(pfx, next, ifa->prefixes)
   {
     if (pfx->alive && !pfx->mark)
     {
-      RADV_TRACE(D_EVENTS, "Marking prefix %I/$d on %s as dead",
+      RADV_TRACE(D_EVENTS, "Invalidating prefix %I/$d on %s",
 		 pfx->prefix, pfx->len, ifa->iface->name);
 
       pfx->alive = 0;
-      pfx->expires = expires;
+      pfx->expires = now + cf->linger_time;
       pfx->cf = &dead_prefix;
     }
+  }
+}
 
-    if (!pfx->alive)
+static void
+radv_prune_prefixes(struct radv_iface *ifa)
+{
+  struct radv_proto *p = ifa->ra;
+  bird_clock_t next = TIME_INFINITY;
+  int changed = 0;
+
+  struct radv_prefix *px, *pxn;
+  WALK_LIST_DELSAFE(px, pxn, ifa->prefixes)
+  {
+    if (!px->alive)
     {
-      if (pfx->expires <= now)
+      if (px->expires <= now)
       {
 	RADV_TRACE(D_EVENTS, "Removing prefix %I/%d on %s",
-		   pfx->prefix, pfx->len, ifa->iface->name);
+		   px->prefix, px->len, ifa->iface->name);
 
-	rem_node(NODE pfx);
-	mb_free(pfx);
+	rem_node(NODE px);
+	mb_free(px);
+	changed = 1;
       }
       else
-      {
-	/* Find minimum expiration time */
-	if (!expires_min || (pfx->expires < expires_min))
-	  expires_min = pfx->expires;
-      }
+	next = MIN(next, px->expires);
     }
   }
 
-  ifa->prefix_expires = expires_min;
+  if (changed)
+    radv_invalidate(ifa);
+
+  ifa->prune_time = next;
 }
 
-static char* ev_name[] = { NULL, "Init", "Change", "RS", "Garbage collect" };
+static char* ev_name[] = { NULL, "Init", "Change", "RS" };
 
 void
 radv_iface_notify(struct radv_iface *ifa, int event)
@@ -219,17 +223,16 @@ radv_iface_notify(struct radv_iface *ifa, int event)
   switch (event)
   {
   case RA_EV_CHANGE:
-  case RA_EV_GC:
-    ifa->plen = 0;
+    radv_invalidate(ifa);
   case RA_EV_INIT:
     ifa->initial = MAX_INITIAL_RTR_ADVERTISEMENTS;
+    radv_prepare_prefixes(ifa);
+    radv_prune_prefixes(ifa);
     break;
 
   case RA_EV_RS:
     break;
   }
-
-  radv_prepare_prefixes(ifa);
 
   /* Update timer */
   unsigned delta = now - ifa->last;
@@ -249,7 +252,6 @@ radv_iface_notify_all(struct radv_proto *p, int event)
   WALK_LIST(ifa, p->iface_list)
     radv_iface_notify(ifa, event);
 }
-
 
 static struct radv_iface *
 radv_iface_find(struct radv_proto *p, struct iface *what)
@@ -303,6 +305,7 @@ radv_iface_new(struct radv_proto *p, struct iface *iface, struct radv_iface_conf
   ifa->cf = cf;
   ifa->iface = iface;
   init_list(&ifa->prefixes);
+  ifa->prune_time = TIME_INFINITY;
 
   add_tail(&p->iface_list, NODE ifa);
 
@@ -409,14 +412,18 @@ radv_import_control(struct proto *P, rte **new, ea_list **attrs UNUSED, struct l
   if (radv_net_match_trigger(cf, (*new)->net))
     return RIC_PROCESS;
 
-  return RIC_DROP;
+  if (cf->propagate_routes)
+    return RIC_PROCESS;
+  else
+    return RIC_DROP;
 }
 
 static void
-radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old UNUSED, ea_list *attrs UNUSED)
+radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old UNUSED, ea_list *attrs)
 {
   struct radv_proto *p = (struct radv_proto *) P;
   struct radv_config *cf = (struct radv_config *) (P->cf);
+  struct radv_route *rt;
 
   if (radv_net_match_trigger(cf, n))
   {
@@ -432,7 +439,117 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
       RADV_TRACE(D_EVENTS, "Suppressed");
 
     radv_iface_notify_all(p, RA_EV_CHANGE);
+    return;
   }
+
+  if (!cf->propagate_routes)
+    return;
+
+  /*
+   * Some other route we want to send (or stop sending). Update the cache,
+   * with marking a removed one as dead or creating a new one as needed.
+   *
+   * And yes, we exclude the trigger route on purpose.
+   */
+
+  if (new)
+  {
+    /* Update */
+    uint preference = ea_get_int(attrs, EA_RA_PREFERENCE, RA_PREF_MEDIUM);
+    uint lifetime = ea_get_int(attrs, EA_RA_LIFETIME, 0);
+    uint lifetime_set = !!ea_find(attrs, EA_RA_LIFETIME);
+
+    if ((preference != RA_PREF_LOW) &&
+	(preference != RA_PREF_MEDIUM) &&
+	(preference != RA_PREF_HIGH))
+    {
+      log(L_WARN "%s: Invalid ra_preference value %u on route %I/%d",
+	  p->p.name, preference, n->n.prefix, n->n.pxlen);
+      preference = RA_PREF_MEDIUM;
+      lifetime = 0;
+      lifetime_set = 1;
+    }
+
+    rt = fib_get(&p->routes, &n->n.prefix, n->n.pxlen);
+
+    /* Ignore update if nothing changed */
+    if (rt->alive &&
+	(rt->preference == preference) &&
+	(rt->lifetime == lifetime) &&
+	(rt->lifetime_set == lifetime_set))
+      return;
+
+    if (p->routes.entries == 18)
+      log(L_WARN "%s: More than 17 routes exported to RAdv", p->p.name);
+
+    rt->alive = 1;
+    rt->preference = preference;
+    rt->lifetime = lifetime;
+    rt->lifetime_set = lifetime_set;
+  }
+  else
+  {
+    /* Withdraw */
+    rt = fib_find(&p->routes, &n->n.prefix, n->n.pxlen);
+
+    if (!rt || !rt->alive)
+      return;
+
+    /* Invalidate the route */
+    rt->alive = 0;
+    rt->expires = now + cf->route_linger_time;
+    p->prune_time = MIN(p->prune_time, rt->expires);
+  }
+
+  radv_iface_notify_all(p, RA_EV_CHANGE);
+}
+
+/*
+ * Cleans up all the dead routes that expired and schedules itself to be run
+ * again if there are more routes waiting for expiration.
+ */
+static void
+radv_prune_routes(struct radv_proto *p)
+{
+  bird_clock_t next = TIME_INFINITY;
+  int changed = 0;
+
+  /* Should not happen */
+  if (!p->fib_up)
+    return;
+
+  struct fib_iterator fit;
+  FIB_ITERATE_INIT(&fit, &p->routes);
+
+again:
+  FIB_ITERATE_START(&p->routes, &fit, node)
+  {
+    struct radv_route *rt = (void *) node;
+
+    if (!rt->alive)
+    {
+      /* Delete expired nodes */
+      if (rt->expires <= now)
+      {
+	FIB_ITERATE_PUT(&fit, node);
+	fib_delete(&p->routes, node);
+	changed = 1;
+	goto again;
+      }
+      else
+	next = MIN(next, rt->expires);
+    }
+  }
+  FIB_ITERATE_END(node);
+
+  if (changed)
+  {
+    struct radv_iface *ifa;
+    WALK_LIST(ifa, p->iface_list)
+      radv_invalidate(ifa);
+  }
+
+  p->prune_time = next;
 }
 
 static int
@@ -461,6 +578,21 @@ radv_init(struct proto_config *c)
   return P;
 }
 
+static void
+radv_set_fib(struct radv_proto *p, int up)
+{
+  if (up == p->fib_up)
+    return;
+
+  if (up)
+    fib_init(&p->routes, p->p.pool, sizeof(struct radv_route), 4, NULL);
+  else
+    fib_free(&p->routes);
+
+  p->fib_up = up;
+  p->prune_time = TIME_INFINITY;
+}
+
 static int
 radv_start(struct proto *P)
 {
@@ -468,7 +600,12 @@ radv_start(struct proto *P)
   struct radv_config *cf = (struct radv_config *) (P->cf);
 
   init_list(&(p->iface_list));
+  p->valid = 1;
   p->active = !cf->trigger_valid;
+
+  p->fib_up = 0;
+  radv_set_fib(p, cf->propagate_routes);
+  p->prune_time = TIME_INFINITY;
 
   return PS_UP;
 }
@@ -477,13 +614,18 @@ static inline void
 radv_iface_shutdown(struct radv_iface *ifa)
 {
   if (ifa->sk)
-    radv_send_ra(ifa, 1);
+  {
+    radv_invalidate(ifa);
+    radv_send_ra(ifa);
+  }
 }
 
 static int
 radv_shutdown(struct proto *P)
 {
   struct radv_proto *p = (struct radv_proto *) P;
+
+  p->valid = 0;
 
   struct radv_iface *ifa;
   WALK_LIST(ifa, p->iface_list)
@@ -496,19 +638,18 @@ static int
 radv_reconfigure(struct proto *P, struct proto_config *c)
 {
   struct radv_proto *p = (struct radv_proto *) P;
-  // struct radv_config *old = (struct radv_config *) (p->cf);
+  struct radv_config *old = (struct radv_config *) (P->cf);
   struct radv_config *new = (struct radv_config *) c;
-
-  /*
-   * The question is why there is a reconfigure function for RAdv if
-   * it has almost none internal state so restarting the protocol
-   * would probably suffice. One small reason is that restarting the
-   * protocol would lead to sending a RA with Router Lifetime 0
-   * causing nodes to temporary remove their default routes.
-   */
 
   P->cf = c; /* radv_check_active() requires proper P->cf */
   p->active = radv_check_active(p);
+
+  /* Allocate or free FIB */
+  radv_set_fib(p, new->propagate_routes);
+
+  /* We started to accept routes so we need to refeed them */
+  if (!old->propagate_routes && new->propagate_routes)
+    proto_request_feeding(&p->p);
 
   struct iface *iface;
   WALK_LIST(iface, iface_list)
@@ -561,14 +702,49 @@ radv_get_status(struct proto *P, byte *buf)
     strcpy(buf, "Suppressed");
 }
 
+static const char *
+radv_pref_str(u32 pref)
+{
+  switch (pref)
+  {
+    case RA_PREF_LOW:
+      return "low";
+    case RA_PREF_MEDIUM:
+      return "medium";
+    case RA_PREF_HIGH:
+      return "high";
+    default:
+      return "??";
+  }
+}
+
+/* The buffer has some minimal size */
+static int
+radv_get_attr(eattr *a, byte *buf, int buflen UNUSED)
+{
+  switch (a->id)
+  {
+  case EA_RA_PREFERENCE:
+    bsprintf(buf, "preference: %s", radv_pref_str(a->u.data));
+    return GA_FULL;
+  case EA_RA_LIFETIME:
+    bsprintf(buf, "lifetime");
+    return GA_NAME;
+  default:
+    return GA_UNKNOWN;
+  }
+}
+
 struct protocol proto_radv = {
   .name =		"RAdv",
   .template =		"radv%d",
+  .attr_class =		EAP_RADV,
   .config_size =	sizeof(struct radv_config),
   .init =		radv_init,
   .start =		radv_start,
   .shutdown =		radv_shutdown,
   .reconfigure =	radv_reconfigure,
   .copy_config =	radv_copy_config,
-  .get_status =		radv_get_status
+  .get_status =		radv_get_status,
+  .get_attr =		radv_get_attr
 };
