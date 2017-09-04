@@ -59,22 +59,26 @@
 /*
  * Structure nl_parse_state keeps state of received route processing. Ideally,
  * we could just independently parse received Netlink messages and immediately
- * propagate received routes to the rest of BIRD, but Linux kernel represents
- * and announces IPv6 ECMP routes not as one route with multiple next hops (like
- * RTA_MULTIPATH in IPv4 ECMP), but as a set of routes with the same prefix.
+ * propagate received routes to the rest of BIRD, but older Linux kernel (before
+ * version 4.11) represents and announces IPv6 ECMP routes not as one route with
+ * multiple next hops (like RTA_MULTIPATH in IPv4 ECMP), but as a sequence of
+ * routes with the same prefix. More recent kernels work as with IPv4.
  *
  * Therefore, BIRD keeps currently processed route in nl_parse_state structure
  * and postpones its propagation until we expect it to be final; i.e., when
  * non-matching route is received or when the scan ends. When another matching
  * route is received, it is merged with the already processed route to form an
  * ECMP route. Note that merging is done only for IPv6 (merge == 1), but the
- * postponing is done in both cases (for simplicity). All IPv4 routes are just
- * considered non-matching.
+ * postponing is done in both cases (for simplicity). All IPv4 routes or IPv6
+ * routes with RTA_MULTIPATH set are just considered non-matching.
  *
  * This is ignored for asynchronous notifications (every notification is handled
  * as a separate route). It is not an issue for our routes, as we ignore such
  * notifications anyways. But importing alien IPv6 ECMP routes does not work
- * properly.
+ * properly with older kernels.
+ *
+ * Whatever the kernel version is, IPv6 ECMP routes are sent as multiple routes
+ * for the same prefix.
  */
 
 struct nl_parse_state
@@ -320,9 +324,15 @@ static struct nl_want_attrs ifa_attr_want6[BIRD_IFA_MAX] = {
 
 #define BIRD_RTA_MAX  (RTA_TABLE+1)
 
+#ifndef IPV6
 static struct nl_want_attrs mpnh_attr_want4[BIRD_RTA_MAX] = {
   [RTA_GATEWAY]	  = { 1, 1, sizeof(ip4_addr) },
 };
+#else
+static struct nl_want_attrs mpnh_attr_want6[BIRD_RTA_MAX] = {
+  [RTA_GATEWAY]	  = { 1, 1, sizeof(ip6_addr) },
+};
+#endif
 
 #ifndef IPV6
 static struct nl_want_attrs rtm_attr_want4[BIRD_RTA_MAX] = {
@@ -345,6 +355,7 @@ static struct nl_want_attrs rtm_attr_want6[BIRD_RTA_MAX] = {
   [RTA_PRIORITY]  = { 1, 1, sizeof(u32) },
   [RTA_PREFSRC]	  = { 1, 1, sizeof(ip6_addr) },
   [RTA_METRICS]	  = { 1, 0, 0 },
+  [RTA_MULTIPATH] = { 1, 0, 0 },
   [RTA_FLOW]	  = { 1, 1, sizeof(u32) },
   [RTA_TABLE]	  = { 1, 1, sizeof(u32) },
 };
@@ -477,7 +488,7 @@ nl_add_multipath(struct nlmsghdr *h, unsigned bufsize, struct mpnh *nh)
 }
 
 static struct mpnh *
-nl_parse_multipath(struct krt_proto *p, struct rtattr *ra)
+nl_parse_multipath(struct krt_proto *p, struct rtattr *ra, int af)
 {
   /* Temporary buffer for multicast nexthops */
   static struct mpnh *nh_buffer;
@@ -515,10 +526,26 @@ nl_parse_multipath(struct krt_proto *p, struct rtattr *ra)
 
       /* Nonexistent RTNH_PAYLOAD ?? */
       nl_attr_len = nh->rtnh_len - RTNH_LENGTH(0);
-      nl_parse_attrs(RTNH_DATA(nh), mpnh_attr_want4, a, sizeof(a));
+      switch (af)
+        {
+#ifndef IPV6
+	case AF_INET:
+	  if (!nl_parse_attrs(RTNH_DATA(nh), mpnh_attr_want4, a, sizeof(a)))
+	    return NULL;
+	  break;
+#else
+	case AF_INET6:
+	  if (!nl_parse_attrs(RTNH_DATA(nh), mpnh_attr_want6, a, sizeof(a)))
+	    return NULL;
+	  break;
+#endif
+	default:
+	  return NULL;
+	}
+
       if (a[RTA_GATEWAY])
 	{
-	  memcpy(&rv->gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(ip_addr));
+	  memcpy(&rv->gw, RTA_DATA(a[RTA_GATEWAY]), sizeof(rv->gw));
 	  ipa_ntoh(rv->gw);
 
 	  neighbor *ng = neigh_find2(&p->p, &rv->gw, rv->iface,
@@ -1240,10 +1267,10 @@ nl_parse_route(struct nl_parse_state *s, struct nlmsghdr *h)
     {
     case RTN_UNICAST:
 
-      if (a[RTA_MULTIPATH] && (i->rtm_family == AF_INET))
+      if (a[RTA_MULTIPATH])
 	{
 	  ra->dest = RTD_MULTIPATH;
-	  ra->nexthops = nl_parse_multipath(p, a[RTA_MULTIPATH]);
+	  ra->nexthops = nl_parse_multipath(p, a[RTA_MULTIPATH], i->rtm_family);
 	  if (!ra->nexthops)
 	    {
 	      log(L_ERR "KRT: Received strange multipath route %I/%d",
@@ -1385,8 +1412,10 @@ nl_parse_route(struct nl_parse_state *s, struct nlmsghdr *h)
 
   /*
    * Ideally, now we would send the received route to the rest of kernel code.
-   * But IPv6 ECMP routes are sent as a sequence of routes, so we postpone it
-   * and merge next hops until the end of the sequence.
+   * But IPv6 ECMP routes before 4.11 are sent as a sequence of routes, so we
+   * postpone it and merge next hops until the end of the sequence. Note that
+   * proper multipath updates are rejected by nl_mergable_route(), so it is
+   * always the first case for them.
    */
 
   if (!s->net)
