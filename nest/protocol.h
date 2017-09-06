@@ -94,6 +94,7 @@ struct proto_config {
   unsigned preference, disabled;	/* Generic parameters */
   int in_keep_filtered;			/* Routes rejected in import filter are kept */
   u32 router_id;			/* Protocol specific router ID */
+  struct iface *vrf;			/* Related VRF instance, NULL if global */
   struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
   struct proto_limit *rx_limit;		/* Limit for receiving routes from protocol
@@ -213,6 +214,7 @@ struct proto {
   void (*rte_insert)(struct network *, struct rte *);
   void (*rte_remove)(struct network *, struct rte *);
 
+  struct iface *vrf;			/* Related VRF instance, NULL if global */
   struct rtable *table;			/* Our primary routing table */
   struct rte_src *main_source;		/* Primary route source */
   struct announce_hook *main_ahook;	/* Primary announcement hook */

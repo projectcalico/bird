@@ -739,6 +739,7 @@ rip_open_socket(struct rip_iface *ifa)
   sk->sport = ifa->cf->port;
   sk->dport = ifa->cf->port;
   sk->iface = ifa->iface;
+  sk->vrf = p->p.vrf;
 
   /*
    * For RIPv2, we explicitly choose a primary address, mainly to ensure that

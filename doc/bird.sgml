@@ -598,6 +598,15 @@ agreement").
 
 	<tag><label id="proto-table">table <m/name/</tag>
 	Connect this protocol to a non-default routing table.
+
+	<tag><label id="proto-vrf">vrf "<m/text/"</tag>
+	Associate the protocol with specific VRF. The protocol will be
+	restricted to interfaces assigned to the VRF and will use sockets bound
+	to the VRF. Appropriate VRF interface must exist on OS level. For kernel
+	protocol, an appropriate table still must be explicitly selected by
+	<cf/table/ option. Note that the VRF support in BIRD and Linux kernel
+	(4.11) is still in development and is currently problematic outside of
+	multihop BGP.
 </descrip>
 
 <p>There are several options that give sense only with certain protocols:

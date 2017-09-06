@@ -1080,6 +1080,7 @@ babel_open_socket(struct babel_iface *ifa)
   sk->sport = ifa->cf->port;
   sk->dport = ifa->cf->port;
   sk->iface = ifa->iface;
+  sk->vrf = p->p.vrf;
 
   sk->rx_hook = babel_rx_hook;
   sk->tx_hook = babel_tx_hook;

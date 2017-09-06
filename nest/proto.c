@@ -386,6 +386,7 @@ proto_init(struct proto_config *c)
   q->core_state = FS_HUNGRY;
   q->export_state = ES_DOWN;
   q->last_state_change = now;
+  q->vrf = c->vrf;
 
   add_tail(&initial_proto_list, &q->n);
 
@@ -409,6 +410,7 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   /* If there is a too big change in core attributes, ... */
   if ((nc->protocol != oc->protocol) ||
       (nc->disabled != p->disabled) ||
+      (nc->vrf != oc->vrf) ||
       (nc->table->table != oc->table->table))
     return 0;
 
@@ -1474,7 +1476,9 @@ proto_show_limit(struct proto_limit *l, const char *dsc)
 void
 proto_show_basic_info(struct proto *p)
 {
-  // cli_msg(-1006, "  Table:          %s", p->table->name);
+  if (p->vrf)
+    cli_msg(-1006, "  VRF:            %s", p->vrf->name);
+
   cli_msg(-1006, "  Preference:     %d", p->preference);
   cli_msg(-1006, "  Input filter:   %s", filter_name(p->cf->in_filter));
   cli_msg(-1006, "  Output filter:  %s", filter_name(p->cf->out_filter));
