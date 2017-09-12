@@ -469,8 +469,6 @@ bgp_get_attr_len(eattr *a)
   return len;
 }
 
-#define ADVANCE(w, r, l) do { r -= l; w += l; } while (0)
-
 /**
  * bgp_encode_attrs - encode BGP attributes
  * @p: BGP instance

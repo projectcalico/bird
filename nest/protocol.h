@@ -12,6 +12,7 @@
 #include "lib/lists.h"
 #include "lib/resource.h"
 #include "lib/timer.h"
+#include "nest/route.h"
 #include "conf/conf.h"
 
 struct iface;
@@ -286,6 +287,17 @@ proto_get_router_id(struct proto_config *pc)
 {
   return pc->router_id ? pc->router_id : pc->global->router_id;
 }
+
+static inline struct ea_list *
+rte_make_tmp_attrs(struct rte *rt, struct linpool *pool)
+{
+  struct ea_list *(*mta)(struct rte *rt, struct linpool *pool);
+  mta = rt->attrs->src->proto->make_tmp_attrs;
+  return mta ? mta(rt, pool) : NULL;
+}
+
+/* Moved from route.h to avoid dependency conflicts */
+static inline void rte_update(struct proto *p, net *net, rte *new) { rte_update2(p->main_ahook, net, new, p->main_source); }
 
 extern list active_proto_list;
 
