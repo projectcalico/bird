@@ -1181,6 +1181,7 @@ bgp_start(struct proto *P)
   lock->addr = p->cf->remote_ip;
   lock->port = p->cf->remote_port;
   lock->iface = p->cf->iface;
+  lock->vrf = p->cf->iface ? NULL : p->p.vrf;
   lock->type = OBJLOCK_TCP;
   lock->hook = bgp_start_locked;
   lock->data = p;

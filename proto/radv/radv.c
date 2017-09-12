@@ -321,7 +321,6 @@ radv_iface_new(struct radv_proto *p, struct iface *iface, struct radv_iface_conf
   ifa->timer = tm;
 
   struct object_lock *lock = olock_new(pool);
-  lock->addr = IPA_NONE;
   lock->type = OBJLOCK_IP;
   lock->port = ICMPV6_PROTO;
   lock->iface = iface;
