@@ -1196,6 +1196,8 @@ foot).
 
 	<cf><m/P/.len</cf> returns the length of path <m/P/.
 
+	<cf><m/P/.empty</cf> resets path <m/P/ to empty path.
+
 	<cf>prepend(<m/P/,<m/A/)</cf> prepends ASN <m/A/ to path <m/P/ and
 	returns the result.
 
@@ -1233,6 +1235,8 @@ foot).
 	There are three special operators on clists:
 
 	<cf><m/C/.len</cf> returns the length of clist <m/C/.
+
+	<cf><m/C/.empty</cf> resets clist <m/C/ to empty clist.
 
 	<cf>add(<m/C/,<m/P/)</cf> adds pair (or quad) <m/P/ to clist <m/C/ and
 	returns the result. If item <m/P/ is already in clist <m/C/, it does
