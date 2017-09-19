@@ -146,8 +146,6 @@ struct babel_write_state {
 #define TLV_HDR(tlv,t,l) ({ tlv->type = t; tlv->length = l - sizeof(struct babel_tlv); })
 #define TLV_HDR0(tlv,t) TLV_HDR(tlv, t, tlv_data[t].min_length)
 
-#define BYTES(n) ((((uint) n) + 7) / 8)
-
 static inline u16
 get_time16(const void *p)
 {

@@ -290,7 +290,7 @@ bgp_update_startup_delay(struct bgp_proto *p)
 }
 
 static void
-bgp_graceful_close_conn(struct bgp_conn *conn, unsigned subcode)
+bgp_graceful_close_conn(struct bgp_conn *conn, uint subcode, byte *data, uint len)
 {
   switch (conn->state)
     {
@@ -304,7 +304,7 @@ bgp_graceful_close_conn(struct bgp_conn *conn, unsigned subcode)
     case BS_OPENSENT:
     case BS_OPENCONFIRM:
     case BS_ESTABLISHED:
-      bgp_error(conn, 6, subcode, NULL, 0);
+      bgp_error(conn, 6, subcode, data, len);
       return;
     default:
       bug("bgp_graceful_close_conn: Unknown state %d", conn->state);
@@ -340,11 +340,11 @@ bgp_decision(void *vp)
 }
 
 void
-bgp_stop(struct bgp_proto *p, unsigned subcode)
+bgp_stop(struct bgp_proto *p, uint subcode, byte *data, uint len)
 {
   proto_notify_state(&p->p, PS_STOP);
-  bgp_graceful_close_conn(&p->outgoing_conn, subcode);
-  bgp_graceful_close_conn(&p->incoming_conn, subcode);
+  bgp_graceful_close_conn(&p->outgoing_conn, subcode, data, len);
+  bgp_graceful_close_conn(&p->incoming_conn, subcode, data, len);
   ev_schedule(p->event);
 }
 
@@ -420,7 +420,7 @@ bgp_conn_leave_established_state(struct bgp_proto *p)
   bgp_free_bucket_table(p);
 
   if (p->p.proto_state == PS_UP)
-    bgp_stop(p, 0);
+    bgp_stop(p, 0, NULL, 0);
 }
 
 void
@@ -516,7 +516,7 @@ bgp_graceful_restart_timeout(timer *t)
   struct bgp_proto *p = t->data;
 
   BGP_TRACE(D_EVENTS, "Neighbor graceful restart timeout");
-  bgp_stop(p, 0);
+  bgp_stop(p, 0, NULL, 0);
 }
 
 
@@ -973,7 +973,7 @@ bgp_neigh_notify(neighbor *n)
 	  BGP_TRACE(D_EVENTS, "Neighbor lost");
 	  bgp_store_error(p, NULL, BE_MISC, BEM_NEIGHBOR_LOST);
 	  /* Perhaps also run bgp_update_startup_delay(p)? */
-	  bgp_stop(p, 0);
+	  bgp_stop(p, 0, NULL, 0);
 	}
     }
   else if (p->cf->check_link && !(n->iface->flags & IF_LINK_UP))
@@ -984,7 +984,7 @@ bgp_neigh_notify(neighbor *n)
 	  bgp_store_error(p, NULL, BE_MISC, BEM_LINK_DOWN);
 	  if (ps == PS_UP)
 	    bgp_update_startup_delay(p);
-	  bgp_stop(p, 0);
+	  bgp_stop(p, 0, NULL, 0);
 	}
     }
   else
@@ -1009,7 +1009,7 @@ bgp_bfd_notify(struct bfd_request *req)
       bgp_store_error(p, NULL, BE_MISC, BEM_BFD_DOWN);
       if (ps == PS_UP)
 	bgp_update_startup_delay(p);
-      bgp_stop(p, 0);
+      bgp_stop(p, 0, NULL, 0);
     }
 }
 
@@ -1196,7 +1196,11 @@ static int
 bgp_shutdown(struct proto *P)
 {
   struct bgp_proto *p = (struct bgp_proto *) P;
-  unsigned subcode = 0;
+  uint subcode = 0;
+
+  char *message = NULL;
+  byte *data = NULL;
+  uint len = 0;
 
   BGP_TRACE(D_EVENTS, "Shutdown requested");
 
@@ -1214,10 +1218,12 @@ bgp_shutdown(struct proto *P)
     case PDC_CMD_DISABLE:
     case PDC_CMD_SHUTDOWN:
       subcode = 2; // Errcode 6, 2 - administrative shutdown
+      message = P->message;
       break;
 
     case PDC_CMD_RESTART:
       subcode = 4; // Errcode 6, 4 - administrative reset
+      message = P->message;
       break;
 
     case PDC_RX_LIMIT_HIT:
@@ -1242,8 +1248,22 @@ bgp_shutdown(struct proto *P)
   bgp_store_error(p, NULL, BE_MAN_DOWN, 0);
   p->startup_delay = 0;
 
- done:
-  bgp_stop(p, subcode);
+  /* RFC 8203 - shutdown communication */
+  if (message)
+  {
+    uint msg_len = strlen(message);
+    msg_len = MIN(msg_len, 128);
+
+    /* Buffer will be freed automatically by protocol shutdown */
+    data = mb_alloc(p->p.pool, msg_len + 1);
+    len = msg_len + 1;
+
+    data[0] = msg_len;
+    memcpy(data+1, message, msg_len);
+  }
+
+done:
+  bgp_stop(p, subcode, data, len);
   return p->p.proto_state;
 }
 
@@ -1433,7 +1453,7 @@ bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int l
   if (code != 6)
     {
       bgp_update_startup_delay(p);
-      bgp_stop(p, 0);
+      bgp_stop(p, 0, NULL, 0);
     }
 }
 
