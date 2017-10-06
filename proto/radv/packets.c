@@ -85,7 +85,6 @@ radv_prepare_route(struct radv_iface *ifa, struct radv_route *rt,
 		   char **buf, char *bufend)
 {
   struct radv_proto *p = ifa->ra;
-  struct radv_config *cf = (void *) p->p.cf;
   u8 px_blocks = (rt->n.pxlen + 63) / 64;
   u8 opt_len = 8 * (1 + px_blocks);
 
@@ -96,21 +95,25 @@ radv_prepare_route(struct radv_iface *ifa, struct radv_route *rt,
     return -1;
   }
 
+  uint preference = rt->preference_set ? rt->preference : ifa->cf->route_preference;
+  uint lifetime = rt->lifetime_set ? rt->lifetime : ifa->cf->route_lifetime;
+  uint valid = rt->valid && p->valid && (p->active || !ifa->cf->route_lifetime_sensitive);
+
   struct radv_opt_route *opt = (void *) *buf;
   *buf += opt_len;
   opt->type = OPT_ROUTE;
   opt->length = 1 + px_blocks;
   opt->pxlen = rt->n.pxlen;
-  opt->flags = rt->preference;
-
-  if (p->valid && (p->active || !cf->route_lifetime_sensitive) && rt->alive)
-    opt->lifetime = htonl(rt->lifetime_set ? rt->lifetime : cf->route_lifetime);
-  else
-    opt->lifetime = 0;
+  opt->flags = preference;
+  opt->lifetime = valid ? htonl(lifetime) : 0;
 
   /* Copy the relevant part of the prefix */
   ip6_addr px_addr = ip6_hton(rt->n.prefix);
   memcpy(opt->prefix, &px_addr, 8 * px_blocks);
+
+  /* Keeping track of first linger timeout */
+  if (!rt->valid)
+    ifa->valid_time = MIN(ifa->valid_time, rt->changed + ifa->cf->route_linger_time);
 
   return 0;
 }
@@ -278,6 +281,10 @@ radv_prepare_prefix(struct radv_iface *ifa, struct radv_prefix *prefix,
   ipa_hton(op->prefix);
   *buf += sizeof(*op);
 
+  /* Keeping track of first linger timeout */
+  if (!prefix->valid)
+    ifa->valid_time = MIN(ifa->valid_time, prefix->changed + ifa->cf->prefix_linger_time);
+
   return 0;
 }
 
@@ -316,10 +323,17 @@ radv_prepare_ra(struct radv_iface *ifa)
     buf += sizeof (*om);
   }
 
-  struct radv_prefix *prefix;
-  WALK_LIST(prefix, ifa->prefixes)
+  /* Keeping track of first linger timeout */
+  ifa->valid_time = TIME_INFINITY;
+
+  struct radv_prefix *px;
+  WALK_LIST(px, ifa->prefixes)
   {
-    if (radv_prepare_prefix(ifa, prefix, &buf, bufend) < 0)
+    /* Skip invalid prefixes that are past linger timeout but still not pruned */
+    if (!px->valid && (px->changed + ic->prefix_linger_time <= now))
+	continue;
+
+    if (radv_prepare_prefix(ifa, px, &buf, bufend) < 0)
       goto done;
   }
 
@@ -339,9 +353,15 @@ radv_prepare_ra(struct radv_iface *ifa)
 
   if (p->fib_up)
   {
-    FIB_WALK(&p->routes, rt)
+    FIB_WALK(&p->routes, n)
     {
-      if (radv_prepare_route(ifa, (struct radv_route *) rt, &buf, bufend) < 0)
+      struct radv_route *rt = (void *) n;
+
+      /* Skip invalid routes that are past linger timeout but still not pruned */
+      if (!rt->valid && (rt->changed + ic->route_linger_time <= now))
+	continue;
+
+      if (radv_prepare_route(ifa, rt, &buf, bufend) < 0)
 	goto done;
     }
     FIB_WALK_END;

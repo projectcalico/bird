@@ -55,6 +55,9 @@ radv_timer(timer *tm)
 
   RADV_TRACE(D_EVENTS, "Timer fired on %s", ifa->iface->name);
 
+  if (ifa->valid_time <= now)
+    radv_invalidate(ifa);
+
   if (ifa->prune_time <= now)
     radv_prune_prefixes(ifa);
 
@@ -117,7 +120,6 @@ static void
 radv_prepare_prefixes(struct radv_iface *ifa)
 {
   struct radv_proto *p = ifa->ra;
-  struct radv_iface_config *cf = ifa->cf;
   struct radv_prefix *pfx, *next;
 
   /* First mark all the prefixes as unused */
@@ -157,20 +159,21 @@ radv_prepare_prefixes(struct radv_iface *ifa)
      * Update the information (it may have changed, or even bring a prefix back
      * to life).
      */
-    existing->alive = 1;
+    existing->valid = 1;
+    existing->changed = now;
     existing->mark = 1;
     existing->cf = pc;
   }
 
   WALK_LIST_DELSAFE(pfx, next, ifa->prefixes)
   {
-    if (pfx->alive && !pfx->mark)
+    if (pfx->valid && !pfx->mark)
     {
       RADV_TRACE(D_EVENTS, "Invalidating prefix %I/$d on %s",
 		 pfx->prefix, pfx->len, ifa->iface->name);
 
-      pfx->alive = 0;
-      pfx->expires = now + cf->linger_time;
+      pfx->valid = 0;
+      pfx->changed = now;
       pfx->cf = &dead_prefix;
     }
   }
@@ -181,29 +184,27 @@ radv_prune_prefixes(struct radv_iface *ifa)
 {
   struct radv_proto *p = ifa->ra;
   bird_clock_t next = TIME_INFINITY;
-  int changed = 0;
+  bird_clock_t expires = 0;
 
   struct radv_prefix *px, *pxn;
   WALK_LIST_DELSAFE(px, pxn, ifa->prefixes)
   {
-    if (!px->alive)
+    if (!px->valid)
     {
-      if (px->expires <= now)
+      expires = px->changed + ifa->cf->prefix_linger_time;
+
+      if (expires <= now)
       {
 	RADV_TRACE(D_EVENTS, "Removing prefix %I/%d on %s",
 		   px->prefix, px->len, ifa->iface->name);
 
 	rem_node(NODE px);
 	mb_free(px);
-	changed = 1;
       }
       else
-	next = MIN(next, px->expires);
+	next = MIN(next, expires);
     }
   }
-
-  if (changed)
-    radv_invalidate(ifa);
 
   ifa->prune_time = next;
 }
@@ -424,6 +425,7 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
   struct radv_proto *p = (struct radv_proto *) P;
   struct radv_config *cf = (struct radv_config *) (P->cf);
   struct radv_route *rt;
+  eattr *ea;
 
   if (radv_net_match_trigger(cf, n))
   {
@@ -455,9 +457,14 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
   if (new)
   {
     /* Update */
-    uint preference = ea_get_int(attrs, EA_RA_PREFERENCE, RA_PREF_MEDIUM);
-    uint lifetime = ea_get_int(attrs, EA_RA_LIFETIME, 0);
-    uint lifetime_set = !!ea_find(attrs, EA_RA_LIFETIME);
+
+    ea = ea_find(attrs, EA_RA_PREFERENCE);
+    uint preference = ea ? ea->u.data : RA_PREF_MEDIUM;
+    uint preference_set = !!ea;
+
+    ea = ea_find(attrs, EA_RA_LIFETIME);
+    uint lifetime = ea ? ea->u.data : 0;
+    uint lifetime_set = !!ea;
 
     if ((preference != RA_PREF_LOW) &&
 	(preference != RA_PREF_MEDIUM) &&
@@ -466,6 +473,7 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
       log(L_WARN "%s: Invalid ra_preference value %u on route %I/%d",
 	  p->p.name, preference, n->n.prefix, n->n.pxlen);
       preference = RA_PREF_MEDIUM;
+      preference_set = 1;
       lifetime = 0;
       lifetime_set = 1;
     }
@@ -473,8 +481,9 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
     rt = fib_get(&p->routes, &n->n.prefix, n->n.pxlen);
 
     /* Ignore update if nothing changed */
-    if (rt->alive &&
+    if (rt->valid &&
 	(rt->preference == preference) &&
+	(rt->preference_set == preference_set) &&
 	(rt->lifetime == lifetime) &&
 	(rt->lifetime_set == lifetime_set))
       return;
@@ -482,8 +491,10 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
     if (p->routes.entries == 18)
       log(L_WARN "%s: More than 17 routes exported to RAdv", p->p.name);
 
-    rt->alive = 1;
+    rt->valid = 1;
+    rt->changed = now;
     rt->preference = preference;
+    rt->preference_set = preference_set;
     rt->lifetime = lifetime;
     rt->lifetime_set = lifetime_set;
   }
@@ -492,13 +503,16 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
     /* Withdraw */
     rt = fib_find(&p->routes, &n->n.prefix, n->n.pxlen);
 
-    if (!rt || !rt->alive)
+    if (!rt || !rt->valid)
       return;
 
     /* Invalidate the route */
-    rt->alive = 0;
-    rt->expires = now + cf->route_linger_time;
-    p->prune_time = MIN(p->prune_time, rt->expires);
+    rt->valid = 0;
+    rt->changed = now;
+
+    /* Invalidated route will be pruned eventually */
+    bird_clock_t expires = rt->changed + cf->max_linger_time;
+    p->prune_time = MIN(p->prune_time, expires);
   }
 
   radv_iface_notify_all(p, RA_EV_CHANGE);
@@ -511,8 +525,9 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
 static void
 radv_prune_routes(struct radv_proto *p)
 {
+  struct radv_config *cf = (struct radv_config *) (p->p.cf);
   bird_clock_t next = TIME_INFINITY;
-  int changed = 0;
+  bird_clock_t expires = 0;
 
   /* Should not happen */
   if (!p->fib_up)
@@ -526,28 +541,22 @@ again:
   {
     struct radv_route *rt = (void *) node;
 
-    if (!rt->alive)
+    if (!rt->valid)
     {
+      expires = rt->changed + cf->max_linger_time;
+
       /* Delete expired nodes */
-      if (rt->expires <= now)
+      if (expires <= now)
       {
 	FIB_ITERATE_PUT(&fit, node);
 	fib_delete(&p->routes, node);
-	changed = 1;
 	goto again;
       }
       else
-	next = MIN(next, rt->expires);
+	next = MIN(next, expires);
     }
   }
   FIB_ITERATE_END(node);
-
-  if (changed)
-  {
-    struct radv_iface *ifa;
-    WALK_LIST(ifa, p->iface_list)
-      radv_invalidate(ifa);
-  }
 
   p->prune_time = next;
 }

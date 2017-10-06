@@ -35,7 +35,6 @@
 #define DEFAULT_MAX_RA_INT 600
 #define DEFAULT_MIN_DELAY 3
 #define DEFAULT_CURRENT_HOP_LIMIT 64
-#define DEFAULT_LINGER_TIME 300
 
 #define DEFAULT_VALID_LIFETIME 86400
 #define DEFAULT_PREFERRED_LIFETIME 14400
@@ -55,9 +54,7 @@ struct radv_config
   u8 trigger_pxlen;		/* Pxlen of a trigger route, if defined */
   u8 trigger_valid;		/* Whether a trigger route is defined */
   u8 propagate_routes;		/* Do we propagate more specific routes (RFC 4191)? */
-  u32 route_lifetime;		/* Lifetime for the RFC 4191 routes */
-  u32 route_lifetime_sensitive; /* Whether route_lifetime depends on trigger */
-  u32 route_linger_time;	/* For how long we advertise dead routes with lifetime = 0 */
+  u32 max_linger_time;		/* Maximum of interface route_linger_time */
 };
 
 struct radv_iface_config
@@ -71,8 +68,8 @@ struct radv_iface_config
   u32 max_ra_int;
   u32 min_delay;
 
-  u32 linger_time;		/* How long a dead prefix should still be advertised with 0
-				   lifetime */
+  u32 prefix_linger_time;	/* How long we advertise dead prefixes with lifetime 0 */
+  u32 route_linger_time;	/* How long we advertise dead routes with lifetime 0 */
 
   u8 rdnss_local;		/* Global list is not used for RDNSS */
   u8 dnssl_local;		/* Global list is not used for DNSSL */
@@ -84,8 +81,11 @@ struct radv_iface_config
   u32 retrans_timer;
   u32 current_hop_limit;
   u32 default_lifetime;
+  u32 route_lifetime;		/* Lifetime for the RFC 4191 routes */
   u8 default_lifetime_sensitive; /* Whether default_lifetime depends on trigger */
-  u8 default_preference;	 /* Default Router Preference (RFC 4191) */
+  u8 route_lifetime_sensitive;	/* Whether route_lifetime depends on trigger */
+  u8 default_preference;	/* Default Router Preference (RFC 4191) */
+  u8 route_preference;		/* Specific Route Preference (RFC 4191) */
 };
 
 struct radv_prefix_config
@@ -132,10 +132,11 @@ struct radv_route
 {
   struct fib_node n;
   u32 lifetime;			/* Lifetime from an attribute */
-  u8 lifetime_set;		/* Is the lifetime set by an attribute? */
+  u8 lifetime_set;		/* Whether lifetime is defined */
   u8 preference;		/* Preference of the route, RA_PREF_* */
-  u8 alive;
-  bird_clock_t expires;		/* Time to remove when !alive */
+  u8 preference_set;		/* Whether preference is defined */
+  u8 valid;			/* Whethe route is valid or withdrawn */
+  bird_clock_t changed;		/* Last time when the route changed */
 };
 
 struct radv_proto
@@ -154,11 +155,10 @@ struct radv_prefix		/* One prefix we advertise */
   node n;
   ip_addr prefix;
   u8 len;
-  u8 alive;			/* Is the prefix alive? If not, we advertise it
+  u8 valid;			/* Is the prefix valid? If not, we advertise it
 				   with 0 lifetime, so clients stop using it */
   u8 mark;			/* A temporary mark for processing */
-  bird_clock_t expires;		/* The time when we drop this prefix from
-				   advertising. It is valid only if !alive. */
+  bird_clock_t changed;		/* Last time when the prefix changed */
   struct radv_prefix_config *cf; /* The config tied to this prefix */
 };
 
@@ -172,6 +172,7 @@ struct radv_iface
   struct pool *pool;		/* A pool for interface-specific things */
   list prefixes;		/* The prefixes we advertise (struct radv_prefix) */
   bird_clock_t prune_time;	/* Next time of prefix list pruning */
+  bird_clock_t valid_time;	/* Cached packet is valid until first linger timeout */
 
   timer *timer;
   struct object_lock *lock;
