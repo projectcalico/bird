@@ -1767,7 +1767,7 @@ protocol bfd [&lt;name&gt;] {
 	computation.
 
 	<tag>password "<M>text</M>"</tag>
-	Specifies a password used for authentication. See <ref id="dsc-pass"
+	Specifies a password used for authentication. See <ref id="proto-pass"
 	name="password"> common option for detailed description. Note that
 	password option <cf/algorithm/ is not available in BFD protocol. The
 	algorithm is selected by <cf/authentication/ option for all passwords.
