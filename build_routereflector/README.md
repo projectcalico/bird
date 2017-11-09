@@ -42,8 +42,8 @@ Run the following command to start the Route Reflector container image.
 ```
 docker run -privileged -net=host -d                                \ 
            -e IP=<IPv4_RR>                                         \
-           [-e IP6=<IPv6_RR>]                                      \
            -e ETCD_ENDPOINTS=<http://ETCD_IP:PORT>                 \
+           [-e CLUSTER_ID=<CLUSTER_ID>]                            \
            calico/routereflector
 ```
 
@@ -52,44 +52,14 @@ Where:
 -  `[]` indicates an optional parameter
 -  `<IPv4_RR>` is the IPv4 address of the RR host (the BIRD instance binds to 
    the hosts IPv4 address)
--  `<IPv6_RR>` is the *optional* IPv6 address of the RR host (the BIRD6 instance
-   binds to the hosts IPv6 address)
 -  `<ETCD_IP:PORT>` is the colon separated IPv4 address and port of an etcd
    node in the etcd cluster.
+-  `CLUSTER_ID` is the optional cluster ID required when running multiple route
+   reflectors as a cluster.
 
-#### Adding the Route Reflector into etcd
-
-Add an entry in etcd for this Route Reflector.  This tells the Route Reflector
-to participate in peering, and provides enough information to allow the Route
-Reflector instances to automatically form a full BGP mesh.
-
-The configuration for the Route Reflector is stored for IPv4 at:
-
-	/calico/bgp/v1/rr_v4/<RR IPv4 address>
-	
-and IPv6 at:
-
-	/calico/bgp/v1/rr_v6/<RR IPv6 address>
-
-In all cases, the data is a JSON blob in the form:
-
-        {
-          "ip": "<IP address of BGP Peer>",
-          "cluster_id": "<Cluster ID for this RR (see notes)>"
-        }
-
-To add this entry into etcd, you could use the following commands:
 ```
-# IPv4 entries
-curl -L http://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v4/<IPv4_RR> -XPUT -d value="{\"ip\":\"<IPv4_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
 
-# IPv6 entries
-curl -L http://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v6/<IPv6_RR> -XPUT -d value="{\"ip\":\"<IPv6_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
-```
-See [below](#topology-with-multiple-calico-bird-route-reflectors) for details 
-about large networks and the use and format of the cluster ID.
-
-Repeat the above instructions for every Route Reflector in the cluster.
+Repeat for every Route Reflector in the cluster.
 
 ### Route Reflector with TLS/SSL Etcd
 
@@ -102,12 +72,12 @@ certificate files and environment variable filepaths for each file:
 ```
 docker run --privileged --net=host -d                              \
            -e IP=<IPv4_RR>                                         \
-           [-e IP6=<IPv6_RR>]                                      \
            -e ETCD_ENDPOINTS=<https://ETCD_IP:PORT>                \
-           -v <FULL_PATH_TO_CERT_DIR>:<MOUNT_DIR>                  \
-           -e ETCD_CA_CERT_FILE=<MOUNT_DIR>/<CA_FILE>              \
-           -e ETCD_CERT_FILE=<MOUNT_DIR>/<CERT_FILE>               \
-           -e ETCD_KEY_FILE=<MOUNT_DIR>/<KEY_FILE>                 \
+           -v <FULL_PATH_TO_CERT_DIR>:/certs                       \
+           -e ETCD_CA_CERT_FILE=/certs/<CA_FILE>                   \
+           -e ETCD_CERT_FILE=/certs/<CERT_FILE>                    \
+           -e ETCD_KEY_FILE=/certs/<KEY_FILE>                      \
+           [-e CLUSTER_ID=<CLUSTER_ID>]                            \
            calico/routereflector
 ```
 Where `<FULL_PATH_TO_CERT_DIR>` is a directory on the host that contains
@@ -115,18 +85,9 @@ the certificate files (you can mount multiple directories with additional
 `-v <DIR>` parameters if they are in separate directories, but be sure
 to choose different `<MOUNT_DIR>` locations if this is the case).
 
-You will also need to pass the certificate and key files as parameters
-in the curl statement when adding entries:
-```
-# IPv4 entries
-curl --cacert <path_to_ca_cert> --cert <path_to_cert> --key <path_to_key> -L https://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v4/<IPv4_RR> -XPUT -d value="{\"ip\":\"<IPv4_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
-# IPv6 entries
-curl --cacert <path_to_ca_cert> --cert <path_to_cert> --key <path_to_key> -L https://<ETCD_IP:PORT>:2379/v2/keys/calico/bgp/v1/rr_v6/<IPv6_RR> -XPUT -d value="{\"ip\":\"<IPv6_RR>\",\"cluster_id\":\"<CLUSTER_ID>\"}"
-```
-
 ## Using the Route Reflector image (with Kubernetes API datastore)
 
-If you are using Kuberenetes as the datastore for Calico, the routereflector
+If you are using Kubernetes as the datastore for Calico, the routereflector
 image does support this, but only for a single route reflector.  It is not
 possible with this image to set up a cluster of route reflectors.
 

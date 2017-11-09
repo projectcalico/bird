@@ -5,8 +5,8 @@ set -x
 # Remove extra packages using dpkg rather than apt-get - this prevents us from
 # deleting dependent packages that we still require.
 # - Remove any temporary packages installed in the install.sh script.
-echo "Removing extra packages"
-cat /tmp/add-apt.txt | xargs xargs dpkg -r --force-depends
+#echo "Removing extra packages"
+#cat /tmp/add-apt.txt | xargs xargs dpkg -r --force-depends
 
 # Remove any other junk created during installation that is not required.
 apt-get clean

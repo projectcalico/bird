@@ -2,6 +2,32 @@
 # Record current boot time. Helps with debugging.
 date > /tmp/boottime.txt
 
-# Run Confd in onetime mode, to ensure that we have a working config in place
-# to allow bird(s) to start.
-#./confd -confdir=. -onetime -node ${ETCD_AUTHORITY}
+# If running with etcd, make sure we initialize the paths required by confd
+if [ "$DATASTORE_TYPE" != "kubernetes" ]
+then
+    ETCD_NODE=${ETCD_ENDPOINTS:=${ETCD_SCHEME:=http}://${ETCD_AUTHORITY}}
+    ETCD_ENDPOINT=`echo "$ETCD_NODE" | cut -d "," -f1`
+
+    if [ `echo "$ETCD_ENDPOINT" | cut -d ":" -f1` = "https" ]
+    then
+        CURL_CMD="curl --cacert ${ETCD_CA_CERT_FILE} --cert ${ETCD_CERT_FILE} --key ${ETCD_KEY_FILE}"
+    else
+        CURL_CMD="curl"
+    fi
+
+    # Create the watch keys as bare minimum to get bgp running
+    $CURL_CMD ${ETCD_ENDPOINT}/v2/keys/calico/bgp/v1/rr_v4 -XPUT -d dir=true -d prevExist=false
+    $CURL_CMD ${ETCD_ENDPOINT}/v2/keys/calico/bgp/v1/rr_v6 -XPUT -d dir=true -d prevExist=false
+    $CURL_CMD ${ETCD_ENDPOINT}/v2/keys/calico/bgp/v1/global -XPUT -d dir=true -d prevExist=false
+    $CURL_CMD ${ETCD_ENDPOINT}/v2/keys/calico/bgp/v1/host -XPUT -d dir=true -d prevExist=false
+
+    # Add an entry into etcd for the RR
+    if [ "$CLUSTER_ID" != "" ]
+    then
+        $CURL_CMD ${ETCD_ENDPOINT}/v2/keys/calico/rr_v4/${IP} -XPUT -d value="{\"ip\":\"${IP}\",\"cluster_id\":\"${CLUSTER_ID}\"}"
+    else
+        $CURL_CMD ${ETCD_ENDPOINT}/v2/keys/calico/rr_v4/${IP} -XPUT -d value="{\"ip\":\"${IP}\"}"
+    fi
+fi
+
+true
