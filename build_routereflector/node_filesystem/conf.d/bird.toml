@@ -2,6 +2,6 @@
 src = "bird.cfg.template"
 dest = "/config/bird.cfg"
 prefix = "/calico/bgp/v1"
-keys = ["/rr_v4", "/global", "/host"]
+keys = ["/rr_v4", "/global", "/host", "/up_v4"]
 check_cmd = "bird -p -c {{.src}}"
 reload_cmd = "pkill -HUP bird || true"
