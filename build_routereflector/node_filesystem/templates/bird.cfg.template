@@ -18,6 +18,30 @@ template bgp bgp_template {
   graceful restart;  # See comment in kernel section about graceful restart.
 }
 
+# Template for upstream BGP peers
+template bgp bgp_upstream_template {
+  debug off;
+  description "Connection to BGP upstream peer";
+  multihop;
+  import all;        # Import all routes, since we don't know what the upstream
+                     # topology is and therefore have to trust the ToR/RR.
+  export all;        # Export all.
+  graceful restart;  # See comment in kernel section about graceful restart.
+  next hop keep;
+}
+
+# ------------- RR-to-Upstream -------------
+{{if ls "/up_v4"}}
+{{range gets "/up_v4/*"}}{{$data := json .Value}}{{$up_ip := $data.ip}}{{$up_as := $data.as_num}}
+{{$nums := split $up_ip "."}}{{$id := join $nums "_"}}
+# For UP {{$up_ip}}
+{{if ne "" $up_ip}}protocol bgp Upstream_{{$id}} from bgp_upstream_template {
+  local as {{getv "/global/as_num"}};
+  neighbor {{$up_ip}} as {{$up_as}};
+}{{end}}{{end}}
+{{end}}
+
+
 {{$our_rr_key := printf "/rr_v4/%s" (getenv "IP")}}
 {{if ls $our_rr_key}}{{$our_rr_data := json (getv $our_rr_key)}}
 # ------------- RR-to-RR full mesh -------------
