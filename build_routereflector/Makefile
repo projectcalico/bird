@@ -6,7 +6,7 @@ LOCAL_IP_ENV?=$(shell ip route get 8.8.8.8 | head -1 | cut -d' ' -f8)
 default: clean calicorr.created
 
 calicorr.created: $(BUILD_FILES)
-	docker build -t calico/routereflector .
+	docker build --pull -t calico/routereflector .
 	touch calicorr.created
 
 clean:
