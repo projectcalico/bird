@@ -40,7 +40,7 @@ struct babel_tlv_ack {
 struct babel_tlv_hello {
   u8 type;
   u8 length;
-  u16 reserved;
+  u16 flags;
   u16 seqno;
   u16 interval;
 } PACKED;
@@ -104,8 +104,12 @@ struct babel_tlv_seqno_request {
 } PACKED;
 
 
-#define BABEL_FLAG_DEF_PREFIX	0x80
-#define BABEL_FLAG_ROUTER_ID	0x40
+/* Hello flags */
+#define BABEL_HF_UNICAST	0x8000
+
+/* Update flags */
+#define BABEL_UF_DEF_PREFIX	0x80
+#define BABEL_UF_ROUTER_ID	0x40
 
 
 struct babel_parse_state {
@@ -310,6 +314,11 @@ babel_read_hello(struct babel_tlv *hdr, union babel_msg *m,
   struct babel_tlv_hello *tlv = (void *) hdr;
   struct babel_msg_hello *msg = &m->hello;
 
+  /* We currently don't support unicast Hello */
+  u16 flags = get_u16(&tlv->flags);
+  if (flags & BABEL_HF_UNICAST)
+    return PARSE_IGNORE;
+
   msg->type = BABEL_TLV_HELLO;
   msg->seqno = get_u16(&tlv->seqno);
   msg->interval = get_time16(&tlv->interval);
@@ -500,13 +509,13 @@ babel_read_update(struct babel_tlv *hdr, union babel_msg *m,
     msg->plen = tlv->plen;
     msg->prefix = ipa_from_ip6(get_ip6(buf));
 
-    if (tlv->flags & BABEL_FLAG_DEF_PREFIX)
+    if (tlv->flags & BABEL_UF_DEF_PREFIX)
     {
       put_ip6(state->def_ip6_prefix, msg->prefix);
       state->def_ip6_prefix_seen = 1;
     }
 
-    if (tlv->flags & BABEL_FLAG_ROUTER_ID)
+    if (tlv->flags & BABEL_UF_ROUTER_ID)
     {
       state->router_id = ((u64) _I2(msg->prefix)) << 32 | _I3(msg->prefix);
       state->router_id_seen = 1;
