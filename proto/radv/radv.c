@@ -169,7 +169,7 @@ radv_prepare_prefixes(struct radv_iface *ifa)
   {
     if (pfx->valid && !pfx->mark)
     {
-      RADV_TRACE(D_EVENTS, "Invalidating prefix %I/$d on %s",
+      RADV_TRACE(D_EVENTS, "Invalidating prefix %I/%d on %s",
 		 pfx->prefix, pfx->len, ifa->iface->name);
 
       pfx->valid = 0;

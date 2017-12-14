@@ -227,7 +227,7 @@ proto_item:
  | IMPORT LIMIT limit_spec { this_proto->in_limit = $3; }
  | EXPORT LIMIT limit_spec { this_proto->out_limit = $3; }
  | IMPORT KEEP FILTERED bool { this_proto->in_keep_filtered = $4; }
- | VRF TEXT { this_proto->vrf = if_get_by_name($2); }
+ | VRF text { this_proto->vrf = if_get_by_name($2); }
  | TABLE rtable { this_proto->table = $2; }
  | ROUTER ID idval { this_proto->router_id = $3; }
  | DESCRIPTION text { this_proto->dsc = $2; }
