@@ -36,7 +36,7 @@ $minimal_apt_get_install \
         bird6
 
 # Install Confd
-curl -L https://github.com/projectcalico/confd/releases/download/v0.12.1-calico0.4.3/confd -o confd
+curl -L https://github.com/projectcalico/confd/releases/download/v0.12.1-calico-0.4.3/confd -o confd
 chmod +x confd
 
 # Create the config directory for confd
