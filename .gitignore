@@ -10,3 +10,5 @@
 /configure
 /bird.conf
 /bird.log
+dist
+configure.lineno
