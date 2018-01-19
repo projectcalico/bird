@@ -657,7 +657,17 @@ krt_same_dest(rte *k, rte *e)
   switch (ka->dest)
     {
     case RTD_ROUTER:
-      return ipa_equal(ka->gw, ea->gw);
+	  /* Calico-BIRD specific: in addition to checking that the gw is the same, we
+	   * also check that the interface is as expected - this covers the case where
+	   * a route was previously using the IPIP tunnel but is no longer: the gateway
+	   * may be the same but the interface will be different.  The calculated
+	   * interface index will be for the non-tunl route. Only at the point the route
+	   * is programmed in nl_send_route does the tunnel index get calculated.
+	   * Therefore the check performed here is not valid when the route should be
+	   * over the tunnel - hence there is an an explicit check in krt_got_route for
+	   * the tunnel scenario, and in that case krt_same_dest is not invoked.
+	   */
+      return ipa_equal(ka->gw, ea->gw) && ka->iface->index == ea->iface->index;
     case RTD_DEVICE:
       return !strcmp(ka->iface->name, ea->iface->name);
     case RTD_MULTIPATH:
