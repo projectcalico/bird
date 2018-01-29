@@ -7,4 +7,4 @@ machine:
 
 test:
   override:
-    - ./build.sh 
+    - ARCH=all ./build.sh 

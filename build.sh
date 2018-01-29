@@ -1,22 +1,50 @@
 #!/bin/bash
+set -e
+set -x
+
 ###############################################################################
 # The build architecture is select by setting the ARCH variable.
 # For example: When building on ppc64le you could use ARCH=ppc64le ./build.sh.
 # When ARCH is undefined it defaults to amd64.
 ###############################################################################
-[ ! $ARCH ] &&  ARCH=amd64
 
-if [ $ARCH = amd64 ]; then
-	unset ARCHTAG
-fi
+# get our machine architecture
+[ ! $ARCH ] &&  ARCH=$(uname -m)
 
-if [ $ARCH = ppc64le ]; then
-	ARCHTAG=-ppc64le
-fi
+# convert to desired name format
+case $ARCH in
+	all)
+		ARCH=all
+		BUILDARCH=amd64
+		TARGETARCH="amd64 aarch64 powerpc64le"
+		DOCKERFILE=Dockerfile-all
+		;;
+	amd64|x86_64)
+		ARCH=amd64
+		BUILDARCH=amd64
+		TARGETARCH=
+		DOCKERFILE=Dockerfile
+		;;
+	arm64|aarch64)
+		ARCH=arm64
+		BUILDARCH=aarch64
+		TARGETARCH=
+		DOCKERFILE=Dockerfile
+		;;
+	ppc64le|ppc64el|powerpc64le)
+		ARCH=ppc64le
+		BUILDARCH=ppc64le
+		TARGETARCH=
+		DOCKERFILE=Dockerfile
+		;;
+	*)
+		echo "Unknown architecture $ARCH."
+		exit 1
+esac
 
-DIST=dist/$ARCH
+DIST=dist/
+IMAGE=birdbuild-$ARCH
 
-docker build -t birdbuild$ARCHTAG -f Dockerfile$ARCHTAG . 
+docker build -t $IMAGE -f $DOCKERFILE .
 mkdir -p $DIST
-docker run --name bird-build -e ARCH=$ARCH -e DIST=$DIST -v `pwd`:/code birdbuild$ARCHTAG ./create_binaries.sh
-docker rm -f bird-build || true
+docker run --rm --name bird-build -e ARCH=$BUILDARCH -e TARGETARCH="$TARGETARCH" -e DIST=$DIST -v `pwd`:/code $IMAGE ./create_binaries.sh
