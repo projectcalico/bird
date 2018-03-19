@@ -320,7 +320,8 @@ f_generate_lc(struct f_inst *t1, struct f_inst *t2, struct f_inst *t3)
 static inline struct f_inst *
 f_generate_path_mask(struct f_path_mask *t)
 {
-  for (struct f_path_mask *tt = t; tt; tt = tt->next) {
+  struct f_path_mask *tt;
+  for (tt = t; tt; tt = tt->next) {
     if (tt->kind == PM_ASN_EXPR) {
       struct f_inst *mrv = f_new_inst(FI_PATHMASK_CONSTRUCT);
       mrv->a1.p = t;
