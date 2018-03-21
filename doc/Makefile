@@ -8,6 +8,8 @@ srcdir=$(shell cd $(root-rel) ; pwd)
 srcdir_abs=$(srcdir)
 endif
 
+export TEXINPUTS := $(TEXINPUTS):$(srcdir_abs)/doc/tex
+
 # Force rebuilds
 .PHONY: prog.sgml bird.sgml
 
