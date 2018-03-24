@@ -14,7 +14,7 @@ export TEXINPUTS := $(TEXINPUTS):$(srcdir_abs)/doc/tex
 .PHONY: prog.sgml bird.sgml
 
 docs: progdocs userdocs
-progdocs: prog.html prog.ps
+progdocs: prog.html prog.pdf
 userdocs: bird.html bird.pdf
 
 prog.sgml:
