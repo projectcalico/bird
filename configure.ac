@@ -321,6 +321,20 @@ AC_C_BIGENDIAN(
   [AC_MSG_ERROR([Cannot determine CPU endianity.])]
 )
 
+BIRD_CHECK_ANDROID_GLOB
+if test "$bird_cv_lib_glob" = no ; then
+  AC_MSG_ERROR([glob.h not found.])
+elif test "$bird_cv_lib_glob" != yes ; then
+  LIBS="$LIBS $bird_cv_lib_glob"
+fi
+
+BIRD_CHECK_ANDROID_LOG
+if test "$bird_cv_lib_log" = no ; then
+  AC_MSG_ERROR([don't know how to link syslog.])
+elif test "$bird_cv_lib_log" != yes ; then
+  LIBS="$LIBS $bird_cv_lib_log"
+fi
+
 if test "$enable_debug" = yes ; then
   AC_DEFINE([DEBUGGING], [1], [Define to 1 if debugging is enabled])
   if test "$enable_memcheck" = yes ; then
@@ -382,7 +396,7 @@ AC_SUBST([CLIENT_LIBS])
 mkdir -p $objdir/sysdep
 AC_CONFIG_HEADERS([$objdir/sysdep/autoconf.h:sysdep/autoconf.h.in])
 AC_CONFIG_COMMANDS([merge],
-  [ export CPP="$CPP"; $srcdir/tools/mergedirs $srcdir $srcdir_rel $objdir $sysdep_dirs ],
+  [ export CPP="$CPP"; sh $srcdir/tools/mergedirs $srcdir $srcdir_rel $objdir $sysdep_dirs ],
   [
     srcdir=$srcdir
     srcdir_rel=$srcdir_rel
