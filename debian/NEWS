@@ -1,0 +1,29 @@
+bird (1.5.0-1) unstable; urgency=medium
+
+  Upstream upgrade notes:
+  
+  For OSPF, there are deep internal changes, but user-visible changes
+  are limited to log messages and minor changes in formatting of command
+  output.
+
+  For BGP, version 1.5.0 is essentially a minor release. There are two
+  deprecated options ('start delay time' and 'route limit') and some
+  minor formatting changes.
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 22 Apr 2015 20:42:10 +0200
+
+bird (1.3.11-5) unstable; urgency=low
+
+  BIRD now uses privilege separation to increase the security, so the daemon
+  doesn't run with root privileges anymore.  This change also required to
+  rework the packaging a little bit, so you need to be aware of:
+  
+  * The directory with configuration files had moved from /etc to /etc/bird/
+
+  * The daemon now runs as bird:bird, the user and group can be configured
+    in the /etc/bird/envvars configuration file
+
+  * The run directory where control socket resides has been moved
+    to /run/bird/
+
+ -- Ondřej Surý <ondrej@debian.org>  Sat, 05 Oct 2013 22:27:45 +0200

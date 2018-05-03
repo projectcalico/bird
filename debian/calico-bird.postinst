@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+
+    if ! getent passwd bird > /dev/null; then
+        adduser --quiet --system --group --no-create-home --home /run/bird bird
+    fi
+
+    dpkg-statoverride --list /etc/bird > /dev/null || dpkg-statoverride --update --add bird bird 0750 /etc/bird
+
+    for conf in bird.conf bird6.conf; do
+	UCF_FORCE_CONFFOLD=yes ucf /usr/share/bird/$conf /etc/bird/$conf
+	ucfr bird /etc/bird/$conf
+        dpkg-statoverride --list /etc/bird/$conf > /dev/null || dpkg-statoverride --update --add bird bird 0640 /etc/bird/$conf
+    done
+fi
+
+#DEBHELPER#
+
+exit 0

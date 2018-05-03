@@ -1,0 +1,23 @@
+From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@debian.org>
+Date: Sun, 18 Sep 2016 11:26:45 +0200
+Subject: Link using ld
+
+---
+ tools/Rules.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/Rules.in b/tools/Rules.in
+index f00c85d..e467b2e 100644
+--- a/tools/Rules.in
++++ b/tools/Rules.in
+@@ -68,8 +68,8 @@ subdir: all.o
+ all.o: $(objs)
+ #       $(LD) -r -o $@ $^
+ #	Changed to $(CC) because $(LD) has problems with crosscompiling
+-	@echo LD -r -o $@ $^
+-	@$(CC) -nostdlib -r -o $@ $^
++	@echo LD $(CFLAGS) -r -o $@ $^
++	@$(CC) $(CFLAGS) -nostdlib -r -o $@ $^
+ 
+ endif
+ 

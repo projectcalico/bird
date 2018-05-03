@@ -1,0 +1,9 @@
+etc/bird/bird.conf /usr/share/doc/calico-bird/examples/
+etc/bird/bird6.conf /usr/share/doc/calico-bird/examples/
+etc/bird/envvars
+usr/lib/bird/prepare-environment
+usr/sbin/bird
+usr/sbin/bird6
+usr/sbin/birdc
+usr/sbin/birdc6
+usr/share/bird/*.conf*

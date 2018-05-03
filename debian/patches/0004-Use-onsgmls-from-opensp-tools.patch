@@ -1,0 +1,49 @@
+From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@sury.org>
+Date: Sun, 18 Sep 2016 11:34:38 +0200
+Subject: Use onsgmls from opensp tools
+
+---
+ doc/sgml2html  | 2 +-
+ doc/sgml2latex | 2 +-
+ doc/sgml2txt   | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/doc/sgml2html b/doc/sgml2html
+index a5bbee9..f8e7f74 100755
+--- a/doc/sgml2html
++++ b/doc/sgml2html
+@@ -28,7 +28,7 @@ use lib "/usr/perl5";
+ use lib "/usr/lib/perl5";
+ use lib "/usr/share/perl5";
+ $progs = {
+-  "NSGMLS" => "/usr/bin/nsgmls",
++  "NSGMLS" => "/usr/bin/onsgmls",
+   "SGMLSASP" => "/usr/bin/sgmlsasp",
+   "GROFF" => "/usr/bin/groff",
+   "GROFFMACRO" => "-ms",
+diff --git a/doc/sgml2latex b/doc/sgml2latex
+index 02b60d9..c0750cf 100755
+--- a/doc/sgml2latex
++++ b/doc/sgml2latex
+@@ -28,7 +28,7 @@ use lib "/usr/perl5";
+ use lib "/usr/lib/perl5";
+ use lib "/usr/share/perl5";
+ $progs = {
+-  "NSGMLS" => "/usr/bin/nsgmls",
++  "NSGMLS" => "/usr/bin/onsgmls",
+   "SGMLSASP" => "/usr/bin/sgmlsasp",
+   "GROFF" => "/usr/bin/groff",
+   "GROFFMACRO" => "-ms",
+diff --git a/doc/sgml2txt b/doc/sgml2txt
+index dfc017d..7b985b8 100755
+--- a/doc/sgml2txt
++++ b/doc/sgml2txt
+@@ -28,7 +28,7 @@ use lib "/usr/perl5";
+ use lib "/usr/lib/perl5";
+ use lib "/usr/share/perl5";
+ $progs = {
+-  "NSGMLS" => "/usr/bin/nsgmls",
++  "NSGMLS" => "/usr/bin/onsgmls",
+   "SGMLSASP" => "/usr/bin/sgmlsasp",
+   "GROFF" => "/usr/bin/groff",
+   "GROFFMACRO" => "-ms",

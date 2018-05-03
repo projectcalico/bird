@@ -1,0 +1,256 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+
+<!--
+
+`xsltproc -''-nonet \
+          -''-param man.charmap.use.subset "0" \
+          -''-param make.year.ranges "1" \
+          -''-param make.single.year.ranges "1" \
+          /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
+          manpage.xml'
+
+A manual page <package>.<section> will be generated. You may view the
+manual page with: nroff -man <package>.<section> | less'. A typical entry
+in a Makefile or Makefile.am is:
+
+DB2MAN = /usr/share/sgml/docbook/stylesheet/xsl/nwalsh/manpages/docbook.xsl
+XP     = xsltproc -''-nonet -''-param man.charmap.use.subset "0"
+
+manpage.1: manpage.xml
+        $(XP) $(DB2MAN) $<
+
+The xsltproc binary is found in the xsltproc package. The XSL files are in
+docbook-xsl. A description of the parameters you can use can be found in the
+docbook-xsl-doc-* packages. Please remember that if you create the nroff
+version in one of the debian/rules file targets (such as build), you will need
+to include xsltproc and docbook-xsl in your Build-Depends control field.
+Alternatively use the xmlto command/package. That will also automatically
+pull in xsltproc and docbook-xsl.
+
+Notes for using docbook2x: docbook2x-man does not automatically create the
+AUTHOR(S) and COPYRIGHT sections. In this case, please add them manually as
+<refsect1> ... </refsect1>.
+
+To disable the automatic creation of the AUTHOR(S) and COPYRIGHT sections
+read /usr/share/doc/docbook-xsl/doc/manpages/authors.html. This file can be
+found in the docbook-xsl-doc-html package.
+
+Validation can be done using: `xmllint -''-noout -''-valid manpage.xml`
+
+General documentation about man-pages and man-page-formatting:
+man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
+
+-->
+
+  <!ENTITY dhfirstname "Giovanni">
+  <!ENTITY dhsurname   "Mascellani">
+  <!ENTITY dhusername  "&dhfirstname; &dhsurname;">
+  <!ENTITY dhemail     "mascellani@poisson.phc.unipi.it">
+  <!ENTITY dhsection   "8">
+  <!ENTITY dhtitle     "BIRD User Manual">
+]>
+
+<refentry>
+  <refentryinfo>
+    <title>&dhtitle;</title>
+    <productname>bird</productname>
+    <authorgroup>
+      <author>
+       <firstname>&dhfirstname;</firstname>
+        <surname>&dhsurname;</surname>
+        <contrib>Wrote this manpage for the Debian system.</contrib>
+        <address>
+          <email>&dhemail;</email>
+        </address>
+      </author>
+    </authorgroup>
+    <copyright>
+      <year>2010</year>
+      <holder>&dhusername;</holder>
+    </copyright>
+    <legalnotice>
+      <para>This manual page was written for the Debian system
+        (and may be used by others).</para>
+      <para>Permission is granted to copy, distribute and/or modify this
+        document under the terms of the GNU General Public License,
+        Version 2 or (at your option) any later version published by
+        the Free Software Foundation.</para>
+      <para>On Debian systems, the complete text of the GNU General Public
+        License can be found in
+        <filename>/usr/share/common-licenses/GPL</filename>.</para>
+    </legalnotice>
+
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>bird</refentrytitle>
+    <manvolnum>&dhsection;</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>bird</refname>
+    <refpurpose>BIRD Internet Routing Daemon</refpurpose>
+  </refnamediv>
+  <refnamediv>
+    <refname>birdc</refname>
+    <refpurpose>BIRD Internet Routing Daemon remote control</refpurpose>
+  </refnamediv>
+  <refnamediv>
+    <refname>bird6</refname>
+    <refpurpose>BIRD Internet Routing Daemon, IPv6 version</refpurpose>
+  </refnamediv>
+  <refnamediv>
+    <refname>birdc6</refname>
+    <refpurpose>BIRD Internet Routing Daemon remote control, IPv6 version</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>bird</command>
+      <arg choice="opt"><option>-c <replaceable>config-file</replaceable></option></arg>
+      <arg choice="opt"><option>-d</option></arg>
+      <arg choice="opt"><option>-D <replaceable>debug-file</replaceable></option></arg>
+      <arg choice="opt"><option>-p</option></arg>
+      <arg choice="opt"><option>-s <replaceable>control-socket</replaceable></option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>birdc</command>
+      <arg choice="opt"><option>-s <replaceable>control-socket</replaceable></option></arg>
+      <arg choice="opt"><option>-v</option></arg>
+      <arg choice="opt"><option>-r</option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>bird6</command>
+      <arg choice="opt"><option>-c <replaceable>config-file</replaceable></option></arg>
+      <arg choice="opt"><option>-d</option></arg>
+      <arg choice="opt"><option>-D <replaceable>debug-file</replaceable></option></arg>
+      <arg choice="opt"><option>-p</option></arg>
+      <arg choice="opt"><option>-s <replaceable>control-socket</replaceable></option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>birdc6</command>
+      <arg choice="opt"><option>-s <replaceable>control-socket</replaceable></option></arg>
+      <arg choice="opt"><option>-v</option></arg>
+      <arg choice="opt"><option>-r</option></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para><command>bird</command> is an Internet Routing Daemon. That is,
+      it sends and receives messages using different protocols in order to
+      discover and exchange routing information with other routing daemons
+      present on the same network. It is able to talk the most widely
+      known routing protocols (such as BGPv4, RIPv2, OSPFv2 and OSPFv3),
+      both on IPv4 and IPv6 and it features a very powerful language for
+      route filtering.</para>
+    <para><command>birdc</command> is a remote control for <command>bird</command>.
+      While <command>bird</command> is running, the system administrator can
+      connect to it using <command>birdc</command>, to inspect its internal
+      status and reconfigure it. The two processes use a Unix socket to
+      communicate. Once started, <command>bird</command> will give access
+      to an interactive shell: commands can be completed with TAB and help
+      can be requested by pressing the key `?'. More documentation on
+      the available commands can be foung on the website, see below.</para>
+    <para><command>bird6</command> and <command>birdc6</command> are the
+      exact equivalent for <command>bird</command> and <command>birdc</command>
+      for the IPv6 world. The accept the same command syntax with the same
+      meaning.</para>
+  </refsect1>
+
+  <refsect1 id="options">
+    <title>OPTIONS</title>
+    <para>The <command>bird</command> and <command>bird6</command> are able to
+      receive there options:</para>
+    <variablelist>
+      <varlistentry>
+        <term><option>-c <replaceable>config-file</replaceable></option></term>
+        <listitem>
+          <para>Use given configuration file instead of the default /etc/bird/bird.conf.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-d</option></term>
+        <listitem>
+          <para>Enable debug messages and run bird in foreground.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-D <replaceable>debug-file</replaceable></option></term>
+        <listitem>
+          <para>Log debugging information to given file instead of standard error.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-p</option></term>
+        <listitem>
+          <para>Just parse the config file and exit. Return value is zero if the
+            config file is valid, nonzero if there are some errors.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-s <replaceable>control-socket</replaceable></option></term>
+        <listitem>
+          <para>Use given filename for a socket for communications with the
+            client (remote control), default is /var/run/bird.ctl.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The <command>birdc</command> and <command>birdc6</command> are able to
+      receive there options:</para>
+    <variablelist>
+      <varlistentry>
+        <term><option>-s <replaceable>control-socket</replaceable></option></term>
+        <listitem>
+          <para>Use given filename for a socket for communications with the
+            server, default is /var/run/bird.ctl.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-r</option></term>
+        <listitem>
+          <para>Run <command>birdc</command> in restricted mode: only the
+            `show ...' commands are allowed.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-v</option></term>
+        <listitem>
+          <para>Numeric return codes are dumped along with messages, making
+            them easily parsable by a program. See the programmer's documentation
+            for information about their meanings.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1 id="files">
+    <title>FILES</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/etc/bird/bird.conf</filename></term>
+        <listitem>
+          <para>The system-wide configuration file to control the
+            behaviour of <application>bird</application>. See
+            the website for more documentation.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>/etc/bird/bird6.conf</filename></term>
+        <listitem>
+          <para>The system-wide configuration file to control the
+            behaviour of <application>bird6</application>. See
+            the website for more documentation.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <para>More documentation con be found on the website:
+      http://bird.network.cz/.</para>
+  </refsect1>
+</refentry>
+

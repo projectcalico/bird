@@ -1,0 +1,11 @@
+calico-bird (0.3.2+1.6.4+git20180503-1) UNRELEASED; urgency=medium
+
+  * Initial release
+  * Snapshot from 
+    - https://github.com/projectcalico/bird abdb4353a7b4b1b98b61b3f31d8a4109387c0f83
+    - https://github.com/BIRD/bird 4c0b741ba7419e2cb816e1dc9a23096234d998e2
+  * Applied to calico-bird source the diff between
+    017da76b729cc36c4a3416995b06386235660f42 and
+    4c0b741ba7419e2cb816e1dc9a23096234d998e2
+
+ -- Pierre Erraud <pierre.erraud@cdiscount.com>  Thu, 03 May 2018 09:33:46 +0200

@@ -1,0 +1,90 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/default.mk
+
+COMMON_FLAGS= --prefix=/usr --sysconfdir=/etc/bird --mandir=\$${prefix}/share/man \
+	--infodir=\$${prefix}/share/info --localstatedir=/var --with-runtimedir=/run/bird \
+	--enable-client
+
+CFLAGS += -g -O2 -fno-strict-aliasing -fno-strict-overflow -fPIC
+LDFLAGS += -g -O2 -fno-strict-aliasing -fno-strict-overflow -fPIC -Wl,-z,defs -Wl,--as-needed
+
+ifeq (linux,$(DEB_HOST_ARCH_OS))
+  DH_SYSTEMD        := --with systemd
+else
+  DH_SYSTEMD        :=
+endif
+
+# Disable systemd on Ubuntu 12.04 LTS
+ifeq (Ubuntu,$(DEB_VENDOR))
+  ifeq (precise,$(DEB_DISTRIBUTION))
+  DH_SYSTEMD        :=
+  endif
+endif
+
+
+%:
+	dh $@ --with autoreconf,autotools_dev $(DH_SYSTEMD)
+
+override_dh_auto_configure:
+	CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" dh_auto_configure -Bbuild-ipv4 -- $(COMMON_FLAGS) --disable-ipv6 --with-protocols=all
+	CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" dh_auto_configure -Bbuild-ipv6 -- $(COMMON_FLAGS) --enable-ipv6 --with-protocols=all
+
+override_dh_auto_build:
+	dh_auto_build -Bbuild-ipv4
+	dh_auto_build -Bbuild-ipv6
+	# Build the upstream documentation
+	dh_auto_build -Ddoc
+
+override_dh_auto_clean:
+	dh_auto_clean -Bbuild-ipv4
+	dh_auto_clean -Bbuild-ipv6
+
+override_dh_auto_install:
+	dh_auto_install -Bbuild-ipv4
+	dh_auto_install -Bbuild-ipv6
+
+override_dh_install:
+	install -d -m 755 debian/tmp/etc/bird
+	install -m 644 debian/envvars debian/tmp/etc/bird/
+	install -d -m 755 debian/tmp/usr/lib/bird
+	install -m 755 debian/prepare-environment debian/tmp/usr/lib/bird/
+	install -d -m 755 debian/tmp/usr/share/bird
+	install -m 644 debian/bird.conf debian/tmp/usr/share/bird/
+	install -m 644 debian/bird6.conf debian/tmp/usr/share/bird/
+	install -d -m 755 debian/tmp/usr/share/bird/bird.conf.md5sum.d/
+	install -d -m 755 debian/tmp/usr/share/bird/bird6.conf.md5sum.d/
+	install -m 644 debian/bird.conf.md5sum.d/* debian/tmp/usr/share/bird/bird.conf.md5sum.d/
+	install -m 644 debian/bird6.conf.md5sum.d/* debian/tmp/usr/share/bird/bird6.conf.md5sum.d/
+	dh_install -pcalico-bird --sourcedir=debian/tmp
+
+override_dh_installinit:
+	dh_installinit --name=bird --restart-after-upgrade
+	dh_installinit --name=bird6 --restart-after-upgrade
+
+DB2MAN = /usr/share/sgml/docbook/stylesheet/xsl/nwalsh/manpages/docbook.xsl
+XP     = xsltproc -''-nonet -''-param man.charmap.use.subset "0"
+
+bird.8: debian/bird.xml
+	$(XP) $(DB2MAN) $<
+
+override_dh_installman: bird.8
+	dh_installman
+
+override_dh_clean:
+	dh_clean
+	-rm -f bird.8 birdc.8 bird6.8 birdc6.8
+
+override_dh_systemd_enable:
+	dh_systemd_enable --name=bird
+	dh_systemd_enable --name=bird6
+
+override_dh_systemd_start:
+	dh_systemd_start --restart-after-upgrade

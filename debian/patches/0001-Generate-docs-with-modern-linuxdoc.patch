@@ -1,0 +1,21 @@
+From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@debian.org>
+Date: Sun, 18 Sep 2016 11:26:45 +0200
+Subject: Generate docs with modern linuxdoc
+
+---
+ doc/LinuxDocTools.pm | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/doc/LinuxDocTools.pm b/doc/LinuxDocTools.pm
+index 51d4a04..b6c950a 100644
+--- a/doc/LinuxDocTools.pm
++++ b/doc/LinuxDocTools.pm
+@@ -372,7 +372,7 @@ sub process_file
+         }
+     }
+   #
+-  my($precmd) = "|sgmlpre output=$global->{format} $global->{define}";
++  my($precmd) = "|/usr/lib/linuxdoc-tools/sgmlpre output=$global->{format} $global->{define}";
+ 
+   #
+   #  You can hack $NsgmlsOpts here, etcetera.
