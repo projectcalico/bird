@@ -6,7 +6,7 @@ set -e
 
 [ -z "$TARGETARCH" ] && TARGETARCH=$ARCH
 
-autoconf
+autoreconf
 
 
 for i in $TARGETARCH; do

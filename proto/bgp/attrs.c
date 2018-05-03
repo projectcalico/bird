@@ -51,10 +51,9 @@
  * implementations that pass invalid AS_CONFED_* segments are
  * widespread.
  *
- * Error handling of AS4_* attributes is done as specified by
- * draft-ietf-idr-rfc4893bis-03. There are several possible
- * inconsistencies between AGGREGATOR and AS4_AGGREGATOR that are not
- * handled by that draft, these are logged and ignored (see
+ * Error handling of AS4_* attributes is done as specified by RFC 6793. There
+ * are several possible inconsistencies between AGGREGATOR and AS4_AGGREGATOR
+ * that are not handled by that RFC, these are logged and ignored (see
  * bgp_reconstruct_4b_attrs()).
  */
 
@@ -307,7 +306,7 @@ static struct attr_desc bgp_attr_table[] = {
     bgp_check_next_hop, bgp_format_next_hop },
   { "med", 4, BAF_OPTIONAL, EAF_TYPE_INT, 1,					/* BA_MULTI_EXIT_DISC */
     NULL, NULL },
-  { "local_pref", 4, BAF_TRANSITIVE, EAF_TYPE_INT, 0,				/* BA_LOCAL_PREF */
+  { "local_pref", 4, BAF_TRANSITIVE, EAF_TYPE_INT, 1,				/* BA_LOCAL_PREF */
     NULL, NULL },
   { "atomic_aggr", 0, BAF_TRANSITIVE, EAF_TYPE_OPAQUE, 1,			/* BA_ATOMIC_AGGR */
     NULL, NULL },
@@ -469,8 +468,6 @@ bgp_get_attr_len(eattr *a)
   
   return len;
 }
-
-#define ADVANCE(w, r, l) do { r -= l; w += l; } while (0)
 
 /**
  * bgp_encode_attrs - encode BGP attributes
@@ -822,8 +819,13 @@ bgp_get_bucket(struct bgp_proto *p, net *n, ea_list *attrs, int originate)
       code = EA_ID(a->id);
       if (ATTR_KNOWN(code))
 	{
-	  if (!bgp_attr_table[code].allow_in_ebgp && !p->is_internal)
+	  if (!p->is_internal)
+	    {
+	      if (!bgp_attr_table[code].allow_in_ebgp)
+		continue;
+	      if ((code == BA_LOCAL_PREF) && !p->cf->allow_local_pref)
 	    continue;
+	    }
 	  /* The flags might have been zero if the attr was added by filters */
 	  a->flags = (a->flags & BAF_PARTIAL) | bgp_attr_table[code].expected_flags;
 	  if (code < 32)
@@ -1777,8 +1779,13 @@ bgp_decode_attrs(struct bgp_conn *conn, byte *attr, uint len, struct linpool *po
 	    { errcode = 5; goto err; }
 	  if ((desc->expected_flags ^ flags) & (BAF_OPTIONAL | BAF_TRANSITIVE))
 	    { errcode = 4; goto err; }
-	  if (!desc->allow_in_ebgp && !bgp->is_internal)
+	  if (!bgp->is_internal)
+	    {
+	      if (!desc->allow_in_ebgp)
 	    continue;
+	      if ((code == BA_LOCAL_PREF) && !bgp->cf->allow_local_pref)
+		continue;
+	    }
 	  if (desc->validate)
 	    {
 	      errcode = desc->validate(bgp, z, l);

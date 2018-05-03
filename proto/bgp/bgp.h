@@ -48,8 +48,9 @@ struct bgp_config {
   int passive;				/* Do not initiate outgoing connection */
   int interpret_communities;		/* Hardwired handling of well-known communities */
   int secondary;			/* Accept also non-best routes (i.e. RA_ACCEPTED) */
-  int add_path;				/* Use ADD-PATH extension [draft] */
+  int add_path;				/* Use ADD-PATH extension [RFC7911] */
   int allow_local_as;			/* Allow that number of local ASNs in incoming AS_PATHs */
+  int allow_local_pref;			/* Allow LOCAL_PREF in EBGP sessions */
   int gr_mode;				/* Graceful restart mode (BGP_GR_*) */
   int setkey;				/* Set MD5 password to system SA/SP database */
   unsigned gr_time;			/* Graceful restart timeout */
@@ -61,6 +62,7 @@ struct bgp_config {
   unsigned error_delay_time_min;	/* Time to wait after an error is detected */
   unsigned error_delay_time_max;
   unsigned disable_after_error;		/* Disable the protocol when error is detected */
+  u32 disable_after_cease;		/* Disable it when cease is received, bitfield */
 
   char *password;			/* Password used for MD5 authentication */
   struct rtable_config *igp_table;	/* Table used for recursive next hop lookups */
@@ -104,7 +106,7 @@ struct bgp_conn {
   int start_state;			/* protocol start_state snapshot when connection established */
   u8 peer_refresh_support;		/* Peer supports route refresh [RFC2918] */
   u8 peer_as4_support;			/* Peer supports 4B AS numbers [RFC4893] */
-  u8 peer_add_path;			/* Peer supports ADD-PATH [draft] */
+  u8 peer_add_path;			/* Peer supports ADD-PATH [RFC7911] */
   u8 peer_enhanced_refresh_support;	/* Peer supports enhanced refresh [RFC7313] */
   u8 peer_gr_aware;
   u8 peer_gr_able;
@@ -211,7 +213,7 @@ void bgp_graceful_restart_done(struct bgp_proto *p);
 void bgp_refresh_begin(struct bgp_proto *p);
 void bgp_refresh_end(struct bgp_proto *p);
 void bgp_store_error(struct bgp_proto *p, struct bgp_conn *c, u8 class, u32 code);
-void bgp_stop(struct bgp_proto *p, unsigned subcode);
+void bgp_stop(struct bgp_proto *p, uint subcode, byte *data, uint len);
 
 struct rte_source *bgp_find_source(struct bgp_proto *p, u32 path_id);
 struct rte_source *bgp_get_source(struct bgp_proto *p, u32 path_id);
@@ -310,7 +312,7 @@ void bgp_log_error(struct bgp_proto *p, u8 class, char *msg, unsigned code, unsi
 #define BA_EXT_COMMUNITY	0x10	/* [RFC4360] */
 #define BA_AS4_PATH             0x11    /* [RFC4893] */
 #define BA_AS4_AGGREGATOR       0x12
-#define BA_LARGE_COMMUNITY	0x20	/* [draft-ietf-idr-large-community] */
+#define BA_LARGE_COMMUNITY	0x20	/* [RFC8092] */
 
 /* BGP connection states */
 

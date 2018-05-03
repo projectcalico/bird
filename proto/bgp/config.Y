@@ -29,6 +29,12 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY,
 	SECONDARY, ALLOW, BFD, ADD, PATHS, RX, TX, GRACEFUL, RESTART, AWARE,
 	CHECK, LINK, PORT, EXTENDED, MESSAGES, SETKEY, BGP_LARGE_COMMUNITY)
 
+CF_KEYWORDS(CEASE, PREFIX, LIMIT, HIT, ADMINISTRATIVE, SHUTDOWN, RESET, PEER,
+	CONFIGURATION, CHANGE, DECONFIGURED, CONNECTION, REJECTED, COLLISION,
+	OUT, OF, RESOURCES)
+
+%type<i> bgp_cease_mask bgp_cease_list bgp_cease_flag
+
 CF_GRAMMAR
 
 CF_ADDTO(proto, bgp_proto '}' { bgp_check_config(BGP_CFG); } )
@@ -62,6 +68,29 @@ bgp_nbr_opts:
    /* empty */
  | bgp_nbr_opts PORT expr { BGP_CFG->remote_port = $3; if (($3<1) || ($3>65535)) cf_error("Invalid port number");  }
  | bgp_nbr_opts AS expr { BGP_CFG->remote_as = $3; }
+ ;
+
+bgp_cease_mask:
+   /* true -> all except connection collision */
+   bool { $$ = $1 ? ~(1 << 7) : 0; }
+ | '{' bgp_cease_list '}' { $$ = $2; }
+ ;
+
+bgp_cease_list:
+   bgp_cease_flag
+ | bgp_cease_list ',' bgp_cease_flag { $$ = $1 | $3; }
+ ;
+
+bgp_cease_flag:
+   CEASE			{ $$ = 1 << 0; }
+ | PREFIX LIMIT HIT		{ $$ = 1 << 1; }
+ | ADMINISTRATIVE SHUTDOWN	{ $$ = 1 << 2; }
+ | PEER DECONFIGURED		{ $$ = 1 << 3; }
+ | ADMINISTRATIVE RESET		{ $$ = 1 << 4; }
+ | CONNECTION REJECTED		{ $$ = 1 << 5; }
+ | CONFIGURATION CHANGE		{ $$ = 1 << 6; }
+ | CONNECTION COLLISION		{ $$ = 1 << 7; }
+ | OUT OF RESOURCES		{ $$ = 1 << 8; }
  ;
 
 bgp_proto:
@@ -107,6 +136,7 @@ bgp_proto:
  | bgp_proto ERROR FORGET TIME expr ';' { BGP_CFG->error_amnesia_time = $5; }
  | bgp_proto ERROR WAIT TIME expr ',' expr ';' { BGP_CFG->error_delay_time_min = $5; BGP_CFG->error_delay_time_max = $7; }
  | bgp_proto DISABLE AFTER ERROR bool ';' { BGP_CFG->disable_after_error = $5; }
+ | bgp_proto DISABLE AFTER CEASE bgp_cease_mask ';' { BGP_CFG->disable_after_cease = $5; }
  | bgp_proto ENABLE ROUTE REFRESH bool ';' { BGP_CFG->enable_refresh = $5; }
  | bgp_proto ENABLE AS4 bool ';' { BGP_CFG->enable_as4 = $4; }
  | bgp_proto ENABLE EXTENDED MESSAGES bool ';' { BGP_CFG->enable_extended_messages = $5; }
@@ -126,6 +156,7 @@ bgp_proto:
  | bgp_proto ADD PATHS RX ';' { BGP_CFG->add_path = ADD_PATH_RX; }
  | bgp_proto ADD PATHS TX ';' { BGP_CFG->add_path = ADD_PATH_TX; }
  | bgp_proto ADD PATHS bool ';' { BGP_CFG->add_path = $4 ? ADD_PATH_FULL : 0; }
+ | bgp_proto ALLOW BGP_LOCAL_PREF bool ';' { BGP_CFG->allow_local_pref = $4; }
  | bgp_proto ALLOW LOCAL AS ';' { BGP_CFG->allow_local_as = -1; }
  | bgp_proto ALLOW LOCAL AS expr ';' { BGP_CFG->allow_local_as = $5; }
  | bgp_proto GRACEFUL RESTART bool ';' { BGP_CFG->gr_mode = $4; }

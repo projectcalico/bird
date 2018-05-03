@@ -116,7 +116,7 @@ if_what_changed(struct iface *i, struct iface *j)
   unsigned c;
 
   if (((i->flags ^ j->flags) & ~(IF_UP | IF_SHUTDOWN | IF_UPDATED | IF_ADMIN_UP | IF_LINK_UP | IF_TMP_DOWN | IF_JUST_CREATED))
-      || i->index != j->index)
+      || (i->index != j->index) || (i->master != j->master))
     return IF_CHANGE_TOO_MUCH;
   c = 0;
   if ((i->flags ^ j->flags) & IF_UP)
@@ -133,16 +133,18 @@ if_copy(struct iface *to, struct iface *from)
 {
   to->flags = from->flags | (to->flags & IF_TMP_DOWN);
   to->mtu = from->mtu;
+  to->master_index = from->master_index;
+  to->master = from->master;
 }
 
 static inline void
 ifa_send_notify(struct proto *p, unsigned c, struct ifa *a)
 {
-  if (p->ifa_notify)
+  if (p->ifa_notify && (!p->vrf || p->vrf == a->iface->master))
     {
       if (p->debug & D_IFACES)
-	log(L_TRACE "%s < %s address %I/%d on interface %s %s",
-	    p->name, (a->flags & IA_PRIMARY) ? "primary" : "secondary",
+	log(L_TRACE "%s <%s address %I/%d on interface %s %s",
+	    p->name, (a->flags & IA_PRIMARY) ? " primary" : "",
 	    a->prefix, a->pxlen, a->iface->name,
 	    (c & IF_CHANGE_UP) ? "added" : "removed");
       p->ifa_notify(p, c, a);
@@ -175,7 +177,7 @@ ifa_notify_change(unsigned c, struct ifa *a)
 static inline void
 if_send_notify(struct proto *p, unsigned c, struct iface *i)
 {
-  if (p->if_notify)
+  if (p->if_notify && (!p->vrf || p->vrf == i->master))
     {
       if (p->debug & D_IFACES)
 	log(L_TRACE "%s < interface %s %s", p->name, i->name,
@@ -238,7 +240,8 @@ if_recalc_flags(struct iface *i, unsigned flags)
 {
   if ((flags & (IF_SHUTDOWN | IF_TMP_DOWN)) ||
       !(flags & IF_ADMIN_UP) ||
-      !i->addr)
+      !i->addr ||
+      (i->master_index && !i->master))
     flags &= ~IF_UP;
   else
     flags |= IF_UP;
@@ -771,7 +774,13 @@ if_show(void)
       if (i->flags & IF_SHUTDOWN)
 	continue;
 
-      cli_msg(-1001, "%s %s (index=%d)", i->name, (i->flags & IF_UP) ? "up" : "DOWN", i->index);
+      char mbuf[16 + sizeof(i->name)] = {};
+      if (i->master)
+	bsprintf(mbuf, " master=%s", i->master->name);
+      else if (i->master_index)
+	bsprintf(mbuf, " master=#%u", i->master_index);
+
+      cli_msg(-1001, "%s %s (index=%d%s)", i->name, (i->flags & IF_UP) ? "up" : "DOWN", i->index, mbuf);
       if (!(i->flags & IF_MULTIACCESS))
 	type = "PtP";
       else

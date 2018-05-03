@@ -12,6 +12,7 @@
 #include "lib/lists.h"
 #include "lib/resource.h"
 #include "lib/timer.h"
+#include "nest/route.h"
 #include "conf/conf.h"
 
 struct iface;
@@ -94,6 +95,7 @@ struct proto_config {
   unsigned preference, disabled;	/* Generic parameters */
   int in_keep_filtered;			/* Routes rejected in import filter are kept */
   u32 router_id;			/* Protocol specific router ID */
+  struct iface *vrf;			/* Related VRF instance, NULL if global */
   struct rtable_config *table;		/* Table we're attached to */
   struct filter *in_filter, *out_filter; /* Attached filters */
   struct proto_limit *rx_limit;		/* Limit for receiving routes from protocol
@@ -162,6 +164,7 @@ struct proto {
   u32 hash_key;				/* Random key used for hashing of neighbors */
   bird_clock_t last_state_change;	/* Time of last state transition */
   char *last_state_name_announced;	/* Last state name we've announced to the user */
+  char *message;			/* State-change message, allocated from proto_pool */
   struct proto_stats stats;		/* Current protocol statistics */
 
   /*
@@ -213,6 +216,7 @@ struct proto {
   void (*rte_insert)(struct network *, struct rte *);
   void (*rte_remove)(struct network *, struct rte *);
 
+  struct iface *vrf;			/* Related VRF instance, NULL if global */
   struct rtable *table;			/* Our primary routing table */
   struct rte_src *main_source;		/* Primary route source */
   struct announce_hook *main_ahook;	/* Primary announcement hook */
@@ -247,6 +251,7 @@ struct proto_spec {
 void *proto_new(struct proto_config *, unsigned size);
 void *proto_config_new(struct protocol *, int class);
 void proto_copy_config(struct proto_config *dest, struct proto_config *src);
+void proto_set_message(struct proto *p, char *msg, int len);
 void proto_request_feeding(struct proto *p);
 
 static inline void
@@ -264,15 +269,15 @@ void proto_graceful_restart_unlock(struct proto *p);
 void proto_show_limit(struct proto_limit *l, const char *dsc);
 void proto_show_basic_info(struct proto *p);
 
-void proto_cmd_show(struct proto *, uint, int);
-void proto_cmd_disable(struct proto *, uint, int);
-void proto_cmd_enable(struct proto *, uint, int);
-void proto_cmd_restart(struct proto *, uint, int);
-void proto_cmd_reload(struct proto *, uint, int);
-void proto_cmd_debug(struct proto *, uint, int);
-void proto_cmd_mrtdump(struct proto *, uint, int);
+void proto_cmd_show(struct proto *, uintptr_t, int);
+void proto_cmd_disable(struct proto *, uintptr_t, int);
+void proto_cmd_enable(struct proto *, uintptr_t, int);
+void proto_cmd_restart(struct proto *, uintptr_t, int);
+void proto_cmd_reload(struct proto *, uintptr_t, int);
+void proto_cmd_debug(struct proto *, uintptr_t, int);
+void proto_cmd_mrtdump(struct proto *, uintptr_t, int);
 
-void proto_apply_cmd(struct proto_spec ps, void (* cmd)(struct proto *, uint, int), int restricted, uint arg);
+void proto_apply_cmd(struct proto_spec ps, void (* cmd)(struct proto *, uintptr_t, int), int restricted, uintptr_t arg);
 struct proto *proto_get_named(struct symbol *, struct protocol *);
 
 #define CMD_RELOAD	0
@@ -284,6 +289,17 @@ proto_get_router_id(struct proto_config *pc)
 {
   return pc->router_id ? pc->router_id : pc->global->router_id;
 }
+
+static inline struct ea_list *
+rte_make_tmp_attrs(struct rte *rt, struct linpool *pool)
+{
+  struct ea_list *(*mta)(struct rte *rt, struct linpool *pool);
+  mta = rt->attrs->src->proto->make_tmp_attrs;
+  return mta ? mta(rt, pool) : NULL;
+}
+
+/* Moved from route.h to avoid dependency conflicts */
+static inline void rte_update(struct proto *p, net *net, rte *new) { rte_update2(p->main_ahook, net, new, p->main_source); }
 
 extern list active_proto_list;
 

@@ -60,14 +60,6 @@ static inline void rt_schedule_gc(rtable *tab);
 static inline void rt_schedule_prune(rtable *tab);
 
 
-static inline struct ea_list *
-make_tmp_attrs(struct rte *rt, struct linpool *pool)
-{
-  struct ea_list *(*mta)(struct rte *rt, struct linpool *pool);
-  mta = rt->attrs->src->proto->make_tmp_attrs;
-  return mta ? mta(rt, pool) : NULL;
-}
-
 /* Like fib_route(), but skips empty net entries */
 static net *
 net_route(rtable *tab, ip_addr a, int len)
@@ -260,7 +252,7 @@ export_filter_(struct announce_hook *ah, rte *rt0, rte **rt_free, ea_list **tmpa
   if (!tmpa)
     tmpa = &tmpb;
 
-  *tmpa = make_tmp_attrs(rt, pool);
+  *tmpa = rte_make_tmp_attrs(rt, pool);
 
   v = p->import_control ? p->import_control(p, &rt, tmpa, pool) : 0;
   if (v < 0)
@@ -281,7 +273,8 @@ export_filter_(struct announce_hook *ah, rte *rt0, rte **rt_free, ea_list **tmpa
     }
 
   v = filter && ((filter == FILTER_REJECT) ||
-		 (f_run(filter, &rt, tmpa, pool, FF_FORCE_TMPATTR) > F_ACCEPT));
+		 (f_run(filter, &rt, tmpa, pool,
+			FF_FORCE_TMPATTR | (silent ? FF_SILENT : 0)) > F_ACCEPT));
   if (v)
     {
       if (silent)
@@ -1223,7 +1216,7 @@ rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src)
 	}
       else
 	{
-	  tmpa = make_tmp_attrs(new, rte_update_pool);
+	  tmpa = rte_make_tmp_attrs(new, rte_update_pool);
 	  if (filter && (filter != FILTER_REJECT))
 	    {
 	      ea_list *old_tmpa = tmpa;
@@ -1303,10 +1296,11 @@ rt_examine(rtable *t, ip_addr prefix, int pxlen, struct proto *p, struct filter 
   rte_update_lock();
 
   /* Rest is stripped down export_filter() */
-  ea_list *tmpa = make_tmp_attrs(rt, rte_update_pool);
+  ea_list *tmpa = rte_make_tmp_attrs(rt, rte_update_pool);
   int v = p->import_control ? p->import_control(p, &rt, &tmpa, rte_update_pool) : 0;
   if (v == RIC_PROCESS)
-    v = (f_run(filter, &rt, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
+    v = (f_run(filter, &rt, &tmpa, rte_update_pool,
+	       FF_FORCE_TMPATTR | FF_SILENT) <= F_ACCEPT);
 
    /* Discard temporary rte */
   if (rt != n->routes)
@@ -2470,7 +2464,7 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 
       ee = e;
       rte_update_lock();		/* We use the update buffer for filtering */
-      tmpa = make_tmp_attrs(e, rte_update_pool);
+      tmpa = rte_make_tmp_attrs(e, rte_update_pool);
 
       /* Special case for merged export */
       if ((d->export_mode == RSEM_EXPORT) && (d->export_protocol->accept_ra_types == RA_MERGED))
@@ -2501,7 +2495,8 @@ rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 	       * command may change the export filter and do not update routes.
 	       */
 	      int do_export = (ic > 0) ||
-		(f_run(a->out_filter, &e, &tmpa, rte_update_pool, FF_FORCE_TMPATTR) <= F_ACCEPT);
+		(f_run(a->out_filter, &e, &tmpa, rte_update_pool,
+		       FF_FORCE_TMPATTR | FF_SILENT) <= F_ACCEPT);
 
 	      if (do_export != (d->export_mode == RSEM_EXPORT))
 		goto skip;

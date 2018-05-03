@@ -118,6 +118,7 @@ ospf_sk_open(struct ospf_iface *ifa)
   sk->dport = OSPF_PROTO;
   sk->saddr = ifa->addr->ip;
   sk->iface = ifa->iface;
+  sk->vrf = p->p.vrf;
 
   sk->tos = ifa->cf->tx_tos;
   sk->priority = ifa->cf->tx_priority;
@@ -200,6 +201,7 @@ ospf_open_vlink_sk(struct ospf_proto *p)
   sock *sk = sk_new(p->p.pool);
   sk->type = SK_IP;
   sk->dport = OSPF_PROTO;
+  sk->vrf = p->p.vrf;
 
   /* FIXME: configurable tos/priority ? */
   sk->tos = IP_PREC_INTERNET_CONTROL;

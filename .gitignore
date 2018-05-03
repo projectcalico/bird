@@ -5,10 +5,12 @@
 /bird
 /birdc
 /birdcl
+/bird.conf
+/bird.log
 /config.log
 /config.status
 /configure
-/bird.conf
-/bird.log
+/sysdep/autoconf.h.in
+/sysdep/autoconf.h.in~
 dist
 configure.lineno

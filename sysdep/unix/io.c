@@ -516,7 +516,7 @@ static inline void
 sockaddr_fill4(struct sockaddr_in *sa, ip_addr a, uint port)
 {
   memset(sa, 0, sizeof(struct sockaddr_in));
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
   sa->sin_len = sizeof(struct sockaddr_in);
 #endif
   sa->sin_family = AF_INET;
@@ -1211,6 +1211,18 @@ sk_setup(sock *s)
   }
 #endif
 
+  if (s->vrf && !s->iface)
+  {
+    /* Bind socket to associated VRF interface.
+       This is Linux-specific, but so is SO_BINDTODEVICE. */
+#ifdef SO_BINDTODEVICE
+    struct ifreq ifr = {};
+    strcpy(ifr.ifr_name, s->vrf->name);
+    if (setsockopt(s->fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
+      ERR("SO_BINDTODEVICE");
+#endif
+  }
+
   if (s->iface)
   {
 #ifdef SO_BINDTODEVICE
@@ -1225,10 +1237,6 @@ sk_setup(sock *s)
       ERR("SO_DONTROUTE");
 #endif
   }
-
-  if (s->priority >= 0)
-    if (sk_set_priority(s, s->priority) < 0)
-      return -1;
 
   if (sk_is_ipv4(s))
   {
@@ -1279,6 +1287,11 @@ sk_setup(sock *s)
       if (sk_set_tos6(s, s->tos) < 0)
 	return -1;
   }
+
+  /* Must be after sk_set_tos4() as setting ToS on Linux also mangles priority */
+  if (s->priority >= 0)
+    if (sk_set_priority(s, s->priority) < 0)
+      return -1;
 
   return 0;
 }

@@ -34,8 +34,10 @@ struct iface {
   unsigned flags;
   unsigned mtu;
   unsigned index;			/* OS-dependent interface index */
+  unsigned master_index;		/* Interface index of master iface */
   list addrs;				/* Addresses assigned to this interface */
   struct ifa *addr;			/* Primary address */
+  struct iface *master;			/* Master iface (e.g. for VRF) */
   list neighbors;			/* All neighbors on this interface */
 };
 

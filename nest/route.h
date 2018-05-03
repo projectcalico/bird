@@ -12,10 +12,11 @@
 #include "lib/lists.h"
 #include "lib/resource.h"
 #include "lib/timer.h"
-#include "nest/protocol.h"
 
+struct ea_list;
 struct protocol;
 struct proto;
+struct rte_src;
 struct symbol;
 struct filter;
 struct cli;
@@ -273,7 +274,7 @@ static inline net *net_get(rtable *tab, ip_addr addr, unsigned len) { return (ne
 rte *rte_find(net *net, struct rte_src *src);
 rte *rte_get_temp(struct rta *);
 void rte_update2(struct announce_hook *ah, net *net, rte *new, struct rte_src *src);
-static inline void rte_update(struct proto *p, net *net, rte *new) { rte_update2(p->main_ahook, net, new, p->main_source); }
+/* rte_update() moved to protocol.h to avoid dependency conflicts */
 int rt_examine(rtable *t, ip_addr prefix, int pxlen, struct proto *p, struct filter *filter);
 rte *rt_export_merged(struct announce_hook *ah, net *net, rte **rt_free, struct ea_list **tmpa, linpool *pool, int silent);
 void rt_refresh_begin(rtable *t, struct announce_hook *ah);
@@ -430,7 +431,8 @@ typedef struct eattr {
 #define EAP_OSPF 3			/* OSPF */
 #define EAP_KRT 4			/* Kernel route attributes */
 #define EAP_BABEL 5			/* Babel attributes */
-#define EAP_MAX 6
+#define EAP_RADV 6			/* Router advertisment attributes */
+#define EAP_MAX 7
 
 #define EA_CODE(proto,id) (((proto) << 8) | (id))
 #define EA_PROTO(ea) ((ea) >> 8)

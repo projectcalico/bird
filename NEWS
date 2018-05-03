@@ -1,3 +1,16 @@
+Version 1.6.4 (2018-03-22)
+  o Basic VRF support
+  o Simplified autoconf scripts
+  o BGP: Shutdown communication (RFC 8203)
+  o BGP: Allow exchanging LOCAL_PREF with eBGP peers
+  o BGP: Allow to specify interface for regular sessions
+  o BGP: New option 'disable after cease'
+  o RAdv: Support for more specific routes (RFC 4191)
+  o RAdv: Proper handling of prefix retraction
+  o Filter: Allow silent filter execution
+  o Filter: Fixed stack overflow in BGP mask expressions.
+  o Several bug fixes
+
 Version 1.6.3 (2016-12-21)
   o Large BGP communities
   o BFD authentication (MD5, SHA1)
