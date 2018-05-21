@@ -37,6 +37,12 @@ case $ARCH in
 		TARGETARCH=
 		DOCKERFILE=Dockerfile
 		;;
+	s390x)
+	  	ARCH=s390x
+	  	BUILDARCH=s390x
+		TARGETARCH=
+		DOCKERFILE=Dockerfile-s390x
+		;;
 	*)
 		echo "Unknown architecture $ARCH."
 		exit 1
