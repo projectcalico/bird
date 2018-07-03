@@ -426,13 +426,15 @@ rt_notify_basic(struct announce_hook *ah, net *net, rte *new0, rte *old0, int re
    * reconfiguration and the end of refeed - if a newly filtered
    * route disappears during this period, proper withdraw is not
    * sent (because old would be also filtered) and the route is
-   * not refeeded (because it disappeared before that).
+   * not refeeded (because it disappeared before that). Therefore,
+   * we also do not try to run the filter on old routes that are
+   * older than the last filter change.
    */
 
   if (new)
     new = export_filter(ah, new, &new_free, &tmpa, 0);
 
-  if (old && !refeed)
+  if (old && !(refeed || (old->lastmod <= ah->last_out_filter_change)))
     old = export_filter(ah, old, &old_free, NULL, 1);
 
   if (!new && !old)

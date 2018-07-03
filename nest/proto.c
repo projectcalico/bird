@@ -433,10 +433,17 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   if (p->proto->multitable)
     return 1;
 
+  int import_changed = ! filter_same(nc->in_filter, oc->in_filter);
+  int export_changed = ! filter_same(nc->out_filter, oc->out_filter);
+
+  /* We treat a change in preferences by reimporting routes */
+  if (nc->preference != oc->preference)
+    import_changed = 1;
+
   /* Update filters and limits in the main announce hook
      Note that this also resets limit state */
   if (p->main_ahook)
-    {  
+    {
       struct announce_hook *ah = p->main_ahook;
       ah->in_filter = nc->in_filter;
       ah->out_filter = nc->out_filter;
@@ -445,19 +452,15 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
       ah->out_limit = nc->out_limit;
       ah->in_keep_filtered = nc->in_keep_filtered;
       proto_verify_limits(ah);
+
+      if (export_changed)
+	ah->last_out_filter_change = now;
     }
 
   /* Update routes when filters changed. If the protocol in not UP,
      it has no routes and we can ignore such changes */
   if ((p->proto_state != PS_UP) || (type == RECONFIG_SOFT))
     return 1;
-
-  int import_changed = ! filter_same(nc->in_filter, oc->in_filter);
-  int export_changed = ! filter_same(nc->out_filter, oc->out_filter);
-
-  /* We treat a change in preferences by reimporting routes */
-  if (nc->preference != oc->preference)
-    import_changed = 1;
 
   if (import_changed || export_changed)
     log(L_INFO "Reloading protocol %s", p->name);

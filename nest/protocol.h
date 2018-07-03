@@ -471,6 +471,7 @@ struct announce_hook {
   struct proto_stats *stats;		/* Per-table protocol statistics */
   struct announce_hook *next;		/* Next hook for the same protocol */
   int in_keep_filtered;			/* Routes rejected in import filter are kept */
+  bird_clock_t last_out_filter_change;	/* Last time when out_filter _changed_ */
 };
 
 struct announce_hook *proto_add_announce_hook(struct proto *p, struct rtable *t, struct proto_stats *stats);
