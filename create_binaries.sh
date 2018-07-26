@@ -11,7 +11,12 @@ autoreconf
 
 for i in $TARGETARCH; do
 	# where we save our output
-	distarch=$DIST/$i
+	dirarch=$i
+	[ "$dirarch" = "x86_64" ] && dirarch=amd64
+	[ "$dirarch" = "aarch64" ] && dirarch=arm64
+	[ "$dirarch" = "ppc64el" ] && dirarch=ppc64le
+	[ "$dirarch" = "powerpc64le" ] && dirarch=ppc64le
+	distarch=$DIST/$dirarch
 	mkdir -p $distarch
 	# if target arch is our arch, then no --host=<triple>
 
