@@ -14,7 +14,11 @@ the following additional function used by Calico:
 
 ### TL;DR
 
-To build `bird` on your platform, run `./build.sh`. To build for all platforms, run `ARCH=all ./build.sh`.
+To build `bird`:
+
+* on your platform for your platform, run `./build.sh`. 
+* on `amd64` for all platforms, run `ARCH=all ./build.sh`.
+* on `amd64` for a specific other platform, run `ARCH=<targetarch> ./build.sh`.
 
 ### Details
 `bird` can be built for one platform - your local one, by default - or for all supported platforms.
@@ -22,8 +26,8 @@ To build `bird` on your platform, run `./build.sh`. To build for all platforms, 
 When you run the build script - `build.sh` - it tries to determine what platforms you want to build it for by looking at the environment variable `ARCH`.
 
 * If `ARCH` is unset, it will determine it from the local platform using `uname -m`.
-* If `ARCH` is set to a supported platform, it will assume you are running on that platform and build for it.
-* If `ARCH` is set to `all`, it will try to build for *all* supported architectures.
+* If `ARCH` is set to a supported platform, it will try to build from your local platform for that platform.
+* If `ARCH` is set to `all`, it will try to build for *all* supported architectures from your local platform.
 
 As of this writing, the supported architectures are as follows. Multiple entries on each line are aliases:
 
