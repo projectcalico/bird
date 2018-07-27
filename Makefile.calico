@@ -38,6 +38,9 @@ CALICO_GIT_VER := $(shell git describe --tags --dirty --always)
 
 # because we are not using the default Makefile
 where-am-i = $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
+# so we can use names in targets
+escapefs = $(subst :,---,$(subst /,___,$(1)))
+unescapefs = $(subst ---,:,$(subst ___,/,$(1)))
 
 # Variables for controlling image tagging and pushing.
 DOCKER_REPOS=calico quay.io/calico
@@ -70,11 +73,14 @@ sub-image-%:
 	$(MYMAKE) image ARCH=$*
 
 ## push one arch
-push: imagetag
-	for r in $(DOCKER_REPOS); do docker push $$r/$(CONTAINER_BASENAME):$(IMAGETAG)-$(ARCH); done
+push: imagetag $(addprefix sub-single-push-,$(call escapefs,$(DOCKER_REPOS)))
+
+sub-single-push-%:
+	docker push $(call unescapefs,$*/$(CONTAINER_BASENAME):$(IMAGETAG)-$(ARCH))
 ifeq ($(ARCH),amd64)
-	for r in $(DOCKER_REPOS); do docker push $$r/$(CONTAINER_BASENAME):$(IMAGETAG); done
+	docker push $(call unescapefs,$*/$(CONTAINER_BASENAME):$(IMAGETAG))
 endif
+
 
 ## push all supported arches
 push-all: imagetag $(addprefix sub-push-,$(VALIDARCHES))
@@ -82,11 +88,15 @@ sub-push-%:
 	$(MYMAKE) push ARCH=$* IMAGETAG=$(IMAGETAG)
 
 ## tag images of one arch
-tag-images: imagetag
-	for r in $(DOCKER_REPOS); do docker tag $(CONTAINER_NAME):latest-$(ARCH) $$r/$(CONTAINER_BASENAME):$(IMAGETAG)-$(ARCH); done
+tag-images: imagetag $(addprefix sub-single-tag-images-,$(call escapefs,$(DOCKER_REPOS)))
+
+sub-single-tag-images-%:
+	docker tag $(CONTAINER_NAME):latest-$(ARCH) $(call unescapefs,$*/$(CONTAINER_BASENAME):$(IMAGETAG)-$(ARCH))
 ifeq ($(ARCH),amd64)
-	for r in $(DOCKER_REPOS); do docker tag $(CONTAINER_NAME):latest-$(ARCH) $$r/$(CONTAINER_BASENAME):$(IMAGETAG); done
+	docker tag $(CONTAINER_NAME):latest-$(ARCH) $(call unescapefs,$*/$(CONTAINER_BASENAME):$(IMAGETAG))
 endif
+
+
 
 ## tag images of all archs
 tag-images-all: imagetag $(addprefix sub-tag-images-,$(VALIDARCHES))
