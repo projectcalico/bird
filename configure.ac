@@ -216,9 +216,13 @@ else
       ;;
     ipv6:freebsd*)
       sysdesc=bsd-v6
+      CPPFLAGS="$CPPFLAGS -I/usr/local/include"
+      LDFLAGS="$LDFLAGS -L/usr/local/lib"
       ;;
     ipv4:freebsd*)
       sysdesc=bsd
+      CPPFLAGS="$CPPFLAGS -I/usr/local/include"
+      LDFLAGS="$LDFLAGS -L/usr/local/lib"
       ;;
     ipv6:dragonfly*)
       sysdesc=bsd-v6
@@ -419,4 +423,5 @@ AC_MSG_RESULT([        Debugging:		$enable_debug])
 AC_MSG_RESULT([        POSIX threads:		$enable_pthreads])
 AC_MSG_RESULT([        Routing protocols:	$protocols])
 AC_MSG_RESULT([        Client:			$enable_client])
+
 rm -f $objdir/.*-stamp
