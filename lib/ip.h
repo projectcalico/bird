@@ -309,6 +309,9 @@ static inline int ip6_is_v4mapped(ip6_addr a)
 #define ipa_is_link_local(x) 0
 #endif
 
+static inline int ip4_is_unicast(ip4_addr a)
+{ return _I(a) < 0xe0000000; }
+
 static inline int ipa_classify_net(ip_addr a)
 { return ipa_zero2(a) ? (IADDR_HOST | SCOPE_UNIVERSE) : ipa_classify(a); }
 
