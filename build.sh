@@ -36,7 +36,7 @@ esac
 # get the correct TARGETARCH
 case $ARCH in
 	all)
-		TARGETARCH="amd64 aarch64 powerpc64le"
+		TARGETARCH="amd64 aarch64 powerpc64le s390x"
 		;;
 	amd64|x86_64)
 		TARGETARCH=$ARCH
@@ -58,9 +58,9 @@ esac
 # get the right dockerfile
 DOCKERFILE=Dockerfile
 IMAGE=birdbuild-$ARCH
-if [ $BUILDARCH != $TARGETARCH ]; then
+if [ "$BUILDARCH" != "$TARGETARCH" ]; then
 	DOCKERFILE=Dockerfile-cross
-	IMAGE=birdbuild-$ARCH-cross
+	IMAGE=birdbuild-$BUILDARCH-cross
 fi
 
 
