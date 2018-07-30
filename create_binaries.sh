@@ -16,12 +16,22 @@ for i in $TARGETARCH; do
 	[ "$dirarch" = "aarch64" ] && dirarch=arm64
 	[ "$dirarch" = "ppc64el" ] && dirarch=ppc64le
 	[ "$dirarch" = "powerpc64le" ] && dirarch=ppc64le
+
+	# where we place our output binaries
 	distarch=$DIST/$dirarch
 	mkdir -p $distarch
+	distarch=$(readlink -f $distarch)
+	# by making our obj/ dir be distinct per arch, we avoid potentially trouncing with .o files of wrong arch
+	objarch=$OBJ/$dirarch
+	mkdir -p $objarch
+	objarch=$(readlink -f $objarch)
+
+	# initial pwd
+	initpwd=$(pwd)
+
+	(
+	cd $objarch
 	# if target arch is our arch, then no --host=<triple>
-
-
-
 	HOSTARCH=
 	GCC=gcc
 	# are we cross-compiling
@@ -29,23 +39,28 @@ for i in $TARGETARCH; do
 		HOSTARCH="$i-linux-gnu"
 		GCC="$HOSTARCH-gcc"
 	fi
-	./configure  --with-protocols="bgp pipe static" --enable-ipv6=yes --enable-client=yes --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH
+	$initpwd/configure  --with-protocols="bgp pipe static" --enable-ipv6=yes --enable-client=yes --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH
 	make
 	# Remove the dynamic binaries and rerun make to create static binaries and store off the results
 	rm bird birdcl
 
 	# we need to force static compilation
-	make CC="$GCC --static"
+	# because of the circular dependency when bird runs in its own directory (birdc -> ./birdc), it will try to rebuild birdc, which fails when static
+	#    thus, always build explicit targets when doing --static
+	make CC="$GCC --static" bird birdcl
 	cp bird $distarch/bird6
 	cp birdcl $distarch/birdcl
 
 
 	# Rerun the build but without IPv6 (or the client) and store off the result.
 	make clean
-	./configure  --with-protocols="bgp pipe static" --enable-client=no --enable-pthreads=yes -with-sysconfig=linux --build=$ARCH --host=$HOSTARCH
+	$initpwd/configure  --with-protocols="bgp pipe static" --enable-client=no --enable-pthreads=yes -with-sysconfig=linux --build=$ARCH --host=$HOSTARCH
 	make
 	rm bird
-	make CC="$GCC --static"
+	# because of the circular dependency when bird runs in its own directory (birdc -> ./birdc), it will try to rebuild birdc, which fails when static
+	#    thus, always build explicit targets when doing --static
+	make CC="$GCC --static" bird
 	cp bird $distarch/bird
+	)
 
 done
