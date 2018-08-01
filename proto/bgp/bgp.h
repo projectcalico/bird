@@ -129,7 +129,7 @@ struct bgp_conn {
   u8 peer_gr_aflags;
   u8 peer_llgr_aware;
   u8 peer_llgr_able;
-  u16 peer_llgr_time;
+  uint peer_llgr_time;
   u8 peer_llgr_aflags;
   u8 peer_ext_messages_support;		/* Peer supports extended message length [draft] */
   unsigned hold_time, keepalive_time;	/* Times calculated from my and neighbor's requirements */

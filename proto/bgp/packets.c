@@ -910,7 +910,7 @@ bgp_parse_capabilities(struct bgp_conn *conn, byte *opt, int len)
 	  conn->peer_llgr_able = 0;
 	  conn->peer_llgr_time = 0;
 	  conn->peer_llgr_aflags = 0;
-	  for (i = 0; i < cl; i += 4)
+	  for (i = 0; i < cl; i += 7)
 	    if (opt[2+i+0] == 0 && opt[2+i+1] == BGP_AF && opt[2+i+2] == 1) /* Match AFI/SAFI */
 	      {
 		conn->peer_llgr_able = 1;
