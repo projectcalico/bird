@@ -1054,22 +1054,23 @@ bgp_bfd_notify(struct bfd_request *req)
   if (req->down && ((ps == PS_START) || (ps == PS_UP)))
   {
     BGP_TRACE(D_EVENTS, "BFD session down");
+    bgp_store_error(p, NULL, BE_MISC, BEM_BFD_DOWN);
 
-    /* Ignore if already in GR */
-    if (p->gr_active && (p->cf->bfd == BGP_BFD_GRACEFUL))
-      return;
-
-    if (p->conn && (p->conn->state == BS_ESTABLISHED) &&
-	p->gr_ready && (p->cf->bfd == BGP_BFD_GRACEFUL))
+    if (p->cf->bfd == BGP_BFD_GRACEFUL)
     {
       /* Trigger graceful restart */
-      bgp_handle_graceful_restart(p);
-      bgp_conn_enter_idle_state(p->conn);
+      if (p->conn && (p->conn->state == BS_ESTABLISHED) && p->gr_ready)
+	bgp_handle_graceful_restart(p);
+
+      if (p->incoming_conn.state > BS_IDLE)
+	bgp_conn_enter_idle_state(&p->incoming_conn);
+
+      if (p->outgoing_conn.state > BS_IDLE)
+	bgp_conn_enter_idle_state(&p->outgoing_conn);
     }
     else
     {
       /* Trigger session down */
-      bgp_store_error(p, NULL, BE_MISC, BEM_BFD_DOWN);
       if (ps == PS_UP)
 	bgp_update_startup_delay(p);
       bgp_stop(p, 0, NULL, 0);
