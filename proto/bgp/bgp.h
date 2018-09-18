@@ -288,7 +288,7 @@ inline static void bgp_attach_attr_ip(struct ea_list **to, struct linpool *pool,
 
 /* packets.c */
 
-void mrt_dump_bgp_state_change(struct bgp_conn *conn, unsigned old, unsigned new);
+void bgp_dump_state_change(struct bgp_conn *conn, uint old, uint new);
 void bgp_schedule_packet(struct bgp_conn *conn, int type);
 void bgp_kick_tx(void *vconn);
 void bgp_tx(struct birdsock *sk);

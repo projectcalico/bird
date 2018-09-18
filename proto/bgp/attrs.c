@@ -471,7 +471,7 @@ bgp_get_attr_len(eattr *a)
 
 /**
  * bgp_encode_attrs - encode BGP attributes
- * @p: BGP instance
+ * @p: BGP instance (or NULL)
  * @w: buffer
  * @attrs: a list of extended attributes
  * @remains: remaining space in the buffer
@@ -485,6 +485,7 @@ uint
 bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 {
   uint i, code, type, flags;
+  int as4_session = p ? p->as4_session : 1;
   byte *start = w;
   int len, rv;
 
@@ -504,7 +505,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
        * we have to convert our 4B AS_PATH to 2B AS_PATH and send our AS_PATH 
        * as optional AS4_PATH attribute.
        */
-      if ((code == BA_AS_PATH) && (! p->as4_session))
+      if ((code == BA_AS_PATH) && !as4_session)
 	{
 	  len = a->u.ptr->length;
 
@@ -546,7 +547,7 @@ bgp_encode_attrs(struct bgp_proto *p, byte *w, ea_list *attrs, int remains)
 	}
 
       /* The same issue with AGGREGATOR attribute */
-      if ((code == BA_AGGREGATOR) && (! p->as4_session))
+      if ((code == BA_AGGREGATOR) && !as4_session)
 	{
 	  int new_used;
 

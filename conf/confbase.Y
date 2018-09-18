@@ -55,6 +55,7 @@ CF_DECLS
   struct roa_show_data *ro;
   struct sym_show_data *sd;
   struct lsadb_show_data *ld;
+  struct mrt_dump_data *md;
   struct iface *iface;
   struct roa_table *rot;
   void *g;

@@ -352,7 +352,7 @@ static inline void
 bgp_conn_set_state(struct bgp_conn *conn, unsigned new_state)
 {
   if (conn->bgp->p.mrtdump & MD_STATES)
-    mrt_dump_bgp_state_change(conn, conn->state, new_state);
+    bgp_dump_state_change(conn, conn->state, new_state);
 
   conn->state = new_state;
 }

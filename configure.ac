@@ -270,7 +270,7 @@ fi
 
 AC_SUBST([iproutedir])
 
-all_protocols="$proto_bfd bgp ospf pipe $proto_radv rip static"
+all_protocols="$proto_bfd bgp mrt ospf pipe $proto_radv rip static"
 if test "$ip" = ipv6 ; then
    all_protocols="$all_protocols babel"
 fi
@@ -283,6 +283,7 @@ fi
 AH_TEMPLATE([CONFIG_BABEL], 	[Babel protocol])
 AH_TEMPLATE([CONFIG_BFD],	[BFD protocol])
 AH_TEMPLATE([CONFIG_BGP],	[BGP protocol])
+AH_TEMPLATE([CONFIG_MRT],	[MRT protocol])
 AH_TEMPLATE([CONFIG_OSPF],	[OSPF protocol])
 AH_TEMPLATE([CONFIG_PIPE],	[Pipe protocol])
 AH_TEMPLATE([CONFIG_RADV],	[RAdv protocol])

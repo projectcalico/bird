@@ -74,8 +74,9 @@ bird_clock_t tm_parse_date(char *);	/* Convert date to bird_clock_t */
 bird_clock_t tm_parse_datetime(char *);	/* Convert date to bird_clock_t */
 
 #define TM_DATETIME_BUFFER_SIZE 32	/* Buffer size required by tm_format_datetime */
-void
-tm_format_datetime(char *x, struct timeformat *fmt_spec, bird_clock_t t);
+
+void tm_format_datetime(char *x, struct timeformat *fmt_spec, bird_clock_t t);
+int tm_format_real_time(char *x, size_t max, const char *fmt, bird_clock_t t);
 
 #define TIME_T_IS_64BIT (sizeof(time_t) == 8)
 #define TIME_T_IS_SIGNED ((time_t) -1 < 0)
