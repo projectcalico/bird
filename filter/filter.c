@@ -1000,6 +1000,20 @@ interpret(struct f_inst *what)
 	rta->hostentry = NULL;
 	break;
 
+      case SA_IFNAME:
+	{
+	  struct iface *ifa = if_find_by_name(v1.val.s);
+	  if (!ifa)
+	    runtime( "Invalid iface name" );
+
+	  rta->dest = RTD_DEVICE;
+	  rta->gw = IPA_NONE;
+	  rta->iface = ifa;
+	  rta->nexthops = NULL;
+	  rta->hostentry = NULL;
+	}
+	break;
+
       default:
 	bug("Invalid static attribute access (%x)", res.type);
       }
