@@ -281,17 +281,6 @@ radv_iface_add(struct object_lock *lock)
   radv_iface_notify(ifa, RA_EV_INIT);
 }
 
-static inline struct ifa *
-find_lladdr(struct iface *iface)
-{
-  struct ifa *a;
-  WALK_LIST(a, iface->addrs)
-    if (a->scope == SCOPE_LINK)
-      return a;
-
-  return NULL;
-}
-
 static void
 radv_iface_new(struct radv_proto *p, struct iface *iface, struct radv_iface_config *cf)
 {
@@ -305,17 +294,11 @@ radv_iface_new(struct radv_proto *p, struct iface *iface, struct radv_iface_conf
   ifa->ra = p;
   ifa->cf = cf;
   ifa->iface = iface;
+  ifa->addr = iface->llv6;
   init_list(&ifa->prefixes);
   ifa->prune_time = TIME_INFINITY;
 
   add_tail(&p->iface_list, NODE ifa);
-
-  ifa->addr = find_lladdr(iface);
-  if (!ifa->addr)
-  {
-    log(L_ERR "%s: Missing link-local address on interface %s", p->p.name, iface->name);
-    return;
-  }
 
   timer *tm = tm_new(pool);
   tm->hook = radv_timer;
@@ -359,6 +342,10 @@ radv_if_notify(struct proto *P, unsigned flags, struct iface *iface)
   {
     struct radv_iface_config *ic = (struct radv_iface_config *)
       iface_patt_find(&cf->patt_list, iface, NULL);
+
+    /* Ignore ifaces without link-local address */
+    if (!iface->llv6)
+      return;
 
     if (ic)
       radv_iface_new(p, iface, ic);

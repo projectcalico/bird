@@ -764,6 +764,10 @@ rip_if_notify(struct proto *P, unsigned flags, struct iface *iface)
   {
     struct rip_iface_config *ic = (void *) iface_patt_find(&cf->patt_list, iface, NULL);
 
+    /* For RIPng, ignore ifaces without link-local address */
+    if (rip_is_ng(p) && !ifa_llv6(iface))
+      return;
+
     if (ic)
       rip_add_iface(p, iface, ic);
 

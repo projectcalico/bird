@@ -470,10 +470,24 @@ struct ifa *kif_choose_primary(struct iface *i);
 static int
 ifa_recalc_primary(struct iface *i)
 {
-  struct ifa *a = kif_choose_primary(i);
+  struct ifa *a;
+  int c = 0;
+
+#ifdef IPV6
+  struct ifa *ll = NULL;
+
+  WALK_LIST(a, i->addrs)
+    if (ipa_is_link_local(a->ip) && (!ll || (a == i->llv6)))
+      ll = a;
+
+  c = (ll != i->llv6);
+  i->llv6 = ll;
+#endif
+
+  a = kif_choose_primary(i);
 
   if (a == i->addr)
-    return 0;
+    return c;
 
   if (i->addr)
     i->addr->flags &= ~IA_PRIMARY;
@@ -577,7 +591,7 @@ ifa_delete(struct ifa *a)
 	    b->flags &= ~IF_UP;
 	    ifa_notify_change(IF_CHANGE_DOWN, b);
 	  }
-	if (b->flags & IA_PRIMARY)
+	if ((b->flags & IA_PRIMARY) || (b == ifa_llv6(i)))
 	  {
 	    if_change_flags(i, i->flags | IF_TMP_DOWN);
 	    ifa_recalc_primary(i);
