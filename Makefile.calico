@@ -24,7 +24,7 @@ ifeq ($(ARCH),x86_64)
 endif
 
 ARCHES=$(patsubst docker-image/Dockerfile.%,%,$(wildcard docker-image/Dockerfile.*))
-EXCLUDEARCH ?= 
+EXCLUDEARCH ?=
 VALIDARCHES = $(filter-out $(EXCLUDEARCH),$(ARCHES))
 
 BINARIES_FILES = bird birdcl bird6
@@ -114,7 +114,7 @@ endif
 ###############################################################################
 .PHONY: ci cd
 ## Run what CI runs
-ci: image-all
+ci: image-all test-protocol-support
 
 ## Deploys images to registry
 cd:
@@ -126,3 +126,23 @@ ifndef BRANCH_NAME
 endif
 	$(MYMAKE) tag-images-all push-all IMAGETAG=${BRANCH_NAME} EXCLUDEARCH="$(EXCLUDEARCH)"
 	$(MYMAKE) tag-images-all push-all IMAGETAG=$(shell git describe --tags --dirty --always --long) EXCLUDEARCH="$(EXCLUDEARCH)"
+
+# Test that the image we've just built supports the BIRD config that
+# we expect it to.
+TEST_CONFIG := docker run --rm \
+		-v `pwd`/docker-image/test-config:/test-config \
+		-w /test-config \
+		$(CONTAINER_NAME):latest-$(BUILDARCH) \
+		/bird -p -c
+test-protocol-support: image
+	# invalid.conf is not BIRD config at all, so we expect BIRD to
+	# find it invalid.  So here we're testing that our testing is
+	# effective.
+	! $(TEST_CONFIG) invalid.conf
+	# bird.cfg (plus its includes bird_aggr.cfg and bird_ipam.cfg)
+	# is actual confd-generated config grabbed from a confd test
+	# run.
+	$(TEST_CONFIG) bird.cfg
+	# bfd.conf contains an empty "protocol bfd" block, so tests
+	# that our image supports BFD.
+	$(TEST_CONFIG) bfd.conf
