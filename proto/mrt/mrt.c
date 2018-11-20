@@ -668,7 +668,8 @@ mrt_dump_cont(struct cli *c)
     return;
 
   cli_printf(c, 0, "");
-  c->cont = c->cleanup = NULL;
+  mrt_table_dump_free(c->rover);
+  c->cont = c->cleanup = c->rover = NULL;
 }
 
 static void
