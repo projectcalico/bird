@@ -518,6 +518,11 @@ static_match(struct proto *p, struct static_route *r, struct static_config *n)
   if (r->neigh)
     r->neigh->data = NULL;
 
+  if (r->dest == RTD_MULTIPATH)
+    for (t = r->mp_next; t; t = t->mp_next)
+      if (t->neigh)
+	t->neigh->data = NULL;
+
   WALK_LIST(t, n->iface_routes)
     if (static_same_net(r, t))
       goto found;
