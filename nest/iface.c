@@ -827,6 +827,9 @@ if_show_summary(void)
   cli_msg(-2005, "interface state address");
   WALK_LIST(i, iface_list)
     {
+      if (i->flags & IF_SHUTDOWN)
+	continue;
+
       if (i->addr)
 	bsprintf(addr, "%I/%d", i->addr->ip, i->addr->pxlen);
       else
