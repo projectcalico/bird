@@ -373,6 +373,8 @@ sub process_file
         }
     }
   #
+
+  local $ENV{PATH} = "$ENV{PATH}:/usr/lib/linuxdoc-tools";
   my($precmd) = "|sgmlpre output=$global->{format} $global->{define}";
 
   #
