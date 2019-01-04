@@ -114,7 +114,7 @@ if test "$enable_debug" = yes ; then
   CONTROL_SOCKET="bird$SUFFIX.ctl"
 else
   CONFIG_FILE="\$(sysconfdir)/bird$SUFFIX.conf"
-  CONTROL_SOCKET="\$(runstatedir)/bird.ctl"
+  CONTROL_SOCKET="\$(runstatedir)/bird$SUFFIX.ctl"
 fi
 AC_SUBST([CONFIG_FILE])
 AC_SUBST([CONTROL_SOCKET])
