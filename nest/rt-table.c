@@ -434,7 +434,8 @@ rt_notify_basic(struct announce_hook *ah, net *net, rte *new0, rte *old0, int re
   if (new)
     new = export_filter(ah, new, &new_free, &tmpa, 0);
 
-  if (old && !(refeed || (old->lastmod <= ah->last_out_filter_change)))
+  if (old && !(refeed || ((old->lastmod <= ah->last_out_filter_change) &&
+			  (p != old->sender->proto))))
     old = export_filter(ah, old, &old_free, NULL, 1);
 
   if (!new && !old)
