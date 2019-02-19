@@ -484,7 +484,7 @@ rt_notify_basic(struct announce_hook *ah, net *net, rte *new0, rte *old0, int re
 static void
 rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *old_changed, rte *before_old, int feed)
 {
-  // struct proto *p = ah->proto;
+  struct proto *p = ah->proto;
   struct proto_stats *stats = ah->stats;
 
   rte *r;
@@ -563,7 +563,9 @@ rt_notify_accepted(struct announce_hook *ah, net *net, rte *new_changed, rte *ol
    */
 
   /* Hack for changed filters */
-  if (old_changed && (old_changed->lastmod <= ah->last_out_filter_change))
+  if (old_changed &&
+      (p != old_changed->sender->proto) &&
+      (old_changed->lastmod <= ah->last_out_filter_change))
     {
       old_best = old_changed;
       goto found;
