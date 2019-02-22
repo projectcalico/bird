@@ -865,12 +865,13 @@ rte_free_quick(rte *e)
 static int
 rte_same(rte *x, rte *y)
 {
+  /* rte.flags are not checked, as they are mostly internal to rtable */
   return
     x->attrs == y->attrs &&
-    x->flags == y->flags &&
     x->pflags == y->pflags &&
     x->pref == y->pref &&
-    (!x->attrs->src->proto->rte_same || x->attrs->src->proto->rte_same(x, y));
+    (!x->attrs->src->proto->rte_same || x->attrs->src->proto->rte_same(x, y)) &&
+    rte_is_filtered(x) == rte_is_filtered(y);
 }
 
 static inline int rte_is_ok(rte *e) { return e && !rte_is_filtered(e); }
@@ -914,7 +915,9 @@ rte_recalculate(struct announce_hook *ah, net *net, rte *new, struct rte_src *sr
 
 	  if (new && rte_same(old, new))
 	    {
-	      /* No changes, ignore the new route */
+	      /* No changes, ignore the new route and refresh the old one */
+
+	      old->flags &= ~(REF_STALE | REF_DISCARD | REF_MODIFY);
 
 	      if (!rte_is_filtered(new))
 		{
