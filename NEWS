@@ -1,3 +1,6 @@
+Version 1.6.6 (2019-02-27)
+  o Several bugfixes related to route propagation
+
 Version 1.6.5 (2019-01-05)
   o MRT table dumps (RFC 6396)
   o BGP Long-lived graceful restart
