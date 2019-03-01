@@ -1,3 +1,8 @@
+calico-bird (0.3.3+1.6.4+git20190301-1) UNRELEASED; urgency=medium
+  * Merge with recent bird
+
+ -- Baptiste Mayelle <baptiste.mayelle@cdiscount.com> Fri, 01 Mar 2019 11:41:00 +0100
+
 calico-bird (0.3.2+1.6.4+git20180503-1) UNRELEASED; urgency=medium
 
   * Initial release
