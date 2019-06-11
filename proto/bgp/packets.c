@@ -784,8 +784,12 @@ bgp_kick_tx(void *vconn)
   struct bgp_conn *conn = vconn;
 
   DBG("BGP: kicking TX\n");
-  while (bgp_fire_tx(conn) > 0)
+  uint max = 1024;
+  while (--max && (bgp_fire_tx(conn) > 0))
     ;
+
+  if (!max && !ev_active(conn->tx_ev))
+    ev_schedule(conn->tx_ev);
 }
 
 void
@@ -794,8 +798,12 @@ bgp_tx(sock *sk)
   struct bgp_conn *conn = sk->data;
 
   DBG("BGP: TX hook\n");
-  while (bgp_fire_tx(conn) > 0)
+  uint max = 1024;
+  while (--max && (bgp_fire_tx(conn) > 0))
     ;
+
+  if (!max && !ev_active(conn->tx_ev))
+    ev_schedule(conn->tx_ev);
 }
 
 /* Capatibility negotiation as per RFC 2842 */
