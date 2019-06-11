@@ -924,7 +924,7 @@ bgp_free_bucket(struct bgp_proto *p, struct bgp_bucket *buck)
 #define PXH_FN(p,l,i)		ipa_hash32(p) ^ u32_hash((l << 16) ^ i)
 
 #define PXH_REHASH		bgp_pxh_rehash
-#define PXH_PARAMS		/8, *2, 2, 2, 8, 20
+#define PXH_PARAMS		/8, *2, 2, 2, 8, 24
 
 
 HASH_DEFINE_REHASH_FN(PXH, struct bgp_prefix)
