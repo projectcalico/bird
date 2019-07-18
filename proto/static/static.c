@@ -150,7 +150,7 @@ static_update_bfd(struct proto *p, struct static_route *r)
   if (bfd_up && !r->bfd_req)
   {
     // ip_addr local = ipa_nonzero(r->local) ? r->local : nb->ifa->ip;
-    r->bfd_req = bfd_request_session(p->pool, r->via, nb->ifa->ip, nb->iface,
+    r->bfd_req = bfd_request_session(p->pool, r->via, nb->ifa->ip, nb->iface, p->vrf,
 				     static_bfd_notify, r);
   }
 

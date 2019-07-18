@@ -1084,7 +1084,7 @@ bgp_update_bfd(struct bgp_proto *p, int use_bfd)
   if (use_bfd && !p->bfd_req)
     p->bfd_req = bfd_request_session(p->p.pool, p->cf->remote_ip, p->source_addr,
 				     p->cf->multihop ? NULL : p->neigh->iface,
-				     bgp_bfd_notify, p);
+				     p->p.vrf, bgp_bfd_notify, p);
 
   if (!use_bfd && p->bfd_req)
     {
