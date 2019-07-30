@@ -294,12 +294,14 @@ log_switch(int debug, list *l, char *new_syslog_name)
   if (!l || EMPTY_LIST(*l))
     l = default_log_list(debug, !l, &new_syslog_name);
 
+  log_lock();
+
   current_log_list = l;
 
 #ifdef HAVE_SYSLOG_H
   if (current_syslog_name && new_syslog_name &&
       !strcmp(current_syslog_name, new_syslog_name))
-    return;
+    goto done;
 
   if (current_syslog_name)
   {
@@ -314,6 +316,9 @@ log_switch(int debug, list *l, char *new_syslog_name)
     openlog(current_syslog_name, LOG_CONS | LOG_NDELAY, LOG_DAEMON);
   }
 #endif
+
+done:
+  log_unlock();
 }
 
 
