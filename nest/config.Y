@@ -55,7 +55,7 @@ get_passwords(void)
 CF_DECLS
 
 CF_KEYWORDS(ROUTER, ID, PROTOCOL, TEMPLATE, PREFERENCE, DISABLED, DEBUG, ALL, OFF, DIRECT)
-CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, VRF, TABLE, STATES, ROUTES, FILTERS)
+CF_KEYWORDS(INTERFACE, IMPORT, EXPORT, FILTER, NONE, VRF, DEFAULT, TABLE, STATES, ROUTES, FILTERS)
 CF_KEYWORDS(RECEIVE, LIMIT, ACTION, WARN, BLOCK, RESTART, DISABLE, KEEP, FILTERED)
 CF_KEYWORDS(PASSWORD, FROM, PASSIVE, TO, ID, EVENTS, PACKETS, PROTOCOLS, INTERFACES)
 CF_KEYWORDS(ALGORITHM, KEYED, HMAC, MD5, SHA1, SHA256, SHA384, SHA512)
@@ -227,7 +227,8 @@ proto_item:
  | IMPORT LIMIT limit_spec { this_proto->in_limit = $3; }
  | EXPORT LIMIT limit_spec { this_proto->out_limit = $3; }
  | IMPORT KEEP FILTERED bool { this_proto->in_keep_filtered = $4; }
- | VRF text { this_proto->vrf = if_get_by_name($2); }
+ | VRF text { this_proto->vrf = if_get_by_name($2); this_proto->vrf_set = 1; }
+ | VRF DEFAULT { this_proto->vrf = NULL; this_proto->vrf_set = 1; }
  | TABLE rtable { this_proto->table = $2; }
  | ROUTER ID idval { this_proto->router_id = $3; }
  | DESCRIPTION text { this_proto->dsc = $2; }

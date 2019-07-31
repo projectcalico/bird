@@ -140,7 +140,7 @@ if_copy(struct iface *to, struct iface *from)
 static inline void
 ifa_send_notify(struct proto *p, unsigned c, struct ifa *a)
 {
-  if (p->ifa_notify && (!p->vrf || p->vrf == a->iface->master))
+  if (p->ifa_notify && (!p->vrf_set || p->vrf == a->iface->master))
     {
       if (p->debug & D_IFACES)
 	log(L_TRACE "%s <%s address %I/%d on interface %s %s",
@@ -177,7 +177,7 @@ ifa_notify_change(unsigned c, struct ifa *a)
 static inline void
 if_send_notify(struct proto *p, unsigned c, struct iface *i)
 {
-  if (p->if_notify && (!p->vrf || p->vrf == i->master))
+  if (p->if_notify && (!p->vrf_set || p->vrf == i->master))
     {
       if (p->debug & D_IFACES)
 	log(L_TRACE "%s < interface %s %s", p->name, i->name,

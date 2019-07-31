@@ -387,6 +387,7 @@ proto_init(struct proto_config *c)
   q->export_state = ES_DOWN;
   q->last_state_change = now;
   q->vrf = c->vrf;
+  q->vrf_set = c->vrf_set;
 
   add_tail(&initial_proto_list, &q->n);
 
@@ -411,6 +412,7 @@ proto_reconfigure(struct proto *p, struct proto_config *oc, struct proto_config 
   if ((nc->protocol != oc->protocol) ||
       (nc->disabled != p->disabled) ||
       (nc->vrf != oc->vrf) ||
+      (nc->vrf_set != oc->vrf_set) ||
       (nc->table->table != oc->table->table))
     return 0;
 
@@ -1566,6 +1568,9 @@ proto_cmd_show(struct proto *p, uintptr_t verbose, int cnt)
 
       if (p->cf->router_id)
 	cli_msg(-1006, "  Router ID:      %R", p->cf->router_id);
+
+      if (p->vrf_set)
+	cli_msg(-1006, "  VRF:            %s", p->vrf ? p->vrf->name : "default");
 
       if (p->proto->show_proto_info)
 	p->proto->show_proto_info(p);

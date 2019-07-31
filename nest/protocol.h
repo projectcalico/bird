@@ -93,6 +93,7 @@ struct proto_config {
   int class;				/* SYM_PROTO or SYM_TEMPLATE */
   u32 debug, mrtdump;			/* Debugging bitfields, both use D_* constants */
   unsigned preference, disabled;	/* Generic parameters */
+  int vrf_set;				/* Related VRF instance (below) is defined */
   int in_keep_filtered;			/* Routes rejected in import filter are kept */
   u32 router_id;			/* Protocol specific router ID */
   struct iface *vrf;			/* Related VRF instance, NULL if global */
@@ -149,6 +150,7 @@ struct proto {
   unsigned preference;			/* Default route preference */
   byte accept_ra_types;			/* Which types of route announcements are accepted (RA_OPTIMAL or RA_ANY) */
   byte disabled;			/* Manually disabled */
+  byte vrf_set;				/* Related VRF instance (above) is defined */
   byte proto_state;			/* Protocol state machine (PS_*, see below) */
   byte core_state;			/* Core state machine (FS_*, see below) */
   byte export_state;			/* Route export state (ES_*, see below) */
