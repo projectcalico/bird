@@ -599,14 +599,23 @@ agreement").
 	<tag><label id="proto-table">table <m/name/</tag>
 	Connect this protocol to a non-default routing table.
 
-	<tag><label id="proto-vrf">vrf "<m/text/"</tag>
+	<tag><label id="proto-vrf">vrf "<m/text/"|default</tag>
 	Associate the protocol with specific VRF. The protocol will be
 	restricted to interfaces assigned to the VRF and will use sockets bound
-	to the VRF. Appropriate VRF interface must exist on OS level. For kernel
-	protocol, an appropriate table still must be explicitly selected by
-	<cf/table/ option. Note that for proper VRF support it is necessary to
-	use Linux kernel version at least 4.14, older versions have limited
-	VRF implementation.
+	to the VRF. A corresponding VRF interface must exist on OS level. For
+	kernel protocol, an appropriate table still must be explicitly selected
+	by <cf/table/ option.
+
+	By selecting <cf/default/, the protocol is associated with the default
+	VRF; i.e., it will be restricted to interfaces not assigned to any
+	regular VRF. That is different from not specifying <cf/vrf/ at all, in
+	which case the protocol may use any interface regardless of its VRF
+	status.
+
+	Note that for proper VRF support it is necessary to use Linux kernel
+	version at least 4.14, older versions have limited VRF implementation.
+	Before Linux kernel 5.0, a socket bound to a port in default VRF collide
+	with others in regular VRFs.
 </descrip>
 
 <p>There are several options that give sense only with certain protocols:
@@ -1624,7 +1633,7 @@ in the future. Also note that we currently support at most one protocol instance
 <p>BFD packets are sent with a dynamic source port number. Linux systems use by
 default a bit different dynamic port range than the IANA approved one
 (49152-65535). If you experience problems with compatibility, please adjust
-<cf>/proc/sys/net/ipv4/ip_local_port_range</cf>
+<cf>/proc/sys/net/ipv4/ip_local_port_range</cf>.
 
 <sect1>Configuration
 <label id="bfd-config">
@@ -1640,6 +1649,14 @@ configuration is often sufficient.
 
 <p>Note that to use BFD for other protocols like OSPF or BGP, these protocols
 also have to be configured to request BFD sessions, usually by <cf/bfd/ option.
+
+<p>A BFD instance not associated with any VRF handles session requests from all
+other protocols, even ones associated with a VRF. Such setup would work for
+single-hop BFD sessions if <cf/net.ipv4.udp_l3mdev_accept/ sysctl is enabled,
+but does not currently work for multihop sessions. Another approach is to
+configure multiple BFD instances, one for each VRF (including the default VRF).
+Each BFD instance associated with a VRF (regular or default) only handles
+session requests from protocols in the same VRF.
 
 <p>Some of BFD session options require <m/time/ value, which has to be specified
 with the appropriate unit: <m/num/ <cf/s/|<cf/ms/|<cf/us/. Although microseconds
