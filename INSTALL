@@ -1,5 +1,5 @@
-How to install BIRD
-===================
+How to install BIRD 1.x.x
+=========================
 
 $ ./configure
 $ make
@@ -15,7 +15,7 @@ To compile current development BIRD source code from Git repository, you
 also need Git (to download the source code) and Autoconf (to generate
 the configure script and associated files using 'autoreconf' tool):
 
-$ git clone https://gitlab.labs.nic.cz/labs/bird/
+$ git clone https://gitlab.labs.nic.cz/labs/bird/ -b legacy
 $ cd bird
 $ autoreconf
 
