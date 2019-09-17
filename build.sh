@@ -39,7 +39,7 @@ case $ARCH in
 		TARGETARCH="amd64 aarch64 powerpc64le s390x"
 		;;
 	amd64|x86_64)
-		TARGETARCH=$ARCH
+		TARGETARCH=amd64
 		;;
 	arm64|aarch64)
 		TARGETARCH=aarch64
