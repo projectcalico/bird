@@ -67,6 +67,7 @@ build-all:
 image: $(CONTAINER_NAME)
 $(CONTAINER_NAME): $(BINARIES)
 	docker build -t $(CONTAINER_NAME):latest-$(ARCH) -f docker-image/Dockerfile.$(ARCH) dist/$(ARCH)
+	docker build -t birdy -f birdy/Dockerfile .
 
 image-all: $(addprefix sub-image-,$(VALIDARCHES))
 sub-image-%:

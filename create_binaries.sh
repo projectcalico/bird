@@ -49,18 +49,19 @@ for i in $TARGETARCH; do
 	#    thus, always build explicit targets when doing --static
 	make CC="$GCC --static" bird birdcl
 	cp bird $distarch/bird6
-	cp birdcl $distarch/birdcl
+	cp birdcl $distarch/birdcl6
 
 
 	# Rerun the build but without IPv6 (or the client) and store off the result.
 	make clean
 	$initpwd/configure  --with-protocols="bfd bgp pipe static" --enable-client=no --enable-pthreads=yes -with-sysconfig=linux --build=$ARCH --host=$HOSTARCH
 	make
-	rm bird
+	rm bird birdcl
 	# because of the circular dependency when bird runs in its own directory (birdc -> ./birdc), it will try to rebuild birdc, which fails when static
 	#    thus, always build explicit targets when doing --static
-	make CC="$GCC --static" bird
+	make CC="$GCC --static" bird birdcl
 	cp bird $distarch/bird
+	cp birdcl $distarch/birdcl
 	)
 
 done
