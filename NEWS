@@ -1,3 +1,6 @@
+Version 1.6.8 (2019-09-10)
+  o Several important bugfixes
+
 Version 1.6.7 (2019-08-01)
   o BFD: Support for VRFs
   o Several bugfixes
