@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -2137,6 +2138,7 @@ io_loop(void)
       if (tout <= now)
 	{
 	  tm_shot();
+	  usleep(10000);    
 	  goto timers;
 	}
       poll_tout = (events ? 0 : MIN(tout - now, 3)) * 1000; /* Time in milliseconds */
