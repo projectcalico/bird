@@ -26,6 +26,7 @@
 #include "lib/string.h"
 #include "lib/hash.h"
 #include "conf/conf.h"
+#include "proto/bgp/bgp.h"
 
 #include <asm/types.h>
 #include <linux/if.h>
@@ -931,6 +932,7 @@ static int
 nl_send_route(struct krt_proto *p, rte *e, struct ea_list *eattrs, int op, int dest, ip_addr gw, struct iface *iface)
 {
   eattr *ea;
+  eattr *nh;
   net *net = e->net;
   rta *a = e->attrs;
   u32 priority = 0;
@@ -1020,6 +1022,7 @@ dest:
     case RTD_ROUTER:
       r->r.rtm_type = RTN_UNICAST;
       if ((ea = ea_find(eattrs, EA_KRT_TUNNEL)) &&
+          (nh = ea_find(eattrs, EA_CODE(EAP_BGP, BA_NEXT_HOP))) &&
           (i = if_find_by_name(ea->u.ptr->data)))
       {
         /*
@@ -1027,7 +1030,7 @@ dest:
          * to the originator of the route.
          */
         nl_add_attr_u32(&r->h, rsize, RTA_OIF, i->index);
-        nl_add_attr_ipa(&r->h, rsize, RTA_GATEWAY, a->orig_gw);
+        nl_add_attr_ipa(&r->h, rsize, RTA_GATEWAY, *(ip_addr *)(nh->u.ptr->data));
         r->r.rtm_flags |= RTNH_F_ONLINK;
       }
       else

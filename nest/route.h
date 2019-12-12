@@ -363,7 +363,6 @@ typedef struct rta {
   byte aflags;				/* Attribute cache flags (RTAF_...) */
   u16 hash_key;				/* Hash over important fields */
   u32 igp_metric;			/* IGP metric to next hop (for iBGP routes) */
-  ip_addr orig_gw;			/* Original next hop from BGP UPDATE */
   ip_addr gw;				/* Next hop */
   ip_addr from;				/* Advertising router */
   struct hostentry *hostentry;		/* Hostentry for recursive next-hops */
