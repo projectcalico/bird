@@ -132,8 +132,9 @@ endif
 TEST_CONFIG := docker run --rm \
 		-v `pwd`/docker-image/test-config:/test-config \
 		-w /test-config \
+		--entrypoint=/bird \
 		$(CONTAINER_NAME):latest-$(BUILDARCH) \
-		/bird -p -c
+		-p -c
 test-protocol-support: image
 	# invalid.conf is not BIRD config at all, so we expect BIRD to
 	# find it invalid.  So here we're testing that our testing is
