@@ -38,7 +38,7 @@ for i in $TARGETARCH; do
 	MIPS="mips64el"
 	# are we cross-compiling
 	if [ "$i" != "$ARCH" ]; then
-		# mips编译器为mips64el-linux-gnuabi64-gcc
+		# The compiler for mips64el is mips64el-linux-gnuabi64-gcc
 		if [ "$i" = "mips64el" ]; then
 			HOSTARCH="$i-linux-gnuabi64"
 		else
