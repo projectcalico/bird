@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 set -x
 
@@ -27,6 +27,9 @@ case $BUILDARCH in
 	s390x)
 	  	BUILDARCH=s390x
 		;;
+	mips64le|mips64el)
+	  	BUILDARCH=mips64el
+		;;
 	*)
 		echo "Unsupported build architecture $BUILDARCH" >&2
 		exit 1
@@ -36,7 +39,7 @@ esac
 # get the correct TARGETARCH
 case $ARCH in
 	all)
-		TARGETARCH="amd64 aarch64 powerpc64le s390x"
+		TARGETARCH="amd64 aarch64 powerpc64le s390x mips64el"
 		;;
 	amd64|x86_64)
 		TARGETARCH=$ARCH
@@ -49,6 +52,9 @@ case $ARCH in
 		;;
 	s390x)
 		TARGETARCH=s390x
+		;;
+	mips64el)
+		TARGETARCH=mips64el
 		;;
 	*)
 		echo "Unknown target architecture $ARCH."
