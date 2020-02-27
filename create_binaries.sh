@@ -35,7 +35,6 @@ for i in $TARGETARCH; do
 	# if target arch is our arch, then no --host=<triple>
 	HOSTARCH=
 	GCC=gcc
-	MIPS="mips64el"
 	# are we cross-compiling
 	if [ "$i" != "$ARCH" ]; then
 		# The compiler for mips64el is mips64el-linux-gnuabi64-gcc

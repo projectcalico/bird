@@ -33,6 +33,8 @@ As of this writing, the supported architectures are as follows. Multiple entries
 * `amd64` / `x86_64`
 * `arm64` / `aarch64`
 * `ppc64le` / `ppc64el` / `powerpc64le`
+* `mips64el`
+
 
 ### How the Build Works
 The build works as follows.
