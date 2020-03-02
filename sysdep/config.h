@@ -9,6 +9,8 @@
 /* BIRD version */
 #define BIRD_VERSION "v0.3.3+birdv1.6.8"
 
+#define GLOBAL_DEBUG
+
 /* Include parameters determined by configure script */
 #include "sysdep/autoconf.h"
 
