@@ -158,7 +158,7 @@ bfd_fill_authentication(struct bfd_proto *p, struct bfd_session *s, struct bfd_c
       s->tx_csn_time = new_time;
     }
 
-    DBG("[%I] CSN: %u\n", s->addr, s->last_tx_csn);
+    /* DBG("[%I] CSN: %u\n", s->addr, s->last_tx_csn); */
 
     auth->type = cf->auth_type;
     auth->length = sizeof(struct bfd_crypto_auth) + hash_len;
