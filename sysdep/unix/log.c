@@ -116,7 +116,11 @@ log_commit(int class, buffer *buf)
       if (l->fh)
 	{
 	  if (l->terminal_flag)
+#ifdef IPV6
+	    fputs("bird6: ", l->fh);
+#else
 	    fputs("bird: ", l->fh);
+#endif
 	  else
 	    {
 	      byte tbuf[TM_DATETIME_BUFFER_SIZE];
