@@ -18,6 +18,9 @@ case $BUILDARCH in
 	amd64|x86_64)
 		BUILDARCH=amd64
 		;;
+	armv7l)
+		BUILDARCH=armv7
+		;;
 	arm64|aarch64)
 		BUILDARCH=aarch64
 		;;
@@ -40,6 +43,9 @@ case $ARCH in
 		;;
 	amd64|x86_64)
 		TARGETARCH=$ARCH
+		;;
+	armv7l)
+		TARGETARCH=armv7
 		;;
 	arm64|aarch64)
 		TARGETARCH=aarch64

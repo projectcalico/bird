@@ -5,6 +5,9 @@ BUILDARCH ?= $(shell uname -m)
 BUILDOS ?= $(shell uname -s | tr A-Z a-z)
 
 # canonicalized names for host architecture
+ifeq ($(BUILDARCH),armv7l)
+        BUILDARCH=armv7
+endif
 ifeq ($(BUILDARCH),aarch64)
         BUILDARCH=arm64
 endif
@@ -16,6 +19,9 @@ endif
 ARCH ?= $(BUILDARCH)
 
 # canonicalized names for target architecture
+ifeq ($(ARCH),armv7l)
+        override ARCH=armv7
+endif
 ifeq ($(ARCH),aarch64)
         override ARCH=arm64
 endif
