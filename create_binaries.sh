@@ -16,6 +16,7 @@ for i in $TARGETARCH; do
 	[ "$dirarch" = "aarch64" ] && dirarch=arm64
 	[ "$dirarch" = "ppc64el" ] && dirarch=ppc64le
 	[ "$dirarch" = "powerpc64le" ] && dirarch=ppc64le
+        [ "$dirarch" = "s390x" ] && dirarch=s390x
 
 	# where we place our output binaries
 	distarch=$DIST/$dirarch
