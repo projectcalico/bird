@@ -16,6 +16,7 @@ for i in $TARGETARCH; do
 	[ "$dirarch" = "aarch64" ] && dirarch=arm64
 	[ "$dirarch" = "ppc64el" ] && dirarch=ppc64le
 	[ "$dirarch" = "powerpc64le" ] && dirarch=ppc64le
+	[ "$dirarch" = "mips64el" ] && dirarch=mips64el
 
 	# where we place our output binaries
 	distarch=$DIST/$dirarch
@@ -36,7 +37,12 @@ for i in $TARGETARCH; do
 	GCC=gcc
 	# are we cross-compiling
 	if [ "$i" != "$ARCH" ]; then
-		HOSTARCH="$i-linux-gnu"
+		# The compiler for mips64el is mips64el-linux-gnuabi64-gcc
+		if [ "$i" = "mips64el" ]; then
+			HOSTARCH="$i-linux-gnuabi64"
+		else
+			HOSTARCH="$i-linux-gnu"
+		fi
 		GCC="$HOSTARCH-gcc"
 	fi
 	$initpwd/configure  --with-protocols="bfd bgp pipe static" --enable-ipv6=yes --enable-client=yes --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH
