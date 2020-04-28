@@ -6,9 +6,7 @@ RUN dpkg --add-architecture ppc64el
 RUN dpkg --add-architecture s390x
 RUN dpkg --add-architecture mips64el
 RUN apt update
-
-# ADD mips64el
-RUN apt install -y autoconf flex bison \
+RUN apt-get --no-install-recommends install -y autoconf flex bison \
 	libncurses-dev libreadline-dev \
 	binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu libncurses-dev:arm64 libreadline-dev:arm64 \
 	binutils-powerpc64le-linux-gnu gcc-powerpc64le-linux-gnu libncurses-dev:ppc64el libreadline-dev:ppc64el \
