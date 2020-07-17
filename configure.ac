@@ -136,6 +136,8 @@ if test -z "$GCC" ; then
   AC_MSG_ERROR([This program requires the GNU C Compiler.])
 fi
 
+CFLAGS="$CFLAGS -fcommon"
+
 if test "$enable_pthreads" != no ; then
   BIRD_CHECK_PTHREADS
 
