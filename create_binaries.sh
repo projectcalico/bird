@@ -45,7 +45,7 @@ for i in $TARGETARCH; do
 		fi
 		GCC="$HOSTARCH-gcc"
 	fi
-	$initpwd/configure  --with-protocols="bfd bgp pipe static" --enable-ipv6=yes --enable-client=yes --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH --runstatedir=/var/run/calico
+	$initpwd/configure  --with-protocols="bfd bgp pipe static" --enable-ipv6=yes --enable-client=no --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH --runstatedir=/var/run/calico
 	make
 	# Remove the dynamic binaries and rerun make to create static binaries and store off the results
 	rm bird birdcl
