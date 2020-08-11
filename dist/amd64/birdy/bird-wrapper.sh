@@ -11,6 +11,10 @@ fi
 sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird.conf
 sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird6.conf
 
+# Ensure that /var/run/calico (which is where the control socket file
+# will be) exists.
+mkdir -p /var/run/calico
+
 # Start bird and bird6 (which will both daemonize)
 bird
 bird6
