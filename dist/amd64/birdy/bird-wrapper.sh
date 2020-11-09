@@ -21,45 +21,56 @@ fi
 sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird.conf
 sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird6.conf
 
+# Given one of the NIC-specific addresses for this node, output -
+# following ssh-agent style - variable settings for this node's stable
+# address and AS number, and for the ToR addresses to peer with.  For
+# example:
+#   DUAL_TOR_STABLE_ADDRESS=172.31.20.3
+#   DUAL_TOR_PEERING_ADDRESS_1=172.31.21.100
+#   DUAL_TOR_PEERING_ADDRESS_2=172.31.22.100
+#   DUAL_TOR_AS_NUMBER=65002
+get_dual_tor_details()
+{
+    # Calculate loopback address.  Do this by rounding the 3rd octet
+    # of the router ID down to a multiple of 10.
+    nic_address=$1
+    ip1=`echo $nic_address | cut -d. -f1`
+    ip2=`echo $nic_address | cut -d. -f2`
+    ip3=`echo $nic_address | cut -d. -f3`
+    ip4=`echo $nic_address | cut -d. -f4`
+    rack_base=$((ip3 - (ip3 % 10)))
+    echo "DUAL_TOR_STABLE_ADDRESS=${ip1}.${ip2}.${rack_base}.${ip4}"
+
+    # Calculate the ToR addresses.
+    echo "DUAL_TOR_PEERING_ADDRESS_1=${ip1}.${ip2}.$((rack_base + 1)).100"
+    echo "DUAL_TOR_PEERING_ADDRESS_2=${ip1}.${ip2}.$((rack_base + 2)).100"
+
+    # Calculate the AS number.
+    echo "DUAL_TOR_AS_NUMBER=$((65000 + (rack_base / 10)))"
+}
+
 # If run with "dual-tor" argument, do setup for a dual ToR node.
 echo Invoked with: "$@"
 if [ "$1" = dual-tor ]; then
 
-    # Provision loopback address.  Do this by rounding the 3rd octet
-    # of the router ID down to a multiple of 10.
-    echo "ROUTER_ID is $ROUTER_ID"
-    ip1=`echo $ROUTER_ID | cut -d. -f1`
-    ip2=`echo $ROUTER_ID | cut -d. -f2`
-    ip3=`echo $ROUTER_ID | cut -d. -f3`
-    ip4=`echo $ROUTER_ID | cut -d. -f4`
-    rack_base=$((ip3 - (ip3 % 10)))
-    loop_addr=${ip1}.${ip2}.${rack_base}.${ip4}
-    echo "Stable (loopback) address is $loop_addr"
-    ip a a ${loop_addr}/32 dev lo
+    echo "NIC-specific address is $ROUTER_ID"
+    eval `get_dual_tor_details $ROUTER_ID`
+    echo "Stable (loopback) address is $DUAL_TOR_STABLE_ADDRESS"
+    echo "AS number is $DUAL_TOR_AS_NUMBER"
+    echo "ToR addresses are $DUAL_TOR_PEERING_ADDRESS_1 and $DUAL_TOR_PEERING_ADDRESS_2"
 
-    # Calculate the ToR addresses.
-    tor1_addr=${ip1}.${ip2}.$((rack_base + 1)).100
-    tor2_addr=${ip1}.${ip2}.$((rack_base + 2)).100
-    echo "ToR addresses are $tor1_addr and $tor2_addr"
-
-    # Calculate the AS number.
-    as_num=$((65000 + (rack_base / 10)))
-    echo "AS number is $as_num"
+    # Configure the stable address.
+    ip a a ${DUAL_TOR_STABLE_ADDRESS}/32 dev lo
 
     # Generate BIRD peering config.
     cat >/etc/bird/peers.conf <<EOF
-filter calico_dual_tor {
-  if ( net ~ [ 192.168.0.0/16+] ) then accept;
-  if ( net ~ [ 172.31.0.0/16+] ) then accept;
-  accept;
-}
 template bgp tors {
   description "Connection to ToR";
-  local as $as_num;
+  local as $DUAL_TOR_AS_NUMBER;
   direct;
   gateway recursive;
-  import filter calico_dual_tor;
-  export filter calico_dual_tor;
+  import all;
+  export all;
   add paths on;
   connect delay time 2;
   connect retry time 5;
@@ -68,10 +79,10 @@ template bgp tors {
   bfd on;
 }
 protocol bgp tor1 from tors {
-  neighbor $tor1_addr as $as_num;
+  neighbor $DUAL_TOR_PEERING_ADDRESS_1 as $DUAL_TOR_AS_NUMBER;
 }
 protocol bgp tor2 from tors {
-  neighbor $tor2_addr as $as_num;
+  neighbor $DUAL_TOR_PEERING_ADDRESS_2 as $DUAL_TOR_AS_NUMBER;
 }
 EOF
 
@@ -84,11 +95,19 @@ EOF
     # Change interface-specific addresses to be scope link.
     ip -4 -o a | while read num intf inet addr rest; do
 	case ${intf}_${addr} in
+	    # Ignore 169 addresses (if present).
+	    e*_169.* )
+	        ;;
+	    # Ignore 127 addresses (if present).
+	    e*_127.* )
+	        ;;
 	    # Allow for "eth0", "ens5", "enp0s3" etc.; avoid "lo" and
 	    # "docker0".
-	    e*_172.31.* )
+	    e*_* )
+		# Delete address and re-add with scope link.
 		ip a d $addr dev $intf
 		ip a a $addr dev $intf scope link
+
 		ip r a ${addr%.*}.0/24 dev $intf || true
 		ip r a default via ${addr%.*}.100 || true
 		;;
