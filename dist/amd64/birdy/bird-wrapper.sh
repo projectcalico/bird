@@ -63,10 +63,9 @@ try_update_nic_addr()
     eval `ipcalc -n $tor_addr_prefix`
     subnet_network=$NETWORK
 
-    # Calculate the IP network of the given address, assuming the same prefix
-    # length as in $tor_addr_prefix.
+    # Calculate the IP network of the given address.
     subnet_prefix_len=${tor_addr_prefix#*/}
-    eval `ipcalc -n ${addr}/${subnet_prefix_len}`
+    eval `ipcalc -n ${addr}`
     addr_network=$NETWORK
 
     # If the networks are the same...
