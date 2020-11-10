@@ -21,34 +21,6 @@ fi
 sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird.conf
 sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird6.conf
 
-# Given one of the NIC-specific addresses for this node, output -
-# following ssh-agent style - variable settings for this node's stable
-# address and AS number, and for the ToR addresses to peer with.  For
-# example:
-#   DUAL_TOR_STABLE_ADDRESS=172.31.20.3
-#   DUAL_TOR_PEERING_ADDRESS_1=172.31.21.100/24
-#   DUAL_TOR_PEERING_ADDRESS_2=172.31.22.100/24
-#   DUAL_TOR_AS_NUMBER=65002
-get_dual_tor_details()
-{
-    # Calculate loopback address.  Do this by rounding the 3rd octet
-    # of the router ID down to a multiple of 10.
-    nic_address=$1
-    ip1=`echo $nic_address | cut -d. -f1`
-    ip2=`echo $nic_address | cut -d. -f2`
-    ip3=`echo $nic_address | cut -d. -f3`
-    ip4=`echo $nic_address | cut -d. -f4`
-    rack_base=$((ip3 - (ip3 % 10)))
-    echo "DUAL_TOR_STABLE_ADDRESS=${ip1}.${ip2}.${rack_base}.${ip4}"
-
-    # Calculate the ToR addresses.
-    echo "DUAL_TOR_PEERING_ADDRESS_1=${ip1}.${ip2}.$((rack_base + 1)).100/24"
-    echo "DUAL_TOR_PEERING_ADDRESS_2=${ip1}.${ip2}.$((rack_base + 2)).100/24"
-
-    # Calculate the AS number.
-    echo "DUAL_TOR_AS_NUMBER=$((65000 + (rack_base / 10)))"
-}
-
 # Given an address and interface in the same subnet as a ToR address/prefix,
 # update the address in the ways that we need for dual ToR operation, and ensure
 # that we still have the routes that we'd expect through that interface.
@@ -56,20 +28,21 @@ try_update_nic_addr()
 {
     addr=$1
     intf=$2
-    tor_addr_prefix=$3
+    tor_addr=$3
     change_to_scope_link=$4
 
-    # Calculate the IP network of the subnet that $tor_addr_prefix is in.
-    eval `ipcalc -n $tor_addr_prefix`
+    # Calculate the prefix length and IP network of the given address.
+    subnet_prefix_len=${addr#*/}
+    eval `ipcalc -n ${addr}`
     subnet_network=$NETWORK
 
-    # Calculate the IP network of the given address.
-    subnet_prefix_len=${tor_addr_prefix#*/}
-    eval `ipcalc -n ${addr}`
-    addr_network=$NETWORK
+    # Calculate the IP network of the subnet that $tor_addr is in (assuming the
+    # same prefix length as for the given NIC address).
+    eval `ipcalc -n ${tor_addr}/${subnet_prefix_len}`
+    tor_network=$NETWORK
 
     # If the networks are the same...
-    if [ "$addr_network" = "$subnet_network" ]; then
+    if [ "$subnet_network" = "$tor_network" ]; then
 
 	if $change_to_scope_link; then
 	    # Delete the given address and re-add it with scope link.
@@ -77,12 +50,13 @@ try_update_nic_addr()
 	    ip a a $addr dev $intf scope link
 	fi
 
-	# Ensure that the subnet route is present.
+	# Ensure that the subnet route is present.  (This 'ip r a' will fail if
+	# the same route is already present.)
 	ip r a ${subnet_network}/${subnet_prefix_len} dev $intf || true
 
-	# Try to add a default route via the ToR.  (This will fail if we already
-	# have a default route, e.g. via the other ToR.)
-	ip r a default via ${tor_addr_prefix%/*} || true
+	# Try to add a default route via the ToR.  (This 'ip r a' will fail if
+	# we already have a default route, e.g. via the other ToR.)
+	ip r a default via ${tor_addr} || true
 
     fi
 }
@@ -90,6 +64,22 @@ try_update_nic_addr()
 # If run with "dual-tor" argument, do setup for a dual ToR node.
 echo Invoked with: "$@"
 if [ "$1" = dual-tor ]; then
+
+    # There must be a following argument that is the URL of a shell include
+    # defining a `get_dual_tor_details` function.  Given one of the NIC-specific
+    # addresses for this node, this function must output variable settings for
+    # this node's stable address and AS number, and for the ToR addresses to
+    # peer with, for example like this:
+    #
+    # DUAL_TOR_STABLE_ADDRESS=172.31.20.3
+    # DUAL_TOR_AS_NUMBER=65002
+    # DUAL_TOR_PEERING_ADDRESS_1=172.31.21.100
+    # DUAL_TOR_PEERING_ADDRESS_2=172.31.22.100
+    #
+    # Note, the shell include code should not have any effects other than
+    # defining the required `get_dual_tor_details` function.
+    wget -O details.sh "$2"
+    . ./details.sh
 
     echo "NIC-specific address is $ROUTER_ID"
     eval `get_dual_tor_details $ROUTER_ID`
@@ -117,10 +107,10 @@ template bgp tors {
   bfd on;
 }
 protocol bgp tor1 from tors {
-  neighbor ${DUAL_TOR_PEERING_ADDRESS_1%/*} as $DUAL_TOR_AS_NUMBER;
+  neighbor $DUAL_TOR_PEERING_ADDRESS_1 as $DUAL_TOR_AS_NUMBER;
 }
 protocol bgp tor2 from tors {
-  neighbor ${DUAL_TOR_PEERING_ADDRESS_2%/*} as $DUAL_TOR_AS_NUMBER;
+  neighbor $DUAL_TOR_PEERING_ADDRESS_2 as $DUAL_TOR_AS_NUMBER;
 }
 EOF
 
