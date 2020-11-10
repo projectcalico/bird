@@ -26,8 +26,8 @@ sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird6.conf
 # address and AS number, and for the ToR addresses to peer with.  For
 # example:
 #   DUAL_TOR_STABLE_ADDRESS=172.31.20.3
-#   DUAL_TOR_PEERING_ADDRESS_1=172.31.21.100
-#   DUAL_TOR_PEERING_ADDRESS_2=172.31.22.100
+#   DUAL_TOR_PEERING_ADDRESS_1=172.31.21.100/24
+#   DUAL_TOR_PEERING_ADDRESS_2=172.31.22.100/24
 #   DUAL_TOR_AS_NUMBER=65002
 get_dual_tor_details()
 {
@@ -42,11 +42,50 @@ get_dual_tor_details()
     echo "DUAL_TOR_STABLE_ADDRESS=${ip1}.${ip2}.${rack_base}.${ip4}"
 
     # Calculate the ToR addresses.
-    echo "DUAL_TOR_PEERING_ADDRESS_1=${ip1}.${ip2}.$((rack_base + 1)).100"
-    echo "DUAL_TOR_PEERING_ADDRESS_2=${ip1}.${ip2}.$((rack_base + 2)).100"
+    echo "DUAL_TOR_PEERING_ADDRESS_1=${ip1}.${ip2}.$((rack_base + 1)).100/24"
+    echo "DUAL_TOR_PEERING_ADDRESS_2=${ip1}.${ip2}.$((rack_base + 2)).100/24"
 
     # Calculate the AS number.
     echo "DUAL_TOR_AS_NUMBER=$((65000 + (rack_base / 10)))"
+}
+
+# Given an address and interface in the same subnet as a ToR address/prefix,
+# update the address in the ways that we need for dual ToR operation, and ensure
+# that we still have the routes that we'd expect through that interface.
+try_update_nic_addr()
+{
+    addr=$1
+    intf=$2
+    tor_addr_prefix=$3
+    change_to_scope_link=$4
+
+    # Calculate the IP network of the subnet that $tor_addr_prefix is in.
+    eval `ipcalc -n $tor_addr_prefix`
+    subnet_network=$NETWORK
+
+    # Calculate the IP network of the given address, assuming the same prefix
+    # length as in $tor_addr_prefix.
+    subnet_prefix_len=${tor_addr_prefix#*/}
+    eval `ipcalc -n ${addr}/${subnet_prefix_len}`
+    addr_network=$NETWORK
+
+    # If the networks are the same...
+    if [ "$addr_network" = "$subnet_network" ]; then
+
+	if $change_to_scope_link; then
+	    # Delete the given address and re-add it with scope link.
+	    ip a d $addr dev $intf
+	    ip a a $addr dev $intf scope link
+	fi
+
+	# Ensure that the subnet route is present.
+	ip r a ${subnet_network}/${subnet_prefix_len} dev $intf || true
+
+	# Try to add a default route via the ToR.  (This will fail if we already
+	# have a default route, e.g. via the other ToR.)
+	ip r a default via ${tor_addr_prefix%/*} || true
+
+    fi
 }
 
 # If run with "dual-tor" argument, do setup for a dual ToR node.
@@ -79,10 +118,10 @@ template bgp tors {
   bfd on;
 }
 protocol bgp tor1 from tors {
-  neighbor $DUAL_TOR_PEERING_ADDRESS_1 as $DUAL_TOR_AS_NUMBER;
+  neighbor ${DUAL_TOR_PEERING_ADDRESS_1%/*} as $DUAL_TOR_AS_NUMBER;
 }
 protocol bgp tor2 from tors {
-  neighbor $DUAL_TOR_PEERING_ADDRESS_2 as $DUAL_TOR_AS_NUMBER;
+  neighbor ${DUAL_TOR_PEERING_ADDRESS_2%/*} as $DUAL_TOR_AS_NUMBER;
 }
 EOF
 
@@ -95,21 +134,11 @@ EOF
     # Change interface-specific addresses to be scope link.
     ip -4 -o a | while read num intf inet addr rest; do
 	case ${intf}_${addr} in
-	    # Ignore 169 addresses (if present).
-	    e*_169.* )
-	        ;;
-	    # Ignore 127 addresses (if present).
-	    e*_127.* )
-	        ;;
 	    # Allow for "eth0", "ens5", "enp0s3" etc.; avoid "lo" and
 	    # "docker0".
 	    e*_* )
-		# Delete address and re-add with scope link.
-		ip a d $addr dev $intf
-		ip a a $addr dev $intf scope link
-
-		ip r a ${addr%.*}.0/24 dev $intf || true
-		ip r a default via ${addr%.*}.100 || true
+		try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_1 true
+		try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_2 true
 		;;
 	esac
     done
@@ -147,8 +176,9 @@ while true; do
 	case ${intf}_${addr} in
 	    # Allow for "eth0", "ens5", "enp0s3" etc.; avoid "lo" and
 	    # "docker0".
-	    e*_172.31.* )
-		ip r a ${addr%.*}.0/24 dev $intf || true
+	    e*_* )
+		try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_1 false
+		try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_2 false
 		;;
 	esac
     done
