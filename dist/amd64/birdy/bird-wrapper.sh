@@ -2,7 +2,7 @@
 
 set -ex
 
-ROUTER_ID=`ip -4 -o a | while read num intf inet addr; do
+ROUTER_ID=`ip -4 -o address | while read num intf inet addr; do
     case $intf in
 	# Allow for "eth0", "ens5", "enp0s3" etc.; avoid "lo" and
 	# "docker0".
@@ -50,17 +50,17 @@ try_update_nic_addr()
 
 	if $change_to_scope_link; then
 	    # Delete the given address and re-add it with scope link.
-	    ip a d $addr dev $intf
-	    ip a a $addr dev $intf scope link
+	    ip address del $addr dev $intf
+	    ip address add $addr dev $intf scope link
 	fi
 
-	# Ensure that the subnet route is present.  (This 'ip r a' will fail if
-	# the same route is already present.)
-	ip r a ${subnet_network}/${subnet_prefix_len} dev $intf || true
+	# Ensure that the subnet route is present.  (This 'ip route add' will
+	# fail if the same route is already present.)
+	ip route add ${subnet_network}/${subnet_prefix_len} dev $intf || true
 
-	# Try to add a default route via the ToR.  (This 'ip r a' will fail if
-	# we already have a default route, e.g. via the other ToR.)
-	ip r a default via ${tor_addr} || true
+	# Try to add a default route via the ToR.  (This 'ip route add' will
+	# fail if we already have a default route, e.g. via the other ToR.)
+	ip route add default via ${tor_addr} || true
 
     fi
 }
@@ -94,17 +94,21 @@ if [ "$1" = dual-tor ]; then
     echo "ToR addresses are $DUAL_TOR_PEERING_ADDRESS_1 and $DUAL_TOR_PEERING_ADDRESS_2"
 
     # Configure the stable address.
-    ip a a ${DUAL_TOR_STABLE_ADDRESS}/32 dev lo
+    ip address add ${DUAL_TOR_STABLE_ADDRESS}/32 dev lo
 
     # Generate BIRD peering config.
     cat >/etc/bird/peers.conf <<EOF
+filter stable_address_only {
+  if ( net = ${DUAL_TOR_STABLE_ADDRESS}/32 ) then { accept; }
+  reject;
+}
 template bgp tors {
   description "Connection to ToR";
   local as $DUAL_TOR_AS_NUMBER;
   direct;
   gateway recursive;
   import all;
-  export all;
+  export filter stable_address_only;
   add paths on;
   connect delay time 2;
   connect retry time 5;
@@ -127,11 +131,11 @@ EOF
     sed -i '/protocol kernel {/a merge paths on;' /etc/bird.conf
 
     # Change interface-specific addresses to be scope link.
-    ip -4 -o a | while read num intf inet addr rest; do
-	case ${intf}_${addr} in
+    ip -4 -o address | while read num intf inet addr rest; do
+	case $intf in
 	    # Allow for "eth0", "ens5", "enp0s3" etc.; avoid "lo" and
 	    # "docker0".
-	    e*_* )
+	    e* )
 		try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_1 true
 		try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_2 true
 		;;
@@ -145,6 +149,8 @@ EOF
     # Loop deciding whether to run early BIRD or not.
     early_bird_running=false
     while true; do
+	# /proc/net/tcp shows TCP listens and connections, and 00000000:00B3, if
+	# present, indicates a process listening on port 179.  (179 = 0xB3)
 	if grep 00000000:00B3 /proc/net/tcp; then
 	    # Calico BIRD is running.
 	    if $early_bird_running; then
@@ -162,11 +168,11 @@ EOF
 	    fi
 	fi
 	# Ensure subnet routes are present.
-	ip -4 -o a | while read num intf inet addr rest; do
-	    case ${intf}_${addr} in
+	ip -4 -o address | while read num intf inet addr rest; do
+	    case $intf in
 		# Allow for "eth0", "ens5", "enp0s3" etc.; avoid "lo" and
 		# "docker0".
-		e*_* )
+		e* )
 		    try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_1 false
 		    try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_2 false
 		    ;;
