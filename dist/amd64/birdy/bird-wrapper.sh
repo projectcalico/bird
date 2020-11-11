@@ -21,6 +21,10 @@ fi
 sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird.conf
 sed -i "s/BIRD_ROUTERID/${ROUTER_ID}/g" /etc/bird6.conf
 
+# Ensure that /var/run/calico (which is where the control socket file
+# will be) exists.
+mkdir -p /var/run/calico
+
 # Given an address and interface in the same subnet as a ToR address/prefix,
 # update the address in the ways that we need for dual ToR operation, and ensure
 # that we still have the routes that we'd expect through that interface.
@@ -61,9 +65,11 @@ try_update_nic_addr()
     fi
 }
 
-# If run with "dual-tor" argument, do setup for a dual ToR node.
 echo Invoked with: "$@"
 if [ "$1" = dual-tor ]; then
+
+    # Run with "dual-tor" argument: do setup for a dual ToR node, then run as
+    # the "early BGP" daemon until calico-node's BIRD can take over.
 
     # There must be a following argument that is the URL of a shell include
     # defining a `get_dual_tor_details` function.  Given one of the NIC-specific
@@ -131,45 +137,59 @@ EOF
 		;;
 	esac
     done
-fi
 
-# Use multiple ECMP paths based on hashing 5-tuple.
-sysctl -w net.ipv4.fib_multipath_hash_policy=1
-sysctl -w net.ipv4.fib_multipath_use_neigh=1
+    # Use multiple ECMP paths based on hashing 5-tuple.
+    sysctl -w net.ipv4.fib_multipath_hash_policy=1
+    sysctl -w net.ipv4.fib_multipath_use_neigh=1
 
-# Ensure that /var/run/calico (which is where the control socket file
-# will be) exists.
-mkdir -p /var/run/calico
-
-# Loop deciding whether to run early BIRD or not.
-early_bird_running=false
-while true; do
-    if grep 00000000:00B3 /proc/net/tcp; then
-	# Calico BIRD is running.
-	if $early_bird_running; then
-	    birdcl down
-	    birdcl6 down
-	    early_bird_running=false
+    # Loop deciding whether to run early BIRD or not.
+    early_bird_running=false
+    while true; do
+	if grep 00000000:00B3 /proc/net/tcp; then
+	    # Calico BIRD is running.
+	    if $early_bird_running; then
+		birdcl down
+		birdcl6 down
+		early_bird_running=false
+	    fi
+	else
+	    # Calico BIRD is not running.
+	    if ! $early_bird_running; then
+		# Start bird and bird6 (which will both daemonize)
+		bird
+		bird6
+		early_bird_running=true
+	    fi
 	fi
-    else
-	# Calico BIRD is not running.
-	if ! $early_bird_running; then
-	    # Start bird and bird6 (which will both daemonize)
-	    bird
-	    bird6
-	    early_bird_running=true
-	fi
-    fi
-    # Ensure subnet routes are present.
-    ip -4 -o a | while read num intf inet addr rest; do
-	case ${intf}_${addr} in
-	    # Allow for "eth0", "ens5", "enp0s3" etc.; avoid "lo" and
-	    # "docker0".
-	    e*_* )
-		try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_1 false
-		try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_2 false
-		;;
-	esac
+	# Ensure subnet routes are present.
+	ip -4 -o a | while read num intf inet addr rest; do
+	    case ${intf}_${addr} in
+		# Allow for "eth0", "ens5", "enp0s3" etc.; avoid "lo" and
+		# "docker0".
+		e*_* )
+		    try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_1 false
+		    try_update_nic_addr $addr $intf $DUAL_TOR_PEERING_ADDRESS_2 false
+		    ;;
+	    esac
+	done
+	sleep 10
     done
-    sleep 10
-done
+
+else
+
+    # Not run with "dual-tor" argument: model a standalone BGP router, not on a
+    # Calico node.  This case is used to model the infrastructure and/or
+    # standalone routers in our dual ToR and other STs.  Peerings are configured
+    # by test code creating /etc/bird/*.conf files and then running "birdcl
+    # configure" to tell the running daemon to read those files.
+
+    # Start bird and bird6 (which will both daemonize)
+    bird
+    bird6
+
+    # Loop sleeping
+    while true; do
+	sleep 60
+    done
+
+fi
