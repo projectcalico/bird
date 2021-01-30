@@ -42,7 +42,7 @@ esac
 # get the correct TARGETARCH
 case $ARCH in
 	all)
-		TARGETARCH="amd64 aarch64 armhf powerpc64le s390x mips64el"
+		TARGETARCH="amd64 aarch64 arm powerpc64le s390x mips64el"
 		;;
 	amd64|x86_64)
 		TARGETARCH=$ARCH
