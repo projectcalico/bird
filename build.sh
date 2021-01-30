@@ -21,6 +21,9 @@ case $BUILDARCH in
 	arm64|aarch64)
 		BUILDARCH=aarch64
 		;;
+	arm|armhf)
+		BUILDARCH=armhf
+		;;
 	ppc64le|ppc64el|powerpc64le)
 		BUILDARCH=ppc64le
 		;;
@@ -39,13 +42,16 @@ esac
 # get the correct TARGETARCH
 case $ARCH in
 	all)
-		TARGETARCH="amd64 aarch64 powerpc64le s390x mips64el"
+		TARGETARCH="amd64 aarch64 armhf powerpc64le s390x mips64el"
 		;;
 	amd64|x86_64)
 		TARGETARCH=$ARCH
 		;;
 	arm64|aarch64)
 		TARGETARCH=aarch64
+		;;
+	arm|armhf)
+		TARGETARCH=arm
 		;;
 	ppc64le|ppc64el|powerpc64le)
 		TARGETARCH=powerpc64le
