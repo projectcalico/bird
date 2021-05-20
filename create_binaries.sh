@@ -14,7 +14,7 @@ for i in $TARGETARCH; do
 	dirarch=$i
 	[ "$dirarch" = "x86_64" ] && dirarch=amd64
 	[ "$dirarch" = "aarch64" ] && dirarch=arm64
-	[ "$dirarch" = "armv7l" ] && dirarch=armhf
+	[ "$dirarch" = "armv7l" ] && dirarch=armv7
 	[ "$dirarch" = "ppc64el" ] && dirarch=ppc64le
 	[ "$dirarch" = "powerpc64le" ] && dirarch=ppc64le
 	[ "$dirarch" = "mips64el" ] && dirarch=mips64el
@@ -45,7 +45,7 @@ for i in $TARGETARCH; do
 		  "mips64el")
 			  HOSTARCH="$i-linux-gnuabi64"
 			  ;;
-		  "armhf")
+		  "armv7")
 			  HOSTARCH="arm-linux-gnueabihf"
 			  ;;
 		  *)
