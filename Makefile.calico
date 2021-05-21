@@ -117,7 +117,7 @@ endif
 ci: image-all test-protocol-support
 
 ## Deploys images to registry
-cd:
+cd: image-all
 ifndef CONFIRM
 	$(error CONFIRM is undefined - run using make <target> CONFIRM=true)
 endif
