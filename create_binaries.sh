@@ -14,6 +14,7 @@ for i in $TARGETARCH; do
 	dirarch=$i
 	[ "$dirarch" = "x86_64" ] && dirarch=amd64
 	[ "$dirarch" = "aarch64" ] && dirarch=arm64
+	[ "$dirarch" = "armv7l" ] && dirarch=armv7
 	[ "$dirarch" = "ppc64el" ] && dirarch=ppc64le
 	[ "$dirarch" = "powerpc64le" ] && dirarch=ppc64le
 	[ "$dirarch" = "mips64el" ] && dirarch=mips64el
@@ -39,11 +40,18 @@ for i in $TARGETARCH; do
 	# are we cross-compiling
 	if [ "$i" != "$ARCH" ]; then
 		# The compiler for mips64el is mips64el-linux-gnuabi64-gcc
-		if [ "$i" = "mips64el" ]; then
-			HOSTARCH="$i-linux-gnuabi64"
-		else
-			HOSTARCH="$i-linux-gnu"
-		fi
+		# The compiler for arm is arm-linux-gnuabihf-gcc
+		case "$i" in
+		  "mips64el")
+			  HOSTARCH="$i-linux-gnuabi64"
+			  ;;
+		  "armv7")
+			  HOSTARCH="arm-linux-gnueabihf"
+			  ;;
+		  *)
+			  HOSTARCH="$i-linux-gnu"
+			  ;;
+		esac
 		GCC="$HOSTARCH-gcc"
 	fi
 	$initpwd/configure  --with-protocols="bfd bgp pipe static" --enable-ipv6=yes --enable-client=no --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH --runstatedir=/var/run/calico
