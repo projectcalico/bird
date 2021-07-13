@@ -90,13 +90,15 @@ ip4_classify(ip4_addr ad)
     if (b == 0x7f)
       return IADDR_HOST | SCOPE_HOST;
     else if ((b == 0x0a) ||
-	     (b == 0xf0) ||
 	     ((a & 0xffff0000) == 0xc0a80000) ||
 	     ((a & 0xfff00000) == 0xac100000))
       return IADDR_HOST | SCOPE_SITE;
     else
       return IADDR_HOST | SCOPE_UNIVERSE;
   }
+
+  if (b == 0xf0)
+      return IADDR_HOST | SCOPE_SITE;
 
   if (b >= 0xe0 && b <= 0xef)
     return IADDR_MULTICAST | SCOPE_UNIVERSE;
