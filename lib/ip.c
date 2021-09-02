@@ -97,7 +97,7 @@ ip4_classify(ip4_addr ad)
       return IADDR_HOST | SCOPE_UNIVERSE;
   }
 
-  if (b == 0xf0)
+  if (b >= 0xf0)
       return IADDR_HOST | SCOPE_SITE;
 
   if (b >= 0xe0 && b <= 0xef)
