@@ -54,7 +54,7 @@ for i in $TARGETARCH; do
 		esac
 		GCC="$HOSTARCH-gcc"
 	fi
-	$initpwd/configure  --with-protocols="bfd bgp pipe static" --enable-ipv6=yes --enable-client=no --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH --runstatedir=/var/run/calico
+	$initpwd/configure  --with-protocols="bfd rip bgp pipe static" --enable-ipv6=yes --enable-client=no --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH --runstatedir=/var/run/calico
 	make
 	# Remove the dynamic binaries and rerun make to create static binaries and store off the results
 	rm bird birdcl
@@ -69,7 +69,7 @@ for i in $TARGETARCH; do
 
 	# Rerun the build but without IPv6 (or the client) and store off the result.
 	make clean
-	$initpwd/configure  --with-protocols="bfd bgp pipe static" --enable-client=no --enable-pthreads=yes -with-sysconfig=linux --build=$ARCH --host=$HOSTARCH --runstatedir=/var/run/calico
+	$initpwd/configure  --with-protocols="bfd rip bgp pipe static" --enable-client=no --enable-pthreads=yes -with-sysconfig=linux --build=$ARCH --host=$HOSTARCH --runstatedir=/var/run/calico
 	make
 	rm bird birdcl
 	# because of the circular dependency when bird runs in its own directory (birdc -> ./birdc), it will try to rebuild birdc, which fails when static
