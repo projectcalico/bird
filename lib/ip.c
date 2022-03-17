@@ -97,14 +97,14 @@ ip4_classify(ip4_addr ad)
       return IADDR_HOST | SCOPE_UNIVERSE;
   }
 
+  if (a == 0xffffffff)
+    return IADDR_BROADCAST | SCOPE_LINK;
+
   if (b >= 0xf0)
       return IADDR_HOST | SCOPE_SITE;
 
   if (b >= 0xe0 && b <= 0xef)
     return IADDR_MULTICAST | SCOPE_UNIVERSE;
-
-  if (a == 0xffffffff)
-    return IADDR_BROADCAST | SCOPE_LINK;
 
   return IADDR_INVALID;
 }
