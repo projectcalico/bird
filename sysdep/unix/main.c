@@ -21,6 +21,7 @@
 #include <grp.h>
 #include <sys/stat.h>
 #include <libgen.h>
+#include <stdatomic.h>
 
 #include "nest/bird.h"
 #include "lib/lists.h"
@@ -578,14 +579,14 @@ static void
 handle_sighup(int sig UNUSED)
 {
   DBG("Caught SIGHUP...\n");
-  async_config_flag = 1;
+  atomic_store(&async_config_flag, 1);
 }
 
 static void
 handle_sigusr(int sig UNUSED)
 {
   DBG("Caught SIGUSR...\n");
-  async_dump_flag = 1;
+  atomic_store(&async_dump_flag, 1);
 }
 
 static void
