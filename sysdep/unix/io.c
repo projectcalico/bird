@@ -30,6 +30,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/icmp6.h>
+#include <stdatomic.h>
 
 #include "nest/bird.h"
 #include "lib/lists.h"
@@ -2178,18 +2179,16 @@ io_loop(void)
        * and entering poll(), it gets caught on the next timer tick.
        */
 
-      if (async_config_flag)
+      if (atomic_exchange(&async_config_flag, 0))
 	{
 	  io_log_event(async_config, NULL);
 	  async_config();
-	  async_config_flag = 0;
 	  continue;
 	}
-      if (async_dump_flag)
+      if (atomic_exchange(&async_dump_flag, 0))
 	{
 	  io_log_event(async_dump, NULL);
 	  async_dump();
-	  async_dump_flag = 0;
 	  continue;
 	}
       if (async_shutdown_flag)
