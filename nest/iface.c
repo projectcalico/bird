@@ -301,6 +301,13 @@ if_update(struct iface *new)
   WALK_LIST(i, iface_list)
     if (!strcmp(new->name, i->name))
       {
+    /* if interface need to be deleted, delete from list and return */
+    int del = if_delete_request(new);
+    if (del)
+    {
+        rem_node(&i->n);
+        return i;
+    }
 	new->addr = i->addr;
 	new->flags = if_recalc_flags(new, new->flags);
 	c = if_what_changed(i, new);
@@ -837,4 +844,15 @@ if_show_summary(void)
       cli_msg(-1005, "%-9s %-5s %s", i->name, (i->flags & IF_UP) ? "up" : "DOWN", addr);
     }
   cli_msg(0, "");
+}
+
+static int
+if_delete_request(struct iface *i) {
+    int del = 0;
+
+    if ((i->flags - IF_SHUTDOWN == 0U) && !i->index && !i->mtu && !i->addr &&
+    !i->master_index && !i->master)
+        del = 1;
+
+    return del;
 }
