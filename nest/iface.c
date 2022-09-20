@@ -301,6 +301,12 @@ if_update(struct iface *new)
   WALK_LIST(i, iface_list)
     if (!strcmp(new->name, i->name))
       {
+        /* if interface need to be deleted, delete from list and return */
+        if(new->flags & IF_SHUTDOWN)
+        {
+          rem_node(&i->n);
+          return i;
+        }
 	new->addr = i->addr;
 	new->flags = if_recalc_flags(new, new->flags);
 	c = if_what_changed(i, new);
