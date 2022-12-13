@@ -84,7 +84,7 @@ sub-image-%:
 .PHONY: dind-image
 dind-image: $(DIND_CONTAINER_NAME)
 $(DIND_CONTAINER_NAME): $(BINARIES)
-	docker build -t $(DIND_CONTAINER_NAME):latest-$(ARCH) -f dind-image/Dockerfile.$(ARCH) dist/$(ARCH)
+	docker build -t $@:latest-$(ARCH) -f dind-image/Dockerfile.$(ARCH) dist/$(ARCH)
 
 ## push one arch
 push: imagetag $(addprefix sub-single-push-,$(call escapefs,$(DOCKER_REPOS)))
