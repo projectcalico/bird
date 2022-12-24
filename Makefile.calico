@@ -91,8 +91,10 @@ push: imagetag $(addprefix sub-single-push-,$(call escapefs,$(DOCKER_REPOS)))
 
 sub-single-push-%:
 	docker push $(call unescapefs,$*/$(CONTAINER_BASENAME):$(IMAGETAG)-$(ARCH))
+	docker push $(call unescapefs,$*/$(DIND_CONTAINER_BASENAME):$(IMAGETAG)-$(ARCH))
 ifeq ($(ARCH),amd64)
 	docker push $(call unescapefs,$*/$(CONTAINER_BASENAME):$(IMAGETAG))
+	docker push $(call unescapefs,$*/$(DIND_CONTAINER_BASENAME):$(IMAGETAG))
 endif
 
 
@@ -106,8 +108,10 @@ tag-images: imagetag $(addprefix sub-single-tag-images-,$(call escapefs,$(DOCKER
 
 sub-single-tag-images-%:
 	docker tag $(CONTAINER_NAME):latest-$(ARCH) $(call unescapefs,$*/$(CONTAINER_BASENAME):$(IMAGETAG)-$(ARCH))
+	docker tag $(DIND_CONTAINER_NAME):latest-$(ARCH) $(call unescapefs,$*/$(DIND_CONTAINER_BASENAME):$(IMAGETAG)-$(ARCH))
 ifeq ($(ARCH),amd64)
 	docker tag $(CONTAINER_NAME):latest-$(ARCH) $(call unescapefs,$*/$(CONTAINER_BASENAME):$(IMAGETAG))
+	docker tag $(DIND_CONTAINER_NAME):latest-$(ARCH) $(call unescapefs,$*/$(DIND_CONTAINER_BASENAME):$(IMAGETAG))
 endif
 
 
