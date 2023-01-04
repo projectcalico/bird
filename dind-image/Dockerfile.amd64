@@ -1,0 +1,29 @@
+FROM docker:stable-dind
+MAINTAINER Pedro Coutinho <pedro@projectcalico.org>
+
+# Copy our binaries
+COPY * /
+
+# Link binaries to standard places /usr/sbin and /usr/bin
+RUN ln -s /bird /usr/sbin/bird
+RUN ln -s /bird6 /usr/sbin/bird6
+RUN ln -s /birdcl /usr/bin/birdcl
+RUN ln -s /birdcl6 /usr/bin/birdcl6
+
+# Create dirs needed for BIRD runtime
+RUN mkdir -p /etc/bird
+RUN mkdir -p /etc/bird6
+RUN mkdir -p /usr/local/var/run
+RUN mkdir -p /usr/local/etc
+
+# Copy in global BIRD and BIRD6 configs
+ADD birdy/bird.conf /etc/bird.conf
+ADD birdy/bird6.conf /etc/bird6.conf
+RUN ln -s /etc/bird.conf /usr/local/etc/bird.conf
+RUN ln -s /etc/bird6.conf /usr/local/etc/bird6.conf
+
+# Copy in a startup script
+ADD birdy/bird-wrapper.sh /opt/bird-wrapper.sh
+ADD birdy/dind-bird-wrapper.sh /opt/dind-bird-wrapper.sh
+ENTRYPOINT ["/opt/dind-bird-wrapper.sh"]
+CMD []
