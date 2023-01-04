@@ -80,6 +80,7 @@ $(CONTAINER_NAME): $(BINARIES)
 image-all: $(addprefix sub-image-,$(VALIDARCHES))
 sub-image-%:
 	$(MYMAKE) image ARCH=$*
+	$(MYMAKE) dind-image ARCH=$*
 
 .PHONY: dind-image
 dind-image: $(DIND_CONTAINER_NAME)
