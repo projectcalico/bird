@@ -1,4 +1,5 @@
-FROM docker:stable-dind
+FROM docker:20.10.22-dind
+
 MAINTAINER Pedro Coutinho <pedro@projectcalico.org>
 
 # Copy our binaries
