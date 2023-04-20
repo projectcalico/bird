@@ -745,6 +745,12 @@ nl_parse_addr(struct nlmsghdr *h, int scan)
       return;
     }
 
+  if (!(ifi->flags & IF_ADMIN_UP)) /* Ignore addresses for DOWN interfaces. */
+    {
+      log(L_DEBUG "KIF: Ignore %s that is not UP", ifi->name);
+      return;
+    }
+
   bzero(&ifa, sizeof(ifa));
   ifa.iface = ifi;
   if (ifa_flags & IFA_F_SECONDARY)
