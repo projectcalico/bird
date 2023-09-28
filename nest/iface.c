@@ -363,13 +363,15 @@ if_end_partial_update(struct iface *i)
 void
 if_end_update(void)
 {
-  struct iface *i;
+  struct iface *i, *j;
   struct ifa *a, *b;
 
-  WALK_LIST(i, iface_list)
+  WALK_LIST_DELSAFE(i, j, iface_list)
     {
-      if (!(i->flags & IF_UPDATED))
+      if (!(i->flags & IF_UPDATED)) {
 	if_change_flags(i, (i->flags & ~IF_ADMIN_UP) | IF_SHUTDOWN);
+        rem_node(&i->n);
+      }
       else
 	{
 	  WALK_LIST_DELSAFE(a, b, i->addrs)
