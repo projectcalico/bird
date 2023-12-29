@@ -747,7 +747,6 @@ nl_parse_addr(struct nlmsghdr *h, int scan)
 
   if (!(ifi->flags & IF_ADMIN_UP)) /* Ignore addresses for DOWN interfaces. */
     {
-      log(L_DEBUG "KIF: Ignore %s that is not UP", ifi->name);
       return;
     }
 
