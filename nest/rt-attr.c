@@ -234,6 +234,11 @@ mpnh_compare_node(struct mpnh *x, struct mpnh *y)
   if (r)
     return r;
 
+  if (!x->iface)
+    return 1;
+  if (!y->iface)
+    return -1;
+
   return ((int) x->iface->index) - ((int) y->iface->index);
 }
 
