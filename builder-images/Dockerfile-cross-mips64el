@@ -1,0 +1,10 @@
+FROM gcc:13-bookworm
+LABEL maintainer="maintainers@tigera.io"
+
+RUN dpkg --add-architecture mips64el
+RUN apt update
+RUN apt-get --no-install-recommends install -y autoconf flex bison \
+	libncurses-dev libreadline-dev \
+	binutils-mips64el-linux-gnuabi64 gcc-mips64el-linux-gnuabi64 libncurses-dev:mips64el libreadline-dev:mips64el
+
+WORKDIR /code
