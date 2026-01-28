@@ -71,7 +71,9 @@ do-build:
 
 
 build-all:
-	ARCH=all ./build.sh
+	for tgt in amd64 aarch64 armv7 powerpc64le s390x mips64el; do \
+		ARCH=$${tgt} ./build.sh; \
+	done
 
 image: $(CONTAINER_NAME)
 $(CONTAINER_NAME): $(BINARIES)
