@@ -1,10 +1,11 @@
-FROM gcc:latest
+FROM gcc:13-bookworm
 MAINTAINER Tom Denham <tom@projectcalico.org>
 
 RUN dpkg --add-architecture arm64
 RUN dpkg --add-architecture armhf
 RUN dpkg --add-architecture ppc64el
 RUN dpkg --add-architecture s390x
+RUN dpkg --add-architecture mips64el
 RUN apt update
 RUN apt-get --no-install-recommends install -y autoconf flex bison \
 	libncurses-dev libreadline-dev \
