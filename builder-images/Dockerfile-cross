@@ -1,4 +1,4 @@
-FROM gcc:13-bookworm
+FROM gcc:14-trixie
 MAINTAINER Tom Denham <tom@projectcalico.org>
 
 RUN dpkg --add-architecture arm64
