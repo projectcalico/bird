@@ -38,7 +38,7 @@ case $BUILDARCH in
 		exit 1
 		;;
 esac
-	
+
 # get the correct TARGETARCH
 case $ARCH in
 	all)
@@ -73,6 +73,9 @@ IMAGE=birdbuild-$ARCH
 if [ "$BUILDARCH" != "$TARGETARCH" ]; then
 	DOCKERFILE=Dockerfile-cross
 	IMAGE=birdbuild-$BUILDARCH-cross
+        if [ "$TARGETARCH" = mips64el ]; then
+	        DOCKERFILE=Dockerfile-cross-bookworm
+        fi
 fi
 
 
@@ -83,6 +86,6 @@ docker build -t $IMAGE -f builder-images/$DOCKERFILE .
 mkdir -p $DIST
 # create_binaries expects:
 #    ARCH = architecture on which I am running
-#    TARGETARCH = architecture(s) for which I am building, if different than ARCH (blank if the same) 
+#    TARGETARCH = architecture(s) for which I am building, if different than ARCH (blank if the same)
 #    DIST = root directory in which to put binaries, structured as $DIST/$TARGETARCH
 docker run --rm --name bird-build -e ARCH=$BUILDARCH -e TARGETARCH="$TARGETARCH" -e DIST=$DIST -e OBJ=$OBJ -v `pwd`:/code $IMAGE ./create_binaries.sh
