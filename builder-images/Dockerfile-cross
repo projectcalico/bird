@@ -1,5 +1,5 @@
 FROM gcc:latest
-MAINTAINER Tom Denham <tom@projectcalico.org>
+LABEL maintainer="maintainers@tigera.io"
 
 RUN dpkg --add-architecture arm64
 RUN dpkg --add-architecture armhf
