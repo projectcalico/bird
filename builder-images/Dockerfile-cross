@@ -1,13 +1,19 @@
 FROM gcc:latest
 MAINTAINER Tom Denham <tom@projectcalico.org>
 
+RUN sed -i '/^[^#]/ s/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+#RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
 RUN dpkg --add-architecture arm64
+RUN dpkg --add-architecture amd64
+RUN dpkg --add-architecture riscv64
 RUN dpkg --add-architecture ppc64el
 RUN dpkg --add-architecture s390x
 RUN apt update
 RUN apt install -y autoconf flex bison \
 	libncurses-dev libreadline-dev \
 	binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu libncurses-dev:arm64 libreadline-dev:arm64 \
+	binutils-x86-64-linux-gnu gcc-x86-64-linux-gnu libncurses-dev:amd64 libreadline-dev:amd64 \
+	binutils-riscv64-linux-gnu gcc-riscv64-linux-gnu libncurses-dev:riscv64 libreadline-dev:riscv64 \
 	binutils-powerpc64le-linux-gnu gcc-powerpc64le-linux-gnu libncurses-dev:ppc64el libreadline-dev:ppc64el \
 	binutils-s390x-linux-gnu gcc-s390x-linux-gnu libncurses-dev:s390x libreadline-dev:s390x
 

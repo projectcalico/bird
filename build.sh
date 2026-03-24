@@ -24,6 +24,9 @@ case $BUILDARCH in
 	ppc64le|ppc64el|powerpc64le)
 		BUILDARCH=ppc64le
 		;;
+	riscv64)
+		BUILDARCH=riscv64
+		;;
 	s390x)
 	  	BUILDARCH=s390x
 		;;
@@ -46,6 +49,9 @@ case $ARCH in
 		;;
 	ppc64le|ppc64el|powerpc64le)
 		TARGETARCH=powerpc64le
+		;;
+	riscv64)
+		TARGETARCH=riscv64
 		;;
 	s390x)
 		TARGETARCH=s390x

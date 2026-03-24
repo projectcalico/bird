@@ -31,7 +31,7 @@ BINARIES_FILES = bird birdcl bird6
 BINARIES = $(addprefix dist/$(ARCH)/,$(BINARIES_FILES))
 
 CONTAINER_BASENAME ?= bird
-CONTAINER_NAME ?= calico/$(CONTAINER_BASENAME)
+CONTAINER_NAME ?= yunion/$(CONTAINER_BASENAME)
 
 # Version of this repository as reported by git.
 CALICO_GIT_VER := $(shell git describe --tags --dirty --always)

@@ -15,6 +15,7 @@ for i in $TARGETARCH; do
 	[ "$dirarch" = "x86_64" ] && dirarch=amd64
 	[ "$dirarch" = "aarch64" ] && dirarch=arm64
 	[ "$dirarch" = "ppc64el" ] && dirarch=ppc64le
+	[ "$dirarch" = "riscv64" ] && dirarch=riscv64
 	[ "$dirarch" = "powerpc64le" ] && dirarch=ppc64le
 
 	# where we place our output binaries
@@ -38,6 +39,10 @@ for i in $TARGETARCH; do
 	if [ "$i" != "$ARCH" ]; then
 		HOSTARCH="$i-linux-gnu"
 		GCC="$HOSTARCH-gcc"
+		if [ "$i" = "amd64" ]; then
+			HOSTARCH="x86_64-linux-gnu"
+			GCC="$HOSTARCH-gcc"
+		fi
 	fi
 	$initpwd/configure  --with-protocols="bfd bgp pipe static" --enable-ipv6=yes --enable-client=yes --enable-pthreads=yes --with-sysconfig=linux-v6 --build=$ARCH --host=$HOSTARCH
 	make
