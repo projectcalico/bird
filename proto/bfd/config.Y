@@ -23,7 +23,7 @@ CF_DECLS
 
 CF_KEYWORDS(BFD, MIN, IDLE, RX, TX, INTERVAL, MULTIPLIER, PASSIVE,
 	INTERFACE, MULTIHOP, NEIGHBOR, DEV, LOCAL, AUTHENTICATION,
-	NONE, SIMPLE, METICULOUS, KEYED, MD5, SHA1)
+	NONE, SIMPLE, METICULOUS, KEYED, MD5, SHA1, ADMIN, DOWN)
 
 %type <iface> bfd_neigh_iface
 %type <a> bfd_neigh_local
@@ -165,6 +165,10 @@ bfd_neighbor: ipa bfd_neigh_iface bfd_neigh_local bfd_neigh_multihop
 CF_CLI_HELP(SHOW BFD, ..., [[Show information about BFD protocol]]);
 CF_CLI(SHOW BFD SESSIONS, optsym, [<name>], [[Show information about BFD sessions]])
 { bfd_show_sessions(proto_get_named($4, &proto_bfd)); };
+
+CF_CLI_HELP(BFD, ..., [[Control BFD sessions]]);
+CF_CLI(BFD ADMIN DOWN, optsym, [<name>], [[Set BFD sessions to AdminDown where the client asked for it]])
+{ bfd_admin_down(proto_get_named($4, &proto_bfd)); };
 
 CF_CODE
 

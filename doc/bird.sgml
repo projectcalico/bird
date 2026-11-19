@@ -807,6 +807,12 @@ This argument can be omitted if there exists only a single instance.
 	<tag><label id="cli-show-bfd-sessions">show bfd sessions [<m/name/]</tag>
 	Show information about BFD sessions.
 
+	<tag><label id="cli-bfd-admin-down">bfd admin down [<m/name/]</tag>
+	Put the BFD sessions of BGP neighbors that have the <cf/bfd admin down/
+	option into the AdminDown state, and signal it to them. Meant to be run
+	just before a planned restart of BIRD. A session stays in AdminDown
+	while its BGP protocol stays up.
+
 	<tag><label id="cli-show-symbols">show symbols [table|filter|function|protocol|template|roa|<m/symbol/]</tag>
 	Show the list of symbols defined in the configuration (names of
 	protocols, routing tables etc.).
