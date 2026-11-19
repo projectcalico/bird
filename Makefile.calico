@@ -168,3 +168,5 @@ test-protocol-support: image
 	# bfd.conf contains an empty "protocol bfd" block, so tests
 	# that our image supports BFD.
 	$(TEST_CONFIG) bfd.conf
+	# bfd_admin_down.conf marks a BGP neighbor for BFD AdminDown.
+	$(TEST_CONFIG) bfd_admin_down.conf

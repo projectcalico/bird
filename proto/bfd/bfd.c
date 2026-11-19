@@ -291,6 +291,8 @@ bfd_session_process_ctl(struct bfd_session *s, u8 flags, u32 old_tx_int, u32 old
 
   case BFD_STATE_UP:
     if (s->rem_state <= BFD_STATE_DOWN)		next_state = BFD_STATE_DOWN, diag = BFD_DIAG_NEIGHBOR_DOWN;
+    if (s->rem_state == BFD_STATE_ADMIN_DOWN)
+      log(L_INFO "%s: Neighbor %I sent AdminDown", s->ifa->bfd->p.name, s->addr);
     break;
   }
 
@@ -307,6 +309,10 @@ static void
 bfd_session_timeout(struct bfd_session *s)
 {
   struct bfd_proto *p = s->ifa->bfd;
+
+  /* Only bfd_admin_down() sets this state, and nothing moves a session out of it */
+  if (s->loc_state == BFD_STATE_ADMIN_DOWN)
+    return;
 
   TRACE(D_EVENTS, "Session to %I expired", s->addr);
 
@@ -605,7 +611,7 @@ bfd_reconfigure_iface(struct bfd_proto *p, struct bfd_iface *ifa, struct bfd_con
  */
 
 static void
-bfd_request_notify(struct bfd_request *req, u8 state, u8 diag)
+bfd_request_notify(struct bfd_request *req, u8 state, u8 remote, u8 diag)
 {
   u8 old_state = req->state;
 
@@ -615,7 +621,8 @@ bfd_request_notify(struct bfd_request *req, u8 state, u8 diag)
   req->state = state;
   req->diag = diag;
   req->old_state = old_state;
-  req->down = (old_state == BFD_STATE_UP) && (state == BFD_STATE_DOWN);
+  req->down = (old_state == BFD_STATE_UP) && (state == BFD_STATE_DOWN) &&
+    !(req->admin_down && (remote == BFD_STATE_ADMIN_DOWN));
 
   if (req->hook)
     req->hook(req);
@@ -628,7 +635,7 @@ bfd_add_request(struct bfd_proto *p, struct bfd_request *req)
     return 0;
 
   struct bfd_session *s = bfd_find_session_by_addr(p, req->addr);
-  u8 state, diag;
+  u8 loc_state, rem_state, diag;
 
   if (!s)
     s = bfd_add_session(p, req->addr, req->local, req->iface);
@@ -638,11 +645,12 @@ bfd_add_request(struct bfd_proto *p, struct bfd_request *req)
   req->session = s;
 
   bfd_lock_sessions(p);
-  state = s->loc_state;
+  loc_state = s->loc_state;
+  rem_state = s->rem_state;
   diag = s->loc_diag;
   bfd_unlock_sessions(p);
 
-  bfd_request_notify(req, state, diag);
+  bfd_request_notify(req, loc_state, rem_state, diag);
 
   return 1;
 }
@@ -659,7 +667,7 @@ bfd_submit_request(struct bfd_request *req)
   rem_node(&req->n);
   add_tail(&bfd_wait_list, &req->n);
   req->session = NULL;
-  bfd_request_notify(req, BFD_STATE_ADMIN_DOWN, 0);
+  bfd_request_notify(req, BFD_STATE_ADMIN_DOWN, BFD_STATE_ADMIN_DOWN, 0);
 }
 
 static void
@@ -865,7 +873,7 @@ bfd_notify_hook(sock *sk, uint len UNUSED)
   struct bfd_proto *p = sk->data;
   struct bfd_session *s;
   list tmp_list;
-  u8 state, diag;
+  u8 loc_state, rem_state, diag;
   node *n, *nn;
 
   pipe_drain(sk->fd);
@@ -880,7 +888,8 @@ bfd_notify_hook(sock *sk, uint len UNUSED)
   {
     bfd_lock_sessions(p);
     rem_node(&s->n);
-    state = s->loc_state;
+    loc_state = s->loc_state;
+    rem_state = s->rem_state;
     diag = s->loc_diag;
     bfd_unlock_sessions(p);
 
@@ -889,7 +898,7 @@ bfd_notify_hook(sock *sk, uint len UNUSED)
 
     s->notify_running = 1;
     WALK_LIST_DELSAFE(n, nn, s->request_list)
-      bfd_request_notify(SKIP_BACK(struct bfd_request, n, n), state, diag);
+      bfd_request_notify(SKIP_BACK(struct bfd_request, n, n), loc_state, rem_state, diag);
     s->notify_running = 0;
 
     /* Remove the session if all requests were removed in notify hooks */
@@ -1066,6 +1075,64 @@ bfd_copy_config(struct proto_config *dest, struct proto_config *src UNUSED)
   /* We clean up patt_list and neigh_list, neighbors and ifaces are non-sharable */
   init_list(&d->patt_list);
   init_list(&d->neigh_list);
+}
+
+/* How many times bfd_admin_down() sends the new state to each neighbor */
+#define BFD_ADMIN_DOWN_BURST 3
+
+/*
+ * Put the sessions of marked clients into AdminDown and tell their neighbors.
+ * RFC 5882 section 8 recommends this before a planned outage, so that the
+ * neighbor does not take the outage for a lost path.
+ *
+ * A session that is not Up may send only one packet per second or slower
+ * (RFC 5880 section 6.8.3), and the caller is about to stop BIRD. So the new
+ * state is sent a few times at once, in case a packet is lost.
+ *
+ * Nothing moves a session out of AdminDown. It ends when the session is
+ * removed, which happens when its last client goes away.
+ */
+void
+bfd_admin_down(struct proto *P)
+{
+  struct bfd_proto *p = (struct bfd_proto *) P;
+  uint n = 0;
+  int i;
+
+  if (cli_access_restricted())
+    return;
+
+  if (p->p.proto_state != PS_UP)
+  {
+    cli_msg(8005, "%s: is not up", p->p.name);
+    return;
+  }
+
+  birdloop_enter(p->loop);
+  HASH_WALK(p->session_hash_id, next_id, s)
+  {
+    int wanted = 0;
+    node *rn;
+
+    WALK_LIST(rn, s->request_list)
+      wanted |= SKIP_BACK(struct bfd_request, n, rn)->admin_down;
+
+    if (wanted)
+    {
+      bfd_session_update_state(s, BFD_STATE_ADMIN_DOWN, BFD_DIAG_ADMIN_DOWN);
+      log(L_INFO "%s: Session to %I set to AdminDown", p->p.name, s->addr);
+
+      for (i = 0; i < BFD_ADMIN_DOWN_BURST; i++)
+	bfd_send_ctl(p, s, 0);
+
+      bfd_session_control_tx_timer(s, 0);
+      n++;
+    }
+  }
+  HASH_WALK_END;
+  birdloop_leave(p->loop);
+
+  cli_msg(13, "%s: %u sessions set to AdminDown", p->p.name, n);
 }
 
 void

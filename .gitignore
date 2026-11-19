@@ -13,3 +13,4 @@
 configure.lineno
 /sysdep/autoconf.h.in
 /sysdep/autoconf.h.in~
+/dist/
