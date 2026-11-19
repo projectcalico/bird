@@ -1091,6 +1091,9 @@ bgp_update_bfd(struct bgp_proto *p, int use_bfd)
       rfree(p->bfd_req);
       p->bfd_req = NULL;
     }
+
+  if (p->bfd_req)
+    p->bfd_req->admin_down = p->cf->bfd_admin_down;
 }
 
 static int
@@ -1481,6 +1484,9 @@ bgp_reconfigure(struct proto *P, struct proto_config *C)
   /* We should update our copy of configuration ptr as old configuration will be freed */
   if (same)
     p->cf = new;
+
+  if (same && p->bfd_req)
+    p->bfd_req->admin_down = new->bfd_admin_down;
 
   return same;
 }
