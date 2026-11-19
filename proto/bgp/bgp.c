@@ -1091,6 +1091,9 @@ bgp_update_bfd(struct bgp_proto *p, int use_bfd)
       rfree(p->bfd_req);
       p->bfd_req = NULL;
     }
+
+  if (p->bfd_req)
+    p->bfd_req->admin_down = p->cf->bfd_admin_down;
 }
 
 static int
@@ -1385,6 +1388,9 @@ bgp_check_config(struct bgp_config *c)
   if (c->c.class == SYM_TEMPLATE)
     return;
 
+  if (c->bfd_admin_down && !c->bfd)
+    log(L_WARN "%s: bfd admin down has no effect without bfd", c->c.name);
+
 
   /* EBGP direct by default, IBGP multihop by default */
   if (c->multihop < 0)
@@ -1481,6 +1487,9 @@ bgp_reconfigure(struct proto *P, struct proto_config *C)
   /* We should update our copy of configuration ptr as old configuration will be freed */
   if (same)
     p->cf = new;
+
+  if (same && p->bfd_req)
+    p->bfd_req->admin_down = new->bfd_admin_down;
 
   return same;
 }
