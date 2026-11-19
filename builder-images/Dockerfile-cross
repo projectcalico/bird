@@ -1,16 +1,17 @@
-FROM gcc:latest
+FROM debian:13
 LABEL maintainer="maintainers@tigera.io"
 
-RUN dpkg --add-architecture arm64
-RUN dpkg --add-architecture armhf
-RUN dpkg --add-architecture ppc64el
-RUN dpkg --add-architecture s390x
-RUN apt update
-RUN apt-get --no-install-recommends install -y autoconf flex bison \
-	libncurses-dev libreadline-dev \
-	binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu libncurses-dev:arm64 libreadline-dev:arm64 \
-	binutils-powerpc64le-linux-gnu gcc-powerpc64le-linux-gnu libncurses-dev:ppc64el libreadline-dev:ppc64el \
-	binutils-s390x-linux-gnu gcc-s390x-linux-gnu libncurses-dev:s390x libreadline-dev:s390x \
-	binutils-arm-linux-gnueabi gcc-arm-linux-gnueabihf libncurses-dev:armhf libreadline-dev:armhf
+# One compiler version for every architecture: Debian's native GCC for the
+# build machine, and its packaged cross compilers for the rest. BIRD is built
+# without the interactive client, so no target libraries beyond libc are needed.
+RUN apt-get update && \
+	apt-get --no-install-recommends install -y \
+	autoconf bison flex gcc libc6-dev m4 make \
+	gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
+	gcc-arm-linux-gnueabihf libc6-dev-armhf-cross \
+	gcc-mips64el-linux-gnuabi64 libc6-dev-mips64el-cross \
+	gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross \
+	gcc-s390x-linux-gnu libc6-dev-s390x-cross && \
+	rm -rf /var/lib/apt/lists/*
 
 WORKDIR /code
