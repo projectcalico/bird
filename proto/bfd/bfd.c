@@ -310,6 +310,10 @@ bfd_session_timeout(struct bfd_session *s)
 {
   struct bfd_proto *p = s->ifa->bfd;
 
+  /* An administratively down session stays down until BIRD restarts */
+  if (s->loc_state == BFD_STATE_ADMIN_DOWN)
+    return;
+
   TRACE(D_EVENTS, "Session to %I expired", s->addr);
 
   s->rem_state = BFD_STATE_DOWN;
@@ -1071,6 +1075,49 @@ bfd_copy_config(struct proto_config *dest, struct proto_config *src UNUSED)
   /* We clean up patt_list and neigh_list, neighbors and ifaces are non-sharable */
   init_list(&d->patt_list);
   init_list(&d->neigh_list);
+}
+
+/*
+ * Put the sessions whose client asked for it to AdminDown and tell the neighbors. RFC 5882 3.2 asks the
+ * neighbor not to treat that as a failure, so a planned restart of BIRD does
+ * not look like a dead path. Sessions leave AdminDown only by BIRD restart.
+ */
+void
+bfd_admin_down(struct proto *P)
+{
+  struct bfd_proto *p = (struct bfd_proto *) P;
+  uint n = 0;
+
+  if (p->p.proto_state != PS_UP)
+  {
+    cli_msg(-1020, "%s: is not up", p->p.name);
+    cli_msg(0, "");
+    return;
+  }
+
+  birdloop_enter(p->loop);
+  HASH_WALK(p->session_hash_id, next_id, s)
+  {
+    int wanted = 0;
+    node *rn;
+
+    WALK_LIST(rn, s->request_list)
+      wanted |= SKIP_BACK(struct bfd_request, n, rn)->admin_down;
+
+    if (wanted)
+    {
+      bfd_session_update_state(s, BFD_STATE_ADMIN_DOWN, BFD_DIAG_ADMIN_DOWN);
+      log(L_INFO "%s: Session to %I set to AdminDown", p->p.name, s->addr);
+      bfd_send_ctl(p, s, 0);
+      bfd_session_control_tx_timer(s, 1);
+      n++;
+    }
+  }
+  HASH_WALK_END;
+  birdloop_leave(p->loop);
+
+  cli_msg(-1020, "%s: %u sessions set to AdminDown", p->p.name, n);
+  cli_msg(0, "");
 }
 
 void
