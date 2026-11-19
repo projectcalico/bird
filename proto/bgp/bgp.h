@@ -70,6 +70,7 @@ struct bgp_config {
   struct rtable_config *igp_table;	/* Table used for recursive next hop lookups */
   int check_link;			/* Use iface link state for liveness detection */
   int bfd;				/* Use BFD for liveness detection */
+  int bfd_admin_down;			/* Use BFD AdminDown for planned restarts */
 };
 
 #define MLL_SELF 1

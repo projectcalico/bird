@@ -291,6 +291,8 @@ bfd_session_process_ctl(struct bfd_session *s, u8 flags, u32 old_tx_int, u32 old
 
   case BFD_STATE_UP:
     if (s->rem_state <= BFD_STATE_DOWN)		next_state = BFD_STATE_DOWN, diag = BFD_DIAG_NEIGHBOR_DOWN;
+    if (s->rem_state == BFD_STATE_ADMIN_DOWN)
+      log(L_INFO "%s: Neighbor %I sent AdminDown", s->ifa->bfd->p.name, s->addr);
     break;
   }
 
@@ -615,7 +617,8 @@ bfd_request_notify(struct bfd_request *req, u8 state, u8 remote, u8 diag)
   req->state = state;
   req->diag = diag;
   req->old_state = old_state;
-  req->down = (old_state == BFD_STATE_UP) && (state == BFD_STATE_DOWN) && (remote != BFD_STATE_ADMIN_DOWN);
+  req->down = (old_state == BFD_STATE_UP) && (state == BFD_STATE_DOWN) &&
+    !(req->admin_down && (remote == BFD_STATE_ADMIN_DOWN));
 
   if (req->hook)
     req->hook(req);
