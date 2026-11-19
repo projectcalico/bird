@@ -198,6 +198,7 @@ struct bfd_session * bfd_find_session_by_id(struct bfd_proto *p, u32 id);
 struct bfd_session * bfd_find_session_by_addr(struct bfd_proto *p, ip_addr addr);
 void bfd_session_process_ctl(struct bfd_session *s, u8 flags, u32 old_tx_int, u32 old_rx_int);
 void bfd_show_sessions(struct proto *P);
+void bfd_admin_down(struct proto *P);
 
 /* packets.c */
 void bfd_send_ctl(struct bfd_proto *p, struct bfd_session *s, int final);

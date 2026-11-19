@@ -807,6 +807,12 @@ This argument can be omitted if there exists only a single instance.
 	<tag><label id="cli-show-bfd-sessions">show bfd sessions [<m/name/]</tag>
 	Show information about BFD sessions.
 
+	<tag><label id="cli-bfd-admin-down">bfd admin down [<m/name/]</tag>
+	Put the BFD sessions of BGP neighbors that have the <cf/bfd admin down/
+	option into the AdminDown state, and signal it to them. Meant to be run
+	just before a planned restart of BIRD. A session stays in AdminDown
+	while its BGP protocol stays up.
+
 	<tag><label id="cli-show-symbols">show symbols [table|filter|function|protocol|template|roa|<m/symbol/]</tag>
 	Show the list of symbols defined in the configuration (names of
 	protocols, routing tables etc.).
@@ -2009,6 +2015,13 @@ using the following configuration parameters:
 	to trigger graceful restart instead of regular restart.  Note that BFD
 	protocol also has to be configured, see <ref id="bfd" name="BFD">
 	section for details. Default: disabled.
+
+	<tag><label id="bgp-bfd-admin-down">bfd admin down <M>switch</M></tag>
+	Use the BFD AdminDown state for planned restarts with this neighbor
+	(<rfc id="5882">, section 3.2). When the neighbor signals AdminDown, the
+	BFD session goes down but the BGP session is kept. The <cf/bfd admin
+	down/ command signals AdminDown to the neighbors that have this option.
+	Default: disabled.
 
 	<tag><label id="bgp-ttl-security">ttl security <m/switch/</tag>
 	Use GTSM (<rfc id="5082"> - the generalized TTL security mechanism). GTSM
