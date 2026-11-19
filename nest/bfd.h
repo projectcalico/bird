@@ -30,6 +30,7 @@ struct bfd_request {
   u8 diag;
   u8 old_state;
   u8 down;
+  u8 admin_down;			/* Client uses AdminDown for planned restarts */
 };
 
 
