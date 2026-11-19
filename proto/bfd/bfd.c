@@ -310,6 +310,10 @@ bfd_session_timeout(struct bfd_session *s)
 {
   struct bfd_proto *p = s->ifa->bfd;
 
+  /* Only bfd_admin_down() sets this state, and nothing moves a session out of it */
+  if (s->loc_state == BFD_STATE_ADMIN_DOWN)
+    return;
+
   TRACE(D_EVENTS, "Session to %I expired", s->addr);
 
   s->rem_state = BFD_STATE_DOWN;
@@ -1071,6 +1075,64 @@ bfd_copy_config(struct proto_config *dest, struct proto_config *src UNUSED)
   /* We clean up patt_list and neigh_list, neighbors and ifaces are non-sharable */
   init_list(&d->patt_list);
   init_list(&d->neigh_list);
+}
+
+/* How many times bfd_admin_down() sends the new state to each neighbor */
+#define BFD_ADMIN_DOWN_BURST 3
+
+/*
+ * Put the sessions of marked clients into AdminDown and tell their neighbors.
+ * RFC 5882 section 8 recommends this before a planned outage, so that the
+ * neighbor does not take the outage for a lost path.
+ *
+ * A session that is not Up may send only one packet per second or slower
+ * (RFC 5880 section 6.8.3), and the caller is about to stop BIRD. So the new
+ * state is sent a few times at once, in case a packet is lost.
+ *
+ * Nothing moves a session out of AdminDown. It ends when the session is
+ * removed, which happens when its last client goes away.
+ */
+void
+bfd_admin_down(struct proto *P)
+{
+  struct bfd_proto *p = (struct bfd_proto *) P;
+  uint n = 0;
+  int i;
+
+  if (cli_access_restricted())
+    return;
+
+  if (p->p.proto_state != PS_UP)
+  {
+    cli_msg(8005, "%s: is not up", p->p.name);
+    return;
+  }
+
+  birdloop_enter(p->loop);
+  HASH_WALK(p->session_hash_id, next_id, s)
+  {
+    int wanted = 0;
+    node *rn;
+
+    WALK_LIST(rn, s->request_list)
+      wanted |= SKIP_BACK(struct bfd_request, n, rn)->admin_down;
+
+    if (wanted)
+    {
+      bfd_session_update_state(s, BFD_STATE_ADMIN_DOWN, BFD_DIAG_ADMIN_DOWN);
+      log(L_INFO "%s: Session to %I set to AdminDown", p->p.name, s->addr);
+
+      for (i = 0; i < BFD_ADMIN_DOWN_BURST; i++)
+	bfd_send_ctl(p, s, 0);
+
+      bfd_session_control_tx_timer(s, 0);
+      n++;
+    }
+  }
+  HASH_WALK_END;
+  birdloop_leave(p->loop);
+
+  cli_msg(13, "%s: %u sessions set to AdminDown", p->p.name, n);
 }
 
 void
