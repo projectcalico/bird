@@ -70,9 +70,6 @@ IMAGE=birdbuild-$ARCH
 if [ "$BUILDARCH" != "$TARGETARCH" ]; then
 	DOCKERFILE=Dockerfile-cross
 	IMAGE=birdbuild-$BUILDARCH-cross
-        if [ "$TARGETARCH" = mips64el ]; then
-	        DOCKERFILE=Dockerfile-cross-mips64el
-        fi
 fi
 
 
