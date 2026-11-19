@@ -2010,6 +2010,13 @@ using the following configuration parameters:
 	protocol also has to be configured, see <ref id="bfd" name="BFD">
 	section for details. Default: disabled.
 
+	<tag><label id="bgp-bfd-admin-down">bfd admin down <M>switch</M></tag>
+	Use the BFD AdminDown state for planned restarts with this neighbor
+	(<rfc id="5882">, section 3.2). When the neighbor signals AdminDown, the
+	BFD session goes down but the BGP session is kept. The <cf/bfd admin
+	down/ command signals AdminDown to the neighbors that have this option.
+	Default: disabled.
+
 	<tag><label id="bgp-ttl-security">ttl security <m/switch/</tag>
 	Use GTSM (<rfc id="5082"> - the generalized TTL security mechanism). GTSM
 	protects against spoofed packets by ignoring received packets with a
